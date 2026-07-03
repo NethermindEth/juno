@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -263,9 +264,10 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
 
 	tests := []struct {
-		name        string
-		readPartial func(db.KeyValueReader, uint64) (*felt.Felt, error)
-		getExpected func(*core.Header) *felt.Felt
+		name               string
+		readPartial        func(db.KeyValueReader, uint64) (*felt.Felt, error)
+		getExpected        func(*core.Header) *felt.Felt
+		headerWithoutField any
 	}{
 		{
 			name:        "global state root",
@@ -273,6 +275,9 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 			getExpected: func(header *core.Header) *felt.Felt {
 				return header.GlobalStateRoot
 			},
+			headerWithoutField: struct {
+				Hash *felt.Felt
+			}{Hash: block.Hash},
 		},
 		{
 			name:        "block hash",
@@ -280,6 +285,9 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 			getExpected: func(header *core.Header) *felt.Felt {
 				return header.Hash
 			},
+			headerWithoutField: struct {
+				GlobalStateRoot *felt.Felt
+			}{GlobalStateRoot: block.GlobalStateRoot},
 		},
 	}
 
@@ -300,6 +308,17 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 				t.Parallel()
 				_, err := tt.readPartial(memDB, nonexistentBlockNumber)
 				require.ErrorIs(t, err, db.ErrKeyNotFound)
+			})
+
+			t.Run("missing field returns error", func(t *testing.T) {
+				t.Parallel()
+				partialHeaderDB := memory.New()
+				data, err := encoder.Marshal(tt.headerWithoutField)
+				require.NoError(t, err)
+				require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+				_, err = tt.readPartial(partialHeaderDB, block.Number)
+				require.Error(t, err)
 			})
 		})
 	}
