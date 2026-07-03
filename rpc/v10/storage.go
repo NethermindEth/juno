@@ -110,13 +110,13 @@ func (h *Handler) StorageAt(
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
+		h.logger.Error("Failed to get contract storage", zap.Error(err))
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	// A zero value is ambiguous: an unset slot reads as zero, but so does a
-	// missing contract on the head reader (which returns zero without erroring).
-	// A non-zero value already proves the contract exists, so probe only here.
-	if value.IsZero() {
+	// Only head readers return zero (not ErrKeyNotFound) for a missing contract,
+	// so a zero value needs an existence probe there; historical readers don't.
+	if value.IsZero() && (id.IsLatest() || id.IsPreConfirmed()) {
 		if _, err := stateReader.ContractClassHash(addressFelt); err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrContractNotFound
