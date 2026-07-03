@@ -72,7 +72,7 @@ func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*co
 	return header, nil
 }
 
-// Checks state retention by number, avoiding the full
+// RequireStateRetainedByBlockNumber checks state retention by number, avoiding the full
 // header decode (and its heavy fields like EventsBloom) when only the hash is needed.
 func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) error {
 	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
@@ -92,7 +92,7 @@ func HeaderByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (*co
 	return core.GetBlockHeaderByHash(r, blockHash)
 }
 
-// Resolves blockHash to its number, avoiding the full
+// BlockNumberByHashIfStateRetained resolves blockHash to its number, avoiding the full
 // header decode (and its heavy fields like EventsBloom) when only the number is needed.
 func BlockNumberByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (uint64, error) {
 	return core.GetBlockHeaderNumberByHash(r, blockHash)
