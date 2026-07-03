@@ -72,6 +72,17 @@ func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*co
 	return header, nil
 }
 
+// RequireStateRetainedByBlockNumber checks state retention by number, avoiding the full
+// header decode (and its heavy fields like EventsBloom) when only the hash is needed.
+func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) error {
+	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
+	if err != nil {
+		return err
+	}
+	_, err = core.GetBlockHeaderNumberByHash(r, hash)
+	return err
+}
+
 // HeaderByHashIfStateRetained returns the header for blockHash only if
 // state at that block is queryable. Use this for state access only; for
 // block-level data use [RequireRetained] + the plain core accessors instead.
@@ -79,6 +90,12 @@ func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*co
 // when state at blockHash is not available.
 func HeaderByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (*core.Header, error) {
 	return core.GetBlockHeaderByHash(r, blockHash)
+}
+
+// BlockNumberByHashIfStateRetained resolves blockHash to its number, avoiding the full
+// header decode (and its heavy fields like EventsBloom) when only the number is needed.
+func BlockNumberByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (uint64, error) {
+	return core.GetBlockHeaderNumberByHash(r, blockHash)
 }
 
 // OldestRetainedBlock returns the lowest block number still fully retained,

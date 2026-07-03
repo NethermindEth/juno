@@ -344,6 +344,24 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 	return header.GlobalStateRoot, nil
 }
 
+// GetBlockHeaderHashByNumber only materialises Hash from the header,
+// skipping heavier unused fields.
+func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
+	var header struct {
+		Hash *felt.Felt
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.Hash == nil {
+		return nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	return header.Hash, nil
+}
+
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
 	var blockNum uint64
 	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {

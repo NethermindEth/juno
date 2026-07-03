@@ -258,37 +258,68 @@ func TestDeleteTransactionsAndReceipts(t *testing.T) {
 	})
 }
 
-func TestGetGlobalStateRootByBlockNumber(t *testing.T) {
+func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
 	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
 
-	t.Run("matches full header decode", func(t *testing.T) {
-		t.Parallel()
-		header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
-		require.NoError(t, err)
+	tests := []struct {
+		name               string
+		readPartial        func(db.KeyValueReader, uint64) (*felt.Felt, error)
+		getExpected        func(*core.Header) *felt.Felt
+		headerWithoutField any
+	}{
+		{
+			name:        "global state root",
+			readPartial: core.GetGlobalStateRootByBlockNumber,
+			getExpected: func(header *core.Header) *felt.Felt {
+				return header.GlobalStateRoot
+			},
+			headerWithoutField: struct {
+				Hash *felt.Felt
+			}{Hash: block.Hash},
+		},
+		{
+			name:        "block hash",
+			readPartial: core.GetBlockHeaderHashByNumber,
+			getExpected: func(header *core.Header) *felt.Felt {
+				return header.Hash
+			},
+			headerWithoutField: struct {
+				GlobalStateRoot *felt.Felt
+			}{GlobalStateRoot: block.GlobalStateRoot},
+		},
+	}
 
-		stateRoot, err := core.GetGlobalStateRootByBlockNumber(memDB, block.Number)
-		require.NoError(t, err)
-		assert.Equal(t, header.GlobalStateRoot, stateRoot)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("non-existent block", func(t *testing.T) {
-		t.Parallel()
-		_, err := core.GetGlobalStateRootByBlockNumber(memDB, nonexistentBlockNumber)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
+			t.Run("matches full header decode", func(t *testing.T) {
+				t.Parallel()
+				header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+				require.NoError(t, err)
+				got, err := tt.readPartial(memDB, block.Number)
+				require.NoError(t, err)
+				assert.Equal(t, tt.getExpected(header), got)
+			})
 
-	t.Run("missing global state root", func(t *testing.T) {
-		t.Parallel()
-		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct {
-			Number uint64
-		}{Number: block.Number})
-		require.NoError(t, err)
-		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+			t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+				t.Parallel()
+				_, err := tt.readPartial(memDB, nonexistentBlockNumber)
+				require.ErrorIs(t, err, db.ErrKeyNotFound)
+			})
 
-		_, err = core.GetGlobalStateRootByBlockNumber(partialHeaderDB, block.Number)
-		require.Error(t, err)
-	})
+			t.Run("missing field returns error", func(t *testing.T) {
+				t.Parallel()
+				partialHeaderDB := memory.New()
+				data, err := encoder.Marshal(tt.headerWithoutField)
+				require.NoError(t, err)
+				require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+				_, err = tt.readPartial(partialHeaderDB, block.Number)
+				require.Error(t, err)
+			})
+		})
+	}
 }
