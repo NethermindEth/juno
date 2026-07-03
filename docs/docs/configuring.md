@@ -59,6 +59,8 @@ log-level: info
 network: mainnet
 http: true
 http-port: 6060
+ws: true
+ws-port: 6061
 metrics: true
 metrics-port: 9090
 eth-node: <YOUR-ETH-NODE>

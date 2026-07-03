@@ -52,11 +52,15 @@ mkdir -p $HOME/snapshots
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
   --db-path /snapshots/juno_mainnet
 ```
@@ -85,6 +89,9 @@ mkdir -p $HOME/snapshots
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
   --db-path $HOME/snapshots/juno_mainnet
 ```
@@ -98,6 +105,9 @@ You can view logs from the standalone binary by redirecting the output to a file
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
   --db-path $HOME/snapshots/juno_mainnet \
   > juno.log 2>&1
@@ -105,6 +115,10 @@ You can view logs from the standalone binary by redirecting the output to a file
 
 </TabItem>
 </Tabs>
+
+:::tip
+The `--ws`, `--ws-port`, and `--ws-host` options enable the WebSocket RPC server, which is required for subscriptions like `starknet_subscribeNewHeads`. Check out the [WebSocket Interface](websocket) guide to learn more.
+:::
 
 ## Building from source
 
@@ -142,11 +156,15 @@ mkdir -p $HOME/snapshots
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
   --db-path /snapshots/juno_mainnet
 ```
@@ -212,6 +230,9 @@ mkdir -p $HOME/snapshots
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path $HOME/snapshots/juno_mainnet \
   --eth-node <YOUR-ETH-NODE>
 ```
