@@ -28,24 +28,13 @@ func Blake2sArray[F felt.FeltLike](feltLikes ...*F) felt.Hash {
 
 	encoding := encodeFeltsToBytes(felts...)
 
-	// errors if initialised with more than 32 bytes
-	hasher, err := blake2s.New256(nil)
-	if err != nil {
-		panic(err)
-	}
+	// Sum256 returns a fixed [32]byte value, avoiding the digest struct and result
+	// slice that New256/Write/Sum would heap-allocate.
+	result := blake2s.Sum256(encoding)
 
-	// implementation does not errors, here it complies with `io.Writer`
-	_, err = hasher.Write(encoding)
-	if err != nil {
-		panic(err)
-	}
-
-	result := make([]byte, 0, 32)
-	result = hasher.Sum(result)
-	// Result is in big endian, turning into little endian
-	slices.Reverse(result)
-
-	return felt.FromBytes[felt.Hash](result)
+	// Sum256 is big endian, reverse to little endian.
+	slices.Reverse(result[:])
+	return felt.FromBytes[felt.Hash](result[:])
 }
 
 var _ crypto.Digest = (*Blake2sDigest)(nil)
@@ -74,7 +63,7 @@ func (d *Blake2sDigest) Update(elems ...*felt.Felt) crypto.Digest {
 func (d *Blake2sDigest) Finish() felt.Felt {
 	result := make([]byte, 0, 32)
 	result = d.hasher.Sum(result)
-	// Result is in big endian, turning into little endian
+	// Result is big endian, reverse to little endian.
 	slices.Reverse(result)
 	return felt.FromBytes[felt.Felt](result)
 }
