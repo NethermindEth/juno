@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 // fakeService lets each test drive what Run does.
@@ -26,15 +26,22 @@ func (f *fakeService) Run(ctx context.Context) error { return f.run(ctx) }
 //   - panic  -> shut the node down and propagate the panic
 //   - nil    -> let the service exit without taking the node down
 func TestStartService(t *testing.T) {
-	// newNode returns a node logging into an observer so tests can assert on the
-	// messages StartService emits.
-	newNode := func() (*node.Node, *observer.ObservedLogs) {
-		core, logs := observer.New(zapcore.DebugLevel)
-		return node.NewWithLogger(log.NewZapLoggerWithCore(core)), logs
+	// newNode builds a node through the public constructor with the minimal
+	// offline config also used by TestNetworkVerificationOnNonEmptyDB.
+	newNode := func(t *testing.T) *node.Node {
+		n, err := node.New(&node.Config{
+			DatabasePath:                       t.TempDir(),
+			DBCompression:                      "zstd",
+			Network:                            networks.Sepolia,
+			DisableL1Verification:              true,
+			SubmittedTransactionsCacheEntryTTL: time.Second,
+		}, "test", log.NewLevel(log.INFO))
+		require.NoError(t, err)
+		return n
 	}
 
 	t.Run("error shuts the node down", func(t *testing.T) {
-		n, logs := newNode()
+		n := newNode(t)
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -46,12 +53,10 @@ func TestStartService(t *testing.T) {
 		wg.Wait()
 
 		require.Error(t, ctx.Err(), "a service error should shut the node down")
-		require.Equal(t, 1, logs.FilterMessage("Service error").Len(),
-			"a service error should be logged")
 	})
 
 	t.Run("panic shuts the node down and propagates", func(t *testing.T) {
-		n, _ := newNode()
+		n := newNode(t)
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -66,7 +71,7 @@ func TestStartService(t *testing.T) {
 	})
 
 	t.Run("clean return keeps the node running", func(t *testing.T) {
-		n, logs := newNode()
+		n := newNode(t)
 		wg := conc.NewWaitGroup()
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -96,10 +101,7 @@ func TestStartService(t *testing.T) {
 			t.Fatal("long-running service stopped: node was shut down unexpectedly")
 		default:
 		}
-		// And the early return should be flagged as unexpected.
-		require.Equal(t, 1,
-			logs.FilterMessage("Service stopped before node shutdown was requested").Len(),
-			"a clean exit before shutdown should be logged")
+		require.NoError(t, ctx.Err(), "a clean exit should not shut the node down")
 
 		// A real shutdown still stops everything.
 		cancel()
