@@ -38,13 +38,9 @@ var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.In
 // reconnects unary calls, and subscription drops surface on Err() for
 // l1.Client.watchL1StateUpdates to resubscribe.
 type GethL1StateProvider struct {
-	contractAddress eth.Address
-	url             string
-
 	ethClient *ethclient.Client
 	filterer  *contract.StarknetFilterer
-
-	listener EventListener
+	listener  EventListener
 }
 
 // NewGethL1StateProvider dials the Ethereum endpoint at url and returns a
@@ -74,11 +70,9 @@ func NewGethL1StateProvider(
 	}
 
 	return &GethL1StateProvider{
-		contractAddress: contractAddress,
-		url:             rawURL,
-		ethClient:       ethClient,
-		filterer:        filterer,
-		listener:        o.listener,
+		ethClient: ethClient,
+		filterer:  filterer,
+		listener:  o.listener,
 	}, nil
 }
 
