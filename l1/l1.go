@@ -248,8 +248,8 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 // it attempts to resubscribe.
 func (c *Client) receiveL1StateUpdates(
 	ctx context.Context,
-	sub event.Subscription,
-	updateCh chan *contract.StarknetLogStateUpdate,
+	sub Subscription,
+	updateCh chan *StateUpdate,
 ) error {
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
@@ -264,7 +264,7 @@ func (c *Client) receiveL1StateUpdates(
 		case <-ctx.Done():
 			return nil
 		case stateUpdate := <-updateCh:
-      c.applyStateUpdate(stateUpdate)
+			c.applyStateUpdate(stateUpdate)
 		case err := <-sub.Err():
 			c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 			sub.Unsubscribe()

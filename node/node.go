@@ -622,27 +622,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		// One EventListener, shared by the L1 client (OnNewL1Head) and
-		// the provider (OnL1Call), wired only under --metrics.
-		l1Opts := []l1.Option{}
-		providerOpts := []l1.GethL1StateProviderOption{}
-		if cfg.Metrics {
-			listener := makeL1Metrics(n.blockchain)
-			l1Opts = append(l1Opts, l1.WithEventListener(listener))
-			providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
-		}
-
-		provider, err := newGethL1StateProvider(
-			context.Background(), cfg.EthNode, n.blockchain, providerOpts...,
+		l1Client, provider, err := newL1Client(
+			context.Background(), cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("creating L1 state provider: %w", err)
-		}
-		if cfg.Metrics {
-			registerL1Metrics(provider)
+			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
 
-		l1Client := l1.NewClient(provider, n.blockchain, n.logger, l1Opts...)
 		n.services = append(n.services, l1Client)
 		rpcHandler.WithL1Client(provider)
 	}
@@ -660,6 +646,34 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	return n, nil
+}
+
+func newL1Client(
+	ctx context.Context,
+	ethNode string,
+	includeMetrics bool,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (*l1.Client, *l1.GethL1StateProvider, error) {
+	// One EventListener, shared by the L1 client (OnNewL1Head) and
+	// the provider (OnL1Call), wired only under --metrics.
+	l1Opts := []l1.Option{}
+	providerOpts := []l1.GethL1StateProviderOption{}
+	if includeMetrics {
+		listener := makeL1Metrics(chain)
+		l1Opts = append(l1Opts, l1.WithEventListener(listener))
+		providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
+	}
+
+	provider, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating L1 state provider: %w", err)
+	}
+	if includeMetrics {
+		registerL1Metrics(provider)
+	}
+
+	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
 }
 
 // newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
@@ -692,11 +706,6 @@ func newGethL1StateProvider(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
-	}
-
-	opts := make([]l1.Option, 0, 1)
-	if includeMetrics {
-		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
 	}
 	return provider, nil
 }
