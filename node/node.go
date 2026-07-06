@@ -648,7 +648,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
+		ug := upgrader.NewUpgrader(
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+		)
 		n.services = append(n.services, ug)
 	} else {
 		logger.Warn(
@@ -672,10 +674,12 @@ func newGethL1StateProvider(
 ) (*l1.GethL1StateProvider, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...)",
+		)
 	}
 
 	// One-minute timeout layered on the caller's ctx so a slow dial
@@ -688,6 +692,11 @@ func newGethL1StateProvider(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
+	}
+
+	opts := make([]l1.Option, 0, 1)
+	if includeMetrics {
+		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
 	}
 	return provider, nil
 }

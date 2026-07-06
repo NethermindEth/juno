@@ -92,8 +92,8 @@ func NewClient(
 	}
 }
 
-// subscribeToUpdates blocks until a subscription is established. If context is cancelled,
-// returns nil
+// subscribeToUpdates subscribes to the settlement layer updates on an infinite loop
+// until success is achieved. If context is cancelled, a nil subscription is returned.
 func (c *Client) subscribeToUpdates(
 	ctx context.Context, updateChan chan *StateUpdate,
 ) Subscription {
@@ -188,11 +188,12 @@ func (c *Client) checkChainID(ctx context.Context) error {
 	)
 }
 
+// Run fetches and writes the latest L1 head to the database. Then, it tracks live updates until
+// context is cancelled.
 func (c *Client) Run(ctx context.Context) error {
 	defer c.provider.Close()
 	if err := c.ensureChainID(ctx); err != nil {
-		// A cancelled context means we're shutting down, not a real failure;
-		// a mismatch (the only other non-nil return) is fatal.
+		// A cancelled context means we're shutting down
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -214,60 +215,66 @@ func (c *Client) Run(ctx context.Context) error {
 	return c.watchL1StateUpdates(ctx)
 }
 
-// CatchUpL1Head verifies the chain ID then writes the L1 head to the
-// database, without entering the live subscription loop. Closes the
-// underlying L1StateProvider on return; the Client must not be reused.
+// CatchUpL1Head fetches and writes the latest L1 head to the database. Contrary to [Client.Run]
+// it doesn't track live updates and finishes on the spot. The client must not be re-used after.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
 	defer c.provider.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}
+
 	return c.catchUpL1HeadUpdates(ctx)
 }
 
+// watchL1StateUpdates subscribes and receives the state updates.
 func (c *Client) watchL1StateUpdates(ctx context.Context) error {
-	buffer := 128
-
 	c.logger.Info("Subscribing to L1 updates...")
 
-	updateChan := make(chan *StateUpdate, buffer)
-	updateSub := c.subscribeToUpdates(ctx, updateChan)
-	if updateSub == nil {
+	// note(rdr): 128 is an arbitrary value
+	const buffer = 128
+	updateCh := make(chan *StateUpdate, buffer)
+
+	sub := c.subscribeToUpdates(ctx, updateCh)
+	if sub == nil {
 		return nil
 	}
-	defer updateSub.Unsubscribe()
 
 	c.logger.Info("Subscribed to L1 updates")
 
+	return c.receiveL1StateUpdates(ctx, sub, updateCh)
+}
+
+// receiveL1StateUpdates receives all the state updates and applies them. If there is an error
+// it attempts to resubscribe.
+func (c *Client) receiveL1StateUpdates(
+	ctx context.Context,
+	sub event.Subscription,
+	updateCh chan *contract.StarknetLogStateUpdate,
+) error {
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
+	defer func() {
+		if sub != nil {
+			sub.Unsubscribe()
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-		Outer:
-			for {
-				select {
-				case err := <-updateSub.Err():
-					// We can't use a warn log level here since we guarantee the L1 url will only be printed
-					// in debug logs and panics (to avoid leaking the API key).
-					c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
-					updateSub.Unsubscribe()
-
-					updateSub = c.subscribeToUpdates(ctx, updateChan)
-					if updateSub == nil {
-						return nil
-					}
-					defer updateSub.Unsubscribe() //nolint:gocritic
-				case update := <-updateChan:
-					c.applyStateUpdate(update)
-				default:
-					break Outer
-				}
+		case stateUpdate := <-updateCh:
+      c.applyStateUpdate(stateUpdate)
+		case err := <-sub.Err():
+			c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
+			sub.Unsubscribe()
+			sub = c.subscribeToUpdates(ctx, updateCh)
+			if sub == nil {
+				return nil
 			}
-
-			if err := c.setL1Head(ctx); err != nil {
+		case <-ticker.C:
+			err := c.setL1Head(ctx)
+			if err != nil {
 				return err
 			}
 		}
@@ -277,21 +284,21 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 // applyStateUpdate merges a StateUpdate (from either the forward
 // subscription or the historical filter) into nonFinalisedLogs. A removed
 // log clears all entries at or above its L1 block number.
-func (c *Client) applyStateUpdate(u *StateUpdate) {
+func (c *Client) applyStateUpdate(stateUpdate *StateUpdate) {
 	c.logger.Debug(
 		"Received L1 state update",
-		zap.Uint64("l2Block", u.L2BlockNumber),
-		zap.String("stateRoot", u.StateRoot.ShortString()),
-		zap.String("l2BlockHash", u.L2BlockHash.ShortString()),
+		zap.Uint64("l2Block", stateUpdate.L2BlockNumber),
+		zap.String("stateRoot", stateUpdate.StateRoot.ShortString()),
+		zap.String("l2BlockHash", stateUpdate.L2BlockHash.ShortString()),
 	)
-	if u.Removed {
+	if stateUpdate.Removed {
 		for l1BlockNumber := range c.nonFinalisedLogs {
-			if l1BlockNumber >= u.L1RefHeight {
+			if l1BlockNumber >= stateUpdate.L1RefHeight {
 				delete(c.nonFinalisedLogs, l1BlockNumber)
 			}
 		}
 	} else {
-		c.nonFinalisedLogs[u.L1RefHeight] = u
+		c.nonFinalisedLogs[stateUpdate.L1RefHeight] = stateUpdate
 	}
 }
 
@@ -412,7 +419,10 @@ func (c *Client) finalisedHeight(ctx context.Context) (uint64, bool) {
 			if err == nil {
 				return finalisedHeight, true
 			}
-			c.logger.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
+			c.logger.Debug(
+				"Failed to retrieve L1 finalised height, retrying...",
+				zap.Error(err),
+			)
 			timer.Reset(c.resubscribeDelay)
 		}
 	}
@@ -449,7 +459,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf(
-			"l1 head for block %d and state root %s: %w",
+			"setting l1 head for block %d and state root %s: %w",
 			head.BlockNumber, head.StateRoot.String(), err,
 		)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
@@ -115,6 +116,33 @@ func TestHeaderByNumberIfStateRetained(t *testing.T) {
 	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
 		_, err := pruner.HeaderByNumberIfStateRetained(database, 0)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestRequireStateRetainedByBlockNumber(t *testing.T) {
+	t.Run("allows retained state", func(t *testing.T) {
+		const blockNumber = uint64(3)
+
+		database := memory.New()
+		for i := range uint64(5) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, blockNumber))
+	})
+
+	t.Run("rejects pruned state when header remains", func(t *testing.T) {
+		const blockNumber = uint64(1)
+
+		database := memory.New()
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		prunedHash := blocks[blockNumber].Header.Hash
+		require.NoError(t, database.Delete(db.BlockHeaderNumbersByHashKey(prunedHash)))
+
+		err := pruner.RequireStateRetainedByBlockNumber(database, blockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }

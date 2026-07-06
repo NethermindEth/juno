@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/binary"
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -323,6 +324,42 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 		return encoder.Unmarshal(data, &header)
 	})
 	return header, err
+}
+
+// GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
+// callers opening state don't need heavier fields like EventsBloom.
+func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
+	var header struct {
+		GlobalStateRoot *felt.Felt
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, fmt.Errorf("missing GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.GlobalStateRoot, nil
+}
+
+// GetBlockHeaderHashByNumber only materialises Hash from the header,
+// skipping heavier unused fields.
+func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
+	var header struct {
+		Hash *felt.Felt
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.Hash == nil {
+		return nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	return header.Hash, nil
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
