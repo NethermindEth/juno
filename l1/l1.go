@@ -15,7 +15,7 @@ import (
 )
 
 type Client struct {
-	settlement            SettlementLayer
+	provider              L1StateProvider
 	l2Chain               *blockchain.Blockchain
 	logger                log.StructuredLogger
 	network               *networks.Network
@@ -65,7 +65,7 @@ func WithCatchUpChunkSize(size uint64) Option {
 }
 
 func NewClient(
-	settlement SettlementLayer,
+	provider L1StateProvider,
 	chain *blockchain.Blockchain,
 	logger log.StructuredLogger,
 	opts ...Option,
@@ -80,7 +80,7 @@ func NewClient(
 		opt(&o)
 	}
 	return &Client{
-		settlement:            settlement,
+		provider:              provider,
 		l2Chain:               chain,
 		logger:                logger,
 		network:               chain.Network(),
@@ -109,7 +109,7 @@ func (c *Client) subscribeToUpdates(
 			)
 			return nil
 		case <-timer.C:
-			updateSub, err := c.settlement.WatchStateUpdate(ctx, updateChan)
+			updateSub, err := c.provider.WatchStateUpdate(ctx, updateChan)
 			if err == nil {
 				return updateSub
 			}
@@ -148,7 +148,8 @@ func (c *Client) ensureChainID(ctx context.Context) error {
 				// Cancelled mid-probe: return the real cause, don't warn.
 				return ctx.Err()
 			default:
-				c.logger.Warn("Failed to verify L1 chain ID, retrying",
+				c.logger.Warn(
+					"Failed to verify L1 chain ID, retrying",
 					zap.Duration("tryAgainIn", c.resubscribeDelay),
 					zap.Error(err),
 				)
@@ -165,7 +166,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
 	defer cancel()
 
-	l1ChainID, err := c.settlement.ChainID(ctx)
+	l1ChainID, err := c.provider.ChainID(ctx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf(
@@ -188,7 +189,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	defer c.settlement.Close()
+	defer c.provider.Close()
 	if err := c.ensureChainID(ctx); err != nil {
 		// A cancelled context means we're shutting down, not a real failure;
 		// a mismatch (the only other non-nil return) is fatal.
@@ -215,9 +216,9 @@ func (c *Client) Run(ctx context.Context) error {
 
 // CatchUpL1Head verifies the chain ID then writes the L1 head to the
 // database, without entering the live subscription loop. Closes the
-// underlying SettlementLayer on return; the Client must not be reused.
+// underlying L1StateProvider on return; the Client must not be reused.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
-	defer c.settlement.Close()
+	defer c.provider.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}
@@ -313,7 +314,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	)
 
 	latestCtx, cancelLatest := context.WithTimeout(ctx, heightCallTimeout)
-	latest, err := c.settlement.LatestHeight(latestCtx)
+	latest, err := c.provider.LatestHeight(latestCtx)
 	cancelLatest()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -326,7 +327,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	}
 
 	finalisedCtx, cancelFinalised := context.WithTimeout(ctx, heightCallTimeout)
-	finalised, err := c.settlement.FinalisedHeight(finalisedCtx)
+	finalised, err := c.provider.FinalisedHeight(finalisedCtx)
 	cancelFinalised()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -358,7 +359,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 			from = to + 1 - c.catchUpChunkSize
 		}
 		filterCtx, cancelFilter := context.WithTimeout(ctx, filterCallTimeout)
-		events, err := c.settlement.FilterStateUpdate(filterCtx, from, to)
+		events, err := c.provider.FilterStateUpdate(filterCtx, from, to)
 		cancelFilter()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -406,7 +407,7 @@ func (c *Client) finalisedHeight(ctx context.Context) (uint64, bool) {
 		case <-timer.C:
 			const finalisedHeightTimeout = 30 * time.Second
 			callCtx, cancel := context.WithTimeout(ctx, finalisedHeightTimeout)
-			finalisedHeight, err := c.settlement.FinalisedHeight(callCtx)
+			finalisedHeight, err := c.provider.FinalisedHeight(callCtx)
 			cancel()
 			if err == nil {
 				return finalisedHeight, true

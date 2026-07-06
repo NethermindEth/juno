@@ -623,28 +623,28 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 
 		// One EventListener, shared by the L1 client (OnNewL1Head) and
-		// the settlement (OnL1Call), wired only under --metrics.
+		// the provider (OnL1Call), wired only under --metrics.
 		l1Opts := []l1.Option{}
-		settlementOpts := []l1.GethSettlementOption{}
+		providerOpts := []l1.GethL1StateProviderOption{}
 		if cfg.Metrics {
 			listener := makeL1Metrics(n.blockchain)
 			l1Opts = append(l1Opts, l1.WithEventListener(listener))
-			settlementOpts = append(settlementOpts, l1.WithSettlementListener(listener))
+			providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
 		}
 
-		settlement, err := newGethSettlement(
-			context.Background(), cfg.EthNode, n.blockchain, settlementOpts...,
+		provider, err := newGethL1StateProvider(
+			context.Background(), cfg.EthNode, n.blockchain, providerOpts...,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("creating L1 settlement: %w", err)
+			return nil, fmt.Errorf("creating L1 state provider: %w", err)
 		}
 		if cfg.Metrics {
-			registerL1SettlementMetrics(settlement)
+			registerL1Metrics(provider)
 		}
 
-		l1Client := l1.NewClient(settlement, n.blockchain, n.logger, l1Opts...)
+		l1Client := l1.NewClient(provider, n.blockchain, n.logger, l1Opts...)
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(settlement)
+		rpcHandler.WithL1Client(provider)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
@@ -660,16 +660,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	return n, nil
 }
 
-// newGethSettlement validates the Ethereum endpoint URL and dials the L1
+// newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
 // client. ws/wss is enforced at the URL level because subscribe-based
 // log delivery (eth_subscribe) requires a long-lived connection that
 // HTTP doesn't provide.
-func newGethSettlement(
+func newGethL1StateProvider(
 	ctx context.Context,
 	ethNode string,
 	chain *blockchain.Blockchain,
-	opts ...l1.GethSettlementOption,
-) (*l1.GethSettlement, error) {
+	opts ...l1.GethL1StateProviderOption,
+) (*l1.GethL1StateProvider, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -683,13 +683,13 @@ func newGethSettlement(
 	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	settlement, err := l1.NewGethSettlement(
+	provider, err := l1.NewGethL1StateProvider(
 		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("setting up L1 settlement: %w", err)
+		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
 	}
-	return settlement, nil
+	return provider, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

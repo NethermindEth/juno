@@ -28,7 +28,7 @@ const watchForwarderBuffer = 64
 // finalised block; used as the "block number" arg to HeaderByNumber.
 var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64())
 
-// GethSettlement is the go-ethereum-backed SettlementLayer, wrapping
+// GethL1StateProvider is the go-ethereum-backed L1StateProvider, wrapping
 // ethclient plus the abigen StarknetFilterer to talk to the Starknet
 // core L1 bridge. It also satisfies rpccore.L1Client (via
 // TransactionReceipt), so node.go hands one instance to both the L1
@@ -37,7 +37,7 @@ var gethFinalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.In
 // WS connection drops are recovered below this layer: rpc.Client
 // reconnects unary calls, and subscription drops surface on Err() for
 // l1.Client.watchL1StateUpdates to resubscribe.
-type GethSettlement struct {
+type GethL1StateProvider struct {
 	contractAddress eth.Address
 	url             string
 
@@ -47,17 +47,17 @@ type GethSettlement struct {
 	listener EventListener
 }
 
-// NewGethSettlement dials the Ethereum endpoint at url and returns a
-// ready-to-use settlement-layer adapter bound to contractAddress (the
+// NewGethL1StateProvider dials the Ethereum endpoint at url and returns a
+// ready-to-use L1StateProvider bound to contractAddress (the
 // Starknet core L1 bridge). The transport is selected by URL scheme;
 // ws/wss is required so log subscriptions work.
-func NewGethSettlement(
+func NewGethL1StateProvider(
 	ctx context.Context,
 	rawURL string,
 	contractAddress eth.Address,
-	opts ...GethSettlementOption,
-) (*GethSettlement, error) {
-	o := gethSettlementOptions{listener: SelectiveListener{}}
+	opts ...GethL1StateProviderOption,
+) (*GethL1StateProvider, error) {
+	o := gethL1StateProviderOptions{listener: SelectiveListener{}}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -73,7 +73,7 @@ func NewGethSettlement(
 		return nil, fmt.Errorf("binding Starknet filterer: %w", err)
 	}
 
-	return &GethSettlement{
+	return &GethL1StateProvider{
 		contractAddress: contractAddress,
 		url:             rawURL,
 		ethClient:       ethClient,
@@ -82,30 +82,26 @@ func NewGethSettlement(
 	}, nil
 }
 
-// GethSettlementOption configures a GethSettlement at construction time.
-type GethSettlementOption func(*gethSettlementOptions)
+// GethL1StateProviderOption configures a GethL1StateProvider at construction time.
+type GethL1StateProviderOption func(*gethL1StateProviderOptions)
 
-type gethSettlementOptions struct {
+type gethL1StateProviderOptions struct {
 	listener EventListener
 }
 
-// WithSettlementListener sets the EventListener that fires OnL1Call on
-// every Ethereum RPC method (default: no-op). Set at construction: the
-// listener field is read unlocked from every RPC method, so it must not
-// be mutated once the settlement is shared with a goroutine.
-func WithSettlementListener(l EventListener) GethSettlementOption {
-	return func(o *gethSettlementOptions) { o.listener = l }
+func WithL1StateProviderListener(l EventListener) GethL1StateProviderOption {
+	return func(o *gethL1StateProviderOptions) { o.listener = l }
 }
 
 // observe reports OnL1Call latency on return, on both success and
 // failure paths.
-func (s *GethSettlement) observe(method string) func() {
+func (s *GethL1StateProvider) observe(method string) func() {
 	t := time.Now()
 	return func() { s.listener.OnL1Call(method, time.Since(t)) }
 }
 
 // ChainID returns the Ethereum chain id (eth_chainId).
-func (s *GethSettlement) ChainID(ctx context.Context) (*big.Int, error) {
+func (s *GethL1StateProvider) ChainID(ctx context.Context) (*big.Int, error) {
 	defer s.observe("eth_chainId")()
 	id, err := s.ethClient.ChainID(ctx)
 	if err != nil {
@@ -118,7 +114,7 @@ func (s *GethSettlement) ChainID(ctx context.Context) (*big.Int, error) {
 // missing finalised header is reported as eth.ErrNotFound so callers
 // can distinguish "node hasn't seen finality yet" from a transport
 // failure.
-func (s *GethSettlement) FinalisedHeight(ctx context.Context) (uint64, error) {
+func (s *GethL1StateProvider) FinalisedHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_getBlockByNumber")()
 	head, err := s.ethClient.HeaderByNumber(ctx, gethFinalizedBlockNumber)
 	if err != nil {
@@ -131,7 +127,7 @@ func (s *GethSettlement) FinalisedHeight(ctx context.Context) (uint64, error) {
 }
 
 // LatestHeight returns the latest known L1 block number (eth_blockNumber).
-func (s *GethSettlement) LatestHeight(ctx context.Context) (uint64, error) {
+func (s *GethL1StateProvider) LatestHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_blockNumber")()
 	n, err := s.ethClient.BlockNumber(ctx)
 	if err != nil {
@@ -142,7 +138,7 @@ func (s *GethSettlement) LatestHeight(ctx context.Context) (uint64, error) {
 
 // FilterStateUpdate decodes every LogStateUpdate in [from, to] into
 // the StateUpdate shape.
-func (s *GethSettlement) FilterStateUpdate(
+func (s *GethL1StateProvider) FilterStateUpdate(
 	ctx context.Context,
 	from, to uint64,
 ) ([]*StateUpdate, error) {
@@ -169,7 +165,7 @@ func (s *GethSettlement) FilterStateUpdate(
 // Caller contract: sink MUST be drained promptly. A sink that stalls
 // back-pressures the abigen subscription channel and eventually the
 // underlying ws connection.
-func (s *GethSettlement) WatchStateUpdate(
+func (s *GethL1StateProvider) WatchStateUpdate(
 	ctx context.Context,
 	sink chan<- *StateUpdate,
 ) (Subscription, error) {
@@ -183,7 +179,7 @@ func (s *GethSettlement) WatchStateUpdate(
 
 // TransactionReceipt fetches an L1 transaction receipt by hash. Used
 // by the RPC handlers for starknet_getMessageStatus.
-func (s *GethSettlement) TransactionReceipt(
+func (s *GethL1StateProvider) TransactionReceipt(
 	ctx context.Context,
 	txHash eth.Hash,
 ) (*eth.Receipt, error) {
@@ -199,13 +195,10 @@ func (s *GethSettlement) TransactionReceipt(
 }
 
 // Close releases the underlying RPC client.
-func (s *GethSettlement) Close() {
+func (s *GethL1StateProvider) Close() {
 	s.ethClient.Close()
 }
 
-// stateUpdateFromGethContract translates the abigen-decoded event into
-// the StateUpdate. felt conversion happens here so l1.Client never
-// touches go-ethereum types.
 func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: ev.BlockNumber.Uint64(),
@@ -268,8 +261,8 @@ func forwardStateUpdates(
 	})
 }
 
-// GethSettlement must satisfy both interfaces it serves.
+// GethL1StateProvider must satisfy both interfaces it serves.
 var (
-	_ SettlementLayer  = (*GethSettlement)(nil)
-	_ rpccore.L1Client = (*GethSettlement)(nil)
+	_ L1StateProvider  = (*GethL1StateProvider)(nil)
+	_ rpccore.L1Client = (*GethL1StateProvider)(nil)
 )

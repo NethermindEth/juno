@@ -108,12 +108,12 @@ func fetchL1HeadIfMissing(
 	logger.Info("Fetching the L1 head before running the prune migration")
 	// Metrics are registered by the long-lived L1 client built in node.New; reusing
 	// them here would panic via prometheus.MustRegister. Hence no listener.
-	settlement, err := newGethSettlement(ctx, config.EthNode, chain)
+	provider, err := newGethL1StateProvider(ctx, config.EthNode, chain)
 	if err != nil {
-		return fmt.Errorf("creating L1 settlement: %w", err)
+		return fmt.Errorf("creating L1 state provider: %w", err)
 	}
 
-	client := l1.NewClient(settlement, chain, logger)
+	client := l1.NewClient(provider, chain, logger)
 	if err := client.CatchUpL1Head(ctx); err != nil {
 		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}

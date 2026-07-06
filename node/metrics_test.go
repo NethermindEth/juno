@@ -40,18 +40,18 @@ func TestMakeL1Metrics(t *testing.T) {
 	t.Run("successful metric reporting", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBCReader := mocks.NewMockReader(ctrl)
-		mockSubscriber := mocks.NewMockSettlementLayer(ctrl)
+		mockProvider := mocks.NewMockL1StateProvider(ctrl)
 
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
 
 		head := core.L1Head{BlockNumber: 42}
 		mockBCReader.EXPECT().L1Head().Return(head, nil).AnyTimes()
-		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(100), nil).AnyTimes()
-		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(101), nil).AnyTimes()
+		mockProvider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(100), nil).AnyTimes()
+		mockProvider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(101), nil).AnyTimes()
 
 		listener := makeL1Metrics(mockBCReader)
-		registerL1SettlementMetrics(mockSubscriber)
+		registerL1Metrics(mockProvider)
 		require.NotNil(t, listener)
 
 		assertGaugeValue(t, reg, "l1_l2_finalised_height", 42)
@@ -65,17 +65,17 @@ func TestMakeL1Metrics(t *testing.T) {
 	t.Run("error in metric reporting", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		mockBCReader := mocks.NewMockReader(ctrl)
-		mockSubscriber := mocks.NewMockSettlementLayer(ctrl)
+		mockProvider := mocks.NewMockL1StateProvider(ctrl)
 
 		reg := prometheus.NewRegistry()
 		prometheus.DefaultRegisterer = reg
 
 		mockBCReader.EXPECT().L1Head().Return(core.L1Head{}, errors.New("err")).AnyTimes()
-		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
-		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
+		mockProvider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
+		mockProvider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 
 		listener := makeL1Metrics(mockBCReader)
-		registerL1SettlementMetrics(mockSubscriber)
+		registerL1Metrics(mockProvider)
 		require.NotNil(t, listener)
 
 		assertGaugeValue(t, reg, "l1_l2_finalised_height", 0)

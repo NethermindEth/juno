@@ -7,9 +7,9 @@ import (
 // Exposes package-private surface to the external l1_test package. The
 // tests live there to avoid a circular import: l1 -> mocks -> l1.
 
-// SetSettlement swaps the underlying settlement layer. Used by tests
+// SetL1StateProvider swaps the underlying L1StateProvider. Used by tests
 // that rebuild expectations across iterations on a single Client.
-func (c *Client) SetSettlement(s SettlementLayer) { c.settlement = s }
+func (c *Client) SetL1StateProvider(s L1StateProvider) { c.provider = s }
 
 // NonFinalisedLogs exposes the in-memory cache of pre-finality state
 // updates for assertions about cache partitioning and reorg handling.

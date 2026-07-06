@@ -42,7 +42,7 @@ type jsonRPCError struct {
 }
 
 // gethJSONRPCServer is a tiny in-memory JSON-RPC 2.0 endpoint for unit-
-// testing GethSettlement against geth's ethclient. Handlers are
+// testing GethL1StateProvider against geth's ethclient. Handlers are
 // registered per RPC method; unknown methods return method-not-found.
 type gethJSONRPCServer struct {
 	srv      *httptest.Server
@@ -131,11 +131,11 @@ func (r *recordingListener) methods() []string {
 
 // --- test helpers -----------------------------------------------------
 
-func newTestSettlement(t *testing.T, srv *gethJSONRPCServer) *l1.GethSettlement {
+func newTestL1StateProvider(t *testing.T, srv *gethJSONRPCServer) *l1.GethL1StateProvider {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{})
+	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	return s
@@ -143,7 +143,7 @@ func newTestSettlement(t *testing.T, srv *gethJSONRPCServer) *l1.GethSettlement 
 
 // --- tests ------------------------------------------------------------
 
-func TestGethSettlement_DialError(t *testing.T) {
+func TestGethL1StateProvider_DialError(t *testing.T) {
 	// Closed server URL — dial succeeds (HTTP is connectionless) but the
 	// first RPC call should fail. We test failure via a real method
 	// instead of the constructor since http dialing doesn't actually
@@ -152,43 +152,43 @@ func TestGethSettlement_DialError(t *testing.T) {
 	srv.srv.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{})
+	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	_, err = s.ChainID(ctx)
 	require.Error(t, err)
 }
 
-func TestGethSettlement_MalformedURL(t *testing.T) {
+func TestGethL1StateProvider_MalformedURL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	_, err := l1.NewGethSettlement(ctx, "::::not-a-url", eth.Address{})
+	_, err := l1.NewGethL1StateProvider(ctx, "::::not-a-url", eth.Address{})
 	require.Error(t, err)
 }
 
-func TestGethSettlement_ChainID(t *testing.T) {
+func TestGethL1StateProvider_ChainID(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_chainId", func(json.RawMessage) (any, *jsonRPCError) {
 		return "0x5", nil // goerli-shaped value, picked for distinctness
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	id, err := s.ChainID(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), id.Int64())
 }
 
-func TestGethSettlement_LatestHeight(t *testing.T) {
+func TestGethL1StateProvider_LatestHeight(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_blockNumber", func(json.RawMessage) (any, *jsonRPCError) {
 		return "0x123", nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	h, err := s.LatestHeight(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0x123), h)
 }
 
-func TestGethSettlement_FinalisedHeight(t *testing.T) {
+func TestGethL1StateProvider_FinalisedHeight(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getBlockByNumber", func(p json.RawMessage) (any, *jsonRPCError) {
 		// Geth's Header JSON decoder requires every standard field.
@@ -211,49 +211,49 @@ func TestGethSettlement_FinalisedHeight(t *testing.T) {
 			"hash":             "0x1111111111111111111111111111111111111111111111111111111111111111",
 		}, nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	h, err := s.FinalisedHeight(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0x2a), h)
 }
 
-func TestGethSettlement_FinalisedHeight_NotFound(t *testing.T) {
+func TestGethL1StateProvider_FinalisedHeight_NotFound(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getBlockByNumber", func(json.RawMessage) (any, *jsonRPCError) {
 		// JSON-RPC nil result → ethclient.HeaderByNumber surfaces
-		// ethereum.NotFound, which the settlement wraps as eth.ErrNotFound.
+		// ethereum.NotFound, which the provider wraps as eth.ErrNotFound.
 		return nil, nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	_, err := s.FinalisedHeight(t.Context())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, eth.ErrNotFound)
 }
 
-func TestGethSettlement_FilterStateUpdate_Empty(t *testing.T) {
+func TestGethL1StateProvider_FilterStateUpdate_Empty(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getLogs", func(json.RawMessage) (any, *jsonRPCError) {
 		return []any{}, nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	updates, err := s.FilterStateUpdate(t.Context(), 0, 100)
 	require.NoError(t, err)
 	assert.Empty(t, updates)
 }
 
-func TestGethSettlement_FilterStateUpdate_ErrorWrap(t *testing.T) {
+func TestGethL1StateProvider_FilterStateUpdate_ErrorWrap(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getLogs", func(json.RawMessage) (any, *jsonRPCError) {
 		return nil, &jsonRPCError{Code: -32000, Message: "synthetic"}
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	_, err := s.FilterStateUpdate(t.Context(), 0, 100)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "filtering LogStateUpdate [0,100]")
 	assert.Contains(t, err.Error(), "synthetic")
 }
 
-func TestGethSettlement_TransactionReceipt(t *testing.T) {
+func TestGethL1StateProvider_TransactionReceipt(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getTransactionReceipt", func(json.RawMessage) (any, *jsonRPCError) {
 		return map[string]any{
@@ -284,25 +284,25 @@ func TestGethSettlement_TransactionReceipt(t *testing.T) {
 			"type":      "0x0",
 		}, nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	r, err := s.TransactionReceipt(t.Context(), eth.Hash{})
 	require.NoError(t, err)
 	require.Len(t, r.Logs, 1)
 	assert.Equal(t, logStateUpdateTopicHex, r.Logs[0].Topics[0].Hex())
 }
 
-func TestGethSettlement_TransactionReceipt_NotFound(t *testing.T) {
+func TestGethL1StateProvider_TransactionReceipt_NotFound(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_getTransactionReceipt", func(json.RawMessage) (any, *jsonRPCError) {
 		return nil, nil
 	})
-	s := newTestSettlement(t, srv)
+	s := newTestL1StateProvider(t, srv)
 	_, err := s.TransactionReceipt(t.Context(), eth.Hash{})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, eth.ErrNotFound)
 }
 
-func TestGethSettlement_Listener_RecordsCalls(t *testing.T) {
+func TestGethL1StateProvider_Listener_RecordsCalls(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_chainId", func(json.RawMessage) (any, *jsonRPCError) { return "0x1", nil })
 	srv.on("eth_blockNumber", func(json.RawMessage) (any, *jsonRPCError) {
@@ -311,7 +311,7 @@ func TestGethSettlement_Listener_RecordsCalls(t *testing.T) {
 	rec := &recordingListener{}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{}, l1.WithSettlementListener(rec))
+	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{}, l1.WithL1StateProviderListener(rec))
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	_, _ = s.ChainID(t.Context())
@@ -319,12 +319,12 @@ func TestGethSettlement_Listener_RecordsCalls(t *testing.T) {
 	assert.Equal(t, []string{"eth_chainId", "eth_blockNumber"}, rec.methods())
 }
 
-func TestGethSettlement_Close_Idempotent(t *testing.T) {
+func TestGethL1StateProvider_Close_Idempotent(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_chainId", func(json.RawMessage) (any, *jsonRPCError) { return "0x1", nil })
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	s, err := l1.NewGethSettlement(ctx, srv.URL(), eth.Address{})
+	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	s.Close()
 	// Second close shouldn't panic. go-ethereum's rpc.Client.Close is

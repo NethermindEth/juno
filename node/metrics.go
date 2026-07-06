@@ -265,9 +265,8 @@ func makeBlockchainMetrics() blockchain.EventListener {
 }
 
 // makeL1Metrics registers the chain-reader gauges and returns the shared
-// EventListener. Settlement-polling gauges are registered separately by
-// registerL1SettlementMetrics so the listener can be attached at
-// construction rather than via a setter.
+// EventListener. L1 height gauges are registered separately by
+// registerL1Metrics so the listener can be attached at construction.
 func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
@@ -297,10 +296,10 @@ func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	}
 }
 
-// registerL1SettlementMetrics registers the L1 height gauges that poll the
-// settlement layer. Kept separate from makeL1Metrics so the settlement can
-// be constructed with its listener already attached.
-func registerL1SettlementMetrics(settlement l1.SettlementLayer) {
+// registerL1Metrics registers the L1 height gauges that poll the provider.
+// Kept separate from makeL1Metrics so the provider can be constructed with
+// its listener already attached.
+func registerL1Metrics(provider l1.L1StateProvider) {
 	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "finalised_height",
@@ -308,7 +307,7 @@ func registerL1SettlementMetrics(settlement l1.SettlementLayer) {
 	}, func() float64 {
 		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
 		defer cancel()
-		height, err := settlement.FinalisedHeight(ctx)
+		height, err := provider.FinalisedHeight(ctx)
 		if err != nil {
 			return 0
 		}
@@ -323,7 +322,7 @@ func registerL1SettlementMetrics(settlement l1.SettlementLayer) {
 	}, func() float64 {
 		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
 		defer cancel()
-		height, err := settlement.LatestHeight(ctx)
+		height, err := provider.LatestHeight(ctx)
 		if err != nil {
 			return 0
 		}

@@ -36,15 +36,15 @@ func TestFailToCreateSubscription(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
+	provider := mocks.NewMockL1StateProvider(ctrl)
 
-	subscriber.
+	provider.
 		EXPECT().
 		WatchStateUpdate(gomock.Any(), gomock.Any()).
 		Return(newFakeSubscription(), err).
 		AnyTimes()
 
-	subscriber.
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		Return(network.L1ChainID, nil).
@@ -52,18 +52,18 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	// catchUp runs before subscribe; let it complete cleanly so the test
 	// reaches the subscription failure path it actually exercises.
-	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	subscriber.
+	provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	provider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	provider.
 		EXPECT().
 		FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).
 		AnyTimes()
 
-	subscriber.EXPECT().Close().Times(1)
+	provider.EXPECT().Close().Times(1)
 
 	client := l1.NewClient(
-		subscriber,
+		provider,
 		chain,
 		nopLog,
 		l1.WithResubscribeDelay(0),
@@ -89,17 +89,17 @@ func TestMismatchedChainID(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
+	provider := mocks.NewMockL1StateProvider(ctrl)
 
-	subscriber.EXPECT().Close().Times(1)
-	subscriber.
+	provider.EXPECT().Close().Times(1)
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		Return(new(big.Int), nil).
 		Times(1)
 
 	client := l1.NewClient(
-		subscriber,
+		provider,
 		chain,
 		nopLog,
 		l1.WithResubscribeDelay(0),
@@ -128,9 +128,9 @@ func TestChainIDCheckTimeout(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSettlementLayer(ctrl)
-		subscriber.EXPECT().Close().Times(1)
-		subscriber.
+		provider := mocks.NewMockL1StateProvider(ctrl)
+		provider.EXPECT().Close().Times(1)
+		provider.
 			EXPECT().
 			ChainID(gomock.Any()).
 			DoAndReturn(func(ctx context.Context) (*big.Int, error) {
@@ -139,7 +139,7 @@ func TestChainIDCheckTimeout(t *testing.T) {
 			}).
 			Times(1)
 
-		client := l1.NewClient(subscriber, chain, nopLog)
+		client := l1.NewClient(provider, chain, nopLog)
 
 		err := client.CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_chainId did not respond within")
@@ -161,16 +161,16 @@ func TestChainIDFetchError(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.EXPECT().Close().Times(1)
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.EXPECT().Close().Times(1)
 	rpcErr := errors.New("boom")
-	subscriber.
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		Return(nil, rpcErr).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog)
+	client := l1.NewClient(provider, chain, nopLog)
 
 	err := client.CatchUpL1Head(t.Context())
 	require.ErrorContains(t, err, "retrieving Ethereum chain ID")
@@ -197,13 +197,13 @@ func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.EXPECT().Close().Times(1)
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.EXPECT().Close().Times(1)
 
 	const cancelAfter = 3
 	var chainIDCalls atomic.Int32
 	rateLimitErr := errors.New("daily request count exceeded, request rate limited")
-	subscriber.
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		DoAndReturn(func(context.Context) (*big.Int, error) {
@@ -217,7 +217,8 @@ func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
 	// Once ctx is cancelled, Run returns early after ensureChainID without
 	// entering catch-up or the watch loop, so no other Subscriber calls occur.
 
-	client := l1.NewClient(subscriber, chain, nopLog,
+	client := l1.NewClient(
+		provider, chain, nopLog,
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 	)
@@ -244,11 +245,11 @@ func TestFinalisedHeightTimeoutDuringCatchUp(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSettlementLayer(ctrl)
-		subscriber.EXPECT().Close().Times(1)
-		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
-		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(1000), nil).Times(1)
-		subscriber.
+		provider := mocks.NewMockL1StateProvider(ctrl)
+		provider.EXPECT().Close().Times(1)
+		provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(1000), nil).Times(1)
+		provider.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
 			DoAndReturn(func(ctx context.Context) (uint64, error) {
@@ -257,7 +258,7 @@ func TestFinalisedHeightTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(subscriber, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, `eth_getBlockByNumber("finalized")`)
 		require.ErrorContains(t, err, "did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
@@ -278,10 +279,10 @@ func TestLatestHeightTimeoutDuringCatchUp(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSettlementLayer(ctrl)
-		subscriber.EXPECT().Close().Times(1)
-		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
-		subscriber.
+		provider := mocks.NewMockL1StateProvider(ctrl)
+		provider.EXPECT().Close().Times(1)
+		provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		provider.
 			EXPECT().
 			LatestHeight(gomock.Any()).
 			DoAndReturn(func(ctx context.Context) (uint64, error) {
@@ -290,7 +291,7 @@ func TestLatestHeightTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(subscriber, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_blockNumber did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
 	})
@@ -310,12 +311,12 @@ func TestFilterStateUpdateTimeoutDuringCatchUp(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSettlementLayer(ctrl)
-		subscriber.EXPECT().Close().Times(1)
-		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
-		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(1000), nil).Times(1)
-		subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(500), nil).Times(1)
-		subscriber.
+		provider := mocks.NewMockL1StateProvider(ctrl)
+		provider.EXPECT().Close().Times(1)
+		provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(1000), nil).Times(1)
+		provider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(500), nil).Times(1)
+		provider.
 			EXPECT().
 			FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, _, _ uint64) ([]*l1.StateUpdate, error) {
@@ -324,7 +325,7 @@ func TestFilterStateUpdateTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(subscriber, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_getLogs did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
 	})
@@ -353,10 +354,10 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		subscriber := mocks.NewMockSettlementLayer(ctrl)
-		subscriber.EXPECT().Close().Times(1)
-		subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
-		subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
+		provider := mocks.NewMockL1StateProvider(ctrl)
+		provider.EXPECT().Close().Times(1)
+		provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+		provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
 
 		// FinalisedHeight is called three times in this flow:
 		//   1) inside catchUpL1HeadUpdates — needs a real value so foundFinalised
@@ -364,12 +365,12 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		//   2) first iteration of setL1Head's retry loop — hangs, exercising the
 		//      new per-call timeout;
 		//   3) second iteration — succeeds, the loop returns and the head is set.
-		catchupCall := subscriber.
+		catchupCall := provider.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
 			Return(uint64(5), nil).
 			Times(1)
-		hungCall := subscriber.
+		hungCall := provider.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
 			DoAndReturn(func(ctx context.Context) (uint64, error) {
@@ -378,7 +379,7 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 			}).
 			Times(1).
 			After(catchupCall)
-		subscriber.
+		provider.
 			EXPECT().
 			FinalisedHeight(gomock.Any()).
 			Return(uint64(5), nil).
@@ -393,13 +394,13 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 			StateRoot:     new(felt.Felt).SetUint64(7),
 			L1RefHeight:   3,
 		}
-		subscriber.
+		provider.
 			EXPECT().
 			FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]*l1.StateUpdate{event}, nil).
 			Times(1)
 
-		client := l1.NewClient(subscriber, chain, nopLog, l1.WithResubscribeDelay(time.Second))
+		client := l1.NewClient(provider, chain, nopLog, l1.WithResubscribeDelay(time.Second))
 		require.NoError(t, client.CatchUpL1Head(t.Context()))
 
 		got, err := chain.L1Head()
@@ -424,8 +425,8 @@ func TestEventListener(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.
 		EXPECT().
 		WatchStateUpdate(gomock.Any(), gomock.Any()).
 		Do(func(_ context.Context, sink chan<- *l1.StateUpdate) {
@@ -437,34 +438,35 @@ func TestEventListener(t *testing.T) {
 		Return(newFakeSubscription(), nil).
 		Times(1)
 
-	subscriber.
+	provider.
 		EXPECT().
 		FinalisedHeight(gomock.Any()).
 		Return(uint64(0), nil).
 		AnyTimes()
 
-	subscriber.
+	provider.
 		EXPECT().
 		LatestHeight(gomock.Any()).
 		Return(uint64(0), nil).
 		AnyTimes()
 
-	subscriber.
+	provider.
 		EXPECT().
 		FilterStateUpdate(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).
 		AnyTimes()
 
-	subscriber.
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		Return(network.L1ChainID, nil).
 		Times(1)
 
-	subscriber.EXPECT().Close().Times(1)
+	provider.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog,
+	client := l1.NewClient(
+		provider, chain, nopLog,
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -496,8 +498,8 @@ func TestEventListenerCatchUp(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.
 		EXPECT().
 		ChainID(gomock.Any()).
 		Return(network.L1ChainID, nil).
@@ -505,15 +507,15 @@ func TestEventListenerCatchUp(t *testing.T) {
 
 	// Live subscription delivers nothing; the catch-up scan alone must
 	// populate nonFinalisedLogs so setL1Head fires the listener callback.
-	subscriber.
+	provider.
 		EXPECT().
 		WatchStateUpdate(gomock.Any(), gomock.Any()).
 		Return(newFakeSubscription(), nil).
 		AnyTimes()
 
 	// LatestHeight=10, FinalisedHeight=5, catchUpChunkSize=1000 → single chunk [0, 10].
-	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
+	provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
+	provider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
 
 	backfilled := &l1.StateUpdate{
 		L2BlockNumber: 7,
@@ -521,16 +523,17 @@ func TestEventListenerCatchUp(t *testing.T) {
 		StateRoot:     new(felt.Felt).SetUint64(7),
 		L1RefHeight:   3,
 	}
-	subscriber.
+	provider.
 		EXPECT().
 		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
 		Return([]*l1.StateUpdate{backfilled}, nil).
 		Times(1)
 
-	subscriber.EXPECT().Close().Times(1)
+	provider.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog,
+	client := l1.NewClient(
+		provider, chain, nopLog,
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Hour),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -576,11 +579,11 @@ func TestCatchUpL1Head(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).AnyTimes()
-	subscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).AnyTimes()
-	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
-	subscriber.
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).AnyTimes()
+	provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).AnyTimes()
+	provider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
+	provider.
 		EXPECT().
 		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
 		Return([]*l1.StateUpdate{{
@@ -590,9 +593,9 @@ func TestCatchUpL1Head(t *testing.T) {
 			L1RefHeight:   3,
 		}}, nil).
 		AnyTimes()
-	subscriber.EXPECT().Close().AnyTimes()
+	provider.EXPECT().Close().AnyTimes()
 
-	client := l1.NewClient(subscriber, chain, nopLog)
+	client := l1.NewClient(provider, chain, nopLog)
 	require.NoError(t, client.CatchUpL1Head(t.Context()))
 
 	persisted, err := chain.L1Head()
@@ -616,11 +619,11 @@ func TestCatchUpL1Head_ChainIDMismatch(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	subscriber := mocks.NewMockSettlementLayer(ctrl)
-	subscriber.EXPECT().ChainID(gomock.Any()).Return(big.NewInt(999), nil)
-	subscriber.EXPECT().Close()
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.EXPECT().ChainID(gomock.Any()).Return(big.NewInt(999), nil)
+	provider.EXPECT().Close()
 
-	err := l1.NewClient(subscriber, chain, nopLog).CatchUpL1Head(t.Context())
+	err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
 	require.ErrorContains(t, err, "mismatched network id between L1 and L2")
 	require.ErrorContains(t, err, "--eth-node")
 }
