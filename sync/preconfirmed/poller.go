@@ -33,9 +33,9 @@ type DataSource interface {
 	) (starknet.PreConfirmedUpdate, error)
 }
 
-// Poller drives the pre_confirmed chain from a single goroutine.
+// Poller drives the pre-confirmed chain from a single goroutine.
 //
-// One tick reads as: poll the server's latest pre_confirmed, backfill any gap
+// One tick reads as: poll the server's latest pre-confirmed, backfill any gap
 // below it, then insert the latest. backfill is a no-op when there's no gap;
 // otherwise it finalises the current mostRecent (re-polls its number to capture
 // the last delta before the sequencer moved past it) and then walks
@@ -85,7 +85,7 @@ func (p *Poller) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := p.tick(ctx); err != nil {
-				p.logger.Warn("pre_confirmed tick failed", zap.Error(err))
+				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
 			}
 		}
 	}
@@ -120,9 +120,9 @@ func (p *Poller) tick(ctx context.Context) error {
 		}
 	}
 
-	update, blockNumber, err := p.dataSource.PreConfirmedBlockLatest(ctx, identifier, txCount)
+	update, updateBlockNum, err := p.dataSource.PreConfirmedBlockLatest(ctx, identifier, txCount)
 	if err != nil {
-		return fmt.Errorf("polling pre_confirmed latest: %w", err)
+		return fmt.Errorf("polling latest pre-confirmed: %w", err)
 	}
 
 	// NoChange and Delta both imply the server's identifier matched ours,
@@ -132,12 +132,16 @@ func (p *Poller) tick(ctx context.Context) error {
 	// the switch as a defensive guard in case the wire ever omits it.
 	switch update.(type) {
 	case starknet.PreConfirmedNoChange, starknet.PreConfirmedDeltaUpdate:
-		blockNumber = fromBlock
+		updateBlockNum = fromBlock
 	}
 
-	if blockNumber > fromBlock {
-		if err := p.backfill(ctx, head, fromBlock, identifier, txCount, blockNumber); err != nil {
-			return err
+	if updateBlockNum > fromBlock {
+		err = p.backfill(ctx, head, fromBlock, identifier, txCount, updateBlockNum)
+		if err != nil {
+			return fmt.Errorf(
+				"backfilling from %d to %d: %w",
+				fromBlock, updateBlockNum, err,
+			)
 		}
 	}
 
@@ -148,7 +152,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	// path ignores baseTxCount — so the stale value is harmless under current
 	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
 	// for non-Delta updates.
-	return p.apply(update, blockNumber, txCount, head)
+	return p.apply(update, updateBlockNum, txCount, head)
 }
 
 // backfill polls fromBlock with the given delta hints (identifier+txCount) to
@@ -158,25 +162,28 @@ func (p *Poller) tick(ctx context.Context) error {
 func (p *Poller) backfill(
 	ctx context.Context,
 	head *core.Header,
-	fromBlock uint64,
+	fromBlockNum uint64,
 	identifier string,
 	txCount uint64,
 	endExclusive uint64,
 ) error {
-	update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, fromBlock, identifier, txCount)
+	update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, fromBlockNum, identifier, txCount)
 	if err != nil {
-		return fmt.Errorf("polling pre_confirmed by number %d: %w", fromBlock, err)
+		return fmt.Errorf("polling pre-confirmed for number %d: %w", fromBlockNum, err)
 	}
-	if err := p.apply(update, fromBlock, txCount, head); err != nil {
-		return fmt.Errorf("applying pre_confirmed at %d: %w", fromBlock, err)
+
+	if err := p.apply(update, fromBlockNum, txCount, head); err != nil {
+		return fmt.Errorf("applying pre-confirmed at %d: %w", fromBlockNum, err)
 	}
-	for n := fromBlock + 1; n < endExclusive; n++ {
+
+	for n := fromBlockNum + 1; n < endExclusive; n++ {
 		update, err := p.dataSource.PreConfirmedBlockByNumber(ctx, n, "", 0)
 		if err != nil {
-			return fmt.Errorf("polling pre_confirmed by number %d: %w", n, err)
+			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}
+
 		if err := p.apply(update, n, 0, head); err != nil {
-			return fmt.Errorf("applying pre_confirmed at %d: %w", n, err)
+			return fmt.Errorf("applying pre-confirmed at %d: %w", n, err)
 		}
 	}
 	return nil
@@ -192,7 +199,7 @@ func (p *Poller) apply(
 ) error {
 	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, head)
 	if err != nil {
-		return fmt.Errorf("applying pre_confirmed update at %d: %w", blockNumber, err)
+		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}
 	if applied != nil {
 		p.out.Send(applied)
@@ -206,7 +213,8 @@ func (p *Poller) atTip(head *core.Header) bool {
 	if highest == nil {
 		return false
 	}
-	headNum := uint64(0)
+
+	var headNum uint64
 	if head != nil {
 		headNum = head.Number
 	}

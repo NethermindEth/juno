@@ -19,7 +19,7 @@ import (
 // doesn't match the targeted slot's current tx count. Defensive against any
 // non-poller writer (or future race) that could drift the slot between the
 // wire send and the storage apply.
-var ErrBaseTxCountMismatch = errors.New("pre_confirmed base transaction count mismatch")
+var ErrBaseTxCountMismatch = errors.New("pre-confirmed base transaction count mismatch")
 
 // node is one entry in the chain's immutable linked list, pointing back
 // toward older blocks via parent. Nodes are never mutated in place — every
@@ -192,7 +192,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	// contain it. A nil target means the chain has a gap (a bug), not a miss.
 	if target == nil {
 		return nil, nil, fmt.Errorf(
-			"pre_confirmed chain invariant broken: block %d within [%d, %d] but no matching entry",
+			"pre-confirmed chain invariant broken: block %d within [%d, %d] but no matching entry",
 			blockNumber, c.bottom(), c.tip(),
 		)
 	}
@@ -346,7 +346,7 @@ func (s *ChainStorage) ApplyUpdate(
 // Pre-pop readers retain their *ChainReader and walk the original (still
 // intact) nodes; the new chain references only fresh nodes.
 //
-// Single-writer: like ApplyUpdate, this assumes the pre_confirmed poller
+// Single-writer: like ApplyUpdate, this assumes the pre-confirmed poller
 // goroutine is the only writer.
 func (s *ChainStorage) AdvanceTo(head *core.Header) bool {
 	current := s.inner.Load()
