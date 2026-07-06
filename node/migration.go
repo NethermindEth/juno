@@ -110,7 +110,7 @@ func fetchL1HeadIfMissing(
 	// them here would panic via prometheus.MustRegister. Hence no listener.
 	settlement, err := newGethSettlement(ctx, config.EthNode, chain)
 	if err != nil {
-		return fmt.Errorf("creating a new L1 client: %w", err)
+		return fmt.Errorf("creating L1 settlement: %w", err)
 	}
 
 	client := l1.NewClient(settlement, chain, logger)

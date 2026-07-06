@@ -636,7 +636,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			context.Background(), cfg.EthNode, n.blockchain, settlementOpts...,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
+			return nil, fmt.Errorf("creating L1 settlement: %w", err)
 		}
 		if cfg.Metrics {
 			registerL1SettlementMetrics(settlement)
@@ -687,7 +687,7 @@ func newGethSettlement(
 		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("set up L1 settlement client: %w", err)
+		return nil, fmt.Errorf("setting up L1 settlement: %w", err)
 	}
 	return settlement, nil
 }

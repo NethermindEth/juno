@@ -41,7 +41,6 @@ type GethSettlement struct {
 	contractAddress eth.Address
 	url             string
 
-	rpcClient *rpc.Client
 	ethClient *ethclient.Client
 	filterer  *contract.StarknetFilterer
 
@@ -77,7 +76,6 @@ func NewGethSettlement(
 	return &GethSettlement{
 		contractAddress: contractAddress,
 		url:             rawURL,
-		rpcClient:       rpcClient,
 		ethClient:       ethClient,
 		filterer:        filterer,
 		listener:        o.listener,
