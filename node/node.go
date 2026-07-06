@@ -622,14 +622,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		var l1Client *l1.Client
 		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
 		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
+			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
 		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
+		ug := upgrader.NewUpgrader(
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+		)
 		n.services = append(n.services, ug)
 	} else {
 		logger.Warn("Failed to parse Juno version, will not warn about new releases",
@@ -645,10 +647,12 @@ func newL1Client(
 ) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...)",
+		)
 	}
 
 	network := chain.Network()
@@ -656,7 +660,7 @@ func newL1Client(
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, fmt.Errorf("subscribing to L1: %w", err)
 	}
 
 	opts := make([]l1.Option, 0, 1)

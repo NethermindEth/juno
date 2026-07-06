@@ -56,7 +56,7 @@ func migrateIfNeeded(
 		// Make sure there is an available L1 head before starting pruning migration
 		if config.Prune {
 			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
-				return fmt.Errorf("fetch L1 head for pruning: %w", err)
+				return fmt.Errorf("fetching L1 head for pruning: %w", err)
 			}
 		}
 
@@ -69,7 +69,7 @@ func migrateIfNeeded(
 			logger,
 		)
 		if err != nil {
-			return fmt.Errorf("create migration runner: %w", err)
+			return fmt.Errorf("creating migration runner: %w", err)
 		}
 
 		return runner.Run(ctx)
@@ -109,7 +109,7 @@ func fetchL1HeadIfMissing(
 	// them here would panic via prometheus.MustRegister.
 	client, err := newL1Client(config.EthNode, false, chain, logger)
 	if err != nil {
-		return fmt.Errorf("creating a new L1 client: %w", err)
+		return fmt.Errorf("initializing L1 client: %w", err)
 	}
 
 	if err := client.CatchUpL1Head(ctx); err != nil {
@@ -120,7 +120,7 @@ func fetchL1HeadIfMissing(
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return errors.New("couldn't find a finalized Starknet state update on L1")
 		}
-		return err
+		return fmt.Errorf("getting L1 head: %w", err)
 	}
 	return nil
 }
