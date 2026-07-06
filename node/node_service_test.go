@@ -93,7 +93,11 @@ func TestStartService(t *testing.T) {
 		n.StartService(wg, ctx, cancel, longRunning)
 		n.StartService(wg, ctx, cancel, shortLived)
 
-		<-exited // the short-lived service has returned cleanly
+		select {
+		case <-exited: // the short-lived service has returned cleanly
+		case <-time.After(10 * time.Second):
+			t.Fatal("short-lived service did not exit in time")
+		}
 
 		// Its clean exit must not take the long-running service down with it.
 		select {
@@ -106,6 +110,10 @@ func TestStartService(t *testing.T) {
 		// A real shutdown still stops everything.
 		cancel()
 		wg.Wait()
-		<-stopped
+		select {
+		case <-stopped:
+		case <-time.After(10 * time.Second):
+			t.Fatal("long-running service did not stop in time")
+		}
 	})
 }
