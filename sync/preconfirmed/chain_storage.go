@@ -119,6 +119,7 @@ func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, erro
 // and the number of the block it lives in. ErrTransactionReceiptNotFound when
 // missing.
 func (c *ChainReader) ReceiptByHash(
+	// todo(rdr): change to felt.TransactionHash
 	hash *felt.Felt,
 ) (*core.TransactionReceipt, uint64, error) {
 	if c.length == 0 {
@@ -143,17 +144,15 @@ func (c *ChainReader) PreConfirmedStateAt(
 	blockNumber uint64,
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	if c.length == 0 {
+	if !c.contains(blockNumber) {
 		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
-	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
-	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
-		return nil, nil, pending.ErrPreConfirmedNotFound
-	}
+
 	base, closer, err := c.baseState(bcReader)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	stateDiff := core.EmptyStateDiff()
 	for entry := range c.OldestFirst() {
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
@@ -176,13 +175,10 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	index uint,
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	if c.length == 0 {
+	if !c.contains(blockNumber) {
 		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
-	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
-	if blockNumber < bottom || blockNumber > c.head.preconfirmed.Block.Number {
-		return nil, nil, pending.ErrPreConfirmedNotFound
-	}
+
 	stateDiff := core.EmptyStateDiff()
 	var target *pending.PreConfirmed
 	for entry := range c.OldestFirst() {
@@ -197,7 +193,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	if target == nil {
 		return nil, nil, fmt.Errorf(
 			"pre_confirmed chain invariant broken: block %d within [%d, %d] but no matching entry",
-			blockNumber, bottom, c.head.preconfirmed.Block.Number,
+			blockNumber, c.bottom(), c.tip(),
 		)
 	}
 	if index > uint(len(target.Block.Transactions)) {
@@ -219,11 +215,26 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 func (c *ChainReader) baseState(
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	bottom := c.head.preconfirmed.Block.Number - uint64(c.length-1)
+	bottom := c.bottom()
 	if bottom == 0 {
 		return bcReader.StateAtBlockHash(&felt.Zero)
 	}
 	return bcReader.StateAtBlockNumber(bottom - 1)
+}
+
+// contains returns true when a non-empty chain reader contains a block with `blockNum`
+func (c *ChainReader) contains(blockNum uint64) bool {
+	return c.length > 0 && (blockNum >= c.bottom() && blockNum <= c.tip())
+}
+
+// tip returns the most recent block number contained in the ChainReader
+func (c *ChainReader) tip() uint64 {
+	return c.head.preconfirmed.Block.Number
+}
+
+// bottom returns the oldest block number contained in the ChainReader
+func (c *ChainReader) bottom() uint64 {
+	return c.head.preconfirmed.Block.Number - uint64(c.length-1)
 }
 
 // walkOldestFirst recurses to the bottom of the chain and yields entries on
@@ -280,16 +291,13 @@ func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 	if current == nil || current.length == 0 {
 		return ChainReader{}
 	}
+
 	wantBottom := headPlusOne(head)
-	storedTip := current.head.preconfirmed.Block.Number
-	if wantBottom > storedTip {
+	if !current.contains(wantBottom) {
 		return ChainReader{}
 	}
-	storedBottom := storedTip - uint64(current.length-1)
-	if wantBottom < storedBottom {
-		return ChainReader{}
-	}
-	want := int(storedTip - wantBottom + 1)
+
+	want := int(current.tip() - wantBottom + 1)
 	return ChainReader{head: current.head, length: want}
 }
 
@@ -345,18 +353,21 @@ func (s *ChainStorage) AdvanceTo(head *core.Header) bool {
 	if current == nil || current.length == 0 {
 		return false
 	}
-	mostRecent := current.head.preconfirmed.Block.Number
-	bottom := mostRecent - uint64(current.length-1)
+
+	bottom := current.bottom()
 	wantBottom := headPlusOne(head)
 	if wantBottom == bottom {
 		return false
 	}
-	if wantBottom < bottom || wantBottom > mostRecent {
+
+	if !current.contains(wantBottom) {
 		return s.inner.CompareAndSwap(current, nil)
 	}
+
 	drop := int(wantBottom - bottom)
 	keep := current.length - drop
 	newChain := &ChainReader{head: rebuild(current.head, keep), length: keep}
+
 	return s.inner.CompareAndSwap(current, newChain)
 }
 
@@ -402,25 +413,31 @@ func computeUpdate(
 		return bootstrapChain(&block, blockNumber, head)
 	}
 
-	mostRecent := current.head.preconfirmed.Block.Number
-	bottom := mostRecent - uint64(current.length-1)
-
+	bottom := current.bottom()
 	if !validBottomForHead(bottom, head) {
 		return nil, nil, fmt.Errorf("chain bottom %d not aligned with head", bottom)
+	}
+
+	// In-chain update — locate the target slot. blockNumber below bottom means
+	// the apply target is at or below the canonical head (bottom == head+1),
+	// i.e. already committed; the caller is asking us to write into the past.
+	if blockNumber < bottom {
+		return nil, nil, fmt.Errorf("applying target %d below bottom %d", blockNumber, bottom)
 	}
 
 	// Gap above tip — should never happen under a well-behaved poller, which
 	// backfills intermediate heights before applying the latest. Surface as
 	// an error so the bug isn't masked as a silent no-op.
-	if blockNumber > mostRecent+1 {
+	tip := current.tip()
+	if blockNumber > tip+1 {
 		return nil, nil, fmt.Errorf(
-			"gap above tip: block %d > mostRecent+1 %d", blockNumber, mostRecent+1,
+			"gap above tip: block %d > mostRecent+1 %d", blockNumber, tip+1,
 		)
 	}
 
 	// Append as new most recent. Only PreConfirmedBlock makes sense at a
 	// brand-new slot; a Delta would have nothing to merge into.
-	if blockNumber == mostRecent+1 {
+	if blockNumber == tip+1 {
 		block, ok := update.(starknet.PreConfirmedBlock)
 		if !ok {
 			return nil, nil, fmt.Errorf(
@@ -430,12 +447,6 @@ func computeUpdate(
 		return extend(current, &block, blockNumber)
 	}
 
-	// In-chain update — locate the target slot. blockNumber below bottom means
-	// the apply target is at or below the canonical head (bottom == head+1),
-	// i.e. already committed; the caller is asking us to write into the past.
-	if blockNumber < bottom {
-		return nil, nil, fmt.Errorf("applying target %d below bottom %d", blockNumber, bottom)
-	}
 	return replaceSlot(current, update, blockNumber, baseTxCount)
 }
 
@@ -503,11 +514,12 @@ func replaceSlot(
 	blockNumber uint64,
 	baseTxCount uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
-	depthFromHead := int(current.head.preconfirmed.Block.Number - blockNumber)
+	depthFromHead := int(current.tip() - blockNumber)
 	target := current.head
 	for range depthFromHead {
 		target = target.parent
 	}
+
 	switch variant := update.(type) {
 	case starknet.PreConfirmedBlock:
 		next, err := sn2core.AdaptPreConfirmedBlock(&variant, blockNumber)
