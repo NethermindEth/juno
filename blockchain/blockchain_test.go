@@ -758,24 +758,27 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	)
 
 	for i := range numCanonicalBlocks {
-		b, err := gw.BlockByNumber(t.Context(), i)
+		block, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		s, err := gw.StateUpdate(t.Context(), i)
+
+		stateUpdate, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
-		require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
 
 	pcEntries := make([]*pending.PreConfirmed, preConfirmedChainLength)
 	for i := firstPreConfirmedBlock; i <= lastPreConfirmedBlockNum; i++ {
-		b, err := gw.BlockByNumber(t.Context(), i)
+		block, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		pc := pending.NewPreConfirmed(b, nil, nil, "")
-		pcEntries[i-firstPreConfirmedBlock] = &pc
+
+		preconfirmed := pending.NewPreConfirmed(block, nil, nil, "")
+		pcEntries[i-firstPreConfirmedBlock] = &preconfirmed
 	}
-	multiChain, err := preconfirmed.NewChain(pcEntries...)
+	preconfChain, err := preconfirmed.NewChain(pcEntries...)
 	require.NoError(t, err)
+
 	preConfirmedFunc := func() (blockchain.PreConfirmedReader, error) { //nolint:unparam // test stub
-		return &multiChain, nil
+		return &preconfChain, nil
 	}
 
 	from := []felt.Address{
@@ -803,12 +806,11 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	}
 
 	var baseline []blockchain.FilteredEvent
-	t.Run("canonical + multi pre_confirmed - no pagination", func(t *testing.T) {
+	t.Run("canonical + multi pre-confirmed - no pagination", func(t *testing.T) {
 		events, cToken, err := newFilter(t).Events(nil, 1024)
 		require.NoError(t, err)
 		require.True(t, cToken.IsEmpty())
-		require.NotEmpty(t, events,
-			"sepolia testdata should produce events across blocks 0..6")
+		require.NotEmpty(t, events, "sepolia testdata should produce events across blocks 0..6")
 
 		// Ground truth: a no-filter scan over blocks 0..6 must return every
 		// event in the sepolia testdata. Event counts per block.
@@ -865,8 +867,11 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 					}
 					token = next
 				}
-				require.True(t, token.IsEmpty(),
-					"pagination did not terminate within the expected number of pages")
+				require.True(
+					t,
+					token.IsEmpty(),
+					"pagination did not terminate within the expected number of pages",
+				)
 				// Every chunk size is smaller than the total, so the scan must
 				// span more than one page and actually exercise the token.
 				require.Greater(t, pages, 1, "expected pagination to span multiple pages")

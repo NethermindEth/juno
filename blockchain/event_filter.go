@@ -214,7 +214,7 @@ func (e *EventFilter) Events(
 	}
 
 	// Case [canonicalBlock, pre-confirmed] || [pre-confirmed, pre-confirmed].
-	return e.pendingEvents(
+	return e.preConfirmedEvents(
 		matchedEvents,
 		preConfirmed,
 		startBlock,
@@ -246,9 +246,11 @@ func (e *EventFilter) canonicalEvents(
 	for {
 		curBlock, ok, err := matchedBlockIter.Next()
 		if !ok {
+			// iteration complete
 			if err == nil {
 				break
 			}
+
 			// If max scans exhausted end of block
 			if errors.Is(err, ErrMaxScannedBlockLimitExceed) {
 				// Next candidate block for continuation token
@@ -294,7 +296,9 @@ func (e *EventFilter) canonicalEvents(
 	}
 
 	// If max scans exhausted end of block
-	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned && lastProccessedBlock <= e.toBlock {
+	maxScanReachedPrematurely := matchedBlockIter.scannedCount > matchedBlockIter.maxScanned &&
+		lastProccessedBlock <= e.toBlock
+	if maxScanReachedPrematurely {
 		cToken := ContinuationToken{fromBlock: lastProccessedBlock, processedEvents: 0}
 		return matchedEvents, cToken, nil
 	}
@@ -302,11 +306,11 @@ func (e *EventFilter) canonicalEvents(
 	return matchedEvents, ContinuationToken{}, nil
 }
 
-// pendingEvents processes pending events across every pre-confirmed block in
+// preConfirmedEvents processes pending events across every pre-confirmed block in
 // the chain (head+1 .. tip), oldest-first. fromBlock and the continuation
 // token's fromBlock select where to resume; the token's processedEvents
 // counter applies to the resume block only.
-func (e *EventFilter) pendingEvents(
+func (e *EventFilter) preConfirmedEvents(
 	matchedEvents []FilteredEvent,
 	preConfirmed PreConfirmedReader,
 	fromBlock,
