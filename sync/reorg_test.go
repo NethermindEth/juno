@@ -76,6 +76,14 @@ func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	return nil, errors.New("not implemented")
 }
 
+func (t *testBlockDataSource) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	return nil, 0, errors.New("not implemented")
+}
+
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {
 	(*atomic.Value)(t).Store(blocks)
 }

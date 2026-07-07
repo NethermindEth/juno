@@ -156,12 +156,15 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		queryArg = "blockHash"
 
 	case strings.HasSuffix(path, "get_preconfirmed_block"):
-		if _, ok := queryMap["blockIdentifier"]; ok {
-			return "pre_confirmed_delta", blockNumberArg, nil
+		// A blank identifier (re)syncs from preconfirmed/<blockNumber>/full;
+		// any other identifier selects the exact response fixture at
+		// preconfirmed/<blockNumber>/<identifier>/<knownTransactionCount>.
+		blockNumber := queryMap.Get(blockNumberArg)
+		if identifier := queryMap.Get("blockIdentifier"); identifier != PreConfirmedBlankIdentifier {
+			return filepath.Join("preconfirmed", blockNumber, identifier), "knownTransactionCount", nil
 		}
-
-		dir = "pre_confirmed"
-		queryArg = blockNumberArg
+		queryMap["preconfirmedFile"] = []string{"full"}
+		return filepath.Join("preconfirmed", blockNumber), "preconfirmedFile", nil
 
 	default:
 		err = errors.New("unknown endpoint")
