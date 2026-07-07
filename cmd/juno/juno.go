@@ -246,7 +246,7 @@ const (
 	seqEnUsage                         = "EXPERIMENTAL: Enables sequencer mode of operation"
 	seqBlockTimeUsage                  = "EXPERIMENTAL: Time to build a block, in seconds"
 	seqGenesisFileUsage                = "EXPERIMENTAL: Path to the genesis file"
-	seqDisableFeesUsage                = "EXPERIMENTAL: Skip charge fee for sequencer execution"
+	seqDisableFeesUsage                = "EXPERIMENTAL: Skip charging fees for sequencer execution"
 	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
