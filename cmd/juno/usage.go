@@ -30,7 +30,7 @@ const (
 	catCustomNetwork  = "Custom Network"
 	catProfiling      = "Profiling"
 	catP2P            = "P2P (experimental)"
-	catSequencer      = "Sequencer"
+	catSequencer      = "Sequencer (experimental)"
 	catGRPC           = "gRPC"
 	catMisc           = "Plugins & Misc"
 	catOther          = "Other"
