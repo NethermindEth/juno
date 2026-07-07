@@ -68,14 +68,14 @@ func mockNodeAddress(i int) starknet.Address {
 	return felt.FromUint64[starknet.Address](uint64(i))
 }
 
-func mockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
+func MockTimeoutFnWithFactor(nodeCount int, factor time.Duration) driver.TimeoutFn {
 	return func(step types.Step, round types.Round) time.Duration {
-		delta := (time.Duration(round) + time.Duration(nodeCount)) * timeoutRoundFactor
+		delta := (time.Duration(round) + time.Duration(nodeCount)) * factor
 
 		// The formulae follow the lemma in the paper
 		switch step {
 		case types.StepPropose:
-			prevDelta := delta - timeoutRoundFactor
+			prevDelta := delta - factor
 			return (prevDelta + delta) * 2
 		case types.StepPrevote:
 			return delta * 2
@@ -84,6 +84,10 @@ func mockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
 		}
 		return 0
 	}
+}
+
+func mockTimeoutFn(nodeCount int) driver.TimeoutFn {
+	return MockTimeoutFnWithFactor(nodeCount, timeoutRoundFactor)
 }
 
 func mockKey(nodeIndex int) crypto.PrivKey {

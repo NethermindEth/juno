@@ -11,6 +11,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// BroadcasterStartupDelay lets the GossipSub mesh stabilise before any message is sent.
+var BroadcasterStartupDelay = pubsub.GossipSubHeartbeatInitialDelay * 2
+
 type ProtoBroadcaster[M proto.Message] struct {
 	logger              log.Logger
 	ch                  chan M
@@ -43,7 +46,7 @@ func (b ProtoBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 	var rebroadcasted rebroadcastMessages
 
-	time.Sleep(pubsub.GossipSubHeartbeatInitialDelay * 2)
+	time.Sleep(BroadcasterStartupDelay)
 
 	for {
 		select {

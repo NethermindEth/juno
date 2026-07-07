@@ -46,6 +46,7 @@ type consensusNodeOptions struct {
 	requiredWALEntriesWritten chan<- struct{}
 	ackCommits                bool
 	sentPrecommits            chan<- *starknet.Precommit
+	timeoutFn                 driver.TimeoutFn // nil → use mockServices.TimeoutFn
 }
 
 type observingWALStore struct {
@@ -116,6 +117,11 @@ func TestConsensusRestartReplaysPersistentWALAndPrecommits(t *testing.T) {
 		genesisClasses,
 	)
 
+	// StepPropose timeout (round 0, n=4) = 14×factor must exceed buffered.BroadcasterStartupDelay
+	// or the non-proposer times out before the proposal arrives and the WAL check never passes.
+	const restartTestTimeoutFactor = 50 * time.Millisecond
+	restartTimeoutFn := consensus.MockTimeoutFnWithFactor(restartTestNodeCount, restartTestTimeoutFactor)
+
 	requiredWALEntriesWritten := make(chan struct{}, 1)
 	restartNode, peerNodes := startNetworkBeforeRestart(
 		t,
@@ -127,6 +133,7 @@ func TestConsensusRestartReplaysPersistentWALAndPrecommits(t *testing.T) {
 		genesisDiff,
 		genesisClasses,
 		requiredWALEntriesWritten,
+		restartTimeoutFn,
 	)
 
 	// Stop once the restart node has the WAL entries required for replay.
@@ -158,7 +165,7 @@ func TestConsensusRestartReplaysPersistentWALAndPrecommits(t *testing.T) {
 		logger.Named("restart-node"),
 		restartStores.consensusStore,
 		restartStores.blockchain,
-		consensusNodeOptions{sentPrecommits: restartedNodePrecommits},
+		consensusNodeOptions{sentPrecommits: restartedNodePrecommits, timeoutFn: restartTimeoutFn},
 	)
 	t.Cleanup(func() {
 		stopAndWait([]runningConsensusNode{restartedNode})
@@ -245,6 +252,7 @@ func startNetworkBeforeRestart(
 	genesisDiff core.StateDiff,
 	genesisClasses map[felt.Felt]core.ClassDefinition,
 	requiredWALEntriesWritten chan<- struct{},
+	timeoutFn driver.TimeoutFn,
 ) (runningConsensusNode, []runningConsensusNode) {
 	t.Helper()
 
@@ -260,7 +268,10 @@ func startNetworkBeforeRestart(
 				logger.Named("before-restart"),
 				restartStores.consensusStore,
 				restartStores.blockchain,
-				consensusNodeOptions{requiredWALEntriesWritten: requiredWALEntriesWritten},
+				consensusNodeOptions{
+					requiredWALEntriesWritten: requiredWALEntriesWritten,
+					timeoutFn:                 timeoutFn,
+				},
 			)
 			continue
 		}
@@ -273,6 +284,7 @@ func startNetworkBeforeRestart(
 			logger.Named("peer"),
 			genesisDiff,
 			genesisClasses,
+			timeoutFn,
 		))
 	}
 
@@ -287,6 +299,7 @@ func startPeerNode(
 	logger *log.ZapLogger,
 	genesisDiff core.StateDiff,
 	genesisClasses map[felt.Felt]core.ClassDefinition,
+	timeoutFn driver.TimeoutFn,
 ) runningConsensusNode {
 	t.Helper()
 
@@ -300,7 +313,7 @@ func startPeerNode(
 		getBlockchain(t, genesisDiff, genesisClasses),
 		// Peers must drain and ack commits, otherwise their drivers block at commit
 		// and stop gossiping the proposal/prevotes the restart node needs in its WAL.
-		consensusNodeOptions{ackCommits: true},
+		consensusNodeOptions{ackCommits: true, timeoutFn: timeoutFn},
 	)
 }
 
@@ -322,6 +335,11 @@ func startConsensusNode(
 		nodeIndex,
 		restartTestNodeCount,
 	)
+
+	timeoutFn := mockServices.TimeoutFn
+	if options.timeoutFn != nil {
+		timeoutFn = options.timeoutFn
+	}
 
 	network := &networks.Mainnet
 	vm := vm.New(&vm.ChainInfo{
@@ -368,7 +386,7 @@ func startConsensusNode(
 		&blockFetcher,
 		&mockServices.NodeAddress,
 		mockServices.Validators,
-		mockServices.TimeoutFn,
+		timeoutFn,
 		p2pNode.GetBootstrapPeers,
 		compiler.NewUnsafe(),
 		initOpts,
