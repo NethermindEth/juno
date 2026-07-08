@@ -67,7 +67,6 @@ type Reader interface {
 	PublicKey(ctx context.Context) (*felt.Felt, error)
 	Signature(ctx context.Context, blockID string) (*starknet.Signature, error)
 	StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error)
-	StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error)
 	StateUpdateWithBlockAndSignature(
 		ctx context.Context,
 		blockID string,
@@ -350,15 +349,6 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	})
 
 	return doRequest[starknet.StateUpdate](ctx, c, queryURL)
-}
-
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
-	queryURL := buildQueryString(c.url, "get_state_update", map[string]string{
-		blockNumberArg: blockID,
-		"includeBlock": trueStr,
-	})
-
-	return doRequest[starknet.StateUpdateWithBlock](ctx, c, queryURL)
 }
 
 func (c *Client) StateUpdateWithBlockAndSignature(
