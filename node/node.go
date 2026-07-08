@@ -306,6 +306,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 
 	if cfg.Sequencer {
+		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
