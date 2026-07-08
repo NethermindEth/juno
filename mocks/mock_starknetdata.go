@@ -149,37 +149,6 @@ func (mr *MockStarknetDataMockRecorder) StateUpdate(ctx, blockNumber any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdate", reflect.TypeOf((*MockStarknetData)(nil).StateUpdate), ctx, blockNumber)
 }
 
-// StateUpdatePending mocks base method.
-func (m *MockStarknetData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePending", ctx)
-	ret0, _ := ret[0].(*core.StateUpdate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateUpdatePending indicates an expected call of StateUpdatePending.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePending(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePending", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePending), ctx)
-}
-
-// StateUpdatePendingWithBlock mocks base method.
-func (m *MockStarknetData) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePendingWithBlock", ctx)
-	ret0, _ := ret[0].(*core.StateUpdate)
-	ret1, _ := ret[1].(*core.Block)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// StateUpdatePendingWithBlock indicates an expected call of StateUpdatePendingWithBlock.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePendingWithBlock(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePendingWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePendingWithBlock), ctx)
-}
-
 // StateUpdateWithBlock mocks base method.
 func (m *MockStarknetData) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
 	m.ctrl.T.Helper()

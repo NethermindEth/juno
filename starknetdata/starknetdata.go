@@ -19,9 +19,7 @@ type StarknetData interface {
 	Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error)
 	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
 	StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error)
-	StateUpdatePending(ctx context.Context) (*core.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error)
-	StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error)
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,

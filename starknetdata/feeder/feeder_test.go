@@ -265,33 +265,6 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	}
 }
 
-func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	response, err := client.StateUpdateWithBlock(ctx, "pending")
-	require.NoError(t, err)
-	adaptedBlock, err := sn2core.AdaptBlock(response.Block, nil)
-	require.NoError(t, err)
-	adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
-	require.NoError(t, err)
-	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, block, adaptedBlock)
-	assert.Equal(t, stateUpdate, adaptedStateUpdate)
-}
-
-func TestStateUpdatePending(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	stateUpdate, err := adapter.StateUpdatePending(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, stateUpdate)
-}
-
 func TestAdapterErrorPaths(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
