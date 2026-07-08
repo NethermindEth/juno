@@ -208,21 +208,6 @@ func (mr *MockFeederReaderMockRecorder) StateUpdate(ctx, blockID any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdate", reflect.TypeOf((*MockFeederReader)(nil).StateUpdate), ctx, blockID)
 }
 
-// StateUpdateWithBlock mocks base method.
-func (m *MockFeederReader) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdateWithBlock", ctx, blockID)
-	ret0, _ := ret[0].(*starknet.StateUpdateWithBlock)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateUpdateWithBlock indicates an expected call of StateUpdateWithBlock.
-func (mr *MockFeederReaderMockRecorder) StateUpdateWithBlock(ctx, blockID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateWithBlock", reflect.TypeOf((*MockFeederReader)(nil).StateUpdateWithBlock), ctx, blockID)
-}
-
 // StateUpdateWithBlockAndSignature mocks base method.
 func (m *MockFeederReader) StateUpdateWithBlockAndSignature(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlockAndSignature, error) {
 	m.ctrl.T.Helper()
