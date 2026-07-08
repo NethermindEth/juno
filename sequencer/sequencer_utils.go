@@ -30,10 +30,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 		}
 	}
 
-	preConfirmed, err := s.PreConfirmed()
-	if err != nil {
-		s.logger.Infof("Failed to get pending block")
-	}
+	preConfirmed := s.buildState.PreConfirmed
 	if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 		return nil, err
 	}

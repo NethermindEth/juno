@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"go.uber.org/zap"
 )
 
@@ -51,10 +51,10 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch {
 	case blockID.IsPreConfirmed():
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var reader preconfirmed.ChainReader
+		reader, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			block = preConfirmed.GetBlock()
+			block = reader.Head().Block
 		}
 	case blockID.IsLatest():
 		block, err = h.bcReader.Head()
@@ -72,7 +72,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -86,15 +86,14 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
 	switch {
 	case blockID.IsPreConfirmed():
-		preConfirmed, err := h.syncReader.PreConfirmed()
+		reader, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 				return nil, rpccore.ErrBlockNotFound
 			}
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
-		txns := preConfirmed.GetTransactions()
-		return txns, nil
+		return reader.Head().GetTransactions(), nil
 	default:
 		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
 		if err != nil {
@@ -112,10 +111,10 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch {
 	case blockID.IsPreConfirmed():
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var reader preconfirmed.ChainReader
+		reader, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			header = preConfirmed.GetBlock().Header
+			header = reader.Head().GetHeader()
 		}
 	case blockID.IsLatest():
 		header, err = h.bcReader.HeadsHeader()
@@ -135,7 +134,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, rpccore.ErrBlockNotFound
 		}
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -172,10 +171,10 @@ func (h *Handler) stateByBlockID(
 	var err error
 	switch {
 	case blockID.IsPreConfirmed():
-		var preConfirmed *pending.PreConfirmed
-		preConfirmed, err = h.syncReader.PreConfirmed()
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
 		if err == nil {
-			reader, closer, err = sync.PendingState(preConfirmed, h.bcReader)
+			reader, closer, err = chain.PreConfirmedStateAt(chain.Head().Block.Number, h.bcReader)
 		}
 	case blockID.IsLatest():
 		reader, closer, err = h.bcReader.HeadState()
@@ -195,7 +194,7 @@ func (h *Handler) stateByBlockID(
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return nil, nil, rpccore.ErrBlockNotFound
 		}
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)

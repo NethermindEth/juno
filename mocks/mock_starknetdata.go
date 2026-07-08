@@ -88,21 +88,6 @@ func (mr *MockStarknetDataMockRecorder) BlockLatest(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockLatest), ctx)
 }
 
-// BlockPreLatest mocks base method.
-func (m *MockStarknetData) BlockPreLatest(ctx context.Context) (*core.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockPreLatest", ctx)
-	ret0, _ := ret[0].(*core.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockPreLatest indicates an expected call of BlockPreLatest.
-func (mr *MockStarknetDataMockRecorder) BlockPreLatest(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockPreLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockPreLatest), ctx)
-}
-
 // Class mocks base method.
 func (m *MockStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
 	m.ctrl.T.Helper()

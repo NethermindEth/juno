@@ -137,7 +137,7 @@ func (c *ChainReader) ReceiptByHash(
 
 // PreConfirmedStateAt returns the chain's view of state at blockNumber. The chain
 // owns base resolution: it opens the canonical state immediately below its
-// own bottom (derived from tip - length + 1.
+// own bottom (derived from tip - length + 1).
 //
 //	Returns [pending.ErrPreConfirmedNotFound] if blockNumber falls outside the chain.
 func (c *ChainReader) PreConfirmedStateAt(

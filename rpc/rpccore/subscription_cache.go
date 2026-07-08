@@ -2,15 +2,15 @@ package rpccore
 
 import "sync"
 
-// Cache is expected to at most hold 3 blocks at a time.
-// latest block, pre-latest block, and the pre-confirmed block.
+// Cache is expected to at most hold 3 blocks at a time:
+// the latest committed block plus up to 2 pre-confirmed blocks.
 const BlockCacheCapacity = 3
 
 // SubscriptionCache is a minimal cache for subscription notifications deduplication.
 // Stores notifications by block number and key, with automatic eviction.
 //
 // The cache is designed to hold at most 3 blocks:
-// - up to 2 non-committed blocks (pre-latest and pre-confirmed)
+// - up to 2 non-committed (pre-confirmed) blocks
 // - and 1 committed block.
 // The finalised block will always have the smallest block number.
 // When the cache reaches capacity, it evicts the slot with the lowest block number, which always

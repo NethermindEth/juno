@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
@@ -61,10 +60,6 @@ func (t *testBlockDataSource) BlockHeaderLatest(ctx context.Context) (*core.Head
 	}
 
 	return getBlock(blocks, uint64(len(blocks)-1)).Block.Header, nil
-}
-
-func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	return pending.PreLatest{}, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) PreConfirmedBlockByNumber(
@@ -274,7 +269,7 @@ func setup(
 	t.Cleanup(wg.Wait)
 	t.Cleanup(cancel)
 	wg.Go(func() {
-		synchronizer := sync.New(blockchain, dataSource, logger, 0, 0, false, synchronizerDatabase)
+		synchronizer := sync.New(blockchain, dataSource, logger, 0, false, synchronizerDatabase)
 		require.NoError(t, synchronizer.Run(ctx))
 	})
 

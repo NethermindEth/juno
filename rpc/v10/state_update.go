@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -74,7 +75,7 @@ type MigratedCompiledClass struct {
 func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return StateUpdate{}, rpccore.ErrBlockNotFound
 		}
 		return StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
@@ -175,11 +176,11 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 			return h.bcReader.StateUpdateByNumber(height)
 		}
 	case id.IsPreConfirmed():
-		preConfirmed, err := h.syncReader.PreConfirmed()
+		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
 			return nil, err
 		}
-		return preConfirmed.GetStateUpdate(), nil
+		return chain.Head().GetStateUpdate(), nil
 	case id.IsHash():
 		return h.bcReader.StateUpdateByHash(id.Hash())
 	case id.IsNumber():
