@@ -54,22 +54,26 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 	return &BlockPrunedError{BlockNumber: blockNumber, OldestRetained: oldest}
 }
 
-// HeaderByNumberIfStateRetained returns the header for blockNumber only if
+// StateRootByNumberIfStateRetained returns the state root for blockNumber only if
 // state at that block is queryable. Use this for state access only; for
 // block-level data (transactions, receipts, etc.) use [RequireRetained] + the
 // plain core accessors instead — the two checks diverge at oldestKept-1,
 // where state is preserved by carve-out but block-level data is not.
 // See [PruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
 // when state at blockNumber is not available.
-func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*core.Header, error) {
-	header, err := core.GetBlockHeaderByNumber(r, blockNumber)
+func StateRootByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*felt.Felt, error) {
+	state, err := core.GetGlobalStateRootByBlockNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := core.GetBlockHeaderNumberByHash(r, header.Hash); err != nil {
+	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
+	if err != nil {
 		return nil, err
 	}
-	return header, nil
+	if _, err := core.GetBlockHeaderNumberByHash(r, hash); err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // RequireStateRetainedByBlockNumber checks state retention by number, avoiding the full

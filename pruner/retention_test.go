@@ -85,16 +85,16 @@ func TestRequireRetained(t *testing.T) {
 	})
 }
 
-func TestHeaderByNumberIfStateRetained(t *testing.T) {
-	t.Run("fully retained block returns the header", func(t *testing.T) {
+func TestStateRootByNumberIfStateRetained(t *testing.T) {
+	t.Run("fully retained block returns the state root", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
 		blocks := make([]*testutils.StoredBlock, 5)
 		for i := range uint64(5) {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		header, err := pruner.HeaderByNumberIfStateRetained(database, 3)
+		stateRoot, err := pruner.StateRootByNumberIfStateRetained(database, 3)
 		require.NoError(t, err)
-		assert.Equal(t, blocks[3].Header.Hash, header.Hash)
+		assert.Equal(t, blocks[3].Header.GlobalStateRoot, stateRoot)
 	})
 
 	t.Run("block with header but no hash→number is treated as state-pruned", func(t *testing.T) {
@@ -109,13 +109,13 @@ func TestHeaderByNumberIfStateRetained(t *testing.T) {
 			return batch.Delete(db.BlockHeaderNumbersByHashKey(blocks[1].Header.Hash))
 		})
 
-		_, err := pruner.HeaderByNumberIfStateRetained(database, 1)
+		_, err := pruner.StateRootByNumberIfStateRetained(database, 1)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
-		_, err := pruner.HeaderByNumberIfStateRetained(database, 0)
+		_, err := pruner.StateRootByNumberIfStateRetained(database, 0)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
