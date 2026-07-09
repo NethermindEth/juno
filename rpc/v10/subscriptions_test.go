@@ -105,7 +105,7 @@ func setupMockEventFilterer(
 	l1HeadNumber uint64,
 	filteredEvents []blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -122,7 +122,7 @@ func setupMockEventFiltererWithMultiple(
 	l1HeadNumber uint64,
 	filteredEvents ...[]blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -191,9 +191,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		// is more than the head, a block not found error will be returned. This behaviour has been
 		// tested in various other tests, and we don't need to test it here again.
 		t.Run("head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -201,9 +199,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -476,7 +472,6 @@ func TestSubscribeEvents(t *testing.T) {
 				b1Filtered,
 				b2Filtered,
 			)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -496,8 +491,7 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:        nil,
 		fromAddrs:   nil,
 		setupMocks: func() {
-			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
+			mockChain.EXPECT().Height().Return(b2.Number, nil)
 			mockChain.EXPECT().L1Head().Return(
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
@@ -1115,9 +1109,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		t.Run("BlockID head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
@@ -1125,9 +1117,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
@@ -1152,8 +1142,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
+	mockChain.EXPECT().Height().Return(block1.Number, nil)
 
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	blockIDLatest := BlockIDLatest()
@@ -1198,7 +1189,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block2.Header, nil)
+	mockChain.EXPECT().Height().Return(block2.Number, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
@@ -1242,8 +1233,9 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
+	mockChain.EXPECT().Height().Return(block1.Number, nil)
 
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	blockIDLatest := BlockIDLatest()
@@ -1296,7 +1288,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(2)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
 	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
 

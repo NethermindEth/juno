@@ -77,7 +77,7 @@ func newEventSubscriber(
 		}
 	}
 
-	requestedHeader, headHeader, rpcErr := handler.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := handler.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return subscriber{}, rpcErr
 	}
@@ -103,14 +103,14 @@ func newEventSubscriber(
 			return state.processHistoricalEvents(
 				ctx,
 				id,
-				requestedHeader.Number,
-				headHeader.Number,
+				startBlock,
+				latestBlock,
 				fromAddrs,
 				keys,
 			)
 		},
-		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
+		onReorg:   state.onReorg,
 	}
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 		s.onPreConfirmed = state.onPreConfirmed
