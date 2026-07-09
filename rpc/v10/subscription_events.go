@@ -98,26 +98,21 @@ func newEventSubscriber(
 	// Historical replay is bounded to the canonical tip even for pre_confirmed
 	// subscribers: the pre_confirmed window is owned exclusively by the realtime
 	// onPreConfirmed handler, which avoids duplicating the tip during handoff.
-	fromBlock := BlockIDFromNumber(requestedHeader.Number)
-	toBlock := BlockIDFromNumber(headHeader.Number)
-
 	s := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return state.processHistoricalEvents(
-				ctx, id,
-				&fromBlock,
-				&toBlock,
+				ctx,
+				id,
+				requestedHeader.Number,
+				headHeader.Number,
 				fromAddrs,
 				keys,
-				headHeader.Number,
 			)
 		},
 		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
 	}
-
-	if finalityStatus != nil &&
-		*finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 		s.onPreConfirmed = state.onPreConfirmed
 	}
 
@@ -142,10 +137,8 @@ func (s *eventSubscriberState) onNewHead(
 ) error {
 	// Canonical blocks bypass the deduper: they are published once.
 	for event := range matchingEvents(&s.eventMatcher, head) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 
 		if err := s.sendFilteredEvent(id, event, TxnAcceptedOnL2); err != nil {
@@ -229,11 +222,10 @@ func matchingEvents(
 func (s *eventSubscriberState) processHistoricalEvents(
 	ctx context.Context,
 	id string,
-	from,
-	to *BlockID,
+	fromBlock,
+	toBlock uint64,
 	fromAddrs []felt.Address,
 	keys [][]felt.Felt,
-	height uint64,
 ) error {
 	filter, err := s.handler.bcReader.EventFilter(
 		fromAddrs,
@@ -249,11 +241,11 @@ func (s *eventSubscriberState) processHistoricalEvents(
 	if err != nil {
 		return err
 	}
-
 	defer s.handler.callAndLogErr(filter.Close, "error closing event filter in events subscription")
 
-	err = setEventFilterRange(filter, from, to, height)
-	if err != nil {
+	from := BlockIDFromNumber(fromBlock)
+	to := BlockIDFromNumber(toBlock)
+	if err = setEventFilterRange(filter, &from, &to, toBlock); err != nil {
 		return err
 	}
 
@@ -291,18 +283,19 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			// Historical replay is bounded to the canonical tip, so every event
-			// here is canonical: L1-finalised at or below the L1 head, else L2.
-			finalityStatus := TxnAcceptedOnL2
-			if *event.BlockNumber <= s.l1HeadNumber {
-				finalityStatus = TxnAcceptedOnL1
-			}
+		}
 
-			// Historical replay is a one-shot bootstrap with no internal
-			// duplicates, so it sends directly without the deduper.
-			if err := s.sendFilteredEvent(id, &event, finalityStatus); err != nil {
-				return err
-			}
+		// Historical replay is bounded to the canonical tip, so every event
+		// here is canonical: L1-finalised at or below the L1 head, else L2.
+		finalityStatus := TxnAcceptedOnL2
+		if *event.BlockNumber <= s.l1HeadNumber {
+			finalityStatus = TxnAcceptedOnL1
+		}
+
+		// Historical replay is a one-shot bootstrap with no internal
+		// duplicates, so it sends directly without the deduper.
+		if err := s.sendFilteredEvent(id, &event, finalityStatus); err != nil {
+			return err
 		}
 	}
 	return nil
