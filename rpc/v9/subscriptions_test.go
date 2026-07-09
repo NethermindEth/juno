@@ -255,7 +255,7 @@ func TestSubscribeEvents(t *testing.T) {
 	b2PreConfirmedPartial := createTestPreConfirmed(t, b2, 3)
 	b2PreConfirmedExtended := createTestPreConfirmed(t, b2, 6)
 
-	b2PreConfirmedPartialFiltered, b2PreConfirmedPartialEmitted := createTestEvents(
+	_, b2PreConfirmedPartialEmitted := createTestEvents(
 		t,
 		b2PreConfirmedPartial.Block,
 		nil,
@@ -418,20 +418,28 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:           nil,
 		fromAddr:       nil,
 		setupMocks: func() {
-			setupMockEventFiltererWithMultiple(
+			setupMockEventFilterer(
 				mockChain,
 				mockEventFilterer,
 				b1.Header,
 				b1.Header.Number-1,
 				b1Filtered,
-				b2PreConfirmedPartialFiltered,
 			)
 		},
 		steps: []stepInfo{
 			{
-				description: "events from latest and preconfirmed",
+				description: "canonical events from latest on start",
 				expect: [][]SubscriptionEmittedEvent{
-					b1Emitted, b2PreConfirmedPartialEmitted,
+					b1Emitted,
+				},
+			},
+			{
+				description: "pre_confirmed tip delivered via feed after handoff",
+				notify: func() {
+					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b2PreConfirmedPartialEmitted,
 				},
 			},
 			{
@@ -621,20 +629,28 @@ func TestSubscribeEvents(t *testing.T) {
 		description:    "deduplicate events",
 		finalityStatus: new(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
 		setupMocks: func() {
-			setupMockEventFiltererWithMultiple(
+			setupMockEventFilterer(
 				mockChain,
 				mockEventFilterer,
 				b1.Header,
 				uint64(max(0, int(b1.Header.Number)-1)),
 				b1Filtered,
-				b2PreConfirmedPartialFiltered,
 			)
 		},
 		steps: []stepInfo{
 			{
-				description: "events from latest and preconfirmed",
+				description: "canonical events from latest on start",
 				expect: [][]SubscriptionEmittedEvent{
-					b1Emitted, b2PreConfirmedPartialEmitted,
+					b1Emitted,
+				},
+			},
+			{
+				description: "pre_confirmed tip delivered via feed after handoff",
+				notify: func() {
+					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b2PreConfirmedPartialEmitted,
 				},
 			},
 			{

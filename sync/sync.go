@@ -379,8 +379,12 @@ func (s *Synchronizer) storeTask(
 	}
 
 	s.newHeads.Send(block)
-	s.logger.Info("Stored Block", zap.Uint64("number", block.Number), zap.String("hash",
-		block.Hash.ShortString()), zap.String("root", block.GlobalStateRoot.ShortString()))
+	s.logger.Info(
+		"Stored Block",
+		zap.Uint64("number", block.Number),
+		zap.String("hash", block.Hash.ShortString()),
+		zap.String("root", block.GlobalStateRoot.ShortString()),
+	)
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 		if err != nil {

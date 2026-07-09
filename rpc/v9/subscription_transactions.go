@@ -2,6 +2,7 @@ package rpcv9
 
 import (
 	"context"
+	"iter"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -48,19 +49,21 @@ type SubscriptionNewTransaction struct {
 	FinalityStatus TxnStatusWithoutL1 `json:"finality_status"`
 }
 
+// transactionsSubscriberState is touched only by its single subscription dispatch
+// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
 type transactionsSubscriberState struct {
 	conn           jsonrpc.Conn
-	senderAddr     []felt.Felt
+	senders        []felt.Felt
 	finalityStatus []TxnStatusWithoutL1
-	sentCache      *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]
+	deduper        *rpccore.PreConfirmedDeduper[felt.TransactionHash]
 }
 
 func newTransactionsSubscriber(
 	conn jsonrpc.Conn,
 	finalityStatus []TxnStatusWithoutL1,
-	senderAddr []felt.Felt,
+	senders []felt.Felt,
 ) (subscriber, *jsonrpc.Error) {
-	if len(senderAddr) > rpccore.MaxEventFilterKeys {
+	if len(senders) > rpccore.MaxEventFilterKeys {
 		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
 	}
 
@@ -74,9 +77,9 @@ func newTransactionsSubscriber(
 
 	state := &transactionsSubscriberState{
 		conn:           conn,
-		senderAddr:     senderAddr,
+		senders:        senders,
 		finalityStatus: finalityStatus,
-		sentCache:      rpccore.NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1](),
+		deduper:        rpccore.NewPreConfirmedDeduper[felt.TransactionHash](),
 	}
 
 	s := subscriber{
@@ -104,7 +107,7 @@ func (s *transactionsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.sentCache.Clear()
+	s.deduper.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -114,11 +117,13 @@ func (s *transactionsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	return s.processBlock(
-		id,
-		head,
-		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
-	)
+	// Canonical blocks are published exactly once, so they bypass the deduper.
+	for txn := range transactionsOf(head, s.senders, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
+		if err := sendTransaction(s.conn, txn, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *transactionsSubscriberState) onPreConfirmed(
@@ -127,58 +132,50 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	_ *subscription,
 	preConfirmed *pending.PreConfirmed,
 ) error {
-	return s.processBlock(
-		id,
-		preConfirmed.GetBlock(),
-		TxnStatusWithoutL1(TxnStatusPreConfirmed),
-	)
-}
-
-func (s *transactionsSubscriberState) processBlock(
-	id string,
-	b *core.Block,
-	status TxnStatusWithoutL1,
-) error {
-	for _, txn := range b.Transactions {
-		if !filterTxBySender(txn, s.senderAddr) {
+	block := preConfirmed.GetBlock()
+	status := TxnStatusWithoutL1(TxnStatusPreConfirmed)
+	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
+	// transactions. A same-height round replacement changes BlockIdentifier and re-emits.
+	for txn := range transactionsOf(block, s.senders, status) {
+		shouldSend := s.deduper.MarkSent(
+			block.Number,
+			preConfirmed.BlockIdentifier,
+			(*felt.TransactionHash)(txn.Hash),
+		)
+		if !shouldSend {
 			continue
 		}
 
-		if err := s.sendWithoutDuplicate(
-			id,
-			b.Number,
-			txn,
-			status,
-		); err != nil {
+		if err := sendTransaction(s.conn, txn, id); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *transactionsSubscriberState) sendWithoutDuplicate(
-	id string,
-	blockNumber uint64,
-	txn core.Transaction,
+// transactionsOf yields each sender-matching transaction in the block, adapted to
+// an RPC subscription transaction with the given finality status.
+func transactionsOf(
+	b *core.Block,
+	senders []felt.Felt,
 	finalityStatus TxnStatusWithoutL1,
-) error {
-	txHash := felt.TransactionHash(*txn.Hash())
-	if !s.sentCache.ShouldSend(
-		blockNumber,
-		&txHash,
-		&finalityStatus,
-	) {
-		return nil
+) iter.Seq[*SubscriptionNewTransaction] {
+	return func(yield func(*SubscriptionNewTransaction) bool) {
+		for _, txn := range b.Transactions {
+			if !filterTxBySender(txn, senders) {
+				continue
+			}
+
+			response := &SubscriptionNewTransaction{
+				Transaction:    *AdaptTransaction(txn),
+				FinalityStatus: finalityStatus,
+			}
+
+			if !yield(response) {
+				return
+			}
+		}
 	}
-
-	s.sentCache.Put(blockNumber, &txHash, &finalityStatus)
-
-	response := SubscriptionNewTransaction{
-		Transaction:    *AdaptTransaction(txn),
-		FinalityStatus: finalityStatus,
-	}
-
-	return sendTransaction(s.conn, &response, id)
 }
 
 func (s *transactionsSubscriberState) onReceivedTransaction(
@@ -187,7 +184,7 @@ func (s *transactionsSubscriberState) onReceivedTransaction(
 	_ *subscription,
 	txn core.Transaction,
 ) error {
-	if !filterTxBySender(txn, s.senderAddr) {
+	if !filterTxBySender(txn, s.senders) {
 		return nil
 	}
 

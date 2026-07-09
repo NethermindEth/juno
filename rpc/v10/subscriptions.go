@@ -64,7 +64,9 @@ func (h *Handler) subscribe(
 
 	reorgSub, reorgRecv := getSubscription(subscriber.onReorg, h.reorgs)
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
-	preConfirmedSub, preConfirmedRecv := getSubscription(subscriber.onPreConfirmed, h.preConfirmedFeed)
+	preConfirmedSub, preConfirmedRecv := getSubscription(
+		subscriber.onPreConfirmed, h.preConfirmedFeed,
+	)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
 	receivedTransactionSub, receivedTransactionRecv := getSubscription(
 		subscriber.onReceivedTransaction,
@@ -92,26 +94,32 @@ func (h *Handler) subscribe(
 			select {
 			case <-subscriptionCtx.Done():
 				return
+
 			case reorg := <-reorgRecv:
 				if err := subscriber.onReorg(subscriptionCtx, id, sub, reorg); err != nil {
 					h.logger.Warn("Error on reorg", zap.String("id", id), zap.Error(err))
 					return
 				}
+
 			case l1Head := <-l1HeadRecv:
 				if err := subscriber.onL1Head(subscriptionCtx, id, sub, l1Head); err != nil {
 					h.logger.Warn("Error on l1 head", zap.String("id", id), zap.Error(err))
 					return
 				}
+
 			case head := <-newHeadsRecv:
 				if err := subscriber.onNewHead(subscriptionCtx, id, sub, head); err != nil {
 					h.logger.Warn("Error on new head", zap.String("id", id), zap.Error(err))
 					return
 				}
+
 			case preConfirmed := <-preConfirmedRecv:
-				if err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed); err != nil {
+				err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed)
+				if err != nil {
 					h.logger.Warn("Error on pre confirmed", zap.String("id", id), zap.Error(err))
 					return
 				}
+
 			case transaction := <-receivedTransactionRecv:
 				err := subscriber.onReceivedTransaction(subscriptionCtx, id, sub, transaction)
 				if err != nil {
@@ -159,7 +167,6 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 }
 
 // resolveBlockRange returns the start and latest headers based on the blockID.
-// It will also do some sanity checks and return errors if the blockID is invalid.
 func (h *Handler) resolveBlockRange(
 	blockID *SubscriptionBlockID,
 ) (*core.Header, *core.Header, *jsonrpc.Error) {
@@ -177,8 +184,9 @@ func (h *Handler) resolveBlockRange(
 		return nil, nil, rpcErr
 	}
 
-	if latestHeader.Number >= rpccore.MaxBlocksBack &&
-		startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack {
+	tooManyBlocks := latestHeader.Number >= rpccore.MaxBlocksBack &&
+		startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack
+	if tooManyBlocks {
 		return nil, nil, rpccore.ErrTooManyBlocksBack
 	}
 
