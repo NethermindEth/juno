@@ -106,7 +106,7 @@ func setupMockEventFilterer(
 	l1HeadNumber uint64,
 	filteredEvents []blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -123,7 +123,7 @@ func setupMockEventFiltererWithMultiple(
 	l1HeadNumber uint64,
 	filteredEvents ...[]blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -192,9 +192,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		// is more than the head, a block not found error will be returned. This behaviour has been
 		// tested in various other tests, and we don't need to test it here again.
 		t.Run("head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -202,9 +200,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -475,7 +471,6 @@ func TestSubscribeEvents(t *testing.T) {
 				b1Filtered,
 				b2Filtered,
 			)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -495,8 +490,7 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:        nil,
 		fromAddr:    nil,
 		setupMocks: func() {
-			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
+			mockChain.EXPECT().Height().Return(b2.Number, nil)
 			mockChain.EXPECT().L1Head().Return(
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
@@ -938,9 +932,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		t.Run("BlockID head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
@@ -948,9 +940,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
@@ -969,7 +959,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 		syncer := newFakeSyncer()
 
 		l1Feed := feed.New[*core.L1Head]()
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockChain.EXPECT().Height().Return(uint64(0), nil)
+		mockChain.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{}, nil)
 		mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
 		handler, server := setupRPC(t, ctx, mockChain, syncer)
@@ -1065,7 +1056,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
+	mockChain.EXPECT().Height().Return(uint64(0), nil).Times(2)
+	mockChain.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{}, nil).Times(2)
 
 	ws := jsonrpc.NewWebsocket(server, nil, log.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -1172,7 +1164,8 @@ func TestSubscriptionReorg(t *testing.T) {
 		Return(nil, blockchain.ContinuationToken{}, nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
+	mockChain.EXPECT().Height().Return(uint64(0), nil).Times(2)
+	mockChain.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{}, nil)
 	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 

@@ -24,12 +24,12 @@ func (h *Handler) SubscribeNewHeads(
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, newHeadsSubscriber(h, w, startHeader, latestHeader))
+	return h.subscribe(ctx, w, newHeadsSubscriber(h, w, startBlock, latestBlock))
 }
 
 type headsSubscriberState struct {
@@ -40,13 +40,14 @@ type headsSubscriberState struct {
 func newHeadsSubscriber(
 	h *Handler,
 	conn jsonrpc.Conn,
-	startHeader, latestHeader *core.Header,
+	startBlock,
+	latestBlock uint64,
 ) subscriber {
 	state := &headsSubscriberState{handler: h, conn: conn}
 
 	return subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return state.sendHistoricalHeaders(ctx, id, startHeader, latestHeader)
+			return state.sendHistoricalHeaders(ctx, id, startBlock, latestBlock)
 		},
 		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
@@ -74,34 +75,26 @@ func (s *headsSubscriberState) onNewHead(
 func (s *headsSubscriberState) sendHistoricalHeaders(
 	ctx context.Context,
 	id string,
-	startHeader,
-	latestHeader *core.Header,
+	startBlock,
+	latestBlock uint64,
 ) error {
-	var (
-		err       error
-		curHeader = startHeader
-	)
-
-	for {
+	for currentBlock := startBlock; currentBlock <= latestBlock; currentBlock++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			err = sendHeader(s.conn, curHeader, id)
-			if err != nil {
-				return err
-			}
+		}
 
-			if curHeader.Number == latestHeader.Number {
-				return nil
-			}
+		currentHeader, err := s.handler.bcReader.BlockHeaderByNumber(currentBlock)
+		if err != nil {
+			return err
+		}
 
-			curHeader, err = s.handler.bcReader.BlockHeaderByNumber(curHeader.Number + 1)
-			if err != nil {
-				return err
-			}
+		if err = sendHeader(s.conn, currentHeader, id); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {

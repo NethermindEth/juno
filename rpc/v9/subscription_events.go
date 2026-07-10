@@ -81,7 +81,7 @@ func newEventSubscriber(
 		}
 	}
 
-	requestedHeader, headHeader, rpcErr := handler.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := handler.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return subscriber{}, rpcErr
 	}
@@ -107,8 +107,8 @@ func newEventSubscriber(
 	// Historical replay is bounded to the canonical tip even for pre_confirmed
 	// subscribers: the pre_confirmed window is owned exclusively by the realtime
 	// onPreConfirmed handler, which avoids duplicating the tip during handoff.
-	fromBlock := BlockIDFromNumber(requestedHeader.Number)
-	toBlock := BlockIDFromNumber(headHeader.Number)
+	fromBlock := BlockIDFromNumber(startBlock)
+	toBlock := BlockIDFromNumber(latestBlock)
 
 	s := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
@@ -119,11 +119,11 @@ func newEventSubscriber(
 				&toBlock,
 				fromAddr,
 				keys,
-				headHeader.Number,
+				latestBlock,
 			)
 		},
-		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
+		onReorg:   state.onReorg,
 	}
 
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
