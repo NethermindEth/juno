@@ -375,6 +375,28 @@ func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error)
 	return GetBlockHeaderByNumber(r, blockNum)
 }
 
+// GetGlobalStateAndHashbyNumber only materialise GlobalStateRoot and Hash
+// from the header
+func GetStateRootAndHashByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, *felt.Felt, error) {
+	var header struct {
+		Hash            *felt.Felt
+		GlobalStateRoot *felt.Felt
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if header.Hash == nil {
+		return nil, nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, nil, fmt.Errorf("missing GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.Hash, header.GlobalStateRoot, nil
+}
+
 func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
 	if err := WriteBlockHeaderNumberByHash(w, header.Hash, header.Number); err != nil {
 		return err

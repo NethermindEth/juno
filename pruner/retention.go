@@ -62,11 +62,7 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 // See [PruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
 // when state at blockNumber is not available.
 func StateRootByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*felt.Felt, error) {
-	state, err := core.GetGlobalStateRootByBlockNumber(r, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
+	state, hash, err := core.GetStateRootAndHashByBlockNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}

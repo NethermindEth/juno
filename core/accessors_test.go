@@ -323,3 +323,57 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStateRootAndHashByBlockNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+		require.NoError(t, err)
+
+		gotHash, gotStateRoot, err := core.GetStateRootAndHashByBlockNumber(memDB, block.Number)
+		require.NoError(t, err)
+
+		assert.Equal(t, header.Hash, gotHash)
+		assert.Equal(t, header.GlobalStateRoot, gotStateRoot)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := core.GetStateRootAndHashByBlockNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing Hash returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		headerWithoutHash := struct {
+			GlobalStateRoot *felt.Felt
+		}{GlobalStateRoot: block.GlobalStateRoot}
+
+		data, err := encoder.Marshal(headerWithoutHash)
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, _, err = core.GetStateRootAndHashByBlockNumber(partialHeaderDB, block.Number)
+		require.ErrorContains(t, err, "missing Hash in block header")
+	})
+
+	t.Run("missing GlobalStateRoot returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		headerWithoutStateRoot := struct {
+			Hash *felt.Felt
+		}{Hash: block.Hash}
+
+		data, err := encoder.Marshal(headerWithoutStateRoot)
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, _, err = core.GetStateRootAndHashByBlockNumber(partialHeaderDB, block.Number)
+		require.ErrorContains(t, err, "missing GlobalStateRoot in block header")
+	})
+}
