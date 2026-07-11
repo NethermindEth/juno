@@ -34,7 +34,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
+			adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -52,7 +52,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
+	adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -87,7 +87,7 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			adaptedResponse, err := sn2core.AdaptStateUpdate(response)
+			adaptedResponse, err := sn2core.AdaptStateUpdate(&response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, feederUpdate)
 		})
@@ -221,13 +221,15 @@ func TestClassV1(t *testing.T) {
 		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
 		casmClass, err := client.CasmClassDefinition(t.Context(), test.classHash)
+		var compiledClass *starknet.CasmClass
 		if test.hasCompiledClass {
 			require.NoError(t, err)
+			compiledClass = &casmClass
 		} else {
 			require.EqualError(t, err, "deprecated compiled class")
 		}
 
-		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, casmClass)
+		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
 		require.NoError(t, err)
 		assert.Equal(t, adaptedResponse, class)
 
