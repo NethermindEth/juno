@@ -3,6 +3,7 @@ package rpcv10
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -1124,6 +1125,44 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 	})
+
+	t.Run("BlockID - Hash", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, logger)
+
+		blockHash := felt.NewFromUint64[felt.Felt](1)
+		blockID := SubscriptionBlockID(BlockIDFromHash(blockHash))
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		t.Run("block not found", func(t *testing.T) {
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), db.ErrKeyNotFound)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		})
+
+		t.Run("internal error", func(t *testing.T) {
+			internalErr := errors.New("some internal error")
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), internalErr)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr.Error()), rpcErr)
+		})
+	})
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
@@ -1219,6 +1258,46 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	handler.newHeads.Send(block3)
 	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
+}
+
+func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	blockNumber1 := uint64(56377)
+	blockNumber2 := uint64(56378)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, logger)
+
+	mockChain.EXPECT().Height().Return(block2.Number, nil)
+	mockChain.EXPECT().BlockNumberByHash(block1.Hash).Return(block1.Number, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
+
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
+	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
+
+	blockID := BlockIDFromHash(block1.Hash)
+	subID, conn := createTestNewHeadsWebsocket(
+		t,
+		handler,
+		(*SubscriptionBlockID)(&blockID),
+	)
+
+	// The hash resolves to block1's number, so the replay starts there and
+	// covers the range up to the latest block.
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader)
+
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
 
 func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {

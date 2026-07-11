@@ -3,6 +3,7 @@ package rpcv9
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -948,6 +949,44 @@ func TestSubscribeNewHeads(t *testing.T) {
 		})
 	})
 
+	t.Run("BlockID - Hash", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, logger)
+
+		blockHash := felt.NewFromUint64[felt.Felt](1)
+		blockID := SubscriptionBlockID(BlockIDFromHash(blockHash))
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		t.Run("block not found", func(t *testing.T) {
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), db.ErrKeyNotFound)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		})
+
+		t.Run("internal error", func(t *testing.T) {
+			internalErr := errors.New("some internal error")
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), internalErr)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr.Error()), rpcErr)
+		})
+	})
+
 	t.Run("new block is received", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -1039,6 +1078,70 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	_, newBlockGot, err := conn.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, newHeadsResponse(id), string(newBlockGot))
+}
+
+func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	block0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+
+	testDB := memory.New()
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+
+	chain = blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	syncer := newFakeSyncer()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+
+	handler, server := setupRPC(t, ctx, chain, syncer)
+
+	conn := createWsConn(t, ctx, server)
+
+	id := "1"
+	handler.WithIDGen(func() string { return id })
+
+	// Subscribe with block0's hash: the handler resolves it to its block
+	// number and replays from there.
+	subMsg := fmt.Sprintf(
+		`{"jsonrpc":"2.0","id":"1","method":"starknet_subscribeNewHeads",`+
+			` "params":{"block_id":{"block_hash":"%s"}}}`,
+		block0.Hash,
+	)
+	got := sendWsMessage(t, ctx, conn, subMsg)
+	require.Equal(t, subResp(id), got)
+
+	// The first streamed header is block 0, the block the hash resolves to.
+	_, block0Got, err := conn.Read(ctx)
+	require.NoError(t, err)
+
+	var resp struct {
+		Params struct {
+			Result struct {
+				BlockHash   *felt.Felt `json:"block_hash"`
+				BlockNumber uint64     `json:"block_number"`
+			} `json:"result"`
+			SubscriptionID string `json:"subscription_id"`
+		} `json:"params"`
+	}
+	require.NoError(t, json.Unmarshal(block0Got, &resp))
+	assert.Equal(t, block0.Hash, resp.Params.Result.BlockHash)
+	assert.Equal(t, block0.Number, resp.Params.Result.BlockNumber)
+	assert.Equal(t, id, resp.Params.SubscriptionID)
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
