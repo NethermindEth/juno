@@ -31,6 +31,13 @@ const (
 	OpVerify = "verify"
 	OpStore  = "store"
 	OpFetch  = "fetch"
+
+	// Reorg-check ops, one per exit level of isReverting: resolved from the
+	// local height alone, after fetching the remote head, or only after also
+	// reading the local header for a hash comparison.
+	OpReorgCheckFast   = "reorgCheckFast"
+	OpReorgCheckRemote = "reorgCheckRemote"
+	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
@@ -202,27 +209,31 @@ func (s *Synchronizer) isReverting(
 	ctx context.Context,
 	nextHeight uint64,
 ) (lastPossiblyValidHeight uint64, isReorg bool) {
-	// If localHead is somehow not available, we precautionarily assume we're not reverting
-	localHead, err := s.blockchain.HeadsHeader()
+	checkTimer := time.Now()
+
+	// If localHeight is somehow not available, we precautionarily assume we're not reverting
+	localHeight, err := s.blockchain.Height()
 	if err != nil {
 		return 0, false
 	}
-	localHeight := localHead.Number
 
 	// Only check if we're waiting for the very next block
 	if localHeight+1 != nextHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckFast, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
 	// If unable to fetch remoteHead block, we precautionarily assume we're not reverting
 	remoteHead, err := s.dataSource.BlockHeaderLatest(ctx)
 	if err != nil {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 	remoteHeight := remoteHead.Number
 
 	// If a newer block is available, revert will be handled in storeTask
 	if remoteHeight > localHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
@@ -230,10 +241,13 @@ func (s *Synchronizer) isReverting(
 	// If the latest block is older than the head, compare with the stored block at the same height
 	if remoteHeight < localHeight {
 		localHeight = remoteHeight
-		if localHead, err = s.blockchain.BlockHeaderByNumber(localHeight); err != nil {
-			return 0, false
-		}
 	}
+
+	localHead, err := s.blockchain.BlockHeaderByNumber(localHeight)
+	if err != nil {
+		return 0, false
+	}
+	s.listener.OnSyncStepDone(OpReorgCheckLocal, nextHeight, time.Since(checkTimer))
 
 	if *remoteHead.Hash == *localHead.Hash {
 		return 0, false
