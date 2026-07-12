@@ -297,9 +297,6 @@ func (s *TxnStatusWithoutL1) UnmarshalText(text []byte) error {
 	case "RECEIVED":
 		*s = TxnStatusWithoutL1(TxnStatusReceived)
 		return nil
-	case "CANDIDATE":
-		*s = TxnStatusWithoutL1(TxnStatusCandidate)
-		return nil
 	case "PRE_CONFIRMED":
 		*s = TxnStatusWithoutL1(TxnStatusPreConfirmed)
 		return nil
@@ -315,8 +312,6 @@ func (s TxnStatusWithoutL1) MarshalText() ([]byte, error) {
 	switch s {
 	case TxnStatusWithoutL1(TxnStatusReceived):
 		return []byte("RECEIVED"), nil
-	case TxnStatusWithoutL1(TxnStatusCandidate):
-		return []byte("CANDIDATE"), nil
 	case TxnStatusWithoutL1(TxnStatusPreConfirmed):
 		return []byte("PRE_CONFIRMED"), nil
 	case TxnStatusWithoutL1(TxnStatusAcceptedOnL2):

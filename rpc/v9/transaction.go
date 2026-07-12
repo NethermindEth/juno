@@ -79,7 +79,6 @@ type TxnStatus uint8
 
 const (
 	TxnStatusReceived TxnStatus = iota + 1
-	TxnStatusCandidate
 	TxnStatusPreConfirmed
 	TxnStatusAcceptedOnL2
 	TxnStatusAcceptedOnL1
@@ -93,8 +92,6 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
-	case TxnStatusCandidate:
-		return []byte("CANDIDATE"), nil
 	case TxnStatusPreConfirmed:
 		return []byte("PRE_CONFIRMED"), nil
 	default:
@@ -137,8 +134,8 @@ func (es *TxnExecutionStatus) UnmarshalText(text []byte) error {
 type TxnFinalityStatus uint8
 
 const (
-	// Starts from 3 for TxnFinalityStatuses to match same numbers on TxnStatus
-	TxnPreConfirmed TxnFinalityStatus = iota + 3
+	// Starts from 2 for TxnFinalityStatuses to match same numbers on TxnStatus
+	TxnPreConfirmed TxnFinalityStatus = iota + 2
 	TxnAcceptedOnL2
 	TxnAcceptedOnL1
 )
@@ -1059,10 +1056,6 @@ func AdaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		status.Finality = TxnStatusReceived
 	case starknet.PreConfirmed:
 		status.Finality = TxnStatusPreConfirmed
-	case starknet.Candidate:
-		status.Finality = TxnStatusCandidate
-		// Candidate transaction does not have execution_status yet
-		return status, nil
 	case starknet.NotReceived:
 		return TransactionStatus{}, ErrTransactionNotFound
 	default:

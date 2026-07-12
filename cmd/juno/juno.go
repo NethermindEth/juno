@@ -295,7 +295,7 @@ const (
 		"a set of finality statuses to be notified about, including transactions " +
 		"from canonical blocks, blocks with softer finality guarantees such as " +
 		"pre-confirmed, as well as transactions not yet part of " +
-		"any block such as received and candidate. When subscribers select the " +
+		"any block such as received. When subscribers select the " +
 		"RECEIVED status, they will be notified about transactions that have been " +
 		"submitted through this node — these transactions are local to the node " +
 		"and are not sourced from the network. When this flag is enabled, the " +

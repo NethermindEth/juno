@@ -83,7 +83,8 @@ func (h *Handler) GetMessageStatus(
 			return nil, rpcErr
 		}
 
-		// Skip if execution status is not present since it is required by the spec, thus finality status cannot be RECEIVED or CANDIDATE
+		// Skip if execution status is not present since it is required by the spec, thus
+		// finality status cannot be RECEIVED
 		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L284
 		if status.Execution == UnknownExecution {
 			continue
