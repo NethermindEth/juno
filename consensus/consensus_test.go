@@ -206,7 +206,7 @@ func writeBlock(
 			require.NoError(t, err)
 			require.NoError(t, bc.Store(committedBlock.Block, commitments, committedBlock.StateUpdate, committedBlock.NewClasses))
 
-			close(committedBlock.Persisted)
+			committedBlock.Persisted <- nil
 
 			commit := commit{
 				nodeIndex:      index,

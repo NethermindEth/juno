@@ -46,6 +46,11 @@ func New(
 	}, nil
 }
 
+func (d *DB) Path() string {
+	// Remote DB has no local filesystem path.
+	return ""
+}
+
 func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	defer d.listener.OnIO(write, time.Now())
 

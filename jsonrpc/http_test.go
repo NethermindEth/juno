@@ -8,12 +8,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestHTTP(t *testing.T) {
@@ -88,6 +92,153 @@ func TestHTTP(t *testing.T) {
 		})
 		assert.Len(t, listener.OnNewRequestLogs, 1)
 	})
+}
+
+func TestHTTPRequestGate(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() { releaseOnce.Do(func() { close(release) }) }
+
+	method := jsonrpc.Method{
+		Name: "block",
+		Handler: func() (string, *jsonrpc.Error) {
+			started <- struct{}{}
+			<-release
+			return "ok", nil
+		},
+	}
+	core, logs := observer.New(zapcore.WarnLevel)
+	logger := log.NewZapLoggerWithCore(core)
+	rpc := jsonrpc.NewServer(1, logger)
+	require.NoError(t, rpc.RegisterMethods(method))
+
+	// Gate with a single slot and no queue: one request runs, the next is rejected.
+	gate := jsonrpc.NewGate(1, 0)
+	httpHandler := jsonrpc.NewHTTP(rpc, logger).WithGate(gate)
+	srv := httptest.NewServer(httpHandler)
+	t.Cleanup(srv.Close)
+	// Registered after srv.Close so it runs first (cleanups are LIFO): it unblocks
+	// the in-flight handler so srv.Close can drain even if the test fails early.
+	t.Cleanup(releaseAll)
+
+	client := new(http.Client)
+	doPost := func() (*http.Response, error) {
+		msg := `{"jsonrpc":"2.0","method":"block","id":1}`
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodPost, srv.URL, bytes.NewReader([]byte(msg)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
+	}
+
+	// First request occupies the only slot and blocks in the handler.
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		resp, err := doPost()
+		if assert.NoError(t, err) {
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.NoError(t, resp.Body.Close())
+		}
+	}()
+	<-started // the handler is running, so the gate slot is taken
+
+	// Second request: the gate is full, expect an immediate 503 + Retry-After.
+	resp, err := doPost()
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
+	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, uint64(1), gate.Rejected())
+	// The rejection is surfaced as a Warn log.
+	assert.Equal(t, 1, logs.FilterMessage("Rejected RPC request: server is busy").Len())
+
+	// GET "/" is never gated, even while the gate is saturated.
+	getReq, err := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, http.NoBody)
+	require.NoError(t, err)
+	getResp, err := client.Do(getReq)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, getResp.StatusCode)
+	require.NoError(t, getResp.Body.Close())
+
+	// Release the first request and confirm it completed successfully.
+	releaseAll()
+	<-firstDone
+}
+
+func TestHTTPRequestGateTimeout(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseAll := func() { releaseOnce.Do(func() { close(release) }) }
+
+	method := jsonrpc.Method{
+		Name: "block",
+		Handler: func() (string, *jsonrpc.Error) {
+			started <- struct{}{}
+			<-release
+			return "ok", nil
+		},
+	}
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger)
+	require.NoError(t, rpc.RegisterMethods(method))
+
+	// One slot plus one queue slot: the first request runs, the second queues (instead
+	// of being rejected) and then trips the request timeout while still waiting.
+	gate := jsonrpc.NewGate(1, 1)
+	httpHandler := jsonrpc.NewHTTP(rpc, logger).
+		WithGate(gate).
+		WithRequestTimeout(100 * time.Millisecond)
+	srv := httptest.NewServer(httpHandler)
+	t.Cleanup(srv.Close)
+	// Registered after srv.Close so it runs first (cleanups are LIFO): it unblocks
+	// the in-flight handler so srv.Close can drain even if the test fails early.
+	t.Cleanup(releaseAll)
+
+	client := new(http.Client)
+	doPost := func() (*http.Response, error) {
+		msg := `{"jsonrpc":"2.0","method":"block","id":1}`
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodPost, srv.URL, bytes.NewReader([]byte(msg)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return client.Do(req)
+	}
+
+	// First request occupies the only slot and blocks in the handler.
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		resp, err := doPost()
+		if assert.NoError(t, err) {
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.NoError(t, resp.Body.Close())
+		}
+	}()
+	<-started // the handler is running, so the gate slot is taken
+
+	// Second request queues (slot busy, queue has room) and waits. Its server-side
+	// context deadline fires while still queued, so Acquire returns
+	// context.DeadlineExceeded. The client is still connected and must receive an
+	// explicit 503 rather than an empty 200 OK.
+	resp, err := doPost()
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "Request timed out while queued")
+	require.NoError(t, resp.Body.Close())
+
+	// Release the first request and confirm it still completed successfully.
+	releaseAll()
+	<-firstDone
 }
 
 func TestGzipResponse(t *testing.T) {

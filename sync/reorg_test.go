@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
@@ -63,10 +62,6 @@ func (t *testBlockDataSource) BlockHeaderLatest(ctx context.Context) (*core.Head
 	return getBlock(blocks, uint64(len(blocks)-1)).Block.Header, nil
 }
 
-func (t *testBlockDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	return pending.PreLatest{}, errors.New("not implemented")
-}
-
 func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
@@ -74,6 +69,14 @@ func (t *testBlockDataSource) PreConfirmedBlockByNumber(
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (t *testBlockDataSource) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	return nil, 0, errors.New("not implemented")
 }
 
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {
@@ -86,7 +89,7 @@ func (t *testBlockDataSource) getBlocks() []sync.CommittedBlock {
 
 func getBlock(blocks []sync.CommittedBlock, blockNumber uint64) sync.CommittedBlock {
 	committedBlock := blocks[blockNumber]
-	committedBlock.Persisted = make(chan struct{})
+	committedBlock.Persisted = make(chan error, 1)
 	return committedBlock
 }
 
@@ -266,7 +269,7 @@ func setup(
 	t.Cleanup(wg.Wait)
 	t.Cleanup(cancel)
 	wg.Go(func() {
-		synchronizer := sync.New(blockchain, dataSource, logger, 0, 0, false, synchronizerDatabase)
+		synchronizer := sync.New(blockchain, dataSource, logger, 0, false, synchronizerDatabase)
 		require.NoError(t, synchronizer.Run(ctx))
 	})
 

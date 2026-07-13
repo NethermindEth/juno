@@ -49,7 +49,6 @@ func clonePreconfirmed(preconfirmed *pending.PreConfirmed) *pending.PreConfirmed
 		StateUpdate:           cloneStateUpdate(preconfirmed.StateUpdate),
 		NewClasses:            maps.Clone(preconfirmed.NewClasses),
 		TransactionStateDiffs: preconfirmed.TransactionStateDiffs,
-		CandidateTxs:          preconfirmed.CandidateTxs,
 	}
 }
 

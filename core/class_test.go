@@ -774,6 +774,31 @@ func BenchmarkClassV0Hash(b *testing.B) {
 
 // BenchmarkSierraClassHash measures the Poseidon-based Sierra (Cairo 1) class hash.
 func BenchmarkSierraClassHash(b *testing.B) {
+	sierra := loadSierraClass(b)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, err := sierra.Hash()
+		require.NoError(b, err)
+	}
+}
+
+// BenchmarkCasmClassHashV2 measures local recomputation of the Blake2s CASM hash.
+func BenchmarkCasmClassHashV2(b *testing.B) {
+	sierra := loadSierraClass(b)
+	require.NotNil(b, sierra.Compiled)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_ = sierra.Compiled.Hash(core.HashVersionV2)
+	}
+}
+
+func loadSierraClass(b *testing.B) *core.SierraClass {
+	b.Helper()
+
 	client := feeder.NewTestClient(b, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
@@ -784,10 +809,5 @@ func BenchmarkSierraClassHash(b *testing.B) {
 	sierra, ok := class.(*core.SierraClass)
 	require.True(b, ok)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for range b.N {
-		_, err := sierra.Hash()
-		require.NoError(b, err)
-	}
+	return sierra
 }

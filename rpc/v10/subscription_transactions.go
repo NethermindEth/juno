@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"context"
+	"iter"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -18,9 +19,8 @@ import (
 //
 // The endpoint receives a vector of finality statuses.
 // An event is fired for each finality status update.
-// It is possible for events for pre-confirmed and
-// candidate transactions to be received multiple times,
-// or not at all.
+// It is possible for events for pre-confirmed transactions to be received
+// multiple times, or not at all.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/785257f27cdc4ea0ca3b62a21b0f7bf51000f9b1/api/starknet_ws_api.json#L264
@@ -50,22 +50,24 @@ type SubscriptionNewTransaction struct {
 	FinalityStatus TxnStatusWithoutL1 `json:"finality_status"`
 }
 
+// transactionsSubscriberState is touched only by its single subscription dispatch
+// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
 type transactionsSubscriberState struct {
 	conn jsonrpc.Conn
 
-	senderAddr     []felt.Address
+	senders        []felt.Address
 	finalityStatus []TxnStatusWithoutL1
-	sentCache      *rpccore.SubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1]
+	deduper        *rpccore.PreConfirmedDeduper[felt.TransactionHash]
 	tags           SubscriptionTags
 }
 
 func newTransactionsSubscriber(
 	conn jsonrpc.Conn,
 	finalityStatus []TxnStatusWithoutL1,
-	senderAddr []felt.Address,
+	senders []felt.Address,
 	tags SubscriptionTags,
 ) (subscriber, *jsonrpc.Error) {
-	if len(senderAddr) > rpccore.MaxEventFilterKeys {
+	if len(senders) > rpccore.MaxEventFilterKeys {
 		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
 	}
 
@@ -79,9 +81,9 @@ func newTransactionsSubscriber(
 
 	state := &transactionsSubscriberState{
 		conn:           conn,
-		senderAddr:     senderAddr,
+		senders:        senders,
 		finalityStatus: finalityStatus,
-		sentCache:      rpccore.NewSubscriptionCache[felt.TransactionHash, TxnStatusWithoutL1](),
+		deduper:        rpccore.NewPreConfirmedDeduper[felt.TransactionHash](),
 		tags:           tags,
 	}
 
@@ -93,14 +95,8 @@ func newTransactionsSubscriber(
 		s.onNewHead = state.onNewHead
 	}
 
-	if slices.ContainsFunc(
-		state.finalityStatus,
-		func(status TxnStatusWithoutL1) bool {
-			return status == TxnStatusWithoutL1(TxnStatusPreConfirmed) ||
-				status == TxnStatusWithoutL1(TxnStatusCandidate)
-		}) {
+	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
 		s.onPreConfirmed = state.onPreConfirmed
-		s.onPreLatest = state.onPreLatest
 	}
 
 	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusReceived)) {
@@ -116,7 +112,7 @@ func (s *transactionsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.sentCache.Clear()
+	s.deduper.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -126,24 +122,14 @@ func (s *transactionsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	return s.processBlock(
-		id,
-		head,
-		TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
-	)
-}
-
-func (s *transactionsSubscriberState) onPreLatest(
-	_ context.Context,
-	id string,
-	_ *subscription,
-	preLatest *pending.PreLatest,
-) error {
-	return s.processBlock(
-		id,
-		preLatest.Block,
-		TxnStatusWithoutL1(TxnStatusPreConfirmed),
-	)
+	// Canonical blocks are published exactly once, so they bypass the deduper.
+	status := TxnStatusWithoutL1(TxnStatusAcceptedOnL2)
+	for txn := range transactionsOf(head, s.senders, status, s.tags.IncludeProofFacts) {
+		if err := sendTransaction(s.conn, txn, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *transactionsSubscriberState) onPreConfirmed(
@@ -152,90 +138,51 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	_ *subscription,
 	preConfirmed *pending.PreConfirmed,
 ) error {
-	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
-		if err := s.processBlock(
-			id,
-			preConfirmed.GetBlock(),
-			TxnStatusWithoutL1(TxnStatusPreConfirmed),
-		); err != nil {
+	block := preConfirmed.GetBlock()
+	status := TxnStatusWithoutL1(TxnStatusPreConfirmed)
+	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
+	// transactions. A same-height round replacement changes BlockIdentifier and re-emits.
+	for txn := range transactionsOf(block, s.senders, status, s.tags.IncludeProofFacts) {
+		shouldSend := s.deduper.MarkSent(
+			block.Number,
+			preConfirmed.BlockIdentifier,
+			(*felt.TransactionHash)(txn.Hash),
+		)
+		if !shouldSend {
+			continue
+		}
+
+		if err := sendTransaction(s.conn, txn, id); err != nil {
 			return err
 		}
 	}
-
-	if slices.Contains(s.finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
-		return s.processCandidateTransactions(id, preConfirmed)
-	}
-
 	return nil
 }
 
-func (s *transactionsSubscriberState) processBlock(
-	id string,
+// transactionsOf yields each sender-matching transaction in the block, adapted to
+// an RPC subscription transaction with the given finality status.
+func transactionsOf(
 	b *core.Block,
-	status TxnStatusWithoutL1,
-) error {
-	for _, txn := range b.Transactions {
-		if !filterTxBySender(txn, s.senderAddr) {
-			continue
-		}
-
-		if err := s.sendWithoutDuplicate(
-			id,
-			b.Number,
-			txn,
-			status,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *transactionsSubscriberState) processCandidateTransactions(
-	id string,
-	preConfirmed *pending.PreConfirmed,
-) error {
-	blockNumber := preConfirmed.GetBlock().Number
-	for _, txn := range preConfirmed.GetCandidateTransaction() {
-		if !filterTxBySender(txn, s.senderAddr) {
-			continue
-		}
-
-		if err := s.sendWithoutDuplicate(
-			id,
-			blockNumber,
-			txn,
-			TxnStatusWithoutL1(TxnStatusCandidate),
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *transactionsSubscriberState) sendWithoutDuplicate(
-	id string,
-	blockNumber uint64,
-	txn core.Transaction,
+	senders []felt.Address,
 	finalityStatus TxnStatusWithoutL1,
-) error {
-	txHash := felt.TransactionHash(*txn.Hash())
-	if !s.sentCache.ShouldSend(
-		blockNumber,
-		&txHash,
-		&finalityStatus,
-	) {
-		return nil
+	includeProofFacts bool,
+) iter.Seq[*SubscriptionNewTransaction] {
+	return func(yield func(*SubscriptionNewTransaction) bool) {
+		for _, txn := range b.Transactions {
+			if !filterTxBySender(txn, senders) {
+				continue
+			}
+
+			response := &SubscriptionNewTransaction{
+				Transaction:    AdaptTransaction(txn, includeProofFacts),
+				FinalityStatus: finalityStatus,
+			}
+
+			if !yield(response) {
+				return
+			}
+		}
 	}
-
-	s.sentCache.Put(blockNumber, &txHash, &finalityStatus)
-
-	response := SubscriptionNewTransaction{
-		Transaction:    AdaptTransaction(txn, s.tags.IncludeProofFacts),
-		FinalityStatus: finalityStatus,
-	}
-
-	return sendTransaction(s.conn, &response, id)
 }
 
 func (s *transactionsSubscriberState) onReceivedTransaction(
@@ -244,7 +191,7 @@ func (s *transactionsSubscriberState) onReceivedTransaction(
 	_ *subscription,
 	txn core.Transaction,
 ) error {
-	if !filterTxBySender(txn, s.senderAddr) {
+	if !filterTxBySender(txn, s.senders) {
 		return nil
 	}
 

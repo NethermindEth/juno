@@ -11,7 +11,9 @@ Snapshots are provided in a compressed `.tar.zst` format for faster downloads an
 | Network             | Download Link                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Mainnet             | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet-Pruned      | [**juno_mainnet_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest)           |
 | Sepolia             | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia-Pruned      | [**juno_sepolia_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest)           |
 | Sepolia-Integration | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ```mdx-code-block
@@ -25,14 +27,22 @@ Select your network in any tab below and the rest of the page follows — the ch
 
 ## Getting snapshot sizes
 
-Snapshot sizes are refreshed weekly. As of `Fri May 8 2026`:
+Snapshot sizes are refreshed weekly. As of `Tue Jun 23 2026`:
 
 <Tabs groupId="network">
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 397.68 GB
+# 433.68 GB
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 76.75 GB
 ```
 
 </TabItem>
@@ -40,7 +50,7 @@ curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 66.99 GB
+# 72.88 GB
 ```
 
 </TabItem>
@@ -48,7 +58,7 @@ curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 30.91 GB
+# 35.12 GB
 ```
 
 </TabItem>
@@ -114,6 +124,19 @@ curl -L -C - -o $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.neth
 ```
 
 </TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+
+```bash
+wget --continue -O "$HOME/snapshots/juno_mainnet_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+Or using `curl`:
+
+```bash
+curl -L -C - -o $HOME/snapshots/juno_mainnet_pruned.tar.zst https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+</TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
@@ -156,6 +179,18 @@ mkdir $HOME/snapshots/mainnet/
 ```bash
 # Extract to your snapshots directory
 zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+
+```bash
+mkdir $HOME/snapshots/mainnet-pruned/
+```
+
+```bash
+# Extract to your snapshots directory
+zstd -d juno_mainnet_pruned.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet-pruned
 ```
 
 </TabItem>
@@ -206,6 +241,18 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 ```
 
 </TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+
+```bash
+mkdir $HOME/snapshots/mainnet-pruned/
+```
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xvf - -C $HOME/snapshots/mainnet-pruned
+```
+
+</TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
@@ -245,12 +292,37 @@ Run the Docker command to start Juno:
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/mainnet:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $HOME/snapshots/mainnet-pruned:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --prune-mode \
   --eth-node <YOUR-ETH-NODE>
 ```
 
@@ -261,11 +333,15 @@ docker run -d \
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/sepolia:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --network sepolia \
   --eth-node <YOUR-ETH-NODE>
@@ -278,11 +354,15 @@ docker run -d \
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -p 6061:6061 \
   -v $HOME/snapshots/sepolia-integration:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --network sepolia-integration \
   --eth-node <YOUR-ETH-NODE>
@@ -293,4 +373,8 @@ docker run -d \
 
 :::info
 Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure it matches the network's L1: Starknet Mainnet settles on Ethereum Mainnet (e.g. `wss://mainnet.infura.io/ws/v3/your-project-id`), while Sepolia and Sepolia-Integration settle on Ethereum Sepolia (e.g. `wss://sepolia.infura.io/ws/v3/your-project-id`). Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+:::
+
+:::tip
+These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, check out the [Running Juno](running-juno) guide.
 :::

@@ -413,6 +413,10 @@ func (l *L1HandlerTransaction) MessageHash() []byte {
 	return digest.Sum(nil)
 }
 
+// TransactionHash calculates the hash of a transaction.
+//
+// Note: For DeployAccount txs, the [DeployAccountTransaction.ContractAddress] field must be
+// populated with the address of the newly deployed account.
 func TransactionHash(transaction Transaction, n *networks.Network) (felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:

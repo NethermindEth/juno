@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -56,7 +58,6 @@ const (
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
-	preLatestPollIntervalF              = "prelatest-poll-interval"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
@@ -105,6 +106,8 @@ const (
 	dbMemtableCountF                    = "db-memtable-count"
 	dbCompressionF                      = "db-compression"
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
+	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
+	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
@@ -126,7 +129,6 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPreLatestPollInterval              = time.Second
 	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
@@ -170,6 +172,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
+	defaultRPCMaxConcurrentRequests           = 256000
+	defaultRPCMaxQueuedRequests               = 256000
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
@@ -200,9 +204,7 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	preLatestPollIntervalUsage = "Sets polling interval for pre-latest block updates. " +
-		"(0s will disable polling)."
+	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
@@ -237,10 +239,10 @@ const (
 	corsEnableUsage                    = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
 	pluginPathUsage                    = "Path to the plugin .so file"
-	seqEnUsage                         = "Enables sequencer mode of operation"
-	seqBlockTimeUsage                  = "Time to build a block, in seconds"
-	seqGenesisFileUsage                = "Path to the genesis file"
-	seqDisableFeesUsage                = "Skip charge fee for sequencer execution"
+	seqEnUsage                         = "EXPERIMENTAL: Enables sequencer mode of operation"
+	seqBlockTimeUsage                  = "EXPERIMENTAL: Time to build a block, in seconds"
+	seqGenesisFileUsage                = "EXPERIMENTAL: Path to the genesis file"
+	seqDisableFeesUsage                = "EXPERIMENTAL: Skip charging fees for sequencer execution"
 	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
@@ -254,7 +256,10 @@ const (
 		"queue before stalling writes."
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
-	rpcRequestTimeoutUsage         = "Maximum time for an RPC request to complete."
+	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
+	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
+	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
+		"reaching rpc-max-concurrent-requests limit."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
 	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
 		"reaching max-concurrent-compilations before starting to reject incoming requests."
@@ -289,7 +294,7 @@ const (
 		"transactions that have been accepted on L2. Users can optionally provide " +
 		"a set of finality statuses to be notified about, including transactions " +
 		"from canonical blocks, blocks with softer finality guarantees such as " +
-		"pre-confirmed and pre-latest, as well as transactions not yet part of " +
+		"pre-confirmed, as well as transactions not yet part of " +
 		"any block such as received and candidate. When subscribers select the " +
 		"RECEIVED status, they will be notified about transactions that have been " +
 		"submitted through this node — these transactions are local to the node " +
@@ -430,10 +435,22 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
 			}
 
+			rawFeederURL := v.GetString(cnFeederURLF)
+			rawGatewayURL := v.GetString(cnGatewayURLF)
+
+			feederURL, err := parseHTTPURL(rawFeederURL)
+			if err != nil {
+				return fmt.Errorf("invalid feeder URL %s: %w", rawFeederURL, err)
+			}
+			gatewayURL, err := parseHTTPURL(rawGatewayURL)
+			if err != nil {
+				return fmt.Errorf("invalid gateway URL %s: %w", rawGatewayURL, err)
+			}
+
 			config.Network = networks.Network{
 				Name:                v.GetString(cnNameF),
-				FeederURL:           v.GetString(cnFeederURLF),
-				GatewayURL:          v.GetString(cnGatewayURLF),
+				FeederURL:           feederURL,
+				GatewayURL:          gatewayURL,
 				L1ChainID:           l1ChainID,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: eth.AddressFromString(v.GetString(cnCoreContractAddressF)),
@@ -472,13 +489,31 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().Duration(rpcRequestTimeoutF, defaultRPCRequestTimeout, rpcRequestTimeoutUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxConcurrentRequestsF,
+		defaultRPCMaxConcurrentRequests,
+		rpcMaxConcurrentRequestsUsage,
+	)
+	junoCmd.Flags().Uint(
+		rpcMaxRequestQueueF,
+		defaultRPCMaxQueuedRequests,
+		rpcMaxRequestQueueUsage,
+	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
 	setCategory(junoCmd, catHTTPRPC,
-		httpF, httpHostF, httpPortF, corsEnableF,
-		rpcMaxBlockScanF, callMaxStepsF, callMaxGasF,
-		rpcRequestTimeoutF, disableRPCBatchRequestsF,
+		httpF,
+		httpHostF,
+		httpPortF,
+		corsEnableF,
+		rpcMaxBlockScanF,
+		callMaxStepsF,
+		callMaxGasF,
+		rpcRequestTimeoutF,
+		rpcMaxConcurrentRequestsF,
+		rpcMaxRequestQueueF,
+		disableRPCBatchRequestsF,
 	)
 
 	// --- WebSocket RPC ---
@@ -499,9 +534,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// --- Sync & Polling ---
 	junoCmd.Flags().Duration(
-		preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage,
-	)
-	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
@@ -509,8 +541,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		preLatestPollIntervalF, preConfirmedPollIntervalF,
-		remoteDBF, readinessBlockToleranceF,
+		preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---
@@ -664,4 +695,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
+}
+
+func parseHTTPURL(rawURL string) (*url.URL, error) {
+	// rejects relative / scheme-less strings
+	u, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
+	}
+	if u.Host == "" {
+		return nil, errors.New("URL must have a host")
+	}
+	return u, nil
 }

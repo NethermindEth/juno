@@ -506,69 +506,32 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-// IsCandidateTx reports whether the transaction at index id is a candidate
-// (no receipt / no state diff yet). `||` covers possible discrepancies.
-// https://community.starknet.io/t/sn-0-14-0-pre-release-notes
-func IsCandidateTx(response *starknet.PreConfirmedBlock, id int) bool {
-	return response.TransactionStateDiffs[id] == nil || response.Receipts[id] == nil
-}
-
+// AdaptPreConfirmedBlock adapts a pre_confirmed block into a pending.PreConfirmed.
+// It is assumed that `starknet.PreConfirmedBlock` is valid.
 func AdaptPreConfirmedBlock(
 	response *starknet.PreConfirmedBlock,
 	number uint64,
 ) (pending.PreConfirmed, error) {
-	if response.Status != "PRE_CONFIRMED" {
-		return pending.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
-	}
-
-	isInvalidPayloadSizes := len(response.Transactions) != len(response.TransactionStateDiffs) ||
-		len(response.Transactions) != len(response.Receipts)
-	if isInvalidPayloadSizes {
-		return pending.PreConfirmed{}, errors.New(
-			"invalid sizes of transactions, state diffs and receipts",
-		)
-	}
-
-	candidateCount := 0
-	for i := range len(response.Transactions) {
-		if IsCandidateTx(response, i) {
-			candidateCount++
-		}
-	}
-	preConfirmedTxCount := len(response.Transactions) - candidateCount
-
-	txns := make([]core.Transaction, preConfirmedTxCount)
-	txStateDiffs := make([]*core.StateDiff, preConfirmedTxCount)
-	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
+	txCount := len(response.Transactions)
+	txns := make([]core.Transaction, txCount)
+	txStateDiffs := make([]*core.StateDiff, txCount)
+	receipts := make([]*core.TransactionReceipt, txCount)
 	eventCount := uint64(0)
-	candidateTxs := make([]core.Transaction, candidateCount)
 
-	var err error
-	preIdx := 0
-	candIdx := 0
-	for i := range len(response.Transactions) {
-		if IsCandidateTx(response, i) {
-			candidateTxs[candIdx], err = AdaptTransaction(&response.Transactions[i])
-			if err != nil {
-				return pending.PreConfirmed{}, err
-			}
-			candIdx++
-			continue
-		}
-
-		txns[preIdx], err = AdaptTransaction(&response.Transactions[i])
+	for i := range txCount {
+		tx, err := AdaptTransaction(&response.Transactions[i])
 		if err != nil {
 			return pending.PreConfirmed{}, err
 		}
-		var stateDiff core.StateDiff
-		stateDiff, err = AdaptStateDiff(response.TransactionStateDiffs[i])
+		txns[i] = tx
+
+		stateDiff, err := AdaptStateDiff(response.TransactionStateDiffs[i])
 		if err != nil {
 			return pending.PreConfirmed{}, err
 		}
-		txStateDiffs[preIdx] = &stateDiff
-		receipts[preIdx] = AdaptTransactionReceipt(response.Receipts[i])
+		txStateDiffs[i] = &stateDiff
+		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
 		eventCount += uint64(len(response.Receipts[i].Events))
-		preIdx++
 	}
 
 	// Squash per-tx state updates
@@ -615,7 +578,6 @@ func AdaptPreConfirmedBlock(
 		adaptedBlock,
 		&stateUpdate,
 		txStateDiffs,
-		candidateTxs,
 		response.BlockIdentifier,
 	)
 	return preConfirmed, nil
@@ -626,21 +588,12 @@ func AdaptPreConfirmedBlock(
 //
 // Returns [ErrPreConfirmedIdentifierMismatch] if current.BlockIdentifier
 // differs from delta.BlockIdentifier.
-//
-//nolint:funlen // Let's simplify it later.
 func AdaptPreConfirmedWithDelta(
 	current *pending.PreConfirmed,
 	delta *starknet.PreConfirmedDeltaUpdate,
 ) (pending.PreConfirmed, error) {
 	if current.BlockIdentifier != delta.BlockIdentifier {
 		return pending.PreConfirmed{}, ErrPreConfirmedIdentifierMismatch
-	}
-	if len(delta.Transactions) != len(delta.Receipts) ||
-		len(delta.Transactions) != len(delta.TransactionStateDiffs) {
-		return pending.PreConfirmed{}, fmt.Errorf(
-			"mismatched lengths: transactions (%d), state diffs (%d), receipts (%d) must be equal",
-			len(delta.Transactions), len(delta.TransactionStateDiffs), len(delta.Receipts),
-		)
 	}
 
 	existingTxs := current.Block.Transactions
@@ -661,26 +614,10 @@ func AdaptPreConfirmedWithDelta(
 	nextStateDiff.Merge(current.StateUpdate.StateDiff)
 
 	addedEventCount := uint64(0)
-	var candidateTxs []core.Transaction
 	for i := range delta.Transactions {
 		tx, err := AdaptTransaction(&delta.Transactions[i])
 		if err != nil {
 			return pending.PreConfirmed{}, err
-		}
-
-		// Bug workaround: the delta endpoint may still return txs that carry a null
-		// state diff / receipt, similar to candidate txs. Store them as candidate txs
-		// instead of dereferencing nil and panicking, and reducing the slice lengths
-		// to match the number of txs that actually have state diff / receipt.
-		// Ref: https://demerzelsolutions.slack.com/archives/C02UDC3AZHQ/p1781793289647619
-		if delta.TransactionStateDiffs[i] == nil || delta.Receipts[i] == nil {
-			candidateTxs = append(candidateTxs, tx)
-			mergedTxs = mergedTxs[:len(mergedTxs)-1]
-			mergedReceipts = mergedReceipts[:len(mergedReceipts)-1]
-			mergedStateDiffs = mergedStateDiffs[:len(mergedStateDiffs)-1]
-			n--
-			addedCount--
-			continue
 		}
 		mergedTxs[n+i] = tx
 
@@ -720,7 +657,6 @@ func AdaptPreConfirmedWithDelta(
 	next.Block = &nextBlock
 	next.StateUpdate = &nextStateUpdate
 	next.TransactionStateDiffs = mergedStateDiffs
-	next.CandidateTxs = candidateTxs
 	return next, nil
 }
 

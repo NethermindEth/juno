@@ -83,7 +83,6 @@ type Config struct {
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
 	Colour                   bool             `mapstructure:"colour"`
-	PreLatestPollInterval    time.Duration    `mapstructure:"prelatest-poll-interval"`
 	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
@@ -134,6 +133,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
 	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
 	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
 	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
 	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
@@ -301,10 +302,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			logger,
 		),
 		cfg.MaxConcurrentCompilations,
-		int32(cfg.MaxCompilationQueue),
+		uint64(cfg.MaxCompilationQueue),
 	)
 
 	if cfg.Sequencer {
+		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
@@ -320,7 +323,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, logger)
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
@@ -358,6 +361,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
+
+		if cfg.Network.FeederURL == nil {
+			return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
+		}
+		if cfg.Network.GatewayURL == nil {
+			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
+		}
+
 		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(logger).
@@ -380,14 +391,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			FeeTokenAddresses: feeTokens,
 		}
 		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
 			chain,
 			feederGatewayDataSource,
 			logger,
-			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
 			database,
@@ -539,6 +549,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
+				cfg.RPCMaxConcurrentRequests,
+				cfg.RPCMaxRequestQueue,
 			),
 		)
 	}
@@ -610,14 +622,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		var l1Client *l1.Client
 		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
 		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
+			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
 		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
+		ug := upgrader.NewUpgrader(
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+		)
 		n.services = append(n.services, ug)
 	} else {
 		logger.Warn("Failed to parse Juno version, will not warn about new releases",
@@ -633,10 +647,12 @@ func newL1Client(
 ) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...)",
+		)
 	}
 
 	network := chain.Network()
@@ -644,7 +660,7 @@ func newL1Client(
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, fmt.Errorf("subscribing to L1: %w", err)
 	}
 
 	opts := make([]l1.Option, 0, 1)

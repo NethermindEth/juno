@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
 )
@@ -130,7 +130,7 @@ func TestHandleExecutionError(t *testing.T) {
 	}{
 		{
 			name:         "Resource Busy Error",
-			err:          utils.ErrResourceBusy,
+			err:          throttler.ErrResourceBusy,
 			jsonRPCError: rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr),
 		},
 		{

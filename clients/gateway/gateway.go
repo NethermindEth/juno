@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/NethermindEth/juno/utils/log"
@@ -40,7 +40,7 @@ var (
 const gzipMinSize = 1024
 
 type Client struct {
-	url       string
+	url       *url.URL
 	client    *http.Client
 	listener  EventListener
 	logger    log.StructuredLogger
@@ -63,8 +63,7 @@ func (c *Client) WithListener(l EventListener) *Client {
 	return c
 }
 
-func NewClient(gatewayURL string, logger log.StructuredLogger) *Client {
-	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
+func NewClient(gatewayURL *url.URL, logger log.StructuredLogger) *Client {
 	return &Client{
 		url: gatewayURL,
 		client: &http.Client{
@@ -76,7 +75,7 @@ func NewClient(gatewayURL string, logger log.StructuredLogger) *Client {
 }
 
 func (c *Client) AddTransaction(ctx context.Context, txn json.RawMessage) (json.RawMessage, error) {
-	return c.post(ctx, c.url+"/add_transaction", txn)
+	return c.post(ctx, c.url.JoinPath("add_transaction").String(), txn)
 }
 
 // post performs additional utility function over doPost method

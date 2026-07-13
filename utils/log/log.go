@@ -292,6 +292,21 @@ func (l *ZapLogger) WithOptions(opts ...zap.Option) *ZapLogger {
 	}
 }
 
+// Sampled returns a logger derived from l that caps how often a repeated entry is
+// emitted, so a hot path can log without flooding. Within each tick it keeps the
+// first `first` entries per (level, message) and drops the rest; when thereafter > 0
+// every thereafter'th entry beyond `first` is also kept. Sampling applies only to the
+// returned logger. Loggers that are not *ZapLogger are returned unchanged.
+func Sampled(l StructuredLogger, tick time.Duration, first, thereafter int) StructuredLogger {
+	zl, ok := l.(*ZapLogger)
+	if !ok {
+		return l
+	}
+	return zl.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewSamplerWithOptions(c, tick, first, thereafter)
+	}))
+}
+
 // colour represents a text colour.
 //
 //nolint:misspell //colour type with methods were extracted from go.uber.org/zap/internal/color

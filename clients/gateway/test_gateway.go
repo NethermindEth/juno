@@ -6,11 +6,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // NewTestClient returns a client and a function to close a test server.
@@ -20,7 +22,10 @@ func NewTestClient(t *testing.T) *Client {
 	apiKey := "API_KEY"
 	t.Cleanup(srv.Close)
 
-	return NewClient(srv.URL, log.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
+	gatewayURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+
+	return NewClient(gatewayURL, log.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
 }
 
 func newTestServer(t *testing.T) *httptest.Server {

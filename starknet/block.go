@@ -14,6 +14,12 @@ type BlockHeader struct {
 	Number uint64     `json:"block_number"`
 }
 
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (val *BlockHeader) Validate() error {
+	return nil
+}
+
 // Block object returned by the feeder in JSON format for "get_block" endpoint
 type Block struct {
 	Hash                  *felt.Felt            `json:"block_hash"`
@@ -59,6 +65,12 @@ func (b *Block) L1GasPriceSTRK() *felt.Felt {
 		return b.L1GasPrice.PriceInFri
 	}
 	return b.GasPriceFRI
+}
+
+// TODO: placeholder for now to avoid compiler errors. A proper validation
+// should be implemented in a follow-up PR.
+func (b *Block) Validate() error {
+	return nil
 }
 
 type L1DAMode uint

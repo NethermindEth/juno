@@ -13,17 +13,24 @@ import (
 type mockCommitListener struct {
 	t              *testing.T
 	expectedCommit *starknet.Commit
+	persisted      bool
 }
 
-func (m *mockCommitListener) OnCommit(ctx context.Context, height types.Height, value starknet.Value) {
+func (m *mockCommitListener) OnCommit(
+	ctx context.Context,
+	height types.Height,
+	value starknet.Value,
+) bool {
 	require.Equal(m.t, m.expectedCommit.Value, &value)
 	require.Equal(m.t, m.expectedCommit.Height, height)
+	return m.persisted
 }
 
 func newMockCommitListener(t *testing.T, expectedCommit *starknet.Commit) commitListener {
 	return &mockCommitListener{
 		t:              t,
 		expectedCommit: expectedCommit,
+		persisted:      true,
 	}
 }
 

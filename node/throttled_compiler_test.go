@@ -8,7 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +52,7 @@ func TestThrottledCompiler(t *testing.T) {
 
 		// The queue is full, so the next request is rejected.
 		_, err := throttled.Compile(t.Context(), &starknet.SierraClass{})
-		require.ErrorIs(t, err, utils.ErrResourceBusy)
+		require.ErrorIs(t, err, throttler.ErrResourceBusy)
 
 		// Release the four running/queued jobs and let them finish.
 		for range 4 {

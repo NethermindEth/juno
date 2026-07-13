@@ -230,24 +230,20 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount       *felt.Felt `json:"max_amount" validate:"required,felt_max_bits=64"`
+	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit" validate:"required,felt_max_bits=128"`
 }
 
-// TODO: using Value fields here is a good idea, however
-// we are currently keeping the field's type Reference since the current
-// validation tags we are using does not work well with Value field.
-// We should revisit this when we start implementing custom validations.
 type ResourceBoundsMap struct {
-	L1Gas     *ResourceBounds `json:"l1_gas" validate:"required"`
-	L2Gas     *ResourceBounds `json:"l2_gas" validate:"required"`
-	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
+	L1Gas     ResourceBounds `json:"l1_gas" validate:"required"`
+	L2Gas     ResourceBounds `json:"l2_gas" validate:"required"`
+	L1DataGas ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
 func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
 	// Check if L1DataGas is nil, if it is, provide default values
-	if r.L1DataGas == nil {
-		r.L1DataGas = &ResourceBounds{
+	if r.L1DataGas.MaxAmount == nil && r.L1DataGas.MaxPricePerUnit == nil {
+		r.L1DataGas = ResourceBounds{
 			MaxAmount:       &felt.Zero,
 			MaxPricePerUnit: &felt.Zero,
 		}
@@ -414,7 +410,7 @@ type Transaction struct {
 	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
 	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required"`
 	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
 	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
 	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
@@ -423,13 +419,33 @@ type Transaction struct {
 	ProofFacts            *[]felt.Felt          `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
+// ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
+// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
+type ContractClass struct {
+	SierraProgram        []felt.Felt              `json:"sierra_program" validate:"required"`
+	ContractClassVersion string                   `json:"contract_class_version" validate:"required"`
+	EntryPoints          ContractClassEntryPoints `json:"entry_points_by_type" validate:"required"`
+	ABI                  string                   `json:"abi,omitempty"`
+}
+
+type ContractClassEntryPoints struct {
+	Constructor []ContractClassEntryPoint `json:"CONSTRUCTOR" validate:"required"`
+	External    []ContractClassEntryPoint `json:"EXTERNAL" validate:"required"`
+	L1Handler   []ContractClassEntryPoint `json:"L1_HANDLER" validate:"required"`
+}
+
+type ContractClassEntryPoint struct {
+	Index    *uint64    `json:"function_idx" validate:"required"`
+	Selector *felt.Felt `json:"selector" validate:"required"`
+}
+
 // BroadcastedTransaction represents a transaction submitted via the RPC API.
 //
 //nolint:lll // We can't break the json tags lines
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
-	Proof         core.Base64     `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
+	ContractClass *ContractClass `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	Proof         core.Base64    `json:"proof,omitempty" validate:"excluded_unless=Type INVOKE,omitempty,base64"`
 }
 
 type TransactionExecutionErrorData struct {

@@ -113,8 +113,8 @@ func NewClient(
 	}
 }
 
-// subscribeToUpdates blocks until a subscription is established. If context is cancelled,
-// returns nil
+// subscribeToUpdates subscribes to the settlement layer updates on an infinite loop
+// until success is achieved. If context is cancelled, a nil subscription is returned.
 func (c *Client) subscribeToUpdates(
 	ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate,
 ) event.Subscription {
@@ -143,7 +143,43 @@ func (c *Client) subscribeToUpdates(
 	}
 }
 
-// checkChainID checks that the client is connected to the right L1 client
+// errChainIDMismatch marks an L1/L2 network mismatch: a misconfiguration that
+// retrying cannot fix, so ensureChainID treats it as fatal. (Supporting custom
+// forked Starknet networks would mean warning here instead of erroring.)
+var errChainIDMismatch = errors.New("mismatched network id between L1 and L2")
+
+// ensureChainID checks the L1 node is on the expected network, retrying on
+// transient failures until a valid response is received or context is canceled.
+func (c *Client) ensureChainID(ctx context.Context) error {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			switch err := c.checkChainID(ctx); {
+			case err == nil:
+				return nil
+			case errors.Is(err, errChainIDMismatch):
+				return err
+			case ctx.Err() != nil:
+				// Cancelled mid-probe: return the real cause, don't warn.
+				return ctx.Err()
+			default:
+				c.logger.Warn("Failed to verify L1 chain ID, retrying",
+					zap.Duration("tryAgainIn", c.resubscribeDelay),
+					zap.Error(err),
+				)
+				timer.Reset(c.resubscribeDelay)
+			}
+		}
+	}
+}
+
+// checkChainID runs a single chain-ID verification attempt (no retry); the
+// one-shot CatchUpL1Head migration path relies on it failing fast.
 func (c *Client) checkChainID(ctx context.Context) error {
 	const chainIDCheckTimeout = 30 * time.Second
 	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
@@ -165,18 +201,21 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return nil
 	}
 
-	// NOTE: for now we return an error. If we want to support users who fork
-	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
 	return fmt.Errorf(
-		"mismatched network id between L1 and L2. L2 network is %s; "+
-			"is --eth-node pointing to the right network?",
-		c.network.String(),
+		"%w. L2 network is %s; is --eth-node pointing to the right network?",
+		errChainIDMismatch, c.network.String(),
 	)
 }
 
+// Run fetches and writes the latest L1 head to the database. Then, it tracks live updates until
+// context is cancelled.
 func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
-	if err := c.checkChainID(ctx); err != nil {
+	if err := c.ensureChainID(ctx); err != nil {
+		// A cancelled context means we're shutting down
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return err
 	}
 
@@ -194,61 +233,66 @@ func (c *Client) Run(ctx context.Context) error {
 	return c.watchL1StateUpdates(ctx)
 }
 
-// CatchUpL1Head verifies the chain ID then writes the L1 head to the
-// database, without entering the live subscription loop. Closes the
-// underlying Subscriber on return; the Client must not be reused.
+// CatchUpL1Head fetches and writes the latest L1 head to the database. Contrary to [Client.Run]
+// it doesn't track live updates and finishes on the spot. The client must not be re-used after.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}
+
 	return c.catchUpL1HeadUpdates(ctx)
 }
 
+// watchL1StateUpdates subscribes and receives the state updates.
 func (c *Client) watchL1StateUpdates(ctx context.Context) error {
-	buffer := 128
-
 	c.logger.Info("Subscribing to L1 updates...")
 
-	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
-	updateSub := c.subscribeToUpdates(ctx, updateChan)
-	if updateSub == nil {
+	// note(rdr): 128 is an arbitrary value
+	const buffer = 128
+	updateCh := make(chan *contract.StarknetLogStateUpdate, buffer)
+
+	sub := c.subscribeToUpdates(ctx, updateCh)
+	if sub == nil {
 		return nil
 	}
-	defer updateSub.Unsubscribe()
 
 	c.logger.Info("Subscribed to L1 updates")
 
+	return c.receiveL1StateUpdates(ctx, sub, updateCh)
+}
+
+// receiveL1StateUpdates receives all the state updates and applies them. If there is an error
+// it attempts to resubscribe.
+func (c *Client) receiveL1StateUpdates(
+	ctx context.Context,
+	sub event.Subscription,
+	updateCh chan *contract.StarknetLogStateUpdate,
+) error {
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
+	defer func() {
+		if sub != nil {
+			sub.Unsubscribe()
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-		Outer:
-			for {
-				select {
-				case err := <-updateSub.Err():
-					// TODO can we use geth's event.Resubscribe?
-					// We can't use a warn log level here since we guarantee the L1 url will only be printed
-					// in debug logs and panics (to avoid leaking the API key).
-					c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
-					updateSub.Unsubscribe()
-
-					updateSub = c.subscribeToUpdates(ctx, updateChan)
-					if updateSub == nil {
-						return nil
-					}
-					defer updateSub.Unsubscribe() //nolint:gocritic
-				case logStateUpdate := <-updateChan:
-					c.applyLogStateUpdate(logStateUpdate)
-				default:
-					break Outer
-				}
+		case stateUpdate := <-updateCh:
+			c.applyLogStateUpdate(stateUpdate)
+		case err := <-sub.Err():
+			c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
+			sub.Unsubscribe()
+			sub = c.subscribeToUpdates(ctx, updateCh)
+			if sub == nil {
+				return nil
 			}
-
-			if err := c.setL1Head(ctx); err != nil {
+		case <-ticker.C:
+			err := c.setL1Head(ctx)
+			if err != nil {
 				return err
 			}
 		}
@@ -258,20 +302,20 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 // applyLogStateUpdate merges a LogStateUpdate (from either the forward
 // subscription or the historical filter) into nonFinalisedLogs. A removed
 // log clears all entries at or above its L1 block number.
-func (c *Client) applyLogStateUpdate(u *contract.StarknetLogStateUpdate) {
+func (c *Client) applyLogStateUpdate(stateUpdate *contract.StarknetLogStateUpdate) {
 	c.logger.Debug("Received L1 LogStateUpdate",
-		zap.String("number", u.BlockNumber.String()),
-		zap.String("stateRoot", u.GlobalRoot.Text(felt.Base16)),
-		zap.String("blockHash", u.BlockHash.Text(felt.Base16)),
+		zap.String("number", stateUpdate.BlockNumber.String()),
+		zap.String("stateRoot", stateUpdate.GlobalRoot.Text(felt.Base16)),
+		zap.String("blockHash", stateUpdate.BlockHash.Text(felt.Base16)),
 	)
-	if u.Raw.Removed {
+	if stateUpdate.Raw.Removed {
 		for l1BlockNumber := range c.nonFinalisedLogs {
-			if l1BlockNumber >= u.Raw.BlockNumber {
+			if l1BlockNumber >= stateUpdate.Raw.BlockNumber {
 				delete(c.nonFinalisedLogs, l1BlockNumber)
 			}
 		}
 	} else {
-		c.nonFinalisedLogs[u.Raw.BlockNumber] = u
+		c.nonFinalisedLogs[stateUpdate.Raw.BlockNumber] = stateUpdate
 	}
 }
 
@@ -390,7 +434,10 @@ func (c *Client) finalisedHeight(ctx context.Context) (uint64, bool) {
 			if err == nil {
 				return finalisedHeight, true
 			}
-			c.logger.Debug("Failed to retrieve L1 finalised height, retrying...", zap.Error(err))
+			c.logger.Debug(
+				"Failed to retrieve L1 finalised height, retrying...",
+				zap.Error(err),
+			)
 			timer.Reset(c.resubscribeDelay)
 		}
 	}
@@ -427,7 +474,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf(
-			"l1 head for block %d and state root %s: %w",
+			"setting l1 head for block %d and state root %s: %w",
 			head.BlockNumber, head.StateRoot.String(), err,
 		)
 	}

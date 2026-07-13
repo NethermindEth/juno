@@ -102,16 +102,30 @@ func makeRPCOverHTTP(
 	metricsEnabled bool,
 	corsEnabled bool,
 	rpcRequestTimeout time.Duration,
+	maxConcurrentRequests uint,
+	maxRequestQueue uint,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
 		listener = makeHTTPMetrics()
 	}
 
+	// A single gate shared across all RPC servers (v8/v9/v10) so the limit
+	// protects the whole process, not each version independently. Disabled when
+	// maxConcurrentRequests is 0.
+	var gate *jsonrpc.Gate
+	if maxConcurrentRequests > 0 {
+		gate = jsonrpc.NewGate(maxConcurrentRequests, uint64(maxRequestQueue))
+		if metricsEnabled {
+			makeHTTPGateMetrics(gate)
+		}
+	}
+
 	mux := http.NewServeMux()
 	for path, server := range servers {
 		httpHandler := jsonrpc.NewHTTP(server, logger).
-			WithRequestTimeout(rpcRequestTimeout)
+			WithRequestTimeout(rpcRequestTimeout).
+			WithGate(gate)
 		if listener != nil {
 			httpHandler = httpHandler.WithListener(listener)
 		}

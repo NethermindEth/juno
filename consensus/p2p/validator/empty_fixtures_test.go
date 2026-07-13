@@ -128,7 +128,6 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 			},
 			NewClasses:            make(map[felt.Felt]core.ClassDefinition),
 			TransactionStateDiffs: []*core.StateDiff{},
-			CandidateTxs:          []core.Transaction{},
 		},
 		SimulateResult: &blockchain.SimulateResult{
 			BlockCommitments: &core.BlockCommitments{

@@ -17,7 +17,7 @@ type CommitHook[V types.Hashable[H], H types.Hash] interface {
 
 // CommitListener is a component that is used to notify different components that a new committed block is available.
 type CommitListener[V types.Hashable[H], H types.Hash] interface {
-	CommitHook[V, H]
+	OnCommit(context.Context, types.Height, V) bool
 	// Listen returns a channel that will receive committed blocks.
 	// This is supposed to be used by the component that writes the committed blocks to the database.
 	Listen() <-chan sync.CommittedBlock
@@ -44,31 +44,39 @@ func NewCommitListener[V types.Hashable[H], H types.Hash](
 	}
 }
 
-func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
+func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height, value V) bool {
 	buildResult := b.proposalStore.Get(value.Hash())
 	if buildResult == nil {
 		// todo(rdr): we can avoid using the ANY by writing some representation into Hash
 		b.logger.Error("failed to get build result", zap.Any("hash", value.Hash()))
-		return
+		return false
 	}
 
 	committedBlock := sync.CommittedBlock{
 		Block:       buildResult.PreConfirmed.Block,
 		StateUpdate: buildResult.PreConfirmed.StateUpdate,
 		NewClasses:  buildResult.PreConfirmed.NewClasses,
-		Persisted:   make(chan struct{}),
+		Persisted:   make(chan error, 1),
 	}
 
 	select {
 	case <-ctx.Done():
-		return
+		return false
 	case b.commits <- committedBlock:
 	}
 
 	select {
 	case <-ctx.Done():
-		return
-	case <-committedBlock.Persisted:
+		return false
+	case err := <-committedBlock.Persisted:
+		if err != nil {
+			b.logger.Warn(
+				"failed to persist committed block",
+				zap.Uint("height", uint(height)),
+				zap.Error(err),
+			)
+			return false
+		}
 	}
 
 	wg := gosync.WaitGroup{}
@@ -78,8 +86,8 @@ func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height
 		})
 	}
 	wg.Wait()
-
 	b.proposalStore.FinalizeHeight(height)
+	return true
 }
 
 func (b *commitListener[V, H]) Listen() <-chan sync.CommittedBlock {

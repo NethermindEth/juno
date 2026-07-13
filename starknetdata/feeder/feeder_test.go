@@ -3,6 +3,7 @@ package feeder_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
+			adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -51,7 +52,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := sn2core.AdaptBlock(response, sig.Signature)
+	adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -86,7 +87,7 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			adaptedResponse, err := sn2core.AdaptStateUpdate(response)
+			adaptedResponse, err := sn2core.AdaptStateUpdate(&response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, feederUpdate)
 		})
@@ -220,13 +221,15 @@ func TestClassV1(t *testing.T) {
 		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
 		casmClass, err := client.CasmClassDefinition(t.Context(), test.classHash)
+		var compiledClass *starknet.CasmClass
 		if test.hasCompiledClass {
 			require.NoError(t, err)
+			compiledClass = &casmClass
 		} else {
 			require.EqualError(t, err, "deprecated compiled class")
 		}
 
-		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, casmClass)
+		adaptedResponse, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiledClass)
 		require.NoError(t, err)
 		assert.Equal(t, adaptedResponse, class)
 
@@ -262,43 +265,6 @@ func TestStateUpdateWithBlock(t *testing.T) {
 			assert.Equal(t, stateUpdate, adaptedStateUpdate)
 		})
 	}
-}
-
-func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	response, err := client.StateUpdateWithBlock(ctx, "pending")
-	require.NoError(t, err)
-	adaptedBlock, err := sn2core.AdaptBlock(response.Block, nil)
-	require.NoError(t, err)
-	adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
-	require.NoError(t, err)
-	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, block, adaptedBlock)
-	assert.Equal(t, stateUpdate, adaptedStateUpdate)
-}
-
-func TestBlockPreLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	block, err := adapter.BlockPreLatest(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, block)
-}
-
-func TestStateUpdatePending(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	stateUpdate, err := adapter.StateUpdatePending(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, stateUpdate)
 }
 
 func TestAdapterErrorPaths(t *testing.T) {
@@ -344,7 +310,9 @@ func TestAdapterErrorPaths(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		t.Cleanup(srv.Close)
-		errClient := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		errClient := feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 		errAdapter := adaptfeeder.New(errClient)
 		hdr, err := errAdapter.BlockHeaderLatest(ctx)
 		assert.Error(t, err)

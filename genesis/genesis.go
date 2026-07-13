@@ -344,6 +344,7 @@ func executeTransactions(
 				DeployTransaction: core.DeployTransaction{
 					TransactionHash:     txn.Hash,
 					ContractAddressSalt: txn.ContractAddressSalt,
+					// bug: TxnDeployAccount does not contain SenderAddress field, so this is nil
 					ContractAddress:     txn.SenderAddress,
 					ClassHash:           txn.ClassHash,
 					ConstructorCallData: *txn.ConstructorCallData,

@@ -1,7 +1,5 @@
 package db
 
-import "slices"
-
 // Pebble does not support buckets to differentiate between groups of
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
@@ -132,7 +130,18 @@ const (
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
 func (b Bucket) Key(key ...[]byte) []byte {
-	return append([]byte{byte(b)}, slices.Concat(key...)...)
+	size := 1
+	for _, k := range key {
+		size += len(k)
+	}
+
+	buf := make([]byte, size)
+	buf[0] = byte(b)
+	i := 1
+	for _, k := range key {
+		i += copy(buf[i:], k)
+	}
+	return buf
 }
 
 func (b Bucket) String() string {
