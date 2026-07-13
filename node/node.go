@@ -83,7 +83,6 @@ type Config struct {
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
 	Colour                   bool             `mapstructure:"colour"`
-	PreLatestPollInterval    time.Duration    `mapstructure:"prelatest-poll-interval"`
 	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
@@ -307,6 +306,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 
 	if cfg.Sequencer {
+		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
@@ -397,7 +398,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			chain,
 			feederGatewayDataSource,
 			logger,
-			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
 			database,

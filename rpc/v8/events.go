@@ -79,7 +79,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		func() (*pendingpkg.PreConfirmed, error) { return nil, pendingpkg.ErrPreConfirmedNotFound },
+		func() (blockchain.PreConfirmedReader, error) { return nil, pendingpkg.ErrPreConfirmedNotFound },
 	)
 	if err != nil {
 		return nil, rpccore.ErrInternal

@@ -75,7 +75,6 @@ func newTxStatusSubscriber(h *Handler, w jsonrpc.Conn, txHash *felt.Felt) subscr
 		onStart:        state.onStart,
 		onReorg:        state.onReorg,
 		onNewHead:      state.onNewHead,
-		onPreLatest:    state.onPreLatest,
 		onPreConfirmed: state.onPreConfirmed,
 		onL1Head:       state.onL1Head,
 	}
@@ -104,15 +103,6 @@ func (s *txStatusSubscriberState) onNewHead(
 	id string,
 	sub *subscription,
 	_ *core.Block,
-) error {
-	return s.checkTxStatusIfPending(ctx, id, sub)
-}
-
-func (s *txStatusSubscriberState) onPreLatest(
-	ctx context.Context,
-	id string,
-	sub *subscription,
-	_ *pending.PreLatest,
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }

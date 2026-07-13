@@ -790,7 +790,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			}
 		}
 
-		status, err := adaptTransactionStatus(txStatus)
+		status, err := adaptTransactionStatus(&txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
 				h.logger.Error("Failed to adapt transaction status", zap.Error(err))
