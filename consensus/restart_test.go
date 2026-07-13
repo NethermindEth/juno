@@ -27,6 +27,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +99,13 @@ func TestConsensusRestartReplaysPersistentWALAndPrecommits(t *testing.T) {
 	genesisDiff, genesisClasses := loadGenesis(t, logger)
 
 	p2pNodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(restartTestNodeCount))
+	// BuildNetworks only wires DHT bootstrap peers along the line topology, so the restart
+	// node reaches the proposer and other voters through multi-hop gossipsub. Mesh grafting
+	// is heartbeat-driven (~1s/hop) and, under load, often fails to deliver the round-0
+	// proposal and enough peer prevotes to the restart node within the deadline. This test
+	// only cares that the node receives that state from peers, not about the topology, so
+	// connect every host directly and let FloodPublish deliver in a single hop.
+	connectAllHosts(t, t.Context(), p2pNodes)
 	// Use a non-proposer so replay must restore proposal/vote state received from peers.
 	restartNodeIndex := chooseNonProposerNodeIndex(restartTestNodeCount)
 	restartNodeConsensusAddress := consensus.InitMockServices(
@@ -174,6 +182,21 @@ func TestConsensusRestartReplaysPersistentWALAndPrecommits(t *testing.T) {
 
 	// With peers stopped and no committed block, this precommit must come from WAL replay.
 	waitForPrecommitFromNode(t, restartedNodePrecommits, restartNodeConsensusAddress)
+}
+
+// connectAllHosts eagerly establishes a direct connection between every pair of hosts so
+// gossipsub delivery does not depend on multi-hop mesh formation.
+func connectAllHosts(t *testing.T, ctx context.Context, nodes []testutils.Node) {
+	t.Helper()
+	for i := range nodes {
+		for j := range nodes {
+			if i == j {
+				continue
+			}
+			info := peer.AddrInfo{ID: nodes[j].Host.ID(), Addrs: nodes[j].Host.Addrs()}
+			require.NoError(t, nodes[i].Host.Connect(ctx, info))
+		}
+	}
 }
 
 func chooseNonProposerNodeIndex(nodeCount int) int {
