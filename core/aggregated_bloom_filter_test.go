@@ -216,7 +216,7 @@ func TestAggregatedBloomFilter_MarshalBinary_HeaderLayout(t *testing.T) {
 	require.GreaterOrEqual(t, len(data), 20)
 
 	require.Equal(t, uint64(from), binary.BigEndian.Uint64(data[0:8]))
-	require.Equal(t, uint64(from+core.NumBlocksPerFilter-1), binary.BigEndian.Uint64(data[8:16]))
+	require.Equal(t, from+core.NumBlocksPerFilter-1, binary.BigEndian.Uint64(data[8:16]))
 	require.Equal(t, uint32(core.EventsBloomLength), binary.BigEndian.Uint32(data[16:20]))
 }
 
@@ -245,6 +245,31 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Corrupt(t *testing.T) {
 	t.Run("truncated mid-row", func(t *testing.T) {
 		var decoded core.AggregatedBloomFilter
 		require.ErrorIs(t, decoded.UnmarshalBinary(data[:30]), io.ErrUnexpectedEOF)
+	})
+
+	t.Run("wrong row count", func(t *testing.T) {
+		corrupt := make([]byte, len(data))
+		copy(corrupt, data)
+		binary.BigEndian.PutUint32(corrupt[16:20], core.EventsBloomLength-1)
+
+		var decoded core.AggregatedBloomFilter
+		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
+	})
+
+	t.Run("toBlock not matching range", func(t *testing.T) {
+		corrupt := make([]byte, len(data))
+		copy(corrupt, data)
+		binary.BigEndian.PutUint64(corrupt[8:16], 1<<40)
+
+		var decoded core.AggregatedBloomFilter
+		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
+	})
+
+	t.Run("trailing bytes", func(t *testing.T) {
+		withJunk := append([]byte{}, data...)
+		withJunk = append(withJunk, 0x00, 0x01, 0x02, 0x03)
+		var decoded core.AggregatedBloomFilter
+		require.ErrorIs(t, decoded.UnmarshalBinary(withJunk), io.ErrUnexpectedEOF)
 	})
 }
 
@@ -290,7 +315,7 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Allocs(t *testing.T) {
 		}
 	})
 	// One backing []uint64 + one []bitset.BitSet header. Allow slack for
-	// interface boxing in AllocsPerRun itself; current code is ~30k.
+	// interface boxing in AllocsPerRun itself; current code is ~2.
 	require.LessOrEqual(t, allocs, float64(8),
 		"decode should allocate O(1) buffers, got %.0f", allocs)
 }
