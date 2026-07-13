@@ -175,6 +175,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
+	defaultMaxConcurrentCompilations          = ""
+	defaultMaxCompilationQueue                = ""
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultNodeMemoryReserve                  = 4 * 1024 // MB (4 GB) reserved for the rest of the node
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
@@ -263,17 +265,16 @@ const (
 	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
-		"Empty derives a safe value from available memory and CPU count; 0 disables compilations."
+		"Default is set based on available hardware resources."
 	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +
-		"reaching max-concurrent-compilations before starting to reject incoming requests. " +
-		"Empty uses twice the concurrency limit."
-	maxCompilationMemoryUsage = "Maximum memory (in MB) each Sierra compilation process may " +
+		"reaching max-concurrent-compilations. Default sets the queue to twice the concurrency limit."
+	maxCompilationMemoryUsage = "Maximum virtual memory (in MB) a Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
-	nodeMemoryReserveUsage = "Memory (in MB) reserved for the rest of the node and excluded from " +
-		"the compilation memory budget. Used only when max-concurrent-compilations is empty."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
 		"0 disables the limit."
+	maxCompilationReserveMemory = "Memory (in MB) excluded from the compilations memory budget when " +
+		"calculating the default for `max-concurrent-compilations`"
 	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
@@ -484,8 +485,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	// Empty derives at startup; an explicit 0 disables compilations / the queue.
-	defaultMaxConcurrentCompilations := ""
-	defaultMaxCompilationQueue := ""
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -624,7 +623,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	)
 	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
 	junoCmd.Flags().Uint(
-		nodeMemoryReserveF, defaultNodeMemoryReserve, nodeMemoryReserveUsage,
+		nodeMemoryReserveF, defaultNodeMemoryReserve, maxCompilationReserveMemory,
 	)
 	junoCmd.Flags().Uint(
 		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
