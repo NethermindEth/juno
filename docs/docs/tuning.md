@@ -81,7 +81,7 @@ These limits are enforced by the kernel and only on **Linux**. On other operatin
 
 Two flags cap the resources each compilation process may use, protecting the node from malicious classes that would otherwise consume CPU and memory without bound:
 
-- `--max-compilation-memory` (default: 4096 MB): Maximum memory a single compilation process may use. A compilation exceeding it is aborted.
+- `--max-compilation-memory` (default: 4096 MB): Maximum virtual memory (address space) a single compilation process may use. A compilation exceeding it is aborted.
 - `--max-compilation-cpu-time` (default: 10 seconds): Maximum CPU time a single compilation process may consume. A compilation exceeding it is killed.
 
 Setting either flag to `0` disables that limit. The defaults are generous for legitimate classes and only need raising if genuine compilations are being aborted.

@@ -106,17 +106,11 @@ const extractConfigs = (codebase) => {
     if (configName === "max-vm-queue") {
       defaultValue = "2 * max-vms";
     }
-    if (configName === "max-concurrent-compilations") {
-      defaultValue = "CPU Cores";
-    }
     // The registered Cobra default is 0, but pruning is gated on the flag's
     // presence, not its value — a bare `--prune-mode` enables pruning with the
     // NoOptDefVal of 128. Show 128 as the effective default when enabled.
     if (configName === "prune-mode") {
       defaultValue = 128;
-    }
-    if (configName === "max-compilation-queue") {
-      defaultValue = "2 * max-concurrent-compilations";
     }
     if (configName === "gw-timeouts") {
       defaultValue = "5s";
