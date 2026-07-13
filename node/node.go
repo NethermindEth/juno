@@ -164,6 +164,57 @@ func parseCompilationLimit(value string) (limit uint, derive bool, err error) {
 	return uint(n), false, nil
 }
 
+func newThrottledCompilerFromConfig(
+	cfg *Config, logger *log.ZapLogger,
+) (*ThrottledCompiler, error) {
+	concurrent, concurrentAuto, err := parseCompilationLimit(cfg.MaxConcurrentCompilations)
+	if err != nil {
+		return nil, fmt.Errorf("parsing max-concurrent-compilations: %w", err)
+	}
+	var concurrentCompilations uint
+	if concurrentAuto {
+		availableMemoryMB := compiler.AvailableMemoryMB()
+		concurrentCompilations = max(compiler.ConcurrencyLimit(
+			uint(runtime.GOMAXPROCS(0)),
+			availableMemoryMB,
+			uint64(cfg.NodeMemoryReserve),
+			uint64(cfg.MaxCompilationMemory),
+		), 1)
+		logger.Info("deriving Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations),
+			zap.Uint64("availableMemoryMB", availableMemoryMB),
+			zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
+			zap.Uint("maxMemoryPerCompilationMB", cfg.MaxCompilationMemory),
+		)
+	} else {
+		concurrentCompilations = concurrent
+		logger.Info("using configured Sierra compilation concurrency",
+			zap.Uint("limit", concurrentCompilations))
+	}
+
+	queue, queueAuto, err := parseCompilationLimit(cfg.MaxCompilationQueue)
+	if err != nil {
+		return nil, fmt.Errorf("parsing max-compilation-queue: %w", err)
+	}
+	compilationQueue := queue
+	if queueAuto {
+		compilationQueue = 2 * concurrentCompilations
+	}
+
+	return NewThrottledCompiler(
+		compiler.New(
+			&compiler.Config{
+				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+			},
+			"",
+			logger,
+		),
+		concurrentCompilations,
+		uint64(compilationQueue),
+	), nil
+}
+
 type Node struct {
 	cfg        *Config
 	db         db.KeyValueStore
@@ -308,51 +359,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	concurrent, concurrentAuto, err := parseCompilationLimit(cfg.MaxConcurrentCompilations)
+	throttledCompiler, err := newThrottledCompilerFromConfig(cfg, logger)
 	if err != nil {
-		return nil, fmt.Errorf("parsing max-concurrent-compilations: %w", err)
+		return nil, err
 	}
-	var concurrentCompilations uint
-	if concurrentAuto {
-		availableMemoryMB := compiler.AvailableMemoryMB()
-		concurrentCompilations = max(compiler.ConcurrencyLimit(
-			uint(runtime.GOMAXPROCS(0)),
-			availableMemoryMB,
-			uint64(cfg.NodeMemoryReserve),
-			uint64(cfg.MaxCompilationMemory),
-		), 1)
-		logger.Info("deriving Sierra compilation concurrency",
-			zap.Uint("limit", concurrentCompilations),
-			zap.Uint64("availableMemoryMB", availableMemoryMB),
-			zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
-			zap.Uint("maxMemoryPerCompilationMB", cfg.MaxCompilationMemory),
-		)
-	} else {
-		concurrentCompilations = concurrent
-		logger.Info("using configured Sierra compilation concurrency",
-			zap.Uint("limit", concurrentCompilations))
-	}
-
-	queue, queueAuto, err := parseCompilationLimit(cfg.MaxCompilationQueue)
-	if err != nil {
-		return nil, fmt.Errorf("parsing max-compilation-queue: %w", err)
-	}
-	compilationQueue := queue
-	if queueAuto {
-		compilationQueue = 2 * concurrentCompilations
-	}
-	throttledCompiler := NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		concurrentCompilations,
-		uint64(compilationQueue),
-	)
 
 	if cfg.Sequencer {
 		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")

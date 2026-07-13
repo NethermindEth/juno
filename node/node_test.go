@@ -91,6 +91,22 @@ func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestNewNodeRejectsInvalidConcurrency(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		MaxConcurrentCompilations:          "-1",
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.ErrorContains(t, err, "max-concurrent-compilations")
+}
+
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 	network := networks.Sepolia
 	tests := map[string]struct {
