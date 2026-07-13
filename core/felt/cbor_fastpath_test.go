@@ -45,26 +45,18 @@ var decodeCornerCases = []struct {
 	}},
 }
 
-func genericUnmarshalCBOR(value *felt.Felt, data []byte) error {
-	return cbor.Unmarshal(data, (*fp.Element)(value))
-}
-
-func genericMarshalCBOR(value *felt.Felt) ([]byte, error) {
-	return cbor.Marshal((*fp.Element)(value))
-}
-
 func encodeBoth(value *felt.Felt) (fast, generic []byte, err error) {
 	fast, err = value.MarshalCBOR()
 	if err != nil {
 		return nil, nil, err
 	}
-	generic, err = genericMarshalCBOR(value)
+	generic, err = cbor.Marshal(value)
 	return fast, generic, err
 }
 
 func decodeBoth(data []byte) (fast, generic felt.Felt, errFast, errGeneric error) {
 	errFast = fast.UnmarshalCBOR(data)
-	errGeneric = genericUnmarshalCBOR(&generic, data)
+	errGeneric = cbor.Unmarshal(data, &generic)
 	return fast, generic, errFast, errGeneric
 }
 
@@ -189,22 +181,13 @@ func TestCBORFastPathStress(t *testing.T) {
 		value := feltFromLimbs(rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
 
 		fast, generic, err := encodeBoth(&value)
-		if err != nil {
-			t.Fatalf("iter %d: marshal error: %v", i, err)
-		}
-		if !bytes.Equal(fast, generic) {
-			t.Fatalf("iter %d: marshal mismatch for %v: fast=% x generic=% x",
-				i, value.Impl(), fast, generic)
-		}
+		require.NoError(t, err)
+		require.True(t, bytes.Equal(fast, generic))
 
 		fastDecoded, genericDecoded, errFast, errGeneric := decodeBoth(fast)
-		if errFast != nil || errGeneric != nil {
-			t.Fatalf("iter %d: decode error: fast=%v generic=%v", i, errFast, errGeneric)
-		}
-		if !fastDecoded.Equal(&genericDecoded) {
-			t.Fatalf("iter %d: decode mismatch: fast=%s generic=%s",
-				i, fastDecoded.String(), genericDecoded.String())
-		}
+		require.NoError(t, errFast)
+		require.NoError(t, errGeneric)
+		require.True(t, fastDecoded.Equal(&genericDecoded))
 
 		if i > 0 && i%logEvery == 0 {
 			t.Logf("checked %d/%d", i, n)

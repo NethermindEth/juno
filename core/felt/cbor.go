@@ -8,10 +8,13 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+// Fast, felt-specialized CBOR marshaling.
 func (z *Felt) MarshalCBOR() ([]byte, error) {
 	return encodeFeltLimbs((*fp.Element)(z)), nil
 }
 
+// Fast, felt-specialized CBOR unmarshaling.
+// Falls back to the generic decoder if the felt is non-canonical or invalid
 func (z *Felt) UnmarshalCBOR(data []byte) error {
 	if decodeFeltLimbs((*fp.Element)(z), data) {
 		return nil
@@ -20,17 +23,27 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 }
 
 const (
-	cborUint8AdditionalInfo  = 24
-	cborUint16AdditionalInfo = 25
-	cborUint32AdditionalInfo = 26
-	cborUint64AdditionalInfo = 0x1b
+	// These derive from the CBOR spec
+	// Limb types are always unsigned int
+	// The following numbers represent the unsigned integer size
+	// See: https://www.rfc-editor.org/rfc/rfc8949.html#section-3
+	cborUint8AdditionalInfo  = 24 // 1 byte follows
+	cborUint16AdditionalInfo = 25 // 2 bytes follow
+	cborUint32AdditionalInfo = 26 // 4 bytes follow
+	cborUint64AdditionalInfo = 27 // 8 bytes follow
 
-	// cborArrayHeader4 is the CBOR array header byte for an array of Limbs items.
-	cborArrayHeader4 = 0x80 | Limbs
-	maxCBORUintLen   = 1 + 8
+	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
+	// Top 3 bits are the major type (4 = array), low 5 bits are the length.
+	// Type 4 in the top bits is the same as 1<<7, so this byte is
+	// 0b100_00100: an array with Limbs (4) elements.
+	cborArrayHeader4 = (1 << 7) | Limbs
+
+	// header + 8 bytes following
+	maxCBORUintLen = 1 + 8
 )
 
 func encodeFeltLimbs(element *fp.Element) []byte {
+	// The buffer format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	buffer := make([]byte, 1, 1+Limbs*maxCBORUintLen)
 	buffer[0] = cborArrayHeader4
 
