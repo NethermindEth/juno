@@ -20,7 +20,7 @@ func AvailableMemoryMB() uint64 {
 
 // ConcurrencyLimit returns how many compilations fit in memory, capped by maxConcurrency.
 // Memory is in MB. A zero maxMemoryPerCompilation means no memory limit.
-// Returns 0 when memory fits no compilation.
+// Returns 1 when memory fits no compilation.
 func ConcurrencyLimit(
 	maxConcurrency uint64,
 	availableMemory uint64,
@@ -28,11 +28,17 @@ func ConcurrencyLimit(
 	maxMemoryPerCompilation uint64,
 ) uint64 {
 	if maxMemoryPerCompilation == 0 {
-		return maxConcurrency
+		return max(1, maxConcurrency)
 	}
+
 	if availableMemory <= nodeMemoryReserve {
-		return 0
+		return 1
 	}
+
 	fitInMemory := (availableMemory - nodeMemoryReserve) / maxMemoryPerCompilation
+	if fitInMemory == 0 {
+		return 1
+	}
+
 	return min(fitInMemory, maxConcurrency)
 }

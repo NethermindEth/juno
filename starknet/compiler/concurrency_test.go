@@ -40,20 +40,20 @@ func TestConcurrencyLimit(t *testing.T) {
 			want:                    1, // (8-4)/4
 		},
 		{
-			name:                    "no room for a single compilation when available equals reserve",
+			name:                    "floors to 1 when available equals reserve",
 			maxConcurrency:          10,
 			availableMemory:         4 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    0,
+			want:                    1,
 		},
 		{
-			name:                    "no room when available below reserve plus one compilation",
+			name:                    "floors to 1 when memory fits no compilation",
 			maxConcurrency:          10,
 			availableMemory:         6 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    0, // (6-4)/4
+			want:                    1, // (6-4)/4 = 0, floored to 1
 		},
 		{
 			name:                    "unbounded per-compilation memory ignores budget",
