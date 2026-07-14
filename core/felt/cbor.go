@@ -10,13 +10,13 @@ import (
 
 // Fast, felt-specialized CBOR marshaling.
 func (z *Felt) MarshalCBOR() ([]byte, error) {
-	return encodeFeltLimbs((*fp.Element)(z)), nil
+	return encodeFeltLimbs(z), nil
 }
 
 // Fast, felt-specialized CBOR unmarshaling.
-// Falls back to the generic decoder if the felt is non-canonical or invalid
+// Falls back to the generic decoder on shape mismatch
 func (z *Felt) UnmarshalCBOR(data []byte) error {
-	if decodeFeltLimbs((*fp.Element)(z), data) {
+	if decodeFeltLimbs(z, data) {
 		return nil
 	}
 	return cbor.Unmarshal(data, (*fp.Element)(z))
@@ -42,37 +42,37 @@ const (
 	maxCBORUintLen = 1 + 8
 )
 
-func encodeFeltLimbs(element *fp.Element) []byte {
+func encodeFeltLimbs(value *Felt) []byte {
 	// The buffer format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	buffer := make([]byte, 1+Limbs*maxCBORUintLen)
 	buffer[0] = cborArrayHeader4
 
 	index := 1
 	for limbIndex := range Limbs {
-		value := element[limbIndex]
+		limb := value[limbIndex]
 		switch {
-		case value > math.MaxUint32:
+		case limb > math.MaxUint32:
 			buffer[index] = cborUint64AdditionalInfo
-			binary.BigEndian.PutUint64(buffer[index+1:], value)
+			binary.BigEndian.PutUint64(buffer[index+1:], limb)
 			index += 1 + 8
 
-		case value > math.MaxUint16:
+		case limb > math.MaxUint16:
 			buffer[index] = cborUint32AdditionalInfo
-			binary.BigEndian.PutUint32(buffer[index+1:], uint32(value))
+			binary.BigEndian.PutUint32(buffer[index+1:], uint32(limb))
 			index += 1 + 4
 
-		case value > math.MaxUint8:
+		case limb > math.MaxUint8:
 			buffer[index] = cborUint16AdditionalInfo
-			binary.BigEndian.PutUint16(buffer[index+1:], uint16(value))
+			binary.BigEndian.PutUint16(buffer[index+1:], uint16(limb))
 			index += 1 + 2
 
-		case value >= cborUint8AdditionalInfo:
+		case limb >= cborUint8AdditionalInfo:
 			buffer[index] = cborUint8AdditionalInfo
-			buffer[index+1] = byte(value)
+			buffer[index+1] = byte(limb)
 			index += 2
 
 		default:
-			buffer[index] = byte(value)
+			buffer[index] = byte(limb)
 			index++
 		}
 	}
@@ -80,15 +80,15 @@ func encodeFeltLimbs(element *fp.Element) []byte {
 	return buffer[:index]
 }
 
-// Writes element only on success, so a rejected input can't partially
+// Writes value only on success, so a rejected input can't partially
 // corrupt it before falling back to the generic decoder.
-func decodeFeltLimbs(element *fp.Element, data []byte) bool {
+func decodeFeltLimbs(value *Felt, data []byte) bool {
 	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	if len(data) == 0 || data[0] != cborArrayHeader4 {
 		return false
 	}
 
-	var limbs fp.Element
+	var limbs Felt
 	byteOffset := 1
 
 	for limbIndex := range Limbs {
@@ -144,6 +144,6 @@ func decodeFeltLimbs(element *fp.Element, data []byte) bool {
 		return false
 	}
 
-	*element = limbs
+	*value = limbs
 	return true
 }
