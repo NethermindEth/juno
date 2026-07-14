@@ -633,7 +633,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	// block holds a single, uniquely-hashed transaction with a matching
 	// receipt. The chain is constructed in storage so the resulting reader
 	// reflects what the live poller would expose.
-	head := &core.Header{Number: 0}
+	wantBottom := uint64(1) // canonical head at 0
 	storage := preconfirmed.NewChainStorage()
 	hashes := make([]*felt.Felt, 3)
 	receiptBlockNumbers := []uint64{1, 2, 3}
@@ -661,10 +661,10 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: hash}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
 		}
-		_, err := storage.ApplyUpdate(block, blockNumber, 0, head)
+		_, err := storage.ApplyUpdate(block, blockNumber, 0, wantBottom)
 		require.NoError(t, err)
 	}
-	chain := storage.SnapshotForHead(head)
+	chain := storage.SnapshotForHead(wantBottom)
 	require.Equal(t, 3, chain.Length())
 
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {

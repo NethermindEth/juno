@@ -92,25 +92,24 @@ func (p *Poller) Run(ctx context.Context) {
 }
 
 func (p *Poller) tick(ctx context.Context) error {
-	head, err := p.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return fmt.Errorf("reading heads header: %w", err)
-		}
-		head = nil
+	height, err := p.blockchain.Height()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return fmt.Errorf("reading chain height: %w", err)
 	}
-	p.storage.AdvanceTo(head)
-	if !p.atTip(head) {
+
+	bottom := height + 1
+	p.storage.AdvanceTo(bottom)
+	if !p.atTip(height) {
 		return nil
 	}
 
-	chain := p.storage.SnapshotForHead(head)
+	chain := p.storage.SnapshotForHead(bottom)
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string
 		txCount    uint64
 	)
-	fromBlock := headPlusOne(head)
+	fromBlock := bottom
 
 	if chain.Length() > 0 {
 		if mostRecent = chain.Head(); mostRecent != nil {
@@ -136,7 +135,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
-		err = p.backfill(ctx, head, fromBlock, identifier, txCount, updateBlockNum)
+		err = p.backfill(ctx, bottom, fromBlock, identifier, txCount, updateBlockNum)
 		if err != nil {
 			return fmt.Errorf(
 				"backfilling from %d to %d: %w",
@@ -152,7 +151,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	// path ignores baseTxCount — so the stale value is harmless under current
 	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
 	// for non-Delta updates.
-	return p.apply(update, updateBlockNum, txCount, head)
+	return p.apply(update, updateBlockNum, txCount, bottom)
 }
 
 // backfill polls fromBlock with the given delta hints (identifier+txCount) to
@@ -161,7 +160,7 @@ func (p *Poller) tick(ctx context.Context) error {
 // needed; backfill itself performs no gap check.
 func (p *Poller) backfill(
 	ctx context.Context,
-	head *core.Header,
+	bottom uint64,
 	fromBlockNum uint64,
 	identifier string,
 	txCount uint64,
@@ -172,7 +171,7 @@ func (p *Poller) backfill(
 		return fmt.Errorf("polling pre-confirmed for number %d: %w", fromBlockNum, err)
 	}
 
-	if err := p.apply(update, fromBlockNum, txCount, head); err != nil {
+	if err := p.apply(update, fromBlockNum, txCount, bottom); err != nil {
 		return fmt.Errorf("applying pre-confirmed at %d: %w", fromBlockNum, err)
 	}
 
@@ -182,7 +181,7 @@ func (p *Poller) backfill(
 			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}
 
-		if err := p.apply(update, n, 0, head); err != nil {
+		if err := p.apply(update, n, 0, bottom); err != nil {
 			return fmt.Errorf("applying pre-confirmed at %d: %w", n, err)
 		}
 	}
@@ -195,9 +194,9 @@ func (p *Poller) apply(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	head *core.Header,
+	bottom uint64,
 ) error {
-	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, head)
+	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, bottom)
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}
@@ -208,15 +207,7 @@ func (p *Poller) apply(
 	return nil
 }
 
-func (p *Poller) atTip(head *core.Header) bool {
+func (p *Poller) atTip(headNum uint64) bool {
 	highest := p.highestBlockHeader.Load()
-	if highest == nil {
-		return false
-	}
-
-	var headNum uint64
-	if head != nil {
-		headNum = head.Number
-	}
-	return highest.Number <= headNum
+	return highest != nil && highest.Number <= headNum
 }

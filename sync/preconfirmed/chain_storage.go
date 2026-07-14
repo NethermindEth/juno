@@ -269,12 +269,13 @@ func NewChainStorage() *ChainStorage {
 	return &ChainStorage{}
 }
 
-// SnapshotForHead returns a head-aligned view of the pre-confirmed chain: its
-// conceptual bottom is head.Number+1 (or 0 at genesis with head == nil), so
-// entries at or below the canonical head are excluded via the reported length.
-// If the stored chain briefly extends below head+1 (AdvanceTo hasn't run yet
-// against this head advance), the view reports a shorter length, excluding the
-// now-committed entries.
+// SnapshotForHead returns a head-aligned view of the pre-confirmed chain.
+// wantBottom is the first pre-confirmed slot above the canonical head — head
+// number+1, or 0 before the genesis block has been ingested — and becomes the
+// view's conceptual bottom, so entries at or below the canonical head are
+// excluded via the reported length. If the stored chain briefly extends below
+// wantBottom (AdvanceTo hasn't run yet against this head advance), the view
+// reports a shorter length, excluding the now-committed entries.
 //
 // The view is uncapped: it exposes every stored entry from head+1 up to the
 // stored tip, even when the chain runs more than core.BlockHashLag ahead of the
@@ -284,15 +285,14 @@ func NewChainStorage() *ChainStorage {
 // masked by truncating the view here.
 //
 // Returns the zero-value ChainReader (length 0) if the chain does not cover
-// head+1 (head advanced past the stored tip, or the chain's bottom sits above
-// head+1); callers should branch on Length().
-func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
+// wantBottom (head advanced past the stored tip, or the chain's bottom sits
+// above wantBottom); callers should branch on Length().
+func (s *ChainStorage) SnapshotForHead(wantBottom uint64) ChainReader {
 	current := s.inner.Load()
 	if current == nil || current.length == 0 {
 		return ChainReader{}
 	}
 
-	wantBottom := headPlusOne(head)
 	if !current.contains(wantBottom) {
 		return ChainReader{}
 	}
@@ -304,9 +304,10 @@ func (s *ChainStorage) SnapshotForHead(head *core.Header) ChainReader {
 // ApplyUpdate atomically evolves the stored chain from a wire-side update.
 // blockNumber is the height targeted by the update; baseTxCount is the
 // knownTransactionCount the poller sent (consulted only for the Delta case
-// as a defensive race-check against the targeted slot). head MUST be the
-// canonical chain head, or nil at genesis. Returns the affected entry, or
-// nil when the update was a no-op (NoChange, preserved, rejected at cap, etc.).
+// as a defensive race-check against the targeted slot). wantBottom MUST be
+// the first pre-confirmed slot above the canonical head — head number+1, or
+// 0 before genesis ingestion. Returns the affected entry, or nil when the
+// update was a no-op (NoChange, preserved, rejected at cap, etc.).
 //
 // On CAS failure the chain changed between Load and CompareAndSwap; we return
 // an error instead of retrying.
@@ -314,13 +315,13 @@ func (s *ChainStorage) ApplyUpdate(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	head *core.Header,
+	wantBottom uint64,
 ) (*pending.PreConfirmed, error) {
 	if _, ok := update.(starknet.PreConfirmedNoChange); ok {
 		return nil, nil
 	}
 	current := s.inner.Load()
-	newChain, affected, err := computeUpdate(current, update, blockNumber, baseTxCount, head)
+	newChain, affected, err := computeUpdate(current, update, blockNumber, baseTxCount, wantBottom)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +334,9 @@ func (s *ChainStorage) ApplyUpdate(
 	return affected, nil
 }
 
-// AdvanceTo realigns the chain to a new canonical head. Three outcomes:
+// AdvanceTo realigns the chain to a new canonical head, given as wantBottom —
+// the first pre-confirmed slot above it (head number+1, or 0 before genesis
+// ingestion). Three outcomes:
 //
 //   - wantBottom == bottom: chain already aligned, no-op.
 //   - wantBottom > mostRecent (head advanced past everything we stored) OR
@@ -348,14 +351,13 @@ func (s *ChainStorage) ApplyUpdate(
 //
 // Single-writer: like ApplyUpdate, this assumes the pre-confirmed poller
 // goroutine is the only writer.
-func (s *ChainStorage) AdvanceTo(head *core.Header) bool {
+func (s *ChainStorage) AdvanceTo(wantBottom uint64) bool {
 	current := s.inner.Load()
 	if current == nil || current.length == 0 {
 		return false
 	}
 
 	bottom := current.bottom()
-	wantBottom := headPlusOne(head)
 	if wantBottom == bottom {
 		return false
 	}
@@ -392,30 +394,32 @@ func rebuild(current *node, keep int) *node {
 //   - blockNumber == mostRecent + 1    → appendMostRecent (extension by one)
 //   - blockNumber within [bottom, mostRecent] → replaceSlot (in-chain mutation)
 //
-// Below-bottom updates and unalignment with head are rejected here too —
+// Below-bottom updates and unalignment with wantBottom are rejected here too —
 // callers must AdvanceTo first to align the chain to a fresh head.
 //
 // Returns (newChain, affected, err): newChain==nil means "no-op, leave the
 // store as-is"; err is reserved for invariant violations (e.g. bottom
-// drifted from head, delta baseTxCount mismatch).
+// drifted from wantBottom, delta baseTxCount mismatch).
 func computeUpdate(
 	current *ChainReader,
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	head *core.Header,
+	wantBottom uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	if current == nil || current.length == 0 {
 		block, ok := update.(starknet.PreConfirmedBlock)
 		if !ok {
 			return nil, nil, fmt.Errorf("bootstrap rejected: want PreConfirmedBlock, got %T", update)
 		}
-		return bootstrapChain(&block, blockNumber, head)
+		return bootstrapChain(&block, blockNumber, wantBottom)
 	}
 
 	bottom := current.bottom()
-	if !validBottomForHead(bottom, head) {
-		return nil, nil, fmt.Errorf("chain bottom %d not aligned with head", bottom)
+	if bottom != wantBottom {
+		return nil, nil, fmt.Errorf(
+			"chain bottom %d not aligned with expected bottom %d", bottom, wantBottom,
+		)
 	}
 
 	// In-chain update — locate the target slot. blockNumber below bottom means
@@ -452,19 +456,18 @@ func computeUpdate(
 
 // bootstrapChain handles the first entry case (empty storage). The caller
 // (computeUpdate) has already narrowed the update variant to PreConfirmedBlock.
-// validBottomForHead is the precondition: blockNumber must equal head.Number+1
-// (or 0 at genesis). Returns the new length-1 chain plus the adapted entry.
+// The precondition is blockNumber == wantBottom, the first pre-confirmed slot
+// above the canonical head (head number+1, or 0 at genesis). Returns the new
+// length-1 chain plus the adapted entry.
 func bootstrapChain(
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
-	head *core.Header,
+	wantBottom uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
-	if !validBottomForHead(blockNumber, head) {
-		if head == nil {
-			return nil, nil, fmt.Errorf("bootstrap block %d invalid at genesis (want 0)", blockNumber)
-		}
-		return nil, nil, fmt.Errorf("bootstrap block %d invalid for head %d (want %d)",
-			blockNumber, head.Number, head.Number+1)
+	if blockNumber != wantBottom {
+		return nil, nil, fmt.Errorf(
+			"bootstrap block %d invalid: first pre-confirmed slot is %d", blockNumber, wantBottom,
+		)
 	}
 	next, err := sn2core.AdaptPreConfirmedBlock(block, blockNumber)
 	if err != nil {
@@ -557,24 +560,6 @@ func replaceSlot(
 		}, &next, nil
 	}
 	return nil, nil, fmt.Errorf("unknown PreConfirmedUpdate variant %T", update)
-}
-
-// headPlusOne returns the first pre-confirmed slot above the canonical head:
-// head.Number+1, or 0 when head is nil (i.e. before the genesis block has
-// been ingested).
-func headPlusOne(head *core.Header) uint64 {
-	if head == nil {
-		return 0
-	}
-	return head.Number + 1
-}
-
-// validBottomForHead is the storage's core alignment check: the chain's
-// bottom slot must equal head+1, otherwise the stored entries reference
-// blocks that are either already committed (head moved past them) or floating
-// without a parent. Callers compute bottom independently and pass it in.
-func validBottomForHead(bottom uint64, head *core.Header) bool {
-	return bottom == headPlusOne(head)
 }
 
 // shouldPreserveSlot keeps the existing slot when the incoming pre-confirmed is
