@@ -95,6 +95,7 @@ func TestSyncing(t *testing.T) {
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)
 		expectedSyncing := &rpc.Sync{
+			StartingBlockHash:   &felt.Zero,
 			StartingBlockNumber: &startingBlock,
 			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
 			CurrentBlockNumber:  &currentBlockNumber,

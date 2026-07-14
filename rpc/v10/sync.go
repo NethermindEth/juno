@@ -54,17 +54,19 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 		return defaultSyncState, nil
 	}
 
-	sync := &Sync{
+	// The starting block's header may have been pruned in history-pruning mode. The spec
+	// requires starting_block_hash, so fall back to zero instead of reporting "not syncing".
+	startingBlockHash := &felt.Zero
+	if startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber); err == nil {
+		startingBlockHash = startingBlockHeader.Hash
+	}
+
+	return &Sync{
+		StartingBlockHash:   startingBlockHash,
 		StartingBlockNumber: &startingBlockNumber,
 		CurrentBlockHash:    head.Hash,
 		CurrentBlockNumber:  &head.Number,
 		HighestBlockHash:    highestBlockHeader.Hash,
 		HighestBlockNumber:  &highestBlockHeader.Number,
-	}
-	// The starting block's header may have been pruned in history-pruning mode.
-	// Its hash is only metadata, so read it best-effort instead of reporting "not syncing".
-	if startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber); err == nil {
-		sync.StartingBlockHash = startingBlockHeader.Hash
-	}
-	return sync, nil
+	}, nil
 }
