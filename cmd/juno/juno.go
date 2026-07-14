@@ -175,8 +175,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
-	defaultMaxConcurrentCompilations          = ""
-	defaultMaxCompilationQueue                = ""
+	defaultMaxConcurrentCompilations          = uint64(0)
+	defaultMaxCompilationQueue                = uint64(0)
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
 	defaultNodeMemoryReserve                  = 4 * 1024 // MB (4 GB) reserved for the rest of the node
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
@@ -431,6 +431,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		// An absent compilation-sizing flag means "derive at startup";
+		// a present one (CLI, env, or YAML) is used as-is, including an explicit 0.
+		config.MaxConcurrentCompilationsExplicit = v.IsSet(maxConcurrentCompilationsF)
+		config.MaxCompilationQueueExplicit = v.IsSet(maxCompilationQueueF)
+
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
@@ -610,12 +615,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// --- VM & Compilation ---
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().String(
+	junoCmd.Flags().Uint64(
 		maxConcurrentCompilationsF,
 		defaultMaxConcurrentCompilations,
 		maxConcurrentCompilationsUsage,
 	)
-	junoCmd.Flags().String(
+	junoCmd.Flags().Uint64(
 		maxCompilationQueueF,
 		defaultMaxCompilationQueue,
 		maxCompilationQueueUsage,

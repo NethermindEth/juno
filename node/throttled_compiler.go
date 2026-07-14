@@ -2,9 +2,7 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"runtime"
-	"strconv"
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -19,60 +17,37 @@ type ThrottledCompiler struct {
 	*throttler.Throttler[compiler.Compiler]
 }
 
-type ThrottledCompilerSettings struct {
-	maxConcurrency uint64
-	queueSize      uint64
-}
-
-// parseCompilerLimit reads a compilation-sizing flag.
-// An empty value derives the value at startup (derived is true).
-func parseCompilerLimit(value string) (limit uint64, derived bool, err error) {
-	if value == "" {
-		return 0, true, nil
-	}
-	valueUint64, err := strconv.ParseUint(value, 10, strconv.IntSize)
-	if err != nil {
-		return 0, false, fmt.Errorf("%q is not an unsigned integer: %w", value, err)
-	}
-	return valueUint64, false, nil
-}
-
+// resolveThrottledCompilerSettings turns the config's compilation limits into concrete values.
+// An absent flag (not Explicit) is derived from the available hardware.
+// Any explicit value (including 0) is used as-is.
 func resolveThrottledCompilerSettings(
 	cfg *Config, logger *log.ZapLogger,
-) (*ThrottledCompilerSettings, error) {
-	maxConcurrency, maxConcurrencyDerived, err := parseCompilerLimit(cfg.MaxConcurrentCompilations)
-	if err != nil {
-		return nil, fmt.Errorf("parsing max-concurrent-compilations: %w", err)
-	}
-
-	if maxConcurrencyDerived {
+) (uint64, uint64) {
+	maxConcurrency := cfg.MaxConcurrentCompilations
+	availableMemoryMB := compiler.AvailableMemoryMB()
+	if !cfg.MaxConcurrentCompilationsExplicit {
 		maxConcurrency = compiler.ConcurrencyLimit(
 			uint64(runtime.GOMAXPROCS(0)),
-			compiler.AvailableMemoryMB(),
+			availableMemoryMB,
 			uint64(cfg.NodeMemoryReserve),
 			uint64(cfg.MaxCompilationMemory),
 		)
 	}
 
-	queueSize, queueSizeDerived, err := parseCompilerLimit(cfg.MaxCompilationQueue)
-	if err != nil {
-		return nil, fmt.Errorf("parsing max-compilation-queue: %w", err)
-	}
-
-	if queueSizeDerived {
+	queueSize := cfg.MaxCompilationQueue
+	if !cfg.MaxCompilationQueueExplicit {
 		queueSize = 2 * maxConcurrency
 	}
 
 	logger.Info("Sierra compilation limits",
-		zap.Uint64("concurrency", maxConcurrency),
-		zap.Bool("concurrencyDerived", maxConcurrencyDerived),
+		zap.Uint64("maxConcurrency", maxConcurrency),
 		zap.Uint64("queueSize", queueSize),
-		zap.Bool("queueSizeDerived", queueSizeDerived),
+		zap.Uint64("availableMemoryMB", availableMemoryMB),
+		zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
+		zap.Uint("maxCompilationMemoryMB", cfg.MaxCompilationMemory),
 	)
 
-	return &ThrottledCompilerSettings{
-		maxConcurrency, queueSize,
-	}, nil
+	return maxConcurrency, queueSize
 }
 
 func NewThrottledCompiler(
@@ -87,11 +62,8 @@ func NewThrottledCompiler(
 
 func newThrottledCompilerFromConfig(
 	cfg *Config, logger *log.ZapLogger,
-) (*ThrottledCompiler, error) {
-	throttledCompilerSettings, err := resolveThrottledCompilerSettings(cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("resolving compiler settings: %w", err)
-	}
+) *ThrottledCompiler {
+	maxConcurrency, queueSize := resolveThrottledCompilerSettings(cfg, logger)
 
 	return NewThrottledCompiler(
 		compiler.New(
@@ -102,9 +74,9 @@ func newThrottledCompilerFromConfig(
 			"",
 			logger,
 		),
-		uint(throttledCompilerSettings.maxConcurrency),
-		throttledCompilerSettings.queueSize,
-	), nil
+		uint(maxConcurrency),
+		queueSize,
+	)
 }
 
 func (tc *ThrottledCompiler) Compile(

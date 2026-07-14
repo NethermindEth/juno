@@ -81,8 +81,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := "" // empty derives from memory and CPUs
-	defaultMaxCompilationQueue := ""       // empty derives from concurrency
+	defaultMaxConcurrentCompilations := uint64(0) // unset derives from memory and CPUs
+	defaultMaxCompilationQueue := uint64(0)       // unset derives from concurrency
 	defaultMaxCompilationMemory := uint(4 * 1024)
 	defaultNodeMemoryReserve := uint(4 * 1024)
 	defaultMaxCompilationCPUTime := uint(10)
@@ -201,8 +201,10 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedExplicitCompilationLimits.MaxCompilationCPUTime = 5
 
 	expectedNumericCompilationLimits := expectedConfig2
-	expectedNumericCompilationLimits.MaxConcurrentCompilations = "8"
-	expectedNumericCompilationLimits.MaxCompilationQueue = "32"
+	expectedNumericCompilationLimits.MaxConcurrentCompilations = 8
+	expectedNumericCompilationLimits.MaxConcurrentCompilationsExplicit = true
+	expectedNumericCompilationLimits.MaxCompilationQueue = 32
+	expectedNumericCompilationLimits.MaxCompilationQueueExplicit = true
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -255,6 +257,12 @@ cn-unverifiable-range: [0,10]
 			cfgFileContents: `max-concurrent-compilations: 8
 max-compilation-queue: 32
 `,
+			expectedConfig: &expectedNumericCompilationLimits,
+		},
+		"numeric compilation limits via CLI": {
+			inputArgs: []string{
+				"--max-concurrent-compilations", "8", "--max-compilation-queue", "32",
+			},
 			expectedConfig: &expectedNumericCompilationLimits,
 		},
 		"config file path is empty string": {
@@ -999,6 +1007,64 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
 			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
+		})
+	}
+}
+
+// TestCompilationLimitExplicitDetection guarantees that the *Explicit flags
+// reflect whether each compilation-sizing flag was actually provided: absent
+// means false (derive), present means true (use as-is), independently per flag.
+func TestCompilationLimitExplicitDetection(t *testing.T) {
+	tests := map[string]struct {
+		args                  []string
+		expectedConcExplicit  bool
+		expectedQueueExplicit bool
+	}{
+		"neither provided": {
+			args:                  []string{},
+			expectedConcExplicit:  false,
+			expectedQueueExplicit: false,
+		},
+		"concurrency provided": {
+			args:                  []string{"--max-concurrent-compilations", "4"},
+			expectedConcExplicit:  true,
+			expectedQueueExplicit: false,
+		},
+		"queue provided": {
+			args:                  []string{"--max-compilation-queue", "8"},
+			expectedConcExplicit:  false,
+			expectedQueueExplicit: true,
+		},
+		"both provided": {
+			args: []string{
+				"--max-concurrent-compilations",
+				"4", "--max-compilation-queue",
+				"8",
+			},
+			expectedConcExplicit:  true,
+			expectedQueueExplicit: true,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(
+				config,
+				func(_ *cobra.Command, _ []string) error { return nil },
+			)
+			cmd.SetArgs(tc.args)
+
+			require.NoError(t, cmd.ExecuteContext(t.Context()))
+			assert.Equal(
+				t,
+				tc.expectedConcExplicit,
+				config.MaxConcurrentCompilationsExplicit,
+			)
+			assert.Equal(
+				t,
+				tc.expectedQueueExplicit,
+				config.MaxCompilationQueueExplicit,
+			)
 		})
 	}
 }

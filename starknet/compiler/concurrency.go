@@ -8,7 +8,7 @@ import (
 const megabyte = 1 << 20
 
 // AvailableMemoryMB returns the RAM this process can use, in MB.
-// Inside a container it uses the cgroup limit, otherwise the host RAM.
+// It checks if the memory is limited by the cgroup limit, otherwise it uses the host RAM.
 func AvailableMemoryMB() uint64 {
 	hostMemory := memory.TotalMemory()
 	cgroupLimit, err := memlimit.FromCgroup()
@@ -19,8 +19,8 @@ func AvailableMemoryMB() uint64 {
 }
 
 // ConcurrencyLimit returns how many compilations fit in memory, capped by maxConcurrency.
-// Memory is in MB. A zero maxMemoryPerCompilation means no memory limit.
-// Returns 1 when memory fits no compilation.
+// Memory is in MB. A 0 maxMemoryPerCompilation means no memory limit.
+// Returns 1 when no compilation fits memory.
 func ConcurrencyLimit(
 	maxConcurrency uint64,
 	availableMemory uint64,

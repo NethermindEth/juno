@@ -44,7 +44,7 @@ func TestNewNode(t *testing.T) {
 		P2PAddr:                            "",
 		P2PPeers:                           "",
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		// MaxConcurrentCompilations left empty to exercise the auto-derive path.
+		// MaxConcurrentCompilations left unset (not Explicit) to exercise the auto-derive path.
 	}
 
 	logLevel := log.NewLevel(log.INFO)
@@ -65,7 +65,7 @@ func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
 		Network:                            networks.Sepolia,
 		DisableL1Verification:              true,
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		// MaxConcurrentCompilations left empty: derive, then floor to 1.
+		// MaxConcurrentCompilations left unset: derive, then floor to 1.
 		MaxCompilationMemory: 4096,
 		// Reserve more than the machine has, so nothing fits.
 		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
@@ -84,14 +84,15 @@ func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
 		Network:                            networks.Sepolia,
 		DisableL1Verification:              true,
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		MaxConcurrentCompilations:          "2",
+		MaxConcurrentCompilations:          2,
+		MaxConcurrentCompilationsExplicit:  true,
 	}
 
 	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
 	require.NoError(t, err)
 }
 
-func TestNewNodeRejectsInvalidConcurrency(t *testing.T) {
+func TestNewNodeSkipsDerivedQueue(t *testing.T) {
 	config := &node.Config{
 		LogLevel:                           "info",
 		HTTP:                               true,
@@ -100,11 +101,12 @@ func TestNewNodeRejectsInvalidConcurrency(t *testing.T) {
 		Network:                            networks.Sepolia,
 		DisableL1Verification:              true,
 		SubmittedTransactionsCacheEntryTTL: time.Second,
-		MaxConcurrentCompilations:          "-1",
+		MaxCompilationQueue:                8,
+		MaxCompilationQueueExplicit:        true,
 	}
 
 	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
-	require.ErrorContains(t, err, "max-concurrent-compilations")
+	require.NoError(t, err)
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {

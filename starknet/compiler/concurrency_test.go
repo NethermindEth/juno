@@ -13,7 +13,7 @@ func TestConcurrencyLimit(t *testing.T) {
 		name                                                        string
 		maxConcurrency                                              uint64
 		availableMemory, nodeMemoryReserve, maxMemoryPerCompilation uint64
-		want                                                        uint64
+		expected                                                    uint64
 	}{
 		{
 			name:                    "memory budget caps below max parallel",
@@ -21,7 +21,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         16 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    3, // (16-4)/4
+			expected:                3, // (16-4)/4
 		},
 		{
 			name:                    "max parallel caps below memory budget",
@@ -29,7 +29,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         64 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    2,
+			expected:                2,
 		},
 		{
 			name:                    "exactly one compilation fits",
@@ -37,7 +37,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         8 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    1, // (8-4)/4
+			expected:                1, // (8-4)/4
 		},
 		{
 			name:                    "floors to 1 when available equals reserve",
@@ -45,7 +45,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         4 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    1,
+			expected:                1,
 		},
 		{
 			name:                    "floors to 1 when memory fits no compilation",
@@ -53,7 +53,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         6 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 4 * gb,
-			want:                    1, // (6-4)/4 = 0, floored to 1
+			expected:                1, // (6-4)/4 = 0, floored to 1
 		},
 		{
 			name:                    "unbounded per-compilation memory ignores budget",
@@ -61,7 +61,7 @@ func TestConcurrencyLimit(t *testing.T) {
 			availableMemory:         1 * gb,
 			nodeMemoryReserve:       4 * gb,
 			maxMemoryPerCompilation: 0,
-			want:                    7,
+			expected:                7,
 		},
 	}
 	for _, tt := range tests {
@@ -72,7 +72,7 @@ func TestConcurrencyLimit(t *testing.T) {
 				tt.nodeMemoryReserve,
 				tt.maxMemoryPerCompilation,
 			)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
