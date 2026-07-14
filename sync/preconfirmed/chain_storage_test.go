@@ -19,9 +19,9 @@ import (
 
 // ---- helpers --------------------------------------------------------------
 
-// bottomAbove returns the wantBottom the storage API expects for a canonical
+// oldestSlotFor returns the oldestSlot the storage API expects for a canonical
 // head at `head`: the first pre-confirmed slot above it, head+1.
-func bottomAbove(head uint64) uint64 { return head + 1 }
+func oldestSlotFor(head uint64) uint64 { return head + 1 }
 
 // roundID is the per-slot identifier convention used across the storage
 // tests: slot N's block carries identifier "round-N", so each slot in a
@@ -51,11 +51,11 @@ func applyBlock(
 	identifier string,
 	txCount int,
 	number uint64,
-	wantBottom uint64,
+	oldestSlot uint64,
 ) starknet.PreConfirmedBlock {
 	t.Helper()
 	block := makeTestPreConfirmedBlock(identifier, txCount)
-	_, err := s.ApplyUpdate(block, number, 0, wantBottom)
+	_, err := s.ApplyUpdate(block, number, 0, oldestSlot)
 	require.NoError(t, err)
 	return block
 }
@@ -96,7 +96,7 @@ func TestChainStorageApplyUpdate(t *testing.T) {
 	t.Run("replace-tip: blank identifier never overrides a real round",
 		testApplyUpdateReplaceTipBlankIgnored)
 	t.Run("reorg: new round at non-tip truncates above", testApplyUpdateReorgNonTipTruncates)
-	t.Run("reorg: new round at bottom slot truncates above", testApplyUpdateReorgBottomTruncates)
+	t.Run("reorg: new round at oldest slot truncates above", testApplyUpdateReorgOldestSlotTruncates)
 	t.Run("reorg: re-extend after reorg rebuilds the chain", testApplyUpdateReorgReExtend)
 	t.Run("reorg: sequential reorgs at depths each truncate above", testApplyUpdateReorgSequential)
 	t.Run("reorg: pre-reorg snapshot walks the old chain", testApplyUpdateReorgPreSnapshotIntact)
@@ -108,44 +108,44 @@ func TestChainStorageApplyUpdate(t *testing.T) {
 		"delta: mismatched identifier is rejected by adapter",
 		testApplyUpdateDeltaIdentifierMismatch,
 	)
-	t.Run("apply below chain bottom is rejected", testApplyUpdateBelowBottomRejected)
+	t.Run("apply below the chain's oldest slot is rejected", testApplyUpdateBelowOldestSlotRejected)
 }
 
 func testApplyUpdateBootstrapRejectsDelta(t *testing.T) {
-	bottom := bottomAbove(100)
+	oldestSlot := oldestSlotFor(100)
 	s := preconfirmed.NewChainStorage()
-	pc, err := s.ApplyUpdate(starknet.PreConfirmedDeltaUpdate{}, 101, 0, bottom)
+	pc, err := s.ApplyUpdate(starknet.PreConfirmedDeltaUpdate{}, 101, 0, oldestSlot)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bootstrap rejected")
 	require.Nil(t, pc)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 	require.Zero(t, view.Length())
 }
 
 func testApplyUpdateBootstrapNoChangeNoop(t *testing.T) {
-	bottom := bottomAbove(100)
+	oldestSlot := oldestSlotFor(100)
 	s := preconfirmed.NewChainStorage()
-	pc, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 101, 0, bottom)
+	pc, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 101, 0, oldestSlot)
 	require.NoError(t, err)
 	require.Nil(t, pc)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 	require.Zero(t, view.Length())
 }
 
 func testApplyUpdateBootstrapWrongHeight(t *testing.T) {
-	bottom := bottomAbove(100)
+	oldestSlot := oldestSlotFor(100)
 	s := preconfirmed.NewChainStorage()
-	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(103), 0), 103, 0, bottom)
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(103), 0), 103, 0, oldestSlot)
 	require.Error(t, err)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 	require.Zero(t, view.Length())
 }
 
 func testApplyUpdateBootstrapAtHeadPlusOne(t *testing.T) {
-	bottom := bottomAbove(100)
+	oldestSlot := oldestSlotFor(100)
 	s := preconfirmed.NewChainStorage()
-	b := applyBlock(t, s, roundID(101), 1, 101, bottom)
-	view := s.SnapshotForHead(bottom)
+	b := applyBlock(t, s, roundID(101), 1, 101, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(101, &b))
 }
 
@@ -160,141 +160,141 @@ func testApplyUpdateBootstrapNonzeroAtGenesis(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, 0)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "first pre-confirmed slot is 0")
+	require.Contains(t, err.Error(), "oldest pre-confirmed slot is 0")
 	view := s.SnapshotForHead(0)
 	require.Zero(t, view.Length())
 }
 
 func testApplyUpdateExtendGapRejected(t *testing.T) {
-	bottom := bottomAbove(100)
+	oldestSlot := oldestSlotFor(100)
 	s := preconfirmed.NewChainStorage()
-	b101 := applyBlock(t, s, roundID(101), 0, 101, bottom)
-	b102 := applyBlock(t, s, roundID(102), 0, 102, bottom)
-	before := s.SnapshotForHead(bottom)
+	b101 := applyBlock(t, s, roundID(101), 0, 101, oldestSlot)
+	b102 := applyBlock(t, s, roundID(102), 0, 102, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// Skip slot 103, attempt to apply at 104.
-	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(104), 0), 104, 0, bottom)
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(104), 0), 104, 0, oldestSlot)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "gap above tip")
-	after := s.SnapshotForHead(bottom)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head(), "chain pointer must be unchanged on error")
 	assertChain(t, &after, entry(101, &b101), entry(102, &b102))
 }
 
 func testApplyUpdateExtendNonBlockRejected(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	seed := applyBlock(t, s, roundID(1), 0, 1, bottom)
-	before := s.SnapshotForHead(bottom)
+	seed := applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// A Delta at brand-new slot 2 is rejected before identifier validation —
 	// only PreConfirmedBlock is valid at a new tip.
 	delta := makeTestDelta(roundID(2), 1)
-	_, err := s.ApplyUpdate(delta, 2, 0, bottom)
+	_, err := s.ApplyUpdate(delta, 2, 0, oldestSlot)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "append rejected")
-	after := s.SnapshotForHead(bottom)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &seed))
 }
 
 func testApplyUpdateReplaceTipNonRicherPreserved(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 1, 1, bottom)
-	b2 := applyBlock(t, s, roundID(2), 1, 2, bottom)
-	before := s.SnapshotForHead(bottom)
+	b1 := applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
+	b2 := applyBlock(t, s, roundID(2), 1, 2, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// Re-apply at slot 2 with matching identifier and same tx count → preserved.
-	applyBlock(t, s, roundID(2), 1, 2, bottom)
-	after := s.SnapshotForHead(bottom)
+	applyBlock(t, s, roundID(2), 1, 2, oldestSlot)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &b2))
 }
 
 func testApplyUpdateReplaceTipRicherReplaces(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 1, 1, bottom)
-	applyBlock(t, s, roundID(2), 1, 2, bottom)
-	before := s.SnapshotForHead(bottom)
+	b1 := applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
+	applyBlock(t, s, roundID(2), 1, 2, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// Re-apply at slot 2 with matching identifier but more txs → replaces.
-	bRicher := applyBlock(t, s, roundID(2), 3, 2, bottom)
-	after := s.SnapshotForHead(bottom)
+	bRicher := applyBlock(t, s, roundID(2), 3, 2, oldestSlot)
+	after := s.SnapshotForHead(oldestSlot)
 	require.NotSame(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &bRicher))
 }
 
 func testApplyUpdateReplaceTipNewRound(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 1, 1, bottom)
-	applyBlock(t, s, roundID(2), 1, 2, bottom)
-	before := s.SnapshotForHead(bottom)
+	b1 := applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
+	applyBlock(t, s, roundID(2), 1, 2, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// Different identifier at slot 2 → new round replaces.
-	bNew := applyBlock(t, s, "round-2-alt", 0, 2, bottom)
-	after := s.SnapshotForHead(bottom)
+	bNew := applyBlock(t, s, "round-2-alt", 0, 2, oldestSlot)
+	after := s.SnapshotForHead(oldestSlot)
 	require.NotSame(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &bNew))
 }
 
 func testApplyUpdateReplaceTipBlankIgnored(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 1, 1, bottom)
-	b2 := applyBlock(t, s, roundID(2), 1, 2, bottom)
-	before := s.SnapshotForHead(bottom)
+	b1 := applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
+	b2 := applyBlock(t, s, roundID(2), 1, 2, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
-	applyBlock(t, s, feeder.PreConfirmedBlankIdentifier, 0, 2, bottom)
-	after := s.SnapshotForHead(bottom)
+	applyBlock(t, s, feeder.PreConfirmedBlankIdentifier, 0, 2, oldestSlot)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &b2))
 }
 
 func testApplyUpdateReorgNonTipTruncates(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 0, 1, bottom)
-	applyBlock(t, s, roundID(2), 0, 2, bottom)
-	applyBlock(t, s, roundID(3), 0, 3, bottom)
+	b1 := applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	applyBlock(t, s, roundID(2), 0, 2, oldestSlot)
+	applyBlock(t, s, roundID(3), 0, 3, oldestSlot)
 
 	// New round at non-tip slot 2 → slot 3 is truncated.
-	bReorg := applyBlock(t, s, "round-2-alt", 5, 2, bottom)
-	view := s.SnapshotForHead(bottom)
+	bReorg := applyBlock(t, s, "round-2-alt", 5, 2, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(1, &b1), entry(2, &bReorg))
 }
 
-func testApplyUpdateReorgBottomTruncates(t *testing.T) {
-	bottom := bottomAbove(0)
+func testApplyUpdateReorgOldestSlotTruncates(t *testing.T) {
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 4; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
 
-	// Reorg at slot 1 (bottom) with a new round — everything above truncated.
-	bReorg := applyBlock(t, s, "round-1-alt", 2, 1, bottom)
-	view := s.SnapshotForHead(bottom)
+	// Reorg at slot 1 (oldestSlot) with a new round — everything above truncated.
+	bReorg := applyBlock(t, s, "round-1-alt", 2, 1, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(1, &bReorg))
 }
 
 func testApplyUpdateReorgReExtend(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 0, 1, bottom)
-	applyBlock(t, s, roundID(2), 0, 2, bottom) // will be replaced
-	applyBlock(t, s, roundID(3), 0, 3, bottom) // will be truncated
+	b1 := applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	applyBlock(t, s, roundID(2), 0, 2, oldestSlot) // will be replaced
+	applyBlock(t, s, roundID(3), 0, 3, oldestSlot) // will be truncated
 
 	// Reorg at slot 2.
-	b2Alt := applyBlock(t, s, "round-2-alt", 1, 2, bottom)
-	view := s.SnapshotForHead(bottom)
+	b2Alt := applyBlock(t, s, "round-2-alt", 1, 2, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(1, &b1), entry(2, &b2Alt))
 
 	// Re-extend slots 3 and 4 with new rounds.
-	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, bottom)
-	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, bottom)
-	view2 := s.SnapshotForHead(bottom)
+	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, oldestSlot)
+	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, oldestSlot)
+	view2 := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view2,
 		entry(1, &b1),
 		entry(2, &b2Alt),
@@ -304,17 +304,17 @@ func testApplyUpdateReorgReExtend(t *testing.T) {
 }
 
 func testApplyUpdateReorgSequential(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	b1 := applyBlock(t, s, roundID(1), 0, 1, bottom)
-	b2 := applyBlock(t, s, roundID(2), 0, 2, bottom)
-	b3 := applyBlock(t, s, roundID(3), 0, 3, bottom)
-	applyBlock(t, s, roundID(4), 0, 4, bottom)
-	applyBlock(t, s, roundID(5), 0, 5, bottom)
+	b1 := applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	b2 := applyBlock(t, s, roundID(2), 0, 2, oldestSlot)
+	b3 := applyBlock(t, s, roundID(3), 0, 3, oldestSlot)
+	applyBlock(t, s, roundID(4), 0, 4, oldestSlot)
+	applyBlock(t, s, roundID(5), 0, 5, oldestSlot)
 
 	// First reorg at slot 4.
-	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, bottom)
-	view := s.SnapshotForHead(bottom)
+	b4Alt := applyBlock(t, s, "round-4-alt", 0, 4, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view,
 		entry(1, &b1),
 		entry(2, &b2),
@@ -323,8 +323,8 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 	)
 
 	// Re-extend slot 5 with a new round.
-	b5Alt := applyBlock(t, s, "round-5-alt", 0, 5, bottom)
-	view2 := s.SnapshotForHead(bottom)
+	b5Alt := applyBlock(t, s, "round-5-alt", 0, 5, oldestSlot)
+	view2 := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view2,
 		entry(1, &b1),
 		entry(2, &b2),
@@ -334,8 +334,8 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 	)
 
 	// Second reorg at slot 3 — truncates everything above.
-	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, bottom)
-	view3 := s.SnapshotForHead(bottom)
+	b3Alt := applyBlock(t, s, "round-3-alt", 0, 3, oldestSlot)
+	view3 := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view3,
 		entry(1, &b1),
 		entry(2, &b2),
@@ -344,18 +344,18 @@ func testApplyUpdateReorgSequential(t *testing.T) {
 }
 
 func testApplyUpdateReorgPreSnapshotIntact(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	original := make([]starknet.PreConfirmedBlock, 4)
 	for i := range original {
 		n := uint64(i + 1)
-		original[i] = applyBlock(t, s, roundID(n), 0, n, bottom)
+		original[i] = applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	pre := s.SnapshotForHead(bottom)
+	pre := s.SnapshotForHead(oldestSlot)
 
 	// Reorg at slot 2 — slots 3 and 4 truncated in the live chain.
-	b2Alt := applyBlock(t, s, "round-2-alt", 0, 2, bottom)
-	view := s.SnapshotForHead(bottom)
+	b2Alt := applyBlock(t, s, "round-2-alt", 0, 2, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(1, &original[0]), entry(2, &b2Alt))
 
 	// Pre-reorg snapshot must still walk the original four-entry chain.
@@ -363,82 +363,82 @@ func testApplyUpdateReorgPreSnapshotIntact(t *testing.T) {
 }
 
 func testApplyUpdateDeltaAtTip(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	// Delta and seed MUST share an identifier for the merge to be valid.
 	const round = "round-1"
-	seed := applyBlock(t, s, round, 2, 1, bottom)
+	seed := applyBlock(t, s, round, 2, 1, oldestSlot)
 
 	delta := makeTestDelta(round, 3)
-	_, err := s.ApplyUpdate(delta, 1, 2, bottom)
+	_, err := s.ApplyUpdate(delta, 1, 2, oldestSlot)
 	require.NoError(t, err)
 
 	// 2 base + 3 appended via delta.
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 	assertChain(t, &view, entry(1, &seed, &delta))
 }
 
 func testApplyUpdateDeltaAtNonTipRejected(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	const slot1Round = "round-1"
-	applyBlock(t, s, slot1Round, 1, 1, bottom)
-	applyBlock(t, s, roundID(2), 0, 2, bottom)
-	applyBlock(t, s, roundID(3), 0, 3, bottom)
-	before := s.SnapshotForHead(bottom)
+	applyBlock(t, s, slot1Round, 1, 1, oldestSlot)
+	applyBlock(t, s, roundID(2), 0, 2, oldestSlot)
+	applyBlock(t, s, roundID(3), 0, 3, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	delta := makeTestDelta(slot1Round, 2)
-	_, err := s.ApplyUpdate(delta, 1, 1, bottom)
+	_, err := s.ApplyUpdate(delta, 1, 1, oldestSlot)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "non-tip")
-	after := s.SnapshotForHead(bottom)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head(), "rejected delta must not mutate storage")
 }
 
 func testApplyUpdateDeltaWrongBaseTxCount(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	const round = "round-1"
-	seed := applyBlock(t, s, round, 2, 1, bottom)
-	before := s.SnapshotForHead(bottom)
+	seed := applyBlock(t, s, round, 2, 1, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	// Matching identifier — failure is purely from the baseTxCount race-check.
 	delta := makeTestDelta(round, 1)
-	_, err := s.ApplyUpdate(delta, 1, 99, bottom)
+	_, err := s.ApplyUpdate(delta, 1, 99, oldestSlot)
 	require.ErrorIs(t, err, preconfirmed.ErrBaseTxCountMismatch)
-	after := s.SnapshotForHead(bottom)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &seed))
 }
 
 func testApplyUpdateDeltaIdentifierMismatch(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	seed := applyBlock(t, s, "round-1", 1, 1, bottom)
-	before := s.SnapshotForHead(bottom)
+	seed := applyBlock(t, s, "round-1", 1, 1, oldestSlot)
+	before := s.SnapshotForHead(oldestSlot)
 
 	delta := makeTestDelta("round-1-different", 1)
-	_, err := s.ApplyUpdate(delta, 1, 1, bottom)
+	_, err := s.ApplyUpdate(delta, 1, 1, oldestSlot)
 	require.Error(t, err)
-	after := s.SnapshotForHead(bottom)
+	after := s.SnapshotForHead(oldestSlot)
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &seed))
 }
 
-func testApplyUpdateBelowBottomRejected(t *testing.T) {
-	bottom := bottomAbove(0)
+func testApplyUpdateBelowOldestSlotRejected(t *testing.T) {
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	applyBlock(t, s, roundID(1), 0, 1, bottom)
-	b2 := applyBlock(t, s, roundID(2), 0, 2, bottom)
-	// Advance head past slot 1; chain bottom is now 2.
-	s.AdvanceTo(bottomAbove(1))
-	before := s.SnapshotForHead(bottomAbove(1))
+	applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	b2 := applyBlock(t, s, roundID(2), 0, 2, oldestSlot)
+	// Advance head past slot 1; the chain's oldest slot is now 2.
+	s.AdvanceTo(oldestSlotFor(1))
+	before := s.SnapshotForHead(oldestSlotFor(1))
 
-	// Identifier is irrelevant here — the below-bottom check fires first.
+	// Identifier is irrelevant here — the below-oldest-slot check fires first.
 	delta := makeTestDelta(roundID(1), 1)
-	_, err := s.ApplyUpdate(delta, 1, 0, bottomAbove(1))
-	require.Error(t, err, "apply target below bottom must surface as an error")
-	after := s.SnapshotForHead(bottomAbove(1))
+	_, err := s.ApplyUpdate(delta, 1, 0, oldestSlotFor(1))
+	require.Error(t, err, "apply target below the oldest slot must surface as an error")
+	after := s.SnapshotForHead(oldestSlotFor(1))
 	require.Same(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(2, &b2))
 }
@@ -455,10 +455,9 @@ func TestChainStorageAdvanceTo(t *testing.T) {
 	t.Run("pre-genesis with bootstrapped chain is a no-op", testAdvanceToPreGenesisBootstrapped)
 }
 
-// testAdvanceToPreGenesisBootstrapped mirrors the poller's genesis tick:
-// wantBottom is 0 because blockchain.Height returned ErrKeyNotFound, but a
-// prior tick already bootstrapped block 0. AdvanceTo(0) must treat slot 0 as
-// "head below every slot" and leave the chain intact.
+// testAdvanceToPreGenesisBootstrapped covers a chain bootstrapped at slot 0
+// being realigned to that same oldest slot: AdvanceTo(0) is already aligned,
+// so it must no-op and leave the chain intact.
 func testAdvanceToPreGenesisBootstrapped(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	b := applyBlock(t, s, roundID(0), 0, 0, 0)
@@ -472,34 +471,34 @@ func testAdvanceToPreGenesisBootstrapped(t *testing.T) {
 }
 
 func testAdvanceToPartialDrop(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	blocks := make([]starknet.PreConfirmedBlock, 5)
 	for i := range blocks {
 		n := uint64(i + 1)
-		blocks[i] = applyBlock(t, s, roundID(n), 0, n, bottom)
+		blocks[i] = applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	preAdvance := s.SnapshotForHead(bottom)
+	preAdvance := s.SnapshotForHead(oldestSlot)
 	all := rangeEntries(1, blocks)
 	assertChain(t, &preAdvance, all...)
 
 	// Head advances by 2 — blocks 1 and 2 are now committed.
-	s.AdvanceTo(bottomAbove(2))
+	s.AdvanceTo(oldestSlotFor(2))
 
-	view := s.SnapshotForHead(bottomAbove(2))
+	view := s.SnapshotForHead(oldestSlotFor(2))
 	assertChain(t, &view, rangeEntries(3, blocks[2:])...)
 	// Pre-advance snapshot is untouched (rebuild, not mutation).
 	assertChain(t, &preAdvance, all...)
 }
 
 func testAdvanceToFullDrop(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 3; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	s.AdvanceTo(bottomAbove(10))
-	view := s.SnapshotForHead(bottomAbove(10))
+	s.AdvanceTo(oldestSlotFor(10))
+	view := s.SnapshotForHead(oldestSlotFor(10))
 	require.Zero(t, view.Length())
 }
 
@@ -510,27 +509,27 @@ func testAdvanceToFullDrop(t *testing.T) {
 // head reports empty (callers see no pre_confirmed), and the next poll
 // (applying a fresh block at the new head+1) bootstraps cleanly.
 func testAdvanceToReorgClearsAndRecovers(t *testing.T) {
-	oldBottom := bottomAbove(5)
+	preReorgOldest := oldestSlotFor(5)
 	s := preconfirmed.NewChainStorage()
-	applyBlock(t, s, roundID(6), 0, 6, oldBottom)
-	applyBlock(t, s, roundID(7), 0, 7, oldBottom)
-	preReorg := s.SnapshotForHead(oldBottom)
-	require.Equal(t, 2, preReorg.Length())
+	applyBlock(t, s, roundID(6), 0, 6, preReorgOldest)
+	applyBlock(t, s, roundID(7), 0, 7, preReorgOldest)
+	preReorgView := s.SnapshotForHead(preReorgOldest)
+	require.Equal(t, 2, preReorgView.Length())
 
 	// Reorg: canonical head reverts from 5 to 3.
-	newBottom := bottomAbove(3)
-	s.AdvanceTo(newBottom)
+	postReorgOldest := oldestSlotFor(3)
+	s.AdvanceTo(postReorgOldest)
 
 	// Storage cleared; readers see nothing for the new head.
-	cleared := s.SnapshotForHead(newBottom)
+	cleared := s.SnapshotForHead(postReorgOldest)
 	require.Zero(t, cleared.Length())
-	view := s.SnapshotForHead(newBottom)
+	view := s.SnapshotForHead(postReorgOldest)
 	require.Zero(t, view.Length())
 	require.Nil(t, view.Head())
 
 	// Next poll lands a fresh pre_confirmed at the new head+1; chain recovers.
-	b4 := applyBlock(t, s, roundID(4), 0, 4, newBottom)
-	recovered := s.SnapshotForHead(newBottom)
+	b4 := applyBlock(t, s, roundID(4), 0, 4, postReorgOldest)
+	recovered := s.SnapshotForHead(postReorgOldest)
 	assertChain(t, &recovered, entry(4, &b4))
 }
 
@@ -544,37 +543,37 @@ func TestChainStorageSnapshotForHead(t *testing.T) {
 
 func testSnapshotForHeadEmpty(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
-	view := s.SnapshotForHead(bottomAbove(100))
+	view := s.SnapshotForHead(oldestSlotFor(100))
 	require.Zero(t, view.Length())
 	require.Nil(t, view.Head())
 }
 
 func testSnapshotForHeadStaleTrim(t *testing.T) {
-	// Bootstrap under head=0 → chain bottom=1. Then a reader passes head=2
+	// Bootstrap under head=0 → the chain's oldest slot is 1. Then a reader passes head=2
 	// before AdvanceTo has run.
-	storageBottom := bottomAbove(0)
+	storedOldest := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	blocks := make([]starknet.PreConfirmedBlock, 5)
 	for i := range blocks {
 		n := uint64(i + 1)
-		blocks[i] = applyBlock(t, s, roundID(n), 0, n, storageBottom)
+		blocks[i] = applyBlock(t, s, roundID(n), 0, n, storedOldest)
 	}
 
-	stale := s.SnapshotForHead(bottomAbove(2))
+	stale := s.SnapshotForHead(oldestSlotFor(2))
 	assertChain(t, &stale, rangeEntries(3, blocks[2:])...)
 
 	// Stored chain is unchanged; only the view's length was trimmed.
-	full := s.SnapshotForHead(storageBottom)
+	full := s.SnapshotForHead(storedOldest)
 	assertChain(t, &full, rangeEntries(1, blocks)...)
 }
 
 func testSnapshotForHeadEmptyAboveTip(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 5; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	view := s.SnapshotForHead(bottomAbove(99))
+	view := s.SnapshotForHead(oldestSlotFor(99))
 	require.Zero(t, view.Length())
 }
 
@@ -587,25 +586,25 @@ func TestChainStorageSnapshot(t *testing.T) {
 
 func testSnapshotEmpty(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
-	view := s.SnapshotForHead(bottomAbove(0))
+	view := s.SnapshotForHead(oldestSlotFor(0))
 	require.Zero(t, view.Length())
 }
 
 func testSnapshotSurvivesUpdates(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	blocks := make([]starknet.PreConfirmedBlock, 4)
 	for i := range blocks {
 		n := uint64(i + 1)
-		blocks[i] = applyBlock(t, s, roundID(n), 0, n, bottom)
+		blocks[i] = applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 
 	// Drive subsequent updates: append at slot 5, richer-replace at slot 5
 	// (matching identifier required for richer-replace), tail-pop.
-	applyBlock(t, s, roundID(5), 0, 5, bottom)
-	applyBlock(t, s, roundID(5), 7, 5, bottom)
-	s.AdvanceTo(bottomAbove(2))
+	applyBlock(t, s, roundID(5), 0, 5, oldestSlot)
+	applyBlock(t, s, roundID(5), 7, 5, oldestSlot)
+	s.AdvanceTo(oldestSlotFor(2))
 
 	// The snapshot taken pre-mutation still walks the original chain at
 	// the original (pre-richer) tx counts.
@@ -630,8 +629,8 @@ func TestChainReader(t *testing.T) {
 		testChainReaderPreConfirmedStateBeforeIndexAtBadIndex)
 	t.Run("PreConfirmedStateBeforeIndexAt rejects block outside chain",
 		testChainReaderPreConfirmedStateBeforeIndexAtBlockOutOfRange)
-	t.Run("PreConfirmedStateAt resolves base at chain bottom minus one",
-		testChainReaderPreConfirmedStateAtBaseAlignsWithBottom)
+	t.Run("PreConfirmedStateAt resolves base at the oldest slot minus one",
+		testChainReaderPreConfirmedStateAtBaseAlignsWithOldestSlot)
 	t.Run("PreConfirmedStateAt at genesis resolves base via zero hash",
 		testChainReaderPreConfirmedStateAtBaseAtGenesis)
 	t.Run("PreConfirmedStateAt surfaces bcReader error from base lookup",
@@ -654,12 +653,12 @@ func TestChainReader(t *testing.T) {
 
 func chainReaderFixture(t *testing.T, count int) *preconfirmed.ChainReader {
 	t.Helper()
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= uint64(count); n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	v := s.SnapshotForHead(bottom)
+	v := s.SnapshotForHead(oldestSlot)
 	return &v
 }
 
@@ -741,7 +740,7 @@ func applyBlockWithStorageWrites(
 	contract *felt.Felt,
 	writes []storageWrite,
 	number uint64,
-	wantBottom uint64,
+	oldestSlot uint64,
 ) {
 	t.Helper()
 	txCount := len(writes)
@@ -784,19 +783,19 @@ func applyBlockWithStorageWrites(
 		L1DAMode:              starknet.Blob,
 		L1DataGasPrice:        &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
 	}
-	_, err := s.ApplyUpdate(block, number, 0, wantBottom)
+	_, err := s.ApplyUpdate(block, number, 0, oldestSlot)
 	require.NoError(t, err)
 }
 
 func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
 	keyShared := felt.FromUint64[felt.Felt](0x1)
 	keyOnlyInSlot1 := felt.FromUint64[felt.Felt](0xA)
 
 	// keyShared is touched in every slot → tests last-write-wins merging.
-	// keyOnlyInSlot1 is touched once at the bottom → tests that values from
+	// keyOnlyInSlot1 is touched once at the oldest slot → tests that values from
 	// lower slots that no upper slot rewrites are preserved through the merge.
 	applyBlockWithStorageWrites(
 		t,
@@ -805,7 +804,7 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 		&contract,
 		[]storageWrite{{keyShared, 11}, {keyShared, 12}, {keyOnlyInSlot1, 100}},
 		1,
-		bottom,
+		oldestSlot,
 	)
 	applyBlockWithStorageWrites(
 		t,
@@ -814,7 +813,7 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 		&contract,
 		[]storageWrite{{keyShared, 21}, {keyShared, 22}},
 		2,
-		bottom,
+		oldestSlot,
 	)
 	applyBlockWithStorageWrites(
 		t,
@@ -823,9 +822,9 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 		&contract,
 		[]storageWrite{{keyShared, 31}, {keyShared, 32}},
 		3,
-		bottom,
+		oldestSlot,
 	)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 
 	cases := []struct {
 		blockNumber uint64
@@ -866,40 +865,40 @@ func testChainReaderPreConfirmedStateAtOutOfRange(t *testing.T) {
 	t.Run("empty chain", func(t *testing.T) {
 		// Empty storage yields a zero-value view; callers branch on Length.
 		s := preconfirmed.NewChainStorage()
-		view := s.SnapshotForHead(bottomAbove(0))
+		view := s.SnapshotForHead(oldestSlotFor(0))
 		require.Zero(t, view.Length())
 	})
 
 	t.Run("above tip", func(t *testing.T) {
-		bottom := bottomAbove(0)
+		oldestSlot := oldestSlotFor(0)
 		s := preconfirmed.NewChainStorage()
-		applyBlock(t, s, roundID(1), 0, 1, bottom)
-		view := s.SnapshotForHead(bottom)
+		applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+		view := s.SnapshotForHead(oldestSlot)
 		_, _, err := view.PreConfirmedStateAt(99, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 
-	t.Run("below chain bottom", func(t *testing.T) {
-		bottom := bottomAbove(0)
+	t.Run("below the chain's oldest slot", func(t *testing.T) {
+		oldestSlot := oldestSlotFor(0)
 		s := preconfirmed.NewChainStorage()
-		applyBlock(t, s, roundID(1), 0, 1, bottom)
-		applyBlock(t, s, roundID(2), 0, 2, bottom)
-		s.AdvanceTo(bottomAbove(1)) // chain bottom is now slot 2.
-		view := s.SnapshotForHead(bottomAbove(1))
+		applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+		applyBlock(t, s, roundID(2), 0, 2, oldestSlot)
+		s.AdvanceTo(oldestSlotFor(1)) // the chain's oldest slot is now 2.
+		view := s.SnapshotForHead(oldestSlotFor(1))
 		_, _, err := view.PreConfirmedStateAt(1, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 }
 
 func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
 	key := felt.FromUint64[felt.Felt](0x1)
 
 	// keyShared is touched in every slot — exercises last-write-wins merging
 	// across slots AND prefix walks within a slot.
-	// keyOnlyInSlot1 is touched once at the bottom — exercises "values from
+	// keyOnlyInSlot1 is touched once at the oldest slot — exercises "values from
 	// lower slots that no upper slot rewrites survive every merge."
 	keyOnlyInSlot1 := felt.FromUint64[felt.Felt](0xA)
 	// Slot 1: 2 txs to keyShared (11, 12), 1 tx to keyOnlyInSlot1 (100).
@@ -912,7 +911,7 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 		&contract,
 		[]storageWrite{{key, 11}, {key, 12}, {keyOnlyInSlot1, 100}},
 		1,
-		bottom,
+		oldestSlot,
 	)
 	applyBlockWithStorageWrites(
 		t,
@@ -921,7 +920,7 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 		&contract,
 		[]storageWrite{{key, 21}, {key, 22}, {key, 23}},
 		2,
-		bottom,
+		oldestSlot,
 	)
 	applyBlockWithStorageWrites(
 		t,
@@ -930,9 +929,9 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 		&contract,
 		[]storageWrite{{key, 31}, {key, 32}},
 		3,
-		bottom,
+		oldestSlot,
 	)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 
 	// Mixed target slots: tip (3) and middle (2). Middle-slot queries verify
 	// slot 3 is *excluded* — i.e. the OldestFirst walk breaks at the target
@@ -952,7 +951,7 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 		{3, 1, 31},
 		{3, 2, 32},
 	}
-	// Chain bottom is slot 1 (head=0); base resolves via StateAtBlockNumber(0)
+	// The chain's oldest slot is 1 (head=0); base resolves via StateAtBlockNumber(0)
 	// once per case. nil StateReader is fine — every queried key lives in the
 	// chain's diff, so pending.State never consults the base.
 	ctrl := gomock.NewController(t)
@@ -981,7 +980,7 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 }
 
 func testChainReaderPreConfirmedStateBeforeIndexAtBadIndex(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
 	key := felt.FromUint64[felt.Felt](0x1)
@@ -993,9 +992,9 @@ func testChainReaderPreConfirmedStateBeforeIndexAtBadIndex(t *testing.T) {
 		&contract,
 		[]storageWrite{{key, 11}, {key, 12}},
 		1,
-		bottom,
+		oldestSlot,
 	)
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 
 	// Slot 1 has 2 transactions; index 3 is past the end. The index check
 	// runs before baseState, so a nil bcReader is safe here.
@@ -1008,35 +1007,35 @@ func testChainReaderPreConfirmedStateBeforeIndexAtBlockOutOfRange(t *testing.T) 
 	t.Run("empty chain", func(t *testing.T) {
 		// Empty storage yields a zero-value view; callers branch on Length.
 		s := preconfirmed.NewChainStorage()
-		view := s.SnapshotForHead(bottomAbove(0))
+		view := s.SnapshotForHead(oldestSlotFor(0))
 		require.Zero(t, view.Length())
 	})
 
 	t.Run("above tip", func(t *testing.T) {
-		bottom := bottomAbove(0)
+		oldestSlot := oldestSlotFor(0)
 		s := preconfirmed.NewChainStorage()
-		applyBlock(t, s, roundID(1), 0, 1, bottom)
-		view := s.SnapshotForHead(bottom)
+		applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+		view := s.SnapshotForHead(oldestSlot)
 		_, _, err := view.PreConfirmedStateBeforeIndexAt(99, 0, nil)
 		require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 	})
 }
 
-// testChainReaderPreConfirmedStateAtBaseAlignsWithBottom is the regression test
-// for the head-vs-snapshot race: even with a 3-entry chain whose canonical
+// testChainReaderPreConfirmedStateAtBaseAlignsWithOldestSlot is the regression
+// test for the head-vs-snapshot race: even with a 3-entry chain whose canonical
 // head sits multiple slots below the tip, the base lookup must hit exactly
-// `chain.bottom - 1` and never the live head — otherwise base diffs would
+// `chain.oldestSlot() - 1` and never the live head — otherwise base diffs would
 // overlap with chain entries.
-func testChainReaderPreConfirmedStateAtBaseAlignsWithBottom(t *testing.T) {
-	bottom := bottomAbove(4)
+func testChainReaderPreConfirmedStateAtBaseAlignsWithOldestSlot(t *testing.T) {
+	oldestSlot := oldestSlotFor(4)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(5); n <= 7; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	view := s.SnapshotForHead(bottom)
+	view := s.SnapshotForHead(oldestSlot)
 	require.Equal(t, 3, view.Length())
 
-	// bottom = 7 - (3-1) = 5; base must resolve at block 4.
+	// oldest slot = 7 - (3-1) = 5; base must resolve at block 4.
 	bc := mocks.NewMockReader(gomock.NewController(t))
 	bc.EXPECT().StateAtBlockNumber(uint64(4)).
 		Return(nil, func() error { return nil }, nil)
@@ -1046,9 +1045,9 @@ func testChainReaderPreConfirmedStateAtBaseAlignsWithBottom(t *testing.T) {
 	require.NoError(t, closer())
 }
 
-// testChainReaderPreConfirmedStateAtBaseAtGenesis exercises the bottom==0 branch:
-// a single-entry chain at slot 0 has no canonical block below it, so the
-// base resolves via the zero hash rather than StateAtBlockNumber.
+// testChainReaderPreConfirmedStateAtBaseAtGenesis exercises the oldest-slot-0
+// branch: a single-entry chain at slot 0 has no canonical block below it, so
+// the base resolves via the zero hash rather than StateAtBlockNumber.
 func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	applyBlock(t, s, roundID(0), 0, 0, 0)
@@ -1067,10 +1066,10 @@ func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
 // (e.g. base block pruned) is surfaced verbatim — no swallowing, no closer
 // returned that the caller might invoke against a half-opened state.
 func testChainReaderPreConfirmedStateAtBaseError(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	applyBlock(t, s, roundID(1), 0, 1, bottom)
-	view := s.SnapshotForHead(bottom)
+	applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
+	view := s.SnapshotForHead(oldestSlot)
 
 	wantErr := errors.New("base pruned")
 	bc := mocks.NewMockReader(gomock.NewController(t))
@@ -1095,7 +1094,7 @@ func emptyStateDiffPtr() *core.StateDiff {
 // carries 3000,3001,3002.
 func txChainFixture(t *testing.T) *preconfirmed.ChainReader {
 	t.Helper()
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	contract := felt.FromUint64[felt.Felt](0xC0)
 	applyBlockWithStorageWrites(t, s, roundID(1), &contract,
@@ -1104,18 +1103,18 @@ func txChainFixture(t *testing.T) *preconfirmed.ChainReader {
 			{felt.FromUint64[felt.Felt](2), 2},
 			{felt.FromUint64[felt.Felt](3), 3},
 		},
-		1, bottom)
+		1, oldestSlot)
 	applyBlockWithStorageWrites(t, s, roundID(2), &contract,
 		[]storageWrite{{felt.FromUint64[felt.Felt](4), 4}, {felt.FromUint64[felt.Felt](5), 5}},
-		2, bottom)
+		2, oldestSlot)
 	applyBlockWithStorageWrites(t, s, roundID(3), &contract,
 		[]storageWrite{
 			{felt.FromUint64[felt.Felt](6), 6},
 			{felt.FromUint64[felt.Felt](7), 7},
 			{felt.FromUint64[felt.Felt](8), 8},
 		},
-		3, bottom)
-	v := s.SnapshotForHead(bottom)
+		3, oldestSlot)
+	v := s.SnapshotForHead(oldestSlot)
 	return &v
 }
 
@@ -1126,7 +1125,7 @@ func testChainReaderTransactionByHashAcrossChain(t *testing.T) {
 		name string
 		hash uint64
 	}{
-		{"bottom block", 1000},
+		{"oldest block", 1000},
 		{"middle block", 2001},
 		{"tip block", 3002},
 	}
@@ -1145,7 +1144,7 @@ func testChainReaderTransactionByHashMissing(t *testing.T) {
 	t.Run("empty chain", func(t *testing.T) {
 		// Empty storage yields a zero-value view; callers branch on Length.
 		s := preconfirmed.NewChainStorage()
-		view := s.SnapshotForHead(bottomAbove(0))
+		view := s.SnapshotForHead(oldestSlotFor(0))
 		require.Zero(t, view.Length())
 	})
 
@@ -1164,7 +1163,7 @@ func testChainReaderReceiptByHashAcrossChain(t *testing.T) {
 		hash        uint64
 		wantBlockNo uint64
 	}{
-		{"bottom block", 1002, 1},
+		{"oldest block", 1002, 1},
 		{"middle block", 2000, 2},
 		{"tip block", 3001, 3},
 	}
@@ -1184,7 +1183,7 @@ func testChainReaderReceiptByHashMissing(t *testing.T) {
 	t.Run("empty chain", func(t *testing.T) {
 		// Empty storage yields a zero-value view; callers branch on Length.
 		s := preconfirmed.NewChainStorage()
-		view := s.SnapshotForHead(bottomAbove(0))
+		view := s.SnapshotForHead(oldestSlotFor(0))
 		require.Zero(t, view.Length())
 	})
 
@@ -1273,22 +1272,22 @@ func pinChain(t *testing.T) (
 	*preconfirmed.ChainStorage, *preconfirmed.ChainReader, []starknet.PreConfirmedBlock,
 ) {
 	t.Helper()
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	blocks := make([]starknet.PreConfirmedBlock, 5)
 	for i := range blocks {
 		n := uint64(i + 1)
-		blocks[i] = applyBlock(t, s, roundID(n), 0, n, bottom)
+		blocks[i] = applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
-	pinned := s.SnapshotForHead(bottom)
+	pinned := s.SnapshotForHead(oldestSlot)
 	return s, &pinned, blocks
 }
 
 func testPinnedSnapshotImmuneToExtend(t *testing.T) {
 	s, pinned, blocks := pinChain(t)
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	for n := uint64(6); n <= 20; n++ {
-		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, bottom)
+		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestSlot)
 		require.NoError(t, err)
 	}
 	assertChain(t, pinned, rangeEntries(1, blocks)...)
@@ -1296,10 +1295,10 @@ func testPinnedSnapshotImmuneToExtend(t *testing.T) {
 
 func testPinnedSnapshotImmuneToReplaceTip(t *testing.T) {
 	s, pinned, blocks := pinChain(t)
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	// Richer-replace must share the existing tip's identifier (roundID(5)).
 	for txCount := 1; txCount <= 10; txCount++ {
-		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(5), txCount), 5, 0, bottom)
+		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(5), txCount), 5, 0, oldestSlot)
 		require.NoError(t, err)
 	}
 	assertChain(t, pinned, rangeEntries(1, blocks)...)
@@ -1312,7 +1311,7 @@ func testPinnedSnapshotImmuneToDelta(t *testing.T) {
 	// baseTxCount must follow.
 	tipTxCount := uint64(0)
 	for _, add := range []int{3, 2, 4} {
-		_, err := s.ApplyUpdate(makeTestDelta(roundID(5), add), 5, tipTxCount, bottomAbove(0))
+		_, err := s.ApplyUpdate(makeTestDelta(roundID(5), add), 5, tipTxCount, oldestSlotFor(0))
 		require.NoError(t, err)
 		tipTxCount += uint64(add)
 	}
@@ -1323,7 +1322,7 @@ func testPinnedSnapshotImmuneToAdvance(t *testing.T) {
 	s, pinned, blocks := pinChain(t)
 	// Walk the head forward through every slot — partial trims, then full clear.
 	for h := uint64(1); h <= 6; h++ {
-		s.AdvanceTo(bottomAbove(h))
+		s.AdvanceTo(oldestSlotFor(h))
 	}
 	assertChain(t, pinned, rangeEntries(1, blocks)...)
 }
@@ -1346,50 +1345,50 @@ func TestChainStorageAllocations(t *testing.T) {
 }
 
 // testAllocsSnapshotCached pins the fast path where the reader's head aligns
-// with storage's bottom, so the view length equals the stored length and
-// SnapshotForHead returns the stored ChainReader without rebuilding.
+// with the storage's oldest slot, so the view length equals the stored length
+// and SnapshotForHead returns the stored ChainReader without rebuilding.
 func testAllocsSnapshotCached(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 5; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
 
 	allocs := testing.AllocsPerRun(100, func() {
-		_ = s.SnapshotForHead(bottom)
+		_ = s.SnapshotForHead(oldestSlot)
 	})
 	require.Zero(t, allocs)
 }
 
 // testAllocsSnapshotTrim pins the view-trim path: the reader's head sits above
-// the stored chain's bottom (storage briefly stale before AdvanceTo runs), so
+// the stored chain's oldest slot (storage briefly stale before AdvanceTo runs), so
 // the view is shorter than the stored chain and can't reuse the stored pointer.
 // Value-returning SnapshotForHead constructs the trimmed ChainReader in the
 // return slot — no heap allocation.
 func testAllocsSnapshotTrim(t *testing.T) {
-	storageBottom := bottomAbove(0)
+	storedOldest := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 5; n++ {
-		applyBlock(t, s, roundID(n), 0, n, storageBottom)
+		applyBlock(t, s, roundID(n), 0, n, storedOldest)
 	}
 	allocs := testing.AllocsPerRun(100, func() {
-		_ = s.SnapshotForHead(bottomAbove(2)) // bottom below head+1 → trimmed view
+		_ = s.SnapshotForHead(oldestSlotFor(2)) // stored oldest below head+1 → trimmed view
 	})
 	require.Zero(t, allocs)
 }
 
 func testAllocsAdvanceNoOp(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 5; n++ {
-		applyBlock(t, s, roundID(n), 0, n, bottom)
+		applyBlock(t, s, roundID(n), 0, n, oldestSlot)
 	}
 
-	// head still at 0, chain bottom at 1 → wantBottom == bottom → early return,
-	// no rebuild. This pins the per-tick cost when the canonical head hasn't
-	// moved past the chain bottom (the common steady-state poller tick).
+	// head still at 0, the chain's oldest slot at 1 → already aligned → early
+	// return, no rebuild. This pins the per-tick cost when the canonical head
+	// hasn't moved past the chain's oldest slot (the common steady-state tick).
 	allocs := testing.AllocsPerRun(100, func() {
-		s.AdvanceTo(bottom)
+		s.AdvanceTo(oldestSlot)
 	})
 	require.Zero(t, allocs)
 }
@@ -1399,20 +1398,20 @@ func testAllocsAdvanceNoOp(t *testing.T) {
 // deterministic function exactly, so the diff isolates AdvanceTo's
 // contribution: 1 ChainReader + `keep` fresh nodes from rebuild().
 func testAllocsAdvanceTrim(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	const chainLen, headAfter = 5, 3
 	const keep = chainLen - headAfter // blocks headAfter+1 .. chainLen survive
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
 		for n := uint64(1); n <= chainLen; n++ {
-			_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, bottom)
+			_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestSlot)
 		}
 		return s
 	}
 	baseline := testing.AllocsPerRun(50, func() { _ = build() })
 	withTrim := testing.AllocsPerRun(50, func() {
 		s := build()
-		s.AdvanceTo(bottomAbove(headAfter))
+		s.AdvanceTo(oldestSlotFor(headAfter))
 	})
 	require.InDelta(t, float64(keep+1), withTrim-baseline, 0.5)
 }
@@ -1422,13 +1421,13 @@ func testAllocsAdvanceTrim(t *testing.T) {
 // so a regression that started doing real work on NoChange would be a hot-path
 // allocation per tick.
 func testAllocsApplyNoChange(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	s := preconfirmed.NewChainStorage()
-	applyBlock(t, s, roundID(1), 0, 1, bottom)
+	applyBlock(t, s, roundID(1), 0, 1, oldestSlot)
 	noChange := starknet.PreConfirmedNoChange{}
 
 	allocs := testing.AllocsPerRun(100, func() {
-		_, _ = s.ApplyUpdate(noChange, 1, 0, bottom)
+		_, _ = s.ApplyUpdate(noChange, 1, 0, oldestSlot)
 	})
 	require.Zero(t, allocs)
 }
@@ -1439,35 +1438,35 @@ func testAllocsApplyNoChange(t *testing.T) {
 // observed on Go 1.24/Opus-test infra; if either changes the test breaks loud
 // so the dev makes a conscious bump rather than absorbing a silent regression.
 func testAllocsApplyDelta(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	const expectedDeltaCost = 29
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
-		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, bottom)
+		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestSlot)
 		return s
 	}
 	delta := makeTestDelta(roundID(1), 1)
 	baseline := testing.AllocsPerRun(50, func() { _ = build() })
 	withApply := testing.AllocsPerRun(50, func() {
 		s := build()
-		_, _ = s.ApplyUpdate(delta, 1, 0, bottom)
+		_, _ = s.ApplyUpdate(delta, 1, 0, oldestSlot)
 	})
 	require.InDelta(t, float64(expectedDeltaCost), withApply-baseline, 0.5)
 }
 
 func testAllocsApplyExtend(t *testing.T) {
-	bottom := bottomAbove(0)
+	oldestSlot := oldestSlotFor(0)
 	const expectedExtendCost = 22
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
-		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, bottom)
+		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestSlot)
 		return s
 	}
 	extendBlock := makeTestPreConfirmedBlock(roundID(2), 0)
 	baseline := testing.AllocsPerRun(50, func() { _ = build() })
 	withApply := testing.AllocsPerRun(50, func() {
 		s := build()
-		_, _ = s.ApplyUpdate(extendBlock, 2, 0, bottom)
+		_, _ = s.ApplyUpdate(extendBlock, 2, 0, oldestSlot)
 	})
 	require.InDelta(t, float64(expectedExtendCost), withApply-baseline, 0.5)
 }

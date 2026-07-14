@@ -507,7 +507,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	wantBottom := uint64(1) // canonical head at 0
+	oldestSlot := uint64(1) // canonical head at 0
 	storage := preconfirmed.NewChainStorage()
 	hashes := make([]*felt.Felt, 3)
 	receiptBlockNumbers := []uint64{1, 2, 3}
@@ -535,10 +535,10 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: hash}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
 		}
-		_, err := storage.ApplyUpdate(block, blockNumber, 0, wantBottom)
+		_, err := storage.ApplyUpdate(block, blockNumber, 0, oldestSlot)
 		require.NoError(t, err)
 	}
-	chain := storage.SnapshotForHead(wantBottom)
+	chain := storage.SnapshotForHead(oldestSlot)
 	require.Equal(t, 3, chain.Length())
 
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {
