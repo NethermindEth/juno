@@ -44,36 +44,40 @@ const (
 
 func encodeFeltLimbs(element *fp.Element) []byte {
 	// The buffer format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
-	buffer := make([]byte, 1, 1+Limbs*maxCBORUintLen)
+	buffer := make([]byte, 1+Limbs*maxCBORUintLen)
 	buffer[0] = cborArrayHeader4
 
+	index := 1
 	for limbIndex := range Limbs {
-		buffer = appendCBORUint(buffer, element[limbIndex])
+		value := element[limbIndex]
+		switch {
+		case value > math.MaxUint32:
+			buffer[index] = cborUint64AdditionalInfo
+			binary.BigEndian.PutUint64(buffer[index+1:], value)
+			index += 1 + 8
+
+		case value > math.MaxUint16:
+			buffer[index] = cborUint32AdditionalInfo
+			binary.BigEndian.PutUint32(buffer[index+1:], uint32(value))
+			index += 1 + 4
+
+		case value > math.MaxUint8:
+			buffer[index] = cborUint16AdditionalInfo
+			binary.BigEndian.PutUint16(buffer[index+1:], uint16(value))
+			index += 1 + 2
+
+		case value >= cborUint8AdditionalInfo:
+			buffer[index] = cborUint8AdditionalInfo
+			buffer[index+1] = byte(value)
+			index += 2
+
+		default:
+			buffer[index] = byte(value)
+			index++
+		}
 	}
 
-	return buffer
-}
-
-func appendCBORUint(buffer []byte, value uint64) []byte {
-	switch {
-	case value > math.MaxUint32:
-		buffer = append(buffer, cborUint64AdditionalInfo)
-		return binary.BigEndian.AppendUint64(buffer, value)
-
-	case value > math.MaxUint16:
-		buffer = append(buffer, cborUint32AdditionalInfo)
-		return binary.BigEndian.AppendUint32(buffer, uint32(value))
-
-	case value > math.MaxUint8:
-		buffer = append(buffer, cborUint16AdditionalInfo)
-		return binary.BigEndian.AppendUint16(buffer, uint16(value))
-
-	case value >= cborUint8AdditionalInfo:
-		return append(buffer, cborUint8AdditionalInfo, byte(value))
-
-	default:
-		return append(buffer, byte(value))
-	}
+	return buffer[:index]
 }
 
 // Writes element only on success, so a rejected input can't partially
