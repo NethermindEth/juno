@@ -50,13 +50,13 @@ func encodeBoth(value *felt.Felt) (fast, generic []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	generic, err = cbor.Marshal(value)
+	generic, err = cbor.Marshal((*fp.Element)(value))
 	return fast, generic, err
 }
 
 func decodeBoth(data []byte) (fast, generic felt.Felt, errFast, errGeneric error) {
 	errFast = fast.UnmarshalCBOR(data)
-	errGeneric = cbor.Unmarshal(data, &generic)
+	errGeneric = cbor.Unmarshal(data, (*fp.Element)(&generic))
 	return fast, generic, errFast, errGeneric
 }
 
