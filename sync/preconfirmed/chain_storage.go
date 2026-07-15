@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -155,13 +156,28 @@ func (c *ChainReader) PreConfirmedStateAt(
 	}
 
 	stateDiff := core.EmptyStateDiff()
+	var newClasses map[felt.Felt]core.ClassDefinition
 	for entry := range c.OldestFirst() {
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
+		newClasses = mergeClassesInto(newClasses, entry.NewClasses)
 		if entry.Block.Number == blockNumber {
 			break
 		}
 	}
-	return pending.NewState(&stateDiff, nil, base, blockNumber), closer, nil
+	return pending.NewState(&stateDiff, newClasses, base, blockNumber), closer, nil
+}
+
+func mergeClassesInto(
+	dst, src map[felt.Felt]core.ClassDefinition,
+) map[felt.Felt]core.ClassDefinition {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = make(map[felt.Felt]core.ClassDefinition, len(src))
+	}
+	maps.Copy(dst, src)
+	return dst
 }
 
 // PreConfirmedStateBeforeIndexAt returns the chain's view of state immediately
@@ -182,12 +198,14 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 
 	stateDiff := core.EmptyStateDiff()
 	var target *pending.PreConfirmed
+	var newClasses map[felt.Felt]core.ClassDefinition
 	for entry := range c.OldestFirst() {
 		if entry.Block.Number == blockNumber {
 			target = entry
 			break
 		}
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
+		newClasses = mergeClassesInto(newClasses, entry.NewClasses)
 	}
 	// Invariant: blockNumber passed the range check, so a contiguous chain must
 	// contain it. A nil target means the chain has a gap (a bug), not a miss.
@@ -200,6 +218,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	if index > uint(len(target.Block.Transactions)) {
 		return nil, nil, pending.ErrTransactionIndexOutOfBounds
 	}
+	newClasses = mergeClassesInto(newClasses, target.NewClasses)
 	base, closer, err := c.baseState(bcReader)
 	if err != nil {
 		return nil, nil, err
@@ -207,7 +226,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	for _, txStateDiff := range target.TransactionStateDiffs[:index] {
 		stateDiff.Merge(txStateDiff)
 	}
-	return pending.NewState(&stateDiff, nil, base, blockNumber), closer, nil
+	return pending.NewState(&stateDiff, newClasses, base, blockNumber), closer, nil
 }
 
 // baseState opens the canonical state immediately below the chain's oldest
@@ -293,18 +312,25 @@ func (s *ChainStorage) SnapshotForBlock(blockNumber uint64) ChainReader {
 //
 // On CAS failure the chain changed between Load and CompareAndSwap; we return
 // an error instead of retrying.
+//
+// A NoChange still registers newClasses on the targeted (tip) slot when non-empty: a
+// re-poll that reported no content change may still carry declared classes we only just
+// fetched for that block.
 func (s *ChainStorage) ApplyUpdate(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*pending.PreConfirmed, error) {
-	if _, ok := update.(starknet.PreConfirmedNoChange); ok {
-		return nil, nil
-	}
 	current := s.inner.Load()
 	newChain, affected, err := computeUpdate(
-		current, update, blockNumber, baseTxCount, oldestPreConf,
+		current,
+		update,
+		blockNumber,
+		baseTxCount,
+		oldestPreConf,
+		newClasses,
 	)
 	if err != nil {
 		return nil, err
@@ -316,6 +342,22 @@ func (s *ChainStorage) ApplyUpdate(
 		return nil, errors.New("chain changed between load and store")
 	}
 	return affected, nil
+}
+
+// withClasses returns base with the entries of extra added, without mutating base's map
+// (copy-on-write). Returns base unchanged when extra is empty.
+func withClasses(
+	base, extra map[felt.Felt]core.ClassDefinition,
+) map[felt.Felt]core.ClassDefinition {
+	if len(extra) == 0 {
+		return base
+	}
+	merged := maps.Clone(base)
+	if merged == nil {
+		merged = make(map[felt.Felt]core.ClassDefinition, len(extra))
+	}
+	maps.Copy(merged, extra)
+	return merged
 }
 
 // AdvanceTo realigns the chain to a new canonical head, given as oldestPreConf —
@@ -392,13 +434,14 @@ func computeUpdate(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	if current == nil || current.length == 0 {
 		block, ok := update.(starknet.PreConfirmedBlock)
 		if !ok {
 			return nil, nil, fmt.Errorf("bootstrap rejected: want PreConfirmedBlock, got %T", update)
 		}
-		return bootstrapChain(&block, blockNumber, oldestPreConf)
+		return bootstrapChain(&block, blockNumber, oldestPreConf, newClasses)
 	}
 
 	currentOldest := current.oldestPreConf()
@@ -438,10 +481,10 @@ func computeUpdate(
 				"append rejected at slot %d: want PreConfirmedBlock, got %T", blockNumber, update,
 			)
 		}
-		return extend(current, &block, blockNumber)
+		return extend(current, &block, blockNumber, newClasses)
 	}
 
-	return replaceSlot(current, update, blockNumber, baseTxCount)
+	return replaceSlot(current, update, blockNumber, baseTxCount, newClasses)
 }
 
 // bootstrapChain handles the first entry case (empty storage). The caller
@@ -453,6 +496,7 @@ func bootstrapChain(
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
 	oldestPreConf uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	if blockNumber != oldestPreConf {
 		return nil, nil, fmt.Errorf(
@@ -466,6 +510,7 @@ func bootstrapChain(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
+	next.NewClasses = newClasses
 	newNode := &node{preconfirmed: &next, parent: nil}
 	return &ChainReader{head: newNode, length: 1}, &next, nil
 }
@@ -476,6 +521,7 @@ func extend(
 	current *ChainReader,
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	next, err := sn2core.AdaptPreConfirmedBlock(block, blockNumber)
 	if err != nil {
@@ -484,6 +530,7 @@ func extend(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
+	next.NewClasses = newClasses
 	newNode := &node{preconfirmed: &next, parent: current.head}
 	return &ChainReader{head: newNode, length: current.length + 1}, &next, nil
 }
@@ -497,6 +544,8 @@ func extend(
 //   - PreConfirmedDeltaUpdate — merges appended txs into the existing slot;
 //     baseTxCount must match the slot's current tx count or ErrBaseTxCountMismatch
 //     is returned (defensive race-check).
+//   - PreConfirmedNoChange — content is unchanged; only merges newClasses into the
+//     existing tip. A no-op (nil, nil, nil) when the tip already holds them all.
 //
 // Returns (nil, nil, nil) when shouldPreserveSlot says "keep the existing slot,
 // no broadcast needed." Caller must have already validated that blockNumber
@@ -506,6 +555,7 @@ func replaceSlot(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	depthFromHead := int(current.tip() - blockNumber)
 	target := current.head
@@ -522,6 +572,7 @@ func replaceSlot(
 		if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 			return nil, nil, err
 		}
+		next.NewClasses = newClasses
 		if shouldPreserveSlot(target.preconfirmed, &next) {
 			return nil, nil, nil
 		}
@@ -543,25 +594,53 @@ func replaceSlot(
 		if err != nil {
 			return nil, nil, err
 		}
+		next.NewClasses = withClasses(next.NewClasses, newClasses)
 		newNode := &node{preconfirmed: &next, parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length,
 		}, &next, nil
+
+	case starknet.PreConfirmedNoChange:
+		// A NoChange branch exists only to register newly-fetched classes; with none there
+		// is nothing to do, whatever slot it targets.
+		if len(newClasses) == 0 {
+			return nil, nil, nil
+		}
+		// NoChange only ever targets the tip: the poller re-polls a slot only while
+		// it is the most recent, so a NoChange below the tip is a bug.
+		if depthFromHead != 0 {
+			return nil, nil, fmt.Errorf(
+				"no-change at non-tip slot %d (depth %d)", blockNumber, depthFromHead,
+			)
+		}
+		merged := withClasses(target.preconfirmed.NewClasses, newClasses)
+		if len(merged) == len(target.preconfirmed.NewClasses) {
+			return nil, nil, nil // tip already holds them all
+		}
+		next := *target.preconfirmed
+		next.NewClasses = merged
+		newNode := &node{preconfirmed: &next, parent: target.parent}
+		return &ChainReader{head: newNode, length: current.length}, &next, nil
 	}
 	return nil, nil, fmt.Errorf("unknown PreConfirmedUpdate variant %T", update)
 }
 
 // shouldPreserveSlot keeps the existing slot when the incoming pre-confirmed is
 // at the same identifier with no extra transactions, or carries the blank
-// placeholder identifier. A different real identifier (new round) or a richer
-// same-identifier block replaces.
+// placeholder identifier. A different real identifier (new round), a richer
+// same-identifier block, or one carrying declared classes the existing slot lacks
+// replaces.
 func shouldPreserveSlot(existing, incoming *pending.PreConfirmed) bool {
 	if incoming.BlockIdentifier != existing.BlockIdentifier &&
 		incoming.BlockIdentifier != feeder.PreConfirmedBlankIdentifier {
 		return false
 	}
 	if incoming.Block.TransactionCount > existing.Block.TransactionCount {
+		return false
+	}
+
+	if len(incoming.NewClasses) > len(existing.NewClasses) {
 		return false
 	}
 	return true

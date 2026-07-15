@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
@@ -18,7 +20,7 @@ import (
 )
 
 // DataSource is the narrow surface the Poller needs from the wire side. Any
-// type implementing both methods (e.g. sync.DataSource) satisfies it.
+// type implementing these methods (e.g. sync.DataSource) satisfies it.
 type DataSource interface {
 	PreConfirmedBlockLatest(
 		ctx context.Context,
@@ -31,16 +33,17 @@ type DataSource interface {
 		identifier string,
 		txCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
+	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
 }
 
 // Poller drives the pre-confirmed chain from a single goroutine.
 //
 // One tick reads as: poll the server's latest pre-confirmed, backfill any gap
-// below it, then insert the latest. backfill is a no-op when there's no gap;
-// otherwise it finalises the current mostRecent (re-polls its number to capture
-// the last delta before the sequencer moved past it) and then walks
-// explicit-number polls up to latest-1. Same-height polls (latest matches our
-// mostRecent) skip backfill and land in insert as delta / preserve / replace.
+// below it, then insert the latest. backfill runs only when the tip jumped ahead;
+// it re-fetches every slot from the old mostRecent up to latest-1 as a full block
+// (also capturing their declared classes) and applies each. Same-height polls
+// (latest matches our mostRecent) skip backfill and land in insert as
+// delta / preserve / replace.
 type Poller struct {
 	dataSource         DataSource
 	storage            *ChainStorage
@@ -152,7 +155,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
-		err = p.backfill(ctx, oldestPreConf, fromBlock, identifier, txCount, updateBlockNum)
+		err = p.backfill(ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum)
 		if err != nil {
 			return fmt.Errorf(
 				"backfilling from %d to %d: %w",
@@ -168,16 +171,19 @@ func (p *Poller) tick(ctx context.Context) error {
 	// path ignores baseTxCount — so the stale value is harmless under current
 	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
 	// for non-Delta updates.
-	return p.apply(update, updateBlockNum, txCount, oldestPreConf)
+	return p.apply(update, updateBlockNum, txCount, oldestPreConf, nil)
 }
 
-// backfill polls fromBlock with the given delta hints (identifier+txCount) to
-// capture the final view of that block, then walks fromBlock+1..endExclusive-1
-// with blank hints. The caller is responsible for deciding when backfill is
-// needed; backfill itself performs no gap check.
+// backfill fills the gap [fromBlock, endExclusive), applying each slot with its own
+// declared classes so they land on the exact block that declares them. The old tip
+// (fromBlock) is re-polled with delta hints and its classes resolved by oldTipClasses;
+// the intermediate slots are polled as full blocks. currentHead is the stored old tip,
+// needed to recover classes it declared while it was the tip. The caller decides when
+// backfill is needed; it performs no gap check.
 func (p *Poller) backfill(
 	ctx context.Context,
 	oldestPreConf uint64,
+	currentHead *pending.PreConfirmed,
 	fromBlockNum uint64,
 	identifier string,
 	txCount uint64,
@@ -187,8 +193,11 @@ func (p *Poller) backfill(
 	if err != nil {
 		return fmt.Errorf("polling pre-confirmed for number %d: %w", fromBlockNum, err)
 	}
-
-	if err := p.apply(update, fromBlockNum, txCount, oldestPreConf); err != nil {
+	newClasses, err := p.fetchClasses(ctx, declaredClassHashesForRepolledTip(currentHead, update))
+	if err != nil {
+		return fmt.Errorf("fetching declared classes for pre-confirmed %d: %w", fromBlockNum, err)
+	}
+	if err := p.apply(update, fromBlockNum, txCount, oldestPreConf, newClasses); err != nil {
 		return fmt.Errorf("applying pre-confirmed at %d: %w", fromBlockNum, err)
 	}
 
@@ -197,25 +206,37 @@ func (p *Poller) backfill(
 		if err != nil {
 			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}
-
-		if err := p.apply(update, n, 0, oldestPreConf); err != nil {
+		newClasses, err := p.fetchClasses(ctx, declaredClassHashesFromUpdate(update))
+		if err != nil {
+			return fmt.Errorf("fetching declared classes for pre-confirmed %d: %w", n, err)
+		}
+		if err := p.apply(update, n, 0, oldestPreConf, newClasses); err != nil {
 			return fmt.Errorf("applying pre-confirmed at %d: %w", n, err)
 		}
 	}
 	return nil
 }
 
-// apply writes the update to storage and publishes the affected entry.
-// Returns an error on apply failure so callers can abort mid-fill.
+// apply writes the update to storage and publishes the affected entry. newClasses
+// carries the declared-class definitions to register on the stored entry (backfill's
+// most recent update only; nil elsewhere). Returns an error on apply failure so callers
+// can abort mid-fill.
 func (p *Poller) apply(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
+	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, oldestPreConf)
+	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, oldestPreConf, newClasses)
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
+	}
+	// A NoChange only ever registers freshly-fetched classes onto an already-stored
+	// (non-tip) entry during backfill; nothing changed for feed consumers, so it must
+	// not publish even though ApplyUpdate returns the touched entry.
+	if _, isNoChange := update.(starknet.PreConfirmedNoChange); isNoChange {
+		return nil
 	}
 	if applied != nil {
 		p.out.Send(applied)
@@ -224,7 +245,109 @@ func (p *Poller) apply(
 	return nil
 }
 
+// fetchClasses fetches the definition of each unique class hash yielded by the
+// sequence from the data source. Returns nil when the sequence yields nothing.
+func (p *Poller) fetchClasses(
+	ctx context.Context,
+	classHashes iter.Seq[felt.Felt],
+) (map[felt.Felt]core.ClassDefinition, error) {
+	var classes map[felt.Felt]core.ClassDefinition
+	for classHash := range classHashes {
+		if _, ok := classes[classHash]; ok {
+			continue
+		}
+		class, err := p.dataSource.Class(ctx, &classHash)
+		if err != nil {
+			return nil, fmt.Errorf("fetching class %s: %w", &classHash, err)
+		}
+		if classes == nil {
+			classes = make(map[felt.Felt]core.ClassDefinition)
+		}
+		classes[classHash] = class
+	}
+	return classes, nil
+}
+
 func (p *Poller) atTip(headNum uint64) bool {
 	highest := p.highestBlockHeader.Load()
 	return highest != nil && highest.Number <= headNum
+}
+
+// concat yields every element of each sequence in order.
+func concat[T any](seqs ...iter.Seq[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for _, seq := range seqs {
+			for v := range seq {
+				if !yield(v) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// declaredClassHashesFromUpdate yields the class hashes newly declared by a wire update's
+// transactions.
+func declaredClassHashesFromUpdate(update starknet.PreConfirmedUpdate) iter.Seq[felt.Felt] {
+	return func(yield func(felt.Felt) bool) {
+		var stateDiffs []*starknet.StateDiff
+		switch u := update.(type) {
+		case starknet.PreConfirmedBlock:
+			stateDiffs = u.TransactionStateDiffs
+		case starknet.PreConfirmedDeltaUpdate:
+			stateDiffs = u.TransactionStateDiffs
+		default:
+			return
+		}
+		for _, stateDiff := range stateDiffs {
+			for _, classHash := range stateDiff.OldDeclaredContracts {
+				if !yield(*classHash) {
+					return
+				}
+			}
+			for _, classDef := range stateDiff.DeclaredClasses {
+				if !yield(*classDef.ClassHash) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// declaredClassHashesFromPreConfirmed yields the class hashes a stored pre-confirmed block
+// declares.
+func declaredClassHashesFromPreConfirmed(preConfirmed *pending.PreConfirmed) iter.Seq[felt.Felt] {
+	return func(yield func(felt.Felt) bool) {
+		stateDiff := preConfirmed.StateUpdate.StateDiff
+		for _, classHash := range stateDiff.DeclaredV0Classes {
+			if !yield(*classHash) {
+				return
+			}
+		}
+		for classHash := range stateDiff.DeclaredV1Classes {
+			if !yield(classHash) {
+				return
+			}
+		}
+	}
+}
+
+// declaredClassHashesForRepolledTip yields the class hashes declared by the stored tip and
+// the given update.
+func declaredClassHashesForRepolledTip(
+	storedTip *pending.PreConfirmed,
+	update starknet.PreConfirmedUpdate,
+) iter.Seq[felt.Felt] {
+	switch update.(type) {
+	case starknet.PreConfirmedBlock:
+		return declaredClassHashesFromUpdate(update)
+	case starknet.PreConfirmedDeltaUpdate:
+		return concat(
+			declaredClassHashesFromPreConfirmed(storedTip),
+			declaredClassHashesFromUpdate(update),
+		)
+	case starknet.PreConfirmedNoChange:
+		return declaredClassHashesFromPreConfirmed(storedTip)
+	}
+	return func(yield func(felt.Felt) bool) {}
 }
