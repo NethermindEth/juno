@@ -72,14 +72,14 @@ type AggregatedBloomFilter struct {
 
 const (
 	NumBlocksPerFilter uint64 = 8192
+	// MaxBlockOffsetPerFilter is the last block a filter covers, relative to
+	// its fromBlock: toBlock == fromBlock + MaxBlockOffsetPerFilter.
+	MaxBlockOffsetPerFilter = NumBlocksPerFilter - 1
 )
 
-// wordsPerFilterRow is the number of uint64 words bitset uses to store one
-// NumBlocksPerFilter-bit row.
-var wordsPerFilterRow = func() int {
-	row := makeBitset()
-	return len(row.Words())
-}()
+// wordsPerFilterRow is the uint64 word count bitset writes for one
+// NumBlocksPerFilter-bit row: (bits + 63) / 64.
+const wordsPerFilterRow = int((NumBlocksPerFilter + 63) / 64)
 
 var (
 	ErrAggregatedBloomFilterBlockOutOfRange error = errors.New("block number is not within range")
@@ -99,7 +99,7 @@ func NewAggregatedFilter(fromBlock uint64) AggregatedBloomFilter {
 	return AggregatedBloomFilter{
 		bitmap:    bitmap,
 		fromBlock: fromBlock,
-		toBlock:   fromBlock + NumBlocksPerFilter - 1,
+		toBlock:   fromBlock + MaxBlockOffsetPerFilter,
 	}
 }
 
@@ -258,77 +258,78 @@ func (f *AggregatedBloomFilter) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// UnmarshalBinary decodes MarshalBinary's output in place. It never panics on
-// corrupt DB bytes, returning an error instead. On error f may be partially
-// written and must be discarded.
+// UnmarshalBinary decodes MarshalBinary's output in place. Returns an error
+// in case of DB corruption. On error f may be partially written and must be
+// discarded.
 func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 	const (
 		bytesUint32 = 4
 		bytesUint64 = 8
 		// Header layout (see MarshalBinary): fromBlock + toBlock + count.
-		headerSize = bytesUint64 + bytesUint64 + bytesUint32
-		rowLenSize = bytesUint32
-		bitLenSize = bytesUint64
+		headerSize    = bytesUint64 + bytesUint64 + bytesUint32
+		rowLenSize    = bytesUint32
+		bitsetLenSize = bytesUint64
+		// A canonical row is a bitset length prefix plus wordsPerFilterRow words.
+		blobLenWant = bitsetLenSize + wordsPerFilterRow*bytesUint64
+		rowSize     = rowLenSize + blobLenWant
 	)
 
 	if len(data) < headerSize {
 		return io.ErrUnexpectedEOF
 	}
-	f.fromBlock = binary.BigEndian.Uint64(data[0:bytesUint64])
-	f.toBlock = binary.BigEndian.Uint64(data[bytesUint64 : 2*bytesUint64])
-	count := int(binary.BigEndian.Uint32(data[2*bytesUint64 : headerSize]))
-	off := headerSize
 
+	count := int(binary.BigEndian.Uint32(data[2*bytesUint64 : headerSize]))
 	// Consumers index the matrix with these fixed constants, so a header that
 	// disagrees would panic or silently corrupt results on later use.
 	if count != EventsBloomLength {
 		return ErrBloomFilterSizeMismatch
 	}
-	if f.toBlock != f.fromBlock+NumBlocksPerFilter-1 {
-		return ErrBloomFilterSizeMismatch
-	}
-
 	// Reject data too short for count rows before allocating, so truncated
 	// input fails fast rather than driving an oversized allocation.
-	blobLenWant := bitLenSize + wordsPerFilterRow*bytesUint64
-	rowSize := rowLenSize + blobLenWant
 	if count > (len(data)-headerSize)/rowSize {
 		return io.ErrUnexpectedEOF
+	}
+
+	f.fromBlock = binary.BigEndian.Uint64(data[0:bytesUint64])
+	f.toBlock = binary.BigEndian.Uint64(data[bytesUint64 : 2*bytesUint64])
+	if f.toBlock != f.fromBlock+MaxBlockOffsetPerFilter {
+		return ErrBloomFilterSizeMismatch
 	}
 
 	backing := make([]uint64, count*wordsPerFilterRow)
 	f.bitmap = make([]bitset.BitSet, count)
 
+	offset := headerSize
 	for i := range count {
-		if off+rowLenSize > len(data) {
+		if offset+rowLenSize > len(data) {
 			return io.ErrUnexpectedEOF
 		}
-		blobLen := int(binary.BigEndian.Uint32(data[off:]))
-		off += rowLenSize
-		if off+blobLen > len(data) {
+		blobLen := int(binary.BigEndian.Uint32(data[offset:]))
+		offset += rowLenSize
+		if offset+blobLen > len(data) {
 			return io.ErrUnexpectedEOF
 		}
-		// bitLen and blobLen are independent fields, so both are checked.
+		// bitsetLen and blobLen are independent fields, so both are checked.
 		if blobLen != blobLenWant {
 			return ErrBloomFilterSizeMismatch
 		}
-		if bitLen := binary.BigEndian.Uint64(data[off:]); bitLen != NumBlocksPerFilter {
+		if bitsetLen := binary.BigEndian.Uint64(data[offset:]); bitsetLen != NumBlocksPerFilter {
 			return ErrBloomFilterSizeMismatch
 		}
 
 		rowStart := i * wordsPerFilterRow
 		row := backing[rowStart : rowStart+wordsPerFilterRow : rowStart+wordsPerFilterRow]
-		wordsAt := off + bitLenSize
+		wordsAt := offset + bitsetLenSize
 		for w := range wordsPerFilterRow {
 			row[w] = binary.BigEndian.Uint64(data[wordsAt+w*bytesUint64:])
 		}
 		f.bitmap[i] = *bitset.FromWithLength(uint(NumBlocksPerFilter), row)
 
-		off += blobLen
+		offset += blobLen
 	}
 
 	// Trailing bytes mean framing corruption; a canonical blob is consumed exactly.
-	if off != len(data) {
+	if offset != len(data) {
 		return io.ErrUnexpectedEOF
 	}
 	return nil
@@ -336,7 +337,7 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 
 func makeBitset() bitset.BitSet {
 	b := bitset.BitSet{}
-	b.Set(uint(NumBlocksPerFilter - 1))
-	b.Clear(uint(NumBlocksPerFilter - 1))
+	b.Set(uint(MaxBlockOffsetPerFilter))
+	b.Clear(uint(MaxBlockOffsetPerFilter))
 	return b
 }

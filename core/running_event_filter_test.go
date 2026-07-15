@@ -71,7 +71,7 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	require.Equal(t, uint64(0), fromBlock)
 	toBlock, err := rf.ToBlock()
 	require.NoError(t, err)
-	require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+	require.Equal(t, core.MaxBlockOffsetPerFilter, toBlock)
 	require.NoError(t, rf.Insert(testBloomWithRandomKeys(t, 1), 0))
 }
 
@@ -104,7 +104,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 		require.Equal(t, uint64(0), fromBlock)
 		toBlock, err := rf.ToBlock()
 		require.NoError(t, err)
-		require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+		require.Equal(t, core.MaxBlockOffsetPerFilter, toBlock)
 		nextBlock, err := rf.NextBlock()
 		require.NoError(t, err)
 		require.Equal(t, expectedNext, nextBlock)
@@ -143,7 +143,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 			require.Equal(t, uint64(0), fromBlock)
 			toBlock, err := rf.ToBlock()
 			require.NoError(t, err)
-			require.Equal(t, core.NumBlocksPerFilter-1, toBlock)
+			require.Equal(t, core.MaxBlockOffsetPerFilter, toBlock)
 
 			preserved, err := rf.BlocksForKeys(snapshotKeys)
 			require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 					"block %d (second window) not filled", i)
 			}
 			// First window persisted on rotation: every position [0, N-1] hit.
-			stored, err := core.GetAggregatedBloomFilter(testDB, 0, core.NumBlocksPerFilter-1)
+			stored, err := core.GetAggregatedBloomFilter(testDB, 0, core.MaxBlockOffsetPerFilter)
 			require.NoError(t, err)
 			storedMatches := stored.BlocksForKeys(headerKeys)
 			for i := range core.NumBlocksPerFilter {

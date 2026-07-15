@@ -32,7 +32,7 @@ func TestAggregatedBloomFilter_Insert(t *testing.T) {
 			},
 			{
 				description: "last block in range",
-				blockNumber: 200 + core.NumBlocksPerFilter - 1,
+				blockNumber: 200 + core.MaxBlockOffsetPerFilter,
 			},
 		}
 
@@ -200,7 +200,7 @@ func TestAggregatedBloomFilter_UnmarshalBinary_NonZeroRange(t *testing.T) {
 	require.NoError(t, decoded.UnmarshalBinary(data))
 	require.Equal(t, filter, decoded)
 	require.Equal(t, from, decoded.FromBlock())
-	require.Equal(t, from+core.NumBlocksPerFilter-1, decoded.ToBlock())
+	require.Equal(t, from+core.MaxBlockOffsetPerFilter, decoded.ToBlock())
 	require.True(t, decoded.BlocksForKeys([][]byte{key}).Test(7))
 }
 
@@ -216,7 +216,7 @@ func TestAggregatedBloomFilter_MarshalBinary_HeaderLayout(t *testing.T) {
 	require.GreaterOrEqual(t, len(data), 20)
 
 	require.Equal(t, uint64(from), binary.BigEndian.Uint64(data[0:8]))
-	require.Equal(t, from+core.NumBlocksPerFilter-1, binary.BigEndian.Uint64(data[8:16]))
+	require.Equal(t, from+core.MaxBlockOffsetPerFilter, binary.BigEndian.Uint64(data[8:16]))
 	require.Equal(t, uint32(core.EventsBloomLength), binary.BigEndian.Uint32(data[16:20]))
 }
 

@@ -254,7 +254,7 @@ func (f *RunningEventFilter) onReorg(writer db.KeyValueWriter) error {
 		}
 
 		rangeStartAligned := curBlock - (curBlock % NumBlocksPerFilter)
-		rangeEndAligned := rangeStartAligned + NumBlocksPerFilter - 1
+		rangeEndAligned := rangeStartAligned + MaxBlockOffsetPerFilter
 
 		lastStoredFilter, err := GetAggregatedBloomFilter(
 			f.database,
@@ -364,7 +364,7 @@ func rebuildRunningEventFilter(
 	latest uint64,
 ) (*RunningEventFilter, error) {
 	rangeStartAligned := latest - latest%NumBlocksPerFilter
-	lastStoredFilterRangeEnd := rangeStartAligned + NumBlocksPerFilter - 1
+	lastStoredFilterRangeEnd := rangeStartAligned + MaxBlockOffsetPerFilter
 
 	var continueFrom uint64
 	for {
