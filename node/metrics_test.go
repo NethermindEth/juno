@@ -71,7 +71,9 @@ func TestMakeL1Metrics(t *testing.T) {
 		prometheus.DefaultRegisterer = reg
 
 		mockBCReader.EXPECT().L1Head().Return(core.L1Head{}, errors.New("err")).AnyTimes()
-		mockProvider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
+		mockProvider.EXPECT().FinalisedHeight(
+			gomock.Any(),
+		).Return(uint64(0), errors.New("err")).AnyTimes()
 		mockProvider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
 
 		listener := makeL1Metrics(mockBCReader)

@@ -32,7 +32,7 @@ type Gateway interface {
 //
 //go:generate mockgen -destination=../../mocks/mock_l1_client.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore L1Client
 type L1Client interface {
-	TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error)
+	TransactionReceipt(ctx context.Context, txHash eth.Hash) (eth.Receipt, error)
 }
 
 type TraceCacheKey struct {

@@ -182,17 +182,16 @@ func (s *GethL1StateProvider) WatchStateUpdate(
 func (s *GethL1StateProvider) TransactionReceipt(
 	ctx context.Context,
 	txHash eth.Hash,
-) (*eth.Receipt, error) {
+) (eth.Receipt, error) {
 	defer s.observe("eth_getTransactionReceipt")()
 	r, err := s.ethClient.TransactionReceipt(ctx, common.Hash(txHash))
 	if err != nil {
 		if errors.Is(err, ethereum.NotFound) {
-			return nil, fmt.Errorf("getting transaction receipt: %w", eth.ErrNotFound)
+			return eth.Receipt{}, fmt.Errorf("getting transaction receipt: %w", eth.ErrNotFound)
 		}
-		return nil, fmt.Errorf("getting transaction receipt: %w", err)
+		return eth.Receipt{}, fmt.Errorf("getting transaction receipt: %w", err)
 	}
-	receipt := gethReceiptToEth(r)
-	return &receipt, nil
+	return gethReceiptToEth(r), nil
 }
 
 // Close releases the underlying RPC client.
