@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 )
 
@@ -217,9 +218,25 @@ func (c *ChainReader) baseState(
 ) (core.StateReader, blockchain.StateCloser, error) {
 	bottom := c.bottom()
 	if bottom == 0 {
-		return bcReader.StateAtBlockHash(&felt.Zero)
+		// Genesis (block 0) has no prior state; wrap the empty base so a missing
+		// contract reads as ErrKeyNotFound like the historical readers do.
+		base, closer, err := bcReader.StateAtBlockHash(&felt.Zero)
+		if err != nil {
+			return nil, nil, err
+		}
+		return emptyStateReader{StateReader: base}, closer, nil
 	}
 	return bcReader.StateAtBlockNumber(bottom - 1)
+}
+
+// emptyStateReader reports a missing contract from an empty state as
+// db.ErrKeyNotFound, matching historical-reader semantics.
+type emptyStateReader struct {
+	core.StateReader
+}
+
+func (emptyStateReader) ContractStorage(_, _ *felt.Felt) (felt.Felt, error) {
+	return felt.Zero, db.ErrKeyNotFound
 }
 
 // contains returns true when a non-empty chain reader contains a block with `blockNum`

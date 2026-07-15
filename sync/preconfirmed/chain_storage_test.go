@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -632,6 +633,8 @@ func TestChainReader(t *testing.T) {
 		testChainReaderPreConfirmedStateAtBaseAlignsWithBottom)
 	t.Run("PreConfirmedStateAt at genesis resolves base via zero hash",
 		testChainReaderPreConfirmedStateAtBaseAtGenesis)
+	t.Run("PreConfirmedStateAt at genesis reports missing contract as not found",
+		testChainReaderPreConfirmedStateAtGenesisMissingContract)
 	t.Run("PreConfirmedStateAt surfaces bcReader error from base lookup",
 		testChainReaderPreConfirmedStateAtBaseError)
 	t.Run("TransactionByHash finds tx in any chain entry",
@@ -1058,6 +1061,26 @@ func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
 
 	_, closer, err := view.PreConfirmedStateAt(0, bc)
 	require.NoError(t, err)
+	require.NoError(t, closer())
+}
+
+func testChainReaderPreConfirmedStateAtGenesisMissingContract(t *testing.T) {
+	s := preconfirmed.NewChainStorage()
+	applyBlock(t, s, roundID(0), 0, 0, nil)
+	view := s.SnapshotForHead(nil)
+
+	ctrl := gomock.NewController(t)
+	base := mocks.NewMockStateReader(ctrl)
+	bc := mocks.NewMockReader(ctrl)
+	bc.EXPECT().StateAtBlockHash(&felt.Zero).Return(base, func() error { return nil }, nil)
+
+	state, closer, err := view.PreConfirmedStateAt(0, bc)
+	require.NoError(t, err)
+
+	addr := felt.FromUint64[felt.Felt](0x1234)
+	key := felt.FromUint64[felt.Felt](0x5678)
+	_, err = state.ContractStorage(&addr, &key)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	require.NoError(t, closer())
 }
 
