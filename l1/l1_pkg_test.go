@@ -74,8 +74,8 @@ type logStateUpdate struct {
 func (logSU *logStateUpdate) ToStateUpdate() *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: logSU.l2BlockNumber,
-		L2BlockHash:   new(felt.Felt).SetUint64(logSU.l2BlockNumber),
-		StateRoot:     new(felt.Felt).SetUint64(logSU.l2BlockNumber),
+		L2BlockHash:   *new(felt.Felt).SetUint64(logSU.l2BlockNumber),
+		StateRoot:     *new(felt.Felt).SetUint64(logSU.l2BlockNumber),
 		L1RefHeight:   logSU.l1BlockNumber,
 		Removed:       logSU.removed,
 	}

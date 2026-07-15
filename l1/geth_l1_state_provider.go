@@ -20,6 +20,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// GethL1StateProvider must satisfy both interfaces it serves.
+var (
+	_ L1StateProvider  = (*GethL1StateProvider)(nil)
+	_ rpccore.L1Client = (*GethL1StateProvider)(nil)
+)
+
 // watchForwarderBuffer is the per-subscription buffer between the
 // contract decoder and the l1.StateUpdate sink consumed by l1.Client.
 const watchForwarderBuffer = 64
@@ -154,21 +160,21 @@ func (s *GethL1StateProvider) FilterStateUpdate(
 
 // WatchStateUpdate subscribes to live LogStateUpdate events and
 // forwards each one (decoded into StateUpdate, with felt conversion
-// already applied) on sink. Requires a ws/wss endpoint.
+// already applied) on updatesCh. Requires a ws/wss endpoint.
 //
-// Caller contract: sink MUST be drained promptly. A sink that stalls
-// back-pressures the abigen subscription channel and eventually the
-// underlying ws connection.
+// Caller contract: updatesCh MUST be drained promptly. A channel that
+// stalls back-pressures the abigen subscription channel and eventually
+// the underlying ws connection.
 func (s *GethL1StateProvider) WatchStateUpdate(
 	ctx context.Context,
-	sink chan<- *StateUpdate,
+	updatesCh chan<- *StateUpdate,
 ) (Subscription, error) {
-	raw := make(chan *contract.StarknetLogStateUpdate, watchForwarderBuffer)
-	inner, err := s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, raw)
+	gethEventsCh := make(chan *contract.StarknetLogStateUpdate, watchForwarderBuffer)
+	gethSub, err := s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, gethEventsCh)
 	if err != nil {
 		return nil, fmt.Errorf("subscribing to LogStateUpdate: %w", err)
 	}
-	return forwardStateUpdates(inner, raw, sink), nil
+	return forwardStateUpdates(gethSub, gethEventsCh, updatesCh), nil
 }
 
 // TransactionReceipt fetches an L1 transaction receipt by hash. Used
@@ -185,7 +191,8 @@ func (s *GethL1StateProvider) TransactionReceipt(
 		}
 		return nil, fmt.Errorf("getting transaction receipt: %w", err)
 	}
-	return gethReceiptToEth(r), nil
+	receipt := gethReceiptToEth(r)
+	return &receipt, nil
 }
 
 // Close releases the underlying RPC client.
@@ -194,10 +201,13 @@ func (s *GethL1StateProvider) Close() {
 }
 
 func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpdate {
+	var blockHash, stateRoot felt.Felt
+	blockHash.SetBigInt(ev.BlockHash)
+	stateRoot.SetBigInt(ev.GlobalRoot)
 	return &StateUpdate{
 		L2BlockNumber: ev.BlockNumber.Uint64(),
-		L2BlockHash:   new(felt.Felt).SetBigInt(ev.BlockHash),
-		StateRoot:     new(felt.Felt).SetBigInt(ev.GlobalRoot),
+		L2BlockHash:   blockHash,
+		StateRoot:     stateRoot,
 		L1RefHeight:   ev.Raw.BlockNumber,
 		Removed:       ev.Raw.Removed,
 	}
@@ -205,12 +215,12 @@ func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpda
 
 // gethReceiptToEth copies the receipt fields juno reads. Only Logs is
 // consumed today; a consumer needing other fields must extend this.
-func gethReceiptToEth(r *types.Receipt) *eth.Receipt {
+func gethReceiptToEth(r *types.Receipt) eth.Receipt {
 	logs := make([]eth.Log, len(r.Logs))
 	for i, l := range r.Logs {
 		logs[i] = gethLogToEth(l)
 	}
-	return &eth.Receipt{Logs: logs}
+	return eth.Receipt{Logs: logs}
 }
 
 func gethLogToEth(l *types.Log) eth.Log {
@@ -226,27 +236,27 @@ func gethLogToEth(l *types.Log) eth.Log {
 	}
 }
 
-// forwardStateUpdates returns a subscription that decodes each raw event
-// into a StateUpdate and forwards it to sink, until inner errors or the
-// caller unsubscribes. Lifecycle (close, Unsubscribe, error delivery,
+// forwardStateUpdates returns a subscription that decodes each geth event
+// into a StateUpdate and forwards it to updatesCh, until gethSub errors or
+// the caller unsubscribes. Lifecycle (close, Unsubscribe, error delivery,
 // teardown) is owned by event.NewSubscription; this adds only the type
 // translation and the stall-vs-quit select.
 func forwardStateUpdates(
-	inner event.Subscription,
-	raw <-chan *contract.StarknetLogStateUpdate,
-	sink chan<- *StateUpdate,
+	gethSub event.Subscription,
+	gethEventsCh <-chan *contract.StarknetLogStateUpdate,
+	updatesCh chan<- *StateUpdate,
 ) Subscription {
 	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer inner.Unsubscribe()
+		defer gethSub.Unsubscribe()
 		for {
 			select {
-			case ev := <-raw:
+			case ev := <-gethEventsCh:
 				select {
-				case sink <- stateUpdateFromGethContract(ev):
+				case updatesCh <- stateUpdateFromGethContract(ev):
 				case <-quit:
 					return nil
 				}
-			case err := <-inner.Err():
+			case err := <-gethSub.Err():
 				return err
 			case <-quit:
 				return nil
@@ -254,9 +264,3 @@ func forwardStateUpdates(
 		}
 	})
 }
-
-// GethL1StateProvider must satisfy both interfaces it serves.
-var (
-	_ L1StateProvider  = (*GethL1StateProvider)(nil)
-	_ rpccore.L1Client = (*GethL1StateProvider)(nil)
-)

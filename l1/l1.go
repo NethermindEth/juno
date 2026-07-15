@@ -454,8 +454,8 @@ func (c *Client) setL1Head(ctx context.Context) error {
 
 	head := &core.L1Head{
 		BlockNumber: maxFinalisedHead.L2BlockNumber,
-		BlockHash:   maxFinalisedHead.L2BlockHash,
-		StateRoot:   maxFinalisedHead.StateRoot,
+		BlockHash:   &maxFinalisedHead.L2BlockHash,
+		StateRoot:   &maxFinalisedHead.StateRoot,
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf(

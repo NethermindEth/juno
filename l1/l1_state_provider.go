@@ -13,10 +13,10 @@ type StateUpdate struct {
 	// L2BlockNumber is the Starknet block number being committed.
 	L2BlockNumber uint64
 	// L2BlockHash is the Starknet block hash for that block.
-	L2BlockHash *felt.Felt
+	L2BlockHash felt.Felt
 	// StateRoot is the Starknet global state root after the block
 	// (the "globalRoot" field in the on-chain event).
-	StateRoot *felt.Felt
+	StateRoot felt.Felt
 	// L1RefHeight is the L1 block number where the commit was observed.
 	// Used by the L1 sync loop to gate writes on L1 finality.
 	L1RefHeight uint64
@@ -33,7 +33,7 @@ type L1StateProvider interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	LatestHeight(ctx context.Context) (uint64, error)
-	WatchStateUpdate(ctx context.Context, sink chan<- *StateUpdate) (Subscription, error)
+	WatchStateUpdate(ctx context.Context, updatesCh chan<- *StateUpdate) (Subscription, error)
 	FilterStateUpdate(ctx context.Context, from, to uint64) ([]*StateUpdate, error)
 	Close()
 }

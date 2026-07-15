@@ -390,8 +390,8 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		// and the catch-up loop reaches setL1Head with something to commit.
 		event := &l1.StateUpdate{
 			L2BlockNumber: 7,
-			L2BlockHash:   new(felt.Felt).SetUint64(7),
-			StateRoot:     new(felt.Felt).SetUint64(7),
+			L2BlockHash:   *new(felt.Felt).SetUint64(7),
+			StateRoot:     *new(felt.Felt).SetUint64(7),
 			L1RefHeight:   3,
 		}
 		provider.
@@ -431,8 +431,8 @@ func TestEventListener(t *testing.T) {
 		WatchStateUpdate(gomock.Any(), gomock.Any()).
 		Do(func(_ context.Context, sink chan<- *l1.StateUpdate) {
 			sink <- &l1.StateUpdate{
-				L2BlockHash: new(felt.Felt),
-				StateRoot:   new(felt.Felt),
+				L2BlockHash: felt.Felt{},
+				StateRoot:   felt.Felt{},
 			}
 		}).
 		Return(newFakeSubscription(), nil).
@@ -519,8 +519,8 @@ func TestEventListenerCatchUp(t *testing.T) {
 
 	backfilled := &l1.StateUpdate{
 		L2BlockNumber: 7,
-		L2BlockHash:   new(felt.Felt).SetUint64(7),
-		StateRoot:     new(felt.Felt).SetUint64(7),
+		L2BlockHash:   *new(felt.Felt).SetUint64(7),
+		StateRoot:     *new(felt.Felt).SetUint64(7),
 		L1RefHeight:   3,
 	}
 	provider.
@@ -588,8 +588,8 @@ func TestCatchUpL1Head(t *testing.T) {
 		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
 		Return([]*l1.StateUpdate{{
 			L2BlockNumber: 7,
-			L2BlockHash:   new(felt.Felt).SetUint64(7),
-			StateRoot:     new(felt.Felt).SetUint64(7),
+			L2BlockHash:   *new(felt.Felt).SetUint64(7),
+			StateRoot:     *new(felt.Felt).SetUint64(7),
 			L1RefHeight:   3,
 		}}, nil).
 		AnyTimes()

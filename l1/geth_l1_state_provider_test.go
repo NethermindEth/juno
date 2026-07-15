@@ -108,8 +108,8 @@ type recordingListener struct {
 }
 
 type recordedCall struct {
-	method string
-	dur    time.Duration
+	method   string
+	duration time.Duration
 }
 
 func (r *recordingListener) OnNewL1Head(_ *core.L1Head) {}
@@ -133,9 +133,7 @@ func (r *recordingListener) methods() []string {
 
 func newTestL1StateProvider(t *testing.T, srv *gethJSONRPCServer) *l1.GethL1StateProvider {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{})
+	s, err := l1.NewGethL1StateProvider(t.Context(), srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	return s
@@ -156,14 +154,12 @@ func TestGethL1StateProvider_DialError(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	_, err = s.ChainID(ctx)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "getting chain id")
 }
 
 func TestGethL1StateProvider_MalformedURL(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	_, err := l1.NewGethL1StateProvider(ctx, "::::not-a-url", eth.Address{})
-	require.Error(t, err)
+	_, err := l1.NewGethL1StateProvider(t.Context(), "::::not-a-url", eth.Address{})
+	require.ErrorContains(t, err, "dialing L1")
 }
 
 func TestGethL1StateProvider_ChainID(t *testing.T) {
@@ -226,7 +222,7 @@ func TestGethL1StateProvider_FinalisedHeight_NotFound(t *testing.T) {
 	})
 	s := newTestL1StateProvider(t, srv)
 	_, err := s.FinalisedHeight(t.Context())
-	require.Error(t, err)
+	require.ErrorContains(t, err, "finalised block not found")
 	assert.ErrorIs(t, err, eth.ErrNotFound)
 }
 
@@ -248,9 +244,8 @@ func TestGethL1StateProvider_FilterStateUpdate_ErrorWrap(t *testing.T) {
 	})
 	s := newTestL1StateProvider(t, srv)
 	_, err := s.FilterStateUpdate(t.Context(), 0, 100)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "filtering LogStateUpdate [0,100]")
-	assert.Contains(t, err.Error(), "synthetic")
+	require.ErrorContains(t, err, "filtering LogStateUpdate [0,100]")
+	assert.ErrorContains(t, err, "synthetic")
 }
 
 func TestGethL1StateProvider_TransactionReceipt(t *testing.T) {
@@ -298,7 +293,7 @@ func TestGethL1StateProvider_TransactionReceipt_NotFound(t *testing.T) {
 	})
 	s := newTestL1StateProvider(t, srv)
 	_, err := s.TransactionReceipt(t.Context(), eth.Hash{})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "getting transaction receipt")
 	assert.ErrorIs(t, err, eth.ErrNotFound)
 }
 
@@ -309,9 +304,9 @@ func TestGethL1StateProvider_Listener_RecordsCalls(t *testing.T) {
 		return nil, &jsonRPCError{Code: -32000, Message: "synthetic"}
 	})
 	rec := &recordingListener{}
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{}, l1.WithL1StateProviderListener(rec))
+	s, err := l1.NewGethL1StateProvider(
+		t.Context(), srv.URL(), eth.Address{}, l1.WithL1StateProviderListener(rec),
+	)
 	require.NoError(t, err)
 	t.Cleanup(s.Close)
 	_, _ = s.ChainID(t.Context())
@@ -322,9 +317,7 @@ func TestGethL1StateProvider_Listener_RecordsCalls(t *testing.T) {
 func TestGethL1StateProvider_Close_Idempotent(t *testing.T) {
 	srv := newGethJSONRPCServer(t)
 	srv.on("eth_chainId", func(json.RawMessage) (any, *jsonRPCError) { return "0x1", nil })
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	s, err := l1.NewGethL1StateProvider(ctx, srv.URL(), eth.Address{})
+	s, err := l1.NewGethL1StateProvider(t.Context(), srv.URL(), eth.Address{})
 	require.NoError(t, err)
 	s.Close()
 	// Second close shouldn't panic. go-ethereum's rpc.Client.Close is

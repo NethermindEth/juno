@@ -33,15 +33,15 @@ func (f *fakeEventSub) Unsubscribe() {
 	}
 }
 
-// newForwarderForTest wires forwardStateUpdates to a fake inner subscription
-// and returns the resulting Subscription along with the writable raw
+// newForwarderForTest wires forwardStateUpdates to a fake gethSub subscription
+// and returns the resulting Subscription along with the writable gethEventsCh
 // channel the test feeds contract events into.
 func newForwarderForTest(
-	sink chan *StateUpdate, inner *fakeEventSub,
+	updatesCh chan *StateUpdate, gethSub *fakeEventSub,
 ) (Subscription, chan *contract.StarknetLogStateUpdate) {
-	raw := make(chan *contract.StarknetLogStateUpdate, 1)
-	sub := forwardStateUpdates(inner, raw, sink)
-	return sub, raw
+	gethEventsCh := make(chan *contract.StarknetLogStateUpdate, 1)
+	sub := forwardStateUpdates(gethSub, gethEventsCh, updatesCh)
+	return sub, gethEventsCh
 }
 
 func sampleStarknetLogStateUpdate() *contract.StarknetLogStateUpdate {
@@ -76,24 +76,24 @@ func expectErrChClosed(t *testing.T, ch <-chan error) {
 }
 
 func TestForwardStateUpdates_NormalForward(t *testing.T) {
-	sink := make(chan *StateUpdate, 1)
-	inner := newFakeEventSub()
-	sub, raw := newForwarderForTest(sink, inner)
+	updatesCh := make(chan *StateUpdate, 1)
+	gethSub := newFakeEventSub()
+	sub, gethEventsCh := newForwarderForTest(updatesCh, gethSub)
 	t.Cleanup(sub.Unsubscribe)
 
 	ev := sampleStarknetLogStateUpdate()
-	raw <- ev
+	gethEventsCh <- ev
 
 	select {
-	case got := <-sink:
+	case got := <-updatesCh:
 		require.NotNil(t, got)
 		assert.Equal(t, uint64(42), got.L2BlockNumber)
 		assert.Equal(t, uint64(99), got.L1RefHeight)
 		assert.False(t, got.Removed)
-		assert.Equal(t, new(felt.Felt).SetBigInt(ev.BlockHash), got.L2BlockHash)
-		assert.Equal(t, new(felt.Felt).SetBigInt(ev.GlobalRoot), got.StateRoot)
+		assert.Equal(t, *new(felt.Felt).SetBigInt(ev.BlockHash), got.L2BlockHash)
+		assert.Equal(t, *new(felt.Felt).SetBigInt(ev.GlobalRoot), got.StateRoot)
 	case <-time.After(2 * time.Second):
-		t.Fatal("event not forwarded to sink")
+		t.Fatal("event not forwarded to updatesCh")
 	}
 
 	// Err() should still be open while the forwarder is running.
@@ -105,12 +105,12 @@ func TestForwardStateUpdates_NormalForward(t *testing.T) {
 }
 
 func TestForwardStateUpdates_InnerErrorDeliversAndCloses(t *testing.T) {
-	sink := make(chan *StateUpdate, 1)
-	inner := newFakeEventSub()
-	sub, _ := newForwarderForTest(sink, inner)
+	updatesCh := make(chan *StateUpdate, 1)
+	gethSub := newFakeEventSub()
+	sub, _ := newForwarderForTest(updatesCh, gethSub)
 
 	cause := errors.New("upstream gone")
-	inner.errCh <- cause
+	gethSub.errCh <- cause
 
 	select {
 	case err := <-sub.Err():
@@ -130,26 +130,26 @@ func TestForwardStateUpdates_InnerErrorDeliversAndCloses(t *testing.T) {
 }
 
 func TestForwardStateUpdates_UnsubscribeExitsGoroutine(t *testing.T) {
-	sink := make(chan *StateUpdate, 1)
-	inner := newFakeEventSub()
-	sub, _ := newForwarderForTest(sink, inner)
+	updatesCh := make(chan *StateUpdate, 1)
+	gethSub := newFakeEventSub()
+	sub, _ := newForwarderForTest(updatesCh, gethSub)
 
 	sub.Unsubscribe()
-	assert.True(t, inner.unsubbed.Load(), "inner subscription should be Unsubscribed")
+	assert.True(t, gethSub.unsubbed.Load(), "gethSub subscription should be Unsubscribed")
 	expectErrChClosed(t, sub.Err())
 }
 
 func TestForwardStateUpdates_SinkStalledThenUnsubscribe(t *testing.T) {
-	// Unbuffered sink, never drained: if the forwarding loop reaches the
-	// `case sink <- ...` branch it will block there. Unsubscribe() must
-	// unblock it via the <-quit arm of the inner select.
-	sink := make(chan *StateUpdate)
-	inner := newFakeEventSub()
-	sub, raw := newForwarderForTest(sink, inner)
+	// Unbuffered updatesCh, never drained: if the forwarding loop reaches the
+	// `case updatesCh <- ...` branch it will block there. Unsubscribe() must
+	// unblock it via the <-quit arm of the gethSub select.
+	updatesCh := make(chan *StateUpdate)
+	gethSub := newFakeEventSub()
+	sub, gethEventsCh := newForwarderForTest(updatesCh, gethSub)
 
-	raw <- sampleStarknetLogStateUpdate()
+	gethEventsCh <- sampleStarknetLogStateUpdate()
 	sub.Unsubscribe()
 
 	expectErrChClosed(t, sub.Err())
-	assert.True(t, inner.unsubbed.Load())
+	assert.True(t, gethSub.unsubbed.Load())
 }
