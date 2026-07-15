@@ -71,10 +71,13 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 }
 
 func adaptCoreResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
+	l1DataGasResourceBounds := ResourceBounds{
+		MaxAmount:       &felt.Zero,
+		MaxPricePerUnit: &felt.Zero,
+	}
 	// l1_data_gas was added in 0.13.4; a nil MaxPricePerUnit marks it absent.
-	var l1DataGasResourceBounds *ResourceBounds
 	if rb.L1DataGas.MaxPricePerUnit != nil {
-		l1DataGasResourceBounds = &ResourceBounds{
+		l1DataGasResourceBounds = ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L1DataGas.MaxAmount),
 			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 		}
@@ -82,11 +85,11 @@ func adaptCoreResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
-		L1Gas: &ResourceBounds{
+		L1Gas: ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L1Gas.MaxAmount),
 			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
 		},
-		L2Gas: &ResourceBounds{
+		L2Gas: ResourceBounds{
 			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L2Gas.MaxAmount),
 			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
 		},
@@ -96,18 +99,19 @@ func adaptCoreResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
 }
 
 func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet.Transaction {
-	resourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	resourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
-		MaxAmount:       rpcTx.ResourceBounds.L1Gas.MaxAmount,
-		MaxPricePerUnit: rpcTx.ResourceBounds.L1Gas.MaxPricePerUnit,
-	}
-	resourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
-		MaxAmount:       rpcTx.ResourceBounds.L2Gas.MaxAmount,
-		MaxPricePerUnit: rpcTx.ResourceBounds.L2Gas.MaxPricePerUnit,
-	}
-	resourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
-		MaxAmount:       rpcTx.ResourceBounds.L1DataGas.MaxAmount,
-		MaxPricePerUnit: rpcTx.ResourceBounds.L1DataGas.MaxPricePerUnit,
+	resourceBounds := starknet.ResourceBoundsMap{
+		L1Gas: starknet.ResourceBounds{
+			MaxAmount:       rpcTx.ResourceBounds.L1Gas.MaxAmount,
+			MaxPricePerUnit: rpcTx.ResourceBounds.L1Gas.MaxPricePerUnit,
+		},
+		L2Gas: starknet.ResourceBounds{
+			MaxAmount:       rpcTx.ResourceBounds.L2Gas.MaxAmount,
+			MaxPricePerUnit: rpcTx.ResourceBounds.L2Gas.MaxPricePerUnit,
+		},
+		L1DataGas: starknet.ResourceBounds{
+			MaxAmount:       rpcTx.ResourceBounds.L1DataGas.MaxAmount,
+			MaxPricePerUnit: rpcTx.ResourceBounds.L1DataGas.MaxPricePerUnit,
+		},
 	}
 
 	return starknet.Transaction{
@@ -408,22 +412,21 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 
 func adaptResourceBoundsToCore(
 	rb *ResourceBoundsMap,
-) map[core.Resource]core.ResourceBounds {
-	coreResourceBounds := make(map[core.Resource]core.ResourceBounds)
-	coreResourceBounds[core.ResourceL1Gas] = core.ResourceBounds{
-		MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
-		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+) core.ResourceBoundsMap {
+	return core.ResourceBoundsMap{
+		L1Gas: core.ResourceBounds{
+			MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+		},
+		L2Gas: core.ResourceBounds{
+			MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		},
+		L1DataGas: core.ResourceBounds{
+			MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+		},
 	}
-	coreResourceBounds[core.ResourceL2Gas] = core.ResourceBounds{
-		MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
-		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
-	}
-	coreResourceBounds[core.ResourceL1DataGas] = core.ResourceBounds{
-		MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
-		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
-	}
-
-	return coreResourceBounds
 }
 
 // adapts BroadcastedInvokeTransaction to core.InvokeTransaction.

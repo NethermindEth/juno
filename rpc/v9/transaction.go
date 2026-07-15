@@ -451,27 +451,24 @@ func adaptResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
 	return rpcResourceBounds
 }
 
-func AdaptToFeederResourceBounds(
-	rb *ResourceBoundsMap,
-) map[starknet.Resource]starknet.ResourceBounds {
+func AdaptToFeederResourceBounds(rb *ResourceBoundsMap) *starknet.ResourceBoundsMap {
 	if rb == nil {
 		return nil
 	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1Gas.MaxAmount,
-		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	return &starknet.ResourceBoundsMap{
+		L1Gas: starknet.ResourceBounds{
+			MaxAmount:       rb.L1Gas.MaxAmount,
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+		},
+		L2Gas: starknet.ResourceBounds{
+			MaxAmount:       rb.L2Gas.MaxAmount,
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		},
+		L1DataGas: starknet.ResourceBounds{
+			MaxAmount:       rb.L1DataGas.MaxAmount,
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+		},
 	}
-	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L2Gas.MaxAmount,
-		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
-	}
-	feederResourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1DataGas.MaxAmount,
-		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
-	}
-
-	return feederResourceBounds
 }
 
 func AdaptToFeederDAMode(mode *DataAvailabilityMode) starknet.DataAvailabilityMode {
@@ -483,10 +480,6 @@ func AdaptToFeederDAMode(mode *DataAvailabilityMode) starknet.DataAvailabilityMo
 
 func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 	resourceBounds := AdaptToFeederResourceBounds(rpcTx.ResourceBounds)
-	var resourceBoundsPtr *map[starknet.Resource]starknet.ResourceBounds
-	if resourceBounds != nil {
-		resourceBoundsPtr = &resourceBounds
-	}
 
 	var nonceDAModePtr *starknet.DataAvailabilityMode
 	if rpcTx.NonceDAMode != nil {
@@ -515,7 +508,7 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        resourceBoundsPtr,
+		ResourceBounds:        resourceBounds,
 		Tip:                   rpcTx.Tip,
 		NonceDAMode:           nonceDAModePtr,
 		FeeDAMode:             feeDAModePtr,

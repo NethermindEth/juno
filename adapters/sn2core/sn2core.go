@@ -218,18 +218,14 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
-// todo(rdr): get rid of this gocritic
-func adaptResourceBounds(
-	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
-) core.ResourceBoundsMap {
+func adaptResourceBounds(rb *starknet.ResourceBoundsMap) core.ResourceBoundsMap {
 	if rb == nil {
 		return core.ResourceBoundsMap{}
 	}
-	m := *rb
 	return core.ResourceBoundsMap{
-		L1Gas:     adaptResourceBound(m[starknet.ResourceL1Gas]),
-		L2Gas:     adaptResourceBound(m[starknet.ResourceL2Gas]),
-		L1DataGas: adaptResourceBound(m[starknet.ResourceL1DataGas]),
+		L1Gas:     adaptResourceBound(rb.L1Gas),
+		L2Gas:     adaptResourceBound(rb.L2Gas),
+		L1DataGas: adaptResourceBound(rb.L1DataGas),
 	}
 }
 

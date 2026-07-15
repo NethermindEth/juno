@@ -422,25 +422,24 @@ func adaptResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *starknet.ResourceBoundsMap {
 	if rb == nil {
 		return nil
 	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1Gas.MaxAmount,
-		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	return &starknet.ResourceBoundsMap{
+		L1Gas: starknet.ResourceBounds{
+			MaxAmount:       rb.L1Gas.MaxAmount,
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+		},
+		L2Gas: starknet.ResourceBounds{
+			MaxAmount:       rb.L2Gas.MaxAmount,
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		},
+		L1DataGas: starknet.ResourceBounds{
+			MaxAmount:       rb.L1DataGas.MaxAmount,
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+		},
 	}
-	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L2Gas.MaxAmount,
-		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
-	}
-	feederResourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
-		MaxAmount:       rb.L1DataGas.MaxAmount,
-		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
-	}
-
-	return &feederResourceBounds
 }
 
 func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
