@@ -44,6 +44,13 @@ linters:
           deny:
             - pkg: github.com/sirupsen/logrus
               desc: use github.com/NethermindEth/juno/utils for logging
+    exhaustruct:
+      # These types have a meaningful zero value: a transaction with no resource
+      # bounds (v0-v2). Requiring every field to be spelled out at construction
+      # would only add noise, so exclude them from exhaustive-struct checking.
+      exclude:
+        - 'github.com/NethermindEth/juno/core\.ResourceBounds$'
+        - 'github.com/NethermindEth/juno/core\.ResourceBoundsMap$'
     funlen:
       lines: 120
       statements: 50

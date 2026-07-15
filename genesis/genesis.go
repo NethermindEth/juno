@@ -385,17 +385,17 @@ func executeTransactions(
 	return nil
 }
 
-func adaptResourceBounds(rb *rpc.ResourceBoundsMap) map[core.Resource]core.ResourceBounds {
-	return map[core.Resource]core.ResourceBounds{
-		core.ResourceL1Gas: {
+func adaptResourceBounds(rb *rpc.ResourceBoundsMap) core.ResourceBoundsMap {
+	return core.ResourceBoundsMap{
+		L1Gas: core.ResourceBounds{
 			MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
 			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
 		},
-		core.ResourceL2Gas: {
+		L2Gas: core.ResourceBounds{
 			MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
 			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
 		},
-		core.ResourceL1DataGas: {
+		L1DataGas: core.ResourceBounds{
 			MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
 			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 		},

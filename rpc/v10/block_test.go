@@ -1207,15 +1207,15 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				ResourceBounds: &rpc.ResourceBoundsMap{
 					L1Gas: rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
-							tx.ResourceBounds[core.ResourceL1Gas].MaxAmount,
+							tx.ResourceBounds.L1Gas.MaxAmount,
 						),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
+						MaxPricePerUnit: tx.ResourceBounds.L1Gas.MaxPricePerUnit,
 					},
 					L2Gas: rpc.ResourceBounds{
 						MaxAmount: felt.NewFromUint64[felt.Felt](
-							tx.ResourceBounds[core.ResourceL2Gas].MaxAmount,
+							tx.ResourceBounds.L2Gas.MaxAmount,
 						),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
+						MaxPricePerUnit: tx.ResourceBounds.L2Gas.MaxPricePerUnit,
 					},
 					L1DataGas: rpc.ResourceBounds{
 						MaxAmount:       &felt.Zero,

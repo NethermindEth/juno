@@ -54,13 +54,13 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 nil, // this field is not available on v0
 		Version:               version,
-		CompiledClassHash:     nil, // this field is not available on v0
-		ResourceBounds:        nil, // this field is not available on v0
-		Tip:                   0,   // this field is not available on v0
-		PaymasterData:         nil, // this field is not available on v0
-		AccountDeploymentData: nil, // this field is not available on v0
-		NonceDAMode:           0,   // this field is not available on v0
-		FeeDAMode:             0,   // this field is not available on v0
+		CompiledClassHash:     nil,                      // this field is not available on v0
+		ResourceBounds:        core.ResourceBoundsMap{}, // this field is not available on v0
+		Tip:                   0,                        // this field is not available on v0
+		PaymasterData:         nil,                      // this field is not available on v0
+		AccountDeploymentData: nil,                      // this field is not available on v0
+		NonceDAMode:           0,                        // this field is not available on v0
+		FeeDAMode:             0,                        // this field is not available on v0
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -103,13 +103,13 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 		TransactionSignature:  transactionSignature,
 		Nonce:                 &nonce,
 		Version:               version,
-		CompiledClassHash:     nil, // this field is not available on v1
-		ResourceBounds:        nil, // this field is not available on v1
-		PaymasterData:         nil, // this field is not available on v1
-		AccountDeploymentData: nil, // this field is not available on v1
-		Tip:                   0,   // this field is not available on v1
-		NonceDAMode:           0,   // this field is not available on v1
-		FeeDAMode:             0,   // this field is not available on v1
+		CompiledClassHash:     nil,                      // this field is not available on v1
+		ResourceBounds:        core.ResourceBoundsMap{}, // this field is not available on v1
+		PaymasterData:         nil,                      // this field is not available on v1
+		AccountDeploymentData: nil,                      // this field is not available on v1
+		Tip:                   0,                        // this field is not available on v1
+		NonceDAMode:           0,                        // this field is not available on v1
+		FeeDAMode:             0,                        // this field is not available on v1
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -156,12 +156,12 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 		Nonce:                 &nonce,
 		Version:               version,
 		CompiledClassHash:     &casmClassHash,
-		ResourceBounds:        nil, // this field is not available on v2
-		PaymasterData:         nil, // this field is not available on v2
-		AccountDeploymentData: nil, // this field is not available on v2
-		Tip:                   0,   // this field is not available on v2
-		NonceDAMode:           0,   // this field is not available on v2
-		FeeDAMode:             0,   // this field is not available on v2
+		ResourceBounds:        core.ResourceBoundsMap{}, // this field is not available on v2
+		PaymasterData:         nil,                      // this field is not available on v2
+		AccountDeploymentData: nil,                      // this field is not available on v2
+		Tip:                   0,                        // this field is not available on v2
+		NonceDAMode:           0,                        // this field is not available on v2
+		FeeDAMode:             0,                        // this field is not available on v2
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -315,11 +315,11 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 		MaxFee:               &maxFee,
 		TransactionSignature: transactionSignature,
 		Nonce:                &nonce,
-		ResourceBounds:       nil, // this field is not available on v1
-		PaymasterData:        nil, // this field is not available on v1
-		Tip:                  0,   // this field is not available on v1
-		NonceDAMode:          0,   // this field is not available on v1
-		FeeDAMode:            0,   // this field is not available on v1
+		ResourceBounds:       core.ResourceBoundsMap{}, // this field is not available on v1
+		PaymasterData:        nil,                      // this field is not available on v1
+		Tip:                  0,                        // this field is not available on v1
+		NonceDAMode:          0,                        // this field is not available on v1
+		FeeDAMode:            0,                        // this field is not available on v1
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -430,15 +430,15 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 		ContractAddress:       &contractAddress,
 		Version:               version,
 		EntryPointSelector:    &entryPointSelector,
-		Nonce:                 nil, // this field is not available on v0
-		SenderAddress:         nil, // this field is not available on v0
-		ResourceBounds:        nil, // this field is not available on v0
-		Tip:                   0,   // this field is not available on v0
-		PaymasterData:         nil, // this field is not available on v0
-		AccountDeploymentData: nil, // this field is not available on v0
-		NonceDAMode:           0,   // this field is not available on v0
-		FeeDAMode:             0,   // this field is not available on v0
-		ProofFacts:            nil, // this field is not available on v0
+		Nonce:                 nil,                      // this field is not available on v0
+		SenderAddress:         nil,                      // this field is not available on v0
+		ResourceBounds:        core.ResourceBoundsMap{}, // this field is not available on v0
+		Tip:                   0,                        // this field is not available on v0
+		PaymasterData:         nil,                      // this field is not available on v0
+		AccountDeploymentData: nil,                      // this field is not available on v0
+		NonceDAMode:           0,                        // this field is not available on v0
+		FeeDAMode:             0,                        // this field is not available on v0
+		ProofFacts:            nil,                      // this field is not available on v0
 	}
 
 	transactionHash, p2pHash := getTransactionHash(
@@ -483,14 +483,14 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 		TransactionSignature:  transactionSignature,
 		MaxFee:                &maxFee,
 		Version:               version,
-		EntryPointSelector:    nil, // this field is not available on v1
-		ResourceBounds:        nil, // this field is not available on v1
-		Tip:                   0,   // this field is not available on v1
-		PaymasterData:         nil, // this field is not available on v1
-		AccountDeploymentData: nil, // this field is not available on v1
-		NonceDAMode:           0,   // this field is not available on v1
-		FeeDAMode:             0,   // this field is not available on v1
-		ProofFacts:            nil, // this field is not available on v1
+		EntryPointSelector:    nil,                      // this field is not available on v1
+		ResourceBounds:        core.ResourceBoundsMap{}, // this field is not available on v1
+		Tip:                   0,                        // this field is not available on v1
+		PaymasterData:         nil,                      // this field is not available on v1
+		AccountDeploymentData: nil,                      // this field is not available on v1
+		NonceDAMode:           0,                        // this field is not available on v1
+		FeeDAMode:             0,                        // this field is not available on v1
+		ProofFacts:            nil,                      // this field is not available on v1
 	}
 
 	transactionHash, p2pHash := getTransactionHash(

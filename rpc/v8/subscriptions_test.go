@@ -874,16 +874,16 @@ func TestSubscribePendingTxs(t *testing.T) {
 						EntryPointSelector:   new(felt.Felt).SetUint64(6),
 						Nonce:                new(felt.Felt).SetUint64(7),
 						SenderAddress:        new(felt.Felt).SetUint64(8),
-						ResourceBounds: map[core.Resource]core.ResourceBounds{
-							core.ResourceL1Gas: {
+						ResourceBounds: core.ResourceBoundsMap{
+							L1Gas: core.ResourceBounds{
 								MaxAmount:       1,
 								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 							},
-							core.ResourceL2Gas: {
+							L2Gas: core.ResourceBounds{
 								MaxAmount:       1,
 								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 							},
-							core.ResourceL1DataGas: {
+							L1DataGas: core.ResourceBounds{
 								MaxAmount:       1,
 								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 							},

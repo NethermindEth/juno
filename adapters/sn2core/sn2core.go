@@ -221,18 +221,34 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 // todo(rdr): get rid of this gocritic
 func adaptResourceBounds(
 	rb *map[starknet.Resource]starknet.ResourceBounds, //nolint: gocritic // someone was lazy
-) map[core.Resource]core.ResourceBounds {
+) core.ResourceBoundsMap {
 	if rb == nil {
-		return nil
+		return core.ResourceBoundsMap{}
 	}
-	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	for resource, bounds := range *rb {
-		coreBounds[core.Resource(resource)] = core.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount.Uint64(),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
+	m := *rb
+	return core.ResourceBoundsMap{
+		L1Gas:     adaptResourceBound(m[starknet.ResourceL1Gas]),
+		L2Gas:     adaptResourceBound(m[starknet.ResourceL2Gas]),
+		L1DataGas: adaptResourceBound(m[starknet.ResourceL1DataGas]),
 	}
-	return coreBounds
+}
+
+// adaptResourceBound converts a single feeder resource bound. A resource that
+// was absent from the feeder payload (nil MaxPricePerUnit, e.g. l1_data_gas on
+// pre-0.13.4 transactions) maps to the zero value so it is omitted from both
+// the transaction hash and the DB encoding, exactly as with the old map.
+func adaptResourceBound(b starknet.ResourceBounds) core.ResourceBounds {
+	if b.MaxPricePerUnit == nil {
+		return core.ResourceBounds{}
+	}
+	var maxAmount uint64
+	if b.MaxAmount != nil {
+		maxAmount = b.MaxAmount.Uint64()
+	}
+	return core.ResourceBounds{
+		MaxAmount:       maxAmount,
+		MaxPricePerUnit: b.MaxPricePerUnit,
+	}
 }
 
 // todo(rdr): return by value

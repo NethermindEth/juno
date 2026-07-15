@@ -98,16 +98,16 @@ func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.Re
 	return resourceBounds, &resourceLimits
 }
 
-func getRandomResourceBounds(t *testing.T) (map[core.Resource]core.ResourceBounds, *transaction.ResourceBounds) {
+func getRandomResourceBounds(t *testing.T) (core.ResourceBoundsMap, *transaction.ResourceBounds) {
 	t.Helper()
 	consensusL1ResourceLimits, p2pL1ResourceLimits := getRandomResourceLimits(t)
 	consensusL2ResourceLimits, p2pL2ResourceLimits := getRandomResourceLimits(t)
 	consensusL1DataResourceLimits, p2pL1DataResourceLimits := getRandomResourceLimits(t)
 
-	consensusResourceBounds := map[core.Resource]core.ResourceBounds{
-		core.ResourceL1Gas:     consensusL1ResourceLimits,
-		core.ResourceL2Gas:     consensusL2ResourceLimits,
-		core.ResourceL1DataGas: consensusL1DataResourceLimits,
+	consensusResourceBounds := core.ResourceBoundsMap{
+		L1Gas:     consensusL1ResourceLimits,
+		L2Gas:     consensusL2ResourceLimits,
+		L1DataGas: consensusL1DataResourceLimits,
 	}
 
 	p2pResourceBounds := transaction.ResourceBounds{

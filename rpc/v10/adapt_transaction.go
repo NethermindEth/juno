@@ -70,28 +70,25 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	return txn
 }
 
-func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
-	l1DataGasResourceBounds := ResourceBounds{
-		MaxAmount:       &felt.Zero,
-		MaxPricePerUnit: &felt.Zero,
-	}
-	// Check if L1DataGas exists in the map
-	if _, ok := rb[core.ResourceL1DataGas]; ok {
-		l1DataGasResourceBounds = ResourceBounds{
-			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL1DataGas].MaxAmount),
-			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
+func adaptCoreResourceBounds(rb core.ResourceBoundsMap) ResourceBoundsMap {
+	// l1_data_gas was added in 0.13.4; a nil MaxPricePerUnit marks it absent.
+	var l1DataGasResourceBounds *ResourceBounds
+	if rb.L1DataGas.MaxPricePerUnit != nil {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L1DataGas.MaxAmount),
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 		}
 	}
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
-		L1Gas: ResourceBounds{
-			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL1Gas].MaxAmount),
-			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
+		L1Gas: &ResourceBounds{
+			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L1Gas.MaxAmount),
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
 		},
-		L2Gas: ResourceBounds{
-			MaxAmount:       felt.NewFromUint64[felt.Felt](rb[core.ResourceL2Gas].MaxAmount),
-			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
+		L2Gas: &ResourceBounds{
+			MaxAmount:       felt.NewFromUint64[felt.Felt](rb.L2Gas.MaxAmount),
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
 		},
 		L1DataGas: l1DataGasResourceBounds,
 	}
