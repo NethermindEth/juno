@@ -114,9 +114,9 @@ func (h *Handler) StorageAt(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	// Only head readers return zero (not ErrKeyNotFound) for a missing contract,
-	// so a zero value needs an existence probe there; historical readers don't.
-	if value.IsZero() && (id.IsLatest() || id.IsPreConfirmed()) {
+	// Only the latest (head) reader returns zero for a missing contract; historical
+	// and pre_confirmed readers already surface it as ErrKeyNotFound.
+	if value.IsZero() && id.IsLatest() {
 		if _, err := stateReader.ContractClassHash(addressFelt); err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil, rpccore.ErrContractNotFound
