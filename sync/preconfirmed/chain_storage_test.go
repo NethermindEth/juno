@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -1070,18 +1069,21 @@ func testChainReaderPreConfirmedStateAtGenesisMissingContract(t *testing.T) {
 	applyBlock(t, s, roundID(0), 0, 0, nil)
 	view := s.SnapshotForHead(nil)
 
+	addr := felt.FromUint64[felt.Felt](0x1234)
+	key := felt.FromUint64[felt.Felt](0x5678)
+
 	ctrl := gomock.NewController(t)
 	base := mocks.NewMockStateReader(ctrl)
+	base.EXPECT().ContractStorage(&addr, &key).Return(felt.Zero, nil)
 	bc := mocks.NewMockReader(ctrl)
 	bc.EXPECT().StateAtBlockHash(&felt.Zero).Return(base, func() error { return nil }, nil)
 
 	state, closer, err := view.PreConfirmedStateAt(0, bc)
 	require.NoError(t, err)
 
-	addr := felt.FromUint64[felt.Felt](0x1234)
-	key := felt.FromUint64[felt.Felt](0x5678)
-	_, err = state.ContractStorage(&addr, &key)
-	require.ErrorIs(t, err, db.ErrKeyNotFound)
+	value, err := state.ContractStorage(&addr, &key)
+	require.NoError(t, err)
+	require.True(t, value.IsZero())
 	require.NoError(t, closer())
 }
 
