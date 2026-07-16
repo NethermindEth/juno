@@ -95,19 +95,19 @@ func (p *Poller) tick(ctx context.Context) error {
 		return fmt.Errorf("reading chain height: %w", err)
 	}
 
-	oldestSlot := height + 1
-	p.storage.AdvanceTo(oldestSlot)
+	oldestPreConf := height + 1
+	p.storage.AdvanceTo(oldestPreConf)
 	if !p.atTip(height) {
 		return nil
 	}
 
-	chain := p.storage.SnapshotForBlock(oldestSlot)
+	chain := p.storage.SnapshotForBlock(oldestPreConf)
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string
 		txCount    uint64
 	)
-	fromBlock := oldestSlot
+	fromBlock := oldestPreConf
 
 	if chain.Length() > 0 {
 		if mostRecent = chain.Head(); mostRecent != nil {
@@ -133,7 +133,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
-		err = p.backfill(ctx, oldestSlot, fromBlock, identifier, txCount, updateBlockNum)
+		err = p.backfill(ctx, oldestPreConf, fromBlock, identifier, txCount, updateBlockNum)
 		if err != nil {
 			return fmt.Errorf(
 				"backfilling from %d to %d: %w",
@@ -149,7 +149,7 @@ func (p *Poller) tick(ctx context.Context) error {
 	// path ignores baseTxCount — so the stale value is harmless under current
 	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
 	// for non-Delta updates.
-	return p.apply(update, updateBlockNum, txCount, oldestSlot)
+	return p.apply(update, updateBlockNum, txCount, oldestPreConf)
 }
 
 // backfill polls fromBlock with the given delta hints (identifier+txCount) to
@@ -158,7 +158,7 @@ func (p *Poller) tick(ctx context.Context) error {
 // needed; backfill itself performs no gap check.
 func (p *Poller) backfill(
 	ctx context.Context,
-	oldestSlot uint64,
+	oldestPreConf uint64,
 	fromBlockNum uint64,
 	identifier string,
 	txCount uint64,
@@ -169,7 +169,7 @@ func (p *Poller) backfill(
 		return fmt.Errorf("polling pre-confirmed for number %d: %w", fromBlockNum, err)
 	}
 
-	if err := p.apply(update, fromBlockNum, txCount, oldestSlot); err != nil {
+	if err := p.apply(update, fromBlockNum, txCount, oldestPreConf); err != nil {
 		return fmt.Errorf("applying pre-confirmed at %d: %w", fromBlockNum, err)
 	}
 
@@ -179,7 +179,7 @@ func (p *Poller) backfill(
 			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}
 
-		if err := p.apply(update, n, 0, oldestSlot); err != nil {
+		if err := p.apply(update, n, 0, oldestPreConf); err != nil {
 			return fmt.Errorf("applying pre-confirmed at %d: %w", n, err)
 		}
 	}
@@ -192,9 +192,9 @@ func (p *Poller) apply(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	oldestSlot uint64,
+	oldestPreConf uint64,
 ) error {
-	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, oldestSlot)
+	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, oldestPreConf)
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}

@@ -193,7 +193,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	if target == nil {
 		return nil, nil, fmt.Errorf(
 			"pre-confirmed chain invariant broken: block %d within [%d, %d] but no matching entry",
-			blockNumber, c.oldestSlot(), c.tip(),
+			blockNumber, c.oldestPreConf(), c.tip(),
 		)
 	}
 	if index > uint(len(target.Block.Transactions)) {
@@ -215,7 +215,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 func (c *ChainReader) baseState(
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	oldest := c.oldestSlot()
+	oldest := c.oldestPreConf()
 	if oldest == 0 {
 		return bcReader.StateAtBlockHash(&felt.Zero)
 	}
@@ -224,7 +224,7 @@ func (c *ChainReader) baseState(
 
 // contains returns true when a non-empty chain reader contains a block with `blockNum`
 func (c *ChainReader) contains(blockNum uint64) bool {
-	return c.length > 0 && (blockNum >= c.oldestSlot() && blockNum <= c.tip())
+	return c.length > 0 && (blockNum >= c.oldestPreConf() && blockNum <= c.tip())
 }
 
 // tip returns the most recent block number contained in the ChainReader
@@ -232,8 +232,8 @@ func (c *ChainReader) tip() uint64 {
 	return c.head.preconfirmed.Block.Number
 }
 
-// oldestSlot returns the oldest block number contained in the ChainReader
-func (c *ChainReader) oldestSlot() uint64 {
+// oldestPreConf returns the oldest block number contained in the ChainReader
+func (c *ChainReader) oldestPreConf() uint64 {
 	return c.head.preconfirmed.Block.Number - uint64(c.length-1)
 }
 
@@ -289,7 +289,7 @@ func (s *ChainStorage) SnapshotForBlock(blockNumber uint64) ChainReader {
 // ApplyUpdate atomically evolves the stored chain from a wire-side update.
 // blockNumber is the height targeted by the update; baseTxCount is the
 // knownTransactionCount the poller sent (consulted only for the Delta case
-// as a defensive race-check against the targeted slot). oldestSlot is the
+// as a defensive race-check against the targeted slot). oldestPreConf is the
 // slot the chain's oldest entry is expected to occupy: the first pre-confirmed
 // slot above the canonical head, head number+1. Returns the affected entry, or
 // nil when the update was a no-op (NoChange, preserved, rejected at cap, etc.).
@@ -300,13 +300,13 @@ func (s *ChainStorage) ApplyUpdate(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	oldestSlot uint64,
+	oldestPreConf uint64,
 ) (*pending.PreConfirmed, error) {
 	if _, ok := update.(starknet.PreConfirmedNoChange); ok {
 		return nil, nil
 	}
 	current := s.inner.Load()
-	newChain, affected, err := computeUpdate(current, update, blockNumber, baseTxCount, oldestSlot)
+	newChain, affected, err := computeUpdate(current, update, blockNumber, baseTxCount, oldestPreConf)
 	if err != nil {
 		return nil, err
 	}
@@ -319,17 +319,17 @@ func (s *ChainStorage) ApplyUpdate(
 	return affected, nil
 }
 
-// AdvanceTo realigns the chain to a new canonical head, given as oldestSlot —
+// AdvanceTo realigns the chain to a new canonical head, given as oldestPreConf —
 // the slot the chain's oldest entry must occupy after the realignment, i.e.
 // the first pre-confirmed slot above that head (head number+1). Three
 // outcomes:
 //
-//   - oldestSlot == the chain's current oldest: already aligned, no-op.
-//   - oldestSlot > mostRecent (head advanced past everything we stored) OR
-//     oldestSlot < the current oldest (head reverted below us — every entry's
+//   - oldestPreConf == the chain's current oldest: already aligned, no-op.
+//   - oldestPreConf > mostRecent (head advanced past everything we stored) OR
+//     oldestPreConf < the current oldest (head reverted below us — every entry's
 //     parent now references a discarded block): drop the whole chain. The
 //     next poll bootstraps fresh against the new head.
-//   - current oldest < oldestSlot <= mostRecent: rebuild from the new oldest
+//   - current oldest < oldestPreConf <= mostRecent: rebuild from the new oldest
 //     slot up so the surviving nodes nil-terminate cleanly and the dropped
 //     tail is GC-able.
 //
@@ -338,22 +338,22 @@ func (s *ChainStorage) ApplyUpdate(
 //
 // Single-writer: like ApplyUpdate, this assumes the pre-confirmed poller
 // goroutine is the only writer.
-func (s *ChainStorage) AdvanceTo(oldestSlot uint64) bool {
+func (s *ChainStorage) AdvanceTo(oldestPreConf uint64) bool {
 	current := s.inner.Load()
 	if current == nil || current.length == 0 {
 		return false
 	}
 
-	currentOldest := current.oldestSlot()
-	if oldestSlot == currentOldest {
+	currentOldest := current.oldestPreConf()
+	if oldestPreConf == currentOldest {
 		return false
 	}
 
-	if !current.contains(oldestSlot) {
+	if !current.contains(oldestPreConf) {
 		return s.inner.CompareAndSwap(current, nil)
 	}
 
-	drop := int(oldestSlot - currentOldest)
+	drop := int(oldestPreConf - currentOldest)
 	keep := current.length - drop
 	newChain := &ChainReader{head: rebuild(current.head, keep), length: keep}
 
@@ -381,7 +381,7 @@ func rebuild(current *node, keep int) *node {
 //   - blockNumber == mostRecent + 1    → appendMostRecent (extension by one)
 //   - blockNumber within [oldest, mostRecent] → replaceSlot (in-chain mutation)
 //
-// Updates below the oldest slot and unalignment with oldestSlot are rejected
+// Updates below the oldest slot and unalignment with oldestPreConf are rejected
 // here too — callers must AdvanceTo first to align the chain to a fresh head.
 //
 // Returns (newChain, affected, err): newChain==nil means "no-op, leave the
@@ -402,20 +402,21 @@ func computeUpdate(
 		return bootstrapChain(&block, blockNumber, oldestPreConf)
 	}
 
-	currentOldest := current.oldestSlot()
+	currentOldest := current.oldestPreConf()
 	if currentOldest != oldestPreConf {
 		return nil, nil, fmt.Errorf(
-			"chain's oldest slot %d not aligned with expected %d", currentOldest, oldestPreConf,
+			"chain's oldest pre-confirmed slot %d not aligned with expected %d",
+			currentOldest, oldestPreConf,
 		)
 	}
 
 	// In-chain update — locate the target slot. blockNumber below the oldest
 	// slot means the apply target is at or below the canonical head
-	// (oldestSlot == head+1), i.e. already committed; the caller is asking us
+	// (oldestPreConf == head+1), i.e. already committed; the caller is asking us
 	// to write into the past.
 	if blockNumber < currentOldest {
 		return nil, nil, fmt.Errorf(
-			"applying target %d below the oldest slot %d", blockNumber, currentOldest,
+			"applying target %d below the oldest pre-confirmed slot %d", blockNumber, currentOldest,
 		)
 	}
 
@@ -446,17 +447,17 @@ func computeUpdate(
 
 // bootstrapChain handles the first entry case (empty storage). The caller
 // (computeUpdate) has already narrowed the update variant to PreConfirmedBlock.
-// The precondition is blockNumber == oldestSlot, the first pre-confirmed slot
+// The precondition is blockNumber == oldestPreConf, the first pre-confirmed slot
 // above the canonical head (head number+1). Returns the new length-1 chain
 // plus the adapted entry.
 func bootstrapChain(
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
-	oldestSlot uint64,
+	oldestPreConf uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
-	if blockNumber != oldestSlot {
+	if blockNumber != oldestPreConf {
 		return nil, nil, fmt.Errorf(
-			"bootstrap block %d invalid: oldest pre-confirmed slot is %d", blockNumber, oldestSlot,
+			"bootstrap block %d invalid: oldest pre-confirmed slot is %d", blockNumber, oldestPreConf,
 		)
 	}
 	next, err := sn2core.AdaptPreConfirmedBlock(block, blockNumber)
