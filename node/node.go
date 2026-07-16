@@ -299,10 +299,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	throttledCompiler := newThrottledCompilerFromConfig(cfg, logger)
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	compiler := compiler.New(
+		&compiler.Config{
+			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+		},
+		"",
+		logger,
+	)
+	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
 	if cfg.Sequencer {
-		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+		logger.Warn(
+			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+		)
 
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)

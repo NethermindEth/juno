@@ -17,12 +17,31 @@ type ThrottledCompiler struct {
 	*throttler.Throttler[compiler.Compiler]
 }
 
-// resolveThrottledCompilerSettings turns the config's compilation limits into concrete values.
-// An absent flag (not Explicit) is derived from the available hardware.
-// Any explicit value (including 0) is used as-is.
-func resolveThrottledCompilerSettings(
-	cfg *Config, logger *log.ZapLogger,
-) (uint64, uint64) {
+func NewThrottledCompiler(
+	comp compiler.Compiler, concurrencyBudget uint, maxQueueLen uint64,
+) *ThrottledCompiler {
+	return &ThrottledCompiler{
+		Throttler: throttler.NewThrottler(
+			concurrencyBudget, &comp, throttler.WithMaxQueueLen(maxQueueLen),
+		),
+	}
+}
+
+func (tc *ThrottledCompiler) Compile(
+	ctx context.Context, sierra *starknet.SierraClass,
+) (*starknet.CasmClass, error) {
+	var result *starknet.CasmClass
+	err := tc.Do(ctx, func(c *compiler.Compiler) error {
+		var cErr error
+		result, cErr = (*c).Compile(ctx, sierra)
+		return cErr
+	})
+	return result, err
+}
+
+// calculateCompilerConcurrencyBudget determines safe limits for concurrent compilations
+// if this were not explicitly set
+func calculateCompilerConcurrencyBudget(cfg *Config, logger log.StructuredLogger) (uint64, uint64) {
 	maxConcurrency := cfg.MaxConcurrentCompilations
 	availableMemoryMB := compiler.AvailableMemoryMB()
 	if !cfg.MaxConcurrentCompilationsExplicit {
@@ -46,47 +65,5 @@ func resolveThrottledCompilerSettings(
 		zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
 		zap.Uint("maxCompilationMemoryMB", cfg.MaxCompilationMemory),
 	)
-
 	return maxConcurrency, queueSize
-}
-
-func NewThrottledCompiler(
-	res compiler.Compiler, concurrencyBudget uint, maxQueueLen uint64,
-) *ThrottledCompiler {
-	return &ThrottledCompiler{
-		Throttler: throttler.NewThrottler(
-			concurrencyBudget, &res, throttler.WithMaxQueueLen(maxQueueLen),
-		),
-	}
-}
-
-func newThrottledCompilerFromConfig(
-	cfg *Config, logger *log.ZapLogger,
-) *ThrottledCompiler {
-	maxConcurrency, queueSize := resolveThrottledCompilerSettings(cfg, logger)
-
-	return NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		uint(maxConcurrency),
-		queueSize,
-	)
-}
-
-func (tc *ThrottledCompiler) Compile(
-	ctx context.Context, sierra *starknet.SierraClass,
-) (*starknet.CasmClass, error) {
-	var result *starknet.CasmClass
-	err := tc.Do(ctx, func(c *compiler.Compiler) error {
-		var cErr error
-		result, cErr = (*c).Compile(ctx, sierra)
-		return cErr
-	})
-	return result, err
 }
