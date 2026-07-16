@@ -63,7 +63,21 @@ func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*storageResultAlias)(st))
 	}
 
-	return st.Value.MarshalJSON()
+	// Not calling MarshalText directly since we need a quoted JSON hex
+	return st.marshalAsQuotedHex()
+}
+
+func (st *StorageAtResponse) marshalAsQuotedHex() ([]byte, error) {
+	// 2 quotes + MaxFeltAsHexSize
+	out := make([]byte, 0, 2+felt.MaxFeltAsHexSize)
+	out = append(out, '"')
+
+	out, err := st.Value.AppendText(out)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(out, '"'), nil
 }
 
 // UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponse.

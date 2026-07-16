@@ -1,10 +1,12 @@
 package felt
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"math/bits"
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -19,6 +21,10 @@ const (
 	Limbs = fp.Limbs // number of 64 bits words needed to represent a Element
 	Bits  = fp.Bits  // number of bits needed to represent a Element
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
+
+	// Max number of chars to represent a Felt as Hex.
+	// 0x at the start + 2 chars per byte.
+	MaxFeltAsHexSize = len("0x") + Bytes*2
 )
 
 var Zero = Felt{}
@@ -46,60 +52,78 @@ func (z *Felt) Impl() *fp.Element {
 }
 
 // UnmarshalJSON accepts a quoted, 0x-prefixed hex string and sets z.
-// Zero-alloc: pads hex into a fixed [64]byte and lets hex.Decode do the parsing.
+//
+// TODO(granza): move to UnmarshalText after migrating to json/v2
+//
+// The UnmarshalJSON interface is faster than the UnmarshalText one on json/v1.
+// json/v1 treats the input of UnmarshalText as if it could have escaped chars,
+// so it triggers an upfront check scan. This is no longer the case for json/v2.
 func (z *Felt) UnmarshalJSON(data []byte) error {
-	if len(data) < 5 || data[0] != '"' || data[len(data)-1] != '"' {
-		return errors.New("felt: expected quoted 0x hex string")
-	}
-	if data[1] != '0' || (data[2] != 'x' && data[2] != 'X') {
-		return errors.New("felt: missing 0x prefix")
+	dataSize := len(data)
+	if dataSize < len(`"0x0"`) || data[0] != '"' || data[dataSize-1] != '"' {
+		return errors.New("felt: expected a quoted 0x hex string")
 	}
 
-	src := data[3 : len(data)-1] // hex digits after "0x
-	// maxHexDigits is the maximum number of hex digits in a felt value (32 bytes = 64 hex chars).
-	const maxHexDigits = Bytes * 2
-	if len(src) > maxHexDigits {
+	digits := data[1 : dataSize-1]
+	if digits[0] != '0' || (digits[1] != 'x' && digits[1] != 'X') {
+		return errors.New("felt: expected hex string starting with 0x")
+	}
+	if len(digits) > MaxFeltAsHexSize {
 		return errors.New("felt: value exceeds field size")
 	}
+	digits = digits[2:]
 
-	// Left-pad with '0' to 64 hex chars so hex.Decode produces exactly 32 bytes.
-	var padded [maxHexDigits]byte
-	for i := range padded {
-		padded[i] = '0'
+	// hex.Decode consumes digits in pairs, so an odd number means a leading zero.
+	if len(digits)%2 == 1 {
+		var padded [MaxFeltAsHexSize]byte
+		padded[0] = '0'
+		copiedSize := copy(padded[1:], digits)
+		digits = padded[:copiedSize+1]
 	}
-	copy(padded[maxHexDigits-len(src):], src)
 
-	var buf [Bytes]byte
-	if _, err := hex.Decode(buf[:], padded[:]); err != nil {
+	var buffer [Bytes]byte
+	leadingZeros := Bytes - len(digits)/2
+	if _, err := hex.Decode(buffer[leadingZeros:], digits); err != nil {
 		return fmt.Errorf("felt: couldn't decode hex value: %w", err)
 	}
-	return (*fp.Element)(z).SetBytesCanonical(buf[:])
+
+	return (*fp.Element)(z).SetBytesCanonical(buffer[:])
 }
 
-// MarshalJSON returns the felt as a quoted 0x hex string with no
-// unnecessary leading zeros. Uses a value receiver so encoding/json
-// can call it on non-addressable values (struct fields in `any`).
-func (z Felt) MarshalJSON() ([]byte, error) {
+// MarshalText returns the felt as an unquoted 0x hex string with no
+// unnecessary leading zeros. The quotes are placed at the encoding/json level.
+// Uses a value receiver so encoding/json can call it on non-addressable
+// values (struct fields in `any`).
+func (z Felt) MarshalText() ([]byte, error) {
+	return z.AppendText(make([]byte, 0, MaxFeltAsHexSize))
+}
+
+// AppendText appends the felt's 0x hex representation to data.
+// The quotes are placed at the encoding/json level.
+// It is a json/v2 interface and enforces appending.
+func (z Felt) AppendText(data []byte) ([]byte, error) {
 	var raw [Bytes]byte
 	fp.BigEndian.PutElement(&raw, fp.Element(z))
 
-	// Find first significant byte.
-	i := 0
-	for i < Bytes-1 && raw[i] == 0 {
-		i++
+	// Find the first non zero byte
+	firstByteIdx := Bytes - 1
+	for chunk := 0; chunk < Bytes; chunk += 8 {
+		value := binary.BigEndian.Uint64(raw[chunk:])
+		if value != 0 {
+			firstByteIdx = chunk + bits.LeadingZeros64(value)/8
+			break
+		}
 	}
 
-	out := make([]byte, 3, 4+(Bytes-i)*2)
-	out[0], out[1], out[2] = '"', '0', 'x'
+	data = append(data, '0', 'x')
 
 	// First byte may need a single hex digit (e.g. 0x3, not 0x03).
-	if raw[i] < Base16 {
-		out = append(out, "0123456789abcdef"[raw[i]])
-		i++
+	if raw[firstByteIdx] < Base16 {
+		data = append(data, "0123456789abcdef"[raw[firstByteIdx]])
+		firstByteIdx++
 	}
-	out = hex.AppendEncode(out, raw[i:])
 
-	return append(out, '"'), nil
+	return hex.AppendEncode(data, raw[firstByteIdx:]), nil
 }
 
 // SetBytes forwards the call to underlying field element implementation
