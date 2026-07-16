@@ -11,6 +11,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// insertKey inserts key into filter at block using a fresh single-key bloom.
+func insertKey(tb testing.TB, filter *core.AggregatedBloomFilter, key []byte, block uint64) {
+	tb.Helper()
+	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
+	b.Add(key)
+	require.NoError(tb, filter.Insert(b, block))
+}
+
+// mustMarshal returns filter's binary encoding, failing the test on error.
+func mustMarshal(tb testing.TB, filter *core.AggregatedBloomFilter) []byte {
+	tb.Helper()
+	data, err := filter.MarshalBinary()
+	require.NoError(tb, err)
+	return data
+}
+
 func TestAggregatedBloomFilter_Insert(t *testing.T) {
 	filter := core.NewAggregatedFilter(200)
 	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
@@ -60,10 +76,8 @@ func TestAggregatedBloomFilter_Insert(t *testing.T) {
 
 func TestAggregatedBloomFilter_BlocksForKeys(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	key := []byte{0xab}
-	b.Add(key)
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, key, 0)
 
 	t.Run("No keys: all bits set", func(t *testing.T) {
 		matches := filter.BlocksForKeys(nil)
@@ -83,10 +97,8 @@ func TestAggregatedBloomFilter_BlocksForKeys(t *testing.T) {
 
 func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	key := []byte{0xab}
-	b.Add(key)
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, key, 0)
 	matchesBuf := bitset.New(uint(core.NumBlocksPerFilter))
 	t.Run("No keys: all bits set", func(t *testing.T) {
 		require.NoError(t, filter.BlocksForKeysInto(nil, matchesBuf))
@@ -123,28 +135,22 @@ func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 
 func TestAggregatedBloomFilter_Clone(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	key := []byte{0x77}
-	b.Add(key)
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, key, 0)
 	cp := filter.Clone()
 	require.NotSame(t, &filter, &cp)
 	require.Equal(t, filter, cp)
 	// Mutate copy: shouldn't change origin
-	require.NoError(t, cp.Insert(b, 1))
+	insertKey(t, &cp, key, 1)
 	require.True(t, cp.BlocksForKeys([][]byte{key}).Test(1))
 	require.False(t, filter.BlocksForKeys([][]byte{key}).Test(1))
 }
 
 func TestAggregatedBloomFilter_Serialise(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	key := []byte{0x33}
-	b.Add(key)
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, []byte{0x33}, 0)
 
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 
 	filter2 := &core.AggregatedBloomFilter{}
 	require.NoError(t, filter2.UnmarshalBinary(data))
@@ -156,17 +162,10 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Compat(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
 	keyA := []byte{0x33}
 	keyB := []byte{0xAB, 0xCD}
+	insertKey(t, &filter, keyA, 0)
+	insertKey(t, &filter, keyB, 5)
 
-	bloomA := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	bloomA.Add(keyA)
-	require.NoError(t, filter.Insert(bloomA, 0))
-
-	bloomB := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	bloomB.Add(keyB)
-	require.NoError(t, filter.Insert(bloomB, 5))
-
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 
 	// Round-trips into an equal value.
 	var decoded core.AggregatedBloomFilter
@@ -189,12 +188,9 @@ func TestAggregatedBloomFilter_UnmarshalBinary_NonZeroRange(t *testing.T) {
 	const from = 3 * core.NumBlocksPerFilter // distinctive, non-zero start
 	filter := core.NewAggregatedFilter(from)
 	key := []byte{0x5e}
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	b.Add(key)
-	require.NoError(t, filter.Insert(b, from+7))
+	insertKey(t, &filter, key, from+7)
 
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 
 	var decoded core.AggregatedBloomFilter
 	require.NoError(t, decoded.UnmarshalBinary(data))
@@ -211,8 +207,7 @@ func TestAggregatedBloomFilter_MarshalBinary_HeaderLayout(t *testing.T) {
 	const from = 0x0102030405060708
 	filter := core.NewAggregatedFilter(from)
 
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 	require.GreaterOrEqual(t, len(data), 20)
 
 	require.Equal(t, uint64(from), binary.BigEndian.Uint64(data[0:8]))
@@ -224,12 +219,9 @@ func TestAggregatedBloomFilter_MarshalBinary_HeaderLayout(t *testing.T) {
 // wrong bit-length header is rejected, and truncation mid-row does not panic.
 func TestAggregatedBloomFilter_UnmarshalBinary_Corrupt(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	b.Add([]byte{0x01})
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, []byte{0x01}, 0)
 
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 
 	t.Run("wrong row bit-length", func(t *testing.T) {
 		corrupt := make([]byte, len(data))
@@ -277,11 +269,8 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Corrupt(t *testing.T) {
 // input, only return an error.
 func FuzzAggregatedBloomFilterUnmarshal(f *testing.F) {
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	b.Add([]byte{0x01})
-	require.NoError(f, filter.Insert(b, 0))
-	valid, err := filter.MarshalBinary()
-	require.NoError(f, err)
+	insertKey(f, &filter, []byte{0x01}, 0)
+	valid := mustMarshal(f, &filter)
 
 	f.Add([]byte(nil))
 	f.Add([]byte{0x00})
@@ -301,12 +290,9 @@ func FuzzAggregatedBloomFilterUnmarshal(f *testing.F) {
 func TestAggregatedBloomFilter_UnmarshalBinary_Allocs(t *testing.T) {
 	// A fully populated filter is the worst case: all EventsBloomLength rows present.
 	filter := core.NewAggregatedFilter(0)
-	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	b.Add([]byte{0x01})
-	require.NoError(t, filter.Insert(b, 0))
+	insertKey(t, &filter, []byte{0x01}, 0)
 
-	data, err := filter.MarshalBinary()
-	require.NoError(t, err)
+	data := mustMarshal(t, &filter)
 
 	var decoded core.AggregatedBloomFilter
 	allocs := testing.AllocsPerRun(20, func() {
