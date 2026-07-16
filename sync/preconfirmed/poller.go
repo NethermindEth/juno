@@ -245,10 +245,11 @@ func (p *Poller) apply(
 	return nil
 }
 
-// fetchDeclaredClasses fetches the definitions of every class declared by update — and,
-// for a delta or no-change re-poll that continues storedTip's round, by storedTip too —
-// deduping so each hash hits the data source at most once. storedTip is nil for a fresh
-// slot with no prior stored view. Returns nil when nothing is declared.
+// fetchDeclaredClasses fetches the definitions of every class declared by update and,
+// for a delta or no-change re-poll that continues storedTip's round, by storedTip too,
+// keyed by class hash. It assumes declared hashes are distinct across these sources.
+// storedTip is nil for a fresh slot with no prior stored view. Returns nil when nothing
+// is declared.
 func (p *Poller) fetchDeclaredClasses(
 	ctx context.Context,
 	storedTip *pending.PreConfirmed,
