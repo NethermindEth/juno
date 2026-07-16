@@ -132,14 +132,21 @@ type Config struct {
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
-	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
-	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
-	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
-	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
-	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState                  bool          `mapstructure:"new-state"`
+	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+
+	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
+	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
+	MaxConcurrentCompilations         uint64 `mapstructure:"max-concurrent-compilations"`
+	MaxConcurrentCompilationsExplicit bool
+	MaxCompilationQueue               uint64 `mapstructure:"max-compilation-queue"`
+	MaxCompilationQueueExplicit       bool
+
+	MaxCompilationMemory  uint `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
+	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
+	NewState              bool `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
@@ -292,21 +299,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	throttledCompiler := NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	compiler := compiler.New(
+		&compiler.Config{
+			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+		},
+		"",
+		logger,
 	)
+	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
 	if cfg.Sequencer {
-		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+		logger.Warn(
+			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+		)
 
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
