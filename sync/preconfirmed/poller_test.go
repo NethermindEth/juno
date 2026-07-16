@@ -780,10 +780,6 @@ func classesAt(
 	return nil
 }
 
-// Each subtest drives a forward jump (old tip at slot 1, latest at slot 2) so the old tip
-// is re-polled during backfill, then asserts the poller fetched the classes
-// declaredClassHashesForRepolledTip surfaces for that update variant. The new tip's own
-// classes are out of scope — the tick applies it with nil classes.
 func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 	t.Parallel()
 
