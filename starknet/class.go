@@ -26,7 +26,7 @@ func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
 }
 
 func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
-	return (*felt.Felt)(&o).MarshalJSON()
+	return json.Marshal((*felt.Felt)(&o))
 }
 
 func (o EntryPointOffset) String() string {

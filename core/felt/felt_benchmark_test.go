@@ -39,7 +39,7 @@ func BenchmarkMarshalJSON(b *testing.B) {
 			b.ReportAllocs()
 			var out []byte
 			for b.Loop() {
-				out, _ = value.MarshalJSON()
+				out, _ = value.MarshalText()
 			}
 			benchBytesSink = out
 		})

@@ -14,8 +14,8 @@ func (a *Address) UnmarshalJSON(data []byte) error {
 	return (*Felt)(a).UnmarshalJSON(data)
 }
 
-func (a Address) MarshalJSON() ([]byte, error) {
-	return Felt(a).MarshalJSON()
+func (a Address) MarshalText() ([]byte, error) {
+	return Felt(a).MarshalText()
 }
 
 func (a *Address) Marshal() []byte {

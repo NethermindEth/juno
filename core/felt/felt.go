@@ -76,10 +76,15 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	return (*fp.Element)(z).SetBytesCanonical(buf[:])
 }
 
-// MarshalJSON returns the felt as a quoted 0x hex string with no
-// unnecessary leading zeros. Uses a value receiver so encoding/json
-// can call it on non-addressable values (struct fields in `any`).
-func (z Felt) MarshalJSON() ([]byte, error) {
+// MarshalText returns the felt as a 0x hex string (UNQUOTED) with no
+// unnecessary leading zeros. Value receiver so encoding/json can call it
+// on non-addressable values (struct fields in `any`) — see PR #3504.
+//
+// PoC: implementing encoding.TextMarshaler instead of json.Marshaler lets
+// encoding/json use its textMarshalerEncoder (string fast-path) and SKIP the
+// per-value appendCompact JSON re-scan that dominated getClass encode CPU.
+// encoding/json adds the surrounding quotes, so output stays "0x..."-identical.
+func (z Felt) MarshalText() ([]byte, error) {
 	var raw [Bytes]byte
 	fp.BigEndian.PutElement(&raw, fp.Element(z))
 
@@ -89,8 +94,8 @@ func (z Felt) MarshalJSON() ([]byte, error) {
 		i++
 	}
 
-	out := make([]byte, 3, 4+(Bytes-i)*2)
-	out[0], out[1], out[2] = '"', '0', 'x'
+	out := make([]byte, 2, 2+(Bytes-i)*2)
+	out[0], out[1] = '0', 'x'
 
 	// First byte may need a single hex digit (e.g. 0x3, not 0x03).
 	if raw[i] < Base16 {
@@ -99,7 +104,7 @@ func (z Felt) MarshalJSON() ([]byte, error) {
 	}
 	out = hex.AppendEncode(out, raw[i:])
 
-	return append(out, '"'), nil
+	return out, nil
 }
 
 // SetBytes forwards the call to underlying field element implementation

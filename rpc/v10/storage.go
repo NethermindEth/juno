@@ -63,7 +63,7 @@ func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
 		return json.Marshal((*storageResultAlias)(st))
 	}
 
-	return st.Value.MarshalJSON()
+	return json.Marshal(st.Value)
 }
 
 // UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponse.

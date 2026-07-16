@@ -174,7 +174,7 @@ func TestMarshalJSON(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := felt.UnsafeFromString[felt.Felt](tc.hex)
-			got, err := f.MarshalJSON()
+			got, err := json.Marshal(f)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expect, string(got))
 		})
