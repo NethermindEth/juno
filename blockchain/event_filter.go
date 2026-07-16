@@ -151,7 +151,7 @@ func (e *EventFilter) Events(
 	// neither the canonical range (stopped at the stale latest) nor pre_confirmed
 	// (based above them), a gap. This order makes latest >= the snapshot's base,
 	// so the ranges overlap instead. Pinning a fixed head wouldn't help: once a
-	// block commits, SnapshotForHead trims it, so a stale head yields an empty
+	// block commits, SnapshotForBlock trims it, so a stale head yields an empty
 	// view. On error, drop it and serve canonical only.
 	preConfirmed, err := e.preConfirmedFn()
 	if err != nil {

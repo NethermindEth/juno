@@ -632,7 +632,7 @@ func TestChainReader(t *testing.T) {
 		testChainReaderPreConfirmedStateBeforeIndexAtBlockOutOfRange)
 	t.Run("PreConfirmedStateAt resolves base at the oldest slot minus one",
 		testChainReaderPreConfirmedStateAtBaseAlignsWithOldestPreConf)
-	t.Run("PreConfirmedStateAt at genesis resolves base via zero hash",
+	t.Run("PreConfirmedStateAt at genesis underflows",
 		testChainReaderPreConfirmedStateAtBaseAtGenesis)
 	t.Run("PreConfirmedStateAt surfaces bcReader error from base lookup",
 		testChainReaderPreConfirmedStateAtBaseError)
@@ -1055,12 +1055,11 @@ func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
 	view := s.SnapshotForBlock(0)
 
 	bc := mocks.NewMockReader(gomock.NewController(t))
-	bc.EXPECT().StateAtBlockHash(&felt.Zero).
-		Return(nil, func() error { return nil }, nil)
+	bc.EXPECT().StateAtBlockNumber(^uint64(0)).
+		Return(nil, func() error { return nil }, errors.New("some kind of underflow"))
 
-	_, closer, err := view.PreConfirmedStateAt(0, bc)
-	require.NoError(t, err)
-	require.NoError(t, closer())
+	_, _, err := view.PreConfirmedStateAt(0, bc)
+	require.ErrorContains(t, err, "some kind of underflow")
 }
 
 // testChainReaderPreConfirmedStateAtBaseError verifies that a bcReader failure
