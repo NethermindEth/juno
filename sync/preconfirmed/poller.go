@@ -2,7 +2,6 @@ package preconfirmed
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -93,7 +91,7 @@ func (p *Poller) Run(ctx context.Context) {
 
 func (p *Poller) tick(ctx context.Context) error {
 	height, err := p.blockchain.Height()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+	if err != nil {
 		return fmt.Errorf("reading chain height: %w", err)
 	}
 
@@ -103,7 +101,7 @@ func (p *Poller) tick(ctx context.Context) error {
 		return nil
 	}
 
-	chain := p.storage.SnapshotForHead(oldestSlot)
+	chain := p.storage.SnapshotForBlock(oldestSlot)
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string

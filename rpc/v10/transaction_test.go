@@ -664,7 +664,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		_, err := storage.ApplyUpdate(block, blockNumber, 0, oldestSlot)
 		require.NoError(t, err)
 	}
-	chain := storage.SnapshotForHead(oldestSlot)
+	chain := storage.SnapshotForBlock(oldestSlot)
 	require.Equal(t, 3, chain.Length())
 
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {

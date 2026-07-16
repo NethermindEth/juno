@@ -258,7 +258,7 @@ func walkOldestFirst(
 }
 
 // ChainStorage holds a contiguous run of pre-confirmed blocks above the
-// canonical head. Readers obtain a head-aligned view via SnapshotForHead.
+// canonical head. Readers obtain a head-aligned view via [SnapshotForBlock].
 // Single writer (polling loop) with many concurrent readers; reads are
 // lock-free via atomic.Pointer.
 type ChainStorage struct {
@@ -269,35 +269,20 @@ func NewChainStorage() *ChainStorage {
 	return &ChainStorage{}
 }
 
-// SnapshotForHead returns a head-aligned view of the pre-confirmed chain.
-// oldestSlot is the slot the view's oldest entry must occupy: the first
-// pre-confirmed slot above the canonical head, head number+1. Entries at or
-// below the canonical head are excluded via the reported length. If the
-// stored chain briefly extends below oldestSlot (AdvanceTo hasn't run yet
-// against this head advance), the view reports a shorter length, excluding
-// the now-committed entries.
+// SnapshotForBlock returns a head-aligned view of the pre-confirmed chain based
+// on the input `blockNumber`. If the `blockNumber` sits outside the pre-confirmed chain
+// range, an empty chain is returned. Otherwise, a new chain is returned in the
+// [blockNumber, chain.tip()] range.
 //
-// The view is uncapped: it exposes every stored entry from head+1 up to the
-// stored tip, even when the chain runs more than core.BlockHashLag ahead of the
-// canonical head. Reading pre-confirmed state at such a far-ahead block can fail
-// at execution time, when a get_block_hash lookup falls outside the available
-// window; that failure is intentionally left to the execution layer rather than
-// masked by truncating the view here.
-//
-// Returns the zero-value ChainReader (length 0) if the chain does not cover
-// oldestSlot (head advanced past the stored tip, or the chain's oldest slot
-// sits above oldestSlot); callers should branch on Length().
-func (s *ChainStorage) SnapshotForHead(oldestSlot uint64) ChainReader {
+// The total size of the pre-confirmed chain is uncapped and it can exceed
+// [core.BlockHashLag], causing execution simulations on longer chain to fail due to this.
+func (s *ChainStorage) SnapshotForBlock(blockNumber uint64) ChainReader {
 	current := s.inner.Load()
-	if current == nil || current.length == 0 {
+	if current == nil || !current.contains(blockNumber) {
 		return ChainReader{}
 	}
 
-	if !current.contains(oldestSlot) {
-		return ChainReader{}
-	}
-
-	want := int(current.tip() - oldestSlot + 1)
+	want := int(current.tip() - blockNumber + 1)
 	return ChainReader{head: current.head, length: want}
 }
 
@@ -401,26 +386,26 @@ func rebuild(current *node, keep int) *node {
 //
 // Returns (newChain, affected, err): newChain==nil means "no-op, leave the
 // store as-is"; err is reserved for invariant violations (e.g. the chain's
-// oldest slot drifted from oldestSlot, delta baseTxCount mismatch).
+// oldest slot drifted from oldestPreConf, delta baseTxCount mismatch).
 func computeUpdate(
 	current *ChainReader,
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	oldestSlot uint64,
+	oldestPreConf uint64,
 ) (*ChainReader, *pending.PreConfirmed, error) {
 	if current == nil || current.length == 0 {
 		block, ok := update.(starknet.PreConfirmedBlock)
 		if !ok {
 			return nil, nil, fmt.Errorf("bootstrap rejected: want PreConfirmedBlock, got %T", update)
 		}
-		return bootstrapChain(&block, blockNumber, oldestSlot)
+		return bootstrapChain(&block, blockNumber, oldestPreConf)
 	}
 
 	currentOldest := current.oldestSlot()
-	if currentOldest != oldestSlot {
+	if currentOldest != oldestPreConf {
 		return nil, nil, fmt.Errorf(
-			"chain's oldest slot %d not aligned with expected %d", currentOldest, oldestSlot,
+			"chain's oldest slot %d not aligned with expected %d", currentOldest, oldestPreConf,
 		)
 	}
 

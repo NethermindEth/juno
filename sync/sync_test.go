@@ -295,7 +295,7 @@ func TestPreConfirmed(t *testing.T) {
 
 	// The stored-snapshot fast path is covered by
 	// TestPreConfirmedChainReturnsStoredSnapshot (preconfirmed_chain_test.go),
-	// which seeds the synchronizer's storage directly.
+	// which fills the storage through Run's pre-confirmed poller.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()

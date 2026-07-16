@@ -597,7 +597,7 @@ func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 		return preconfirmed.ChainReader{}, err
 	}
 
-	snapshot := s.preConfirmed.SnapshotForHead(height + 1)
+	snapshot := s.preConfirmed.SnapshotForBlock(height + 1)
 	if snapshot.Length() > 0 {
 		return snapshot, nil
 	}
