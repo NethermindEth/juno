@@ -31,6 +31,10 @@ const (
 	FlagMaxCPUTime = "max-cpu-time" // seconds (RLIMIT_CPU)
 )
 
+// There is no need for more than 2 threads. It runs an FFI, and many threads
+// grow the required virtual address space larger than what is needed.
+const compileChildGOMAXPROCS = "2"
+
 // Config bounds the resources used by compilation child processes.
 type Config struct {
 	// MaxMemory is the address-space limit (RLIMIT_AS) in bytes
@@ -105,6 +109,7 @@ func (c *compiler) Compile(
 
 	//nolint:gosec // binaryPath is the juno binary, not user input
 	cmd := exec.CommandContext(ctx, c.binaryPath, args...)
+	cmd.Env = append(os.Environ(), "GOMAXPROCS="+compileChildGOMAXPROCS)
 	cmd.Stdin = bytes.NewReader(sierraJSON)
 
 	var stdout, stderr bytes.Buffer

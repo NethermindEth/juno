@@ -96,7 +96,7 @@ func TestGetMessageStatus(t *testing.T) {
 					},
 				},
 			}
-			mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed, nil).AnyTimes()
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
 				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)

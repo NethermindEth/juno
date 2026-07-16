@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -82,7 +83,6 @@ type subscriber struct {
 	onNewHead             on[*core.Block]
 	onPreConfirmed        on[*pending.PreConfirmed]
 	onL1Head              on[*core.L1Head]
-	onPreLatest           on[*pending.PreLatest]
 	onReceivedTransaction on[core.Transaction]
 }
 
@@ -120,7 +120,6 @@ func (h *Handler) subscribe(
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
 	preConfirmedSub, preConfirmedRecv := getSubscription(subscriber.onPreConfirmed, h.preConfirmedFeed)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
-	preLatestSub, preLatestRecv := getSubscription(subscriber.onPreLatest, h.preLatestFeed)
 	receivedTransactionSub, receivedTransactionRecv := getSubscription(
 		subscriber.onReceivedTransaction,
 		h.receivedTransactionFeed,
@@ -133,7 +132,6 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
 			unsubscribeFeedSubscription(preConfirmedSub)
-			unsubscribeFeedSubscription(preLatestSub)
 			unsubscribeFeedSubscription(receivedTransactionSub)
 		}()
 
@@ -166,11 +164,6 @@ func (h *Handler) subscribe(
 			case preConfirmed := <-preConfirmedRecv:
 				if err := subscriber.onPreConfirmed(subscriptionCtx, id, sub, preConfirmed); err != nil {
 					h.logger.Warn("Error on pre-confirmed data", zap.String("id", id), zap.Error(err))
-					return
-				}
-			case preLatest := <-preLatestRecv:
-				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
-					h.logger.Warn("Error on  preLatest", zap.String("id", id), zap.Error(err))
 					return
 				}
 			case transaction := <-receivedTransactionRecv:
@@ -217,31 +210,42 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
 	return false
 }
 
-// resolveBlockRange returns the start and latest headers based on the blockID.
-// It will also do some sanity checks and return errors if the blockID is invalid.
+// resolveBlockRange returns the start and latest block numbers based on the blockID.
 func (h *Handler) resolveBlockRange(
 	blockID *SubscriptionBlockID,
-) (*core.Header, *core.Header, *jsonrpc.Error) {
-	latestHeader, err := h.bcReader.HeadsHeader()
+) (uint64, uint64, *jsonrpc.Error) {
+	latestBlock, err := h.bcReader.Height()
 	if err != nil {
-		return nil, nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		return 0, 0, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
 	if blockID == nil || blockID.IsLatest() {
-		return latestHeader, latestHeader, nil
+		return latestBlock, latestBlock, nil
 	}
 
-	startHeader, rpcErr := h.blockHeaderByID((*BlockID)(blockID))
-	if rpcErr != nil {
-		return nil, nil, rpcErr
+	var startBlock uint64
+	if blockID.IsHash() {
+		startBlock, err = h.bcReader.BlockNumberByHash(blockID.Hash())
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return 0, 0, rpccore.ErrBlockNotFound
+			}
+			return 0, 0, rpccore.ErrInternal.CloneWithData(err.Error())
+		}
+	} else {
+		startBlock = blockID.Number()
+		if startBlock > latestBlock {
+			return 0, 0, rpccore.ErrBlockNotFound
+		}
 	}
 
-	if latestHeader.Number >= rpccore.MaxBlocksBack &&
-		startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack {
-		return nil, nil, rpccore.ErrTooManyBlocksBack
+	tooManyBlocks := latestBlock >= rpccore.MaxBlocksBack &&
+		startBlock <= latestBlock-rpccore.MaxBlocksBack
+	if tooManyBlocks {
+		return 0, 0, rpccore.ErrTooManyBlocksBack
 	}
 
-	return startHeader, latestHeader, nil
+	return startBlock, latestBlock, nil
 }
 
 type ReorgEvent struct {

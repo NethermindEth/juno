@@ -16,6 +16,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,9 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			)
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 			logger := log.NewNopZapLogger()
 			handler := rpcv10.New(chain, mockSyncReader, nil, logger)
@@ -158,14 +161,38 @@ func TestStateUpdate(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
 		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			&preConfirmed,
-			nil,
-		)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
 		assertStateUpdateEq(t, update3077642, &update)
+	})
+
+	t.Run("pre_confirmed multi-block chain returns tip state update", func(t *testing.T) {
+		baseEmpty := core.EmptyStateDiff()
+		baseUpdate := &core.StateUpdate{StateDiff: &baseEmpty}
+		basePc := pending.NewPreConfirmed(
+			&core.Block{Header: &core.Header{Number: 2}},
+			baseUpdate,
+			nil,
+			"",
+		)
+
+		tipUpdate := *update3077642
+		tipUpdate.BlockHash = nil
+		tipUpdate.NewRoot = nil
+		tipPc := pending.NewPreConfirmed(
+			&core.Block{Header: &core.Header{Number: 3}},
+			&tipUpdate,
+			nil,
+			"",
+		)
+
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
+		preConfirmedID := rpcv10.BlockIDPreConfirmed()
+		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
+		require.Nil(t, rpcErr)
+		assertStateUpdateEq(t, &tipUpdate, &update)
 	})
 
 	t.Run("contract_addresses filter", func(t *testing.T) {
@@ -201,7 +228,7 @@ func TestStateUpdate(t *testing.T) {
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
 			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-			mockSyncReader.EXPECT().PreConfirmed().Return(&preConfirmed, nil)
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}
 

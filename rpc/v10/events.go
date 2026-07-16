@@ -91,7 +91,7 @@ func setEventFilterRange(
 
 		switch {
 		case blockID.IsPreConfirmed():
-			return filter.SetRangeEndBlockByNumber(filterRange, ^uint64(0))
+			return filter.SetRangeEndBlockByNumber(filterRange, blockchain.PreConfirmedFilterSentinel)
 		case blockID.IsLatest():
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case blockID.IsHash():
@@ -143,7 +143,13 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		args.EventFilter.Address,
 		args.EventFilter.Keys,
-		h.syncReader.PreConfirmed,
+		func() (blockchain.PreConfirmedReader, error) {
+			chain, err := h.syncReader.PreConfirmedChain()
+			if err != nil {
+				return nil, err
+			}
+			return &chain, nil
+		},
 	)
 	if err != nil {
 		return EventsChunk{}, rpccore.ErrInternal

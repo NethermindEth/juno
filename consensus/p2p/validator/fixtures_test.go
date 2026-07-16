@@ -89,7 +89,10 @@ func BuildTestFixture(
 	client := feeder.NewTestClient(t, testCase.Network)
 	gw := adaptfeeder.New(client)
 
-	rawStateUpdate, err := client.StateUpdateWithBlock(t.Context(), fmt.Sprintf("%d", testCase.Height))
+	rawStateUpdate, err := client.StateUpdateWithBlockAndSignature(
+		t.Context(),
+		fmt.Sprintf("%d", testCase.Height),
+	)
 	require.NoError(t, err)
 
 	stateUpdate, block, err := gw.StateUpdateWithBlock(t.Context(), uint64(testCase.Height))
@@ -99,15 +102,19 @@ func BuildTestFixture(
 
 	proposer := &common.Address{Elements: ToBytes(*block.Header.SequencerAddress)}
 	concatCounts := calculateConcatCounts(block, stateUpdate)
-	totalGasConsumed := calculateTotalGasConsumed(rawStateUpdate)
+	totalGasConsumed := calculateTotalGasConsumed(&rawStateUpdate)
 
 	proposalInit := buildProposalInit(testCase, proposer)
 	blockInfo := buildBlockInfo(testCase.Height, proposer, block)
 	transactions := buildTransactions(t, gw, block, testCase.TxBatchCount)
-	proposalCommitment := buildProposalCommitment(rawStateUpdate, block, headBlock, proposer, concatCounts, totalGasConsumed)
+	proposalCommitment := buildProposalCommitment(
+		&rawStateUpdate, block, headBlock, proposer, concatCounts, totalGasConsumed,
+	)
 	proposalFin := buildProposalFin(block)
 
-	buildResult := buildBuildResult(t, gw, block, stateUpdate, rawStateUpdate, concatCounts, totalGasConsumed)
+	buildResult := buildBuildResult(
+		t, gw, block, stateUpdate, &rawStateUpdate, concatCounts, totalGasConsumed,
+	)
 
 	proposal := buildProposal(testCase.Round, testCase.ValidRound, block)
 
@@ -217,7 +224,7 @@ func buildTransactions(
 }
 
 func buildProposalCommitment(
-	rawStateUpdate *starknet.StateUpdateWithBlock,
+	rawStateUpdate *starknet.StateUpdateWithBlockAndSignature,
 	block *core.Block,
 	previousBlock *core.Block,
 	proposer *common.Address,
@@ -267,7 +274,7 @@ func buildBuildResult(
 	gw *adaptfeeder.Feeder,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	rawStateUpdate *starknet.StateUpdateWithBlock,
+	rawStateUpdate *starknet.StateUpdateWithBlockAndSignature,
 	concatCounts felt.Felt,
 	totalGasConsumed int,
 ) builder.BuildResult {
@@ -329,7 +336,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	}
 }
 
-func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlock) int {
+func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlockAndSignature) int {
 	totalGasConsumed := 0
 	for _, receipt := range rawStateUpdate.Block.Receipts {
 		consumed := receipt.ExecutionResources.TotalGasConsumed

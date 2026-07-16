@@ -17,11 +17,21 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+// mustNewChain builds a pre_confirmed ChainReader from statically valid test
+// entries, failing the test if NewChain rejects them.
+func mustNewChain(t *testing.T, entries ...*pending.PreConfirmed) preconfirmed.ChainReader {
+	t.Helper()
+	chain, err := preconfirmed.NewChain(entries...)
+	require.NoError(t, err)
+	return chain
+}
 
 type blockTestCase struct {
 	description   string
@@ -32,6 +42,10 @@ type blockTestCase struct {
 	l1Head        *core.L1Head
 	blockStatus   rpc.BlockStatus
 	responseFlags rpc.ResponseFlags
+	// preConfirmedBase holds extra pre_confirmed entries below the tip; when set,
+	// the pre_confirmed mock returns a multi-entry chain and the handler must
+	// still resolve to the TIP block.
+	preConfirmedBase []*pending.PreConfirmed
 }
 
 func createBlockTestCases(
@@ -119,6 +133,18 @@ func createBlockTestCases(
 			blockID:     &blockIDPreConfirmed,
 			l1Head:      nil,
 			blockStatus: rpc.BlockPreConfirmed,
+		},
+		{
+			description: "blockID - pre_confirmed multi-block chain returns tip",
+			block:       block,
+			commitments: nil,
+			stateUpdate: nil,
+			blockID:     &blockIDPreConfirmed,
+			l1Head:      nil,
+			blockStatus: rpc.BlockPreConfirmed,
+			preConfirmedBase: []*pending.PreConfirmed{
+				{Block: &core.Block{Header: &core.Header{Number: block.Number - 1}}},
+			},
 		},
 	}
 }
@@ -407,6 +433,7 @@ func setupMockBlockTest(
 	stateUpdate *core.StateUpdate,
 	blockID *rpc.BlockID,
 	l1Head *core.L1Head,
+	preConfirmedBase ...*pending.PreConfirmed,
 ) {
 	// mock L1 head
 	if l1Head != nil {
@@ -423,15 +450,12 @@ func setupMockBlockTest(
 
 	switch {
 	case blockID.IsPreConfirmed():
-		blockAsPreConfirmed := rpc.CreateTestPreConfirmed(
-			t,
-			block,
-			int(block.TransactionCount),
-		)
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			&blockAsPreConfirmed,
-			nil,
-		).AnyTimes()
+		// Append the tip (built from block) after any caller-provided base
+		// entries. The handler must resolve pre_confirmed to the TIP (the last
+		// entry), not a base entry or an aggregate.
+		tipEntry := rpc.CreateTestPreConfirmed(t, block, int(block.TransactionCount))
+		entries := append(append([]*pending.PreConfirmed{}, preConfirmedBase...), &tipEntry)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).AnyTimes()
 	case blockID.IsLatest():
 		mockChain.EXPECT().Head().Return(block, nil).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).AnyTimes()
@@ -554,7 +578,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
-		mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 		preConfirmed := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -631,10 +655,26 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
-		mockSyncReader.EXPECT().PreConfirmed().Return(
-			&preConfirmed,
-			nil,
-		)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+
+		preConfirmedID := rpc.BlockIDPreConfirmed()
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - pre_confirmed multi-block chain returns tip count", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+
+		baseHeader := *latestBlock.Header
+		baseHeader.Number = latestBlock.Number - 1
+		baseHeader.TransactionCount = 0
+		baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
+
+		mockSyncReader.EXPECT().PreConfirmedChain().
+			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
@@ -668,7 +708,9 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
 			block, rpcErr := handler.BlockWithTxHashes(&id)
@@ -724,6 +766,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
+				tc.preConfirmedBase...,
 			)
 
 			block, rpcErr := handler.BlockWithTxHashes(tc.blockID)
@@ -802,7 +845,9 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
 			block, rpcErr := handler.BlockWithTxs(&id, rpc.ResponseFlags{})
@@ -875,6 +920,7 @@ func TestBlockWithTxs(t *testing.T) {
 				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
+				tc.preConfirmedBase...,
 			)
 
 			block, rpcErr := handler.BlockWithTxs(tc.blockID, tc.responseFlags)
@@ -953,7 +999,9 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 			handler := rpc.New(chain, mockSyncReader, nil, logger)
 
 			if description == "pre_confirmed" {
-				mockSyncReader.EXPECT().PreConfirmed().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().
+					PreConfirmedChain().
+					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
 			block, rpcErr := handler.BlockWithReceipts(&id, rpc.ResponseFlags{})
@@ -1026,6 +1074,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
+				tc.preConfirmedBase...,
 			)
 
 			blockWithReceipts, rpcErr := handler.BlockWithReceipts(tc.blockID, tc.responseFlags)

@@ -752,7 +752,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(t.Context(), "1000000")
-		assert.Nil(t, stateUpdate)
+		assert.Zero(t, stateUpdate)
 		assert.Error(t, err)
 	})
 
@@ -788,7 +788,7 @@ func TestTransaction(t *testing.T) {
 		)
 		actualStatus, err := client.TransactionStatus(t.Context(), transactionHash)
 		require.NoError(t, err)
-		assert.NotNil(t, actualStatus)
+		assert.NotZero(t, actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
 		transactionHash := felt.NewUnsafeFromString[felt.Felt]("0xffff")
@@ -804,17 +804,17 @@ func TestBlock(t *testing.T) {
 	t.Run("Test normal case", func(t *testing.T) {
 		actualBlock, err := client.Block(t.Context(), strconv.Itoa(11817))
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.NotNil(t, actualBlock)
+		assert.NotZero(t, actualBlock)
 	})
 	t.Run("Test block number out of boundary", func(t *testing.T) {
 		actualBlock, err := client.Block(t.Context(), strconv.Itoa(1000000))
-		assert.Nil(t, actualBlock)
+		assert.Zero(t, actualBlock)
 		assert.Error(t, err)
 	})
 	t.Run("Test latest block", func(t *testing.T) {
 		actualBlock, err := client.Block(t.Context(), "latest")
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.NotNil(t, actualBlock)
+		assert.NotZero(t, actualBlock)
 	})
 }
 
@@ -828,12 +828,12 @@ func TestClassDefinition(t *testing.T) {
 
 		actualClass, err := client.ClassDefinition(t.Context(), classHash)
 		assert.Equal(t, nil, err, "Unexpected error")
-		assert.NotNil(t, actualClass)
+		assert.NotZero(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0x000")
 		actualClass, err := client.ClassDefinition(t.Context(), classHash)
-		assert.Nil(t, actualClass)
+		assert.Zero(t, actualClass)
 		assert.Error(t, err)
 	})
 }
@@ -992,58 +992,12 @@ func TestSignature(t *testing.T) {
 	t.Run("Test on unexisting block", func(t *testing.T) {
 		actualSignature, err := client.Signature(t.Context(), strconv.Itoa(10000000000))
 		assert.Error(t, err)
-		assert.Nil(t, actualSignature)
+		assert.Zero(t, actualSignature)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
 		actualSignature, err := client.Signature(t.Context(), "latest")
 		assert.NoError(t, err)
-		assert.NotNil(t, actualSignature)
-	})
-}
-
-func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-
-	t.Run("Test normal case", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), strconv.Itoa(0))
-		assert.NoError(t, err)
-		assert.Equal(
-			t,
-			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
-			actualStateUpdate.Block.Hash.String(),
-		)
-		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
-		assert.Equal(
-			t,
-			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
-			actualStateUpdate.Block.StateRoot.String(),
-		)
-		assert.Equal(
-			t,
-			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
-			actualStateUpdate.StateUpdate.BlockHash.String(),
-		)
-		assert.Equal(
-			t,
-			"0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833",
-			actualStateUpdate.StateUpdate.NewRoot.String(),
-		)
-		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
-		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
-		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
-	})
-	t.Run("Test on unexisting block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(
-			t.Context(),
-			strconv.Itoa(10000000000),
-		)
-		assert.Error(t, err)
-		assert.Nil(t, actualStateUpdate)
-	})
-	t.Run("Test on latest block", func(t *testing.T) {
-		actualStateUpdate, err := client.StateUpdateWithBlock(t.Context(), "latest")
-		assert.NoError(t, err)
-		assert.NotNil(t, actualStateUpdate)
+		assert.NotZero(t, actualSignature)
 	})
 }
 
@@ -1111,12 +1065,12 @@ func TestStateUpdateWithBlockAndSignature(t *testing.T) {
 			strconv.Itoa(10000000000),
 		)
 		assert.Error(t, err)
-		assert.Nil(t, actualStateUpdate)
+		assert.Zero(t, actualStateUpdate)
 	})
 	t.Run("Test on latest block", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlockAndSignature(t.Context(), "latest")
 		assert.NoError(t, err)
-		assert.NotNil(t, actualStateUpdate)
+		assert.NotZero(t, actualStateUpdate)
 	})
 }
 
@@ -1192,7 +1146,7 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
-		require.NotNil(t, block)
+		require.NotZero(t, block)
 		require.Equal(t, 3, requestCount)
 	})
 
@@ -1242,7 +1196,7 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
-		require.NotNil(t, block)
+		require.NotZero(t, block)
 		require.Equal(t, 2, requestCount)
 	})
 }
@@ -1319,5 +1273,44 @@ func TestFeederValidation(t *testing.T) {
 			"get_preconfirmed_block?blockIdentifier=0x0&blockNumber=&knownTransactionCount=0",
 			"error must contain the query URL that returned the invalid response",
 		)
+	})
+}
+
+func TestPreConfirmedBlockLatest(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+
+	t.Run("blank identifier returns the full block for a new round", func(t *testing.T) {
+		update, blockNumber, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(10936237), blockNumber)
+
+		full, ok := update.(starknet.PreConfirmedBlock)
+		require.True(t, ok, "expected PreConfirmedBlock, got %T", update)
+		assert.Equal(t, "0x1cbe25d9", full.BlockIdentifier)
+		assert.Equal(t, "PRE_CONFIRMED", full.Status)
+		assert.Equal(t, "0.14.2", full.Version)
+		assert.Len(t, full.Transactions, 3)
+	})
+
+	t.Run("matching identifier and txn count returns the appended delta", func(t *testing.T) {
+		update, blockNumber, err := client.PreConfirmedBlockLatest(t.Context(), "0x1cbe25d9", 3)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(10936237), blockNumber)
+
+		delta, ok := update.(starknet.PreConfirmedDeltaUpdate)
+		require.True(t, ok, "expected PreConfirmedDeltaUpdate, got %T", update)
+		assert.Equal(t, "0x1cbe25d9", delta.BlockIdentifier)
+		assert.Len(t, delta.Transactions, 1)
+	})
+
+	t.Run("matching identifier with no appended txns returns no change", func(t *testing.T) {
+		update, _, err := client.PreConfirmedBlockLatest(t.Context(), "0x1cbe25d9", 4)
+		require.NoError(t, err)
+		assert.IsType(t, starknet.PreConfirmedNoChange{}, update)
+	})
+
+	t.Run("full block response without block_number is rejected", func(t *testing.T) {
+		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "0xbad", 0)
+		require.ErrorContains(t, err, "missing block_number")
 	})
 }

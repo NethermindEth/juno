@@ -83,7 +83,6 @@ type Config struct {
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
 	Colour                   bool             `mapstructure:"colour"`
-	PreLatestPollInterval    time.Duration    `mapstructure:"prelatest-poll-interval"`
 	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
@@ -133,14 +132,21 @@ type Config struct {
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
-	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
-	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
-	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
-	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
-	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState                  bool          `mapstructure:"new-state"`
+	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+
+	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
+	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
+	MaxConcurrentCompilations         uint64 `mapstructure:"max-concurrent-compilations"`
+	MaxConcurrentCompilationsExplicit bool
+	MaxCompilationQueue               uint64 `mapstructure:"max-compilation-queue"`
+	MaxCompilationQueueExplicit       bool
+
+	MaxCompilationMemory  uint `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
+	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
+	NewState              bool `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
@@ -293,20 +299,22 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	throttledCompiler := NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	compiler := compiler.New(
+		&compiler.Config{
+			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+		},
+		"",
+		logger,
 	)
+	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
 	if cfg.Sequencer {
+		logger.Warn(
+			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+		)
+
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
@@ -397,7 +405,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			chain,
 			feederGatewayDataSource,
 			logger,
-			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
 			database,
@@ -622,14 +629,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		var l1Client *l1.Client
 		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
 		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
+			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
 		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
+		ug := upgrader.NewUpgrader(
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+		)
 		n.services = append(n.services, ug)
 	} else {
 		logger.Warn("Failed to parse Juno version, will not warn about new releases",
@@ -645,10 +654,12 @@ func newL1Client(
 ) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...)",
+		)
 	}
 
 	network := chain.Network()
@@ -656,7 +667,7 @@ func newL1Client(
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, fmt.Errorf("subscribing to L1: %w", err)
 	}
 
 	opts := make([]l1.Option, 0, 1)

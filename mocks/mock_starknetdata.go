@@ -88,21 +88,6 @@ func (mr *MockStarknetDataMockRecorder) BlockLatest(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockLatest), ctx)
 }
 
-// BlockPreLatest mocks base method.
-func (m *MockStarknetData) BlockPreLatest(ctx context.Context) (*core.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockPreLatest", ctx)
-	ret0, _ := ret[0].(*core.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockPreLatest indicates an expected call of BlockPreLatest.
-func (mr *MockStarknetDataMockRecorder) BlockPreLatest(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockPreLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockPreLatest), ctx)
-}
-
 // Class mocks base method.
 func (m *MockStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
 	m.ctrl.T.Helper()
@@ -133,6 +118,22 @@ func (mr *MockStarknetDataMockRecorder) PreConfirmedBlockByNumber(ctx, blockNumb
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).PreConfirmedBlockByNumber), ctx, blockNumber, blockIdentifier, knownTransactionCount)
 }
 
+// PreConfirmedBlockLatest mocks base method.
+func (m *MockStarknetData) PreConfirmedBlockLatest(ctx context.Context, blockIdentifier string, knownTransactionCount uint64) (starknet.PreConfirmedUpdate, uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreConfirmedBlockLatest", ctx, blockIdentifier, knownTransactionCount)
+	ret0, _ := ret[0].(starknet.PreConfirmedUpdate)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PreConfirmedBlockLatest indicates an expected call of PreConfirmedBlockLatest.
+func (mr *MockStarknetDataMockRecorder) PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlockLatest", reflect.TypeOf((*MockStarknetData)(nil).PreConfirmedBlockLatest), ctx, blockIdentifier, knownTransactionCount)
+}
+
 // StateUpdate mocks base method.
 func (m *MockStarknetData) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
@@ -146,37 +147,6 @@ func (m *MockStarknetData) StateUpdate(ctx context.Context, blockNumber uint64) 
 func (mr *MockStarknetDataMockRecorder) StateUpdate(ctx, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdate", reflect.TypeOf((*MockStarknetData)(nil).StateUpdate), ctx, blockNumber)
-}
-
-// StateUpdatePending mocks base method.
-func (m *MockStarknetData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePending", ctx)
-	ret0, _ := ret[0].(*core.StateUpdate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateUpdatePending indicates an expected call of StateUpdatePending.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePending(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePending", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePending), ctx)
-}
-
-// StateUpdatePendingWithBlock mocks base method.
-func (m *MockStarknetData) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePendingWithBlock", ctx)
-	ret0, _ := ret[0].(*core.StateUpdate)
-	ret1, _ := ret[1].(*core.Block)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// StateUpdatePendingWithBlock indicates an expected call of StateUpdatePendingWithBlock.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePendingWithBlock(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePendingWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePendingWithBlock), ctx)
 }
 
 // StateUpdateWithBlock mocks base method.

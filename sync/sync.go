@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/sourcegraph/conc/stream"
 	"go.uber.org/zap"
@@ -30,6 +31,13 @@ const (
 	OpVerify = "verify"
 	OpStore  = "store"
 	OpFetch  = "fetch"
+
+	// Reorg-check ops, one per exit level of isReverting: resolved from the
+	// local height alone, after fetching the remote head, or only after also
+	// reading the local header for a hash comparison.
+	OpReorgCheckFast   = "reorgCheckFast"
+	OpReorgCheckRemote = "reorgCheckRemote"
+	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
@@ -47,10 +55,6 @@ type PendingTxSubscription struct {
 
 type PreConfirmedDataSubscription struct {
 	*feed.Subscription[*pending.PreConfirmed]
-}
-
-type PreLatestDataSubscription struct {
-	*feed.Subscription[*pending.PreLatest]
 }
 
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
@@ -74,8 +78,7 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePreConfirmed() PreConfirmedDataSubscription
-	SubscribePreLatest() PreLatestDataSubscription
-	PreConfirmed() (*pending.PreConfirmed, error)
+	PreConfirmedChain() (preconfirmed.ChainReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -101,12 +104,8 @@ func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription 
 	return PreConfirmedDataSubscription{feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
-	return PreLatestDataSubscription{feed.New[*pending.PreLatest]().Subscribe()}
-}
-
-func (n *NoopSynchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
-	return nil, errors.New("PreConfirmed() is not implemented")
+func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return preconfirmed.ChainReader{}, errors.New("PreConfirmedChain() is not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -120,13 +119,11 @@ type Synchronizer struct {
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
 	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
-	preLatestDataFeed    *feed.Feed[*pending.PreLatest]
 
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             *PreConfirmedStorage
-	preLatestPollInterval    time.Duration
+	preConfirmed             *preconfirmed.ChainStorage
 	preConfirmedPollInterval time.Duration
 
 	catchUpMode bool
@@ -139,7 +136,6 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
-	preLatestPollInterval,
 	preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
@@ -152,12 +148,10 @@ func New(
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preLatestDataFeed:        feed.New[*pending.PreLatest](),
-		preLatestPollInterval:    preLatestPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
-		preConfirmed:             NewPreConfirmedStorage(),
+		preConfirmed:             preconfirmed.NewChainStorage(),
 	}
 	return s
 }
@@ -215,27 +209,31 @@ func (s *Synchronizer) isReverting(
 	ctx context.Context,
 	nextHeight uint64,
 ) (lastPossiblyValidHeight uint64, isReorg bool) {
-	// If localHead is somehow not available, we precautionarily assume we're not reverting
-	localHead, err := s.blockchain.HeadsHeader()
+	checkTimer := time.Now()
+
+	// If localHeight is somehow not available, we precautionarily assume we're not reverting
+	localHeight, err := s.blockchain.Height()
 	if err != nil {
 		return 0, false
 	}
-	localHeight := localHead.Number
 
 	// Only check if we're waiting for the very next block
 	if localHeight+1 != nextHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckFast, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
 	// If unable to fetch remoteHead block, we precautionarily assume we're not reverting
 	remoteHead, err := s.dataSource.BlockHeaderLatest(ctx)
 	if err != nil {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 	remoteHeight := remoteHead.Number
 
 	// If a newer block is available, revert will be handled in storeTask
 	if remoteHeight > localHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
@@ -243,10 +241,13 @@ func (s *Synchronizer) isReverting(
 	// If the latest block is older than the head, compare with the stored block at the same height
 	if remoteHeight < localHeight {
 		localHeight = remoteHeight
-		if localHead, err = s.blockchain.BlockHeaderByNumber(localHeight); err != nil {
-			return 0, false
-		}
 	}
+
+	localHead, err := s.blockchain.BlockHeaderByNumber(localHeight)
+	if err != nil {
+		return 0, false
+	}
+	s.listener.OnSyncStepDone(OpReorgCheckLocal, nextHeight, time.Since(checkTimer))
 
 	if *remoteHead.Hash == *localHead.Hash {
 		return 0, false
@@ -392,8 +393,12 @@ func (s *Synchronizer) storeTask(
 	}
 
 	s.newHeads.Send(block)
-	s.logger.Info("Stored Block", zap.Uint64("number", block.Number), zap.String("hash",
-		block.Hash.ShortString()), zap.String("root", block.GlobalStateRoot.ShortString()))
+	s.logger.Info(
+		"Stored Block",
+		zap.Uint64("number", block.Number),
+		zap.String("hash", block.Hash.ShortString()),
+		zap.String("root", block.GlobalStateRoot.ShortString()),
+	)
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 		if err != nil {
@@ -564,10 +569,6 @@ func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
 	return PreConfirmedDataSubscription{s.preConfirmedDataFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePreLatest() PreLatestDataSubscription {
-	return PreLatestDataSubscription{s.preLatestDataFeed.Subscribe()}
-}
-
 func (s *Synchronizer) pollLatest(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 
@@ -589,27 +590,46 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) PreConfirmed() (*pending.PreConfirmed, error) {
+func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, err
+			return preconfirmed.ChainReader{}, err
 		}
 		head = nil
 	}
 
-	preConfirmed := s.preConfirmed.ReadPreConfirmedForHead(head)
-	if preConfirmed != nil {
-		return preConfirmed, nil
+	snapshot := s.preConfirmed.SnapshotForHead(head)
+	if snapshot.Length() > 0 {
+		return snapshot, nil
 	}
 
 	// Fallback: no stored pre-confirmed, or stored data failed validation.
 	if head == nil {
-		return nil, db.ErrKeyNotFound
+		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}
 	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
-		return nil, err
+		return preconfirmed.ChainReader{}, err
 	}
-	return &emptyPreConfirmed, nil
+	return preconfirmed.NewChain(&emptyPreConfirmed)
+}
+
+// pollPendingData launches the pre_confirmed chain poller.
+func (s *Synchronizer) pollPendingData(ctx context.Context) {
+	if s.preConfirmedPollInterval == 0 {
+		s.logger.Info("Pre-confirmed block polling is disabled")
+		return
+	}
+
+	poller := preconfirmed.NewPoller(
+		s.dataSource,
+		s.preConfirmed,
+		s.blockchain,
+		s.preConfirmedDataFeed,
+		&s.highestBlockHeader,
+		s.preConfirmedPollInterval,
+		s.logger,
+	)
+	poller.Run(ctx)
 }
