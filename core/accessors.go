@@ -435,6 +435,17 @@ func GetReceiptsByBlockNumber(
 	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetReceiptEventsByBlockNumber returns a reduced view of every receipt in a
+// block, decoding only the events and transaction hash. Cheaper than
+// GetReceiptsByBlockNumber for event queries — the discarded receipt fields are
+// never materialised.
+func GetReceiptEventsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]ReceiptEvents, error) {
+	return BlockTransactionsAllReceiptEventsPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,

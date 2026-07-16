@@ -103,6 +103,7 @@ type Blockchain struct {
 // options holds configuration for constructing a Blockchain.
 type options struct {
 	listener                EventListener
+	bloomCacheListener      AggregatedBloomCacheListener
 	stateVersion            bool
 	runningFilterInitialize core.RunningEventFilterInitializer
 }
@@ -114,6 +115,14 @@ type Option func(*options)
 func WithListener(listener EventListener) Option {
 	return func(o *options) {
 		o.listener = listener
+	}
+}
+
+// WithAggregatedBloomCacheListener sets the metrics listener for the aggregated
+// bloom filter cache.
+func WithAggregatedBloomCacheListener(listener AggregatedBloomCacheListener) Option {
+	return func(o *options) {
+		o.bloomCacheListener = listener
 	}
 }
 
@@ -147,6 +156,9 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
 	}
 	cachedFilters.WithFallback(fallback)
+	if o.bloomCacheListener != nil {
+		cachedFilters.WithListener(o.bloomCacheListener)
+	}
 
 	runningFilter := core.NewRunningEventFilterLazy(database, o.runningFilterInitialize)
 

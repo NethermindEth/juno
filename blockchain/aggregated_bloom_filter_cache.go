@@ -3,14 +3,56 @@ package blockchain
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/bits-and-blooms/bitset"
+	"golang.org/x/sync/singleflight"
 )
 
 // NOTE(Ege): consider making it configurable
 const AggregatedBloomFilterCacheSize = 16
+
+// AggregatedBloomCacheListener observes cache behaviour for metrics. All
+// methods must be safe for concurrent use.
+type AggregatedBloomCacheListener interface {
+	// OnHit fires when a lookup is served from the LRU.
+	OnHit()
+	// OnMiss fires for every lookup not served from the LRU (before
+	// singleflight coalescing). loads - misses gives coalesced requests.
+	OnMiss()
+	// OnLoad fires once per actual fallback load, reporting filter density
+	// (setBits/totalBits) and the load duration.
+	OnLoad(setBits, totalBits uint64, dur time.Duration)
+}
+
+// SelectiveAggregatedBloomCacheListener is a no-op-by-default listener whose
+// callbacks can be set individually.
+type SelectiveAggregatedBloomCacheListener struct {
+	OnHitCb  func()
+	OnMissCb func()
+	OnLoadCb func(setBits, totalBits uint64, dur time.Duration)
+}
+
+func (l *SelectiveAggregatedBloomCacheListener) OnHit() {
+	if l.OnHitCb != nil {
+		l.OnHitCb()
+	}
+}
+
+func (l *SelectiveAggregatedBloomCacheListener) OnMiss() {
+	if l.OnMissCb != nil {
+		l.OnMissCb()
+	}
+}
+
+func (l *SelectiveAggregatedBloomCacheListener) OnLoad(setBits, totalBits uint64, dur time.Duration) {
+	if l.OnLoadCb != nil {
+		l.OnLoadCb(setBits, totalBits, dur)
+	}
+}
 
 // Provides cache-accelerated lookup of blockchain events
 // across block ranges by aggregating bloom filters. It includes LRU-cached filters
@@ -29,6 +71,10 @@ type EventFiltersCacheKey struct {
 type AggregatedBloomFilterCache struct {
 	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
+	// group collapses concurrent fallback loads for the same range into a
+	// single DB read + decode.
+	group    singleflight.Group
+	listener AggregatedBloomCacheListener
 }
 
 // NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
@@ -39,6 +85,7 @@ func NewAggregatedBloomCache(size int) *AggregatedBloomFilterCache {
 			EventFiltersCacheKey,
 			*core.AggregatedBloomFilter,
 		](size),
+		listener: &SelectiveAggregatedBloomCacheListener{},
 	}
 }
 
@@ -47,6 +94,59 @@ func NewAggregatedBloomCache(size int) *AggregatedBloomFilterCache {
 // return a filter matching the queried range, or an error.
 func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)) {
 	c.fallbackFunc = fallback
+}
+
+// WithListener sets the metrics listener. A nil listener resets to no-op.
+func (c *AggregatedBloomFilterCache) WithListener(listener AggregatedBloomCacheListener) {
+	if listener == nil {
+		listener = &SelectiveAggregatedBloomCacheListener{}
+	}
+	c.listener = listener
+}
+
+func (k EventFiltersCacheKey) singleflightKey() string {
+	return strconv.FormatUint(k.fromBlock, 10) + ":" + strconv.FormatUint(k.toBlock, 10)
+}
+
+// getOrLoad returns the filter for key, loading it via the fallback on a cache
+// miss. Concurrent misses for the same key are coalesced into one load; the
+// resulting filter is read-only and safe to share across callers.
+func (c *AggregatedBloomFilterCache) getOrLoad(key EventFiltersCacheKey) (*core.AggregatedBloomFilter, error) {
+	if filter, ok := c.cache.Get(key); ok {
+		c.listener.OnHit()
+		return filter, nil
+	}
+
+	c.listener.OnMiss()
+	if c.fallbackFunc == nil {
+		return nil, ErrAggregatedBloomFilterFallbackNil
+	}
+
+	filter, err, _ := c.group.Do(key.singleflightKey(), func() (any, error) {
+		// A concurrent flight may have populated the cache between our miss
+		// and acquiring the flight; re-check before hitting the DB.
+		if filter, ok := c.cache.Get(key); ok {
+			return filter, nil
+		}
+
+		start := time.Now()
+		fetched, err := c.fallbackFunc(key)
+		if err != nil {
+			return nil, fmt.Errorf("fetching aggregated bloom filter via fallback: %w", err)
+		}
+		if fetched.FromBlock() != key.fromBlock || fetched.ToBlock() != key.toBlock {
+			return nil, ErrFetchedFilterBoundsMismatch
+		}
+
+		filter := &fetched
+		c.cache.Add(key, filter)
+		c.listener.OnLoad(filter.SetBitCount(), filter.TotalBitCount(), time.Since(start))
+		return filter, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return filter.(*core.AggregatedBloomFilter), nil
 }
 
 // Reset clears the entire bloom filter cache, removing all stored filters.
@@ -170,36 +270,13 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	}
 
 	key := EventFiltersCacheKey{fromBlock: fromAligned, toBlock: toAligned}
-	filter, ok := it.cache.cache.Get(key)
-
-	if ok {
-		err := it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
-		if err != nil {
-			return fmt.Errorf("getting candidate blocks for cached filter: %w", err)
-		}
-		it.currentWindowStart = fromAligned // set current window start absolute index
-		return nil
-	}
-
-	// Not found in cache and not fall into range of running filter
-	if it.cache.fallbackFunc == nil {
-		return ErrAggregatedBloomFilterFallbackNil
-	}
-
-	fetched, err := it.cache.fallbackFunc(key)
+	filter, err := it.cache.getOrLoad(key)
 	if err != nil {
-		return fmt.Errorf("fetching aggregated bloom filter via fallback: %w", err)
-	}
-	filter = &fetched
-	if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
-		return ErrFetchedFilterBoundsMismatch
+		return err
 	}
 
-	it.cache.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
-
-	err = it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
-	if err != nil {
-		return fmt.Errorf("getting candidate blocks for fetched filter: %w", err)
+	if err := it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits); err != nil {
+		return fmt.Errorf("getting candidate blocks for filter: %w", err)
 	}
 	it.currentWindowStart = fromAligned // set current window start absolute index
 	return nil

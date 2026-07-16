@@ -78,6 +78,27 @@ func TestNewBlockTransactionsFromIterators(t *testing.T) {
 	assertBlockTransactions(t, blockTransactions, transactions, receipts)
 }
 
+// Pins that the reduced ReceiptEvents view decodes the same events and
+// transaction hash as the full receipts from the same stored bytes. Guards the
+// CBOR field-name alignment between ReceiptEvents and TransactionReceipt.
+func TestReceiptEvents_MatchesReceipt(t *testing.T) {
+	transactions := testutils.GetCoreTransactions(t, transactionCount)
+	receipts := testutils.GetCoreReceipts(t, transactionCount)
+	blockTransactions, err := core.NewBlockTransactions(transactions, receipts)
+	require.NoError(t, err)
+
+	views, err := blockTransactions.ReceiptEvents().All()
+	require.NoError(t, err)
+	require.Len(t, views, len(receipts))
+	for i, r := range receipts {
+		require.Equal(t, r.Events, views[i].Events, "receipt %d events", i)
+		require.Equal(t, r.TransactionHash, views[i].TransactionHash, "receipt %d hash", i)
+	}
+
+	// The in-memory adapter (pre-confirmed path) yields the same views.
+	require.Equal(t, views, core.ReceiptEventsFromReceipts(receipts))
+}
+
 func assertPartialSerializer[E partial.PartialSerializer[S, T], S, T any](
 	t *testing.T,
 	serializer E,

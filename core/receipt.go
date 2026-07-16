@@ -26,6 +26,28 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
+// ReceiptEvents is a reduced CBOR view of TransactionReceipt decoding only the
+// fields getEvents needs. Receipts are stored as CBOR maps keyed by field name,
+// so decoding into this narrower struct skips the large discarded fields
+// (ExecutionResources, messages, fees) without materialising them.
+//
+// The field names and types MUST mirror TransactionReceipt exactly, or the CBOR
+// map keys will not align. See TestReceiptEvents_MatchesReceipt.
+type ReceiptEvents struct {
+	Events          []*Event
+	TransactionHash *felt.Felt
+}
+
+// ReceiptEventsFromReceipts adapts already-decoded receipts (e.g. pre-confirmed,
+// in-memory) to the reduced view, sharing the underlying slices/pointers.
+func ReceiptEventsFromReceipts(receipts []*TransactionReceipt) []ReceiptEvents {
+	views := make([]ReceiptEvents, len(receipts))
+	for i, r := range receipts {
+		views[i] = ReceiptEvents{Events: r.Events, TransactionHash: r.TransactionHash}
+	}
+	return views
+}
+
 func (r *TransactionReceipt) hash() felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {

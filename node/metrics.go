@@ -264,6 +264,48 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
+func makeBloomCacheMetrics() blockchain.AggregatedBloomCacheListener {
+	lookups := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "blockchain",
+		Subsystem: "bloom_cache",
+		Name:      "lookups_total",
+		Help:      "Aggregated bloom filter cache lookups by result (hit/miss)",
+	}, []string{"result"})
+	loads := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "blockchain",
+		Subsystem: "bloom_cache",
+		Name:      "loads_total",
+		Help:      "Actual fallback loads (misses not coalesced by singleflight)",
+	})
+	loadLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "blockchain",
+		Subsystem: "bloom_cache",
+		Name:      "load_seconds",
+		Help:      "Latency of a fallback aggregated bloom filter load",
+		Buckets:   prometheus.DefBuckets,
+	})
+	density := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "blockchain",
+		Subsystem: "bloom_cache",
+		Name:      "filter_density",
+		Help:      "Set-bit fraction of loaded filters (predicts compressibility)",
+		Buckets:   prometheus.LinearBuckets(0.05, 0.05, 20),
+	})
+	prometheus.MustRegister(lookups, loads, loadLatency, density)
+
+	return &blockchain.SelectiveAggregatedBloomCacheListener{
+		OnHitCb:  func() { lookups.WithLabelValues("hit").Inc() },
+		OnMissCb: func() { lookups.WithLabelValues("miss").Inc() },
+		OnLoadCb: func(setBits, totalBits uint64, dur time.Duration) {
+			loads.Inc()
+			loadLatency.Observe(dur.Seconds())
+			if totalBits > 0 {
+				density.Observe(float64(setBits) / float64(totalBits))
+			}
+		},
+	}
+}
+
 func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",

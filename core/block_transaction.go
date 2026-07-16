@@ -91,3 +91,9 @@ func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
 func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
 	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
 }
+
+// ReceiptEvents decodes receipts into the reduced ReceiptEvents view, skipping
+// the fields getEvents does not read.
+func (b *BlockTransactions) ReceiptEvents() indexed.LazySlice[ReceiptEvents] {
+	return indexed.NewLazySlice[ReceiptEvents](b.Indexes.Receipts, b.Data)
+}

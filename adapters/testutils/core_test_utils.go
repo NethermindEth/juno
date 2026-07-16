@@ -36,12 +36,21 @@ func randomSliceT[T any](t *testing.T, size int, generator func(t *testing.T) T)
 	return items
 }
 
-func randomL1Address(t *testing.T) eth.Address {
-	t.Helper()
+func randomSliceTB[T any](tb testing.TB, size int, generator func(tb testing.TB) T) []T {
+	tb.Helper()
+	items := make([]T, size)
+	for i := range size {
+		items[i] = generator(tb)
+	}
+	return items
+}
+
+func randomL1Address(tb testing.TB) eth.Address {
+	tb.Helper()
 	var l1Address eth.Address
 	read, err := cryptorand.Read(l1Address[:])
-	require.Equal(t, len(l1Address), read)
-	require.NoError(t, err)
+	require.Equal(tb, len(l1Address), read)
+	require.NoError(tb, err)
 	return l1Address
 }
 
@@ -83,10 +92,10 @@ func randomExecutionResources() *core.ExecutionResources {
 	}
 }
 
-func randomL1ToL2Message(t *testing.T) *core.L1ToL2Message {
-	t.Helper()
+func randomL1ToL2Message(tb testing.TB) *core.L1ToL2Message {
+	tb.Helper()
 	return &core.L1ToL2Message{
-		From:     randomL1Address(t),
+		From:     randomL1Address(tb),
 		Nonce:    felt.NewRandom[felt.Felt](),
 		Payload:  randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
 		Selector: felt.NewRandom[felt.Felt](),
@@ -94,24 +103,24 @@ func randomL1ToL2Message(t *testing.T) *core.L1ToL2Message {
 	}
 }
 
-func randomL2ToL1Message(t *testing.T) *core.L2ToL1Message {
-	t.Helper()
+func randomL2ToL1Message(tb testing.TB) *core.L2ToL1Message {
+	tb.Helper()
 	return &core.L2ToL1Message{
 		From:    felt.NewRandom[felt.Felt](),
 		Payload: randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
-		To:      randomL1Address(t),
+		To:      randomL1Address(tb),
 	}
 }
 
-func randomReceipt(t *testing.T) *core.TransactionReceipt {
-	t.Helper()
+func randomReceipt(tb testing.TB) *core.TransactionReceipt {
+	tb.Helper()
 	return &core.TransactionReceipt{
 		Fee:                felt.NewRandom[felt.Felt](),
 		FeeUnit:            randomEnum(core.STRK, core.WEI),
 		Events:             randomSlice(sliceLen, randomEvent),
 		ExecutionResources: randomExecutionResources(),
-		L1ToL2Message:      randomL1ToL2Message(t),
-		L2ToL1Message:      randomSliceT(t, sliceLen, randomL2ToL1Message),
+		L1ToL2Message:      randomL1ToL2Message(tb),
+		L2ToL1Message:      randomSliceTB(tb, sliceLen, randomL2ToL1Message),
 		TransactionHash:    felt.NewRandom[felt.Felt](),
 		Reverted:           rand.IntN(2) == 0,
 		RevertReason:       cryptorand.Text(),
@@ -164,7 +173,7 @@ func GetCoreTransactions(t *testing.T, count int) []core.Transaction {
 	)
 }
 
-func GetCoreReceipts(t *testing.T, count int) []*core.TransactionReceipt {
-	t.Helper()
-	return randomSliceT(t, count, randomReceipt)
+func GetCoreReceipts(tb testing.TB, count int) []*core.TransactionReceipt {
+	tb.Helper()
+	return randomSliceTB(tb, count, randomReceipt)
 }

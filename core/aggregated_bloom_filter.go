@@ -335,6 +335,21 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+// SetBitCount returns the total number of set bits across the whole matrix.
+// Cheap popcount over the backing words; used to gauge filter density.
+func (f *AggregatedBloomFilter) SetBitCount() uint64 {
+	var count uint64
+	for i := range f.bitmap {
+		count += uint64(f.bitmap[i].Count())
+	}
+	return count
+}
+
+// TotalBitCount returns the matrix capacity in bits (rows * columns).
+func (f *AggregatedBloomFilter) TotalBitCount() uint64 {
+	return uint64(len(f.bitmap)) * NumBlocksPerFilter
+}
+
 func makeBitset() bitset.BitSet {
 	b := bitset.BitSet{}
 	b.Set(uint(MaxBlockOffsetPerFilter))

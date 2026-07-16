@@ -153,7 +153,7 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 func (e *EventMatcher) AppendBlockEvents(
 	matchedEventsSofar []FilteredEvent,
 	header *core.Header,
-	receipts []*core.TransactionReceipt,
+	receipts []core.ReceiptEvents,
 	skippedEvents uint64,
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {

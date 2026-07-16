@@ -268,8 +268,8 @@ func (e *EventFilter) canonicalEvents(
 			return nil, ContinuationToken{}, err
 		}
 
-		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.database, header.Number)
+		var receipts []core.ReceiptEvents
+		receipts, err = core.GetReceiptEventsByBlockNumber(e.database, header.Number)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
@@ -355,7 +355,7 @@ func (e *EventFilter) preConfirmedEvents(
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
 			header,
-			entry.Block.Receipts,
+			core.ReceiptEventsFromReceipts(entry.Block.Receipts),
 			skippedEvents,
 			chunkSize,
 		)

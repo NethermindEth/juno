@@ -54,6 +54,12 @@ func (extractAllReceipts) extract(b *BlockTransactions, _ struct{}) ([]*Transact
 	return b.Receipts().All()
 }
 
+type extractAllReceiptEvents struct{}
+
+func (extractAllReceiptEvents) extract(b *BlockTransactions, _ struct{}) ([]ReceiptEvents, error) {
+	return b.ReceiptEvents().All()
+}
+
 type extractAll struct{}
 
 func (extractAll) extract(b *BlockTransactions, _ struct{}) (BlockTransactions, error) {
@@ -100,5 +106,10 @@ var (
 		extractAllReceipts,
 		struct{},
 		[]*TransactionReceipt,
+	]{}
+	BlockTransactionsAllReceiptEventsPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllReceiptEvents,
+		struct{},
+		[]ReceiptEvents,
 	]{}
 )

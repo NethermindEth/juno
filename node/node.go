@@ -236,6 +236,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	opts := make([]blockchain.Option, 0, 3)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
+		opts = append(opts, blockchain.WithAggregatedBloomCacheListener(makeBloomCacheMetrics()))
 	}
 	opts = append(opts, blockchain.WithNewState(
 		cfg.NewState,
