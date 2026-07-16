@@ -176,9 +176,9 @@ func (p *Poller) tick(ctx context.Context) error {
 
 // backfill fills the gap [fromBlock, endExclusive), applying each slot with its own
 // declared classes so they land on the exact block that declares them. The old tip
-// (fromBlock) is re-polled with delta hints and its classes resolved by oldTipClasses;
-// the intermediate slots are polled as full blocks. currentHead is the stored old tip,
-// needed to recover classes it declared while it was the tip. The caller decides when
+// (fromBlock) is re-polled with delta hints, resolving classes from both currentHead (the
+// stored old tip, needed to recover classes it declared while it was the tip) and the
+// re-poll; the intermediate slots are polled as full blocks. The caller decides when
 // backfill is needed; it performs no gap check.
 func (p *Poller) backfill(
 	ctx context.Context,
@@ -193,7 +193,7 @@ func (p *Poller) backfill(
 	if err != nil {
 		return fmt.Errorf("polling pre-confirmed for number %d: %w", fromBlockNum, err)
 	}
-	newClasses, err := p.fetchClasses(ctx, declaredClassHashesForRepolledTip(currentHead, update))
+	newClasses, err := p.fetchDeclaredClasses(ctx, currentHead, update)
 	if err != nil {
 		return fmt.Errorf("fetching declared classes for pre-confirmed %d: %w", fromBlockNum, err)
 	}
@@ -206,7 +206,7 @@ func (p *Poller) backfill(
 		if err != nil {
 			return fmt.Errorf("polling pre-confirmed for number %d: %w", n, err)
 		}
-		newClasses, err := p.fetchClasses(ctx, declaredClassHashesFromUpdate(update))
+		newClasses, err := p.fetchDeclaredClasses(ctx, nil, update)
 		if err != nil {
 			return fmt.Errorf("fetching declared classes for pre-confirmed %d: %w", n, err)
 		}
@@ -245,109 +245,102 @@ func (p *Poller) apply(
 	return nil
 }
 
-// fetchClasses fetches the definition of each unique class hash yielded by the
-// sequence from the data source. Returns nil when the sequence yields nothing.
-func (p *Poller) fetchClasses(
+// fetchDeclaredClasses fetches the definitions of every class declared by update — and,
+// for a delta or no-change re-poll that continues storedTip's round, by storedTip too —
+// deduping so each hash hits the data source at most once. storedTip is nil for a fresh
+// slot with no prior stored view. Returns nil when nothing is declared.
+func (p *Poller) fetchDeclaredClasses(
 	ctx context.Context,
-	classHashes iter.Seq[felt.Felt],
+	storedTip *pending.PreConfirmed,
+	update starknet.PreConfirmedUpdate,
 ) (map[felt.Felt]core.ClassDefinition, error) {
-	var classes map[felt.Felt]core.ClassDefinition
-	for classHash := range classHashes {
-		if _, ok := classes[classHash]; ok {
-			continue
+	// A delta or no-change re-poll continues storedTip's round, so the classes it already
+	// declared belong to this same block; a full block is a fresh round carrying only its
+	// own.
+	var storedStateDiff *core.StateDiff
+	switch update.(type) {
+	case starknet.PreConfirmedDeltaUpdate, starknet.PreConfirmedNoChange:
+		if storedTip != nil {
+			storedStateDiff = storedTip.StateUpdate.StateDiff
 		}
-		class, err := p.dataSource.Class(ctx, &classHash)
+	}
+
+	var updateStateDiffs []*starknet.StateDiff
+	switch u := update.(type) {
+	case starknet.PreConfirmedBlock:
+		updateStateDiffs = u.TransactionStateDiffs
+	case starknet.PreConfirmedDeltaUpdate:
+		updateStateDiffs = u.TransactionStateDiffs
+	}
+
+	declaredCount := declaredClassCount(storedStateDiff, updateStateDiffs)
+	if declaredCount == 0 {
+		return nil, nil
+	}
+
+	classes := make(map[felt.Felt]core.ClassDefinition, declaredCount)
+	for classHash := range declaredClassHashes(storedStateDiff, updateStateDiffs) {
+		class, err := p.dataSource.Class(ctx, classHash)
 		if err != nil {
-			return nil, fmt.Errorf("fetching class %s: %w", &classHash, err)
+			return nil, fmt.Errorf("fetching class %s: %w", classHash, err)
 		}
-		if classes == nil {
-			classes = make(map[felt.Felt]core.ClassDefinition)
-		}
-		classes[classHash] = class
+		classes[*classHash] = class
 	}
 	return classes, nil
+}
+
+// declaredClassHashes yields every class hash declared across the stored and update state
+// diffs, in stored-then-update order.
+func declaredClassHashes(
+	storedStateDiff *core.StateDiff,
+	updateStateDiffs []*starknet.StateDiff,
+) iter.Seq[*felt.Felt] {
+	return func(yield func(*felt.Felt) bool) {
+		if storedStateDiff != nil {
+			for _, classHash := range storedStateDiff.DeclaredV0Classes {
+				if !yield(classHash) {
+					return
+				}
+			}
+			for classHash := range storedStateDiff.DeclaredV1Classes {
+				if !yield(&classHash) {
+					return
+				}
+			}
+		}
+		for _, stateDiff := range updateStateDiffs {
+			for _, classHash := range stateDiff.OldDeclaredContracts {
+				if !yield(classHash) {
+					return
+				}
+			}
+			for i := range stateDiff.DeclaredClasses {
+				if !yield(stateDiff.DeclaredClasses[i].ClassHash) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// declaredClassCount counts the classes declared across the stored and update state diffs.
+// A class is declared at most once, so the sum is exact and sizes the fetch map without
+// growing it.
+func declaredClassCount(
+	storedStateDiff *core.StateDiff,
+	updateStateDiffs []*starknet.StateDiff,
+) int {
+	count := 0
+	if storedStateDiff != nil {
+		count += len(storedStateDiff.DeclaredV0Classes) + len(storedStateDiff.DeclaredV1Classes)
+	}
+	for _, stateDiff := range updateStateDiffs {
+		count += len(stateDiff.OldDeclaredContracts) + len(stateDiff.DeclaredClasses)
+	}
+	return count
 }
 
 func (p *Poller) atTip(headNum uint64) bool {
 	highest := p.highestBlockHeader.Load()
 	return highest != nil && highest.Number <= headNum
-}
-
-// concat yields every element of each sequence in order.
-func concat[T any](seqs ...iter.Seq[T]) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for _, seq := range seqs {
-			for v := range seq {
-				if !yield(v) {
-					return
-				}
-			}
-		}
-	}
-}
-
-// declaredClassHashesFromUpdate yields the class hashes newly declared by a wire update's
-// transactions.
-func declaredClassHashesFromUpdate(update starknet.PreConfirmedUpdate) iter.Seq[felt.Felt] {
-	return func(yield func(felt.Felt) bool) {
-		var stateDiffs []*starknet.StateDiff
-		switch u := update.(type) {
-		case starknet.PreConfirmedBlock:
-			stateDiffs = u.TransactionStateDiffs
-		case starknet.PreConfirmedDeltaUpdate:
-			stateDiffs = u.TransactionStateDiffs
-		default:
-			return
-		}
-		for _, stateDiff := range stateDiffs {
-			for _, classHash := range stateDiff.OldDeclaredContracts {
-				if !yield(*classHash) {
-					return
-				}
-			}
-			for _, classDef := range stateDiff.DeclaredClasses {
-				if !yield(*classDef.ClassHash) {
-					return
-				}
-			}
-		}
-	}
-}
-
-// declaredClassHashesFromPreConfirmed yields the class hashes a stored pre-confirmed block
-// declares.
-func declaredClassHashesFromPreConfirmed(preConfirmed *pending.PreConfirmed) iter.Seq[felt.Felt] {
-	return func(yield func(felt.Felt) bool) {
-		stateDiff := preConfirmed.StateUpdate.StateDiff
-		for _, classHash := range stateDiff.DeclaredV0Classes {
-			if !yield(*classHash) {
-				return
-			}
-		}
-		for classHash := range stateDiff.DeclaredV1Classes {
-			if !yield(classHash) {
-				return
-			}
-		}
-	}
-}
-
-// declaredClassHashesForRepolledTip yields the class hashes declared by the stored tip and
-// the given update.
-func declaredClassHashesForRepolledTip(
-	storedTip *pending.PreConfirmed,
-	update starknet.PreConfirmedUpdate,
-) iter.Seq[felt.Felt] {
-	switch update.(type) {
-	case starknet.PreConfirmedBlock:
-		return declaredClassHashesFromUpdate(update)
-	case starknet.PreConfirmedDeltaUpdate:
-		return concat(
-			declaredClassHashesFromPreConfirmed(storedTip),
-			declaredClassHashesFromUpdate(update),
-		)
-	case starknet.PreConfirmedNoChange:
-		return declaredClassHashesFromPreConfirmed(storedTip)
-	}
-	return func(yield func(felt.Felt) bool) {}
 }
