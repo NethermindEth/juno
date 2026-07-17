@@ -506,7 +506,7 @@ func testAdvanceToFullDrop(t *testing.T) {
 // testAdvanceToReorgClearsAndRecovers simulates a canonical head reorg: the
 // chain was built on top of head=5 (entries at slots 6,7), then the canonical
 // head reverts to 3. Every stored entry's parent now references a discarded
-// block, so AdvanceTo must drop the whole chain. SnapshotForHead at the new
+// block, so AdvanceTo must drop the whole chain. SnapshotForBlock at the new
 // head reports empty (callers see no pre_confirmed), and the next poll
 // (applying a fresh block at the new head+1) bootstraps cleanly.
 func testAdvanceToReorgClearsAndRecovers(t *testing.T) {
@@ -534,22 +534,22 @@ func testAdvanceToReorgClearsAndRecovers(t *testing.T) {
 	assertChain(t, &recovered, entry(4, &b4))
 }
 
-// ---- TestChainStorageSnapshotForHead --------------------------------------
+// ---- TestChainStorageSnapshotForBlock -------------------------------------
 
-func TestChainStorageSnapshotForHead(t *testing.T) {
-	t.Run("empty storage returns zero-value view", testSnapshotForHeadEmpty)
-	t.Run("trims view when storage is briefly stale", testSnapshotForHeadStaleTrim)
-	t.Run("zero-value when head+1 is above most recent", testSnapshotForHeadEmptyAboveTip)
+func TestChainStorageSnapshotForBlock(t *testing.T) {
+	t.Run("empty storage returns zero-value view", testSnapshotForBlockEmpty)
+	t.Run("trims view when storage is briefly stale", testSnapshotForBlockStaleTrim)
+	t.Run("zero-value when head+1 is above most recent", testSnapshotForBlockEmptyAboveTip)
 }
 
-func testSnapshotForHeadEmpty(t *testing.T) {
+func testSnapshotForBlockEmpty(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	view := s.SnapshotForBlock(oldestPreConfFor(100))
 	require.Zero(t, view.Length())
 	require.Nil(t, view.Head())
 }
 
-func testSnapshotForHeadStaleTrim(t *testing.T) {
+func testSnapshotForBlockStaleTrim(t *testing.T) {
 	// Bootstrap under head=0 → the chain's oldest slot is 1. Then a reader passes head=2
 	// before AdvanceTo has run.
 	storedOldest := oldestPreConfFor(0)
@@ -568,7 +568,7 @@ func testSnapshotForHeadStaleTrim(t *testing.T) {
 	assertChain(t, &full, rangeEntries(1, blocks)...)
 }
 
-func testSnapshotForHeadEmptyAboveTip(t *testing.T) {
+func testSnapshotForBlockEmptyAboveTip(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
 	for n := uint64(1); n <= 5; n++ {
@@ -1335,8 +1335,8 @@ func testPinnedSnapshotImmuneToAdvance(t *testing.T) {
 // view rebuild, 1 ChainReader + keep nodes for AdvanceTo) so a regression
 // that walks the whole chain or wraps the reader in a defensive copy shows up.
 func TestChainStorageAllocations(t *testing.T) {
-	t.Run("SnapshotForHead cached path is alloc-free", testAllocsSnapshotCached)
-	t.Run("SnapshotForHead view-trim is alloc-free", testAllocsSnapshotTrim)
+	t.Run("SnapshotForBlock cached path is alloc-free", testAllocsSnapshotCached)
+	t.Run("SnapshotForBlock view-trim is alloc-free", testAllocsSnapshotTrim)
 	t.Run("AdvanceTo when head hasn't moved is alloc-free", testAllocsAdvanceNoOp)
 	t.Run("AdvanceTo trim allocates 1 ChainReader + keep nodes", testAllocsAdvanceTrim)
 	t.Run("ApplyUpdate NoChange is alloc-free", testAllocsApplyNoChange)
@@ -1346,7 +1346,7 @@ func TestChainStorageAllocations(t *testing.T) {
 
 // testAllocsSnapshotCached pins the fast path where the reader's head aligns
 // with the storage's oldest slot, so the view length equals the stored length
-// and SnapshotForHead returns the stored ChainReader without rebuilding.
+// and SnapshotForBlock returns the stored ChainReader without rebuilding.
 func testAllocsSnapshotCached(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
@@ -1363,7 +1363,7 @@ func testAllocsSnapshotCached(t *testing.T) {
 // testAllocsSnapshotTrim pins the view-trim path: the reader's head sits above
 // the stored chain's oldest slot (storage briefly stale before AdvanceTo runs), so
 // the view is shorter than the stored chain and can't reuse the stored pointer.
-// Value-returning SnapshotForHead constructs the trimmed ChainReader in the
+// Value-returning SnapshotForBlock constructs the trimmed ChainReader in the
 // return slot — no heap allocation.
 func testAllocsSnapshotTrim(t *testing.T) {
 	storedOldest := oldestPreConfFor(0)
