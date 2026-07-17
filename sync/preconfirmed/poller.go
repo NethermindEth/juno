@@ -39,11 +39,11 @@ type DataSource interface {
 // Poller drives the pre-confirmed chain from a single goroutine.
 //
 // One tick reads as: poll the server's latest pre-confirmed, backfill any gap
-// below it, then insert the latest. backfill runs only when the tip jumped ahead;
-// it re-fetches every slot from the old mostRecent up to latest-1 as a full block
-// (also capturing their declared classes) and applies each. Same-height polls
-// (latest matches our mostRecent) skip backfill and land in insert as
-// delta / preserve / replace.
+// below it, then apply the latest. backfill runs only when the tip jumped ahead;
+// it re-polls the old mostRecent with delta hints and the intermediate slots up
+// to latest-1 as full blocks (capturing each slot's declared classes) and applies
+// each. Same-height polls (latest matches our mostRecent) skip backfill and land
+// in apply as delta / preserve / replace.
 type Poller struct {
 	dataSource         DataSource
 	storage            *ChainStorage
@@ -218,9 +218,9 @@ func (p *Poller) backfill(
 }
 
 // apply writes the update to storage and publishes the affected entry. newClasses
-// carries the declared-class definitions to register on the stored entry (backfill's
-// most recent update only; nil elsewhere). Returns an error on apply failure so callers
-// can abort mid-fill.
+// carries the declared-class definitions to register on the stored entry; backfill
+// supplies them for each slot it applies, and the tick's apply of the latest passes
+// nil. Returns an error on apply failure so callers can abort mid-fill.
 func (p *Poller) apply(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
@@ -232,9 +232,9 @@ func (p *Poller) apply(
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}
-	// A NoChange only ever registers freshly-fetched classes onto an already-stored
-	// (non-tip) entry during backfill; nothing changed for feed consumers, so it must
-	// not publish even though ApplyUpdate returns the touched entry.
+	// A NoChange only ever registers freshly-fetched classes during backfill's re-poll
+	// of the old tip (still the stored tip at that point); nothing changed for feed
+	// consumers, so it must not publish even though ApplyUpdate returns the touched entry.
 	if _, isNoChange := update.(starknet.PreConfirmedNoChange); isNoChange {
 		return nil
 	}
