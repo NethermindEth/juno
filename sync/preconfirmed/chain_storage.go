@@ -33,16 +33,16 @@ type node struct {
 
 // ChainReader is an immutable snapshot of a contiguous run of pre-confirmed
 // blocks, ordered newest-first via parent pointers. Iteration must respect Length
-// — head-aligned views (see ChainStorage.SnapshotForHead) may stop
+// — head-aligned views (see [ChainStorage.SnapshotForBlock]) may stop
 // before the underlying linked list's nil terminator.
 type ChainReader struct {
 	head   *node
 	length int
 }
 
-// NewChain builds a ChainReader from non-nil pre-confirmed entries given in
+// NewChain builds a [ChainReader] from non-nil pre-confirmed entries given in
 // oldest-first order with contiguous block numbers. No args returns the
-// zero-value ChainReader.
+// zero-value [ChainReader]. If an entry has block number 0 behaviour is undefined.
 func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 	if len(entries) == 0 {
 		return ChainReader{}, nil
@@ -52,6 +52,7 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 		if entry == nil {
 			return ChainReader{}, fmt.Errorf("entry %d is nil", index)
 		}
+
 		if index > 0 && entry.Block.Number != entries[index-1].Block.Number+1 {
 			return ChainReader{}, fmt.Errorf(
 				"non-contiguous block numbers at index %d (%d after %d)",
@@ -215,11 +216,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 func (c *ChainReader) baseState(
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	oldest := c.oldestPreConf()
-	if oldest == 0 {
-		return bcReader.StateAtBlockHash(&felt.Zero)
-	}
-	return bcReader.StateAtBlockNumber(oldest - 1)
+	return bcReader.StateAtBlockNumber(c.oldestPreConf() - 1)
 }
 
 // contains returns true when a non-empty chain reader contains a block with `blockNum`
@@ -241,7 +238,7 @@ func (c *ChainReader) oldestPreConf() uint64 {
 // the way back up, producing oldest-first iteration order without
 // materialising a slice. remaining bounds the depth so head-aligned views
 // stop short of the underlying linked list's nil terminator (relevant after
-// SnapshotForHead trims entries at or below the canonical head). Returns false
+// SnapshotForBlock trims entries at or below the canonical head). Returns false
 // when the yield callback aborts iteration. Depth equals the caller's Length.
 func walkOldestFirst(
 	current *node,
@@ -306,7 +303,9 @@ func (s *ChainStorage) ApplyUpdate(
 		return nil, nil
 	}
 	current := s.inner.Load()
-	newChain, affected, err := computeUpdate(current, update, blockNumber, baseTxCount, oldestPreConf)
+	newChain, affected, err := computeUpdate(
+		current, update, blockNumber, baseTxCount, oldestPreConf,
+	)
 	if err != nil {
 		return nil, err
 	}

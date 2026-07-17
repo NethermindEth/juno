@@ -281,6 +281,53 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 	})
 }
 
+// Empty blockchain (pre-genesis): Run stalls without touching the data source.
+// Once the genesis block lands, the next tick bootstraps the chain as usual.
+func TestPollerStallsUntilGenesis(t *testing.T) {
+	t.Parallel()
+
+	// No header and no chain height written: Height() fails with ErrKeyNotFound.
+	testDB := memory.New()
+	bc := blockchain.New(testDB, &networks.Sepolia)
+	genesis := &core.Header{
+		Number:     0,
+		Hash:       new(felt.Felt).SetUint64(1),
+		ParentHash: &felt.Zero,
+	}
+
+	block1 := makeTestPreConfirmedBlock("r0", 1)
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockStarknetData(ctrl)
+
+	synctest.Test(t, func(t *testing.T) {
+		h := wirePoller(t, bc, genesis, ds)
+		go h.poller.Run(t.Context())
+		synctest.Wait()
+
+		// Pre-genesis ticks: no expectations are registered on the mock yet, so
+		// any data-source call fails the test. Storage must stay empty.
+		time.Sleep(3 * tickInterval)
+		synctest.Wait()
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(genesis.Number))
+		assertChain(t, &view)
+
+		// Genesis lands; the poll expectation only exists from here on.
+		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, genesis))
+		require.NoError(t, core.WriteChainHeight(testDB, 0))
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(block1, uint64(1), nil)
+
+		// One interval for the guard to observe the new head, one more for the
+		// first real polling tick.
+		time.Sleep(2 * tickInterval)
+		synctest.Wait()
+
+		view = h.storage.SnapshotForBlock(oldestPreConfFor(genesis.Number))
+		assertChain(t, &view, entry(1, &block1))
+	})
+}
+
 // mostRecent already at target height and server returns NoChange: tick is a
 // pure no-op — no backfill, no apply, storage pointer unchanged.
 func TestPollerSameHeightNoBackfill(t *testing.T) {

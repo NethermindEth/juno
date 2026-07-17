@@ -2,6 +2,7 @@ package preconfirmed
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -69,6 +71,9 @@ func NewPoller(
 	}
 }
 
+// Run polls the sequencer every interval and builds the pre-confirmed chain from it.
+// If the blockchain is empty (pre-genesis) then it will stall until the genesis block
+// is synced. It only stops on context cancellation.
 func (p *Poller) Run(ctx context.Context) {
 	if p.interval == 0 {
 		p.logger.Info("Pre-confirmed block polling is disabled")
@@ -76,6 +81,20 @@ func (p *Poller) Run(ctx context.Context) {
 	}
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
+
+	// Guard to prevent the poller from initially running when we are at the genesis
+	// state. If the error is different than [db.ErrKeyNotFound] we assume the issue is
+	// something else and continue execution.
+	for {
+		if _, err := p.blockchain.Height(); !errors.Is(err, db.ErrKeyNotFound) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 
 	for {
 		select {

@@ -407,7 +407,9 @@ func (s *Synchronizer) storeTask(
 	}
 }
 
-func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc) {
+func (s *Synchronizer) revertTask(
+	ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc,
+) {
 	defer resetStreams()
 	shouldContinue := true
 	for shouldContinue {
@@ -444,11 +446,10 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 }
 
 func (s *Synchronizer) nextHeight() uint64 {
-	nextHeight := uint64(0)
-	if h, err := s.blockchain.Height(); err == nil {
-		nextHeight = h + 1
+	if height, err := s.blockchain.Height(); err == nil {
+		return height + 1
 	}
-	return nextHeight
+	return 0
 }
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
@@ -592,18 +593,13 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 
 func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	height, err := s.blockchain.Height()
-	preGenesis := errors.Is(err, db.ErrKeyNotFound)
-	if err != nil && !preGenesis {
+	if err != nil {
 		return preconfirmed.ChainReader{}, err
 	}
 
 	snapshot := s.preConfirmed.SnapshotForBlock(height + 1)
 	if snapshot.Length() > 0 {
 		return snapshot, nil
-	}
-
-	if preGenesis {
-		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}
 
 	head, err := s.blockchain.HeadsHeader()
