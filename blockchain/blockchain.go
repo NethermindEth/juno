@@ -40,6 +40,7 @@ type Reader interface {
 
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
+	BlockHeaderHashByNumber(number uint64) (blockHash *felt.Felt, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 	BlockTransactionCountByNumber(number uint64) (count uint64, err error)
 
@@ -210,6 +211,16 @@ func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 func (b *Blockchain) BlockTransactionCountByNumber(number uint64) (uint64, error) {
 	b.listener.OnRead("BlockTransactionCountByNumber")
 	return core.GetBlockTransactionCountByNumber(b.database, number)
+}
+
+func (b *Blockchain) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockHeaderHashByNumber")
+	return core.GetBlockHeaderHashByNumber(b.database, number)
+}
+
+func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("GlobalStateRootByBlockNumber")
+	return core.GetGlobalStateRootByBlockNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockNumberByHash(hash *felt.Felt) (uint64, error) {

@@ -91,11 +91,11 @@ func fillRunningEventFilter(
 	end uint64,
 ) error {
 	for blockNum := from; blockNum <= end; blockNum++ {
-		header, err := core.GetBlockHeaderByNumber(reader, blockNum)
+		eventsBloom, err := core.GetBlockHeaderEventsBloomByNumber(reader, blockNum)
 		if err != nil {
 			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
 		}
-		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
+		if err := rf.Insert(eventsBloom, blockNum); err != nil {
 			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
 		}
 	}

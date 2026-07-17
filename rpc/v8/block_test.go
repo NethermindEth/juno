@@ -237,8 +237,8 @@ func TestBlockTransactionCount(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		expectedCount := uint64(0)
 		count, rpcErr := handler.BlockTransactionCount(blockIDPending(t))
@@ -377,8 +377,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil).Times(2)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
@@ -596,8 +596,8 @@ func TestBlockWithTxs(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil).Times(2)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)

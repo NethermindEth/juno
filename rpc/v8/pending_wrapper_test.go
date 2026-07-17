@@ -33,9 +33,9 @@ func TestPendingWrapper_Pending(t *testing.T) {
 
 	t.Run("Returns empty pending placeholder based on latest header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(
+		mockReader.EXPECT().BlockHeaderHashByNumber(
 			latestBlock.Header.Number+1-core.BlockHashLag,
-		).Return(&core.Header{Hash: felt.NewFromUint64[felt.Felt](1234567)}, nil).Times(2)
+		).Return(felt.NewFromUint64[felt.Felt](1234567), nil).Times(2)
 
 		expectedPending, err := sync.MakeEmptyPendingForParent(
 			mockReader,

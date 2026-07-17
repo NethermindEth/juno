@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 /**
@@ -375,6 +376,29 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 		return 0, err
 	}
 	return header.TransactionCount, nil
+}
+
+func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
+	var header struct {
+		Timestamp uint64
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	return header.Timestamp, err
+}
+
+func GetBlockHeaderEventsBloomByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (*bloom.BloomFilter, error) {
+	var header struct {
+		EventsBloom *bloom.BloomFilter
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	return header.EventsBloom, err
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {

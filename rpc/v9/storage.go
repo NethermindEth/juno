@@ -185,14 +185,14 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	case blockID.IsPreConfirmed():
 		return rpccore.ErrCallOnPreConfirmed
 	case blockID.IsHash():
-		header, err := h.bcReader.BlockHeaderByHash(blockID.Hash())
+		num, err := h.bcReader.BlockNumberByHash(blockID.Hash())
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return rpccore.ErrBlockNotFound
 			}
 			return rpccore.ErrInternal.CloneWithData(err)
 		}
-		blockNumber = header.Number
+		blockNumber = num
 	case blockID.IsNumber():
 		blockNumber = blockID.Number()
 	case blockID.IsL1Accepted():

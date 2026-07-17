@@ -297,12 +297,12 @@ func (s *BlockFetcher) processSpecBlockParts(
 							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
 								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.StateRoot)
 							} else {
-								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
+								stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
 								if err != nil {
 									s.logger.Error("Failed to get Header", zap.Uint64("number", curBlockNum), zap.Error(err))
 									return
 								}
-								prevBlockRoot = oldHeader.GlobalStateRoot
+								prevBlockRoot = stateRoot
 							}
 						}
 
