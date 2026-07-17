@@ -323,3 +323,41 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestGetBlockTransactionCountByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		count, err := core.GetBlockTransactionCountByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block.TransactionCount, count)
+		assert.Equal(t, header.TransactionCount, count)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetBlockTransactionCountByNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	// TransactionCount is a value field, so an absent field is indistinguishable
+	// from a genuine zero-transaction block: the accessor returns 0 without error.
+	t.Run("header without transaction count returns zero", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct {
+			Hash *felt.Felt
+		}{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		count, err := core.GetBlockTransactionCountByNumber(partialHeaderDB, block.Number)
+		require.NoError(t, err)
+		assert.Zero(t, count)
+	})
+}

@@ -362,6 +362,21 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 	return header.Hash, nil
 }
 
+// GetBlockTransactionCountByNumber only materialises TransactionCount from the
+// header, skipping heavier unused fields.
+func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
+	var header struct {
+		TransactionCount uint64
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return 0, err
+	}
+	return header.TransactionCount, nil
+}
+
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
 	var blockNum uint64
 	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
