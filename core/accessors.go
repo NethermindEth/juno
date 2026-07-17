@@ -362,8 +362,8 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 	return header.Hash, nil
 }
 
-// GetBlockTransactionCountByNumber only materialises TransactionCount from the
-// header, skipping heavier unused fields.
+// GetBlockTransactionCountByNumber decodes TransactionCount from the stored
+// header, skipping allocation of the unused fields.
 func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header struct {
 		TransactionCount uint64
