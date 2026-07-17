@@ -94,11 +94,11 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 	filterRange EventFilterRange,
 	blockHash *felt.Felt,
 ) error {
-	header, err := core.GetBlockHeaderByHash(e.database, blockHash)
+	blockNum, err := core.GetBlockHeaderNumberByHash(e.database, blockHash)
 	if err != nil {
 		return err
 	}
-	return e.SetRangeEndBlockByNumber(filterRange, header.Number)
+	return e.SetRangeEndBlockByNumber(filterRange, blockNum)
 }
 
 // SetRangeEndBlockToL1Head sets an end of the block range to latest `l1_accepted` block
@@ -244,7 +244,7 @@ func (e *EventFilter) canonicalEvents(
 
 	var lastProccessedBlock uint64
 	for {
-		curBlock, ok, err := matchedBlockIter.Next()
+		curBlockNum, ok, err := matchedBlockIter.Next()
 		if !ok {
 			// iteration complete
 			if err == nil {
@@ -254,22 +254,21 @@ func (e *EventFilter) canonicalEvents(
 			// If max scans exhausted end of block
 			if errors.Is(err, ErrMaxScannedBlockLimitExceed) {
 				// Next candidate block for continuation token
-				lastProccessedBlock = curBlock
+				lastProccessedBlock = curBlockNum
 				break
 			}
 			return nil, ContinuationToken{}, err
 		}
 
-		lastProccessedBlock = curBlock
+		lastProccessedBlock = curBlockNum
 
-		var header *core.Header
-		header, err = core.GetBlockHeaderByNumber(e.database, curBlock)
+		curBlockHash, err := core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
 
 		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.database, header.Number)
+		receipts, err = core.GetReceiptsByBlockNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
@@ -277,7 +276,8 @@ func (e *EventFilter) canonicalEvents(
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
-			header,
+			curBlockNum,
+			curBlockHash,
 			receipts,
 			skippedEvents,
 			chunkSize,
@@ -285,7 +285,7 @@ func (e *EventFilter) canonicalEvents(
 		if err != nil {
 			// Max events to scan exhausted mid block, continue from next unprocessed event
 			if errors.Is(err, errChunkSizeReached) {
-				cToken := ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
+				cToken := ContinuationToken{fromBlock: curBlockNum, processedEvents: processedEvents}
 				return matchedEvents, cToken, nil
 			}
 			return nil, ContinuationToken{}, err
@@ -354,7 +354,8 @@ func (e *EventFilter) preConfirmedEvents(
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
-			header,
+			blockNumber,
+			header.Hash,
 			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
