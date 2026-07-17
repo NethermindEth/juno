@@ -145,50 +145,6 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	return header, nil
 }
 
-// blockTransactionCountByID resolves blockID to its transaction count.
-func (h *Handler) blockTransactionCountByID(blockID *BlockID) (uint64, *jsonrpc.Error) {
-	var count uint64
-	var err error
-	switch {
-	case blockID.IsPreConfirmed():
-		var reader preconfirmed.ChainReader
-		reader, err = h.syncReader.PreConfirmedChain()
-		if err == nil {
-			count = reader.Head().GetHeader().TransactionCount
-		}
-	case blockID.IsLatest():
-		var height uint64
-		height, err = h.bcReader.Height()
-		if err == nil {
-			count, err = h.bcReader.BlockTransactionCountByNumber(height)
-		}
-	case blockID.IsHash():
-		var number uint64
-		number, err = h.bcReader.BlockNumberByHash(blockID.Hash())
-		if err == nil {
-			count, err = h.bcReader.BlockTransactionCountByNumber(number)
-		}
-	case blockID.IsNumber():
-		count, err = h.bcReader.BlockTransactionCountByNumber(blockID.Number())
-	case blockID.IsL1Accepted():
-		var blockNumber uint64
-		blockNumber, err = h.l1AcceptedBlockNumber()
-		if err == nil {
-			count, err = h.bcReader.BlockTransactionCountByNumber(blockNumber)
-		}
-	default:
-		panic("unknown block type id")
-	}
-
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-			return 0, rpccore.ErrBlockNotFound
-		}
-		return 0, rpccore.ErrInternal.CloneWithData(err)
-	}
-	return count, nil
-}
-
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 	if blockNumber < core.BlockHashLag {
 		return nil, nil
