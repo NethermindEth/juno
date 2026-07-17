@@ -293,9 +293,9 @@ func TestPreConfirmed(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	// Store→Read round-trip coverage lives in TestPreConfirmedStorage_RoundTrip
-	// (sync/pending_polling_test.go), where it can exercise the public storage
-	// methods directly without a Synchronizer shim.
+	// The stored-snapshot fast path is covered by
+	// TestPreConfirmedChainReturnsStoredSnapshot (preconfirmed_chain_test.go),
+	// which fills the storage through Run's pre-confirmed poller.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()

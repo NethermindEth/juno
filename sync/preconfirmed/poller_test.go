@@ -235,7 +235,7 @@ func TestPollerColdBootstrapNoGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view, entry(1, &block1))
 	})
 }
@@ -272,7 +272,7 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -296,9 +296,9 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		before := h.storage.SnapshotForHead(h.head)
+		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()
@@ -306,7 +306,7 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		after := h.storage.SnapshotForHead(h.head)
+		after := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Same(t, before.Head(), after.Head(),
 			"NoChange must leave the chain pointer unchanged")
 		assertChain(t, &after, entry(1, &seed))
@@ -331,7 +331,7 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -341,7 +341,7 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 		synctest.Wait()
 
 		// Delta preserves seed.identifier and appends its own txs to seed's.
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view, entry(1, &seed, &delta))
 	})
 }
@@ -374,7 +374,7 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -382,7 +382,7 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view,
 			entry(1, &seed, &finaliseDelta), // seed + delta merged at block 1
 			entry(2, &block2),
@@ -424,7 +424,7 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -433,7 +433,7 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view,
 			entry(1, &seed), // identifier preserved by finalise
 			entry(2, &block2),
@@ -462,7 +462,7 @@ func TestPollerNotAtTipSkipsAllWork(t *testing.T) {
 
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Zero(t, view.Length())
 	})
 }
@@ -486,7 +486,7 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Zero(t, view.Length(), "latest error must not produce any storage state")
 	})
 }
@@ -518,7 +518,7 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Zero(t, view.Length(), "tick aborts before any apply when backfill errors")
 	})
 }
@@ -563,13 +563,13 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view1 := h.storage.SnapshotForHead(h.head)
+		view1 := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view1, entry(1, &block1))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view2 := h.storage.SnapshotForHead(h.head)
+		view2 := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view2,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -578,7 +578,7 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 3.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view3 := h.storage.SnapshotForHead(h.head)
+		view3 := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view3,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -607,11 +607,11 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, h.head)
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		before := h.storage.SnapshotForHead(h.head)
+		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 2, before.Length())
 
 		// Canonical head advances by one — block head+1 is now committed.
@@ -626,7 +626,7 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 		synctest.Wait()
 
 		// seed1 committed → dropped; only seed2 remains at the new head+1.
-		view := h.storage.SnapshotForHead(newHead)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(newHead.Number))
 		assertChain(t, &view, entry(newHead.Number+1, &seed2))
 	})
 }
@@ -655,13 +655,13 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, h.head)
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, h.head)
+		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		before := h.storage.SnapshotForHead(h.head)
+		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 3, before.Length())
 
 		go h.poller.Run(t.Context())
@@ -671,7 +671,7 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Block 2 swapped to the new identifier; block 3 truncated.
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &replacement),
@@ -696,13 +696,13 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, h.head)
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, h.head)
+		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
-		before := h.storage.SnapshotForHead(h.head)
+		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 3, before.Length())
 
 		go h.poller.Run(t.Context())
@@ -712,7 +712,7 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Deepest slot replaced; lower entries and length untouched.
-		view := h.storage.SnapshotForHead(h.head)
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &seed2),
@@ -768,7 +768,7 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
 		// Seed directly through storage; this does NOT publish (only the
 		// poller's apply wrapper does Send), so the feed starts clean.
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, h.head)
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())

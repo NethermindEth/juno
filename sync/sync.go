@@ -591,27 +591,31 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return preconfirmed.ChainReader{}, err
-		}
-		head = nil
+	height, err := s.blockchain.Height()
+	preGenesis := errors.Is(err, db.ErrKeyNotFound)
+	if err != nil && !preGenesis {
+		return preconfirmed.ChainReader{}, err
 	}
 
-	snapshot := s.preConfirmed.SnapshotForHead(head)
+	snapshot := s.preConfirmed.SnapshotForBlock(height + 1)
 	if snapshot.Length() > 0 {
 		return snapshot, nil
 	}
 
-	// Fallback: no stored pre-confirmed, or stored data failed validation.
-	if head == nil {
+	if preGenesis {
 		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}
+
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		return preconfirmed.ChainReader{}, err
+	}
+
 	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
 		return preconfirmed.ChainReader{}, err
 	}
+
 	return preconfirmed.NewChain(&emptyPreConfirmed)
 }
 
