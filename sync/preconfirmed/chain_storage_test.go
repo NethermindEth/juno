@@ -132,7 +132,7 @@ func testApplyUpdateBootstrapRejectsDelta(t *testing.T) {
 }
 
 func testApplyUpdateBootstrapNoChangeRejected(t *testing.T) {
-	oldestSlot := oldestSlotFor(100)
+	oldestPreConf := oldestPreConfFor(100)
 	s := preconfirmed.NewChainStorage()
 	_, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 101, 0, oldestPreConf, nil)
 	require.Error(t, err)
@@ -235,7 +235,7 @@ func testApplyUpdateReplaceTipRicherReplaces(t *testing.T) {
 }
 
 func testApplyUpdateDeltaRegistersNewClass(t *testing.T) {
-	oldestSlot := oldestSlotFor(0)
+	oldestSlot := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
 	const round = "round-1"
 	applyBlock(t, s, round, 1, 1, oldestSlot) // stored without classes
@@ -249,13 +249,13 @@ func testApplyUpdateDeltaRegistersNewClass(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, affected, "a delta advancing the tip must publish the affected entry")
 
-	view := s.SnapshotForHead(oldestSlot)
+	view := s.SnapshotForBlock(oldestSlot)
 	require.Equal(t, classDef, view.Head().NewClasses[classHash],
 		"the delta's declared class must be readable on the stored tip")
 }
 
 func testApplyUpdateNoChangeRegistersClasses(t *testing.T) {
-	oldestSlot := oldestSlotFor(0)
+	oldestSlot := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
 	applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
 	classHash := felt.FromUint64[felt.Felt](0xC1A55)
@@ -266,7 +266,7 @@ func testApplyUpdateNoChangeRegistersClasses(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, affected, "NoChange with new classes must refresh the tip")
 
-	view := s.SnapshotForHead(oldestSlot)
+	view := s.SnapshotForBlock(oldestSlot)
 	require.Equal(t, classDef, view.Head().NewClasses[classHash],
 		"the recovered class must be readable on the stored tip")
 
@@ -917,7 +917,7 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 }
 
 func testChainReaderPreConfirmedStateAtResolvesDeclaredClass(t *testing.T) {
-	oldestSlot := oldestSlotFor(0)
+	oldestSlot := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
 	classHash := felt.FromUint64[felt.Felt](0xC1A55)
 	classDef := core.DeprecatedCairoClass{}
@@ -929,7 +929,7 @@ func testChainReaderPreConfirmedStateAtResolvesDeclaredClass(t *testing.T) {
 	_, err = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(2), 0), 2, 0, oldestSlot, nil)
 	require.NoError(t, err)
 
-	view := s.SnapshotForHead(oldestSlot)
+	view := s.SnapshotForBlock(oldestSlot)
 
 	ctrl := gomock.NewController(t)
 	bc := mocks.NewMockReader(ctrl)

@@ -810,7 +810,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			h := wirePoller(t, fx.bc, fx.head, ds)
-			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestSlotFor(h.head.Number), nil)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 			require.NoError(t, err)
 
 			go h.poller.Run(t.Context())
@@ -818,7 +818,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.storage.SnapshotForHead(oldestSlotFor(h.head.Number))
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 			require.Equal(t, classDef, classesAt(&view, 1)[*classHash],
 				"the re-polled full block's declared class must be fetched and land on slot 1")
 		})
@@ -858,7 +858,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			h := wirePoller(t, fx.bc, fx.head, ds)
-			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestSlotFor(h.head.Number), nil)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 			require.NoError(t, err)
 
 			go h.poller.Run(t.Context())
@@ -866,7 +866,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.storage.SnapshotForHead(oldestSlotFor(h.head.Number))
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 			classes := classesAt(&view, 1)
 			require.Equal(t, storedDef, classes[*storedClass],
 				"the stored tip's declared class must be recovered and fetched")
@@ -901,7 +901,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			h := wirePoller(t, fx.bc, fx.head, ds)
-			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestSlotFor(h.head.Number), nil)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 			require.NoError(t, err)
 
 			go h.poller.Run(t.Context())
@@ -909,7 +909,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.storage.SnapshotForHead(oldestSlotFor(h.head.Number))
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 			require.Equal(t, storedDef, classesAt(&view, 1)[*storedClass],
 				"the stored tip's declared class must be recovered despite a NoChange re-poll")
 		})
