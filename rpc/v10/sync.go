@@ -55,8 +55,9 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	}
 
 	// The starting block's header may have been pruned in history-pruning mode. The spec
-	// requires starting_block_hash, so fall back to zero instead of reporting "not syncing".
-	startingBlockHash := &felt.Zero
+	// requires starting_block_hash, so fall back to a fresh zero (not &felt.Zero, which
+	// would alias the shared global) instead of reporting "not syncing".
+	startingBlockHash := new(felt.Felt)
 	if startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber); err == nil {
 		startingBlockHash = startingBlockHeader.Hash
 	}
