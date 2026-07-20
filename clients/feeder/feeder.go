@@ -28,6 +28,10 @@ const (
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
+// ErrBadRequest is returned for HTTP 400 responses. Its message is
+// byte-identical to the errors.New(res.Status) text it replaces.
+var ErrBadRequest = errors.New("400 Bad Request")
+
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
@@ -141,6 +145,15 @@ func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
 
+// responseError maps a non-200 response to its error, using the ErrBadRequest
+// sentinel for 400s so callers can match with errors.Is.
+func responseError(res *http.Response) error {
+	if res.StatusCode == http.StatusBadRequest {
+		return ErrBadRequest
+	}
+	return errors.New(res.Status)
+}
+
 func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
@@ -164,6 +177,18 @@ func NewClient(clientURL *url.URL) *Client {
 
 // get performs a "GET" http request with the given URL and returns the response body
 func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, error) {
+	return c.getWithPolicy(ctx, queryURL, false)
+}
+
+// getWithPolicy is get with an explicit retry policy: when failFastOnBadRequest
+// is set, an HTTP 400 returns immediately instead of burning the full retry
+// budget (a 400 is deterministic, retrying is pointless). Only the
+// pre-confirmed fetch path opts in.
+func (c *Client) getWithPolicy(
+	ctx context.Context,
+	queryURL *url.URL,
+	failFastOnBadRequest bool,
+) (io.ReadCloser, error) {
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
@@ -197,10 +222,14 @@ func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, err
 					timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
-					err = errors.New(res.Status)
+					err = responseError(res)
 				}
 
 				res.Body.Close()
+			}
+
+			if failFastOnBadRequest && badRequest {
+				return nil, err
 			}
 
 			if !tooManyRequests && !badRequest {
@@ -437,7 +466,7 @@ func (c *Client) fetchPreConfirmedUpdate(
 	// PreConfirmedUpdateEnvelope intentionally has no UnmarshalJSON (see its doc),
 	// so it cannot ride the generic doRequest. Decode in a single scan, then run
 	// the same Validate + error-wrap that doRequest applies.
-	body, err := c.get(ctx, queryURL)
+	body, err := c.getWithPolicy(ctx, queryURL, true)
 	if err != nil {
 		return nil, err
 	}

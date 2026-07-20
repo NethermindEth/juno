@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
@@ -138,6 +139,15 @@ func (p *Poller) tick(ctx context.Context) error {
 	if updateBlockNum > fromBlock {
 		err = p.backfill(ctx, head, fromBlock, identifier, txCount, updateBlockNum)
 		if err != nil {
+			// If it was a bad request, let's silently stop
+			if errors.Is(err, feeder.ErrBadRequest) {
+				p.logger.Debug("Skipping pre-confirmed backfill after gateway 400",
+					zap.Uint64("fromBlock", fromBlock),
+					zap.Uint64("toBlock", updateBlockNum),
+					zap.Error(err),
+				)
+				return nil
+			}
 			return fmt.Errorf(
 				"backfilling from %d to %d: %w",
 				fromBlock, updateBlockNum, err,
