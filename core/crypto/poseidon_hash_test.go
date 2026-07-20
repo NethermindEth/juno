@@ -49,6 +49,15 @@ func TestPoseidonArray(t *testing.T) {
 			var digest, digestWhole crypto.PoseidonDigest
 			hash := crypto.PoseidonArray(test.elems...)
 			assert.Equal(t, test.expected, hash.String())
+
+			// PoseidonArrayFelts (value slice) must match the pointer version exactly.
+			vals := make([]felt.Felt, len(test.elems))
+			for i, e := range test.elems {
+				vals[i] = *e
+			}
+			valsHash := crypto.PoseidonArrayFelts(vals)
+			assert.Equal(t, test.expected, valsHash.String())
+
 			hash = digestWhole.Update(test.elems...).Finish()
 			assert.Equal(t, test.expected, hash.String())
 

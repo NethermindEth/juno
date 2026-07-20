@@ -34,8 +34,7 @@ func AdaptSierraClass(
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
-	// TODO(granza): update hash to also receive []felt.Felt
-	programHash := crypto.PoseidonArray(utils.ToPtrSlice(program)...)
+	programHash := crypto.PoseidonArrayFelts(program)
 	entryPoints := cairo1.EntryPoints
 	return core.SierraClass{
 		Abi:     cairo1.Abi,

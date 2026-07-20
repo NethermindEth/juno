@@ -98,6 +98,28 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 	return state[0]
 }
 
+// PoseidonArrayFelts is the value-slice variant of [PoseidonArray].
+//
+// TODO(granza): rename PoseidonArray to PoseidonArrayPtr and this one to PoseidonArray
+func PoseidonArrayFelts(elems []felt.Felt) felt.Felt {
+	state := [3]felt.Felt{}
+
+	for i := range len(elems) / 2 {
+		state[0].Add(&state[0], &elems[2*i])
+		state[1].Add(&state[1], &elems[2*i+1])
+		HadesPermutation(&state)
+	}
+
+	rem := len(elems) % 2
+	if rem == 1 {
+		state[0].Add(&state[0], &elems[len(elems)-1])
+	}
+	state[rem].Add(&state[rem], &felt.One)
+	HadesPermutation(&state)
+
+	return state[0]
+}
+
 var (
 	poseidonInit sync.Once
 	roundKeys    [totalRounds][3]felt.Felt

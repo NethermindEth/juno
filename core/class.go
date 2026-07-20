@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var (
@@ -169,14 +168,14 @@ const (
 
 // Hasher wraps hash algorithm operations
 type Hasher interface {
-	HashArray(felts ...*felt.Felt) felt.Felt
+	HashArray(felts []felt.Felt) felt.Felt
 	NewDigest() crypto.Digest
 }
 
 type poseidonHasher struct{}
 
-func (h poseidonHasher) HashArray(felts ...*felt.Felt) felt.Felt {
-	return crypto.PoseidonArray(felts...)
+func (h poseidonHasher) HashArray(felts []felt.Felt) felt.Felt {
+	return crypto.PoseidonArrayFelts(felts)
 }
 
 func (h poseidonHasher) NewDigest() crypto.Digest {
@@ -185,8 +184,8 @@ func (h poseidonHasher) NewDigest() crypto.Digest {
 
 type blake2sHasher struct{}
 
-func (h blake2sHasher) HashArray(felts ...*felt.Felt) felt.Felt {
-	hash := blake2s.Blake2sArray(felts...)
+func (h blake2sHasher) HashArray(felts []felt.Felt) felt.Felt {
+	hash := blake2s.Blake2sArray(felts)
 	return felt.Felt(hash)
 }
 
@@ -215,8 +214,7 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		// TODO(granza): update hash to also receive []felt.Felt
-		bytecodeHash = hasher.HashArray(utils.ToPtrSlice(c.Bytecode)...)
+		bytecodeHash = hasher.HashArray(c.Bytecode)
 	} else {
 		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, hasher)
 	}
@@ -225,13 +223,13 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 	l1HandlerEntryPointsHash := compiledEntryPointsHash(c.L1Handler, hasher)
 	constructorHash := compiledEntryPointsHash(c.Constructor, hasher)
 
-	return hasher.HashArray(
-		compiledClassV1Prefix,
-		&externalEntryPointsHash,
-		&l1HandlerEntryPointsHash,
-		&constructorHash,
-		&bytecodeHash,
-	)
+	return hasher.HashArray([]felt.Felt{
+		*compiledClassV1Prefix,
+		externalEntryPointsHash,
+		l1HandlerEntryPointsHash,
+		constructorHash,
+		bytecodeHash,
+	})
 }
 
 func SegmentedBytecodeHash(
@@ -252,8 +250,7 @@ func SegmentedBytecodeHash(
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				// TODO(granza): update hash to also receive []felt.Felt
-				curSegmentHash = hasher.HashArray(utils.ToPtrSlice(segmentBytecode)...)
+				curSegmentHash = hasher.HashArray(segmentBytecode)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}
