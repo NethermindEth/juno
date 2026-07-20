@@ -47,15 +47,15 @@ func TestPoseidonArray(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var digest, digestWhole crypto.PoseidonDigest
-			hash := crypto.PoseidonArray(test.elems...)
+			hash := crypto.PoseidonArrayPtr(test.elems...)
 			assert.Equal(t, test.expected, hash.String())
 
-			// PoseidonArrayFelts (value slice) must match the pointer version exactly.
+			// PoseidonArray (value slice) must match the pointer version exactly.
 			vals := make([]felt.Felt, len(test.elems))
 			for i, e := range test.elems {
 				vals[i] = *e
 			}
-			valsHash := crypto.PoseidonArrayFelts(vals)
+			valsHash := crypto.PoseidonArray(vals)
 			assert.Equal(t, test.expected, valsHash.String())
 
 			hash = digestWhole.Update(test.elems...).Finish()
@@ -75,10 +75,33 @@ func BenchmarkPoseidonArray(b *testing.B) {
 
 	for _, n := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
+			pointerSlice := genRandomFelts(b, n)
+
+			feltsArray := make([]felt.Felt, len(pointerSlice))
+			for i, p := range pointerSlice {
+				if p != nil {
+					feltsArray[i] = *p
+				}
+			}
+
+			var f felt.Felt
+			for b.Loop() {
+				f = crypto.PoseidonArray(feltsArray)
+			}
+			benchHashR = f
+		})
+	}
+}
+
+func BenchmarkPoseidonArrayPtr(b *testing.B) {
+	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
+
+	for _, n := range numOfElems {
+		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
 			elems := genRandomFelts(b, n)
 			var f felt.Felt
 			for b.Loop() {
-				f = crypto.PoseidonArray(elems...)
+				f = crypto.PoseidonArrayPtr(elems...)
 			}
 			benchHashR = f
 		})

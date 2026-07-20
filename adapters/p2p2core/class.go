@@ -34,7 +34,7 @@ func AdaptSierraClass(
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
-	programHash := crypto.PoseidonArrayFelts(program)
+	programHash := crypto.PoseidonArray(program)
 	entryPoints := cairo1.EntryPoints
 	return core.SierraClass{
 		Abi:     cairo1.Abi,

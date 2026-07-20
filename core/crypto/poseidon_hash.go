@@ -72,14 +72,10 @@ func Poseidon(x, y *felt.Felt) felt.Felt {
 	return state[0]
 }
 
-// PoseidonArray calculates Poseidon hash over elems
-// If len(elems) is odd, pads with [1]
-// If len(elems) is even, pads with [1, 0]
-//
-// PoseidonArray implements [Poseidon array hashing].
-//
-// [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
-func PoseidonArray(elems ...*felt.Felt) felt.Felt {
+// PoseidonArrayPtr is the pointer-element variant of [PoseidonArray], for
+// callers that already hold a []*felt.Felt (e.g. transaction hashing) and would
+// otherwise pay a copy to convert into a value slice.
+func PoseidonArrayPtr(elems ...*felt.Felt) felt.Felt {
 	state := [3]felt.Felt{}
 
 	for i := range len(elems) / 2 {
@@ -98,10 +94,14 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 	return state[0]
 }
 
-// PoseidonArrayFelts is the value-slice variant of [PoseidonArray].
+// PoseidonArray calculates Poseidon hash over elems
+// If len(elems) is odd, pads with [1]
+// If len(elems) is even, pads with [1, 0]
 //
-// TODO(granza): rename PoseidonArray to PoseidonArrayPtr and this one to PoseidonArray
-func PoseidonArrayFelts(elems []felt.Felt) felt.Felt {
+// PoseidonArray implements [Poseidon array hashing].
+//
+// [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
+func PoseidonArray(elems []felt.Felt) felt.Felt {
 	state := [3]felt.Felt{}
 
 	for i := range len(elems) / 2 {

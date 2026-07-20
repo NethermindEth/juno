@@ -306,6 +306,6 @@ func (d *Database) getStateRoot() felt.StateRootHash {
 	}
 	classRootHash := classRootNode.Hash(crypto.Pedersen)
 
-	stateRoot := crypto.PoseidonArray(stateVersion, &contractRootHash, &classRootHash)
+	stateRoot := crypto.PoseidonArrayPtr(stateVersion, &contractRootHash, &classRootHash)
 	return felt.StateRootHash(stateRoot)
 }

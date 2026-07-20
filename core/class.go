@@ -121,7 +121,7 @@ func (c *SierraClass) Hash() (felt.Felt, error) {
 	externalEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.External)
 	l1HandlerEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.L1Handler)
 	constructorHash := sierraEntryPointsHash(c.EntryPoints.Constructor)
-	return crypto.PoseidonArray(
+	return crypto.PoseidonArrayPtr(
 		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -175,7 +175,7 @@ type Hasher interface {
 type poseidonHasher struct{}
 
 func (h poseidonHasher) HashArray(felts []felt.Felt) felt.Felt {
-	return crypto.PoseidonArrayFelts(felts)
+	return crypto.PoseidonArray(felts)
 }
 
 func (h poseidonHasher) NewDigest() crypto.Digest {

@@ -27,7 +27,7 @@ func TestNewBlockSigner(t *testing.T) {
 	copy(sigBytes[0:felt.Bytes], r[:])
 	copy(sigBytes[felt.Bytes:], s[:])
 
-	msg := crypto.PoseidonArray(blockHash, stateDiffCommitment)
+	msg := crypto.PoseidonArrayPtr(blockHash, stateDiffCommitment)
 	msgBytes := msg.Bytes()
 
 	ok, err := privKey.PublicKey.Verify(sigBytes[:], msgBytes[:], nil)

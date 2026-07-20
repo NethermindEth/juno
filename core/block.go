@@ -277,7 +277,7 @@ func post0134Hash(
 		*b.L2GasPrice,
 	)
 
-	return crypto.PoseidonArray(
+	return crypto.PoseidonArrayPtr(
 			starknetBlockHash1,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -361,7 +361,7 @@ func Post0132Hash(
 		}
 	}
 
-	return crypto.PoseidonArray(
+	return crypto.PoseidonArrayPtr(
 			starknetBlockHash0,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -491,7 +491,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) fel
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) felt.Felt {
-	return crypto.PoseidonArray(
+	return crypto.PoseidonArrayPtr(
 		starknetGasPrices0,
 		// gas prices
 		gasPrices.PriceInWei,
