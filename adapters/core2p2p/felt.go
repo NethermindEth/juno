@@ -33,6 +33,10 @@ func AdaptFelt(f *felt.Felt) *common.Felt252 {
 	}
 }
 
+func adaptFeltValue(f felt.Felt) *common.Felt252 {
+	return &common.Felt252{Elements: f.Marshal()}
+}
+
 func AdaptFeltSlice(sl []*felt.Felt) []*common.Felt252 {
 	return utils.Map(sl, AdaptFelt)
 }

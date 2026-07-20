@@ -798,14 +798,14 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	}))
 }
 
-func randSlice(t *testing.T) []*felt.Felt {
+func randSlice(t *testing.T) []felt.Felt {
 	t.Helper()
 
 	n := rand.Intn(10)
-	sl := make([]*felt.Felt, n)
+	sl := make([]felt.Felt, n)
 
 	for i := range sl {
-		sl[i] = felt.NewRandom[felt.Felt]()
+		sl[i] = *felt.NewRandom[felt.Felt]()
 	}
 	return sl
 }

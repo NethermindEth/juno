@@ -351,7 +351,7 @@ func adaptContractClassToStarknet(class *ContractClass) starknet.SierraClass {
 	return starknet.SierraClass{
 		Abi:     class.ABI,
 		Version: class.ContractClassVersion,
-		Program: utils.ToPtrSlice(class.SierraProgram),
+		Program: class.SierraProgram,
 		EntryPoints: starknet.SierraEntryPoints{
 			Constructor: handleEntryPoints(class.EntryPoints.Constructor),
 			External:    handleEntryPoints(class.EntryPoints.External),

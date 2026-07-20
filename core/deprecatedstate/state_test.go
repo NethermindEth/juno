@@ -609,7 +609,7 @@ func TestRevert(t *testing.T) {
 					Selector: felt.NewFromBytes[felt.Felt]([]byte("l1")),
 				}},
 			},
-			Program:         []*felt.Felt{felt.NewFromBytes[felt.Felt]([]byte("random program"))},
+			Program:         []felt.Felt{felt.FromBytes[felt.Felt]([]byte("random program"))},
 			ProgramHash:     felt.NewFromBytes[felt.Felt]([]byte("random program hash")),
 			SemanticVersion: "version 1",
 			Compiled:        &core.CasmClass{},

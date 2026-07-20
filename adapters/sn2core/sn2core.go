@@ -349,7 +349,8 @@ func AdaptSierraClass(
 		return nil, err
 	}
 
-	programHash := crypto.PoseidonArray(response.Program...)
+	// TODO(granza): update hash to also receive []felt.Felt
+	programHash := crypto.PoseidonArray(utils.ToPtrSlice(response.Program)...)
 	abiHash := crypto.StarknetKeccak([]byte(response.Abi))
 	return &core.SierraClass{
 		SemanticVersion: response.Version,

@@ -358,7 +358,7 @@ func TestRevert(t *testing.T) {
 					Selector: felt.NewUnsafeFromString[felt.Felt]("0xb1"),
 				}},
 			},
-			Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x9999")},
+			Program:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x9999")},
 			ProgramHash:     felt.NewUnsafeFromString[felt.Felt]("0x8888"),
 			SemanticVersion: "version 1",
 			Compiled:        &core.CasmClass{},

@@ -22,7 +22,8 @@ func AdaptSierraClass(
 ) (core.SierraClass, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
-	program := utils.Map(cairo1.Program, AdaptFelt)
+	// protoc generates cairo1.Program as []*common.Felt252
+	program := utils.Map(cairo1.Program, adaptFeltValue)
 	compiled, err := createCompiledClass(ctx, compiler, cairo1)
 	if err != nil {
 		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
@@ -33,7 +34,8 @@ func AdaptSierraClass(
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
-	programHash := crypto.PoseidonArray(program...)
+	// TODO(granza): update hash to also receive []felt.Felt
+	programHash := crypto.PoseidonArray(utils.ToPtrSlice(program)...)
 	entryPoints := cairo1.EntryPoints
 	return core.SierraClass{
 		Abi:     cairo1.Abi,
@@ -125,7 +127,7 @@ func createCompiledClass(
 			External:    utils.Map(utils.NonNilSlice(ep.Externals), adapt),
 			L1Handler:   utils.Map(utils.NonNilSlice(ep.L1Handlers), adapt),
 		},
-		Program: utils.Map(cairo1.Program, AdaptFelt),
+		Program: utils.Map(cairo1.Program, adaptFeltValue),
 		Version: cairo1.ContractClassVersion,
 	}
 

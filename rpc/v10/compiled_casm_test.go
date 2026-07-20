@@ -80,7 +80,7 @@ func TestCompiledCasm(t *testing.T) {
 			},
 			Constructor: []core.CasmEntryPoint{},
 			L1Handler:   []core.CasmEntryPoint{},
-			Bytecode:    []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x123")},
+			Bytecode:    []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x123")},
 		}
 
 		cairoClass := &core.SierraClass{

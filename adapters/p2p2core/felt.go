@@ -26,6 +26,10 @@ func AdaptFelt(f *common.Felt252) *felt.Felt {
 	return adapt(f)
 }
 
+func adaptFeltValue(f *common.Felt252) felt.Felt {
+	return felt.FromBytes[felt.Felt](f.GetElements())
+}
+
 func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 	if utils.IsNil(v) {
 		return nil

@@ -31,7 +31,7 @@ type CompiledCasmResponse struct {
 	// can't use felt.Felt here because prime is larger than felt
 	Prime                  string          `json:"prime"`
 	CompilerVersion        string          `json:"compiler_version"`
-	Bytecode               []*felt.Felt    `json:"bytecode"`
+	Bytecode               []felt.Felt     `json:"bytecode"`
 	Hints                  json.RawMessage `json:"hints"`
 	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
 }
