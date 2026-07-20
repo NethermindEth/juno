@@ -239,6 +239,17 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Corrupt(t *testing.T) {
 		require.ErrorIs(t, decoded.UnmarshalBinary(data[:30]), io.ErrUnexpectedEOF)
 	})
 
+	t.Run("wrong row blob-length", func(t *testing.T) {
+		corrupt := make([]byte, len(data))
+		copy(corrupt, data)
+		// Row 0's 4-byte blob-length prefix sits right after the 20-byte header.
+		// A non-canonical length that still fits in-bounds must be rejected.
+		binary.BigEndian.PutUint32(corrupt[20:24], 8)
+
+		var decoded core.AggregatedBloomFilter
+		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
+	})
+
 	t.Run("wrong row count", func(t *testing.T) {
 		corrupt := make([]byte, len(data))
 		copy(corrupt, data)

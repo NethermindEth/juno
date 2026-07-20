@@ -224,6 +224,11 @@ func (f *AggregatedBloomFilter) Clone() AggregatedBloomFilter {
 	}
 }
 
+// MarshalBinary encodes f as a big-endian header followed by one bitset blob
+// per row. Row blobs use bitset's package-global byte order (big-endian by
+// default), while UnmarshalBinary hardcodes big-endian; a bitset.LittleEndian()
+// call anywhere would desync the two and corrupt the DB. Left as an invariant
+// since no caller flips it and a round-trip would fail immediately if one did.
 func (f *AggregatedBloomFilter) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 
@@ -284,8 +289,8 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 	if count != EventsBloomLength {
 		return ErrBloomFilterSizeMismatch
 	}
-	// Reject data too short for count rows before allocating, so truncated
-	// input fails fast rather than driving an oversized allocation.
+	// Reject input too short for count rows up front: fails truncation fast and
+	// lets the row loop below read each row's window without per-row bounds checks.
 	if count > (len(data)-headerSize)/rowSize {
 		return io.ErrUnexpectedEOF
 	}
@@ -299,17 +304,14 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 	backing := make([]uint64, count*wordsPerFilterRow)
 	f.bitmap = make([]bitset.BitSet, count)
 
+	// The count precheck above guarantees room for count rows of rowSize each,
+	// so every row's window is in bounds; no per-row length check is needed.
 	offset := headerSize
 	for i := range count {
-		if offset+rowLenSize > len(data) {
-			return io.ErrUnexpectedEOF
-		}
 		blobLen := int(binary.BigEndian.Uint32(data[offset:]))
 		offset += rowLenSize
-		if offset+blobLen > len(data) {
-			return io.ErrUnexpectedEOF
-		}
 		// bitsetLen and blobLen are independent fields, so both are checked.
+		// Pinning blobLen to blobLenWant keeps the word reads below in bounds.
 		if blobLen != blobLenWant {
 			return ErrBloomFilterSizeMismatch
 		}
