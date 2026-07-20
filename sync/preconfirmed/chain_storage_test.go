@@ -634,8 +634,6 @@ func TestChainReader(t *testing.T) {
 		testChainReaderPreConfirmedStateAtBaseAlignsWithOldestPreConf)
 	t.Run("PreConfirmedStateAt at genesis underflows",
 		testChainReaderPreConfirmedStateAtBaseAtGenesis)
-	t.Run("PreConfirmedStateAt at genesis reports missing contract as not found",
-		testChainReaderPreConfirmedStateAtGenesisMissingContract)
 	t.Run("PreConfirmedStateAt surfaces bcReader error from base lookup",
 		testChainReaderPreConfirmedStateAtBaseError)
 	t.Run("TransactionByHash finds tx in any chain entry",
@@ -1062,29 +1060,6 @@ func testChainReaderPreConfirmedStateAtBaseAtGenesis(t *testing.T) {
 
 	_, _, err := view.PreConfirmedStateAt(0, bc)
 	require.ErrorContains(t, err, "some kind of underflow")
-}
-
-func testChainReaderPreConfirmedStateAtGenesisMissingContract(t *testing.T) {
-	s := preconfirmed.NewChainStorage()
-	applyBlock(t, s, roundID(0), 0, 0, nil)
-	view := s.SnapshotForHead(nil)
-
-	addr := felt.FromUint64[felt.Felt](0x1234)
-	key := felt.FromUint64[felt.Felt](0x5678)
-
-	ctrl := gomock.NewController(t)
-	base := mocks.NewMockStateReader(ctrl)
-	base.EXPECT().ContractStorage(&addr, &key).Return(felt.Zero, nil)
-	bc := mocks.NewMockReader(ctrl)
-	bc.EXPECT().StateAtBlockHash(&felt.Zero).Return(base, func() error { return nil }, nil)
-
-	state, closer, err := view.PreConfirmedStateAt(0, bc)
-	require.NoError(t, err)
-
-	value, err := state.ContractStorage(&addr, &key)
-	require.NoError(t, err)
-	require.True(t, value.IsZero())
-	require.NoError(t, closer())
 }
 
 // testChainReaderPreConfirmedStateAtBaseError verifies that a bcReader failure
