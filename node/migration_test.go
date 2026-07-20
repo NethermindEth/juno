@@ -35,7 +35,7 @@ func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
 	database := memory.New()
 	cfg := &Config{EthNode: ""}
 	err := fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
-	require.ErrorContains(t, err, "initializing L1 client")
+	require.ErrorContains(t, err, "creating L1 state provider")
 }
 
 func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {

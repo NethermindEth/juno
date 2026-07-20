@@ -4,46 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/event"
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
-type Subscriber interface {
-	FinalisedHeight(ctx context.Context) (uint64, error)
-	LatestHeight(ctx context.Context) (uint64, error)
-	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
-	FilterLogStateUpdate(
-		ctx context.Context,
-		fromBlock,
-		toBlock uint64,
-	) ([]*contract.StarknetLogStateUpdate, error)
-	ChainID(ctx context.Context) (*big.Int, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	Close()
-}
-
 type Client struct {
-	l1                    Subscriber
+	provider              L1StateProvider
 	l2Chain               *blockchain.Blockchain
 	logger                log.StructuredLogger
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	catchUpChunkSize      uint64
-	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
+	nonFinalisedLogs      map[uint64]*StateUpdate
 	listener              EventListener
 }
 
@@ -86,7 +65,7 @@ func WithCatchUpChunkSize(size uint64) Option {
 }
 
 func NewClient(
-	l1 Subscriber,
+	provider L1StateProvider,
 	chain *blockchain.Blockchain,
 	logger log.StructuredLogger,
 	opts ...Option,
@@ -101,14 +80,14 @@ func NewClient(
 		opt(&o)
 	}
 	return &Client{
-		l1:                    l1,
+		provider:              provider,
 		l2Chain:               chain,
 		logger:                logger,
 		network:               chain.Network(),
 		resubscribeDelay:      o.ResubscribeDelay,
 		pollFinalisedInterval: o.PollFinalisedInterval,
 		catchUpChunkSize:      o.CatchUpChunkSize,
-		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate),
+		nonFinalisedLogs:      make(map[uint64]*StateUpdate),
 		listener:              o.EventListener,
 	}
 }
@@ -116,8 +95,8 @@ func NewClient(
 // subscribeToUpdates subscribes to the settlement layer updates on an infinite loop
 // until success is achieved. If context is cancelled, a nil subscription is returned.
 func (c *Client) subscribeToUpdates(
-	ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate,
-) event.Subscription {
+	ctx context.Context, updateChan chan *StateUpdate,
+) Subscription {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
@@ -130,11 +109,12 @@ func (c *Client) subscribeToUpdates(
 			)
 			return nil
 		case <-timer.C:
-			updateSub, err := c.l1.WatchLogStateUpdate(ctx, updateChan)
+			updateSub, err := c.provider.WatchStateUpdate(ctx, updateChan)
 			if err == nil {
 				return updateSub
 			}
-			c.logger.Debug("Failed to subscribe to L1 state updates",
+			c.logger.Debug(
+				"Failed to subscribe to L1 state updates",
 				zap.Duration("tryAgainIn", c.resubscribeDelay),
 				zap.Error(err),
 			)
@@ -168,7 +148,8 @@ func (c *Client) ensureChainID(ctx context.Context) error {
 				// Cancelled mid-probe: return the real cause, don't warn.
 				return ctx.Err()
 			default:
-				c.logger.Warn("Failed to verify L1 chain ID, retrying",
+				c.logger.Warn(
+					"Failed to verify L1 chain ID, retrying",
 					zap.Duration("tryAgainIn", c.resubscribeDelay),
 					zap.Error(err),
 				)
@@ -185,7 +166,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, chainIDCheckTimeout)
 	defer cancel()
 
-	l1ChainID, err := c.l1.ChainID(ctx)
+	l1ChainID, err := c.provider.ChainID(ctx)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf(
@@ -210,7 +191,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 // Run fetches and writes the latest L1 head to the database. Then, it tracks live updates until
 // context is cancelled.
 func (c *Client) Run(ctx context.Context) error {
-	defer c.l1.Close()
+	defer c.provider.Close()
 	if err := c.ensureChainID(ctx); err != nil {
 		// A cancelled context means we're shutting down
 		if errors.Is(err, context.Canceled) {
@@ -225,7 +206,8 @@ func (c *Client) Run(ctx context.Context) error {
 	// head will lag until the next on-chain LogStateUpdate is observed, which
 	// is acceptable rather terminating the execution.
 	if err := c.catchUpL1HeadUpdates(ctx); err != nil {
-		c.logger.Warn("L1 head catch-up failed; resuming with live subscription only",
+		c.logger.Warn(
+			"L1 head catch-up failed; resuming with live subscription only",
 			zap.Error(err),
 		)
 	}
@@ -236,7 +218,7 @@ func (c *Client) Run(ctx context.Context) error {
 // CatchUpL1Head fetches and writes the latest L1 head to the database. Contrary to [Client.Run]
 // it doesn't track live updates and finishes on the spot. The client must not be re-used after.
 func (c *Client) CatchUpL1Head(ctx context.Context) error {
-	defer c.l1.Close()
+	defer c.provider.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
 	}
@@ -250,7 +232,7 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 
 	// note(rdr): 128 is an arbitrary value
 	const buffer = 128
-	updateCh := make(chan *contract.StarknetLogStateUpdate, buffer)
+	updateCh := make(chan *StateUpdate, buffer)
 
 	sub := c.subscribeToUpdates(ctx, updateCh)
 	if sub == nil {
@@ -266,8 +248,8 @@ func (c *Client) watchL1StateUpdates(ctx context.Context) error {
 // it attempts to resubscribe.
 func (c *Client) receiveL1StateUpdates(
 	ctx context.Context,
-	sub event.Subscription,
-	updateCh chan *contract.StarknetLogStateUpdate,
+	sub Subscription,
+	updateCh chan *StateUpdate,
 ) error {
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
@@ -282,7 +264,7 @@ func (c *Client) receiveL1StateUpdates(
 		case <-ctx.Done():
 			return nil
 		case stateUpdate := <-updateCh:
-			c.applyLogStateUpdate(stateUpdate)
+			c.applyStateUpdate(stateUpdate)
 		case err := <-sub.Err():
 			c.logger.Debug("L1 update subscription failed, resubscribing", zap.Error(err))
 			sub.Unsubscribe()
@@ -299,23 +281,24 @@ func (c *Client) receiveL1StateUpdates(
 	}
 }
 
-// applyLogStateUpdate merges a LogStateUpdate (from either the forward
+// applyStateUpdate merges a StateUpdate (from either the forward
 // subscription or the historical filter) into nonFinalisedLogs. A removed
 // log clears all entries at or above its L1 block number.
-func (c *Client) applyLogStateUpdate(stateUpdate *contract.StarknetLogStateUpdate) {
-	c.logger.Debug("Received L1 LogStateUpdate",
-		zap.String("number", stateUpdate.BlockNumber.String()),
-		zap.String("stateRoot", stateUpdate.GlobalRoot.Text(felt.Base16)),
-		zap.String("blockHash", stateUpdate.BlockHash.Text(felt.Base16)),
+func (c *Client) applyStateUpdate(stateUpdate *StateUpdate) {
+	c.logger.Debug(
+		"Received L1 state update",
+		zap.Uint64("l2Block", stateUpdate.L2BlockNumber),
+		zap.String("stateRoot", stateUpdate.StateRoot.ShortString()),
+		zap.String("l2BlockHash", stateUpdate.L2BlockHash.ShortString()),
 	)
-	if stateUpdate.Raw.Removed {
+	if stateUpdate.Removed {
 		for l1BlockNumber := range c.nonFinalisedLogs {
-			if l1BlockNumber >= stateUpdate.Raw.BlockNumber {
+			if l1BlockNumber >= stateUpdate.L1RefHeight {
 				delete(c.nonFinalisedLogs, l1BlockNumber)
 			}
 		}
 	} else {
-		c.nonFinalisedLogs[stateUpdate.Raw.BlockNumber] = stateUpdate
+		c.nonFinalisedLogs[stateUpdate.L1RefHeight] = stateUpdate
 	}
 }
 
@@ -338,7 +321,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	)
 
 	latestCtx, cancelLatest := context.WithTimeout(ctx, heightCallTimeout)
-	latest, err := c.l1.LatestHeight(latestCtx)
+	latest, err := c.provider.LatestHeight(latestCtx)
 	cancelLatest()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -351,7 +334,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 	}
 
 	finalisedCtx, cancelFinalised := context.WithTimeout(ctx, heightCallTimeout)
-	finalised, err := c.l1.FinalisedHeight(finalisedCtx)
+	finalised, err := c.provider.FinalisedHeight(finalisedCtx)
 	cancelFinalised()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -364,7 +347,8 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		return fmt.Errorf("failed to get finalised height: %w", err)
 	}
 
-	c.logger.Info("L1 catch-up starting",
+	c.logger.Info(
+		"L1 catch-up starting",
 		zap.Uint64("latest", latest),
 		zap.Uint64("finalised", finalised),
 		zap.Uint64("chunkSize", c.catchUpChunkSize),
@@ -382,7 +366,7 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 			from = to + 1 - c.catchUpChunkSize
 		}
 		filterCtx, cancelFilter := context.WithTimeout(ctx, filterCallTimeout)
-		events, err := c.l1.FilterLogStateUpdate(filterCtx, from, to)
+		events, err := c.provider.FilterStateUpdate(filterCtx, from, to)
 		cancelFilter()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -396,15 +380,16 @@ func (c *Client) catchUpL1HeadUpdates(ctx context.Context) error {
 		chunks++
 		total += len(events)
 		for _, ev := range events {
-			c.applyLogStateUpdate(ev)
-			if ev.Raw.BlockNumber <= finalised {
+			c.applyStateUpdate(ev)
+			if ev.L1RefHeight <= finalised {
 				foundFinalised = true
 			}
 		}
 		// Stop once we've captured at least one finalised event (so setL1Head
 		// has something to commit) or we've walked back to genesis.
 		if foundFinalised || from == 0 {
-			c.logger.Info("L1 catch-up complete",
+			c.logger.Info(
+				"L1 catch-up complete",
 				zap.Int("chunks", chunks),
 				zap.Int("events", total),
 				zap.Int("nonFinalisedLogs", len(c.nonFinalisedLogs)),
@@ -429,7 +414,7 @@ func (c *Client) finalisedHeight(ctx context.Context) (uint64, bool) {
 		case <-timer.C:
 			const finalisedHeightTimeout = 30 * time.Second
 			callCtx, cancel := context.WithTimeout(ctx, finalisedHeightTimeout)
-			finalisedHeight, err := c.l1.FinalisedHeight(callCtx)
+			finalisedHeight, err := c.provider.FinalisedHeight(callCtx)
 			cancel()
 			if err == nil {
 				return finalisedHeight, true
@@ -451,7 +436,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 
 	// Get max finalised Starknet head.
 	var maxFinalisedNumber uint64
-	var maxFinalisedHead *contract.StarknetLogStateUpdate
+	var maxFinalisedHead *StateUpdate
 	for l1BlockNumber := range c.nonFinalisedLogs {
 		if l1BlockNumber <= finalisedHeight {
 			if l1BlockNumber >= maxFinalisedNumber {
@@ -468,9 +453,9 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	}
 
 	head := &core.L1Head{
-		BlockNumber: maxFinalisedHead.BlockNumber.Uint64(),
-		BlockHash:   new(felt.Felt).SetBigInt(maxFinalisedHead.BlockHash),
-		StateRoot:   new(felt.Felt).SetBigInt(maxFinalisedHead.GlobalRoot),
+		BlockNumber: maxFinalisedHead.L2BlockNumber,
+		BlockHash:   &maxFinalisedHead.L2BlockHash,
+		StateRoot:   &maxFinalisedHead.StateRoot,
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf(
@@ -479,15 +464,12 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		)
 	}
 	c.listener.OnNewL1Head(head)
-	c.logger.Info("Updated l1 head",
+	c.logger.Info(
+		"Updated l1 head",
 		zap.Uint64("blockNumber", head.BlockNumber),
 		zap.String("blockHash", head.BlockHash.ShortString()),
 		zap.String("stateRoot", head.StateRoot.ShortString()),
 	)
 
 	return nil
-}
-
-func (c *Client) L1() Subscriber {
-	return c.l1
 }

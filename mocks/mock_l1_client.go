@@ -42,10 +42,10 @@ func (m *MockL1Client) EXPECT() *MockL1ClientMockRecorder {
 }
 
 // TransactionReceipt mocks base method.
-func (m *MockL1Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error) {
+func (m *MockL1Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (eth.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionReceipt", ctx, txHash)
-	ret0, _ := ret[0].(*eth.Receipt)
+	ret0, _ := ret[0].(eth.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
