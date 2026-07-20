@@ -112,6 +112,16 @@ func getDefaultFixedTimeouts() Timeouts {
 	return getFixedTimeouts(timeouts)
 }
 
+func makeTimeouts(timeouts []time.Duration, fixed bool) *Timeouts {
+	var t Timeouts
+	if len(timeouts) > 1 || fixed {
+		t = getFixedTimeouts(timeouts)
+	} else {
+		t = getDynamicTimeouts(timeouts[0])
+	}
+	return &t
+}
+
 // ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration.
 // Returns:
 // - the parsed timeout values
@@ -173,7 +183,7 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		client.WithTimeouts(newTimeouts, fixed)
+		client.SetTimeouts(newTimeouts, fixed)
 		//nolint:gosec // G705: `timeoutsStr` was validated by `ParseTimeouts`
 		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
 	default:

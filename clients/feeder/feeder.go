@@ -84,57 +84,61 @@ type Reader interface {
 
 var _ Reader = (*Client)(nil)
 
-func (c *Client) WithListener(l EventListener) *Client {
-	c.listener = l
-	return c
+// options holds configuration for constructing a feeder client.
+type options struct {
+	httpClient *http.Client
+	backoff    Backoff
+	maxRetries int
+	maxWait    time.Duration
+	minWait    time.Duration
+	logger     log.StructuredLogger
+	userAgent  string
+	apiKey     string
+	listener   EventListener
+	timeouts   *Timeouts
 }
 
-func (c *Client) WithBackoff(b Backoff) *Client {
-	c.backoff = b
-	return c
+// Option is a functional option for configuring the feeder client.
+type Option func(*options)
+
+func WithListener(l EventListener) Option {
+	return func(o *options) { o.listener = l }
 }
 
-func (c *Client) WithMaxRetries(num int) *Client {
-	c.maxRetries = num
-	return c
+func WithBackoff(b Backoff) Option {
+	return func(o *options) { o.backoff = b }
 }
 
-func (c *Client) WithMaxWait(d time.Duration) *Client {
-	c.maxWait = d
-	return c
+func WithMaxRetries(num int) Option {
+	return func(o *options) { o.maxRetries = num }
 }
 
-func (c *Client) WithMinWait(d time.Duration) *Client {
-	c.minWait = d
-	return c
+func WithMaxWait(d time.Duration) Option {
+	return func(o *options) { o.maxWait = d }
 }
 
-func (c *Client) WithLogger(logger log.StructuredLogger) *Client {
-	c.logger = logger
-	return c
+func WithMinWait(d time.Duration) Option {
+	return func(o *options) { o.minWait = d }
 }
 
-func (c *Client) WithUserAgent(ua string) *Client {
-	c.userAgent = ua
-	return c
+func WithLogger(logger log.StructuredLogger) Option {
+	return func(o *options) { o.logger = logger }
 }
 
-func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
-	var newTimeouts *Timeouts
-	if len(timeouts) > 1 || fixed {
-		t := getFixedTimeouts(timeouts)
-		newTimeouts = &t
-	} else {
-		t := getDynamicTimeouts(timeouts[0])
-		newTimeouts = &t
-	}
-	c.timeouts.Store(newTimeouts)
-	return c
+func WithUserAgent(ua string) Option {
+	return func(o *options) { o.userAgent = ua }
 }
 
-func (c *Client) WithAPIKey(key string) *Client {
-	c.apiKey = key
-	return c
+func WithAPIKey(key string) Option {
+	return func(o *options) { o.apiKey = key }
+}
+
+func WithHTTPClient(client *http.Client) Option {
+	return func(o *options) { o.httpClient = client }
+}
+
+func WithTimeouts(timeouts []time.Duration, fixed bool) Option {
+	return func(o *options) { o.timeouts = makeTimeouts(timeouts, fixed) }
 }
 
 func ExponentialBackoff(wait time.Duration) time.Duration {
@@ -145,21 +149,42 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-func NewClient(clientURL *url.URL) *Client {
+func NewClient(clientURL *url.URL, opts ...Option) *Client {
 	defaultTimeouts := getDefaultFixedTimeouts()
-
-	client := &Client{
-		url:        clientURL,
-		client:     http.DefaultClient,
+	o := options{
+		httpClient: http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
 		logger:     log.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
+		timeouts:   &defaultTimeouts,
 	}
-	client.timeouts.Store(&defaultTimeouts)
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	client := &Client{
+		url:        clientURL,
+		client:     o.httpClient,
+		backoff:    o.backoff,
+		maxRetries: o.maxRetries,
+		maxWait:    o.maxWait,
+		minWait:    o.minWait,
+		logger:     o.logger,
+		userAgent:  o.userAgent,
+		apiKey:     o.apiKey,
+		listener:   o.listener,
+	}
+	client.timeouts.Store(o.timeouts)
 	return client
+}
+
+// SetTimeouts atomically replaces the timeouts of a live client.
+// It is used by the PUT /feeder/timeouts endpoint.
+func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
+	c.timeouts.Store(makeTimeouts(timeouts, fixed))
 }
 
 // get performs a "GET" http request with the given URL and returns the response body

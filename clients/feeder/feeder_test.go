@@ -848,11 +848,12 @@ func TestHttpError(t *testing.T) {
 	t.Cleanup(srv.Close)
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	client := feeder.
-		NewClient(feederURL).
-		WithBackoff(feeder.NopBackoff).
-		WithMaxRetries(maxRetries).
-		WithUserAgent(ua)
+	client := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(t.Context(), strconv.Itoa(0))
@@ -890,11 +891,12 @@ func TestBackoffFailure(t *testing.T) {
 
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	c := feeder.
-		NewClient(feederURL).
-		WithBackoff(feeder.NopBackoff).
-		WithMaxRetries(maxRetries).
-		WithUserAgent(ua)
+	c := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
 
 	_, err = c.Block(t.Context(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
@@ -1098,15 +1100,13 @@ func TestBlockTrace(t *testing.T) {
 
 func TestEventListener(t *testing.T) {
 	isCalled := false
-	client := feeder.
-		NewTestClient(t, &networks.Integration).
-		WithListener(&feeder.SelectiveListener{
-			OnResponseCb: func(urlPath string, status int, _ time.Duration) {
-				isCalled = true
-				require.Equal(t, 200, status)
-				require.Equal(t, "/get_block", urlPath)
-			},
-		})
+	client := feeder.NewTestClient(t, &networks.Integration, feeder.WithListener(&feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, _ time.Duration) {
+			isCalled = true
+			require.Equal(t, 200, status)
+			require.Equal(t, "/get_block", urlPath)
+		},
+	}))
 	_, err := client.Block(t.Context(), "0")
 	require.NoError(t, err)
 	require.True(t, isCalled)
@@ -1136,13 +1136,15 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts(
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts(
 				[]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second},
 				false,
-			).
-			WithMaxRetries(2).
-			WithBackoff(feeder.NopBackoff)
+			),
+			feeder.WithMaxRetries(2),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
@@ -1161,10 +1163,12 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
-			WithMaxRetries(2).
-			WithBackoff(feeder.NopBackoff)
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts([]time.Duration{250 * time.Millisecond}, false),
+			feeder.WithMaxRetries(2),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		_, err = client.Block(t.Context(), "1")
 		require.Error(t, err)
@@ -1189,10 +1193,12 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
-			WithMaxRetries(1).
-			WithBackoff(feeder.NopBackoff)
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false),
+			feeder.WithMaxRetries(1),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
@@ -1232,7 +1238,7 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 	t.Cleanup(srv.Close)
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	return feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+	return feeder.NewClient(feederURL, feeder.WithBackoff(feeder.NopBackoff), feeder.WithMaxRetries(0))
 }
 
 // TestFeederValidation checks that the response
