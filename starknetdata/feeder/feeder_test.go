@@ -312,11 +312,7 @@ func TestAdapterErrorPaths(t *testing.T) {
 		t.Cleanup(srv.Close)
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		errClient := feeder.NewClient(
-			feederURL,
-			feeder.WithBackoff(feeder.NopBackoff),
-			feeder.WithMaxRetries(0),
-		)
+		errClient := feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
 		errAdapter := adaptfeeder.New(errClient)
 		hdr, err := errAdapter.BlockHeaderLatest(ctx)
 		assert.Error(t, err)

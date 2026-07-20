@@ -376,16 +376,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
 		}
 
-		feederClientOpts := []feeder.Option{
-			feeder.WithUserAgent(ua),
-			feeder.WithLogger(logger),
-			feeder.WithTimeouts(timeouts, fixed),
-			feeder.WithAPIKey(cfg.GatewayAPIKey),
-		}
-		if cfg.Metrics {
-			feederClientOpts = append(feederClientOpts, feeder.WithListener(makeFeederMetrics()))
-		}
-		client = feeder.NewClient(cfg.Network.FeederURL, feederClientOpts...)
+		client = feeder.NewClient(cfg.Network.FeederURL).
+			WithUserAgent(ua).
+			WithLogger(logger).
+			WithTimeouts(timeouts, fixed).
+			WithAPIKey(cfg.GatewayAPIKey)
 
 		// Handle fee tokens for custom networks
 		feeTokens := networks.DefaultFeeTokenAddresses
@@ -596,6 +591,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		jsonrpcServerV09.WithListener(rpcMetrics[1])
 		jsonrpcServerV08.WithListener(rpcMetrics[2])
 		if !cfg.Sequencer {
+			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
 			if synchronizer != nil {
 				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
