@@ -879,6 +879,59 @@ func TestHttpError(t *testing.T) {
 	}
 }
 
+// The sequencer sporadically replies 400 to valid pre-confirmed polls. The
+// pre-confirmed path fails fast on 400 (deterministic status — retrying is
+// pointless); every other endpoint keeps the full retry budget.
+func TestBadRequestRetryPolicy(t *testing.T) {
+	maxRetries := 2
+	newClient := func(t *testing.T, status int) (*feeder.Client, *int) {
+		t.Helper()
+		requestCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			requestCount++
+			w.WriteHeader(status)
+		}))
+		t.Cleanup(srv.Close)
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(feederURL).
+			WithBackoff(feeder.NopBackoff).
+			WithMaxRetries(maxRetries)
+		return client, &requestCount
+	}
+
+	t.Run("pre-confirmed by number fails fast on 400", func(t *testing.T) {
+		client, count := newClient(t, http.StatusBadRequest)
+		_, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "1", "", 0)
+		require.ErrorIs(t, err, feeder.ErrBadRequest)
+		require.EqualError(t, err, "400 Bad Request")
+		require.Equal(t, 1, *count, "400 on pre-confirmed must not retry")
+	})
+
+	t.Run("pre-confirmed latest fails fast on 400", func(t *testing.T) {
+		client, count := newClient(t, http.StatusBadRequest)
+		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+		require.ErrorIs(t, err, feeder.ErrBadRequest)
+		require.Equal(t, 1, *count, "400 on pre-confirmed latest must not retry")
+	})
+
+	t.Run("other endpoints keep full retries on 400", func(t *testing.T) {
+		client, count := newClient(t, http.StatusBadRequest)
+		_, err := client.Block(t.Context(), "1")
+		require.ErrorIs(t, err, feeder.ErrBadRequest)
+		require.EqualError(t, err, "400 Bad Request")
+		require.Equal(t, maxRetries+1, *count, "fail-fast is pre-confirmed-only")
+	})
+
+	t.Run("pre-confirmed keeps full retries on non-400", func(t *testing.T) {
+		client, count := newClient(t, http.StatusInternalServerError)
+		_, err := client.PreConfirmedBlockWithIdentifier(t.Context(), "1", "", 0)
+		require.EqualError(t, err, "500 Internal Server Error")
+		require.NotErrorIs(t, err, feeder.ErrBadRequest)
+		require.Equal(t, maxRetries+1, *count, "fail-fast is 400-only")
+	})
+}
+
 func TestBackoffFailure(t *testing.T) {
 	maxRetries := 5
 	try := 0

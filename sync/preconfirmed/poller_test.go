@@ -3,6 +3,7 @@ package preconfirmed_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -22,6 +24,8 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var feltOne = &felt.One
@@ -157,6 +161,19 @@ func wirePoller(
 	ds preconfirmed.DataSource,
 ) harness {
 	t.Helper()
+	return wirePollerWithLogger(t, bc, head, ds, log.NewNopZapLogger())
+}
+
+// wirePollerWithLogger is wirePoller with an injectable logger, for tests that
+// assert on emitted log entries.
+func wirePollerWithLogger(
+	t *testing.T,
+	bc *blockchain.Blockchain,
+	head *core.Header,
+	ds preconfirmed.DataSource,
+	logger log.StructuredLogger,
+) harness {
+	t.Helper()
 	storage := preconfirmed.NewChainStorage()
 	out := feed.New[*pending.PreConfirmed]()
 	sub := out.SubscribeKeepLast()
@@ -165,7 +182,7 @@ func wirePoller(
 	highest := &atomic.Pointer[core.Header]{}
 	highest.Store(head)
 
-	p := preconfirmed.NewPoller(ds, storage, bc, out, highest, tickInterval, log.NewNopZapLogger())
+	p := preconfirmed.NewPoller(ds, storage, bc, out, highest, tickInterval, logger)
 	return harness{
 		poller:  p,
 		storage: storage,
@@ -520,6 +537,73 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 
 		view := h.storage.SnapshotForHead(h.head)
 		require.Zero(t, view.Length(), "tick aborts before any apply when backfill errors")
+	})
+}
+
+// A 400 from the sequencer on a backfill poll is a known false positive: tick
+// treats it as benign — Debug (not Warn), nothing applied — and the next tick
+// reconciles normally.
+func TestPollerBackfillBadRequestIsBenign(t *testing.T) {
+	t.Parallel()
+	fx := newChainFixture(t)
+
+	latestReply := makeTestPreConfirmedBlock("r3", 0)
+	block1 := makeTestPreConfirmedBlock("r1", 0)
+	block2 := makeTestPreConfirmedBlock("r2", 0)
+
+	// Wrapped like the real chain (backfill wraps the wire error with %w).
+	wireErr := fmt.Errorf("wire: %w", feeder.ErrBadRequest)
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockStarknetData(ctrl)
+	gomock.InOrder(
+		// Tick 1: latest reports height 3; the backfill poll 400s.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, wireErr),
+		// Tick 2: same gap; backfill now succeeds and the chain lands fully.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+			Return(block1, nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "", uint64(0)).
+			Return(block2, nil),
+	)
+
+	obsCore, recorded := observer.New(zapcore.DebugLevel)
+	logger := log.NewZapLoggerWithCore(obsCore)
+
+	synctest.Test(t, func(t *testing.T) {
+		h := wirePollerWithLogger(t, fx.bc, fx.head, ds, logger)
+		go h.poller.Run(t.Context())
+		synctest.Wait()
+
+		// Tick 1: benign 400 — nothing applied, Debug not Warn.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view := h.storage.SnapshotForHead(h.head)
+		require.Zero(t, view.Length(), "400 backfill must not apply anything")
+		require.Zero(t, recorded.FilterLevelExact(zapcore.WarnLevel).Len(),
+			"backfill 400 must not surface as a tick error")
+		require.Equal(t, 1,
+			recorded.FilterMessage("Skipping pre-confirmed backfill after gateway 400").Len())
+
+		// Tick 2: the poller kept running and recovers.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view = h.storage.SnapshotForHead(h.head)
+		assertChain(t, &view,
+			entry(1, &block1),
+			entry(2, &block2),
+			entry(3, &latestReply),
+		)
+		require.Zero(t, recorded.FilterLevelExact(zapcore.WarnLevel).Len())
 	})
 }
 
