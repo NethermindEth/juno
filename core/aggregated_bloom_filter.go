@@ -229,6 +229,7 @@ func (f *AggregatedBloomFilter) Clone() AggregatedBloomFilter {
 // default), while UnmarshalBinary hardcodes big-endian; a bitset.LittleEndian()
 // call anywhere would desync the two and corrupt the DB. Left as an invariant
 // since no caller flips it and a round-trip would fail immediately if one did.
+// Additional context: https://github.com/NethermindEth/juno/pull/3796/changes/a04903f9e6a6fc57842ad483a6d6af0abda25451#r3592406017
 func (f *AggregatedBloomFilter) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 
