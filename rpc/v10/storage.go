@@ -114,9 +114,9 @@ func (h *Handler) StorageAt(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	// Only the head (latest) reader returns zero for a missing contract, so probe
-	// the class hash to distinguish "contract absent" from "slot is zero".
-	// Historical and pre_confirmed readers surface it as ErrKeyNotFound above.
+	// Head readers return zero for a missing contract, so probe the class hash to
+	// tell it apart from an unset slot. Other readers already return ErrKeyNotFound.
+	// Genesis pre_confirmed case is ignored deliberately
 	if value.IsZero() && id.IsLatest() {
 		if _, err := stateReader.ContractClassHash(addressFelt); err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
