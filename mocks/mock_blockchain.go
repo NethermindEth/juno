@@ -150,6 +150,21 @@ func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberByHash", reflect.TypeOf((*MockReader)(nil).BlockNumberByHash), hash)
 }
 
+// BlockTransactionCountByNumber mocks base method.
+func (m *MockReader) BlockTransactionCountByNumber(number uint64) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockTransactionCountByNumber", number)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockTransactionCountByNumber indicates an expected call of BlockTransactionCountByNumber.
+func (mr *MockReaderMockRecorder) BlockTransactionCountByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockTransactionCountByNumber", reflect.TypeOf((*MockReader)(nil).BlockTransactionCountByNumber), number)
+}
+
 // EventFilter mocks base method.
 func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (blockchain.PreConfirmedReader, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()

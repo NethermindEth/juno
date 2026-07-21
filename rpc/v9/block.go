@@ -7,8 +7,11 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -282,11 +285,46 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L548
 func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return 0, rpcErr
+	var count uint64
+	var err error
+	switch id.Type() {
+	case preConfirmed:
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
+		if err == nil {
+			count = chain.Head().Block.Header.TransactionCount
+		}
+	case latest:
+		var height uint64
+		height, err = h.bcReader.Height()
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(height)
+		}
+	case hash:
+		var blockNumber uint64
+		blockNumber, err = h.bcReader.BlockNumberByHash(id.Hash())
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(blockNumber)
+		}
+	case number:
+		count, err = h.bcReader.BlockTransactionCountByNumber(id.Number())
+	case l1Accepted:
+		var blockNumber uint64
+		blockNumber, err = h.l1AcceptedBlockNumber()
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(blockNumber)
+		}
+	default:
+		panic("unknown block type id")
 	}
-	return header.TransactionCount, nil
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return 0, rpccore.ErrBlockNotFound
+		}
+		return 0, rpccore.ErrInternal.CloneWithData(err)
+	}
+	return count, nil
 }
 
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.

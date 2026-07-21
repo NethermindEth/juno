@@ -562,7 +562,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	expectedCount := latestBlock.TransactionCount
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().Height().Return(uint64(0), db.ErrKeyNotFound)
 		latest := rpc.BlockIDLatest()
 		count, rpcErr := handler.BlockTransactionCount(&latest)
 		assert.Equal(t, uint64(0), count)
@@ -570,7 +570,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 		hash := rpc.BlockIDFromHash(felt.NewFromBytes[felt.Felt]([]byte("random")))
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		assert.Equal(t, uint64(0), count)
@@ -586,7 +586,10 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockTransactionCountByNumber(gomock.Any()).Return(
+			uint64(0),
+			db.ErrKeyNotFound,
+		)
 		number := rpc.BlockIDFromNumber(uint64(328476))
 		count, rpcErr := handler.BlockTransactionCount(&number)
 		assert.Equal(t, uint64(0), count)
@@ -594,7 +597,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		latest := rpc.BlockIDLatest()
 		count, rpcErr := handler.BlockTransactionCount(&latest)
 		require.Nil(t, rpcErr)
@@ -602,7 +606,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockNumberByHash(latestBlockHash).Return(latestBlockNumber, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		hash := rpc.BlockIDFromHash(latestBlockHash)
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		require.Nil(t, rpcErr)
@@ -610,7 +615,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		number := rpc.BlockIDFromNumber(latestBlockNumber)
 		count, rpcErr := handler.BlockTransactionCount(&number)
 		require.Nil(t, rpcErr)
@@ -627,7 +632,7 @@ func TestBlockTransactionCount(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
 		require.Nil(t, rpcErr)
@@ -644,7 +649,7 @@ func TestBlockTransactionCount(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
 		require.Nil(t, rpcErr)
