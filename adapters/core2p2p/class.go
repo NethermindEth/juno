@@ -54,7 +54,7 @@ func AdaptSierraClass(cls *core.SierraClass) *class.Cairo1Class {
 			L1Handlers:   utils.Map(cls.EntryPoints.L1Handler, adaptSierra),
 			Constructors: utils.Map(cls.EntryPoints.Constructor, adaptSierra),
 		},
-		Program:              utils.Map(cls.Program, AdaptFelt),
+		Program:              utils.Map(cls.Program, adaptFeltValue),
 		ContractClassVersion: cls.SemanticVersion,
 	}
 }

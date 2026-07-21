@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var (
@@ -72,7 +73,7 @@ type SierraClass struct {
 	Abi         string
 	AbiHash     *felt.Felt
 	EntryPoints SierraEntryPointsByType
-	Program     []*felt.Felt
+	Program     []felt.Felt
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
@@ -85,7 +86,7 @@ type SegmentLengths struct {
 }
 
 type CasmClass struct {
-	Bytecode               []*felt.Felt
+	Bytecode               []felt.Felt
 	PythonicHints          json.RawMessage
 	CompilerVersion        string
 	Hints                  json.RawMessage
@@ -214,7 +215,8 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		bytecodeHash = hasher.HashArray(c.Bytecode...)
+		// TODO(granza): update hash to also receive []felt.Felt
+		bytecodeHash = hasher.HashArray(utils.ToPtrSlice(c.Bytecode)...)
 	} else {
 		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, hasher)
 	}
@@ -233,7 +235,7 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 }
 
 func SegmentedBytecodeHash(
-	bytecode []*felt.Felt,
+	bytecode []felt.Felt,
 	segmentLengths []SegmentLengths,
 	hasher Hasher,
 ) felt.Felt {
@@ -250,7 +252,8 @@ func SegmentedBytecodeHash(
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				curSegmentHash = hasher.HashArray(segmentBytecode...)
+				// TODO(granza): update hash to also receive []felt.Felt
+				curSegmentHash = hasher.HashArray(utils.ToPtrSlice(segmentBytecode)...)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}

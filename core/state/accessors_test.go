@@ -91,7 +91,7 @@ func TestClassAccessors(t *testing.T) {
 			At: 12,
 			Class: &core.SierraClass{
 				SemanticVersion: "0.1.0",
-				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")},
+				Program:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")},
 			},
 		}
 	}
@@ -122,7 +122,7 @@ func TestClassAccessors(t *testing.T) {
 		sierra, ok := got.Class.(*core.SierraClass)
 		require.True(t, ok)
 		assert.Equal(t, "0.1.0", sierra.SemanticVersion)
-		assert.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x1")}, sierra.Program)
+		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")}, sierra.Program)
 	})
 
 	t.Run("overwrite reflects latest values", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestClassAccessors(t *testing.T) {
 			At: 99,
 			Class: &core.SierraClass{
 				SemanticVersion: "0.2.0",
-				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x2")},
+				Program:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x2")},
 			},
 		}
 		require.NoError(t, state.WriteClass(disk, classHash, updated))
@@ -144,7 +144,7 @@ func TestClassAccessors(t *testing.T) {
 		sierra, ok := got.Class.(*core.SierraClass)
 		require.True(t, ok)
 		assert.Equal(t, "0.2.0", sierra.SemanticVersion)
-		assert.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x2")}, sierra.Program)
+		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x2")}, sierra.Program)
 	})
 
 	t.Run("delete removes the class", func(t *testing.T) {

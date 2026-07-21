@@ -269,7 +269,10 @@ func TestClassEncoding(t *testing.T) {
 					},
 					L1Handler: []core.SierraEntryPoint{},
 				},
-				Program:         []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0xDEAD"), felt.NewUnsafeFromString[felt.Felt]("0xBEEF")},
+				Program: []felt.Felt{
+					felt.UnsafeFromString[felt.Felt]("0xDEAD"),
+					felt.UnsafeFromString[felt.Felt]("0xBEEF"),
+				},
 				ProgramHash:     felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
 				SemanticVersion: "0.1.0",
 			},
@@ -366,10 +369,10 @@ func TestVerifyClassHash(t *testing.T) {
 }
 
 func TestSegmentedBytecodeHash(t *testing.T) {
-	byteCode := []*felt.Felt{
-		felt.NewFromUint64[felt.Felt](1),
-		felt.NewFromUint64[felt.Felt](2),
-		felt.NewFromUint64[felt.Felt](3),
+	byteCode := []felt.Felt{
+		felt.FromUint64[felt.Felt](1),
+		felt.FromUint64[felt.Felt](2),
+		felt.FromUint64[felt.Felt](3),
 	}
 	segmentLengths := []core.SegmentLengths{
 		{
@@ -434,8 +437,8 @@ func TestSierraVersion(t *testing.T) {
 				576348180530977296,
 			})
 		class := core.SierraClass{
-			Program: []*felt.Felt{
-				&sierraVersion010,
+			Program: []felt.Felt{
+				sierraVersion010,
 			},
 		}
 		sierraVersion := class.SierraVersion()
@@ -444,10 +447,10 @@ func TestSierraVersion(t *testing.T) {
 
 	t.Run("cairo one should return based on the program data", func(t *testing.T) {
 		class := core.SierraClass{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(7),
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt).SetUint64(11),
+			Program: []felt.Felt{
+				felt.FromUint64[felt.Felt](7),
+				felt.FromUint64[felt.Felt](3),
+				felt.FromUint64[felt.Felt](11),
 			},
 		}
 		sierraVersion := class.SierraVersion()

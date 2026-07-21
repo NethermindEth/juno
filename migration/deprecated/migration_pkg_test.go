@@ -664,10 +664,13 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*felt.NewUnsafeFromString[felt.Felt]("0x3"): {{Key: felt.NewUnsafeFromString[felt.Felt]("0x4"), Value: felt.NewUnsafeFromString[felt.Felt]("0x5")}},
+					felt.UnsafeFromString[felt.Felt]("0x3"): {{
+						Key:   felt.NewUnsafeFromString[felt.Felt]("0x4"),
+						Value: felt.NewUnsafeFromString[felt.Felt]("0x5"),
+					}},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
+					felt.UnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
 				},
 				DeployedContracts: []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x8"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x9")}},
 				DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
@@ -686,10 +689,13 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*felt.NewUnsafeFromString[felt.Felt]("0x18"): {{Key: felt.NewUnsafeFromString[felt.Felt]("0x19"), Value: felt.NewUnsafeFromString[felt.Felt]("0x20")}},
+					felt.UnsafeFromString[felt.Felt]("0x18"): {{
+						Key:   felt.NewUnsafeFromString[felt.Felt]("0x19"),
+						Value: felt.NewUnsafeFromString[felt.Felt]("0x20"),
+					}},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
+					felt.UnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
 				},
 				DeployedContracts: []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x23"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x24")}},
 				DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
@@ -733,22 +739,22 @@ func TestChangeStateDiffStruct(t *testing.T) {
 					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
 					StateDiff: &core.StateDiff{
 						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x3"): {
-								*felt.NewUnsafeFromString[felt.Felt]("0x4"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
+							felt.UnsafeFromString[felt.Felt]("0x3"): {
+								felt.UnsafeFromString[felt.Felt]("0x4"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
 							},
 						},
 						Nonces: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
+							felt.UnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
 						},
 						DeployedContracts: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x8"): felt.NewUnsafeFromString[felt.Felt]("0x9"),
+							felt.UnsafeFromString[felt.Felt]("0x8"): felt.NewUnsafeFromString[felt.Felt]("0x9"),
 						},
 						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
 						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x11"): felt.NewUnsafeFromString[felt.Felt]("0x12"),
+							felt.UnsafeFromString[felt.Felt]("0x11"): felt.NewUnsafeFromString[felt.Felt]("0x12"),
 						},
 						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x13"): felt.NewUnsafeFromString[felt.Felt]("0x14"),
+							felt.UnsafeFromString[felt.Felt]("0x13"): felt.NewUnsafeFromString[felt.Felt]("0x14"),
 						},
 					},
 				},
@@ -762,22 +768,22 @@ func TestChangeStateDiffStruct(t *testing.T) {
 					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
 					StateDiff: &core.StateDiff{
 						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x18"): {
-								*felt.NewUnsafeFromString[felt.Felt]("0x19"): felt.NewUnsafeFromString[felt.Felt]("0x20"),
+							felt.UnsafeFromString[felt.Felt]("0x18"): {
+								felt.UnsafeFromString[felt.Felt]("0x19"): felt.NewUnsafeFromString[felt.Felt]("0x20"),
 							},
 						},
 						Nonces: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
+							felt.UnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
 						},
 						DeployedContracts: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x23"): felt.NewUnsafeFromString[felt.Felt]("0x24"),
+							felt.UnsafeFromString[felt.Felt]("0x23"): felt.NewUnsafeFromString[felt.Felt]("0x24"),
 						},
 						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
 						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x26"): felt.NewUnsafeFromString[felt.Felt]("0x27"),
+							felt.UnsafeFromString[felt.Felt]("0x26"): felt.NewUnsafeFromString[felt.Felt]("0x27"),
 						},
 						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x28"): felt.NewUnsafeFromString[felt.Felt]("0x29"),
+							felt.UnsafeFromString[felt.Felt]("0x28"): felt.NewUnsafeFromString[felt.Felt]("0x29"),
 						},
 					},
 				},
@@ -798,14 +804,14 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	}))
 }
 
-func randSlice(t *testing.T) []*felt.Felt {
+func randSlice(t *testing.T) []felt.Felt {
 	t.Helper()
 
 	n := rand.Intn(10)
-	sl := make([]*felt.Felt, n)
+	sl := make([]felt.Felt, n)
 
 	for i := range sl {
-		sl[i] = felt.NewRandom[felt.Felt]()
+		sl[i] = felt.Random[felt.Felt]()
 	}
 	return sl
 }
