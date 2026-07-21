@@ -181,15 +181,18 @@ func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 }
 
 func (d *Database) NewSnapshot() db.Snapshot {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+
 	if d.db == nil {
 		panic(errDBClosed)
 	}
-	return d.Copy()
+	return d.copyLocked()
 }
 
 func (d *Database) Update(fn func(db.IndexedBatch) error) error {
-	if d.db == nil {
-		return errDBClosed
+	if err := d.checkClosed(); err != nil {
+		return err
 	}
 
 	batch := d.NewIndexedBatch()
@@ -197,12 +200,14 @@ func (d *Database) Update(fn func(db.IndexedBatch) error) error {
 		return err
 	}
 
+	// batch.Write re-checks the closed flag under the write lock, so a
+	// Close between here and the commit fails cleanly with errDBClosed.
 	return batch.Write()
 }
 
 func (d *Database) Write(fn func(db.Batch) error) error {
-	if d.db == nil {
-		return errDBClosed
+	if err := d.checkClosed(); err != nil {
+		return err
 	}
 
 	batch := d.NewBatch()
@@ -210,7 +215,21 @@ func (d *Database) Write(fn func(db.Batch) error) error {
 		return err
 	}
 
+	// batch.Write re-checks the closed flag under the write lock, so a
+	// Close between here and the commit fails cleanly with errDBClosed.
 	return batch.Write()
+}
+
+// checkClosed reports whether the database has been closed, reading the
+// closed state under the lock so the check doesn't race with Close.
+func (d *Database) checkClosed() error {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+
+	if d.db == nil {
+		return errDBClosed
+	}
+	return nil
 }
 
 func (d *Database) WithListener(listener db.EventListener) db.KeyValueStore {
@@ -222,6 +241,12 @@ func (d *Database) Copy() *Database {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
+	return d.copyLocked()
+}
+
+// copyLocked returns a deep copy of the key-value store. Callers must hold
+// d.lock.
+func (d *Database) copyLocked() *Database {
 	cp := &Database{
 		db: make(map[string][]byte, len(d.db)),
 	}

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -819,6 +820,50 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.Panics(t, func() {
 			database.NewSnapshot()
 		})
+	})
+
+	t.Run("TransactionsAfterClose", func(t *testing.T) {
+		database := newDB()
+		require.NoError(t, database.Close(), "Close operation failed")
+
+		require.Error(t, database.Update(func(IndexedBatch) error { return nil }),
+			"Update should fail after Close")
+		require.Error(t, database.Write(func(Batch) error { return nil }),
+			"Write should fail after Close")
+	})
+
+	t.Run("ConcurrentTransactionsAndClose", func(t *testing.T) {
+		database := newDB()
+
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		worker := func(op func() error) {
+			defer wg.Done()
+			<-start
+			for range 50 {
+				// Errors are expected once the database closes; the point
+				// is that no operation panics or races with Close.
+				_ = op()
+			}
+		}
+
+		wg.Add(2)
+		go worker(func() error {
+			return database.Update(func(b IndexedBatch) error {
+				return b.Put([]byte("key"), []byte("value"))
+			})
+		})
+		go worker(func() error {
+			return database.Write(func(b Batch) error {
+				return b.Put([]byte("key"), []byte("value"))
+			})
+		})
+
+		close(start)
+		// The error is ignored: the test only asserts that no operation
+		// panics or races with Close.
+		_ = database.Close()
+		wg.Wait()
 	})
 }
 

@@ -74,29 +74,37 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
-	batch := d.NewIndexedBatch()
+	batch := NewBatch(d.db.NewIndexedBatch(), d, d.listener)
 	if err := fn(batch); err != nil {
 		return err
 	}
 
-	return batch.Write()
+	// closeLock is already held, so commit without re-taking it.
+	return batch.write()
 }
 
 func (d *DB) Write(fn func(w db.Batch) error) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
-	batch := d.NewBatch()
+	batch := NewBatch(d.db.NewBatch(), d, d.listener)
 	if err := fn(batch); err != nil {
 		return err
 	}
 
-	return batch.Write()
+	// closeLock is already held, so commit without re-taking it.
+	return batch.write()
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
