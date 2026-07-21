@@ -12,6 +12,8 @@
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
+| `rpc-max-concurrent-requests` | `256000` | Maximum concurrent HTTP RPC requests; 0 disables the limit |
+| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests before rejecting incoming requests |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC

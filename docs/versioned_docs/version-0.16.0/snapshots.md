@@ -376,5 +376,5 @@ Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure i
 :::
 
 :::tip
-These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, check out the [Running Juno](running-juno) guide.
+These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, see [Running Juno](running-juno) guide.
 :::
