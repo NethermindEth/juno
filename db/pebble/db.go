@@ -75,6 +75,7 @@ func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
 	}
 
 	batch := NewBatch(d.db.NewIndexedBatch(), d, d.listener)
+	defer batch.Close() //nolint:errcheck // on success write() has already closed it
 	if err := fn(batch); err != nil {
 		return err
 	}
@@ -92,6 +93,7 @@ func (d *DB) Write(fn func(w db.Batch) error) error {
 	}
 
 	batch := NewBatch(d.db.NewBatch(), d, d.listener)
+	defer batch.Close() //nolint:errcheck // on success write() has already closed it
 	if err := fn(batch); err != nil {
 		return err
 	}
