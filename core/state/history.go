@@ -125,3 +125,11 @@ func (s *stateHistory) CompiledClassHashV2(
 ) (felt.CasmClassHash, error) {
 	return s.state.CompiledClassHashV2(classHash)
 }
+
+func (s *stateHistory) IsSystemContract(addr *felt.Felt) bool {
+	return s.state.IsSystemContract(addr)
+}
+
+func (s *stateHistory) SystemContracts() []felt.Felt {
+	return s.state.SystemContracts()
+}

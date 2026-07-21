@@ -22,25 +22,6 @@ var (
 
 const minDeclaredClassSize = 8
 
-// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
-// but have no Cairo class; their class hash is always zero. They are not part
-// of StateDiff.DeployedContracts and are auto-created during state commit so
-// their storage trie can exist.
-var (
-	SystemContract1Address = felt.One // block-hash storage contract
-	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
-	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
-	SystemContractsClassHash = felt.Zero
-
-	SystemContracts = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
-)
-
-// IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
-// that has no Cairo class.
-func IsSystemContract(addr *felt.Felt) bool {
-	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
-}
-
 // Single felt identifying the number "0.1.0" as a short string
 var SierraVersion010 felt.Felt = felt.Felt(
 	[4]uint64{

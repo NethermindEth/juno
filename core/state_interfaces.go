@@ -61,4 +61,10 @@ type StateReader interface {
 	// ContractStorageTrie returns the storage trie for the contract at addr.
 	// todo: change addr *felt.Felt to *felt.Address
 	ContractStorageTrie(addr *felt.Felt) (TrieReader, error)
+
+	// IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
+	// that has no Cairo class.
+	IsSystemContract(addr *felt.Felt) bool
+	// SystemContracts returns the addresses of all protocol system contracts (0x1, 0x2)
+	SystemContracts() []felt.Felt
 }

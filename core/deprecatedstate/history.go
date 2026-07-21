@@ -132,3 +132,11 @@ func (s *stateHistory) ContractTrie() (core.TrieReader, error) {
 func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
+
+func (s *stateHistory) IsSystemContract(addr *felt.Felt) bool {
+	return s.state.IsSystemContract(addr)
+}
+
+func (s *stateHistory) SystemContracts() []felt.Felt {
+	return s.state.SystemContracts()
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
@@ -161,7 +162,7 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("system contracts return contract not found", func(t *testing.T) {
-		for _, addr := range core.SystemContracts {
+		for _, addr := range deprecatedstate.SystemContracts {
 			class, rpcErr := handler.ClassAt(&latest, &addr)
 			require.Nil(t, class)
 			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
@@ -228,7 +229,7 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("system contracts return contract not found", func(t *testing.T) {
-		for _, addr := range core.SystemContracts {
+		for _, addr := range deprecatedstate.SystemContracts {
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			latest := rpc.BlockIDLatest()
 			classHash, rpcErr := handler.ClassHashAt(&latest, &addr)

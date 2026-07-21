@@ -190,3 +190,31 @@ func (mr *MockStateReaderMockRecorder) ContractTrie() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractTrie", reflect.TypeOf((*MockStateReader)(nil).ContractTrie))
 }
+
+// IsSystemContract mocks base method.
+func (m *MockStateReader) IsSystemContract(addr *felt.Felt) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSystemContract", addr)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsSystemContract indicates an expected call of IsSystemContract.
+func (mr *MockStateReaderMockRecorder) IsSystemContract(addr any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSystemContract", reflect.TypeOf((*MockStateReader)(nil).IsSystemContract), addr)
+}
+
+// SystemContracts mocks base method.
+func (m *MockStateReader) SystemContracts() []felt.Felt {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SystemContracts")
+	ret0, _ := ret[0].([]felt.Felt)
+	return ret0
+}
+
+// SystemContracts indicates an expected call of SystemContracts.
+func (mr *MockStateReaderMockRecorder) SystemContracts() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemContracts", reflect.TypeOf((*MockStateReader)(nil).SystemContracts))
+}

@@ -1,7 +1,6 @@
 package rpcv10
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -23,7 +22,7 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
 
 	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
-	if core.IsSystemContract(address) {
+	if stateReader.IsSystemContract(address) {
 		return nil, rpccore.ErrContractNotFound
 	}
 

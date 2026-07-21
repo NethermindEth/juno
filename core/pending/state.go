@@ -211,3 +211,11 @@ func (p *StateWriter) StateDiffAndClasses() (core.StateDiff, map[felt.Felt]core.
 func (p *StateWriter) SetStateDiff(stateDiff *core.StateDiff) {
 	p.stateDiff = stateDiff
 }
+
+func (p *State) IsSystemContract(addr *felt.Felt) bool {
+	return p.head.IsSystemContract(addr)
+}
+
+func (p *State) SystemContracts() []felt.Felt {
+	return p.head.SystemContracts()
+}

@@ -114,7 +114,7 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
 	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
-	if core.IsSystemContract(address) {
+	if stateReader.IsSystemContract(address) {
 		return nil, rpccore.ErrContractNotFound
 	}
 

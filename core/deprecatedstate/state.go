@@ -25,6 +25,16 @@ var (
 	stateVersion      = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
 	leafVersion       = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 	ErrCheckHeadState = errors.New("check head state")
+
+	// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
+	// but have no Cairo class; their class hash is always zero. They are not part
+	// of StateDiff.DeployedContracts and are auto-created during state commit so
+	// their storage trie can exist.
+	SystemContract1Address = felt.One // block-hash storage contract
+	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
+	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
+	SystemContractsClassHash = felt.Zero
+	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
 )
 
 type State struct {
@@ -56,6 +66,17 @@ func (s *State) putNewContract(
 	}
 
 	return s.updateContractCommitment(stateTrie, contract)
+}
+
+// IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
+// that has no Cairo class.
+func (s *State) IsSystemContract(addr *felt.Felt) bool {
+	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
+}
+
+// SystemContracts returns the addresses of all protocol system contracts (0x1, 0x2)
+func (s *State) SystemContracts() []felt.Felt {
+	return SystemContracts[:]
 }
 
 // ContractClassHash returns class hash of a contract at a given address.
@@ -429,7 +450,7 @@ func (s *State) updateContractStorages(
 
 	// make sure all system contracts are deployed
 	for addr := range diffs {
-		if !core.IsSystemContract(&addr) {
+		if !s.IsSystemContract(&addr) {
 			continue
 		}
 
@@ -439,7 +460,7 @@ func (s *State) updateContractStorages(
 				return err
 			}
 			// Deploy system contract
-			err = s.putNewContract(stateTrie, &addr, &core.SystemContractsClassHash, blockNumber)
+			err = s.putNewContract(stateTrie, &addr, &SystemContractsClassHash, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -677,7 +698,7 @@ func (s *State) purgesystemContracts() error {
 	// their storage no longer exists. Updating contracts with reverse diff will eventually
 	// lead to the deletion of the system contract's storage key from db. Thus,
 	// we can use the lack of key's existence as reason for purging system contracts.
-	for _, addr := range core.SystemContracts {
+	for _, addr := range SystemContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
 			if !errors.Is(err, ErrContractNotDeployed) {
