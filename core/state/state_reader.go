@@ -353,5 +353,5 @@ func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string)
 		return *contractRoot
 	}
 
-	return crypto.PoseidonArrayPtr(stateVersion0, contractRoot, classRoot)
+	return crypto.PoseidonElems(stateVersion0, contractRoot, classRoot)
 }

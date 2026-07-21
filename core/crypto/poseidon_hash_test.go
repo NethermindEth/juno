@@ -47,7 +47,7 @@ func TestPoseidonArray(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var digest, digestWhole crypto.PoseidonDigest
-			hash := crypto.PoseidonArrayPtr(test.elems...)
+			hash := crypto.PoseidonElems(test.elems...)
 			assert.Equal(t, test.expected, hash.String())
 
 			// PoseidonArray (value slice) must match the pointer version exactly.
@@ -93,7 +93,7 @@ func BenchmarkPoseidonArray(b *testing.B) {
 	}
 }
 
-func BenchmarkPoseidonArrayPtr(b *testing.B) {
+func BenchmarkPoseidonElems(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
 
 	for _, n := range numOfElems {
@@ -101,7 +101,7 @@ func BenchmarkPoseidonArrayPtr(b *testing.B) {
 			elems := genRandomFelts(b, n)
 			var f felt.Felt
 			for b.Loop() {
-				f = crypto.PoseidonArrayPtr(elems...)
+				f = crypto.PoseidonElems(elems...)
 			}
 			benchHashR = f
 		})

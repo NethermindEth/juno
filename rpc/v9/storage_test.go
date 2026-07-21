@@ -1088,6 +1088,6 @@ func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot
 	if classRoot.IsZero() {
 		assert.Equal(t, globalStateRoot, storageRoot)
 	} else {
-		assert.Equal(t, globalStateRoot, crypto.PoseidonArrayPtr(stateVersion, storageRoot, classRoot))
+		assert.Equal(t, globalStateRoot, crypto.PoseidonElems(stateVersion, storageRoot, classRoot))
 	}
 }

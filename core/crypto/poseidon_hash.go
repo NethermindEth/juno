@@ -72,10 +72,10 @@ func Poseidon(x, y *felt.Felt) felt.Felt {
 	return state[0]
 }
 
-// PoseidonArrayPtr is the pointer-element variant of [PoseidonArray], for
+// PoseidonElems is the pointer-element variant of [PoseidonArray], for
 // callers that already hold a []*felt.Felt (e.g. transaction hashing) and would
 // otherwise pay a copy to convert into a value slice.
-func PoseidonArrayPtr(elems ...*felt.Felt) felt.Felt {
+func PoseidonElems(elems ...*felt.Felt) felt.Felt {
 	state := [3]felt.Felt{}
 
 	for i := range len(elems) / 2 {
