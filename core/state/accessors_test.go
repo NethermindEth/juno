@@ -122,7 +122,7 @@ func TestClassAccessors(t *testing.T) {
 		sierra, ok := got.Class.(*core.SierraClass)
 		require.True(t, ok)
 		assert.Equal(t, "0.1.0", sierra.SemanticVersion)
-		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")}, sierra.Program)
+		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")}, []felt.Felt(sierra.Program))
 	})
 
 	t.Run("overwrite reflects latest values", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestClassAccessors(t *testing.T) {
 		sierra, ok := got.Class.(*core.SierraClass)
 		require.True(t, ok)
 		assert.Equal(t, "0.2.0", sierra.SemanticVersion)
-		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x2")}, sierra.Program)
+		assert.Equal(t, []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x2")}, []felt.Felt(sierra.Program))
 	})
 
 	t.Run("delete removes the class", func(t *testing.T) {

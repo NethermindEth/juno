@@ -575,10 +575,10 @@ func TestClassV1(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, feederClass.Sierra.Abi, v1Class.Abi)
-			assert.Equal(t, feederClass.Sierra.Program, v1Class.Program)
+			assert.Equal(t, feederClass.Sierra.Program, []felt.Felt(v1Class.Program))
 			assert.Equal(t, feederClass.Sierra.Version, v1Class.SemanticVersion)
 			assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
-			assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
+			assert.Equal(t, compiled.Bytecode, []felt.Felt(v1Class.Compiled.Bytecode))
 			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
 			assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
 			assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
