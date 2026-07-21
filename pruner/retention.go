@@ -83,6 +83,22 @@ func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) 
 	return err
 }
 
+// StateRootIfStateRetainedByBlockNumber returns the global state root for blockNumber
+// only if state at that block is queryable, decoding hash and state root in a single header read.
+func StateRootIfStateRetainedByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) (*felt.Felt, error) {
+	hash, stateRoot, err := core.GetBlockHeaderHashAndStateRootByNumber(r, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := core.GetBlockHeaderNumberByHash(r, hash); err != nil {
+		return nil, err
+	}
+	return stateRoot, nil
+}
+
 // HeaderByHashIfStateRetained returns the header for blockHash only if
 // state at that block is queryable. Use this for state access only; for
 // block-level data use [RequireRetained] + the plain core accessors instead.

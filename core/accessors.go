@@ -398,7 +398,36 @@ func GetBlockHeaderEventsBloomByNumber(
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
-	return header.EventsBloom, err
+	if err != nil {
+		return nil, err
+	}
+	if header.EventsBloom == nil {
+		return nil, fmt.Errorf("missing EventsBloom in block header %d", blockNum)
+	}
+	return header.EventsBloom, nil
+}
+
+func GetBlockHeaderHashAndStateRootByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (hash, stateRoot *felt.Felt, err error) {
+	var header struct {
+		Hash            *felt.Felt
+		GlobalStateRoot *felt.Felt
+	}
+	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if header.Hash == nil {
+		return nil, nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, nil, fmt.Errorf("missing GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.Hash, header.GlobalStateRoot, nil
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {

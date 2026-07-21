@@ -34,10 +34,7 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 func (b *stateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	if err := pruner.RequireStateRetainedByBlockNumber(b.database, blockNumber); err != nil {
-		return nil, nil, err
-	}
-	stateRoot, err := core.GetGlobalStateRootByBlockNumber(b.database, blockNumber)
+	stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
