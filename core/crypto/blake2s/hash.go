@@ -13,16 +13,15 @@ import (
 // https://github.com/starknet-io/types-rs/blob/main/crates/starknet-types-core/src/hash/blake2s.rs
 
 func Blake2sArray(felts []felt.Felt) felt.Hash {
-	const expectedCapMult = 5
-
-	buf := make([]byte, 0, len(felts)*expectedCapMult*4)
+	buf := make([]byte, len(felts)*maxWordsPerFelt*4)
+	offset := 0
 	for i := range felts {
-		buf = appendFeltBytes(buf, &felts[i])
+		offset += encodeFeltInto(buf[offset:], &felts[i])
 	}
 
 	// Sum256 returns a fixed [32]byte value, avoiding the digest struct and result
 	// slice that New256/Write/Sum would heap-allocate.
-	result := blake2s.Sum256(buf)
+	result := blake2s.Sum256(buf[:offset])
 
 	// Sum256 is big endian, reverse to little endian.
 	slices.Reverse(result[:])
@@ -44,7 +43,7 @@ func NewDigest() Blake2sDigest {
 }
 
 func (d *Blake2sDigest) Update(elems ...*felt.Felt) crypto.Digest {
-	encoding := encodeFeltsToBytes(elems...)
+	encoding := encodeFelts(elems...)
 	_, err := d.hasher.Write(encoding)
 	if err != nil {
 		panic(err)
