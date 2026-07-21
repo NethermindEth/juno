@@ -270,8 +270,8 @@ func TestClassEncoding(t *testing.T) {
 					L1Handler: []core.SierraEntryPoint{},
 				},
 				Program: []felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0xDEAD"),
-					*felt.NewUnsafeFromString[felt.Felt]("0xBEEF"),
+					felt.UnsafeFromString[felt.Felt]("0xDEAD"),
+					felt.UnsafeFromString[felt.Felt]("0xBEEF"),
 				},
 				ProgramHash:     felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
 				SemanticVersion: "0.1.0",

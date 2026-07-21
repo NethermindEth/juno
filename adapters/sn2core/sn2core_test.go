@@ -625,8 +625,8 @@ func TestClassV1(t *testing.T) {
 	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
 		snClass := starknet.SierraClass{
 			Program: []felt.Felt{
-				{}, // this value doesn't matter as long as their different from `SierraVersion010`
-				{},
+				felt.Zero, // this value doesn't matter as long as their different from `SierraVersion010`
+				felt.Zero,
 			},
 		}
 		class, err := sn2core.AdaptSierraClass(&snClass, nil)

@@ -78,7 +78,7 @@ func TestCompiledCasm(t *testing.T) {
 			},
 			Constructor: []core.CasmEntryPoint{},
 			L1Handler:   []core.CasmEntryPoint{},
-			Bytecode:    []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x123")},
+			Bytecode:    []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x123")},
 		}
 
 		cairoClass := &core.SierraClass{
@@ -95,7 +95,10 @@ func TestCompiledCasm(t *testing.T) {
 		// Verify that the offset is correctly passed as uint64
 		require.Len(t, resp.EntryPointsByType.External, 1)
 		assert.Equal(t, uint64(42), resp.EntryPointsByType.External[0].Offset)
-		assert.Equal(t, *felt.NewUnsafeFromString[felt.Felt]("0xabc"), resp.EntryPointsByType.External[0].Selector)
+		assert.Equal(t,
+			felt.UnsafeFromString[felt.Felt]("0xabc"),
+			resp.EntryPointsByType.External[0].Selector,
+		)
 		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)
 		assert.Equal(t, fmt.Sprintf("0x%x", big.NewInt(123)), resp.Prime)
 		assert.Equal(t, "1.0.0", resp.CompilerVersion)

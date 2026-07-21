@@ -74,7 +74,9 @@ func TestUpdate(t *testing.T) {
 		),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
+				felt.UnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt](
+					"0xBEEFDEAD",
+				),
 			},
 		},
 	}
@@ -358,7 +360,7 @@ func TestRevert(t *testing.T) {
 					Selector: felt.NewUnsafeFromString[felt.Felt]("0xb1"),
 				}},
 			},
-			Program:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x9999")},
+			Program:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x9999")},
 			ProgramHash:     felt.NewUnsafeFromString[felt.Felt]("0x8888"),
 			SemanticVersion: "version 1",
 			Compiled:        &core.CasmClass{},
