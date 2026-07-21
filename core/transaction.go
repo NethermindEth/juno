@@ -479,9 +479,9 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 		), nil
 	case i.Version.Is(3):
 		tipAndResourceBoundsHash := tipAndResourcesHash(i.Tip, i.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(i.PaymasterData...)
-		accountDeploymentDataHash := crypto.PoseidonArray(i.AccountDeploymentData...)
-		calldataHash := crypto.PoseidonArray(i.CallData...)
+		paymasterDataHash := crypto.PoseidonElems(i.PaymasterData...)
+		accountDeploymentDataHash := crypto.PoseidonElems(i.AccountDeploymentData...)
+		calldataHash := crypto.PoseidonElems(i.CallData...)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode))
 
 		var digest crypto.PoseidonDigest
@@ -585,10 +585,10 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 		), nil
 	case d.Version.Is(3):
 		resourceHash := tipAndResourcesHash(d.Tip, d.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData...)
-		accountDeploymentDataHash := crypto.PoseidonArray(d.AccountDeploymentData...)
+		paymasterDataHash := crypto.PoseidonElems(d.PaymasterData...)
+		accountDeploymentDataHash := crypto.PoseidonElems(d.AccountDeploymentData...)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode))
-		return crypto.PoseidonArray(
+		return crypto.PoseidonElems(
 			declareFelt,
 			d.Version.AsFelt(),
 			d.SenderAddress,
@@ -655,10 +655,10 @@ func deployAccountTransactionHash(
 		), nil
 	case d.Version.Is(3):
 		resourcesHash := tipAndResourcesHash(d.Tip, d.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData...)
-		ctorCallDataHash := crypto.PoseidonArray(d.ConstructorCallData...)
+		paymasterDataHash := crypto.PoseidonElems(d.PaymasterData...)
+		ctorCallDataHash := crypto.PoseidonElems(d.ConstructorCallData...)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode))
-		return crypto.PoseidonArray(
+		return crypto.PoseidonElems(
 			deployAccountFelt,
 			d.Version.AsFelt(),
 			d.ContractAddress,
@@ -806,7 +806,7 @@ func eventCommitmentPoseidon(
 		items,
 		backend.RunOnTempTriePoseidon,
 		func(item *eventWithTxHash) felt.Felt {
-			return crypto.PoseidonArray(
+			return crypto.PoseidonElems(
 				slices.Concat(
 					[]*felt.Felt{
 						item.Event.From,

@@ -127,7 +127,7 @@ func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 		return storageRoot, nil
 	}
 
-	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
+	root := crypto.PoseidonElems(stateVersion, &storageRoot, &classesRoot)
 	return root, nil
 }
 

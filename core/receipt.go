@@ -42,7 +42,7 @@ func (r *TransactionReceipt) hash() felt.Felt {
 	sentMessageHash := messagesSentHash(r.L2ToL1Message)
 	l1GasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1Gas)
 	l1DataGasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1DataGas)
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
 		r.TransactionHash,
 		r.Fee,
 		&sentMessageHash,

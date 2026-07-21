@@ -1,27 +1,39 @@
 package blake2s
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"encoding/binary"
 
-//nolint:mnd // number represents 2**63
-const smallFeltThresholdLow uint64 = 0x8000000000000000
+	"github.com/NethermindEth/juno/core/felt"
+)
 
-// encodeFeltsToBytes encodes felts as little-endian u32 words.
+const (
+	//nolint:mnd // number represents 2**63
+	smallFeltThresholdLow uint64 = 0x8000000000000000
+
+	// maxWordsPerFelt is the worst-case number of u32 words a single felt encodes
+	// to (large felts use eight words; small ones use two).
+	maxWordsPerFelt int = 8
+)
+
+// encodeFelts encodes felts as little-endian u32 words.
 // Small values (< 2**63) use two words.
 // Larger values use eight words with a marker bit on the first word.
-func encodeFeltsToBytes(felts ...*felt.Felt) []byte {
-	const expectedCapMult = 5
-	buf := make([]byte, 0, len(felts)*expectedCapMult*4)
-	return appendFeltsToBytes(buf, felts...)
+func encodeFelts(felts ...*felt.Felt) []byte {
+	buf := make([]byte, len(felts)*maxWordsPerFelt*4)
+	return buf[:encodeFeltsInto(buf, felts...)]
 }
 
-func appendFeltsToBytes(buf []byte, felts ...*felt.Felt) []byte {
+// encodeFeltsInto encodes felts into data and returns the number of bytes written.
+func encodeFeltsInto(data []byte, felts ...*felt.Felt) int {
+	offset := 0
 	for _, f := range felts {
-		buf = appendFeltBytes(buf, f)
+		offset += encodeFeltInto(data[offset:], f)
 	}
-	return buf
+	return offset
 }
 
-func appendFeltBytes(buf []byte, f *felt.Felt) []byte {
+// encodeFeltInto encodes a single felt into data and returns the number of bytes written.
+func encodeFeltInto(data []byte, f *felt.Felt) int {
 	const largeFeltMarker uint32 = 1 << 31
 
 	// Bits() leaves Montgomery form once.
@@ -30,25 +42,20 @@ func appendFeltBytes(buf []byte, f *felt.Felt) []byte {
 	fb := f.Bits()
 	if fb[3] == 0 && fb[2] == 0 && fb[1] == 0 && fb[0] < smallFeltThresholdLow {
 		val := fb[0]
-		buf = appendUint32LE(buf, uint32(val>>32))
-		buf = appendUint32LE(buf, uint32(val))
-		return buf
+		binary.LittleEndian.PutUint32(data, uint32(val>>32))
+		binary.LittleEndian.PutUint32(data[4:], uint32(val))
+		return 8
 	}
 
-	// Word order is most-significant to least-significant.
-	// appendUint32LE handles the byte order within each word.
-	buf = appendUint32LE(buf, uint32(fb[3]>>32)|largeFeltMarker)
-	buf = appendUint32LE(buf, uint32(fb[3]))
-	buf = appendUint32LE(buf, uint32(fb[2]>>32))
-	buf = appendUint32LE(buf, uint32(fb[2]))
-	buf = appendUint32LE(buf, uint32(fb[1]>>32))
-	buf = appendUint32LE(buf, uint32(fb[1]))
-	buf = appendUint32LE(buf, uint32(fb[0]>>32))
-	buf = appendUint32LE(buf, uint32(fb[0]))
-	return buf
-}
-
-// LE is shorthand for little endian.
-func appendUint32LE(buf []byte, val uint32) []byte {
-	return append(buf, byte(val), byte(val>>8), byte(val>>16), byte(val>>24))
+	// Each limb is written as two little-endian u32 words, high word first.
+	// Word order across the whole felt is most-significant to least-significant.
+	binary.LittleEndian.PutUint32(data, uint32(fb[3]>>32)|largeFeltMarker)
+	binary.LittleEndian.PutUint32(data[4:], uint32(fb[3]))
+	binary.LittleEndian.PutUint32(data[8:], uint32(fb[2]>>32))
+	binary.LittleEndian.PutUint32(data[12:], uint32(fb[2]))
+	binary.LittleEndian.PutUint32(data[16:], uint32(fb[1]>>32))
+	binary.LittleEndian.PutUint32(data[20:], uint32(fb[1]))
+	binary.LittleEndian.PutUint32(data[24:], uint32(fb[0]>>32))
+	binary.LittleEndian.PutUint32(data[28:], uint32(fb[0]))
+	return 32
 }
