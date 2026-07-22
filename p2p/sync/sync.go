@@ -299,7 +299,8 @@ func (s *BlockFetcher) processSpecBlockParts(
 							} else {
 								stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
 								if err != nil {
-								s.logger.Error("Failed to get previous block state root", zap.Uint64("number", curBlockNum-1), zap.Error(err))
+									s.logger.Error("Failed to get previous block state root",
+										zap.Uint64("number", curBlockNum-1), zap.Error(err))
 									return
 								}
 								prevBlockRoot = stateRoot

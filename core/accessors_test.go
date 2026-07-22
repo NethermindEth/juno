@@ -362,6 +362,7 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Similar to the other partial-header accessor tests, but they're different methods
 func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
@@ -392,6 +393,7 @@ func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 	})
 }
 
+//nolint:dupl // Similar to the other partial-header accessor tests, but they're different methods
 func TestGetBlockHeaderEventsBloomByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
@@ -444,7 +446,9 @@ func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 	t.Run("missing hash returns error", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct{ GlobalStateRoot *felt.Felt }{GlobalStateRoot: block.GlobalStateRoot})
+		data, err := encoder.Marshal(
+			struct{ GlobalStateRoot *felt.Felt }{GlobalStateRoot: block.GlobalStateRoot},
+		)
 		require.NoError(t, err)
 		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
 
