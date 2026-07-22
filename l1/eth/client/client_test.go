@@ -32,9 +32,8 @@ type methodResponse struct {
 	rpcErr *clienttest.TestRPCError
 }
 
-// captureHandler installs a clienttest.TestHandler that records every request and
-// dispatches by method to a per-method static response. Methods not in
-// the map fall through to a "method not found" error.
+// captureHandler records every request and dispatches by method to a static
+// response; unmapped methods return "method not found".
 func captureHandler(
 	t *testing.T,
 	responses map[string]methodResponse,
@@ -131,10 +130,9 @@ func TestChainID_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "internal error")
 }
 
-// TestChainID_DecodeErrors exercises decodeQuantityBig's validation
-// branches via the public ChainID surface. Each subtest installs a
-// server that replies with a malformed "quantity" — every branch must
-// produce a "decode quantity" error (rather than panic or return zero).
+// TestChainID_DecodeErrors exercises decodeQuantityBig's validation branches via
+// ChainID: each malformed quantity must yield a "decode quantity" error, not a
+// panic or zero.
 func TestChainID_DecodeErrors(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -166,12 +164,9 @@ func TestChainID_DecodeErrors(t *testing.T) {
 	}
 }
 
-// TestBlockNumber_DecodeError exercises decodeQuantityUint64's error
-// branch — HexU64 UnmarshalJSON rejects values with no digits, a leading
-// zero, or non-hex characters. Per the current implementation the
-// "decode quantity" wrapper is the outermost message on the decode path
-// (the "get block number" wrapper is only applied to transport-call
-// errors); this test pins that behavior.
+// TestBlockNumber_DecodeError pins that "decode quantity" (not "get block
+// number") is the outermost wrapper on the decode path - the latter wraps only
+// transport-call errors.
 func TestBlockNumber_DecodeError(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_blockNumber": {result: "not-hex"},
@@ -183,9 +178,8 @@ func TestBlockNumber_DecodeError(t *testing.T) {
 	assert.Contains(t, err.Error(), "decode quantity")
 }
 
-// TestFilterLogs_DecodeFailure verifies the FilterLogs error path when
-// the server returns a non-list (e.g. an object) where logs are
-// expected. The wrapping must still identify the method.
+// TestFilterLogs_DecodeFailure verifies a non-list result still yields an error
+// that identifies the method.
 func TestFilterLogs_DecodeFailure(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_getLogs": {result: map[string]any{"unexpected": "shape"}},
@@ -197,9 +191,8 @@ func TestFilterLogs_DecodeFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "decoding logs")
 }
 
-// TestTransactionReceipt_DecodeFailure verifies receipt-decode error
-// surfacing. A logs field that isn't an array forces the JSON unmarshal
-// to fail mid-receipt.
+// TestTransactionReceipt_DecodeFailure verifies receipt-decode errors surface; a
+// non-array logs field forces the unmarshal to fail.
 func TestTransactionReceipt_DecodeFailure(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_getTransactionReceipt": {result: map[string]any{"logs": "not-an-array"}},
@@ -375,10 +368,8 @@ func TestFilterQuery_MarshalShapes(t *testing.T) {
 		assert func(t *testing.T, sent map[string]any)
 	}{
 		{
-			// Unset FromBlock/ToBlock must NOT appear on the wire — this
-			// is the eth_subscribe "live logs" shape; geth interprets an
-			// explicit toBlock=0 as a bounded historical filter that
-			// terminates at block 0.
+			// Unset FromBlock/ToBlock must not hit the wire: geth reads an
+			// explicit toBlock=0 as a bounded filter ending at block 0.
 			name: "unset block range omits keys",
 			q:    client.FilterQuery{},
 			assert: func(t *testing.T, sent map[string]any) {

@@ -1,9 +1,6 @@
-// Package clienttest provides a minimal JSON-RPC test server for
-// exercising the client package. It lives in its own package (rather than
-// as a _test.go file) so it can be shared across the client package's own
-// tests and consumers in other packages (e.g. the l1 provider tests). It
-// imports testing/httptest, so it must never be imported by production
-// code — only by test files.
+// Package clienttest provides a minimal JSON-RPC test server for the client
+// package. It is its own package (not a _test.go file) so l1 provider tests can
+// share it. It imports httptest, so test files only - never production code.
 package clienttest
 
 import (
@@ -23,13 +20,10 @@ import (
 // server accepts the same frame sizes the client can send.
 const wsReadLimit = 16 << 20
 
-// TestServer is a minimal JSON-RPC server suitable for unit-testing
-// the Client. It accepts requests over POST application/json and over
-// a websocket upgrade on the same URL.
-//
-// Behaviour is driven by a single Handler function set per-test. The
-// server tracks live websocket connections so tests can push
-// subscription notifications or sever the connection mid-call.
+// TestServer is a minimal JSON-RPC server for unit-testing the Client over POST
+// or a websocket upgrade on the same URL. Behaviour comes from a per-test
+// Handler; live ws conns are tracked so tests can push notifications or sever
+// mid-call.
 type TestServer struct {
 	srv *httptest.Server
 
@@ -41,9 +35,8 @@ type TestServer struct {
 	dropPings     atomic.Bool
 }
 
-// TestHandler returns the JSON-RPC reply for a single request. result
-// is encoded as the response's "result" field; if rerr is non-nil it
-// is encoded as the "error" field (and result is ignored).
+// TestHandler returns the JSON-RPC reply for a request: result becomes "result",
+// or a non-nil rerr becomes "error" (result ignored).
 type TestHandler func(req TestRequest) (result any, rerr *TestRPCError)
 
 // TestRequest is the decoded JSON-RPC request handed to a TestHandler.
@@ -140,10 +133,9 @@ func (ts *TestServer) PushNotification(ctx context.Context, subID string, payloa
 	return firstErr
 }
 
-// PushRawFrame writes data verbatim to every live websocket connection.
-// Intended for tests that need to exercise the client's tolerance for
-// malformed frames or unsolicited responses — payloads that the server
-// would never legitimately emit. Returns the first write error, if any.
+// PushRawFrame writes data verbatim to every live ws conn, for testing tolerance
+// of malformed or unsolicited frames the server would never legitimately emit.
+// Returns the first write error, if any.
 func (ts *TestServer) PushRawFrame(ctx context.Context, data []byte) error {
 	ts.mu.Lock()
 	conns := append([]*websocket.Conn(nil), ts.wsConns...)
@@ -201,8 +193,7 @@ func (ts *TestServer) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OnPingReceived: func(_ context.Context, _ []byte) bool {
 			ts.pingsReceived.Add(1)
-			// Return true to let coder/websocket auto-reply with a pong,
-			// false to drop it silently.
+			// true: auto-reply with a pong; false: drop it silently.
 			return !ts.dropPings.Load()
 		},
 	})
@@ -236,9 +227,8 @@ func (ts *TestServer) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// rawRPCRequest is the on-the-wire request shape; deliberately
-// duplicated from the client's rpcRequest so the test server can read
-// malformed frames without imposing client-side constraints.
+// rawRPCRequest is the on-the-wire request shape, duplicated from the client's
+// rpcRequest so the server can read malformed frames without client constraints.
 type rawRPCRequest struct {
 	JSONRPC string            `json:"jsonrpc"`
 	ID      uint64            `json:"id"`

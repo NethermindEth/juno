@@ -16,35 +16,25 @@ import (
 	"github.com/NethermindEth/juno/l1/eth/client"
 )
 
-// LogStateUpdateSigHash is keccak256("LogStateUpdate(uint256,int256,uint256)").
-// Verified against the deployed Starknet core contract on Ethereum
-// mainnet and against the go-ethereum abigen output that this package
-// replaces.
+// keccak256("LogStateUpdate(uint256,int256,uint256)"), verified against the deployed
+// Starknet core contract and the abigen output this package replaces.
 var LogStateUpdateSigHash = eth.HashFromString(
 	"0xd342ddf7a308dec111745b00315c14b7efb2bdae570a6856e088ed0c65a3576c",
 )
 
-// logStateUpdateDataLen is the byte length of the LogStateUpdate event's
-// data section: three 32-byte words for (uint256 globalRoot,
-// int256 blockNumber, uint256 blockHash). No indexed args, so all three
-// fields are in data rather than topics.
+// Three 32-byte words: (uint256 globalRoot, int256 blockNumber, uint256 blockHash).
+// No indexed args, so all three are in data, not topics.
 const logStateUpdateDataLen = 3 * 32
 
-//	event LogStateUpdate(uint256 globalRoot, int256 blockNumber, uint256 blockHash)
-//
-// BlockNumber is declared as int256 in Solidity but the bridge always
-// emits non-negative values that fit in uint64, so we decode it as
-// uint64 (low 8 bytes of the 32-byte word). globalRoot and blockHash
-// are Starknet field elements packed into a uint256 slot, so they
-// land in felt.Felt without going through *big.Int.
+// event LogStateUpdate(uint256 globalRoot, int256 blockNumber, uint256 blockHash).
+// blockNumber is int256 but always non-negative and uint64-sized, so we decode it as uint64.
+// globalRoot and blockHash are field elements, so they land in felt.Felt directly.
 type LogStateUpdate struct {
 	GlobalRoot  felt.Felt
 	BlockNumber uint64
 	BlockHash   felt.Felt
 
-	// Raw is the underlying log envelope, preserving the L1 block
-	// number where the event was emitted and the Removed flag set on
-	// reorgs.
+	// Raw log envelope, preserving the emitting L1 block number and the reorg Removed flag.
 	Raw eth.Log
 }
 
@@ -64,9 +54,7 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 			len(log.Data), logStateUpdateDataLen)
 	}
 	ev := &LogStateUpdate{
-		// Low 8 bytes of the 32-byte int256 slot. The upper 24 bytes
-		// are silently dropped; the bridge always emits a block number
-		// that fits in uint64.
+		// Low 8 bytes of the int256 slot; upper 24 dropped (always fits uint64).
 		BlockNumber: binary.BigEndian.Uint64(log.Data[56:64]),
 		Raw:         *log,
 	}
@@ -104,7 +92,9 @@ func FilterLogStateUpdate(
 	q.ToBlock = &to
 	logs, err := c.FilterLogs(ctx, q)
 	if err != nil {
-		return nil, fmt.Errorf("filtering LogStateUpdate: %w", err)
+		// The client annotates ("filtering logs: …") and the caller adds the
+		// block range; re-stating "filtering LogStateUpdate" here just nests.
+		return nil, err
 	}
 	out := make([]*LogStateUpdate, len(logs))
 	for i := range logs {

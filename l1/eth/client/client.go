@@ -13,9 +13,7 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 )
 
-// Only WebSocket endpoints are supported: subscribe-based log delivery
-// (eth_subscribe) requires a long-lived connection, and unary calls
-// happily share that same connection.
+// WebSocket-only (see package doc); unary calls share the subscribe connection.
 type Client struct {
 	tr *wsTransport
 }
@@ -39,11 +37,8 @@ func WithLogger(l log.StructuredLogger) Option {
 	return func(o *options) { o.logger = l }
 }
 
-// WithPingConfig overrides the websocket keep-alive ping interval and the
-// per-ping write/read timeout. The defaults (30s interval, 10s timeout)
-// suit every production RPC endpoint; overriding is mainly useful in tests
-// that need to observe ping behaviour without waiting out the real cadence.
-// Non-positive values fall back to the defaults.
+// WithPingConfig overrides the keep-alive interval and per-ping timeout (defaults 30s/10s).
+// Mainly for tests that observe ping behaviour; non-positive values fall back to the defaults.
 func WithPingConfig(interval, timeout time.Duration) Option {
 	return func(o *options) {
 		o.pingInterval = interval

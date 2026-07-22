@@ -16,15 +16,9 @@ type Subscription interface {
 	Unsubscribe()
 }
 
-// SubscribeLogs subscribes to live log events matching q. Incoming
-// logs are delivered to sink as they arrive. The returned subscription
-// surfaces transport errors on Err() and tears down the server-side
-// subscription on Unsubscribe.
-//
-// ctx governs only the subscribe call. Once SubscribeLogs returns, the
-// subscription's lifetime is controlled solely by Unsubscribe (or a
-// transport failure) — cancelling ctx afterwards has no effect. This
-// matches go-ethereum's ethclient semantics.
+// SubscribeLogs delivers live logs matching q to sink; Err() surfaces transport failures.
+// ctx governs only the subscribe call — afterwards the sub lives until Unsubscribe or a
+// transport failure (matching go-ethereum's ethclient semantics).
 func (c *Client) SubscribeLogs(
 	ctx context.Context,
 	q FilterQuery,
@@ -38,10 +32,8 @@ type wsLogSub struct {
 	transport *wsTransport
 	sink      chan<- *eth.Log
 
-	// cancelled is set (under transport.mu) by cancelPending when the
-	// subscribing caller's ctx fires. dispatchResponse checks it before
-	// registering the sub, closing the window where a subscribe reply
-	// races the ctx cancellation and orphans the server-side sub.
+	// Set under transport.mu by cancelPending when the caller's ctx fires; registerSub checks
+	// it to avoid orphaning a server-side sub when the reply races the cancellation.
 	cancelled bool
 
 	// logCh carries raw eth_subscription "result" payloads from the
@@ -59,10 +51,8 @@ type wsLogSub struct {
 func (s *wsLogSub) Err() <-chan error { return s.errCh }
 
 func (s *wsLogSub) Unsubscribe() {
-	// Two-step teardown: stop the per-sub dispatch goroutine first,
-	// then best-effort tell the server to release its side. The order
-	// matters because if the server fails to ack, we still want our
-	// local resources gone.
+	// Stop the dispatch goroutine first, then best-effort release the server side —
+	// local resources go even if the server never acks.
 	s.fail(nil)
 	s.transport.mu.Lock()
 	id := s.id
@@ -77,10 +67,7 @@ func (s *wsLogSub) Unsubscribe() {
 	ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 	defer cancel()
 	if _, err := s.transport.call(ctx, "eth_unsubscribe", id); err != nil {
-		// Server-side cleanup may have already happened (transport
-		// closed) or the server may simply have dropped the call.
-		// Either way local state is already torn down; debug-log so
-		// it's visible without being noisy.
+		// Local state is already torn down; the server may have cleaned up or dropped the call.
 		s.transport.logger.Trace("ws: eth_unsubscribe failed",
 			zap.String("subscription", id),
 			zap.Error(err),
@@ -138,8 +125,7 @@ func (t *wsTransport) subscribeLogs(
 	}
 
 	if _, err := t.callWithSubReg(ctx, "eth_subscribe", sub, "logs", q); err != nil {
-		// Subscribe call failed; drop the pre-registered sub so the
-		// dispatcher never runs.
+		// Subscribe failed; drop the pre-registered sub so the dispatcher never runs.
 		sub.closeOnce.Do(func() { close(sub.closed); close(sub.errCh) })
 		return nil, fmt.Errorf("subscribing to logs: %w", err)
 	}

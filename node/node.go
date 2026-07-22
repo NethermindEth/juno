@@ -659,9 +659,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	return n, nil
 }
 
-// l1StateProviderFull is the cross-section of capabilities a concrete L1
-// state provider must supply to the node: L1StateProvider for the sync
-// loop and rpccore.L1Client for the RPC handlers.
+// l1StateProviderFull is what a concrete provider must supply: L1StateProvider for the
+// sync loop and rpccore.L1Client for the RPC handlers.
 type l1StateProviderFull interface {
 	l1.L1StateProvider
 	rpccore.L1Client

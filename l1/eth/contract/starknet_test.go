@@ -18,9 +18,8 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// TestLogStateUpdateSigHash_DerivedFromSignature verifies the
-// hard-coded constant is keccak256("LogStateUpdate(uint256,int256,uint256)").
-// Catches a typo in the constant if anyone ever edits it.
+// TestLogStateUpdateSigHash_DerivedFromSignature catches a typo in the hard-coded
+// constant: it must equal keccak256("LogStateUpdate(uint256,int256,uint256)").
 func TestLogStateUpdateSigHash_DerivedFromSignature(t *testing.T) {
 	h := sha3.NewLegacyKeccak256()
 	h.Write([]byte("LogStateUpdate(uint256,int256,uint256)"))
@@ -57,24 +56,21 @@ func TestDecode_Success(t *testing.T) {
 	assert.False(t, ev.Raw.Removed)
 }
 
-// TestDecode_BlockNumberTakesLow8Bytes verifies the upper 24 bytes of
-// the int256 slot are dropped (the bridge only ever emits values that
-// fit in uint64, but the on-the-wire slot is 32 bytes). All-0xff in
-// the low 8 bytes must round-trip as math.MaxUint64; the high bytes
-// must not influence the result.
+// TestDecode_BlockNumberTakesLow8Bytes verifies the upper 24 bytes of the 32-byte
+// int256 slot are dropped: low 8 bytes of 0xff must round-trip as math.MaxUint64
+// regardless of the high bytes.
 func TestDecode_BlockNumberTakesLow8Bytes(t *testing.T) {
 	data := make([]byte, 96)
-	// globalRoot — anything decodable.
+	// globalRoot - anything decodable.
 	data[31] = 0x01
-	// blockNumber slot [32:64]: upper 24 bytes are noise, low 8 bytes
-	// are math.MaxUint64.
+	// blockNumber slot [32:64]: upper 24 bytes noise, low 8 bytes math.MaxUint64.
 	for i := 32; i < 56; i++ {
 		data[i] = 0xaa
 	}
 	for i := 56; i < 64; i++ {
 		data[i] = 0xff
 	}
-	// blockHash — anything decodable.
+	// blockHash - anything decodable.
 	data[95] = 0x02
 
 	ev, err := contract.Decode(&eth.Log{
@@ -156,11 +152,9 @@ func TestFilterLogStateUpdate_FilterErr(t *testing.T) {
 
 // --- helpers ---
 
-// validStateUpdateLog builds an eth.Log with the LogStateUpdate sig
-// hash and a well-formed 96-byte data section. blockNumber is the
-// int256 payload; globalRoot and blockHash are placeholders that vary
-// by blockNumber so different blocks produce different logs (a sanity
-// hook for ordering tests).
+// validStateUpdateLog builds a well-formed LogStateUpdate log. globalRoot and
+// blockHash vary by blockNumber so different blocks yield different logs (a
+// sanity hook for ordering tests).
 func validStateUpdateLog(blockNumber uint64) eth.Log {
 	data := make([]byte, 0, 96)
 	// globalRoot — use blockNumber as a placeholder.

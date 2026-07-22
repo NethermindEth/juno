@@ -25,10 +25,8 @@ type rpcRequest struct {
 	Params  []any  `json:"params"`
 }
 
-// RPCError is the JSON-RPC error object as returned by the remote endpoint.
-// Code -32000 (server error) is the common umbrella every provider uses
-// for resource-missing replies; the methods layer interprets specific
-// (method, error) pairs into juno sentinels.
+// RPCError is the JSON-RPC error object from the remote. The methods layer maps specific
+// (method, code) pairs into juno sentinels — e.g. -32000 for resource-missing replies.
 type RPCError struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
