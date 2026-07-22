@@ -346,7 +346,7 @@ func fillRunningEventFilter(
 	for blockNum := from; blockNum <= latest; blockNum++ {
 		eventsBloom, err := GetBlockHeaderEventsBloomByNumber(database, blockNum)
 		if err != nil {
-			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
+			return fmt.Errorf("getting events bloom for block %d: %w", blockNum, err)
 		}
 		if err := rf.Insert(eventsBloom, blockNum); err != nil {
 			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
