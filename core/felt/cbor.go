@@ -91,8 +91,9 @@ func encodeFeltLimbs(data []byte, value *Felt) int {
 }
 
 // decodeFeltLimbs decodes one limb-encoded felt at data[0:],
-// returning the number of bytes consumed. It writes value only on success,
-// so a rejected input can't partially corrupt it before falling back to the generic decoder.
+// returning the number of bytes consumed and a flag to signal succes.
+// It writes value only on success, so a rejected input can't partially
+// corrupt it before falling back to the generic decoder.
 func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
 	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	if len(data) == 0 || data[0] != cborArrayHeader4 {
@@ -157,7 +158,7 @@ func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
 }
 
 // decodeFelt decodes a single felt that must span all of data, rejecting trailing bytes.
-// It writes value only on success.
+// It returns a flag to signal success, and writes value only on success.
 func decodeFelt(data []byte, value *Felt) bool {
 	var felt Felt
 	consumed, ok := decodeFeltLimbs(data, &felt)
