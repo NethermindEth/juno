@@ -168,6 +168,9 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 		return BuildResult{}, err
 	}
 
+	block := state.PreConfirmed.Block
+	block.EventsBloom = core.EventsBloom(block.Receipts)
+
 	if simulatedResult.ConcatCount.IsZero() {
 		simulatedResult.BlockCommitments = &core.BlockCommitments{
 			TransactionCommitment: new(felt.Felt).SetUint64(0),
