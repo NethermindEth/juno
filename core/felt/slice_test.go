@@ -26,11 +26,11 @@ const (
 	cborBreak       = 0xff // "break" stop code, ends an indefinite-length item
 )
 
-func randomSlice(size int) felt.Slice {
+func randomSlice[F felt.FeltLike](size int) felt.Slice[F] {
 	rng := rand.New(rand.NewSource(1))
-	slice := make(felt.Slice, size)
+	slice := make(felt.Slice[F], size)
 	for idx := range slice {
-		slice[idx] = feltFromLimbs(rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
+		slice[idx] = fromLimbs[F](rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
 	}
 	return slice
 }
@@ -43,14 +43,14 @@ func encodeFeltCBOR(t *testing.T, value felt.Felt) []byte {
 }
 
 // requireSliceDecodeEquivalent decodes data with both the fast and generic
-// paths, asserts they agree, and returns whether the decode succeeded.
-func requireSliceDecodeEquivalent(t *testing.T, data []byte) (ok bool) {
+// paths and asserts they agree, either on the decoded felts or on the error.
+func requireSliceDecodeEquivalent[F felt.FeltLike](t *testing.T, data []byte) {
 	t.Helper()
 
-	var fast felt.Slice
+	var fast felt.Slice[F]
 	errFast := fast.UnmarshalCBOR(data)
 
-	var generic []felt.Felt
+	var generic []F
 	errGeneric := cbor.Unmarshal(data, &generic)
 
 	if errGeneric != nil {
@@ -61,7 +61,7 @@ func requireSliceDecodeEquivalent(t *testing.T, data []byte) (ok bool) {
 			"fast and generic decoders disagree on the error for % x",
 			data,
 		)
-		return false
+		return
 	}
 
 	require.NoError(
@@ -75,15 +75,14 @@ func requireSliceDecodeEquivalent(t *testing.T, data []byte) (ok bool) {
 	for i := range generic {
 		require.True(
 			t,
-			generic[i].Equal(&fast[i]),
-			"element %d mismatch for % x: generic=%s fast=%s",
+			felt.Equal(&generic[i], &fast[i]),
+			"element %d mismatch for % x: generic=%v fast=%v",
 			i,
 			data,
-			generic[i].String(),
-			fast[i].String(),
+			generic[i],
+			fast[i],
 		)
 	}
-	return true
 }
 
 func TestSliceRoundTripBoundarySizes(t *testing.T) {
@@ -102,7 +101,7 @@ func TestSliceRoundTripBoundarySizes(t *testing.T) {
 	}
 	for _, tc := range sizes {
 		t.Run(tc.name, func(t *testing.T) {
-			s := randomSlice(tc.size)
+			s := randomSlice[felt.Felt](tc.size)
 
 			fast, err := s.MarshalCBOR()
 			require.NoError(t, err)
@@ -116,7 +115,8 @@ func TestSliceRoundTripBoundarySizes(t *testing.T) {
 				tc.size,
 			)
 
-			require.True(t, requireSliceDecodeEquivalent(t, fast))
+			requireSliceDecodeEquivalent[felt.Felt](t, fast)
+			requireSliceDecodeEquivalent[f](t, fast)
 		})
 	}
 }
@@ -124,7 +124,7 @@ func TestSliceRoundTripBoundarySizes(t *testing.T) {
 // A nil slice must marshal like the generic encoder (null, not an empty array)
 // and round-trip back to nil rather than an empty slice.
 func TestSliceMarshalNil(t *testing.T) {
-	var s felt.Slice // nil
+	var s felt.Slice[felt.Felt] // nil
 
 	fast, err := s.MarshalCBOR()
 	require.NoError(t, err)
@@ -132,14 +132,14 @@ func TestSliceMarshalNil(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, generic, fast, "nil slice must marshal like the generic encoder")
 
-	var back felt.Slice
+	var back felt.Slice[f]
 	require.NoError(t, back.UnmarshalCBOR(fast))
 	require.Nil(t, back, "nil slice must round-trip back to nil, not empty")
 }
 
 func TestSliceDecodeCornerCases(t *testing.T) {
-	feltBytes1 := encodeFeltCBOR(t, feltFromLimbs(1))
-	feltBytes2 := encodeFeltCBOR(t, feltFromLimbs(2))
+	feltBytes1 := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
+	feltBytes2 := encodeFeltCBOR(t, fromLimbs[felt.Felt](2))
 
 	cases := []struct {
 		name string
@@ -174,37 +174,40 @@ func TestSliceDecodeCornerCases(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			requireSliceDecodeEquivalent(t, tc.data)
+			requireSliceDecodeEquivalent[felt.Felt](t, tc.data)
+			requireSliceDecodeEquivalent[f](t, tc.data)
 		})
 	}
 }
 
 func TestSliceDecodeRejectsOversizedHeader(t *testing.T) {
-	feltBytes := encodeFeltCBOR(t, feltFromLimbs(1))
+	feltBytes := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
 
 	// cborArrayUint32 reads the element count
 	// math.MaxUint32 = ~4.29 billion elements, far more than the payload holds.
 	header := binary.BigEndian.AppendUint32([]byte{cborArrayUint32}, math.MaxUint32)
 	data := slices.Concat(header, feltBytes)
 
-	requireSliceDecodeEquivalent(t, data)
+	requireSliceDecodeEquivalent[felt.Felt](t, data)
+	requireSliceDecodeEquivalent[f](t, data)
 }
 
 // FuzzSliceDecodeEquivalence fuzzes the decode path, the one that can receive
 // arbitrary bytes, to ensure it stays equivalent to the generic decoder and never panics.
-func FuzzSliceDecodeEquivalence(f *testing.F) {
+func FuzzSliceDecodeEquivalence(fz *testing.F) {
 	for _, n := range []int{0, 1, 2, 23, 24, 255, 256} {
-		encoded, err := randomSlice(n).MarshalCBOR()
-		require.NoError(f, err)
-		f.Add(encoded)
+		encoded, err := randomSlice[felt.Felt](n).MarshalCBOR()
+		require.NoError(fz, err)
+		fz.Add(encoded)
 	}
 	for _, seed := range [][]byte{
 		{cborArrayEmpty}, {cborNull}, {cborUintZero}, {cborArrayOne}, {cborArrayOne, cborUintZero}, nil,
 	} {
-		f.Add(seed)
+		fz.Add(seed)
 	}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
-		requireSliceDecodeEquivalent(t, data)
+	fz.Fuzz(func(t *testing.T, data []byte) {
+		requireSliceDecodeEquivalent[felt.Felt](t, data)
+		requireSliceDecodeEquivalent[f](t, data)
 	})
 }

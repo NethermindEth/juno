@@ -89,12 +89,12 @@ func feltFromBigInt(n *big.Int) felt.Felt {
 	return value
 }
 
-// feltFromLimbs bypasses SetBigInt's Montgomery conversion, so a small
+// fromLimbs bypasses SetBigInt's Montgomery conversion, so a small
 // argument here actually lands in a limb. SetBigInt() does not.
-func feltFromLimbs(limbs ...uint64) felt.Felt {
+func fromLimbs[F felt.FeltLike](limbs ...uint64) F {
 	var l [4]uint64
 	copy(l[:], limbs)
-	return felt.Felt(fp.Element(l))
+	return F(fp.Element(l))
 }
 
 func TestCBORFastPathValues(t *testing.T) {
@@ -121,11 +121,11 @@ func TestCBORFastPathValues(t *testing.T) {
 		{"smallest 8-byte", math.MaxUint32 + 1},
 		{"largest 8-byte (max uint64)", math.MaxUint64},
 	} {
-		cases = append(cases, valueCase{"limb: " + boundary.name, feltFromLimbs(boundary.limb)})
+		cases = append(cases, valueCase{"limb: " + boundary.name, fromLimbs[felt.Felt](boundary.limb)})
 	}
 	cases = append(cases, valueCase{
 		"limb: boundary values spread across all four limbs",
-		feltFromLimbs(23, math.MaxUint8, math.MaxUint16, math.MaxUint64),
+		fromLimbs[felt.Felt](23, math.MaxUint8, math.MaxUint16, math.MaxUint64),
 	})
 
 	// Starknet's default modulus for felts.
@@ -178,7 +178,7 @@ func TestCBORFastPathStress(t *testing.T) {
 	const logEvery = 50_000_000
 
 	for i := range n {
-		value := feltFromLimbs(rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
+		value := fromLimbs[felt.Felt](rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
 
 		fast, generic, err := encodeBoth(&value)
 		require.NoError(t, err)
@@ -233,7 +233,7 @@ func FuzzCBORFastPathMarshalEquivalence(f *testing.F) {
 	)
 
 	f.Fuzz(func(t *testing.T, l0, l1, l2, l3 uint64) {
-		value := feltFromLimbs(l0, l1, l2, l3)
+		value := fromLimbs[felt.Felt](l0, l1, l2, l3)
 		requireMarshalEquivalent(t, &value)
 	})
 }

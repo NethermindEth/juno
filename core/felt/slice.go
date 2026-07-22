@@ -7,7 +7,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-type Slice []Felt
+type Slice[F FeltLike] []F
 
 const (
 	// maxCBORArrayHeaderLen: 1 major/info byte + 4 length bytes (uint32)
@@ -17,7 +17,7 @@ const (
 	cborNull = 0xf6
 )
 
-func (s Slice) MarshalCBOR() ([]byte, error) {
+func (s Slice[F]) MarshalCBOR() ([]byte, error) {
 	if s == nil {
 		return []byte{cborNull}, nil
 	}
@@ -26,13 +26,13 @@ func (s Slice) MarshalCBOR() ([]byte, error) {
 
 	offset := encodeCBORArrayHeader(data, uint32(len(s)))
 	for idx := range s {
-		offset += encodeFeltLimbs(data[offset:], &s[idx])
+		offset += encodeLimbs(data[offset:], &s[idx])
 	}
 
 	return data[:offset], nil
 }
 
-func (s *Slice) UnmarshalCBOR(data []byte) error {
+func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 	size, offset, ok := decodeCBORArrayHeader(data)
 	if !ok {
 		return s.unmarshalGeneric(data)
@@ -44,9 +44,9 @@ func (s *Slice) UnmarshalCBOR(data []byte) error {
 		return s.unmarshalGeneric(data)
 	}
 
-	buffer := make([]Felt, size)
+	buffer := make([]F, size)
 	for i := range buffer {
-		consumed, ok := decodeFeltLimbs(data[offset:], &buffer[i])
+		consumed, ok := decodeLimbs(data[offset:], &buffer[i])
 		if !ok {
 			return s.unmarshalGeneric(data)
 		}
@@ -62,8 +62,8 @@ func (s *Slice) UnmarshalCBOR(data []byte) error {
 }
 
 // unmarshalGeneric handles any shape the fast path does not recognise.
-func (s *Slice) unmarshalGeneric(data []byte) error {
-	var buffer []Felt
+func (s *Slice[F]) unmarshalGeneric(data []byte) error {
+	var buffer []F
 	if err := cbor.Unmarshal(data, &buffer); err != nil {
 		return err
 	}
