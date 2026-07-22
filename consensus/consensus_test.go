@@ -159,7 +159,6 @@ func initNode(
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		dht, err := dht.New(
-			t.Context(),
 			syncNode.Host,
 			&network,
 			starknetp2p.SyncProtocolID,

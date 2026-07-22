@@ -41,7 +41,7 @@ func Run(
 	bootstrapPeersFn func() []peer.AddrInfo,
 	pubSubQueueSize int,
 ) (*pubsub.PubSub, func() error, error) {
-	dht, err := dht.New(ctx, host, network, starknetProtocol, bootstrapPeersFn)
+	dht, err := dht.New(host, network, starknetProtocol, bootstrapPeersFn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create dht with error: %w", err)
 	}

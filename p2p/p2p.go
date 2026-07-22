@@ -151,7 +151,6 @@ func NewWithHost(
 	peersAddrInfoS = append(peersAddrInfoS, configuredPeers...)
 
 	p2pdht, err := dht.New(
-		context.Background(),
 		p2phost,
 		snNetwork,
 		starknetp2p.SyncProtocolID,
