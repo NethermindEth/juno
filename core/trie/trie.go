@@ -47,14 +47,14 @@ func NewTrieReaderPoseidon(
 }
 
 // maxKeyByHeight[h] is 2^h - 1, the largest key a trie of height h can hold.
-var maxKeyByHeight = func() [256]*felt.Felt {
-	var table [256]*felt.Felt
+var maxKeyByHeight = func() [felt.Bits + 1]felt.Felt {
+	var table [felt.Bits + 1]felt.Felt
 	for h := range table {
 		x := felt.NewFromUint64[felt.Felt](2)
 		y := new(big.Int).SetUint64(uint64(h))
 		maxKey := x.Exp(x, y)
 		maxKey.Sub(maxKey, &felt.One)
-		table[h] = maxKey
+		table[h] = *maxKey
 	}
 	return table
 }()
@@ -66,29 +66,17 @@ func GetLeafPedersen(
 	height uint8,
 	key *felt.Felt,
 ) (felt.Felt, error) {
-	reader, err := newLeafReaderPedersen(r, prefix, height)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return reader.Get(key)
-}
-
-// newLeafReaderPedersen builds a read-only reader that skips loading the root
-// key. Only Get is valid on it
-func newLeafReaderPedersen(
-	r db.KeyValueReader,
-	prefix []byte,
-	height uint8,
-) (TrieReader, error) {
 	if height > felt.Bits {
-		return TrieReader{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+		return felt.Felt{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
-	return TrieReader{
+	reader := TrieReader{
 		readStorage: NewReadStorage(r, prefix),
 		height:      height,
-		maxKey:      maxKeyByHeight[height],
+		maxKey:      &maxKeyByHeight[height],
 		hash:        crypto.Pedersen,
-	}, nil
+	}
+
+	return reader.Get(key)
 }
 
 func newTrieReader(
@@ -107,12 +95,11 @@ func newTrieReader(
 		return TrieReader{}, err
 	}
 
-	maxKey := maxKeyByHeight[height]
 	return TrieReader{
 		readStorage: readStorage,
 		height:      height,
 		rootKey:     rootKey,
-		maxKey:      maxKey,
+		maxKey:      &maxKeyByHeight[height],
 		hash:        hash,
 	}, nil
 }
