@@ -380,12 +380,18 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 
 func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header struct {
-		Timestamp uint64
+		Timestamp *uint64
 	}
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
-	return header.Timestamp, err
+	if err != nil {
+		return 0, err
+	}
+	if header.Timestamp == nil {
+		return 0, fmt.Errorf("missing Timestamp in block header %d", blockNum)
+	}
+	return *header.Timestamp, nil
 }
 
 func GetBlockHeaderEventsBloomByNumber(

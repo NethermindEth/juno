@@ -379,6 +379,17 @@ func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 		_, err := core.GetBlockHeaderTimestampByNumber(memDB, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
+
+	t.Run("missing field returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, err = core.GetBlockHeaderTimestampByNumber(partialHeaderDB, block.Number)
+		require.Error(t, err)
+	})
 }
 
 func TestGetBlockHeaderEventsBloomByNumber(t *testing.T) {
