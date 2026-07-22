@@ -361,7 +361,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		assert.Equal(t, expectedClass.Abi, actualClass.Abi)
 		assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)
 		assert.Equal(t, expectedClass.EntryPoints, actualClass.EntryPoints)
-		assert.Equal(t, expectedClass.Program, actualClass.Program)
+		assert.Equal(t, expectedClass.Program, []felt.Felt(actualClass.Program))
 		assert.Equal(t, expectedClass.ProgramHash, actualClass.ProgramHash)
 		assert.Equal(t, expectedClass.SemanticVersion, actualClass.SemanticVersion)
 

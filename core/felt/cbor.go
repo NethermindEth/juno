@@ -10,13 +10,15 @@ import (
 
 // Fast, felt-specialized CBOR marshaling.
 func (z *Felt) MarshalCBOR() ([]byte, error) {
-	return encodeFeltLimbs(z), nil
+	data := make([]byte, maxCBORFeltLen)
+	n := encodeFeltLimbs(data, z)
+	return data[:n], nil
 }
 
 // Fast, felt-specialized CBOR unmarshaling.
 // Falls back to the generic decoder on shape mismatch
 func (z *Felt) UnmarshalCBOR(data []byte) error {
-	if decodeFeltLimbs(z, data) {
+	if decodeFelt(data, z) {
 		return nil
 	}
 	return cbor.Unmarshal(data, (*fp.Element)(z))
@@ -32,106 +34,117 @@ const (
 	cborUint32AdditionalInfo = 26 // 4 bytes follow
 	cborUint64AdditionalInfo = 27 // 8 bytes follow
 
-	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
+	// cborArrayMajor the major type that represents an Array
 	// Top 3 bits are the major type (4 = array), low 5 bits are the length.
-	// Type 4 in the top bits is the same as 1<<7, so this byte is
-	// 0b100_00100: an array with Limbs (4) elements.
-	cborArrayHeader4 = (1 << 7) | Limbs
+	cborArrayMajor = 4 << 5
 
-	// header + 8 bytes following
+	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
+	// 0b100_00100: an array with Limbs (4) elements.
+	cborArrayHeader4 = cborArrayMajor | Limbs
+
+	// Header + 8 bytes following
 	maxCBORUintLen = 1 + 8
+	// Header + Limbs * maxCBORUintLen
+	maxCBORFeltLen = 1 + Limbs*maxCBORUintLen
+	// Header + Limbs
+	minCBORFeltLen = 1 + Limbs
 )
 
-func encodeFeltLimbs(value *Felt) []byte {
-	// The buffer format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
-	buffer := make([]byte, 1+Limbs*maxCBORUintLen)
-	buffer[0] = cborArrayHeader4
+// encodeFeltLimbs puts one CBOR felt to data, returning the number of bytes written.
+func encodeFeltLimbs(data []byte, value *Felt) int {
+	// The format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3].
+	data[0] = cborArrayHeader4
 
-	index := 1
+	offset := 1
 	for limbIndex := range Limbs {
 		limb := value[limbIndex]
+
+		// Starting with the most common path, which is a large limb
 		switch {
 		case limb > math.MaxUint32:
-			buffer[index] = cborUint64AdditionalInfo
-			binary.BigEndian.PutUint64(buffer[index+1:], limb)
-			index += 1 + 8
+			data[offset] = cborUint64AdditionalInfo
+			binary.BigEndian.PutUint64(data[offset+1:], limb)
+			offset += 1 + 8
 
 		case limb > math.MaxUint16:
-			buffer[index] = cborUint32AdditionalInfo
-			binary.BigEndian.PutUint32(buffer[index+1:], uint32(limb))
-			index += 1 + 4
+			data[offset] = cborUint32AdditionalInfo
+			binary.BigEndian.PutUint32(data[offset+1:], uint32(limb))
+			offset += 1 + 4
 
 		case limb > math.MaxUint8:
-			buffer[index] = cborUint16AdditionalInfo
-			binary.BigEndian.PutUint16(buffer[index+1:], uint16(limb))
-			index += 1 + 2
+			data[offset] = cborUint16AdditionalInfo
+			binary.BigEndian.PutUint16(data[offset+1:], uint16(limb))
+			offset += 1 + 2
 
 		case limb >= cborUint8AdditionalInfo:
-			buffer[index] = cborUint8AdditionalInfo
-			buffer[index+1] = byte(limb)
-			index += 2
+			data[offset] = cborUint8AdditionalInfo
+			data[offset+1] = byte(limb)
+			offset += 2
 
 		default:
-			buffer[index] = byte(limb)
-			index++
+			data[offset] = byte(limb)
+			offset++
 		}
 	}
 
-	return buffer[:index]
+	return offset
 }
 
-// Writes value only on success, so a rejected input can't partially
+// decodeFeltLimbs decodes one limb-encoded felt at data[0:],
+// returning the number of bytes consumed and a flag to signal succes.
+// It writes value only on success, so a rejected input can't partially
 // corrupt it before falling back to the generic decoder.
-func decodeFeltLimbs(value *Felt, data []byte) bool {
+func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
 	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	if len(data) == 0 || data[0] != cborArrayHeader4 {
-		return false
+		return 0, false
 	}
 
 	var limbs Felt
-	byteOffset := 1
+	offset := 1
 
 	for limbIndex := range Limbs {
-		if byteOffset >= len(data) {
-			return false
+		if offset >= len(data) {
+			return 0, false
 		}
 
-		headerByte := data[byteOffset]
-		byteOffset++
+		headerByte := data[offset]
+		offset++
 
 		var limb uint64
 
+		// Starting with the most common path, which is a large limb
 		switch {
 		case headerByte > cborUint64AdditionalInfo: // invalid header byte for uint64
-			return false
+			return 0, false
 
 		case headerByte == cborUint64AdditionalInfo:
-			if byteOffset+8 > len(data) {
-				return false
+			if offset+8 > len(data) {
+				return 0, false
 			}
-			limb = binary.BigEndian.Uint64(data[byteOffset:])
-			byteOffset += 8
+			limb = binary.BigEndian.Uint64(data[offset:])
+			offset += 8
 
 		case headerByte == cborUint32AdditionalInfo:
-			if byteOffset+4 > len(data) {
-				return false
+			if offset+4 > len(data) {
+				return 0, false
 			}
-			limb = uint64(binary.BigEndian.Uint32(data[byteOffset:]))
-			byteOffset += 4
+			limb = uint64(binary.BigEndian.Uint32(data[offset:]))
+			offset += 4
 
 		case headerByte == cborUint16AdditionalInfo:
-			if byteOffset+2 > len(data) {
-				return false
+			if offset+2 > len(data) {
+				return 0, false
 			}
-			limb = uint64(binary.BigEndian.Uint16(data[byteOffset:]))
-			byteOffset += 2
+			limb = uint64(binary.BigEndian.Uint16(data[offset:]))
+			offset += 2
 
 		case headerByte == cborUint8AdditionalInfo:
-			if byteOffset+1 > len(data) {
-				return false
+			if offset+1 > len(data) {
+				return 0, false
 			}
-			limb = uint64(data[byteOffset])
-			byteOffset++
+			limb = uint64(data[offset])
+			offset++
 
 		default: // headerByte < cborUint8AdditionalInfo
 			limb = uint64(headerByte)
@@ -140,10 +153,19 @@ func decodeFeltLimbs(value *Felt, data []byte) bool {
 		limbs[limbIndex] = limb
 	}
 
-	if byteOffset != len(data) {
+	*value = limbs
+	return offset, true
+}
+
+// decodeFelt decodes a single felt that must span all of data, rejecting trailing bytes.
+// It returns a flag to signal success, and writes value only on success.
+func decodeFelt(data []byte, value *Felt) bool {
+	var felt Felt
+	consumed, ok := decodeFeltLimbs(data, &felt)
+	if !ok || consumed != len(data) {
 		return false
 	}
 
-	*value = limbs
+	*value = felt
 	return true
 }

@@ -72,7 +72,7 @@ type SierraClass struct {
 	Abi         string
 	AbiHash     *felt.Felt
 	EntryPoints SierraEntryPointsByType
-	Program     []felt.Felt
+	Program     felt.Slice
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
@@ -85,7 +85,7 @@ type SegmentLengths struct {
 }
 
 type CasmClass struct {
-	Bytecode               []felt.Felt
+	Bytecode               felt.Slice
 	PythonicHints          json.RawMessage
 	CompilerVersion        string
 	Hints                  json.RawMessage
