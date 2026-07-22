@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type f = [4]uint64
+type f [4]uint64
 
 func TestNumberCtor(t *testing.T) {
 	const posValue = 100
