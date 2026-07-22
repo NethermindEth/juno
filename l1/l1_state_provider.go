@@ -7,11 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// watchForwarderBuffer is the per-subscription buffer between the
-// contract decoder and the l1.StateUpdate sink consumed by l1.Client.
-// Shared by both L1StateProvider implementations.
-const watchForwarderBuffer = 64
-
 // StateUpdate is the decoded form of the Starknet core contract's
 // LogStateUpdate event in juno's own types
 type StateUpdate struct {

@@ -252,15 +252,15 @@ func (s *EthL1StateProvider) WatchStateUpdate(
 func (s *EthL1StateProvider) TransactionReceipt(
 	ctx context.Context,
 	txHash eth.Hash,
-) (*eth.Receipt, error) {
+) (eth.Receipt, error) {
 	defer s.observe("eth_getTransactionReceipt")()
 	r, err := withRetryOnClosed(ctx, s, func(c *client.Client) (*eth.Receipt, error) {
 		return c.TransactionReceipt(ctx, txHash)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("getting transaction receipt: %w", err)
+		return eth.Receipt{}, fmt.Errorf("getting transaction receipt: %w", err)
 	}
-	return r, nil
+	return *r, nil
 }
 
 // Close is terminal — no further redials. Releases the active transport.
@@ -280,8 +280,8 @@ func (s *EthL1StateProvider) Close() {
 func stateUpdateFromContract(ev *contract.LogStateUpdate) *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: ev.BlockNumber,
-		L2BlockHash:   &ev.BlockHash,
-		StateRoot:     &ev.GlobalRoot,
+		L2BlockHash:   ev.BlockHash,
+		StateRoot:     ev.GlobalRoot,
 		L1RefHeight:   uint64(ev.Raw.BlockNumber),
 		Removed:       ev.Raw.Removed,
 	}
