@@ -116,7 +116,7 @@ func TestSliceRoundTripBoundarySizes(t *testing.T) {
 			)
 
 			requireSliceDecodeEquivalent[felt.Felt](t, fast)
-			requireSliceDecodeEquivalent[f](t, fast)
+			requireSliceDecodeEquivalent[feltoid](t, fast)
 		})
 	}
 }
@@ -132,7 +132,7 @@ func TestSliceMarshalNil(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, generic, fast, "nil slice must marshal like the generic encoder")
 
-	var back felt.Slice[f]
+	var back felt.Slice[feltoid]
 	require.NoError(t, back.UnmarshalCBOR(fast))
 	require.Nil(t, back, "nil slice must round-trip back to nil, not empty")
 }
@@ -175,7 +175,7 @@ func TestSliceDecodeCornerCases(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			requireSliceDecodeEquivalent[felt.Felt](t, tc.data)
-			requireSliceDecodeEquivalent[f](t, tc.data)
+			requireSliceDecodeEquivalent[feltoid](t, tc.data)
 		})
 	}
 }
@@ -189,7 +189,7 @@ func TestSliceDecodeRejectsOversizedHeader(t *testing.T) {
 	data := slices.Concat(header, feltBytes)
 
 	requireSliceDecodeEquivalent[felt.Felt](t, data)
-	requireSliceDecodeEquivalent[f](t, data)
+	requireSliceDecodeEquivalent[feltoid](t, data)
 }
 
 // FuzzSliceDecodeEquivalence fuzzes the decode path, the one that can receive
@@ -208,6 +208,6 @@ func FuzzSliceDecodeEquivalence(fz *testing.F) {
 
 	fz.Fuzz(func(t *testing.T, data []byte) {
 		requireSliceDecodeEquivalent[felt.Felt](t, data)
-		requireSliceDecodeEquivalent[f](t, data)
+		requireSliceDecodeEquivalent[feltoid](t, data)
 	})
 }

@@ -7,33 +7,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type f [4]uint64
+// feltoid is the minimal implementation satisfying [felt.FeltLike] defined to test
+// the package generic methods.
+type feltoid [4]uint64
 
 func TestNumberCtor(t *testing.T) {
 	const posValue = 100
-	expectedPos := (*f)(new(felt.Felt).SetUint64(posValue))
+	expectedPos := (*feltoid)(new(felt.Felt).SetUint64(posValue))
 
 	t.Run("FromUint64", func(t *testing.T) {
-		actual := felt.FromUint64[f](uint64(posValue))
+		actual := felt.FromUint64[feltoid](uint64(posValue))
 		assert.Equal(t, *expectedPos, actual)
 	})
 
 	t.Run("NewFromUint64", func(t *testing.T) {
-		actual := felt.NewFromUint64[f](posValue)
+		actual := felt.NewFromUint64[feltoid](posValue)
 		assert.Equal(t, expectedPos, actual)
 	})
 }
 
 func TestBytesCtor(t *testing.T) {
 	value := []byte("holahola")
-	expected := (*f)(new(felt.Felt).SetBytes(value))
+	expected := (*feltoid)(new(felt.Felt).SetBytes(value))
 
 	t.Run("FromBytes", func(t *testing.T) {
-		actual := felt.FromBytes[f](value)
+		actual := felt.FromBytes[feltoid](value)
 		assert.Equal(t, *expected, actual)
 	})
 	t.Run("NewBytes", func(t *testing.T) {
-		actual := felt.NewFromBytes[f](value)
+		actual := felt.NewFromBytes[feltoid](value)
 		assert.Equal(t, expected, actual)
 	})
 }
@@ -59,9 +61,9 @@ func TestStringCtor(t *testing.T) {
 
 	for _, test := range values {
 		expectedFelt, expectedErr := new(felt.Felt).SetString(test.value)
-		expected := (*f)(expectedFelt)
+		expected := (*feltoid)(expectedFelt)
 		t.Run("FromString"+test.value, func(t *testing.T) {
-			actual, actualErr := felt.FromString[f](test.value)
+			actual, actualErr := felt.FromString[feltoid](test.value)
 			if test.error {
 				assert.EqualError(t, actualErr, expectedErr.Error())
 			} else {
@@ -72,16 +74,16 @@ func TestStringCtor(t *testing.T) {
 		t.Run("UnsafeFromString"+test.value, func(t *testing.T) {
 			if test.error {
 				assert.PanicsWithError(t, expectedErr.Error(), func() {
-					felt.UnsafeFromString[f](test.value)
+					felt.UnsafeFromString[feltoid](test.value)
 				})
 			} else {
-				actual := felt.UnsafeFromString[f](test.value)
+				actual := felt.UnsafeFromString[feltoid](test.value)
 				assert.Equal(t, *expected, actual)
 			}
 		})
 
 		t.Run("NewString"+test.value, func(t *testing.T) {
-			actual, actualErr := felt.NewFromString[f](test.value)
+			actual, actualErr := felt.NewFromString[feltoid](test.value)
 			if test.error {
 				assert.EqualError(t, actualErr, expectedErr.Error())
 			} else {
@@ -92,10 +94,10 @@ func TestStringCtor(t *testing.T) {
 		t.Run("NewUnsafeFromString"+test.value, func(t *testing.T) {
 			if test.error {
 				assert.PanicsWithError(t, expectedErr.Error(), func() {
-					felt.NewUnsafeFromString[f](test.value)
+					felt.NewUnsafeFromString[feltoid](test.value)
 				})
 			} else {
-				actual := felt.NewUnsafeFromString[f](test.value)
+				actual := felt.NewUnsafeFromString[feltoid](test.value)
 				assert.Equal(t, expected, actual)
 			}
 		})
@@ -105,10 +107,10 @@ func TestStringCtor(t *testing.T) {
 func TestRandomCtor(t *testing.T) {
 	//  Normal random doesn't error
 	assert.NotPanics(t, func() {
-		felt.Random[f]()
+		felt.Random[feltoid]()
 	})
 
 	assert.NotPanics(t, func() {
-		felt.NewRandom[f]()
+		felt.NewRandom[feltoid]()
 	})
 }

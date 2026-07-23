@@ -8,7 +8,7 @@ import (
 )
 
 func TestIsZero(t *testing.T) {
-	var val f
+	var val feltoid
 	require.True(t, felt.IsZero(&val))
 
 	val[0] = 1
@@ -17,8 +17,8 @@ func TestIsZero(t *testing.T) {
 
 func TestEqual(t *testing.T) {
 	base := [4]uint64{1, 2, 3, 4}
-	v1 := f(base)
-	v2 := f(base)
+	v1 := feltoid(base)
+	v2 := feltoid(base)
 	require.True(t, felt.Equal(&v1, &v2))
 
 	v2[0] += 100
