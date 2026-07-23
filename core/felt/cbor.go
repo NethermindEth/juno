@@ -57,7 +57,7 @@ func encodeLimbs[F FeltLike](data []byte, value *F) int {
 
 	offset := 1
 	for limbIndex := range Limbs {
-		limb := asFeltPtr(value)[limbIndex]
+		limb := (*value)[limbIndex]
 
 		// Starting with the most common path, which is a large limb
 		switch {
