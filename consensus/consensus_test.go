@@ -371,6 +371,10 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 }
 
 func TestTendermintCluster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow cluster test; run via FULL_TESTS=true make test")
+	}
+
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    4,
 		targetHeight: 60,

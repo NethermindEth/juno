@@ -67,25 +67,32 @@ generate: ## Generate mocks and code
 clean-testcache: ## Clean Go test cache
 	go clean -testcache
 
+# FULL_TESTS=true drops -short, enabling slow tests like the consensus cluster test (which needs more than the default 10m timeout)
+ifeq ($(FULL_TESTS),true)
+    TEST_MODE_FLAGS = -timeout 30m
+else
+    TEST_MODE_FLAGS = -short
+endif
+
 test: clean-testcache rustdeps ## Run tests
-	go test $(GO_TAGS) ./...
+	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
 test-new-state: clean-testcache rustdeps ## Run tests with new state
-	JUNO_NEW_STATE=true go test $(GO_TAGS) ./...
+	JUNO_NEW_STATE=true go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
 test-cached: rustdeps ## Run cached tests
-	go test $(GO_TAGS) ./...
+	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
 test-race: clean-testcache rustdeps ## Run tests with race detection
-	go test $(GO_TAGS) ./... -race $(TEST_RACE_LDFLAGS)
+	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./... -race $(TEST_RACE_LDFLAGS)
 
 benchmarks: rustdeps ## Run benchmarks
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
 test-cover: clean-testcache rustdeps ## Run tests with coverage in both old- and new-state modes
 	mkdir -p coverage
-	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.old.out -covermode=atomic $(PKG)
-	JUNO_NEW_STATE=true go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.new.out -covermode=atomic $(PKG)
+	go test $(GO_TAGS) $(TEST_MODE_FLAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.old.out -covermode=atomic $(PKG)
+	JUNO_NEW_STATE=true go test $(GO_TAGS) $(TEST_MODE_FLAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.new.out -covermode=atomic $(PKG)
 	go tool cover -html=coverage/coverage.old.out -o coverage/coverage.html
 
 install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
