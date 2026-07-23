@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 /**
@@ -375,6 +376,64 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 		return 0, err
 	}
 	return header.TransactionCount, nil
+}
+
+func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
+	var header struct {
+		Timestamp *uint64
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return 0, err
+	}
+	if header.Timestamp == nil {
+		return 0, fmt.Errorf("missing Timestamp in block header %d", blockNum)
+	}
+	return *header.Timestamp, nil
+}
+
+func GetBlockHeaderEventsBloomByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (*bloom.BloomFilter, error) {
+	var header struct {
+		EventsBloom *bloom.BloomFilter
+	}
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.EventsBloom == nil {
+		return nil, fmt.Errorf("missing EventsBloom in block header %d", blockNum)
+	}
+	return header.EventsBloom, nil
+}
+
+func GetBlockHeaderHashAndStateRootByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (hash, stateRoot *felt.Felt, err error) {
+	var header struct {
+		Hash            *felt.Felt
+		GlobalStateRoot *felt.Felt
+	}
+	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if header.Hash == nil {
+		return nil, nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, nil, fmt.Errorf("missing GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.Hash, header.GlobalStateRoot, nil
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {

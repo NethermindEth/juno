@@ -119,6 +119,21 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), number)
 }
 
+// BlockHeaderHashByNumber mocks base method.
+func (m *MockReader) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockHeaderHashByNumber", number)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockHeaderHashByNumber indicates an expected call of BlockHeaderHashByNumber.
+func (mr *MockReaderMockRecorder) BlockHeaderHashByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderHashByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderHashByNumber), number)
+}
+
 // BlockNumberAndIndexByTxHash mocks base method.
 func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
 	m.ctrl.T.Helper()

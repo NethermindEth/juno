@@ -397,8 +397,8 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 
 		blockHash := felt.NewFromUint64[felt.Felt](1)
-		mockReader.EXPECT().BlockHeaderByHash(blockHash).
-			Return(&core.Header{Number: blockNumber - 10}, nil)
+		mockReader.EXPECT().BlockNumberByHash(blockHash).
+			Return(blockNumber-10, nil)
 
 		blockID := blockIDHash(t, blockHash)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
@@ -410,7 +410,7 @@ func TestStorageProof(t *testing.T) {
 			Return(headBlock.Header, nil)
 
 		blockHash := felt.NewFromUint64[felt.Felt](1)
-		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), db.ErrKeyNotFound)
 
 		blockID := blockIDHash(t, blockHash)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
@@ -439,7 +439,7 @@ func TestStorageProof(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
 
-		mockReader.EXPECT().BlockHeaderByHash(blkHash).Return(&core.Header{Number: blockNumber}, nil)
+		mockReader.EXPECT().BlockNumberByHash(blkHash).Return(blockNumber, nil)
 		blockID := blockIDHash(t, blkHash)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
 		require.Nil(t, rpcErr)

@@ -34,12 +34,12 @@ func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
 func (b *stateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	header, err := pruner.HeaderByNumberIfStateRetained(b.database, blockNumber)
+	stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	history, err := state.NewStateHistory(blockNumber, header.GlobalStateRoot, b.stateDB)
+	history, err := state.NewStateHistory(blockNumber, stateRoot, b.stateDB)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,12 +57,16 @@ func (b *stateBackend) StateAtBlockHash(
 		return st, NoopStateCloser, nil
 	}
 
-	header, err := pruner.HeaderByHashIfStateRetained(b.database, blockHash)
+	blockNumber, err := core.GetBlockHeaderNumberByHash(b.database, blockHash)
+	if err != nil {
+		return nil, nil, err
+	}
+	stateRoot, err := core.GetGlobalStateRootByBlockNumber(b.database, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	history, err := state.NewStateHistory(header.Number, header.GlobalStateRoot, b.stateDB)
+	history, err := state.NewStateHistory(blockNumber, stateRoot, b.stateDB)
 	if err != nil {
 		return nil, nil, err
 	}

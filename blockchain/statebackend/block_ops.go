@@ -12,12 +12,18 @@ import (
 
 var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
-func headsHeader(reader db.KeyValueReader) (*core.Header, error) {
+// headNumberAndHash returns the chain head's number and hash without decoding
+// the heavier header fields.
+func headNumberAndHash(reader db.KeyValueReader) (uint64, *felt.Felt, error) {
 	height, err := core.GetChainHeight(reader)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	return core.GetBlockHeaderByNumber(reader, height)
+	blockHash, err := core.GetBlockHeaderHashByNumber(reader, height)
+	if err != nil {
+		return 0, nil, err
+	}
+	return height, blockHash, nil
 }
 
 // verifyBlockSuccession checks that the block follows the current chain head.
@@ -29,10 +35,10 @@ func verifyBlockSuccession(reader db.KeyValueReader, block *core.Block) error {
 	expectedBlockNumber := uint64(0)
 	expectedParentHash := &felt.Zero
 
-	h, err := headsHeader(reader)
+	blockNumber, blockHash, err := headNumberAndHash(reader)
 	if err == nil {
-		expectedBlockNumber = h.Number + 1
-		expectedParentHash = h.Hash
+		expectedBlockNumber = blockNumber + 1
+		expectedParentHash = blockHash
 	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
@@ -159,7 +165,7 @@ func deleteBlockContent(
 	stateUpdate *core.StateUpdate,
 	blockNumber uint64,
 ) error {
-	header, err := core.GetBlockHeaderByNumber(reader, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(reader, blockNumber)
 	if err != nil {
 		return err
 	}
@@ -171,9 +177,9 @@ func deleteBlockContent(
 	genesisBlock := blockNumber == 0
 
 	for _, key := range [][]byte{
-		db.BlockHeaderByNumberKey(header.Number),
-		db.BlockHeaderNumbersByHashKey(header.Hash),
-		db.BlockCommitmentsKey(header.Number),
+		db.BlockHeaderByNumberKey(blockNumber),
+		db.BlockHeaderNumbersByHashKey(blockHash),
+		db.BlockCommitmentsKey(blockNumber),
 	} {
 		if err = writer.Delete(key); err != nil {
 			return err

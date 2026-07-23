@@ -176,11 +176,11 @@ func pruneHashKeyedUpto(
 	batch := database.NewBatch()
 	// Clean up the carve-out left by the previous PruneUpto call.
 	if start > 0 {
-		header, err := core.GetBlockHeaderByNumber(database, start-1)
+		blockHash, err := core.GetBlockHeaderHashByNumber(database, start-1)
 		if err != nil {
 			return 0, err
 		}
-		if err := core.DeleteBlockHeaderNumberByHash(batch, header.Hash); err != nil {
+		if err := core.DeleteBlockHeaderNumberByHash(batch, blockHash); err != nil {
 			return 0, err
 		}
 	}

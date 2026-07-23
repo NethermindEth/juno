@@ -1360,7 +1360,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().StateAtBlockHash(&parentHash).Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
-			mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil)
+			mockReader.EXPECT().BlockHeaderHashByNumber(uint64(90)).Return(revealedHeader.Hash, nil)
 
 			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
 
@@ -1473,7 +1473,10 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 		mockReader.EXPECT().Network().Return(n).AnyTimes()
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().
+			BlockHeaderHashByNumber(uint64(90)).
+			Return(revealedHeader.Hash, nil).
+			AnyTimes()
 		mockReader.EXPECT().Receipt(txHash).Return(nil, blockHash, block.Number, nil)
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
 		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil).Times(2)
@@ -1518,7 +1521,10 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 		mockReader.EXPECT().Network().Return(n).AnyTimes()
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().
+			BlockHeaderHashByNumber(uint64(90)).
+			Return(revealedHeader.Hash, nil).
+			AnyTimes()
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
 		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -1554,7 +1560,10 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 		mockReader.EXPECT().Network().Return(n).AnyTimes()
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(90)).Return(revealedHeader, nil).AnyTimes()
+		mockReader.EXPECT().
+			BlockHeaderHashByNumber(uint64(90)).
+			Return(revealedHeader.Hash, nil).
+			AnyTimes()
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil).Times(2)
 		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

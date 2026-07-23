@@ -167,11 +167,7 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 		return nil, nil
 	}
 
-	header, err := h.bcReader.BlockHeaderByNumber(blockNumber - core.BlockHashLag)
-	if err != nil {
-		return nil, err
-	}
-	return header.Hash, nil
+	return h.bcReader.BlockHeaderHashByNumber(blockNumber - core.BlockHashLag)
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {

@@ -274,11 +274,11 @@ func FindOldestBlockAtOrAfter(
 	low, high := lower, upper+1
 	for low < high {
 		mid := low + (high-low)/2
-		header, err := core.GetBlockHeaderByNumber(database, mid)
+		timestamp, err := core.GetBlockHeaderTimestampByNumber(database, mid)
 		if err != nil {
-			return 0, fmt.Errorf("getting block header for block %d: %w", mid, err)
+			return 0, fmt.Errorf("getting block timestamp for block %d: %w", mid, err)
 		}
-		if header.Timestamp < cutoffUnix {
+		if timestamp < cutoffUnix {
 			low = mid + 1
 		} else {
 			high = mid

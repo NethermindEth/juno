@@ -42,7 +42,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber)
+	startingBlockHash, err := h.bcReader.BlockHeaderHashByNumber(startingBlockNumber)
 	if err != nil {
 		return defaultSyncState, nil
 	}
@@ -59,8 +59,8 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	}
 
 	return &Sync{
-		StartingBlockHash:   startingBlockHeader.Hash,
-		StartingBlockNumber: &startingBlockHeader.Number,
+		StartingBlockHash:   startingBlockHash,
+		StartingBlockNumber: &startingBlockNumber,
 		CurrentBlockHash:    head.Hash,
 		CurrentBlockNumber:  &head.Number,
 		HighestBlockHash:    highestBlockHeader.Hash,

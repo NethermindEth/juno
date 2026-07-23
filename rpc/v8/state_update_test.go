@@ -183,8 +183,8 @@ func TestStateUpdate(t *testing.T) {
 			Number: 21647,
 		}
 		// to update block hash registry
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{
 			GlobalStateRoot: update21656.NewRoot,
 			Number:          21656,
