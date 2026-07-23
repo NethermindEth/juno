@@ -155,6 +155,21 @@ type PoseidonDigest struct {
 	hasLast  bool
 }
 
+func (d *PoseidonDigest) UpdateArray(elems []felt.Felt) Digest {
+	for idx := range elems {
+		if !d.hasLast {
+			d.lastElem = elems[idx]
+			d.hasLast = true
+		} else {
+			d.state[0].Add(&d.state[0], &d.lastElem)
+			d.state[1].Add(&d.state[1], &elems[idx])
+			HadesPermutation(&d.state)
+			d.hasLast = false
+		}
+	}
+	return d
+}
+
 func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 	for idx := range elems {
 		if !d.hasLast {

@@ -101,10 +101,31 @@ func TestPedersenArray(t *testing.T) {
 		}
 		digestWhole.Update(data...)
 		want := felt.UnsafeFromString[felt.Felt](tt.want)
-		got := crypto.PedersenArray(data...)
-		assert.Equal(t, want, got)
+		// PedersenArray (value slice) must match the pointer version exactly.
+		vals := make([]felt.Felt, len(data))
+		for i, e := range data {
+			vals[i] = *e
+		}
+		assert.Equal(t, want, crypto.PedersenElems(data...))
+		assert.Equal(t, want, crypto.PedersenArray(vals))
 		assert.Equal(t, want, digest.Finish())
 		assert.Equal(t, want, digestWhole.Finish())
+	}
+}
+
+func TestPedersenDigestUpdateArrayMatchesUpdate(t *testing.T) {
+	for size := range 33 {
+		vals := make([]felt.Felt, size)
+		ptrs := make([]*felt.Felt, size)
+		for idx := range size {
+			vals[idx] = felt.Random[felt.Felt]()
+			ptrs[idx] = &vals[idx]
+		}
+
+		var byArray, byElems crypto.PedersenDigest
+		byArray.UpdateArray(vals)
+		byElems.Update(ptrs...)
+		assert.Equal(t, byElems.Finish(), byArray.Finish())
 	}
 }
 
@@ -127,7 +148,7 @@ func TestPedersenArrayMatchesGnarkCryptoOnRandomSlices(t *testing.T) {
 			data[i] = elem
 		}
 
-		got := crypto.PedersenArray(data...)
+		got := crypto.PedersenElems(data...)
 		want := felt.Felt(pedersenhash.PedersenArray(mapFeltsToFPElems(data)...))
 		assert.Equal(t, want, got)
 	}
@@ -139,62 +160,4 @@ func mapFeltsToFPElems(felts []*felt.Felt) []*fp.Element {
 		fpElems[i] = elem.Impl()
 	}
 	return fpElems
-}
-
-// By having a package and local level variable compiler optimisations can be eliminated for more accurate results.
-// See here: https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go
-var benchHashR felt.Felt
-
-// go test -bench=. -run=^# -cpu=1,2,4,8,16
-func BenchmarkPedersenArray(b *testing.B) {
-	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
-
-	for _, i := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
-			randomFeltSls := genRandomFeltSls(b, i)
-			var f felt.Felt
-			b.ResetTimer()
-			for n := range b.N {
-				f = crypto.PedersenArray(randomFeltSls[n]...)
-			}
-			benchHashR = f
-		})
-	}
-}
-
-func BenchmarkPedersen(b *testing.B) {
-	randFelts := genRandomFeltPairs(b)
-	var f felt.Felt
-	b.ResetTimer()
-	for n := range b.N {
-		f = crypto.Pedersen(randFelts[n][0], randFelts[n][1])
-	}
-	benchHashR = f
-}
-
-func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
-	randomFeltSls := make([][]*felt.Felt, 0, b.N)
-	for b.Loop() {
-		randomFeltSls = append(randomFeltSls, genRandomFelts(b, n))
-	}
-	return randomFeltSls
-}
-
-func genRandomFelts(b *testing.B, n int) []*felt.Felt {
-	b.Helper()
-	felts := make([]*felt.Felt, n)
-	for i := range n {
-		felts[i] = felt.NewRandom[felt.Felt]()
-	}
-	return felts
-}
-
-func genRandomFeltPairs(b *testing.B) [][2]*felt.Felt {
-	b.Helper()
-	randFelts := make([][2]*felt.Felt, b.N)
-	for i := range b.N {
-		randFelts[i][0] = felt.NewRandom[felt.Felt]()
-		randFelts[i][1] = felt.NewRandom[felt.Felt]()
-	}
-	return randFelts
 }

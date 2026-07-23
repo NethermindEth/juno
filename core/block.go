@@ -213,7 +213,7 @@ func pre07Hash(
 	if err != nil {
 		return felt.Felt{}, nil, err
 	}
-	return crypto.PedersenArray(
+	return crypto.PedersenElems(
 		new(felt.Felt).SetUint64(b.Number), // block number
 		b.GlobalStateRoot,                  // global state root
 		&felt.Zero,                         // reserved: sequencer address
@@ -435,7 +435,7 @@ func post07Hash(
 	// - block timestamp
 	// - number of events
 	// - event commitment
-	return crypto.PedersenArray(
+	return crypto.PedersenElems(
 			felt.NewFromUint64[felt.Felt](b.Number), // block number
 			b.GlobalStateRoot,                       // global state root
 			seqAddr,                                 // sequencer address
