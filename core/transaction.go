@@ -864,8 +864,8 @@ func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
 		for _, event := range receipt.Events {
 			fromBytes := event.From.Bytes()
 			filter.TestOrAdd(fromBytes[:])
-			for index, key := range event.Keys {
-				keyBytes := key.Bytes()
+			for index := range event.Keys {
+				keyBytes := event.Keys[index].Bytes()
 				keyAndIndexBytes := binary.AppendVarint(keyBytes[:], int64(index))
 				filter.TestOrAdd(keyAndIndexBytes)
 			}
