@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 )
 
@@ -57,12 +58,14 @@ func (b *Builder) Finalise(
 	preconfirmed *pending.PreConfirmed,
 	signer core.BlockSignFunc,
 	privateKey *ecdsa.PrivateKey,
+	eventsBloom *bloom.BloomFilter,
 ) error {
 	return b.blockchain.Finalise(
 		preconfirmed.Block,
 		preconfirmed.StateUpdate,
 		preconfirmed.NewClasses,
 		signer,
+		eventsBloom,
 	)
 }
 
@@ -88,7 +91,6 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 			EventCount:       0, // To be updated during transaction execution
 			Timestamp:        params.Timestamp,
 			ProtocolVersion:  CurrentStarknetVersion.String(),
-			EventsBloom:      nil, // To be set after finishing execution
 			L1GasPriceETH:    &params.L1GasPriceWEI,
 			Signatures:       nil, // To be set after finishing execution
 			L1GasPriceSTRK:   new(felt.Felt).Mul(&params.L1GasPriceWEI, &params.EthToStrkRate),

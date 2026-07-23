@@ -17,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,7 +109,6 @@ func getTestData(
 				EventCount:       rand.Uint64N(1000),
 				Timestamp:        uint64(time.Now().Unix()),
 				ProtocolVersion:  "0.14.0",
-				EventsBloom:      &bloom.BloomFilter{},
 				L1GasPriceETH:    felt.NewRandom[felt.Felt](),
 				Signatures:       make([][]*felt.Felt, 100),
 				L1GasPriceSTRK:   felt.NewRandom[felt.Felt](),

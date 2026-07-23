@@ -28,7 +28,7 @@ func startStalenessPruner(t *testing.T) (*atomic.Int64, *feed.Feed[*core.L1Head]
 
 	database := testutils.NewPebbleTestDB(t)
 	l1Feed := feed.New[*core.L1Head]()
-	l2Feed := feed.New[*core.Block]()
+	l2Feed := feed.New[*core.WithBloom[*core.Block]]()
 
 	staleCount := &atomic.Int64{}
 	p := pruner.New(

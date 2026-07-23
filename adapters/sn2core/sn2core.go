@@ -57,7 +57,6 @@ func AdaptBlock(response *starknet.Block, sig []*felt.Felt) (*core.Block, error)
 			SequencerAddress: response.SequencerAddress,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
-			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    response.L1GasPriceETH(),
 			L1GasPriceSTRK:   response.L1GasPriceSTRK(),
 			L1DAMode:         core.L1DAMode(response.L1DAMode),
@@ -558,13 +557,11 @@ func AdaptPreConfirmedBlock(
 			EventCount:      eventCount,
 			Timestamp:       response.Timestamp,
 			ProtocolVersion: response.Version,
-			// Not required in spec but useful
-			EventsBloom:    core.EventsBloom(receipts),
-			L1GasPriceETH:  response.L1GasPrice.PriceInWei,
-			L1GasPriceSTRK: response.L1GasPrice.PriceInFri,
-			L1DAMode:       core.L1DAMode(response.L1DAMode),
-			L1DataGasPrice: (*core.GasPrice)(response.L1DataGasPrice),
-			L2GasPrice:     (*core.GasPrice)(response.L2GasPrice),
+			L1GasPriceETH:   response.L1GasPrice.PriceInWei,
+			L1GasPriceSTRK:  response.L1GasPrice.PriceInFri,
+			L1DAMode:        core.L1DAMode(response.L1DAMode),
+			L1DataGasPrice:  (*core.GasPrice)(response.L1DataGasPrice),
+			L2GasPrice:      (*core.GasPrice)(response.L2GasPrice),
 			// Following fields are nil for pre_confirmed block
 			Hash:            nil,
 			ParentHash:      nil,
@@ -633,11 +630,6 @@ func AdaptPreConfirmedWithDelta(
 	}
 
 	nextHeader := *current.Block.Header
-	addedBloom := core.EventsBloom(mergedReceipts[len(existingTxs):])
-	if err := addedBloom.Merge(current.Block.Header.EventsBloom); err != nil {
-		return pending.PreConfirmed{}, err
-	}
-	nextHeader.EventsBloom = addedBloom
 	nextHeader.EventCount += addedEventCount
 	nextHeader.TransactionCount += uint64(addedCount)
 

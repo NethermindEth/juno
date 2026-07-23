@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 type L1HeadSubscription struct {
@@ -25,7 +26,7 @@ type L1HeadSubscription struct {
 type PreConfirmedReader interface {
 	Length() int
 	Head() *pending.PreConfirmed
-	OldestFirst() iter.Seq[*pending.PreConfirmed]
+	OldestFirstWithBloom() iter.Seq[*core.WithBloom[*pending.PreConfirmed]]
 }
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -350,8 +351,9 @@ func (b *Blockchain) Store(
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
+	eventsBloom *bloom.BloomFilter,
 ) error {
-	return b.stateBackend.Store(block, blockCommitments, stateUpdate, newClasses)
+	return b.stateBackend.Store(block, blockCommitments, stateUpdate, newClasses, eventsBloom)
 }
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
@@ -452,8 +454,9 @@ func (b *Blockchain) Finalise(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
+	eventsBloom *bloom.BloomFilter,
 ) error {
-	return b.stateBackend.Finalise(block, stateUpdate, newClasses, sign)
+	return b.stateBackend.Finalise(block, stateUpdate, newClasses, sign, eventsBloom)
 }
 
 func (b *Blockchain) StoreGenesis(
@@ -467,7 +470,6 @@ func (b *Blockchain) StoreGenesis(
 			ParentHash:       &felt.Zero,
 			Number:           0,
 			SequencerAddress: &felt.Zero,
-			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    &felt.Zero,
 			L1GasPriceSTRK:   &felt.Zero,
 		},
@@ -480,7 +482,7 @@ func (b *Blockchain) StoreGenesis(
 	}
 	newClasses := classes
 
-	return b.Finalise(block, stateUpdate, newClasses, nil)
+	return b.Finalise(block, stateUpdate, newClasses, nil, core.EventsBloom(receipts))
 }
 
 func (b *Blockchain) WriteRunningEventFilter() error {

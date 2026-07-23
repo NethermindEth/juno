@@ -29,7 +29,7 @@ type pruneEvent struct {
 // cancels Run and waits for it to exit.
 type servicePruner struct {
 	l1Feed *feed.Feed[*core.L1Head]
-	l2Feed *feed.Feed[*core.Block]
+	l2Feed *feed.Feed[*core.WithBloom[*core.Block]]
 	pruned chan pruneEvent
 }
 
@@ -41,7 +41,7 @@ func startPrunerService(
 ) *servicePruner {
 	t.Helper()
 	l1Feed := feed.New[*core.L1Head]()
-	l2Feed := feed.New[*core.Block]()
+	l2Feed := feed.New[*core.WithBloom[*core.Block]]()
 	pruned := make(chan pruneEvent, 16)
 
 	opts := append([]pruner.Option{
@@ -116,7 +116,9 @@ func (sp *servicePruner) sendL2WithTimestampAndAwait(
 	timestamp uint64,
 ) pruneEvent {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}})
+	sp.l2Feed.Send(newBlockWithBloom(
+		&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}},
+	))
 	select {
 	case ev := <-sp.pruned:
 		return ev
@@ -148,7 +150,7 @@ func (sp *servicePruner) sendL1AndExpectNoOp(t *testing.T, blockNum uint64) {
 // short-circuit before reaching pruneUpto.
 func (sp *servicePruner) sendL2AndExpectNoOp(t *testing.T, blockNum uint64) {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum}})
+	sp.l2Feed.Send(newBlockWithBloom(&core.Block{Header: &core.Header{Number: blockNum}}))
 	select {
 	case ev := <-sp.pruned:
 		t.Fatalf("unexpected prune after L2 head %d: %+v", blockNum, ev)
@@ -390,4 +392,9 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		assert.Equal(t, uint64(41), ev3.oldest)
 		assert.Equal(t, uint64(1), ev3.count)
 	})
+}
+
+// newBlockWithBloom wraps a block with its event bloom filter for feed tests.
+func newBlockWithBloom(block *core.Block) *core.WithBloom[*core.Block] {
+	return &core.WithBloom[*core.Block]{Value: block, Bloom: core.EventsBloom(block.Receipts)}
 }

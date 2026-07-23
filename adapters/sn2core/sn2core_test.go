@@ -116,7 +116,6 @@ func TestAdaptBlock(t *testing.T) {
 				expectedEventCount += uint64(len(r.Events))
 			}
 
-			assert.NotNil(t, block.EventsBloom)
 			assert.True(t, block.Hash.Equal(response.Hash))
 			assert.True(t, block.ParentHash.Equal(response.ParentHash))
 			assert.Equal(t, response.Number, block.Number)
@@ -724,7 +723,6 @@ func assertPreConfirmedBlockBasics(
 	}
 
 	assert.Equal(t, blockNum, preConfirmed.Block.Number)
-	assert.NotNil(t, preConfirmed.Block.EventsBloom)
 	assert.Empty(t, preConfirmed.Block.Hash)
 	assert.Empty(t, preConfirmed.Block.ParentHash)
 	assert.Empty(t, preConfirmed.Block.GlobalStateRoot)
@@ -835,7 +833,6 @@ func TestAdaptPreConfirmedWithDelta(t *testing.T) {
 			// final state matches, all intermediates were on-path.
 			assert.Equal(t, expected.Block.TransactionCount, state.Block.TransactionCount, "tx count")
 			assert.Equal(t, expected.Block.EventCount, state.Block.EventCount, "event count")
-			assert.True(t, expected.Block.EventsBloom.Equal(state.Block.EventsBloom), "event bloom")
 			assert.Equal(t, expected.Block.Transactions, state.Block.Transactions, "transactions")
 			assert.Equal(t, expected.Block.Receipts, state.Block.Receipts, "receipts")
 			assert.Equal(t, expected.TransactionStateDiffs, state.TransactionStateDiffs, "tx diffs")

@@ -520,6 +520,7 @@ func persistCommittedBlocks(
 				commitments,
 				committedBlock.StateUpdate,
 				committedBlock.NewClasses,
+				core.EventsBloom(committedBlock.Block.Receipts),
 			); err != nil {
 				return err
 			}

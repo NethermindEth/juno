@@ -42,7 +42,7 @@ const (
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
 type NewHeadSubscription struct {
-	*feed.Subscription[*core.Block]
+	*feed.Subscription[*core.WithBloom[*core.Block]]
 }
 
 type ReorgSubscription struct {
@@ -54,7 +54,7 @@ type PendingTxSubscription struct {
 }
 
 type PreConfirmedDataSubscription struct {
-	*feed.Subscription[*pending.PreConfirmed]
+	*feed.Subscription[*core.WithBloom[*pending.PreConfirmed]]
 }
 
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
@@ -93,7 +93,7 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 }
 
 func (n *NoopSynchronizer) SubscribeNewHeads() NewHeadSubscription {
-	return NewHeadSubscription{feed.New[*core.Block]().Subscribe()}
+	return NewHeadSubscription{feed.New[*core.WithBloom[*core.Block]]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
@@ -101,7 +101,9 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 }
 
 func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
-	return PreConfirmedDataSubscription{feed.New[*pending.PreConfirmed]().Subscribe()}
+	return PreConfirmedDataSubscription{
+		feed.New[*core.WithBloom[*pending.PreConfirmed]]().Subscribe(),
+	}
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
@@ -116,9 +118,9 @@ type Synchronizer struct {
 	dataSource           DataSource
 	startingBlockNumber  *uint64
 	highestBlockHeader   atomic.Pointer[core.Header]
-	newHeads             *feed.Feed[*core.Block]
+	newHeads             *feed.Feed[*core.WithBloom[*core.Block]]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
-	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
+	preConfirmedDataFeed *feed.Feed[*core.WithBloom[*pending.PreConfirmed]]
 
 	logger   log.StructuredLogger
 	listener EventListener
@@ -145,9 +147,9 @@ func New(
 		dataSource:               dataSource,
 		db:                       database,
 		logger:                   logger,
-		newHeads:                 feed.New[*core.Block](),
+		newHeads:                 feed.New[*core.WithBloom[*core.Block]](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
-		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
+		preConfirmedDataFeed:     feed.New[*core.WithBloom[*pending.PreConfirmed]](),
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
@@ -356,7 +358,15 @@ func (s *Synchronizer) storeTask(
 	block := committedBlock.Block
 	stateUpdate := committedBlock.StateUpdate
 	newClasses := committedBlock.NewClasses
-	if err := s.blockchain.Store(block, commitments, stateUpdate, newClasses); err != nil {
+	eventsBloom := core.EventsBloom(block.Receipts)
+	err := s.blockchain.Store(
+		block,
+		commitments,
+		stateUpdate,
+		newClasses,
+		eventsBloom,
+	)
+	if err != nil {
 		committedBlock.Persisted <- err
 		if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 			// Block block.Number - 1 is the parent of this block which doesn't match
@@ -392,7 +402,7 @@ func (s *Synchronizer) storeTask(
 		s.currReorg = nil // reset the reorg data
 	}
 
-	s.newHeads.Send(block)
+	s.newHeads.Send(&core.WithBloom[*core.Block]{Value: block, Bloom: eventsBloom})
 	s.logger.Info(
 		"Stored Block",
 		zap.Uint64("number", block.Number),

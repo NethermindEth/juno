@@ -718,6 +718,13 @@ func testChainReaderIteratorsAllocFree(t *testing.T) {
 		}
 	})
 	require.Equal(t, 0.0, oldestAllocs, "OldestFirst must be alloc-free")
+
+	oldestWithBloomAllocs := testing.AllocsPerRun(50, func() {
+		for entry := range c.OldestFirstWithBloom() {
+			sink += entry.Value.Block.Number
+		}
+	})
+	require.Equal(t, 0.0, oldestWithBloomAllocs, "OldestFirstWithBloom must be alloc-free")
 	_ = sink
 }
 
@@ -1433,10 +1440,7 @@ func testAllocsApplyNoChange(t *testing.T) {
 }
 
 // testAllocsApplyDelta and testAllocsApplyExtend pin the apply cost via
-// build/with-apply subtraction. The constants below capture the total cost
-// (sn2core adapter + storage's own node + ChainReader + escaped pending.PreConfirmed)
-// observed on Go 1.24/Opus-test infra; if either changes the test breaks loud
-// so the dev makes a conscious bump rather than absorbing a silent regression.
+// build/with-apply subtraction.
 func testAllocsApplyDelta(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	const expectedDeltaCost = 29

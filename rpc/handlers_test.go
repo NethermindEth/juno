@@ -38,9 +38,9 @@ func TestRun(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	l1Sub := feed.New[*core.L1Head]()
-	newHeadsSub := feed.New[*core.Block]()
+	newHeadsSub := feed.New[*core.WithBloom[*core.Block]]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
-	preConfirmedSub := feed.New[*pending.PreConfirmed]()
+	preConfirmedSub := feed.New[*core.WithBloom[*pending.PreConfirmed]]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)

@@ -131,6 +131,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 	b2, err := gw.BlockByNumber(t.Context(), 56378)
 	require.NoError(t, err)
+	b2WithBloom := newBlockWithBloom(b2)
 
 	fromAddr := felt.NewFromBytes[felt.Address]([]byte("some address"))
 	keys := [][]felt.Felt{{felt.FromBytes[felt.Felt]([]byte("key1"))}}
@@ -164,7 +165,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
 			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
-		handler.newHeads.Send(b2)
+		handler.newHeads.Send(b2WithBloom)
 		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
 
@@ -256,18 +257,18 @@ func TestSubscribeEvents(t *testing.T) {
 		// because it only handled the deprecated pending.Pending variant.
 		pending1 := createTestPendingBlock(t, b2, 3)
 		preConfirmed1 := pendingpkg.NewPreConfirmed(pending1, nil, nil, "")
-		handler.preConfirmedFeed.Send(&preConfirmed1)
+		handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&preConfirmed1))
 		assertNoMessage(t, clientConn)
 
 		pending2 := createTestPendingBlock(t, b2, 6)
 		preConfirmed2 := pendingpkg.NewPreConfirmed(pending2, nil, nil, "")
-		handler.preConfirmedFeed.Send(&preConfirmed2)
+		handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&preConfirmed2))
 		assertNoMessage(t, clientConn)
 
 		// Since no pending events were tracked, all b2 events are sent (no deduplication).
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
 			Return(b2Filtered, blockchain.ContinuationToken{}, nil)
-		handler.newHeads.Send(b2)
+		handler.newHeads.Send(b2WithBloom)
 		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
 }
@@ -399,12 +400,18 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
 			handler.preConfirmedFeed.Send(
-				&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+				newPreConfirmedWithBloom(
+					&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+				),
 			)
 			handler.preConfirmedFeed.Send(
-				&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+				newPreConfirmedWithBloom(
+					&pendingpkg.PreConfirmed{Block: &core.Block{Header: &core.Header{}}},
+				),
 			)
-			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
+			handler.newHeads.Send(newBlockWithBloom(
+				&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}},
+			))
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
@@ -425,16 +432,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads     *feed.Feed[*core.Block]
+	newHeads     *feed.Feed[*core.WithBloom[*core.Block]]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmed *feed.Feed[*pendingpkg.PreConfirmed]
+	preConfirmed *feed.Feed[*core.WithBloom[*pendingpkg.PreConfirmed]]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:     feed.New[*core.Block](),
+		newHeads:     feed.New[*core.WithBloom[*core.Block]](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		preConfirmed: feed.New[*pendingpkg.PreConfirmed](),
+		preConfirmed: feed.New[*core.WithBloom[*pendingpkg.PreConfirmed]](),
 	}
 }
 
@@ -531,7 +538,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		require.NoError(t, err)
 
 		// Simulate a new block
-		syncer.newHeads.Send(testHeadBlock(t))
+		syncer.newHeads.Send(newBlockWithBloom(testHeadBlock(t)))
 
 		// Receive a block header.
 		_, headerGot, err := conn.Read(ctx)
@@ -556,7 +563,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 		&networks.Mainnet,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
-	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+	assert.NoError(t, chain.Store(
+		block0, &emptyCommitments, stateUpdate0, nil, core.EventsBloom(block0.Receipts),
+	))
 
 	chain = blockchain.New(
 		testDB,
@@ -587,7 +596,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.Equal(t, want, string(block0Got))
 
 	// Simulate a new block
-	syncer.newHeads.Send(testHeadBlock(t))
+	syncer.newHeads.Send(newBlockWithBloom(testHeadBlock(t)))
 
 	// Check new block content
 	_, newBlockGot, err := conn.Read(ctx)
@@ -647,7 +656,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Simulate a new block
-	syncer.newHeads.Send(testHeadBlock(t))
+	syncer.newHeads.Send(newBlockWithBloom(testHeadBlock(t)))
 
 	// Receive a block header.
 	_, firstHeaderGot, err := conn1.Read(ctx)
@@ -783,7 +792,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
+		syncer.preConfirmed.Send(newPreConfirmedWithBloom(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -796,7 +805,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 					&core.L1HandlerTransaction{TransactionHash: hash5},
 				},
 			},
-		})
+		}))
 		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
 		assertNoWsMessage(t, ctx, conn)
 	})
@@ -828,7 +837,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
+		syncer.preConfirmed.Send(newPreConfirmedWithBloom(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -843,7 +852,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 					&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
 				},
 			},
-		})
+		}))
 		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
 		assertNoWsMessage(t, ctx, conn)
 	})
@@ -858,7 +867,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.preConfirmed.Send(&pendingpkg.PreConfirmed{
+		syncer.preConfirmed.Send(newPreConfirmedWithBloom(&pendingpkg.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -894,7 +903,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 					},
 				},
 			},
-		})
+		}))
 
 		// PreConfirmed is not the deprecated Pending variant, so nothing is emitted.
 		assertNoWsMessage(t, ctx, conn)
@@ -1249,4 +1258,16 @@ func createTestWebsocket(t *testing.T, subscribe func(context.Context) (Subscrip
 	})
 
 	return id, clientConn
+}
+
+// newBlockWithBloom wraps a block with its event bloom filter for feed tests.
+func newBlockWithBloom(block *core.Block) *core.WithBloom[*core.Block] {
+	return &core.WithBloom[*core.Block]{Value: block, Bloom: core.EventsBloom(block.Receipts)}
+}
+
+func newPreConfirmedWithBloom(
+	preConfirmed *pendingpkg.PreConfirmed,
+) *core.WithBloom[*pendingpkg.PreConfirmed] {
+	withBloom := pendingpkg.NewPreConfirmedWithBloom(preConfirmed)
+	return &withBloom
 }

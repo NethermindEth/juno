@@ -34,9 +34,9 @@ type Handler struct {
 	logger        log.Logger
 	memPool       mempool.Pool
 
-	newHeads                *feed.Feed[*core.Block]
+	newHeads                *feed.Feed[*core.WithBloom[*core.Block]]
 	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmedFeed        *feed.Feed[*pendingpkg.PreConfirmed]
+	preConfirmedFeed        *feed.Feed[*core.WithBloom[*pendingpkg.PreConfirmed]]
 	l1Heads                 *feed.Feed[*core.L1Head]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
 
@@ -76,9 +76,9 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:         feed.New[*core.Block](),
+		newHeads:         feed.New[*core.WithBloom[*core.Block]](),
 		reorgs:           feed.New[*sync.ReorgBlockRange](),
-		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
+		preConfirmedFeed: feed.New[*core.WithBloom[*pendingpkg.PreConfirmed]](),
 		l1Heads:          feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.New[
