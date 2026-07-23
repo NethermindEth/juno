@@ -314,18 +314,12 @@ var Version string
 
 func main() {
 	if _, err := maxprocs.Set(); err != nil {
-		fmt.Printf("error: set maxprocs: %v", err)
+		fmt.Printf("error: set maxprocs: %v\n", err)
 		return
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-quit
-		cancel()
-	}()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
@@ -350,7 +344,7 @@ func main() {
 	})
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		cancel()
+		fmt.Printf("error: %v\n", err)
 		os.Exit(1)
 	}
 }
