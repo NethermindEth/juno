@@ -93,7 +93,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	blocks := make([]*core.Block, 3)
-	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+	require.NoError(t, testDB.Write(func(txn db.Batch) error {
 		for i := range uint64(len(blocks)) {
 			b, err := gw.BlockByNumber(t.Context(), i)
 			require.NoError(t, err)
