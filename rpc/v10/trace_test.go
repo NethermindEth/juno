@@ -724,11 +724,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
 		)
 
-		payload0 := &felt.Zero
-		payload1 := felt.NewUnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2 := felt.NewFromUint64[felt.Felt](0x455448)
-		payload3 := felt.NewFromUint64[felt.Felt](0x31da07977d000)
-		payload4 := &felt.Zero
+		payload0 := felt.Zero
+		payload1 := felt.UnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2 := felt.FromUint64[felt.Felt](0x455448)
+		payload3 := felt.FromUint64[felt.Felt](0x31da07977d000)
+		payload4 := felt.Zero
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -738,7 +738,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						Order: 0,
 						From:  fromAddr,
 						To:    toAddr,
-						Payload: []*felt.Felt{
+						Payload: []felt.Felt{
 							payload0,
 							payload1,
 							payload2,
@@ -840,7 +840,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						// todo(rdr): we shouldn't need this conversion but the right fix is
 						//            refactor which is a whole stream of work on itself
 						To: (*felt.Felt)(toAddr),
-						Payload: []*felt.Felt{
+						Payload: []felt.Felt{
 							payload0,
 							payload1,
 							payload2,
@@ -1051,8 +1051,8 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 							Calls: []rpcv10.FunctionInvocation{},
 							Events: []rpcv10.OrderedEvent{{
 								Order: 1,
-								Keys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
-								Data:  []*felt.Felt{felt.NewFromUint64[felt.Felt](3)},
+								Keys:  []felt.Felt{felt.FromUint64[felt.Felt](2)},
+								Data:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
 							}},
 							Messages: []rpcv10.OrderedL2toL1Message{},
 							ExecutionResources: &rpcv10.InnerExecutionResources{

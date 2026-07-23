@@ -37,7 +37,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i := range txCount {
 		hash := felt.NewFromUint64[felt.Felt](uint64(i + 1))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
@@ -82,7 +82,7 @@ func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDelta
 	stateDiffs := make([]*starknet.StateDiff, addedCount)
 	for i := range addedCount {
 		hash := new(felt.Felt).SetUint64(uint64(100 + i))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,

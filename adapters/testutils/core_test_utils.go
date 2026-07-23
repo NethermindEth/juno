@@ -47,9 +47,9 @@ func randomL1Address(t *testing.T) eth.Address {
 
 func randomEvent() *core.Event {
 	return &core.Event{
-		Data: randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
+		Data: randomSlice(sliceLen, felt.Random[felt.Felt]),
 		From: felt.NewRandom[felt.Felt](),
-		Keys: randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
+		Keys: randomSlice(sliceLen, felt.Random[felt.Felt]),
 	}
 }
 
@@ -88,7 +88,7 @@ func randomL1ToL2Message(t *testing.T) *core.L1ToL2Message {
 	return &core.L1ToL2Message{
 		From:     randomL1Address(t),
 		Nonce:    felt.NewRandom[felt.Felt](),
-		Payload:  randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
+		Payload:  randomSlice(sliceLen, felt.Random[felt.Felt]),
 		Selector: felt.NewRandom[felt.Felt](),
 		To:       felt.NewRandom[felt.Felt](),
 	}
@@ -98,7 +98,7 @@ func randomL2ToL1Message(t *testing.T) *core.L2ToL1Message {
 	t.Helper()
 	return &core.L2ToL1Message{
 		From:    felt.NewRandom[felt.Felt](),
-		Payload: randomSlice(sliceLen, felt.NewRandom[felt.Felt]),
+		Payload: randomSlice(sliceLen, felt.Random[felt.Felt]),
 		To:      randomL1Address(t),
 	}
 }

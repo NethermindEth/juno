@@ -26,8 +26,15 @@ func AdaptFelt(f *common.Felt252) *felt.Felt {
 	return adapt(f)
 }
 
-func adaptFeltValue(f *common.Felt252) felt.Felt {
-	return felt.FromBytes[felt.Felt](f.GetElements())
+func AdaptFeltSlice(slice []*common.Felt252) []felt.Felt {
+	if slice == nil {
+		return nil
+	}
+	result := make([]felt.Felt, len(slice))
+	for idx := range slice {
+		result[idx] = felt.FromBytes[felt.Felt](slice[idx].GetElements())
+	}
+	return result
 }
 
 func adapt(v interface{ GetElements() []byte }) *felt.Felt {

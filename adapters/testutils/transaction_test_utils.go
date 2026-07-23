@@ -56,17 +56,15 @@ func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
 	return f, feltBytes[:]
 }
 
-func getRandomFeltSlice(t *testing.T) ([]*felt.Felt, [][]byte) {
+func getRandomFeltSlice(t *testing.T) ([]felt.Felt, [][]byte) {
 	t.Helper()
 
 	size := rand.IntN(maxTransactionSize-1) + 1
-	underlyingFelts := make([]felt.Felt, size)
-	felts := make([]*felt.Felt, size)
+	felts := make([]felt.Felt, size)
 	feltBytes := make([][]byte, size)
 
 	for i := range size {
-		underlyingFelts[i], feltBytes[i] = getRandomFelt(t)
-		felts[i] = &underlyingFelts[i]
+		felts[i], feltBytes[i] = getRandomFelt(t)
 	}
 
 	return felts, feltBytes

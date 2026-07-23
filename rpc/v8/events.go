@@ -26,9 +26,9 @@ type ResultPageRequest struct {
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address,omitempty"`
-	Keys []*felt.Felt `json:"keys"`
-	Data []*felt.Felt `json:"data"`
+	From *felt.Felt  `json:"from_address,omitempty"`
+	Keys []felt.Felt `json:"keys"`
+	Data []felt.Felt `json:"data"`
 }
 
 type EmittedEvent struct {

@@ -63,16 +63,16 @@ type FunctionInvocation struct {
 }
 
 type OrderedEvent struct {
-	Order uint64       `json:"order"`
-	Keys  []*felt.Felt `json:"keys"`
-	Data  []*felt.Felt `json:"data"`
+	Order uint64      `json:"order"`
+	Keys  []felt.Felt `json:"keys"`
+	Data  []felt.Felt `json:"data"`
 }
 
 type OrderedL2toL1Message struct {
-	Order   uint64       `json:"order"`
-	From    *felt.Felt   `json:"from_address"`
-	To      *felt.Felt   `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	Order   uint64      `json:"order"`
+	From    *felt.Felt  `json:"from_address"`
+	To      *felt.Felt  `json:"to_address"`
+	Payload []felt.Felt `json:"payload"`
 }
 
 /****************************************************

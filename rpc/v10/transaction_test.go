@@ -640,7 +640,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	for i, blockNumber := range receiptBlockNumbers {
 		hash := felt.NewFromUint64[felt.Felt](100 + uint64(i))
 		hashes[i] = hash
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		block := starknet.PreConfirmedBlock{
 			BlockIdentifier:  fmt.Sprintf("round-%d", blockNumber),
 			Status:           "PRE_CONFIRMED",
@@ -1895,8 +1895,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]*felt.Felt{
-					felt.NewFromUint64[felt.Felt](0x1),
+				Signature: &[]felt.Felt{
+					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
@@ -1917,8 +1917,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]*felt.Felt{
-					felt.NewFromUint64[felt.Felt](0x1),
+				Signature: &[]felt.Felt{
+					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
@@ -1996,9 +1996,9 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](0x1),
-			felt.NewFromUint64[felt.Felt](0x1),
+		TransactionSignature: []felt.Felt{
+			felt.FromUint64[felt.Felt](0x1),
+			felt.FromUint64[felt.Felt](0x1),
 		},
 		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
 		NonceDAMode: core.DAModeL1,
@@ -2018,10 +2018,10 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 			},
 		},
 		Tip:                   0,
-		PaymasterData:         []*felt.Felt{},
+		PaymasterData:         []felt.Felt{},
 		SenderAddress:         felt.NewFromUint64[felt.Felt](0x1),
-		CallData:              []*felt.Felt{},
-		AccountDeploymentData: []*felt.Felt{},
+		CallData:              []felt.Felt{},
+		AccountDeploymentData: []felt.Felt{},
 	}
 }
 

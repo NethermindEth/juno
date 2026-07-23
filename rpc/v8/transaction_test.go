@@ -1810,18 +1810,28 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt]("0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
 			ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
 			ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
-			ConstructorCallData: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
-				felt.NewUnsafeFromString[felt.Felt]("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
-				felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				felt.NewUnsafeFromString[felt.Felt]("0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
+			ConstructorCallData: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
+					"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x2"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x0"),
 			},
 			Version: new(core.TransactionVersion).SetUint64(3),
 		},
-		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
-			felt.NewUnsafeFromString[felt.Felt]("0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+		TransactionSignature: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt](
+				"0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+			),
+			felt.UnsafeFromString[felt.Felt](
+				"0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e",
+			),
 		},
 		Nonce: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
@@ -1839,7 +1849,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 			},
 		},
 		Tip:           1, // 0x1
-		PaymasterData: []*felt.Felt{},
+		PaymasterData: []felt.Felt{},
 		NonceDAMode:   core.DAModeL1,
 		FeeDAMode:     core.DAModeL2,
 	}
@@ -1953,9 +1963,9 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := &core.InvokeTransaction{
 		TransactionHash: new(felt.Felt).SetUint64(12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		TransactionSignature: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt]("0x1"),
+			felt.UnsafeFromString[felt.Felt]("0x1"),
 		},
 		Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		NonceDAMode: core.DAModeL1,
@@ -1975,9 +1985,9 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			},
 		},
 		Tip:           0,
-		PaymasterData: []*felt.Felt{},
+		PaymasterData: []felt.Felt{},
 		SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x1"),
-		CallData:      []*felt.Felt{},
+		CallData:      []felt.Felt{},
 	}
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}

@@ -159,20 +159,20 @@ func TestEvents(t *testing.T) {
 			require.Empty(t, events.ContinuationToken)
 
 			require.Equal(t, from, events.Events[0].From)
-			require.Equal(t, []*felt.Felt{key}, events.Events[0].Keys)
-			require.Equal(t, []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			require.Equal(t, []felt.Felt{*key}, events.Events[0].Keys)
+			require.Equal(t, []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4574686572"),
-				felt.NewUnsafeFromString[felt.Felt]("0x455448"),
-				felt.NewUnsafeFromString[felt.Felt]("0x12"),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt]("0x0"),
+				felt.UnsafeFromString[felt.Felt]("0x4"),
+				felt.UnsafeFromString[felt.Felt]("0x4574686572"),
+				felt.UnsafeFromString[felt.Felt]("0x455448"),
+				felt.UnsafeFromString[felt.Felt]("0x12"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				felt.UnsafeFromString[felt.Felt]("0x0"),
 			}, events.Events[0].Data)
 			require.Equal(t, uint64(4), *events.Events[0].BlockNumber)
 			require.Equal(t,
