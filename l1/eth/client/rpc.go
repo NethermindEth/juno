@@ -16,8 +16,6 @@ import (
 
 const jsonrpcVersion = "2.0"
 
-// ID is always uint64 on the way out; responses may carry number- or
-// string-shaped ids (see parseResponseID).
 type rpcRequest struct {
 	JSONRPC string `json:"jsonrpc"`
 	ID      uint64 `json:"id"`
@@ -25,16 +23,14 @@ type rpcRequest struct {
 	Params  []any  `json:"params"`
 }
 
-// RPCError is the JSON-RPC error object from the remote. The methods layer maps specific
-// (method, code) pairs into juno sentinels — e.g. -32000 for resource-missing replies.
 type RPCError struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-// A well-formed response carries either Result or Error, never both. ID is kept as
-// json.RawMessage to match both `42` and `"42"` shapes — the spec permits either.
+// rpcResponse keeps ID as json.RawMessage: the spec lets servers reply with
+// number- or string-shaped ids (`42` or `"42"`).
 type rpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
@@ -49,8 +45,8 @@ func (e *RPCError) Error() string {
 	return fmt.Sprintf("json-rpc error %d: %s", e.Code, e.Message)
 }
 
-// Accepts number ("42") and string ("\"42\"") shaped ids; rejects null (null
-// id means the server couldn't determine which request it was answering).
+// parseResponseID rejects a null id: the server couldn't tell which request
+// it was answering, so there is no caller to route the reply to.
 func parseResponseID(raw json.RawMessage) (uint64, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || bytes.Equal(trimmed, jsonNull) {
@@ -66,9 +62,8 @@ func parseResponseID(raw json.RawMessage) (uint64, error) {
 	return n, nil
 }
 
-// decodeSubID decodes the server-assigned subscription id from an
-// eth_subscribe result. An empty id is rejected: it would register a sub
-// under "" that no notification could ever match.
+// decodeSubID rejects an empty id: it would register a sub under "" that no
+// notification could ever match.
 func decodeSubID(raw json.RawMessage) (string, error) {
 	var subID string
 	if err := json.Unmarshal(raw, &subID); err != nil {

@@ -18,8 +18,6 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// TestLogStateUpdateSigHash_DerivedFromSignature catches a typo in the hard-coded
-// constant: it must equal keccak256("LogStateUpdate(uint256,int256,uint256)").
 func TestLogStateUpdateSigHash_DerivedFromSignature(t *testing.T) {
 	h := sha3.NewLegacyKeccak256()
 	h.Write([]byte("LogStateUpdate(uint256,int256,uint256)"))
@@ -56,17 +54,11 @@ func TestDecode_Success(t *testing.T) {
 	assert.False(t, ev.Raw.Removed)
 }
 
-// TestDecode_BlockNumberTakesLow8Bytes verifies the upper 24 bytes of the 32-byte
-// int256 slot are dropped: low 8 bytes of 0xff must round-trip as math.MaxUint64
-// regardless of the high bytes.
-func TestDecode_BlockNumberTakesLow8Bytes(t *testing.T) {
+func TestDecode_BlockNumberMaxUint64(t *testing.T) {
 	data := make([]byte, 96)
 	// globalRoot - anything decodable.
 	data[31] = 0x01
-	// blockNumber slot [32:64]: upper 24 bytes noise, low 8 bytes math.MaxUint64.
-	for i := 32; i < 56; i++ {
-		data[i] = 0xaa
-	}
+	// blockNumber slot [32:64]: upper 24 bytes zero, low 8 bytes math.MaxUint64.
 	for i := 56; i < 64; i++ {
 		data[i] = 0xff
 	}
@@ -79,6 +71,21 @@ func TestDecode_BlockNumberTakesLow8Bytes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(math.MaxUint64), ev.BlockNumber)
+}
+
+func TestDecode_BlockNumberUpperBytesMustBeZero(t *testing.T) {
+	data := make([]byte, 96)
+	data[31] = 0x01 // globalRoot - anything decodable.
+	data[40] = 0xaa // noise inside the blockNumber slot's upper 24 bytes
+	data[63] = 0x05 // low bytes: blockNumber 5
+	data[95] = 0x02 // blockHash - anything decodable.
+
+	_, err := contract.Decode(&eth.Log{
+		Topics: []eth.Hash{contract.LogStateUpdateSigHash},
+		Data:   eth.DataBytes(data),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "blockNumber")
 }
 
 func TestDecode_WrongTopic(t *testing.T) {
@@ -106,7 +113,6 @@ func TestDecode_BadDataLength(t *testing.T) {
 	assert.Contains(t, err.Error(), "bad LogStateUpdate data length")
 }
 
-// fakeLogClient is a hand-written LogClient for the Filter tests.
 type fakeLogClient struct {
 	filterReturn []eth.Log
 	filterErr    error
@@ -152,9 +158,8 @@ func TestFilterLogStateUpdate_FilterErr(t *testing.T) {
 
 // --- helpers ---
 
-// validStateUpdateLog builds a well-formed LogStateUpdate log. globalRoot and
-// blockHash vary by blockNumber so different blocks yield different logs (a
-// sanity hook for ordering tests).
+// validStateUpdateLog varies globalRoot and blockHash by blockNumber so
+// different blocks yield different logs.
 func validStateUpdateLog(blockNumber uint64) eth.Log {
 	data := make([]byte, 0, 96)
 	// globalRoot — use blockNumber as a placeholder.

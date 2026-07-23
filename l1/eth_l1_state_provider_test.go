@@ -44,10 +44,6 @@ func (r *ethRecordingListener) Methods() []string {
 	return out
 }
 
-// TestEthL1StateProvider_RedialsAfterTransportClosed is a regression target for
-// the "subscribe to LogStateUpdate: ... transport closed" bug: a killed ws
-// transport must auto-redial on the next call, else the provider is stuck
-// returning ErrTransportClosed forever.
 func TestEthL1StateProvider_RedialsAfterTransportClosed(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -76,11 +72,6 @@ func TestEthL1StateProvider_RedialsAfterTransportClosed(t *testing.T) {
 		"ChainID should succeed after transport drop via auto-redial")
 }
 
-// TestEthL1StateProvider_DroppingCallRedials is the regression target for the
-// shutdown-cause normalisation fix: a conn dying mid-call fans out the raw
-// read/ping error, not ErrTransportClosed. Without normalisation withRetryOnClosed
-// doesn't retry and the dropping call itself fails - fatal for one-shot callers
-// (RPC TransactionReceipt) with no retry loop above them.
 func TestEthL1StateProvider_DroppingCallRedials(t *testing.T) {
 	var callCount atomic.Int64
 	firstCallStarted := make(chan struct{})
@@ -137,9 +128,6 @@ func TestEthL1StateProvider_DroppingCallRedials(t *testing.T) {
 	}
 }
 
-// TestEthL1StateProvider_AfterCloseReturnsErrClosed verifies Close is
-// terminal: post-Close calls don't trigger another redial and instead
-// return ErrClosed.
 func TestEthL1StateProvider_AfterCloseReturnsErrClosed(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -162,9 +150,6 @@ func TestEthL1StateProvider_AfterCloseReturnsErrClosed(t *testing.T) {
 	assert.ErrorIs(t, err, l1.ErrClosed)
 }
 
-// TestEthL1StateProvider_ListenerFiresOnErrorPath is a regression target: earlier
-// code emitted OnL1Call only on success. It must fire on failure too so dashboards
-// tell "L1 healthy and quiet" from "L1 broken".
 func TestEthL1StateProvider_ListenerFiresOnErrorPath(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	// Every method errors out so we exercise the failure branch.
@@ -195,8 +180,6 @@ func TestEthL1StateProvider_ListenerFiresOnErrorPath(t *testing.T) {
 		"OnL1Call must fire on error paths so error rate is observable")
 }
 
-// TestEthL1StateProvider_CloseIsIdempotent — double-Close shouldn't panic
-// or block, and shouldn't trigger a redial.
 func TestEthL1StateProvider_CloseIsIdempotent(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	s, err := l1.NewEthL1StateProvider(t.Context(), srv.WSURL(), eth.Address{})
@@ -206,8 +189,6 @@ func TestEthL1StateProvider_CloseIsIdempotent(t *testing.T) {
 	s.Close()
 }
 
-// TestEthL1StateProvider_PreservesErrNotFound verifies eth.ErrNotFound survives
-// the withRetryOnClosed helper so callers can still errors.Is it.
 func TestEthL1StateProvider_PreservesErrNotFound(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -227,8 +208,8 @@ func TestEthL1StateProvider_PreservesErrNotFound(t *testing.T) {
 		"FinalisedHeight must wrap eth.ErrNotFound so callers can errors.Is it; got: %v", err)
 }
 
-// stateUpdateLogJSON returns a JSON-RPC-shaped LogStateUpdate event. The 96-byte
-// data section is the canonical globalRoot ‖ blockNumber (int256, low 8) ‖ blockHash.
+// stateUpdateLogJSON packs the 96-byte data section as
+// globalRoot ‖ blockNumber (int256, low 8) ‖ blockHash.
 func stateUpdateLogJSON(blockNumber, l1RefHeight uint64, removed bool) map[string]any {
 	data := make([]byte, 96)
 	// globalRoot — last byte distinguishes this event.
@@ -245,9 +226,6 @@ func stateUpdateLogJSON(blockNumber, l1RefHeight uint64, removed bool) map[strin
 	}
 }
 
-// TestEthL1StateProvider_FilterStateUpdate_DecodesAndTranslates verifies the
-// FilterStateUpdate path: eth_getLogs -> contract decoder -> chain-neutral
-// StateUpdate, including the field mapping (Removed, L1RefHeight, BlockNumber).
 func TestEthL1StateProvider_FilterStateUpdate_DecodesAndTranslates(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -279,8 +257,6 @@ func TestEthL1StateProvider_FilterStateUpdate_DecodesAndTranslates(t *testing.T)
 	assert.True(t, got[1].Removed, "Removed flag must round-trip from the raw log envelope")
 }
 
-// TestEthL1StateProvider_FilterStateUpdate_ErrorWrapsRange verifies the error
-// includes the [from, to] range so operators can correlate it with L1 sync logs.
 func TestEthL1StateProvider_FilterStateUpdate_ErrorWrapsRange(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(_ clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -298,9 +274,6 @@ func TestEthL1StateProvider_FilterStateUpdate_ErrorWrapsRange(t *testing.T) {
 	assert.Contains(t, err.Error(), "query timeout")
 }
 
-// TestEthL1StateProvider_WatchStateUpdate_DeliversDecoded verifies the live
-// subscribe path: a pushed notification is decoded via contract.Decode and
-// emitted as a chain-neutral StateUpdate.
 func TestEthL1StateProvider_WatchStateUpdate_DeliversDecoded(t *testing.T) {
 	const subID = "0xb10c"
 	srv := clienttest.NewTestServer(t)
@@ -336,7 +309,6 @@ func TestEthL1StateProvider_WatchStateUpdate_DeliversDecoded(t *testing.T) {
 		t.Fatal("WatchStateUpdate did not deliver a decoded event")
 	}
 
-	// Err() must not have fired on the happy path.
 	select {
 	case err := <-sub.Err():
 		t.Fatalf("Err() fired unexpectedly: %v", err)
@@ -344,9 +316,6 @@ func TestEthL1StateProvider_WatchStateUpdate_DeliversDecoded(t *testing.T) {
 	}
 }
 
-// TestEthL1StateProvider_WatchStateUpdate_UnsubscribeIsClean verifies Unsubscribe
-// closes Err() with no spurious error and is idempotent (double call must not
-// panic on already-closed channels).
 func TestEthL1StateProvider_WatchStateUpdate_UnsubscribeIsClean(t *testing.T) {
 	const subID = "0xbeef"
 	srv := clienttest.NewTestServer(t)
@@ -371,7 +340,6 @@ func TestEthL1StateProvider_WatchStateUpdate_UnsubscribeIsClean(t *testing.T) {
 	sub.Unsubscribe()
 	sub.Unsubscribe() // idempotent
 
-	// Err() must be closed after Unsubscribe (no cause).
 	select {
 	case errOut, open := <-sub.Err():
 		assert.False(t, open, "Err() should be closed; got open with err=%v", errOut)
@@ -380,9 +348,6 @@ func TestEthL1StateProvider_WatchStateUpdate_UnsubscribeIsClean(t *testing.T) {
 	}
 }
 
-// TestEthL1StateProvider_WatchStateUpdate_PropagatesInnerErr verifies forwarder.run()
-// delivers the inner subscription's cause onto its own Err() - the failure the
-// l1.Client redial loop reacts to.
 func TestEthL1StateProvider_WatchStateUpdate_PropagatesInnerErr(t *testing.T) {
 	const subID = "0xfa11"
 	srv := clienttest.NewTestServer(t)
@@ -405,7 +370,6 @@ func TestEthL1StateProvider_WatchStateUpdate_PropagatesInnerErr(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	// Killing the conn must propagate the inner Err() to the caller-facing Err().
 	srv.KillWSConns()
 
 	select {
@@ -416,9 +380,6 @@ func TestEthL1StateProvider_WatchStateUpdate_PropagatesInnerErr(t *testing.T) {
 	}
 }
 
-// TestEthL1StateProvider_WatchStateUpdate_DecodeFailure verifies a malformed
-// notification terminates the subscription with a decode error on Err() so
-// l1.Client can react (a misformatted log means wrong contract or buggy node).
 func TestEthL1StateProvider_WatchStateUpdate_DecodeFailure(t *testing.T) {
 	const subID = "0xdec0de"
 	srv := clienttest.NewTestServer(t)
@@ -459,9 +420,6 @@ func TestEthL1StateProvider_WatchStateUpdate_DecodeFailure(t *testing.T) {
 	}
 }
 
-// TestEthL1StateProvider_WatchStateUpdate_FailsAfterClose verifies that once the
-// provider is closed, WatchStateUpdate refuses to dial rather than spin up a
-// forwarder that never sees traffic.
 func TestEthL1StateProvider_WatchStateUpdate_FailsAfterClose(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	s, err := l1.NewEthL1StateProvider(t.Context(), srv.WSURL(), eth.Address{})
@@ -475,8 +433,6 @@ func TestEthL1StateProvider_WatchStateUpdate_FailsAfterClose(t *testing.T) {
 	assert.ErrorIs(t, err, l1.ErrClosed)
 }
 
-// TestEthL1StateProvider_WithLogger smoke-tests that a custom logger doesn't break
-// construction or subsequent RPC calls.
 func TestEthL1StateProvider_WithLogger(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
@@ -497,8 +453,6 @@ func TestEthL1StateProvider_WithLogger(t *testing.T) {
 	assert.Equal(t, "1", id.String())
 }
 
-// TestEthL1StateProvider_DialError verifies the constructor wraps a dial failure.
-// An unsupported URL scheme is the only way to force this without a real network.
 func TestEthL1StateProvider_DialError(t *testing.T) {
 	_, err := l1.NewEthL1StateProvider(t.Context(), "http://example.invalid", eth.Address{})
 	require.Error(t, err)

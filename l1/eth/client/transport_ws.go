@@ -15,28 +15,30 @@ import (
 	"go.uber.org/zap"
 )
 
-// Surfaced to in-flight calls and active subscriptions on clean Close or upstream failure.
 var ErrTransportClosed = errors.New("transport closed")
 
+// ErrSubscriptionQueueOverflow fails a subscription whose sink is not drained
+// fast enough, matching go-ethereum's behaviour.
+var ErrSubscriptionQueueOverflow = errors.New("subscription queue overflow (slow subscriber)")
+
 const (
-	// Caps a single ws message; dwarfs any real log payload but bounds an adversarial sender.
+	// wsReadLimit (16 MiB) is far above any real payload; it only stops a
+	// malicious server from forcing unbounded allocations.
 	wsReadLimit = 16 << 20
 
-	// Per-subscription buffer. A full buffer blocks readLoop, stalling every unary RPC on the
-	// shared conn — callers MUST drain their sinks promptly.
 	wsLogSubBuffer = 64
 
 	wsUnsubscribeTimeout = 2 * time.Second
 
-	// Matches go-ethereum; holds against Alchemy/Infura/QuickNode and Cloudflare-class proxies.
+	// wsPingInterval matches go-ethereum and keeps intermediaries from
+	// dropping idle connections.
 	wsPingInterval = 30 * time.Second
 
-	// Bounds a single ping round-trip; a wedged write or stalled pong tears the transport down.
 	wsPingTimeout = 10 * time.Second
 
-	// Bounds a single frame write, independent of any caller's ctx: coder/websocket closes the
-	// whole conn if a write ctx cancels mid-frame, so one caller's cancel must not flap the
-	// shared conn. A wedged write still trips this.
+	// wsWriteTimeout bounds a frame write independently of any caller's ctx:
+	// coder/websocket closes the whole conn if a write ctx cancels mid-frame,
+	// so one caller's cancel must not flap the shared conn.
 	wsWriteTimeout = 10 * time.Second
 )
 
@@ -45,8 +47,8 @@ type rpcReply struct {
 	err    error
 }
 
-// Unary calls and eth_subscribe notifications share one conn,
-// routed by request id / subscription id.
+// wsTransport multiplexes unary calls and eth_subscribe notifications over
+// one conn, routed by request id / subscription id.
 type wsTransport struct {
 	conn    *websocket.Conn
 	writeMu sync.Mutex
@@ -57,9 +59,13 @@ type wsTransport struct {
 	pending map[uint64]chan rpcReply // by request id
 	// pendingSubs: subscribe calls awaiting the server-assigned sub id, keyed by request id.
 	pendingSubs map[uint64]*wsLogSub
-	subs        map[string]*wsLogSub // active subscriptions, by sub id
+	// orphanedSubs: request ids of cancelled subscribes whose reply never arrived. A late
+	// successful reply still triggers a best-effort eth_unsubscribe, without retaining the
+	// full wsLogSub.
+	orphanedSubs map[uint64]struct{}
+	subs         map[string]*wsLogSub // active subscriptions, by sub id
 
-	// Signalled after each write so pingLoop defers the idle ping. Buffered so writes never block.
+	// pingReset defers the idle ping after each write; buffered so writes never block.
 	pingReset    chan struct{}
 	pingInterval time.Duration
 	pingTimeout  time.Duration
@@ -69,7 +75,6 @@ type wsTransport struct {
 	closeOnce sync.Once
 }
 
-// Zero opts.logger → no-op; zero ping durations → package defaults.
 func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, error) {
 	if opts.logger == nil {
 		opts.logger = log.NewNopZapLogger()
@@ -93,6 +98,7 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 		logger:       opts.logger,
 		pending:      make(map[uint64]chan rpcReply),
 		pendingSubs:  make(map[uint64]*wsLogSub),
+		orphanedSubs: make(map[uint64]struct{}),
 		subs:         make(map[string]*wsLogSub),
 		pingReset:    make(chan struct{}, 1),
 		pingInterval: opts.pingInterval,
@@ -104,7 +110,8 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 	return t, nil
 }
 
-// Malformed frames are dropped — a misbehaving remote manifests as a call timeout.
+// readLoop drops malformed frames rather than tearing the transport down —
+// a misbehaving remote manifests as a call timeout.
 func (t *wsTransport) readLoop() {
 	for {
 		_, data, err := t.conn.Read(context.Background())
@@ -116,8 +123,9 @@ func (t *wsTransport) readLoop() {
 	}
 }
 
-// pingLoop pings after pingInterval of write silence (writes reset the timer via pingReset).
-// A ping failure shuts the transport down via the same path as a read error.
+// pingLoop pings only after pingInterval of write silence — regular traffic
+// already proves the conn is alive. A ping failure shuts the transport down
+// via the same path as a read error.
 func (t *wsTransport) pingLoop() {
 	timer := time.NewTimer(t.pingInterval)
 	defer timer.Stop()
@@ -152,7 +160,6 @@ func (t *wsTransport) dispatch(data []byte) {
 		Method string          `json:"method,omitempty"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
-		// Malformed JSON — drop. The log distinguishes "upstream silent" from "upstream garbage".
 		t.logger.Trace(
 			"ws: drop unparseable frame",
 			zap.Int("bytes", len(data)),
@@ -198,12 +205,14 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 	delete(t.pending, id)
 	pendingSub, isSubscribe := t.pendingSubs[id]
 	delete(t.pendingSubs, id)
+	_, isOrphaned := t.orphanedSubs[id]
+	delete(t.orphanedSubs, id)
 	t.mu.Unlock()
 
 	if !hasPending {
 		// Caller's ctx fired before the reply landed (or an unsolicited reply). A successful
 		// subscribe orphaned a server-side sub the caller will never own — release it.
-		if isSubscribe && resp.Error == nil {
+		if (isSubscribe || isOrphaned) && resp.Error == nil {
 			if subID, derr := decodeSubID(resp.Result); derr == nil {
 				t.unsubscribeInBackground(subID)
 			}
@@ -269,14 +278,22 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 	}
 	select {
 	case sub.logCh <- notif.Params.Result:
-	case <-sub.closed:
-	case <-t.closed:
+	default:
+		// Full buffer: fail the slow subscription rather than block the shared
+		// readLoop, which would stall every unary call on the connection.
+		t.mu.Lock()
+		if t.subs != nil {
+			delete(t.subs, notif.Params.Subscription)
+		}
+		t.mu.Unlock()
+		sub.fail(ErrSubscriptionQueueOverflow)
+		t.unsubscribeInBackground(notif.Params.Subscription)
 	}
 }
 
-// shutdown is the single termination path: fan the cause out to every pending caller and
-// subscription, then close the conn. The cause is normalised so errors.Is(err, ErrTransportClosed)
-// holds for every observer, including the in-flight call that races the disconnect and must redial.
+// shutdown is the single termination path. The cause is normalised so
+// errors.Is(err, ErrTransportClosed) holds for every observer, including the
+// in-flight call that races the disconnect and must redial.
 func (t *wsTransport) shutdown(cause error) {
 	t.closeOnce.Do(func() {
 		switch {
@@ -290,6 +307,7 @@ func (t *wsTransport) shutdown(cause error) {
 		pending, pendingSubs, subs := t.pending, t.pendingSubs, t.subs
 		t.pending = nil
 		t.pendingSubs = nil
+		t.orphanedSubs = nil
 		t.subs = nil
 		t.closeErr = cause
 		t.mu.Unlock()
@@ -314,8 +332,8 @@ func (t *wsTransport) shutdown(cause error) {
 
 func (t *wsTransport) close() { t.shutdown(ErrTransportClosed) }
 
-// writeJSON serialises writes, bounded by wsWriteTimeout not the caller's ctx (see wsWriteTimeout).
-// Caller cancellation applies only while awaiting the reply. A good write resets the ping timer.
+// writeJSON bounds writes by wsWriteTimeout, not the caller's ctx (see the
+// const); caller cancellation applies only while awaiting the reply.
 func (t *wsTransport) writeJSON(v any) error {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -326,7 +344,7 @@ func (t *wsTransport) writeJSON(v any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), wsWriteTimeout)
 	defer cancel()
 	if err := t.conn.Write(ctx, websocket.MessageText, data); err != nil {
-		return err
+		return fmt.Errorf("%w: writing frame: %w", ErrTransportClosed, err)
 	}
 	select {
 	case t.pingReset <- struct{}{}:
@@ -343,8 +361,8 @@ func (t *wsTransport) call(
 	return t.callWithSubReg(ctx, method, nil, params...)
 }
 
-// When pendingSub is non-nil, the response handler extracts the subscription id
-// and registers the sub atomically with the reply delivery.
+// callWithSubReg registers a non-nil pendingSub atomically with the reply
+// delivery, so no notification can arrive before the sub is routable.
 func (t *wsTransport) callWithSubReg(
 	ctx context.Context,
 	method string,
@@ -384,8 +402,7 @@ func (t *wsTransport) callWithSubReg(
 		Params:  params,
 	}); err != nil {
 		deregister()
-		// Write is decoupled from ctx, so a failure here means the conn is genuinely bad.
-		return nil, fmt.Errorf("writing request: %w", err)
+		return nil, err
 	}
 
 	select {
@@ -413,9 +430,9 @@ func (t *wsTransport) callWithSubReg(
 	}
 }
 
-// registerSub records a sub under its server-assigned id. Returns false (releasing the
-// server-side sub) if the transport closed or the caller cancelled. Atomic against
-// cancelPending under t.mu: whoever locks first wins.
+// registerSub returns false (releasing the server-side sub) if the transport
+// closed or the caller cancelled. Atomic against cancelPending under t.mu:
+// whoever locks first wins.
 func (t *wsTransport) registerSub(pendingSub *wsLogSub, subID string) bool {
 	t.mu.Lock()
 	switch {
@@ -434,14 +451,8 @@ func (t *wsTransport) registerSub(pendingSub *wsLogSub, subID string) bool {
 	}
 }
 
-// cancelPending tears down a pending call whose caller's ctx fired, releasing any server-side
-// sub it would otherwise leak. Three interleavings against the subscribe reply, all ending
-// with the sub released:
-//   - already registered (pendingSub.id set): delete from t.subs, unsubscribe here.
-//   - mid-registration: mark cancelled; registerSub sees it and unsubscribes.
-//   - not yet processed: dispatchResponse's no-pending-caller path unsubscribes.
-//
-// Does not delete pendingSubs[id] — dispatchResponse or shutdown clears it.
+// cancelPending tears down a pending call whose caller's ctx fired, releasing
+// any server-side sub it would otherwise leak.
 func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
 	var leakedSubID string
 	t.mu.Lock()
@@ -450,6 +461,10 @@ func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
 	}
 	if pendingSub != nil {
 		pendingSub.cancelled = true
+		if _, awaitingReply := t.pendingSubs[id]; awaitingReply {
+			delete(t.pendingSubs, id)
+			t.orphanedSubs[id] = struct{}{}
+		}
 		if pendingSub.id != "" && t.subs != nil {
 			leakedSubID = pendingSub.id
 			delete(t.subs, leakedSubID)
@@ -462,8 +477,7 @@ func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
 	t.unsubscribeInBackground(leakedSubID)
 }
 
-// unsubscribeInBackground best-effort releases a server-side sub the caller no longer owns.
-// Spawned so it never delays the caller; bounded by wsUnsubscribeTimeout and t.closed.
+// unsubscribeInBackground never delays the caller; bounded by wsUnsubscribeTimeout.
 func (t *wsTransport) unsubscribeInBackground(subID string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)

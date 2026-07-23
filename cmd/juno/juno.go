@@ -54,7 +54,7 @@ const (
 	networkF                            = "network"
 	ethNodeF                            = "eth-node"
 	disableL1VerificationF              = "disable-l1-verification"
-	l1ClientF                           = "l1-client"
+	useNewL1ClientF                     = "use-new-l1-client"
 	pprofF                              = "pprof"
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
@@ -128,7 +128,7 @@ const (
 	defaultWSPort                             = 6061
 	defaultEthNode                            = ""
 	defaultDisableL1Verification              = false
-	defaultL1Client                           = "geth"
+	defaultUseNewL1Client                     = false
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
@@ -212,8 +212,7 @@ const (
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
 
-	l1ClientUsage = `L1 client backend. One of "geth" (default; go-ethereum based) or "juno"` +
-		` (juno's hand-rolled WebSocket JSON-RPC client). No effect with --disable-l1-verification.`
+	useNewL1ClientUsage = "Use the experimental L1 client implementation."
 
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
@@ -546,9 +545,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
-	junoCmd.Flags().String(l1ClientF, defaultL1Client, l1ClientUsage)
+	junoCmd.Flags().Bool(useNewL1ClientF, defaultUseNewL1Client, useNewL1ClientUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF, l1ClientF)
+	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF, useNewL1ClientF)
 
 	// --- Sync & Polling ---
 	junoCmd.Flags().Duration(

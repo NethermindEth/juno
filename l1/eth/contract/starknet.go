@@ -16,19 +16,15 @@ import (
 	"github.com/NethermindEth/juno/l1/eth/client"
 )
 
-// keccak256("LogStateUpdate(uint256,int256,uint256)"), verified against the deployed
-// Starknet core contract and the abigen output this package replaces.
+// LogStateUpdateSigHash is keccak256("LogStateUpdate(uint256,int256,uint256)").
 var LogStateUpdateSigHash = eth.HashFromString(
 	"0xd342ddf7a308dec111745b00315c14b7efb2bdae570a6856e088ed0c65a3576c",
 )
 
-// Three 32-byte words: (uint256 globalRoot, int256 blockNumber, uint256 blockHash).
-// No indexed args, so all three are in data, not topics.
+// logStateUpdateDataLen is three 32-byte words: no indexed args, so all three
+// land in data, not topics.
 const logStateUpdateDataLen = 3 * 32
 
-// event LogStateUpdate(uint256 globalRoot, int256 blockNumber, uint256 blockHash).
-// blockNumber is int256 but always non-negative and uint64-sized, so we decode it as uint64.
-// globalRoot and blockHash are field elements, so they land in felt.Felt directly.
 type LogStateUpdate struct {
 	GlobalRoot  felt.Felt
 	BlockNumber uint64
@@ -38,14 +34,11 @@ type LogStateUpdate struct {
 	Raw eth.Log
 }
 
-// ErrWrongTopic is returned when Decode is given a log whose first
-// topic is not LogStateUpdateSigHash.
 var ErrWrongTopic = errors.New("log topic is not LogStateUpdate")
 
-// Callers are expected to prefilter by topic and contract address;
-// sig hash is re-checked defensively.
+// Decode re-checks the sig hash defensively; callers are expected to
+// prefilter by topic and contract address.
 func Decode(log *eth.Log) (*LogStateUpdate, error) {
-	// No indexed args, so a well-formed log carries exactly one topic (the sig hash).
 	if len(log.Topics) != 1 || log.Topics[0] != LogStateUpdateSigHash {
 		return nil, ErrWrongTopic
 	}
@@ -53,8 +46,14 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 		return nil, fmt.Errorf("bad LogStateUpdate data length: got %d, want %d",
 			len(log.Data), logStateUpdateDataLen)
 	}
+	// Nonzero upper bytes mean a malformed log.
+	for _, b := range log.Data[32:56] {
+		if b != 0 {
+			return nil, fmt.Errorf("blockNumber exceeds uint64: upper bytes not zero: 0x%x",
+				log.Data[32:64])
+		}
+	}
 	ev := &LogStateUpdate{
-		// Low 8 bytes of the int256 slot; upper 24 dropped (always fits uint64).
 		BlockNumber: binary.BigEndian.Uint64(log.Data[56:64]),
 		Raw:         *log,
 	}
@@ -63,14 +62,13 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 	return ev, nil
 }
 
-// Interface so tests can swap in a fake without dialling a real endpoint.
+// LogClient lets tests swap in a fake without dialling a real endpoint.
 type LogClient interface {
 	FilterLogs(ctx context.Context, q client.FilterQuery) ([]eth.Log, error)
 }
 
-// LogStateUpdateFilter is the address+topic filter selecting LogStateUpdate
-// events emitted by contract. Callers add a block range for eth_getLogs, or
-// leave it unset for a live eth_subscribe subscription.
+// LogStateUpdateFilter omits the block range: callers add one for eth_getLogs,
+// or leave it unset for a live eth_subscribe subscription.
 func LogStateUpdateFilter(contract eth.Address) client.FilterQuery {
 	return client.FilterQuery{
 		Addresses: []eth.Address{contract},
@@ -78,8 +76,7 @@ func LogStateUpdateFilter(contract eth.Address) client.FilterQuery {
 	}
 }
 
-// FilterLogStateUpdate returns every LogStateUpdate emitted by contract
-// in the inclusive L1 block range [from, to].
+// FilterLogStateUpdate treats [from, to] as inclusive on both ends.
 func FilterLogStateUpdate(
 	ctx context.Context,
 	c LogClient,
@@ -92,8 +89,6 @@ func FilterLogStateUpdate(
 	q.ToBlock = &to
 	logs, err := c.FilterLogs(ctx, q)
 	if err != nil {
-		// The client annotates ("filtering logs: …") and the caller adds the
-		// block range; re-stating "filtering LogStateUpdate" here just nests.
 		return nil, err
 	}
 	out := make([]*LogStateUpdate, len(logs))

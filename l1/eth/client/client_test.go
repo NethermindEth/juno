@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newTestClient dials the test server over WS and registers cleanup.
 func newTestClient(t *testing.T, srv *clienttest.TestServer) *client.Client {
 	t.Helper()
 	c, err := client.New(t.Context(), srv.WSURL())
@@ -25,15 +24,12 @@ func newTestClient(t *testing.T, srv *clienttest.TestServer) *client.Client {
 	return c
 }
 
-// methodResponse is a static reply for a single JSON-RPC method.
 // Exactly one of result / rpcErr should be non-nil.
 type methodResponse struct {
 	result any
 	rpcErr *clienttest.TestRPCError
 }
 
-// captureHandler records every request and dispatches by method to a static
-// response; unmapped methods return "method not found".
 func captureHandler(
 	t *testing.T,
 	responses map[string]methodResponse,
@@ -51,8 +47,6 @@ func captureHandler(
 	return srv, &captured
 }
 
-// TestNew_WithLogger smoke-tests the WithLogger option — supplying a
-// custom logger must not break construction.
 func TestNew_WithLogger(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	c, err := client.New(t.Context(), srv.WSURL(),
@@ -61,8 +55,6 @@ func TestNew_WithLogger(t *testing.T) {
 	t.Cleanup(c.Close)
 }
 
-// TestTestServer_URL guards the http:// scheme returned by URL() — used
-// by future unary-only tests; documents the expected scheme.
 func TestTestServer_URL(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	u := srv.URL()
@@ -130,24 +122,16 @@ func TestChainID_ServerError(t *testing.T) {
 	assert.Contains(t, err.Error(), "internal error")
 }
 
-// TestChainID_DecodeErrors exercises decodeQuantityBig's validation branches via
-// ChainID: each malformed quantity must yield a "decode quantity" error, not a
-// panic or zero.
 func TestChainID_DecodeErrors(t *testing.T) {
 	cases := []struct {
 		name    string
 		raw     any
 		wantSub string
 	}{
-		// JSON decode error: a numeric result, not a string.
 		{"non-string", 1, "decode quantity"},
-		// Missing 0x prefix.
 		{"missing prefix", "abc", "missing 0x prefix"},
-		// Empty body (only "0x", no digits).
 		{"no digits", "0x", "no digits"},
-		// Leading zero (non-minimal encoding).
 		{"leading zero", "0x01", "leading zero"},
-		// Invalid hex digits.
 		{"invalid hex", "0xZZ", "invalid hex"},
 	}
 	for _, c := range cases {
@@ -164,9 +148,6 @@ func TestChainID_DecodeErrors(t *testing.T) {
 	}
 }
 
-// TestBlockNumber_DecodeError pins that "decode quantity" (not "get block
-// number") is the outermost wrapper on the decode path - the latter wraps only
-// transport-call errors.
 func TestBlockNumber_DecodeError(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_blockNumber": {result: "not-hex"},
@@ -178,8 +159,6 @@ func TestBlockNumber_DecodeError(t *testing.T) {
 	assert.Contains(t, err.Error(), "decode quantity")
 }
 
-// TestFilterLogs_DecodeFailure verifies a non-list result still yields an error
-// that identifies the method.
 func TestFilterLogs_DecodeFailure(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_getLogs": {result: map[string]any{"unexpected": "shape"}},
@@ -191,8 +170,6 @@ func TestFilterLogs_DecodeFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "decoding logs")
 }
 
-// TestTransactionReceipt_DecodeFailure verifies receipt-decode errors surface; a
-// non-array logs field forces the unmarshal to fail.
 func TestTransactionReceipt_DecodeFailure(t *testing.T) {
 	srv, _ := captureHandler(t, map[string]methodResponse{
 		"eth_getTransactionReceipt": {result: map[string]any{"logs": "not-an-array"}},
@@ -463,7 +440,6 @@ func TestFilterLogs_ServerError(t *testing.T) {
 }
 
 func TestMethods_ContextCancelled(t *testing.T) {
-	// Handler that blocks forever; ctx-cancel must propagate.
 	gate := make(chan struct{})
 	t.Cleanup(func() { close(gate) })
 	srv := clienttest.NewTestServer(t)

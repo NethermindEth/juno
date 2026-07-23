@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 	"runtime"
 	"slices"
@@ -25,7 +24,6 @@ import (
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
@@ -79,7 +77,7 @@ type Config struct {
 	Network                  networks.Network `mapstructure:"network"`
 	EthNode                  string           `mapstructure:"eth-node"`
 	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
-	L1Client                 string           `mapstructure:"l1-client"`
+	UseNewL1Client           bool             `mapstructure:"use-new-l1-client"`
 	Pprof                    bool             `mapstructure:"pprof"`
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
@@ -634,7 +632,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 
 		l1Client, provider, err := newL1Client(
-			context.Background(), cfg.L1Client, cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
+			context.Background(),
+			cfg.UseNewL1Client,
+			cfg.EthNode,
+			cfg.Metrics,
+			n.blockchain,
+			n.logger,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("initializing L1 client: %w", err)
@@ -657,142 +660,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	return n, nil
-}
-
-// l1StateProviderFull is what a concrete provider must supply: L1StateProvider for the
-// sync loop and rpccore.L1Client for the RPC handlers.
-type l1StateProviderFull interface {
-	l1.L1StateProvider
-	rpccore.L1Client
-}
-
-func newL1Client(
-	ctx context.Context,
-	clientType, ethNode string,
-	includeMetrics bool,
-	chain *blockchain.Blockchain,
-	logger log.StructuredLogger,
-) (*l1.Client, l1StateProviderFull, error) {
-	// One EventListener, shared by the L1 client (OnNewL1Head) and
-	// the provider (OnL1Call), wired only under --metrics.
-	l1Opts := []l1.Option{}
-	var listener l1.EventListener
-	if includeMetrics {
-		listener = makeL1Metrics(chain)
-		l1Opts = append(l1Opts, l1.WithEventListener(listener))
-	}
-
-	var provider l1StateProviderFull
-	switch clientType {
-	case "", "geth":
-		providerOpts := []l1.GethL1StateProviderOption{}
-		if includeMetrics {
-			providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
-		}
-		p, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("creating L1 state provider (geth): %w", err)
-		}
-		if includeMetrics {
-			registerL1Metrics(p)
-		}
-		provider = p
-	case "juno":
-		providerOpts := []l1.EthL1StateProviderOption{}
-		if includeMetrics {
-			providerOpts = append(providerOpts, l1.WithEthL1StateProviderListener(listener))
-		}
-		p, err := newEthL1StateProvider(ctx, ethNode, chain, providerOpts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("creating L1 state provider (juno): %w", err)
-		}
-		if includeMetrics {
-			registerL1Metrics(p)
-		}
-		provider = p
-	default:
-		return nil, nil, fmt.Errorf(
-			"invalid --l1-client %q (must be %q or %q)", clientType, "geth", "juno",
-		)
-	}
-
-	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
-}
-
-// ws/wss enforced at the URL level — eth_subscribe requires a long-lived connection.
-func newGethL1StateProvider(
-	ctx context.Context,
-	ethNode string,
-	chain *blockchain.Blockchain,
-	opts ...l1.GethL1StateProviderOption,
-) (*l1.GethL1StateProvider, error) {
-	ethNodeURL, err := url.Parse(ethNode)
-	if err != nil {
-		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
-	}
-	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New(
-			"non-websocket Ethereum node URL (need wss://... or ws://...)",
-		)
-	}
-
-	// One-minute timeout layered on the caller's ctx so a slow dial
-	// can't outlive node startup or the migration that triggered it.
-	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	provider, err := l1.NewGethL1StateProvider(
-		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("dialing L1 state provider: %w", err)
-	}
-	return provider, nil
-}
-
-// No metrics listener: registered by node.New; a second prometheus.MustRegister would panic.
-func newMigrationL1StateProvider(
-	ctx context.Context,
-	clientType, ethNode string,
-	chain *blockchain.Blockchain,
-) (l1.L1StateProvider, error) {
-	switch clientType {
-	case "", "geth":
-		return newGethL1StateProvider(ctx, ethNode, chain)
-	case "juno":
-		return newEthL1StateProvider(ctx, ethNode, chain)
-	default:
-		return nil, fmt.Errorf("invalid --l1-client %q (must be %q or %q)", clientType, "geth", "juno")
-	}
-}
-
-// ws/wss enforced at the URL level — eth_subscribe requires a long-lived connection.
-func newEthL1StateProvider(
-	ctx context.Context,
-	ethNode string,
-	chain *blockchain.Blockchain,
-	opts ...l1.EthL1StateProviderOption,
-) (*l1.EthL1StateProvider, error) {
-	ethNodeURL, err := url.Parse(ethNode)
-	if err != nil {
-		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
-	}
-	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New(
-			"non-websocket Ethereum node URL (need wss://... or ws://...)",
-		)
-	}
-
-	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	provider, err := l1.NewEthL1StateProvider(
-		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("dialing L1 state provider: %w", err)
-	}
-	return provider, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

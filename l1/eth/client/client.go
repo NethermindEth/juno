@@ -13,14 +13,12 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 )
 
-// WebSocket-only (see package doc); unary calls share the subscribe connection.
 type Client struct {
 	tr *wsTransport
 }
 
 const BlockFinalized = "finalized"
 
-// The methods layer maps this to eth.ErrNotFound on a per-method basis.
 var jsonNull = []byte("null")
 
 type Option func(*options)
@@ -31,14 +29,11 @@ type options struct {
 	pingTimeout  time.Duration
 }
 
-// Surfaces dropped frames, id mismatches, and best-effort eth_unsubscribe
-// failures — events that would otherwise vanish into call timeouts.
 func WithLogger(l log.StructuredLogger) Option {
 	return func(o *options) { o.logger = l }
 }
 
-// WithPingConfig overrides the keep-alive interval and per-ping timeout (defaults 30s/10s).
-// Mainly for tests that observe ping behaviour; non-positive values fall back to the defaults.
+// WithPingConfig falls back to the defaults (30s/10s) for non-positive values.
 func WithPingConfig(interval, timeout time.Duration) Option {
 	return func(o *options) {
 		o.pingInterval = interval
@@ -46,7 +41,6 @@ func WithPingConfig(interval, timeout time.Duration) Option {
 	}
 }
 
-// URL must use the ws:// or wss:// scheme.
 func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -88,8 +82,8 @@ func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	return decodeQuantityUint64(raw)
 }
 
-// Returns eth.ErrNotFound if the remote replies with a null result (geth's
-// signal for "the named block does not exist yet").
+// HeaderByNumber maps a null result — the server's signal for "the named
+// block does not exist yet" — to eth.ErrNotFound.
 func (c *Client) HeaderByNumber(ctx context.Context, tag string) (*eth.Header, error) {
 	raw, err := c.tr.call(ctx, "eth_getBlockByNumber", tag, false /* hydrated txs */)
 	if err != nil {
@@ -105,7 +99,8 @@ func (c *Client) HeaderByNumber(ctx context.Context, tag string) (*eth.Header, e
 	return &h, nil
 }
 
-// Returns eth.ErrNotFound if the remote does not have the receipt.
+// TransactionReceipt maps a null result (receipt unknown to the node) to
+// eth.ErrNotFound.
 func (c *Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error) {
 	raw, err := c.tr.call(ctx, "eth_getTransactionReceipt", txHash)
 	if err != nil {
@@ -121,7 +116,6 @@ func (c *Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.
 	return &r, nil
 }
 
-// Empty result is not an error; returns nil.
 func (c *Client) FilterLogs(ctx context.Context, q FilterQuery) ([]eth.Log, error) {
 	raw, err := c.tr.call(ctx, "eth_getLogs", q)
 	if err != nil {
@@ -145,7 +139,6 @@ func decodeQuantityUint64(raw json.RawMessage) (uint64, error) {
 	return uint64(q), nil
 }
 
-// Chain IDs can exceed 64 bits, so we can't reuse the uint64 decoder.
 func decodeQuantityBig(raw json.RawMessage) (*big.Int, error) {
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {

@@ -7,18 +7,28 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 )
 
-// Block numbers are inclusive on both ends. FromBlock/ToBlock are optional:
-// nil means "omit from the wire" — for eth_subscribe this yields a live-logs
-// subscription; for eth_getLogs it lets the server apply its defaults.
+// FilterQuery selects logs by inclusive block range, contract address, and
+// topics. A nil FromBlock/ToBlock is omitted from the wire: geth treats an
+// explicit toBlock as a bounded historical filter, which would break live
+// eth_subscribe subscriptions.
 type FilterQuery struct {
 	FromBlock *uint64
 	ToBlock   *uint64
 	Addresses []eth.Address
-	// Topics is a position-major filter: Topics[i] is the allowed-set at
-	// topic position i (OR'd together). An empty Topics[i] means "any
-	// value at that position". Trailing unconstrained positions may be
-	// omitted.
+	// Topics is position-major: Topics[i] is the allowed-set at topic
+	// position i (OR'd together); empty means "any value at that position".
 	Topics [][]eth.Hash
+}
+
+type filterQueryWire struct {
+	FromBlock string        `json:"fromBlock,omitempty"`
+	ToBlock   string        `json:"toBlock,omitempty"`
+	Address   []eth.Address `json:"address,omitempty"`
+	Topics    []any         `json:"topics,omitempty"`
+}
+
+func quantityHex(n uint64) string {
+	return "0x" + strconv.FormatUint(n, 16)
 }
 
 func (q FilterQuery) MarshalJSON() ([]byte, error) {
@@ -45,19 +55,4 @@ func (q FilterQuery) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(wire)
-}
-
-// fromBlock/toBlock use omitempty so an unset FilterQuery serialises without
-// them, matching eth_subscribe live-logs semantics on geth.
-type filterQueryWire struct {
-	FromBlock string        `json:"fromBlock,omitempty"`
-	ToBlock   string        `json:"toBlock,omitempty"`
-	Address   []eth.Address `json:"address,omitempty"`
-	Topics    []any         `json:"topics,omitempty"`
-}
-
-// quantityHex encodes n as an Ethereum JSON-RPC "quantity": 0x-prefixed
-// minimal hex ("0x0" for zero, no leading zeros otherwise).
-func quantityHex(n uint64) string {
-	return "0x" + strconv.FormatUint(n, 16)
 }

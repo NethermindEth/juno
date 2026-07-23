@@ -16,31 +16,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// ErrClosed is returned by methods invoked after Close. Unlike client.ErrTransportClosed
-// (transient, recovered by redial), this is terminal.
+// ErrClosed is terminal, unlike client.ErrTransportClosed which is recovered
+// by a redial.
 var ErrClosed = errors.New("L1 state provider closed")
-
-type EthL1StateProviderOption func(*ethL1StateProviderOptions)
 
 type ethL1StateProviderOptions struct {
 	logger   log.StructuredLogger
 	listener EventListener
 }
 
-// Surfaces transport-level warnings at debug level.
+type EthL1StateProviderOption func(*ethL1StateProviderOptions)
+
 func WithEthL1StateProviderLogger(l log.StructuredLogger) EthL1StateProviderOption {
 	return func(o *ethL1StateProviderOptions) { o.logger = l }
 }
 
-// Must be called before the provider is handed off to any goroutine.
 func WithEthL1StateProviderListener(l EventListener) EthL1StateProviderOption {
 	return func(o *ethL1StateProviderOptions) { o.listener = l }
 }
 
-// Also satisfies rpccore.L1Client (via TransactionReceipt), so one instance serves both the sync
-// loop and the RPC handlers. Keeps the dial details to transparently redial a dropped conn: the
-// underlying client is one-shot, so on client.ErrTransportClosed we redial and retry once.
-// Subscriptions still need re-issuing by the caller, same as go-ethereum's rpc.Client.
+// EthL1StateProvider serves both the L1 sync loop (L1StateProvider) and the
+// RPC handlers (rpccore.L1Client), redialing dropped connections.
 type EthL1StateProvider struct {
 	contractAddress eth.Address
 	url             string
@@ -53,8 +49,6 @@ type EthL1StateProvider struct {
 	closed bool
 }
 
-// ws/wss is required if the caller intends to use WatchStateUpdate. The url and
-// any client options are remembered so dropped connections can be redialed transparently.
 func NewEthL1StateProvider(
 	ctx context.Context,
 	url string,
@@ -85,13 +79,11 @@ func NewEthL1StateProvider(
 	return s, nil
 }
 
-// observe fires OnL1Call on both success and failure — failure latency/rates matter too.
 func (s *EthL1StateProvider) observe(method string) func() {
 	t := time.Now()
 	return func() { s.listener.OnL1Call(method, time.Since(t)) }
 }
 
-// Callers must call redial(stale) if they observe client.ErrTransportClosed.
 func (s *EthL1StateProvider) currentClient() (*client.Client, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -101,8 +93,8 @@ func (s *EthL1StateProvider) currentClient() (*client.Client, error) {
 	return s.client, nil
 }
 
-// Returns the active client after the operation. Concurrent callers see one
-// successful redial; the rest pick up the new client without dialing again.
+// redial coalesces concurrent callers: losers pick up the winner's client
+// without dialing again.
 func (s *EthL1StateProvider) redial(
 	ctx context.Context, stale *client.Client,
 ) (*client.Client, error) {
@@ -126,9 +118,8 @@ func (s *EthL1StateProvider) redial(
 	return c, nil
 }
 
-// withRetryOnClosed calls fn against the current client; if fn returns
-// client.ErrTransportClosed it redials once and retries. Other errors
-// (including ctx cancellation) bubble up unchanged.
+// withRetryOnClosed redials once and retries fn on client.ErrTransportClosed —
+// the underlying client is one-shot. Other errors bubble up unchanged.
 func withRetryOnClosed[T any](
 	ctx context.Context,
 	s *EthL1StateProvider,
@@ -152,21 +143,19 @@ func withRetryOnClosed[T any](
 
 func (s *EthL1StateProvider) ChainID(ctx context.Context) (*big.Int, error) {
 	defer s.observe("eth_chainId")()
-	// The client layer already annotates the error ("getting chain ID: …").
 	return withRetryOnClosed(ctx, s, func(c *client.Client) (*big.Int, error) {
 		return c.ChainID(ctx)
 	})
 }
 
-// A missing finalised header is reported as eth.ErrNotFound so callers
-// can distinguish "node hasn't seen finality yet" from a transport failure.
+// FinalisedHeight returns eth.ErrNotFound when the node hasn't seen finality
+// yet, distinguishing that from a transport failure.
 func (s *EthL1StateProvider) FinalisedHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_getBlockByNumber")()
 	h, err := withRetryOnClosed(ctx, s, func(c *client.Client) (*eth.Header, error) {
 		return c.HeaderByNumber(ctx, client.BlockFinalized)
 	})
 	if err != nil {
-		// eth.ErrNotFound passes through unwrapped; the client annotates the rest.
 		return 0, err
 	}
 	return uint64(h.Number), nil
@@ -174,7 +163,6 @@ func (s *EthL1StateProvider) FinalisedHeight(ctx context.Context) (uint64, error
 
 func (s *EthL1StateProvider) LatestHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_blockNumber")()
-	// The client layer already annotates the error ("getting block number: …").
 	return withRetryOnClosed(ctx, s, func(c *client.Client) (uint64, error) {
 		return c.BlockNumber(ctx)
 	})
@@ -202,8 +190,8 @@ func (s *EthL1StateProvider) FilterStateUpdate(
 	return out, nil
 }
 
-// Caller contract: sink MUST be drained promptly. A stalled sink back-pressures the
-// transport's readLoop and stalls every unary RPC sharing the conn.
+// WatchStateUpdate fails the subscription with client.ErrSubscriptionQueueOverflow
+// when sink is not drained promptly.
 func (s *EthL1StateProvider) WatchStateUpdate(
 	ctx context.Context,
 	sink chan<- *StateUpdate,
@@ -235,13 +223,12 @@ func (s *EthL1StateProvider) TransactionReceipt(
 		return c.TransactionReceipt(ctx, txHash)
 	})
 	if err != nil {
-		// eth.ErrNotFound passes through unwrapped; the client annotates the rest.
 		return eth.Receipt{}, err
 	}
 	return *r, nil
 }
 
-// Close is terminal — no further redials. Releases the active transport.
+// Close is terminal: no further redials.
 func (s *EthL1StateProvider) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -254,7 +241,6 @@ func (s *EthL1StateProvider) Close() {
 	}
 }
 
-// The contract decoder already lands felts and uint64s in target types; no conversion needed.
 func stateUpdateFromContract(ev *contract.LogStateUpdate) *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: ev.BlockNumber,
@@ -281,8 +267,6 @@ func (w *stateUpdateForwarder) Unsubscribe() {
 	w.inner.Unsubscribe()
 }
 
-// shutdown is the forwarder's single termination path. A non-nil cause is delivered on Err()
-// before close; sync.Once makes concurrent calls (Unsubscribe + run's deferred close) safe.
 func (w *stateUpdateForwarder) shutdown(cause error) {
 	w.closeOnce.Do(func() {
 		close(w.closed)
@@ -324,7 +308,6 @@ func (w *stateUpdateForwarder) run() {
 	}
 }
 
-// Compile-time interface assertions.
 var (
 	_ L1StateProvider  = (*EthL1StateProvider)(nil)
 	_ rpccore.L1Client = (*EthL1StateProvider)(nil)

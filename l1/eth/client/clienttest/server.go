@@ -16,14 +16,11 @@ import (
 	"github.com/coder/websocket"
 )
 
-// wsReadLimit mirrors the client's own read limit (16 MiB) so the test
-// server accepts the same frame sizes the client can send.
+// wsReadLimit mirrors the client's limit so the server accepts the same frame sizes.
 const wsReadLimit = 16 << 20
 
-// TestServer is a minimal JSON-RPC server for unit-testing the Client over POST
-// or a websocket upgrade on the same URL. Behaviour comes from a per-test
-// Handler; live ws conns are tracked so tests can push notifications or sever
-// mid-call.
+// TestServer serves JSON-RPC over POST or a websocket upgrade on the same URL.
+// Live ws conns are tracked so tests can push notifications or sever mid-call.
 type TestServer struct {
 	srv *httptest.Server
 
@@ -39,7 +36,6 @@ type TestServer struct {
 // or a non-nil rerr becomes "error" (result ignored).
 type TestHandler func(req TestRequest) (result any, rerr *TestRPCError)
 
-// TestRequest is the decoded JSON-RPC request handed to a TestHandler.
 type TestRequest struct {
 	Method string
 	Params []json.RawMessage
@@ -53,8 +49,6 @@ type TestRPCError struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-// NewTestServer constructs an unstarted TestServer with a default
-// "method not found" handler. Install your own with SetHandler.
 func NewTestServer(t *testing.T) *TestServer {
 	t.Helper()
 	ts := &TestServer{
@@ -67,17 +61,14 @@ func NewTestServer(t *testing.T) *TestServer {
 	return ts
 }
 
-// Thread-safe; can be changed between calls.
 func (ts *TestServer) SetHandler(h TestHandler) {
 	ts.mu.Lock()
 	ts.handler = h
 	ts.mu.Unlock()
 }
 
-// URL returns the base http:// URL for unary tests.
 func (ts *TestServer) URL() string { return ts.srv.URL }
 
-// WSURL returns the same endpoint as a ws:// URL for subscription tests.
 func (ts *TestServer) WSURL() string {
 	return "ws" + strings.TrimPrefix(ts.srv.URL, "http")
 }
@@ -93,8 +84,6 @@ func (ts *TestServer) Close() {
 	ts.srv.Close()
 }
 
-// KillWSConns severs every live websocket connection with the given
-// status code. Useful for testing client-side resubscribe behaviour.
 func (ts *TestServer) KillWSConns() {
 	ts.mu.Lock()
 	conns := ts.wsConns
@@ -105,9 +94,6 @@ func (ts *TestServer) KillWSConns() {
 	}
 }
 
-// PushNotification broadcasts an eth_subscription notification with
-// the given subscription id and result payload to every live ws conn.
-// Returns the first write error, if any.
 func (ts *TestServer) PushNotification(ctx context.Context, subID string, payload any) error {
 	frame := map[string]any{
 		"jsonrpc": "2.0",
@@ -133,9 +119,8 @@ func (ts *TestServer) PushNotification(ctx context.Context, subID string, payloa
 	return firstErr
 }
 
-// PushRawFrame writes data verbatim to every live ws conn, for testing tolerance
-// of malformed or unsolicited frames the server would never legitimately emit.
-// Returns the first write error, if any.
+// PushRawFrame writes data verbatim, so tests can inject malformed frames a
+// well-behaved server would never emit.
 func (ts *TestServer) PushRawFrame(ctx context.Context, data []byte) error {
 	ts.mu.Lock()
 	conns := append([]*websocket.Conn(nil), ts.wsConns...)
@@ -184,9 +169,8 @@ func (ts *TestServer) serveOnePost(w http.ResponseWriter, r *http.Request) {
 
 func (ts *TestServer) PingsReceived() int64 { return ts.pingsReceived.Load() }
 
-// SetDropPings, when true, makes the server count incoming pings but
-// suppress the automatic pong reply — used to provoke client-side ping
-// timeouts.
+// SetDropPings makes the server count incoming pings but suppress the pong
+// reply, to provoke client-side ping timeouts.
 func (ts *TestServer) SetDropPings(b bool) { ts.dropPings.Store(b) }
 
 func (ts *TestServer) serveWebsocket(w http.ResponseWriter, r *http.Request) {
@@ -227,8 +211,8 @@ func (ts *TestServer) serveWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// rawRPCRequest is the on-the-wire request shape, duplicated from the client's
-// rpcRequest so the server can read malformed frames without client constraints.
+// rawRPCRequest is duplicated from the client's rpcRequest so the server can
+// read malformed frames without the client package's constraints.
 type rawRPCRequest struct {
 	JSONRPC string            `json:"jsonrpc"`
 	ID      uint64            `json:"id"`

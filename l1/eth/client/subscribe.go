@@ -10,15 +10,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// Mirrors go-ethereum's event.Subscription; drop-in for callers migrating off that package.
+// Subscription mirrors go-ethereum's event.Subscription, as a drop-in for
+// callers migrating off that package.
 type Subscription interface {
 	Err() <-chan error
 	Unsubscribe()
 }
 
-// SubscribeLogs delivers live logs matching q to sink; Err() surfaces transport failures.
-// ctx governs only the subscribe call — afterwards the sub lives until Unsubscribe or a
-// transport failure (matching go-ethereum's ethclient semantics).
+// SubscribeLogs uses ctx only for the subscribe call itself — afterwards the
+// sub lives until Unsubscribe or a transport failure (go-ethereum semantics).
 func (c *Client) SubscribeLogs(
 	ctx context.Context,
 	q FilterQuery,
@@ -28,20 +28,19 @@ func (c *Client) SubscribeLogs(
 }
 
 type wsLogSub struct {
-	id        string // server-assigned subscription id; set during subscribe handshake
+	id        string // server-assigned; set during the subscribe handshake
 	transport *wsTransport
 	sink      chan<- *eth.Log
 
-	// Set under transport.mu by cancelPending when the caller's ctx fires; registerSub checks
-	// it to avoid orphaning a server-side sub when the reply races the cancellation.
+	// cancelled is set under transport.mu by cancelPending when the caller's ctx fires;
+	// registerSub checks it to avoid orphaning a server-side sub when the reply races
+	// the cancellation.
 	cancelled bool
 
-	// logCh carries raw eth_subscription "result" payloads from the
-	// reader goroutine to the per-sub dispatch goroutine.
+	// logCh decouples the shared reader goroutine from this sub's decode+deliver work.
 	logCh chan json.RawMessage
 
-	// errCh is the user-facing Err() channel. It is closed when the
-	// subscription terminates; a non-nil cause is sent before close.
+	// errCh is closed when the subscription terminates; a non-nil cause is sent before close.
 	errCh chan error
 
 	closed    chan struct{}
@@ -51,8 +50,6 @@ type wsLogSub struct {
 func (s *wsLogSub) Err() <-chan error { return s.errCh }
 
 func (s *wsLogSub) Unsubscribe() {
-	// Stop the dispatch goroutine first, then best-effort release the server side —
-	// local resources go even if the server never acks.
 	s.fail(nil)
 	s.transport.mu.Lock()
 	id := s.id
@@ -67,7 +64,6 @@ func (s *wsLogSub) Unsubscribe() {
 	ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 	defer cancel()
 	if _, err := s.transport.call(ctx, "eth_unsubscribe", id); err != nil {
-		// Local state is already torn down; the server may have cleaned up or dropped the call.
 		s.transport.logger.Trace("ws: eth_unsubscribe failed",
 			zap.String("subscription", id),
 			zap.Error(err),
@@ -75,9 +71,7 @@ func (s *wsLogSub) Unsubscribe() {
 	}
 }
 
-// fail terminates the subscription. cause may be nil for a clean
-// shutdown (Unsubscribe); otherwise it is the error surfaced to
-// Err() before errCh is closed.
+// fail(nil) is a clean shutdown (Unsubscribe); a non-nil cause is surfaced on Err().
 func (s *wsLogSub) fail(cause error) {
 	s.closeOnce.Do(func() {
 		close(s.closed)
@@ -125,7 +119,6 @@ func (t *wsTransport) subscribeLogs(
 	}
 
 	if _, err := t.callWithSubReg(ctx, "eth_subscribe", sub, "logs", q); err != nil {
-		// Subscribe failed; drop the pre-registered sub so the dispatcher never runs.
 		sub.closeOnce.Do(func() { close(sub.closed); close(sub.errCh) })
 		return nil, fmt.Errorf("subscribing to logs: %w", err)
 	}

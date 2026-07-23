@@ -68,7 +68,6 @@ func TestWS_SubscribeReceivesLogs(t *testing.T) {
 	assert.Equal(t, uint64(0x10), uint64(got[0].BlockNumber))
 	assert.Equal(t, uint64(0x11), uint64(got[1].BlockNumber))
 
-	// Err() must NOT have fired yet.
 	select {
 	case err, open := <-sub.Err():
 		t.Fatalf("Err() fired unexpectedly: err=%v open=%v", err, open)
@@ -108,7 +107,6 @@ func TestWS_ServerKillsConnection(t *testing.T) {
 	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
 	require.NoError(t, err)
 
-	// Kill the connection; Err() must fire.
 	srv.KillWSConns()
 
 	select {
@@ -144,7 +142,6 @@ func TestWS_UnsubscribeIssuesCall(t *testing.T) {
 
 	sub.Unsubscribe()
 
-	// Err() closes on Unsubscribe.
 	select {
 	case _, open := <-sub.Err():
 		assert.False(t, open, "Err() should be closed after Unsubscribe")
@@ -172,7 +169,6 @@ func TestWS_ClientCloseFailsActiveSubscriptions(t *testing.T) {
 
 	select {
 	case err := <-sub.Err():
-		// Clean Close() fans ErrTransportClosed out to active subscriptions.
 		assert.ErrorIs(t, err, client.ErrTransportClosed)
 	case <-time.After(2 * time.Second):
 		t.Fatal("Err() did not fire after client.Close")
@@ -206,9 +202,6 @@ func TestWS_ContextCancelMidCall(t *testing.T) {
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
 }
 
-// TestWS_SubscribeOmitsBlockRange is a regression test: geth treats explicit
-// toBlock=0 as a bounded historical filter ending at block 0, so an empty
-// FilterQuery must serialise without fromBlock/toBlock or no live logs arrive.
 func TestWS_SubscribeOmitsBlockRange(t *testing.T) {
 	const subID = "0xfeed"
 	type capturedSub struct {
@@ -255,9 +248,6 @@ func TestWS_SubscribeOmitsBlockRange(t *testing.T) {
 	)
 }
 
-// TestWS_PingLoopFires verifies idle keep-alive pings fire, else intermediaries
-// with a TCP idle timeout (Cloudflare, Alchemy) drop the conn and we churn
-// reconnects.
 func TestWS_PingLoopFires(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	cli, err := client.New(t.Context(), srv.WSURL(),
@@ -272,9 +262,6 @@ func TestWS_PingLoopFires(t *testing.T) {
 		"expected >= 3 pings within window; got %d", srv.PingsReceived())
 }
 
-// TestWS_PingTimeoutClosesTransport verifies a server that stops honouring pings
-// tears the transport down (like a read error); the sub's Err() must fire so the
-// redial loop takes over.
 func TestWS_PingTimeoutClosesTransport(t *testing.T) {
 	const subID = "0xfade"
 	srv := clienttest.NewTestServer(t)
@@ -309,10 +296,6 @@ func TestWS_PingTimeoutClosesTransport(t *testing.T) {
 	}
 }
 
-// TestWS_SubscribeCtxCancelBeforeReplyReleasesServerSub asserts the transport
-// never orphans a server-side sub when ctx fires after the server accepted the
-// subscribe but before the client saw the reply: the abandoned reply must
-// trigger a best-effort eth_unsubscribe. Gating the reply makes it deterministic.
 func TestWS_SubscribeCtxCancelBeforeReplyReleasesServerSub(t *testing.T) {
 	const subID = "0xabc"
 	release := make(chan struct{})
@@ -362,9 +345,6 @@ func TestWS_SubscribeCtxCancelBeforeReplyReleasesServerSub(t *testing.T) {
 	}
 }
 
-// TestWS_UnsubscribeToleratesServerRejection verifies Unsubscribe still tears
-// down (no block, no panic) when the server rejects eth_unsubscribe: best-effort
-// teardown must not depend on a cooperative server.
 func TestWS_UnsubscribeToleratesServerRejection(t *testing.T) {
 	const subID = "0xrej"
 	var unsubAttempted atomic.Bool
@@ -393,9 +373,6 @@ func TestWS_UnsubscribeToleratesServerRejection(t *testing.T) {
 	require.True(t, unsubAttempted.Load(), "Unsubscribe must attempt eth_unsubscribe")
 }
 
-// TestWS_SubscribeDispatchDecodeFailure verifies a notification that can't decode
-// as eth.Log surfaces on Err(), else a malformed event vanishes silently and the
-// caller waits forever.
 func TestWS_SubscribeDispatchDecodeFailure(t *testing.T) {
 	const subID = "0xc0de"
 	srv := clienttest.NewTestServer(t)
@@ -433,9 +410,6 @@ func TestWS_SubscribeDispatchDecodeFailure(t *testing.T) {
 	}
 }
 
-// TestWS_DispatchDropsMalformedFrames verifies the readLoop drops malformed
-// frames without tearing the transport down, else a single confused upstream
-// takes the whole client offline.
 func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
 	const subID = "0xabc"
 	srv := clienttest.NewTestServer(t)
@@ -483,12 +457,10 @@ func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
 			"server-side write should not fail")
 	}
 
-	// Transport must still serve calls after every malformed frame.
 	id, err := cli.ChainID(t.Context())
 	require.NoError(t, err, "transport must survive every malformed frame")
 	assert.Equal(t, "1", id.String())
 
-	// Active subscription's Err() must NOT have fired.
 	select {
 	case e, open := <-sub.Err():
 		t.Fatalf("subscription Err() fired unexpectedly (open=%v err=%v)", open, e)
@@ -496,9 +468,6 @@ func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
 	}
 }
 
-// TestWS_CallReturnsCtxErrAfterCancellation exercises cancelPending on a
-// subscribe whose reply never arrived (no pendingSub.id: the leakedSubID == ""
-// branch must not spawn empty-id cleanup).
 func TestWS_CallReturnsCtxErrAfterCancellation(t *testing.T) {
 	received := make(chan struct{})
 	gate := make(chan struct{})
@@ -525,7 +494,53 @@ func TestWS_CallReturnsCtxErrAfterCancellation(t *testing.T) {
 	assert.True(t, errors.Is(err, context.Canceled), "expected ctx.Canceled, got %v", err)
 }
 
-// receiveLogs drains up to n logs from sink with a timeout.
+func TestWS_SlowSubscriberFailsInsteadOfStallingConn(t *testing.T) {
+	const subID = "0x5109"
+	srv := clienttest.NewTestServer(t)
+	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			return true, nil
+		case "eth_chainId":
+			return "0x1", nil
+		}
+		return nil, &clienttest.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	cli, err := client.New(t.Context(), srv.WSURL())
+	require.NoError(t, err)
+	t.Cleanup(cli.Close)
+
+	sink := make(chan *eth.Log)
+	sub, err := cli.SubscribeLogs(t.Context(), client.FilterQuery{}, sink)
+	require.NoError(t, err)
+
+	// 2x the internal buffer guarantees overflow.
+	for range 128 {
+		require.NoError(t, srv.PushNotification(t.Context(), subID, map[string]any{
+			"topics":      []string{"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b"},
+			"data":        "0x",
+			"blockNumber": "0x10",
+			"removed":     false,
+		}))
+	}
+
+	select {
+	case err := <-sub.Err():
+		require.ErrorIs(t, err, client.ErrSubscriptionQueueOverflow)
+	case <-time.After(2 * time.Second):
+		t.Fatal("subscription Err() did not fire on queue overflow")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	id, err := cli.ChainID(ctx)
+	require.NoError(t, err, "unary call stalled by a slow subscriber")
+	assert.Equal(t, "1", id.String())
+}
+
 func receiveLogs(t *testing.T, sink <-chan *eth.Log, n int, timeout time.Duration) []*eth.Log {
 	t.Helper()
 	deadline := time.After(timeout)
