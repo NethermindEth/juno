@@ -90,7 +90,7 @@ func (ts *TestServer) KillWSConns() {
 	ts.wsConns = nil
 	ts.mu.Unlock()
 	for _, c := range conns {
-		_ = c.Close(websocket.StatusInternalError, "test sever")
+		_ = c.Close(websocket.StatusInternalError, "test server")
 	}
 }
 
