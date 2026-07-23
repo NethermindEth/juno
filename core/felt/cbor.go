@@ -11,7 +11,7 @@ import (
 // Fast, felt-specialized CBOR marshaling.
 func (z *Felt) MarshalCBOR() ([]byte, error) {
 	data := make([]byte, maxCBORFeltLen)
-	n := encodeFeltLimbs(data, z)
+	n := encodeLimbs(data, z)
 	return data[:n], nil
 }
 
@@ -50,14 +50,14 @@ const (
 	minCBORFeltLen = 1 + Limbs
 )
 
-// encodeFeltLimbs puts one CBOR felt to data, returning the number of bytes written.
-func encodeFeltLimbs(data []byte, value *Felt) int {
+// encodeLimbs puts one CBOR felt to data, returning the number of bytes written.
+func encodeLimbs[F FeltLike](data []byte, value *F) int {
 	// The format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3].
 	data[0] = cborArrayHeader4
 
 	offset := 1
 	for limbIndex := range Limbs {
-		limb := value[limbIndex]
+		limb := (*value)[limbIndex]
 
 		// Starting with the most common path, which is a large limb
 		switch {
@@ -90,17 +90,17 @@ func encodeFeltLimbs(data []byte, value *Felt) int {
 	return offset
 }
 
-// decodeFeltLimbs decodes one limb-encoded felt at data[0:],
+// decodeLimbs decodes one limb-encoded felt at data[0:],
 // returning the number of bytes consumed and a flag to signal succes.
 // It writes value only on success, so a rejected input can't partially
 // corrupt it before falling back to the generic decoder.
-func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
+func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
 	if len(data) == 0 || data[0] != cborArrayHeader4 {
 		return 0, false
 	}
 
-	var limbs Felt
+	var limbs F
 	offset := 1
 
 	for limbIndex := range Limbs {
@@ -112,8 +112,6 @@ func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
 		offset++
 
 		var limb uint64
-
-		// Starting with the most common path, which is a large limb
 		switch {
 		case headerByte > cborUint64AdditionalInfo: // invalid header byte for uint64
 			return 0, false
@@ -161,7 +159,7 @@ func decodeFeltLimbs(data []byte, value *Felt) (int, bool) {
 // It returns a flag to signal success, and writes value only on success.
 func decodeFelt(data []byte, value *Felt) bool {
 	var felt Felt
-	consumed, ok := decodeFeltLimbs(data, &felt)
+	consumed, ok := decodeLimbs(data, &felt)
 	if !ok || consumed != len(data) {
 		return false
 	}

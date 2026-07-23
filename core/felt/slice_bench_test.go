@@ -10,8 +10,8 @@ import (
 
 func BenchmarkSliceVsFeltArray(b *testing.B) {
 	for _, n := range []int{1000, 5000} {
-		slice := randomSlice(n)
-		feltArray := []felt.Felt(slice)
+		slice := randomSlice[feltoid](n)
+		feltArray := []feltoid(slice)
 		encoded, err := encoder.Marshal(slice)
 		if err != nil {
 			b.Fatal(err)
@@ -32,7 +32,7 @@ func BenchmarkSliceVsFeltArray(b *testing.B) {
 		b.Run(fmt.Sprintf("unmarshal/Slice/n=%d", n), func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				var out felt.Slice
+				var out felt.Slice[feltoid]
 				_ = encoder.Unmarshal(encoded, &out)
 			}
 		})
