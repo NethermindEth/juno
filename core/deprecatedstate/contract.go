@@ -148,11 +148,9 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 
 //nolint:staticcheck // Necessary for old state
 func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
-	cStorage, err := storage(addr, txn)
-	if err != nil {
-		return felt.Felt{}, err
-	}
-	return cStorage.Get(key)
+	return trie.GetLeafPedersen(
+		txn, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
+	)
 }
 
 //nolint:staticcheck // Necessary for old state

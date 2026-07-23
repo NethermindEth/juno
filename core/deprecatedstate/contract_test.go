@@ -121,9 +121,10 @@ func TestContractStorage(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, txn2.Write())
 
-	t.Run("returns error when Get() fails on corrupted trie data", func(t *testing.T) {
+	t.Run("corrupted root key does not affect a direct leaf read", func(t *testing.T) {
 		txn3 := testDB.NewIndexedBatch()
-		_, err := ContractStorage(addr, key, txn3)
-		require.Error(t, err, "should fail on corrupted trie data")
+		value, err := ContractStorage(addr, key, txn3)
+		require.NoError(t, err)
+		require.Equal(t, expectedValue, &value)
 	})
 }
