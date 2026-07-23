@@ -49,10 +49,6 @@ type ReorgSubscription struct {
 	*feed.Subscription[*ReorgBlockRange]
 }
 
-type PendingTxSubscription struct {
-	*feed.Subscription[[]core.Transaction]
-}
-
 type PreConfirmedDataSubscription struct {
 	*feed.Subscription[*core.WithBloom[*pending.PreConfirmed]]
 }
