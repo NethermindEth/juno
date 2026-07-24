@@ -167,19 +167,6 @@ func (c *ChainReader) PreConfirmedStateAt(
 	return pending.NewState(&stateDiff, newClasses, base, blockNumber), closer, nil
 }
 
-func mergeClassesInto(
-	dst, src map[felt.Felt]core.ClassDefinition,
-) map[felt.Felt]core.ClassDefinition {
-	if len(src) == 0 {
-		return dst
-	}
-	if dst == nil {
-		dst = make(map[felt.Felt]core.ClassDefinition, len(src))
-	}
-	maps.Copy(dst, src)
-	return dst
-}
-
 // PreConfirmedStateBeforeIndexAt returns the chain's view of state immediately
 // before transaction `index` at blockNumber. See PreConfirmedStateAt for the base-
 // resolution contract; here the chain additionally layers the target slot's
@@ -344,9 +331,9 @@ func (s *ChainStorage) ApplyUpdate(
 	return affected, nil
 }
 
-// withClasses returns base with the entries of extra added, without mutating base's map
+// mergeClassesCopying returns base with the entries of extra added, without mutating base's map
 // (copy-on-write). Returns base unchanged when extra is empty.
-func withClasses(
+func mergeClassesCopying(
 	base, extra map[felt.Felt]core.ClassDefinition,
 ) map[felt.Felt]core.ClassDefinition {
 	if len(extra) == 0 {
@@ -594,7 +581,7 @@ func replaceSlot(
 		if err != nil {
 			return nil, nil, err
 		}
-		next.NewClasses = withClasses(next.NewClasses, newClasses)
+		next.NewClasses = mergeClassesCopying(next.NewClasses, newClasses)
 		newNode := &node{preconfirmed: &next, parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
@@ -614,7 +601,7 @@ func replaceSlot(
 				"no-change at non-tip slot %d (depth %d)", blockNumber, depthFromHead,
 			)
 		}
-		merged := withClasses(target.preconfirmed.NewClasses, newClasses)
+		merged := mergeClassesCopying(target.preconfirmed.NewClasses, newClasses)
 		if len(merged) == len(target.preconfirmed.NewClasses) {
 			return nil, nil, nil // tip already holds them all
 		}
@@ -644,4 +631,19 @@ func shouldPreserveSlot(existing, incoming *pending.PreConfirmed) bool {
 		return false
 	}
 	return true
+}
+
+// mergeClassesInto copies src's entries into dst, mutating dst in place and
+// returning it. When dst is nil it returns a fresh clone of src.
+func mergeClassesInto(
+	dst, src map[felt.Felt]core.ClassDefinition,
+) map[felt.Felt]core.ClassDefinition {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		return maps.Clone(src)
+	}
+	maps.Copy(dst, src)
+	return dst
 }
