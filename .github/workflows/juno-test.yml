@@ -23,6 +23,21 @@ jobs:
       VM_DEBUG: true
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Detect consensus changes
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        if: github.event_name == 'pull_request'
+        id: filter
+        with:
+          filters: |
+            consensus:
+              - 'consensus/**'
+              - 'p2p/**'
+              - 'Makefile'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/juno-test.yml'
+
       - name: Set up go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
         with:
@@ -51,10 +66,14 @@ jobs:
 
       - name: Tests (Coverage)
         if: matrix.os == 'ubuntu-latest'
+        env:
+          FULL_TESTS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.consensus == 'true' }}
         run: make test-cover
 
       - name: Tests (No Coverage)
         if: matrix.os != 'ubuntu-latest'
+        env:
+          FULL_TESTS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.consensus == 'true' }}
         run: make test
 
       #    Tests with race condition detector are flaky; we're disabling them for now
