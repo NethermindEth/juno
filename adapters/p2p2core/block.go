@@ -19,8 +19,8 @@ func AdaptEvent(e *event.Event) *core.Event {
 
 	return &core.Event{
 		From: AdaptFelt(e.FromAddress),
-		Keys: utils.Map(e.Keys, AdaptFelt),
-		Data: utils.Map(e.Data, AdaptFelt),
+		Keys: AdaptFeltSlice(e.Keys),
+		Data: AdaptFeltSlice(e.Data),
 	}
 }
 

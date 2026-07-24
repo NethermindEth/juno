@@ -750,7 +750,7 @@ func applyBlockWithStorageWrites(
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i, w := range writes {
 		hash := new(felt.Felt).SetUint64(number*1000 + uint64(i))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,

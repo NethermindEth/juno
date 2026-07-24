@@ -2,7 +2,6 @@ package core2p2p
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
@@ -17,9 +16,9 @@ func AdaptHash(f *felt.Felt) *common.Hash {
 	}
 }
 
-func AdaptAccountSignature(signature []*felt.Felt) *transaction.AccountSignature {
+func AdaptAccountSignature(signature []felt.Felt) *transaction.AccountSignature {
 	return &transaction.AccountSignature{
-		Parts: utils.Map(signature, AdaptFelt),
+		Parts: AdaptFeltSlice(signature),
 	}
 }
 
@@ -33,12 +32,15 @@ func AdaptFelt(f *felt.Felt) *common.Felt252 {
 	}
 }
 
-func adaptFeltValue(f felt.Felt) *common.Felt252 {
-	return &common.Felt252{Elements: f.Marshal()}
-}
-
-func AdaptFeltSlice(sl []*felt.Felt) []*common.Felt252 {
-	return utils.Map(sl, AdaptFelt)
+func AdaptFeltSlice(slice []felt.Felt) []*common.Felt252 {
+	if slice == nil {
+		return nil
+	}
+	result := make([]*common.Felt252, len(slice))
+	for idx := range slice {
+		result[idx] = AdaptFelt(&slice[idx])
+	}
+	return result
 }
 
 func AdaptAddress(f *felt.Felt) *common.Address {

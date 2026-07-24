@@ -14,6 +14,24 @@ func TestAdaptNilReturnsNil(t *testing.T) {
 	assert.Nil(t, AdaptFelt(nil))
 }
 
+func TestAdaptFeltSlice(t *testing.T) {
+	t.Run("nil returns nil", func(t *testing.T) {
+		assert.Nil(t, AdaptFeltSlice(nil))
+	})
+	t.Run("converts elements", func(t *testing.T) {
+		one := felt.FromUint64[felt.Felt](1)
+		two := felt.FromUint64[felt.Felt](2)
+		oneBytes := one.Marshal()
+		twoBytes := two.Marshal()
+
+		result := AdaptFeltSlice([]*common.Felt252{
+			{Elements: oneBytes},
+			{Elements: twoBytes},
+		})
+		assert.Equal(t, []felt.Felt{one, two}, result)
+	})
+}
+
 func TestAdaptUint128(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
 		u128 := AdaptUint128(nil)

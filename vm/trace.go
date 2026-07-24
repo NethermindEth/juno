@@ -298,17 +298,17 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 }
 
 type OrderedEvent struct {
-	Order uint64       `json:"order"`
-	From  *felt.Felt   `json:"from_address,omitempty"`
-	Keys  []*felt.Felt `json:"keys"`
-	Data  []*felt.Felt `json:"data"`
+	Order uint64      `json:"order"`
+	From  *felt.Felt  `json:"from_address,omitempty"`
+	Keys  []felt.Felt `json:"keys"`
+	Data  []felt.Felt `json:"data"`
 }
 
 type OrderedL2toL1Message struct {
 	Order   uint64        `json:"order"`
 	From    *felt.Felt    `json:"from_address,omitempty"`
 	To      *felt.Address `json:"to_address"`
-	Payload []*felt.Felt  `json:"payload"`
+	Payload []felt.Felt   `json:"payload"`
 }
 
 type ComputationResources struct {

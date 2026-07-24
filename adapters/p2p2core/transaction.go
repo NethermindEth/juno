@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/transaction"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
@@ -148,8 +147,8 @@ func AdaptDeclareV3TxnCommon(
 			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
-		PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
-		AccountDeploymentData: utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		PaymasterData:         AdaptFeltSlice(tx.PaymasterData),
+		AccountDeploymentData: AdaptFeltSlice(tx.AccountDeploymentData),
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
 	}
@@ -162,7 +161,7 @@ func AdaptDeployTxnCommon(
 ) *core.DeployTransaction {
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
-	callData := utils.Map(tx.Calldata, AdaptFelt)
+	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployTransaction{
 		TransactionHash:     AdaptHash(t.TransactionHash),
@@ -180,7 +179,7 @@ func AdaptDeployAccountV1TxnCommon(
 ) *core.DeployAccountTransaction {
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
-	callData := utils.Map(tx.Calldata, AdaptFelt)
+	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
@@ -225,7 +224,7 @@ func AdaptDeployAccountV3TxnCommon(
 
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
-	callData := utils.Map(tx.Calldata, AdaptFelt)
+	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
@@ -245,7 +244,7 @@ func AdaptDeployAccountV3TxnCommon(
 			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
-		PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
+		PaymasterData: AdaptFeltSlice(tx.PaymasterData),
 		NonceDAMode:   nDAMode,
 		FeeDAMode:     fDAMode,
 	}, nil
@@ -257,7 +256,7 @@ func AdaptInvokeV0TxnCommon(
 ) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
 		TransactionHash:      AdaptHash(t.TransactionHash),
-		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		CallData:             AdaptFeltSlice(tx.Calldata),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		MaxFee:               AdaptFelt(tx.MaxFee),
 		ContractAddress:      AdaptAddress(tx.Address),
@@ -286,7 +285,7 @@ func AdaptInvokeV1TxnCommon(
 		ContractAddress:      nil, // todo call core.ContractAddress() ?
 		Nonce:                AdaptFelt(tx.Nonce),
 		SenderAddress:        AdaptAddress(tx.Sender),
-		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		CallData:             AdaptFeltSlice(tx.Calldata),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		MaxFee:               AdaptFelt(tx.MaxFee),
 		Version:              txVersion(1),
@@ -325,7 +324,7 @@ func AdaptInvokeV3TxnCommon(
 	return &core.InvokeTransaction{
 		TransactionHash:      AdaptHash(txnHash),
 		ContractAddress:      nil, // todo call core.ContractAddress() ?
-		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		CallData:             AdaptFeltSlice(tx.Calldata),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		MaxFee:               nil, // in 3 version this field was removed
 		Version:              txVersion(3),
@@ -338,7 +337,7 @@ func AdaptInvokeV3TxnCommon(
 			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
-		PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
+		PaymasterData:         AdaptFeltSlice(tx.PaymasterData),
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
 		AccountDeploymentData: nil, // todo(kirill) recheck
@@ -352,7 +351,7 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 		ContractAddress:    AdaptAddress(tx.Address),
 		EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 		Nonce:              AdaptFelt(tx.Nonce),
-		CallData:           utils.Map(tx.Calldata, AdaptFelt),
+		CallData:           AdaptFeltSlice(tx.Calldata),
 		Version:            txVersion(0),
 	}
 }
@@ -403,8 +402,8 @@ func adaptResourceLimits(limits *transaction.ResourceLimits) core.ResourceBounds
 	}
 }
 
-func adaptAccountSignature(s *transaction.AccountSignature) []*felt.Felt {
-	return utils.Map(s.Parts, AdaptFelt)
+func adaptAccountSignature(s *transaction.AccountSignature) []felt.Felt {
+	return AdaptFeltSlice(s.Parts)
 }
 
 func txVersion(v uint64) *core.TransactionVersion {

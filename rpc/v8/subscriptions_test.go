@@ -866,8 +866,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 				Transactions: []core.Transaction{
 					&core.InvokeTransaction{
 						TransactionHash:      new(felt.Felt).SetUint64(1),
-						CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
-						TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
+						CallData:             []felt.Felt{felt.FromUint64[felt.Felt](2)},
+						TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](3)},
 						MaxFee:               new(felt.Felt).SetUint64(4),
 						ContractAddress:      new(felt.Felt).SetUint64(5),
 						Version:              new(core.TransactionVersion).SetUint64(3),
@@ -889,8 +889,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 							},
 						},
 						Tip:                   9,
-						PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-						AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+						PaymasterData:         []felt.Felt{felt.FromUint64[felt.Felt](10)},
+						AccountDeploymentData: []felt.Felt{felt.FromUint64[felt.Felt](11)},
 					},
 				},
 			},

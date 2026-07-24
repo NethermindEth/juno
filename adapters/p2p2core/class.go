@@ -23,7 +23,7 @@ func AdaptSierraClass(
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	// protoc generates cairo1.Program as []*common.Felt252
-	program := utils.Map(cairo1.Program, adaptFeltValue)
+	program := AdaptFeltSlice(cairo1.Program)
 	compiled, err := createCompiledClass(ctx, compiler, cairo1)
 	if err != nil {
 		return core.SierraClass{}, fmt.Errorf("invalid compiled class: %w", err)
@@ -126,7 +126,7 @@ func createCompiledClass(
 			External:    utils.Map(utils.NonNilSlice(ep.Externals), adapt),
 			L1Handler:   utils.Map(utils.NonNilSlice(ep.L1Handlers), adapt),
 		},
-		Program: utils.Map(cairo1.Program, adaptFeltValue),
+		Program: AdaptFeltSlice(cairo1.Program),
 		Version: cairo1.ContractClassVersion,
 	}
 

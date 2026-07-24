@@ -168,18 +168,26 @@ func TestProposal(t *testing.T) {
 		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		Nonce:           new(felt.Felt).SetUint64(0),
-		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0"),
-			felt.NewUnsafeFromString[felt.Felt]("0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823"),
+		TransactionSignature: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt](
+				"0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0",
+			),
+			felt.UnsafeFromString[felt.Felt](
+				"0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823",
+			),
 		},
-		CallData: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
-			felt.NewUnsafeFromString[felt.Felt]("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
-			felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-			felt.NewUnsafeFromString[felt.Felt]("0x3"),
-			felt.NewUnsafeFromString[felt.Felt]("0x105"),
-			felt.NewUnsafeFromString[felt.Felt]("0x1234"),
-			felt.NewUnsafeFromString[felt.Felt]("0x0"),
+		CallData: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt]("0x1"),
+			felt.UnsafeFromString[felt.Felt](
+				"0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			),
+			felt.UnsafeFromString[felt.Felt](
+				"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+			),
+			felt.UnsafeFromString[felt.Felt]("0x3"),
+			felt.UnsafeFromString[felt.Felt]("0x105"),
+			felt.UnsafeFromString[felt.Felt]("0x1234"),
+			felt.UnsafeFromString[felt.Felt]("0x0"),
 		},
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -196,8 +204,8 @@ func TestProposal(t *testing.T) {
 			},
 		},
 		Tip:                   0x0,
-		PaymasterData:         []*felt.Felt{},
-		AccountDeploymentData: []*felt.Felt{},
+		PaymasterData:         []felt.Felt{},
+		AccountDeploymentData: []felt.Felt{},
 		NonceDAMode:           core.DAModeL1,
 		FeeDAMode:             core.DAModeL1,
 	}
