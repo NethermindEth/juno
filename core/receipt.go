@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type GasConsumed struct {
@@ -63,8 +62,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 		msgTo.SetBytes(msg.To.Bytes())
 		payloadSize.SetUint64(uint64(len(msg.Payload)))
 		digest.Update(msg.From, &msgTo, &payloadSize)
-		// TODO(granza): update hash to also receive []felt.Felt
-		digest.Update(utils.ToPtrSlice(msg.Payload)...)
+		digest.UpdateArray(msg.Payload)
 	}
 
 	return digest.Finish()

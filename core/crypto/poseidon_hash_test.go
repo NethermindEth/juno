@@ -1,7 +1,6 @@
 package crypto_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -70,66 +69,18 @@ func TestPoseidonArray(t *testing.T) {
 	}
 }
 
-func BenchmarkPoseidonArray(b *testing.B) {
-	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
+func TestPoseidonDigestUpdateArrayMatchesUpdate(t *testing.T) {
+	for size := range 33 {
+		vals := make([]felt.Felt, size)
+		ptrs := make([]*felt.Felt, size)
+		for idx := range size {
+			vals[idx] = felt.Random[felt.Felt]()
+			ptrs[idx] = &vals[idx]
+		}
 
-	for _, n := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
-			pointerSlice := genRandomFelts(b, n)
-
-			feltsArray := make([]felt.Felt, len(pointerSlice))
-			for i, p := range pointerSlice {
-				if p != nil {
-					feltsArray[i] = *p
-				}
-			}
-
-			var f felt.Felt
-			for b.Loop() {
-				f = crypto.PoseidonArray(feltsArray)
-			}
-			benchHashR = f
-		})
+		var byArray, byElems crypto.PoseidonDigest
+		byArray.UpdateArray(vals)
+		byElems.Update(ptrs...)
+		assert.Equal(t, byElems.Finish(), byArray.Finish())
 	}
-}
-
-func BenchmarkPoseidonElems(b *testing.B) {
-	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
-
-	for _, n := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
-			elems := genRandomFelts(b, n)
-			var f felt.Felt
-			for b.Loop() {
-				f = crypto.PoseidonElems(elems...)
-			}
-			benchHashR = f
-		})
-	}
-}
-
-func BenchmarkPoseidon(b *testing.B) {
-	in := genRandomFelts(b, 2)
-
-	var f felt.Felt
-	for b.Loop() {
-		f = crypto.Poseidon(in[0], in[1])
-	}
-	benchHashR = f
-}
-
-// BenchmarkPoseidonDigest locks in the allocation count of the streaming
-// digest path (Update + Finish), which struct/array hashing relies on.
-// 40 felts exercises ~20 Hades permutations.
-func BenchmarkPoseidonDigest(b *testing.B) {
-	elems := genRandomFelts(b, 40)
-
-	var f felt.Felt
-	b.ReportAllocs()
-	for b.Loop() {
-		var digest crypto.PoseidonDigest
-		digest.Update(elems...)
-		f = digest.Finish()
-	}
-	benchHashR = f
 }
