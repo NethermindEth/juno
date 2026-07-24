@@ -576,6 +576,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				logger,
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
+				cfg.RPCRequestTimeout,
 			),
 		)
 	}

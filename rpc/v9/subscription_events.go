@@ -29,17 +29,17 @@ func (h *Handler) SubscribeEvents(
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newEventSubscriber(h, w, fromAddr, keys, blockID, finalityStatus)
+	sub, rpcErr := newEventSubscriber(h, wsConn, fromAddr, keys, blockID, finalityStatus)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 type SubscriptionEmittedEvent struct {
@@ -345,6 +345,6 @@ func (s *eventSubscriberState) sendFilteredEvent(
 	return sendEvent(s.conn, response, id)
 }
 
-func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
-	return sendResponse("starknet_subscriptionEvents", w, id, event)
+func sendEvent(wsConn jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
+	return sendResponse("starknet_subscriptionEvents", wsConn, id, event)
 }

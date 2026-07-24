@@ -19,7 +19,7 @@ func (h *Handler) SubscribeNewHeads(
 	ctx context.Context,
 	blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
@@ -29,7 +29,7 @@ func (h *Handler) SubscribeNewHeads(
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, newHeadsSubscriber(h, w, startBlock, latestBlock))
+	return h.subscribe(wsConn, newHeadsSubscriber(h, wsConn, startBlock, latestBlock))
 }
 
 type headsSubscriberState struct {
@@ -97,6 +97,6 @@ func (s *headsSubscriberState) sendHistoricalHeaders(
 	return nil
 }
 
-func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, AdaptBlockHeader(header))
+func sendHeader(wsConn jsonrpc.Conn, header *core.Header, id string) error {
+	return sendResponse("starknet_subscriptionNewHeads", wsConn, id, AdaptBlockHeader(header))
 }

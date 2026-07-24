@@ -31,17 +31,17 @@ func (h *Handler) SubscribeNewTransactions(
 	finalityStatus []TxnStatusWithoutL1,
 	senderAddr []felt.Felt,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newTransactionsSubscriber(w, finalityStatus, senderAddr)
+	sub, rpcErr := newTransactionsSubscriber(wsConn, finalityStatus, senderAddr)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 type SubscriptionNewTransaction struct {
@@ -196,6 +196,6 @@ func (s *transactionsSubscriberState) onReceivedTransaction(
 	return sendTransaction(s.conn, &response, id)
 }
 
-func sendTransaction(w jsonrpc.Conn, result *SubscriptionNewTransaction, id string) error {
-	return sendResponse("starknet_subscriptionNewTransaction", w, id, result)
+func sendTransaction(wsConn jsonrpc.Conn, result *SubscriptionNewTransaction, id string) error {
+	return sendResponse("starknet_subscriptionNewTransaction", wsConn, id, result)
 }

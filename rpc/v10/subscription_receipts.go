@@ -31,17 +31,17 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 	senderAddress []felt.Address,
 	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newReceiptsSubscriber(w, senderAddress, finalityStatuses)
+	sub, rpcErr := newReceiptsSubscriber(wsConn, senderAddress, finalityStatuses)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 // receiptsSubscriberState is touched only by its single subscription dispatch
@@ -169,6 +169,6 @@ func receiptsOf(
 	}
 }
 
-func sendTransactionReceipt(w jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
-	return sendResponse("starknet_subscriptionNewTransactionReceipts", w, id, receipt)
+func sendTransactionReceipt(wsConn jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
+	return sendResponse("starknet_subscriptionNewTransactionReceipts", wsConn, id, receipt)
 }

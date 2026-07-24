@@ -2,6 +2,7 @@ package jsonrpc_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -91,6 +92,172 @@ func TestSendFromHandler(t *testing.T) {
 	_, resp1, err := conn.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, msg, string(resp1))
+
+	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketRequestTimeout(t *testing.T) {
+	t.Parallel()
+
+	echo := jsonrpc.Method{
+		Name:   "test_echo",
+		Params: []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) {
+			return msg, nil
+		},
+	}
+	block := jsonrpc.Method{
+		Name: "test_block",
+		Handler: func(ctx context.Context) (string, *jsonrpc.Error) {
+			<-ctx.Done()
+			return "", jsonrpc.Err(jsonrpc.InternalError, ctx.Err().Error())
+		},
+	}
+
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(echo, block))
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
+		WithRequestTimeout(50 * time.Millisecond)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	conn, resp, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes Body
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+
+	req := `{"jsonrpc" : "2.0", "method" : "test_block", "params":[], "id" : 1}`
+	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, []byte(req)))
+	_, got, err := conn.Read(t.Context())
+	require.NoError(t, err)
+	assert.Contains(t, string(got), "context deadline exceeded")
+
+	req = `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 2}`
+	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, []byte(req)))
+	_, got, err = conn.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, `{"jsonrpc":"2.0","result":"abc123","id":2}`, string(got))
+
+	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketBatchRequestSharesDeadline(t *testing.T) {
+	t.Parallel()
+
+	echo := jsonrpc.Method{
+		Name:   "test_echo",
+		Params: []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) {
+			return msg, nil
+		},
+	}
+	block := jsonrpc.Method{
+		Name: "test_block",
+		Handler: func(ctx context.Context) (string, *jsonrpc.Error) {
+			<-ctx.Done()
+			return "", jsonrpc.Err(jsonrpc.InternalError, ctx.Err().Error())
+		},
+	}
+
+	rpc := jsonrpc.NewServer(2, log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(echo, block))
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
+		WithRequestTimeout(50 * time.Millisecond)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	conn, resp, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes Body
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+
+	req := `[{"jsonrpc":"2.0","method":"test_block","params":[],"id":1},` +
+		`{"jsonrpc":"2.0","method":"test_echo","params":["abc123"],"id":2}]`
+	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, []byte(req)))
+	_, got, err := conn.Read(t.Context())
+	require.NoError(t, err)
+
+	var batch []json.RawMessage
+	require.NoError(t, json.Unmarshal(got, &batch))
+	require.Len(t, batch, 2)
+	assert.Contains(t, string(got), "context deadline exceeded")
+	assert.Contains(t, string(got), `"result":"abc123"`)
+
+	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketRequestTimeoutDisabled(t *testing.T) {
+	t.Parallel()
+
+	hasDeadline := jsonrpc.Method{
+		Name: "test_deadline",
+		Handler: func(ctx context.Context) (bool, *jsonrpc.Error) {
+			_, ok := ctx.Deadline()
+			return ok, nil
+		},
+	}
+
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(hasDeadline))
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithRequestTimeout(0)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	conn, resp, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes Body
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+
+	req := `{"jsonrpc" : "2.0", "method" : "test_deadline", "params":[], "id" : 1}`
+	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, []byte(req)))
+	_, got, err := conn.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, `{"jsonrpc":"2.0","result":false,"id":1}`, string(got))
+
+	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketConnOutlivesRequest(t *testing.T) {
+	t.Parallel()
+
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
+
+	method := jsonrpc.Method{
+		Name: "test_sub",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			conn, ok := jsonrpc.ConnFromContext(ctx)
+			if !assert.True(t, ok) {
+				return 0, jsonrpc.Err(jsonrpc.InternalError, "no conn in context")
+			}
+			wg.Go(func() {
+				<-ctx.Done()
+				assert.NoError(t, conn.Context().Err())
+				_, werr := conn.Write([]byte("alive"))
+				assert.NoError(t, werr)
+			})
+			return 0, nil
+		},
+	}
+
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(method))
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
+		WithRequestTimeout(50 * time.Millisecond)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	conn, resp, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes Body
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+
+	req := `{"jsonrpc" : "2.0", "method" : "test_sub", "params":[], "id" : 1}`
+	require.NoError(t, conn.Write(t.Context(), websocket.MessageText, []byte(req)))
+
+	_, got, err := conn.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(got))
+
+	_, alive, err := conn.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "alive", string(alive))
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
 }

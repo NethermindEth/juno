@@ -45,7 +45,8 @@ func mustNewChain(t *testing.T, entries ...*pending.PreConfirmed) preconfirmed.C
 
 type fakeConn struct {
 	net.Conn
-	w io.Writer
+	w   io.Writer
+	ctx context.Context
 }
 
 func (fc *fakeConn) Write(p []byte) (int, error) {
@@ -58,6 +59,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 		return false
 	}
 	return fc.w == fc2.w
+}
+
+func (fc *fakeConn) Context() context.Context {
+	return fc.ctx
 }
 
 type fakeSyncer struct {
@@ -2848,9 +2853,11 @@ func createTestWebsocket(
 
 	ctx, cancel := context.WithCancel(t.Context())
 	// Create fakeConn embedding clientConn for net.Conn methods, using serverConn for writing
-	fakeConn := &fakeConn{Conn: clientConn, w: serverConn}
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, fakeConn)
+	fakeConn := &fakeConn{Conn: clientConn, w: serverConn, ctx: ctx}
+	reqCtx, reqCancel := context.WithCancel(ctx)
+	subCtx := context.WithValue(reqCtx, jsonrpc.ConnKey{}, fakeConn)
 	id, rpcErr := subscribe(subCtx)
+	reqCancel()
 	require.Nil(t, rpcErr)
 
 	t.Cleanup(func() {
