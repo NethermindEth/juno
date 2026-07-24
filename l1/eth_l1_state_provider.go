@@ -296,6 +296,7 @@ func (w *stateUpdateForwarder) run() {
 			ev, err := contract.Decode(rawLog)
 			if err != nil {
 				w.shutdown(fmt.Errorf("decoding LogStateUpdate: %w", err))
+				w.inner.Unsubscribe()
 				return
 			}
 			su := stateUpdateFromContract(ev)

@@ -420,6 +420,49 @@ func TestEthL1StateProvider_WatchStateUpdate_DecodeFailure(t *testing.T) {
 	}
 }
 
+func TestEthL1StateProvider_WatchStateUpdate_DecodeFailureReleasesInnerSub(t *testing.T) {
+	const subID = "0xdec1"
+	var sawUnsub atomic.Bool
+	srv := clienttest.NewTestServer(t)
+	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
+		switch req.Method {
+		case "eth_subscribe":
+			return subID, nil
+		case "eth_unsubscribe":
+			sawUnsub.Store(true)
+			return true, nil
+		}
+		return nil, &clienttest.TestRPCError{Code: -32601, Message: req.Method}
+	})
+
+	s, err := l1.NewEthL1StateProvider(t.Context(), srv.WSURL(), eth.Address{})
+	require.NoError(t, err)
+	t.Cleanup(s.Close)
+
+	sink := make(chan *l1.StateUpdate, 1)
+	// No deferred Unsubscribe: the release must come from the decode-error path itself.
+	sub, err := s.WatchStateUpdate(t.Context(), sink)
+	require.NoError(t, err)
+
+	// Correct topic, truncated data section - the forwarder's Decode rejects it.
+	require.NoError(t, srv.PushNotification(t.Context(), subID, map[string]any{
+		"topics":      []string{contract.LogStateUpdateSigHash.Hex()},
+		"data":        "0x00",
+		"blockNumber": "0x1",
+		"removed":     false,
+	}))
+
+	select {
+	case errOut := <-sub.Err():
+		require.Error(t, errOut)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Err() did not fire on decode failure")
+	}
+
+	require.Eventually(t, sawUnsub.Load, 2*time.Second, 10*time.Millisecond,
+		"decode failure must release the inner subscription via eth_unsubscribe")
+}
+
 func TestEthL1StateProvider_WatchStateUpdate_FailsAfterClose(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	s, err := l1.NewEthL1StateProvider(t.Context(), srv.WSURL(), eth.Address{})
