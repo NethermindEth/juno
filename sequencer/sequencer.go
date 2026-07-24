@@ -223,6 +223,10 @@ func (s *Sequencer) StartingBlockNumber() (uint64, error) {
 	return 0, nil // Not relevant for Sequencer. Todo: clean Reader
 }
 
+func (s *Sequencer) StartingBlockHeader() (*core.Header, error) {
+	return nil, nil // Not relevant for Sequencer. Todo: clean Reader
+}
+
 // The builder has no reorg logic (centralised sequencer that can't reorg)
 func (s *Sequencer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: s.subReorgFeed.Subscribe()}

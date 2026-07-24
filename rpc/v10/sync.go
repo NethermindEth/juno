@@ -38,11 +38,7 @@ func (s Sync) MarshalJSON() ([]byte, error) {
 func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
-	startingBlockNumber, err := h.syncReader.StartingBlockNumber()
-	if err != nil {
-		return defaultSyncState, nil
-	}
-	startingBlockHash, err := h.bcReader.BlockHeaderHashByNumber(startingBlockNumber)
+	startingBlockHeader, err := h.syncReader.StartingBlockHeader()
 	if err != nil {
 		return defaultSyncState, nil
 	}
@@ -59,8 +55,8 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	}
 
 	return &Sync{
-		StartingBlockHash:   startingBlockHash,
-		StartingBlockNumber: &startingBlockNumber,
+		StartingBlockHash:   startingBlockHeader.Hash,
+		StartingBlockNumber: &startingBlockHeader.Number,
 		CurrentBlockHash:    head.Hash,
 		CurrentBlockNumber:  &head.Number,
 		HighestBlockHash:    highestBlockHeader.Hash,
