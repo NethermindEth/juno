@@ -74,6 +74,7 @@ type ReorgBlockRange struct {
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
+	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
@@ -86,6 +87,10 @@ type NoopSynchronizer struct{}
 
 func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
 	return 0, errors.New("StartingBlockNumber() not implemented")
+}
+
+func (n *NoopSynchronizer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
@@ -115,6 +120,7 @@ type Synchronizer struct {
 	readOnlyBlockchain   bool
 	dataSource           DataSource
 	startingBlockNumber  *uint64
+	startingBlockHeader  atomic.Pointer[core.Header]
 	highestBlockHeader   atomic.Pointer[core.Header]
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
@@ -372,6 +378,10 @@ func (s *Synchronizer) storeTask(
 	}
 	committedBlock.Persisted <- nil
 
+	if s.startingBlockNumber != nil && block.Number == *s.startingBlockNumber {
+		s.startingBlockHeader.Store(block.Header)
+	}
+
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -455,6 +465,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.startingBlockNumber = nil
+		s.startingBlockHeader.Store(nil)
 		s.highestBlockHeader.Store(nil)
 	}()
 
@@ -552,6 +563,14 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 		return 0, errors.New("not running")
 	}
 	return *s.startingBlockNumber, nil
+}
+
+func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
+	header := s.startingBlockHeader.Load()
+	if header == nil {
+		return nil, errors.New("starting block header not available")
+	}
+	return header, nil
 }
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {

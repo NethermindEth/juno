@@ -56,6 +56,21 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
+// StartingBlockHeader mocks base method.
+func (m *MockSyncReader) StartingBlockHeader() (*core.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartingBlockHeader")
+	ret0, _ := ret[0].(*core.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StartingBlockHeader indicates an expected call of StartingBlockHeader.
+func (mr *MockSyncReaderMockRecorder) StartingBlockHeader() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockHeader))
+}
+
 // PreConfirmedChain mocks base method.
 func (m *MockSyncReader) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	m.ctrl.T.Helper()

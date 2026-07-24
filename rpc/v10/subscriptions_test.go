@@ -90,6 +90,10 @@ func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
 	return 0, nil
 }
 
+func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
+	return nil, nil
+}
+
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
