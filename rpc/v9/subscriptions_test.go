@@ -868,8 +868,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
 		}
-		mockSyncer.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
+		// PreConfirmed status is derived from the notification payload, no DB lookups.
 		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
 
@@ -883,20 +882,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Receipts:     []*core.TransactionReceipt{},
 			},
 		}
-		mockSyncer.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
-		// Accepted on l2 Status
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
-		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(core.TransactionExecutionStatus{
-			Reverted:     block.Receipts[0].Reverted,
-			RevertReason: block.Receipts[0].RevertReason,
-		}, nil)
-		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
-
+		// Accepted on l2 status is derived from the new head payload, no DB lookups.
 		handler.newHeads.Send(block)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
@@ -915,6 +901,53 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
+	})
+
+	t.Run("Reverted execution status from new head payload", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
+		adapterFeeder := adaptfeeder.New(client)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(nil, mockSyncer, nil, logger)
+		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
+		require.NoError(t, err)
+
+		targetTxn := block.Transactions[0]
+		revertedReceipt := *block.Receipts[0]
+		revertedReceipt.Reverted = true
+		revertedReceipt.RevertReason = "tx reverted"
+
+		preConfirmedData := &pending.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           block.Number,
+					ParentHash:       block.ParentHash,
+					TransactionCount: 1,
+				},
+				Transactions: []core.Transaction{targetTxn},
+				Receipts:     []*core.TransactionReceipt{&revertedReceipt},
+			},
+		}
+
+		// We need to return some status at start, otherwise it will re-try for a while.
+		mockSyncer.EXPECT().PreConfirmedChain().
+			Return(mustNewChain(t, preConfirmedData), nil).AnyTimes()
+		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
+		assertNextTxnStatus(
+			t, conn, id, targetTxn.Hash(), TxnStatusPreConfirmed, TxnFailure, "tx reverted",
+		)
+
+		newHead := &core.Block{
+			Header:       &core.Header{Number: block.Number},
+			Transactions: []core.Transaction{targetTxn},
+			Receipts:     []*core.TransactionReceipt{&revertedReceipt},
+		}
+		handler.newHeads.Send(newHead)
+		assertNextTxnStatus(
+			t, conn, id, targetTxn.Hash(), TxnStatusAcceptedOnL2, TxnFailure, "tx reverted",
+		)
 	})
 }
 
