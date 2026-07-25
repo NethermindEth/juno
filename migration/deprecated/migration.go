@@ -780,7 +780,7 @@ type oldCairo1Class struct {
 	Abi             string
 	AbiHash         *felt.Felt
 	EntryPoints     core.SierraEntryPointsByType
-	Program         []*felt.Felt
+	Program         []felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
 	Compiled        json.RawMessage

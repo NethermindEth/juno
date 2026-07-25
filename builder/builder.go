@@ -130,11 +130,7 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 		return nil, nil
 	}
 
-	header, err := b.blockchain.BlockHeaderByNumber(blockHeight - BlockHashLag)
-	if err != nil {
-		return nil, err
-	}
-	return header.Hash, nil
+	return b.blockchain.BlockHeaderHashByNumber(blockHeight - BlockHashLag)
 }
 
 func (b *Builder) PendingState(
@@ -171,6 +167,9 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, err
 	}
+
+	block := state.PreConfirmed.Block
+	block.EventsBloom = core.EventsBloom(block.Receipts)
 
 	if simulatedResult.ConcatCount.IsZero() {
 		simulatedResult.BlockCommitments = &core.BlockCommitments{

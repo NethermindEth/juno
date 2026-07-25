@@ -60,20 +60,9 @@ type StateDiff struct {
 	} `json:"migrated_compiled_classes"`
 }
 
-// StateUpdateWithBlock object returned by the feeder in JSON format for "get_state_update" endpoint with includingBlock arg
-type StateUpdateWithBlock struct {
-	Block       *Block       `json:"block"`
-	StateUpdate *StateUpdate `json:"state_update"`
-}
-
-// TODO: placeholder for now to avoid compiler errors. A proper validation
-// should be implemented in a follow-up PR.
-func (val *StateUpdateWithBlock) Validate() error {
-	return nil
-}
-
-// StateUpdateWithBlock represents the object response by the feeder for "get_state_update"
-// endpoint with `includeBlock` and `includeSignature` arguments
+// StateUpdateWithBlockAndSignature represents the object response by the
+// feeder for "get_state_update" endpoint with `includeBlock` and
+// `includeSignature` arguments
 type StateUpdateWithBlockAndSignature struct {
 	StateUpdate *StateUpdate `json:"state_update"`
 	Block       *Block       `json:"block"`

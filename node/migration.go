@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
@@ -56,7 +57,7 @@ func migrateIfNeeded(
 		// Make sure there is an available L1 head before starting pruning migration
 		if config.Prune {
 			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
-				return fmt.Errorf("fetch L1 head for pruning: %w", err)
+				return fmt.Errorf("fetching L1 head for pruning: %w", err)
 			}
 		}
 
@@ -69,7 +70,7 @@ func migrateIfNeeded(
 			logger,
 		)
 		if err != nil {
-			return fmt.Errorf("create migration runner: %w", err)
+			return fmt.Errorf("creating migration runner: %w", err)
 		}
 
 		return runner.Run(ctx)
@@ -106,12 +107,13 @@ func fetchL1HeadIfMissing(
 
 	logger.Info("Fetching the L1 head before running the prune migration")
 	// Metrics are registered by the long-lived L1 client built in node.New; reusing
-	// them here would panic via prometheus.MustRegister.
-	client, err := newL1Client(config.EthNode, false, chain, logger)
+	// them here would panic via prometheus.MustRegister. Hence no listener.
+	provider, err := newGethL1StateProvider(ctx, config.EthNode, chain)
 	if err != nil {
-		return fmt.Errorf("creating a new L1 client: %w", err)
+		return fmt.Errorf("creating L1 state provider: %w", err)
 	}
 
+	client := l1.NewClient(provider, chain, logger)
 	if err := client.CatchUpL1Head(ctx); err != nil {
 		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}
@@ -120,7 +122,7 @@ func fetchL1HeadIfMissing(
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return errors.New("couldn't find a finalized Starknet state update on L1")
 		}
-		return err
+		return fmt.Errorf("getting L1 head: %w", err)
 	}
 	return nil
 }

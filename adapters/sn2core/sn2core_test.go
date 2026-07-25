@@ -108,7 +108,7 @@ func TestAdaptBlock(t *testing.T) {
 			if test.sig != nil {
 				sig = test.sig.Signature
 			}
-			block, err := sn2core.AdaptBlock(response, sig)
+			block, err := sn2core.AdaptBlock(&response, sig)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
@@ -172,7 +172,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
-			feederUpdate, err := sn2core.AdaptStateUpdate(response)
+			feederUpdate, err := sn2core.AdaptStateUpdate(&response)
 			require.NoError(t, err)
 
 			assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
@@ -219,7 +219,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -229,7 +229,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283364")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV1Classes)
@@ -239,7 +239,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("replaced classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283428")
 			require.NoError(t, err)
-			update, err := sn2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(&feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -416,9 +416,13 @@ func TestTransactionV3(t *testing.T) {
 		"invoke": &core.InvokeTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
 			Version:         new(core.TransactionVersion).SetUint64(3),
-			TransactionSignature: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16"),
-				felt.NewUnsafeFromString[felt.Felt]("0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"),
+			TransactionSignature: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
+					"0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5",
+				),
 			},
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0xe97"),
 			NonceDAMode: core.DAModeL1,
@@ -438,34 +442,54 @@ func TestTransactionV3(t *testing.T) {
 				},
 			},
 			Tip:           0,
-			PaymasterData: []*felt.Felt{},
+			PaymasterData: []felt.Felt{},
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41"),
-			CallData: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				felt.NewUnsafeFromString[felt.Felt]("0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684"),
-				felt.NewUnsafeFromString[felt.Felt]("0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4c312760dfd17a954cdd09e76aa9f149f806d88ec3e402ffaf5c4926f568a42"),
-				felt.NewUnsafeFromString[felt.Felt]("0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4"),
-				felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				felt.NewUnsafeFromString[felt.Felt]("0x5"),
-				felt.NewUnsafeFromString[felt.Felt]("0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684"),
-				felt.NewUnsafeFromString[felt.Felt]("0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf"),
-				felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				felt.NewUnsafeFromString[felt.Felt]("0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829"),
-				felt.NewUnsafeFromString[felt.Felt]("0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587"),
+			CallData: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt]("0x2"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x0"),
+				felt.UnsafeFromString[felt.Felt]("0x4"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x4c312760dfd17a954cdd09e76aa9f149f806d88ec3e402ffaf5c4926f568a42",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x4"),
+				felt.UnsafeFromString[felt.Felt]("0x1"),
+				felt.UnsafeFromString[felt.Felt]("0x5"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x1"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587",
+				),
 			},
-			AccountDeploymentData: []*felt.Felt{},
+			AccountDeploymentData: []felt.Felt{},
 		},
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
 		"declare": &core.DeclareTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
 			Version:         new(core.TransactionVersion).SetUint64(3),
-			TransactionSignature: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc"),
-				felt.NewUnsafeFromString[felt.Felt]("0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"),
+			TransactionSignature: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
+					"0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3",
+				),
 			},
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x1"),
 			NonceDAMode: core.DAModeL1,
@@ -485,11 +509,11 @@ func TestTransactionV3(t *testing.T) {
 				},
 			},
 			Tip:                   0,
-			PaymasterData:         []*felt.Felt{},
+			PaymasterData:         []felt.Felt{},
 			SenderAddress:         felt.NewUnsafeFromString[felt.Felt]("0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
 			ClassHash:             felt.NewUnsafeFromString[felt.Felt]("0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7"),
 			CompiledClassHash:     felt.NewUnsafeFromString[felt.Felt]("0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8"),
-			AccountDeploymentData: []*felt.Felt{},
+			AccountDeploymentData: []felt.Felt{},
 		},
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
 		"deploy account": &core.DeployAccountTransaction{
@@ -499,8 +523,10 @@ func TestTransactionV3(t *testing.T) {
 				ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
 				ContractAddressSalt: new(felt.Felt),
 				ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738"),
-				ConstructorCallData: []*felt.Felt{
-					felt.NewUnsafeFromString[felt.Felt]("0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c"),
+				ConstructorCallData: []felt.Felt{
+					felt.UnsafeFromString[felt.Felt](
+						"0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c",
+					),
 				},
 			},
 			Nonce:       new(felt.Felt),
@@ -520,12 +546,16 @@ func TestTransactionV3(t *testing.T) {
 					MaxPricePerUnit: new(felt.Felt),
 				},
 			},
-			TransactionSignature: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"),
+			TransactionSignature: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
+					"0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3",
+				),
 			},
 			Tip:           0,
-			PaymasterData: []*felt.Felt{},
+			PaymasterData: []felt.Felt{},
 		},
 	}
 
@@ -571,14 +601,14 @@ func TestClassV1(t *testing.T) {
 			compiled, err := client.CasmClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
-			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, compiled)
+			v1Class, err := sn2core.AdaptSierraClass(feederClass.Sierra, &compiled)
 			require.NoError(t, err)
 
 			assert.Equal(t, feederClass.Sierra.Abi, v1Class.Abi)
-			assert.Equal(t, feederClass.Sierra.Program, v1Class.Program)
+			assert.Equal(t, feederClass.Sierra.Program, []felt.Felt(v1Class.Program))
 			assert.Equal(t, feederClass.Sierra.Version, v1Class.SemanticVersion)
 			assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
-			assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
+			assert.Equal(t, compiled.Bytecode, []felt.Felt(v1Class.Compiled.Bytecode))
 			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
 			assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
 			assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
@@ -624,9 +654,9 @@ func TestClassV1(t *testing.T) {
 
 	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
 		snClass := starknet.SierraClass{
-			Program: []*felt.Felt{
-				new(felt.Felt), // this value doesn't matter as long as their different from `SierraVersion010`
-				new(felt.Felt),
+			Program: []felt.Felt{
+				felt.Zero, // this value doesn't matter as long as their different from `SierraVersion010`
+				felt.Zero,
 			},
 		}
 		class, err := sn2core.AdaptSierraClass(&snClass, nil)

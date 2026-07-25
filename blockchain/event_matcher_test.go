@@ -12,19 +12,19 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 	testCases := []struct {
 		name       string
 		filterKeys [][]felt.Felt
-		eventKeys  []*felt.Felt
+		eventKeys  []felt.Felt
 		expected   bool
 	}{
 		{
 			name:       "exact match single key",
 			filterKeys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}},
-			eventKeys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
+			eventKeys:  []felt.Felt{felt.FromUint64[felt.Felt](1)},
 			expected:   true,
 		},
 		{
 			name:       "no match single key",
 			filterKeys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}},
-			eventKeys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
+			eventKeys:  []felt.Felt{felt.FromUint64[felt.Felt](2)},
 			expected:   false,
 		},
 		{
@@ -34,10 +34,10 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{felt.FromUint64[felt.Felt](2)},
 				{felt.FromUint64[felt.Felt](3)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](3),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](3),
 			},
 			expected: true,
 		},
@@ -48,10 +48,10 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{felt.FromUint64[felt.Felt](2)},
 				{felt.FromUint64[felt.Felt](3)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](99),
-				felt.NewFromUint64[felt.Felt](3),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](99),
+				felt.FromUint64[felt.Felt](3),
 			},
 			expected: false,
 		},
@@ -62,10 +62,10 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{},
 				{felt.FromUint64[felt.Felt](3)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](999),
-				felt.NewFromUint64[felt.Felt](3),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](999),
+				felt.FromUint64[felt.Felt](3),
 			},
 			expected: true,
 		},
@@ -76,10 +76,10 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{},
 				{felt.FromUint64[felt.Felt](3)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](999),
-				felt.NewFromUint64[felt.Felt](99),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](999),
+				felt.FromUint64[felt.Felt](99),
 			},
 			expected: false,
 		},
@@ -89,11 +89,11 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{felt.FromUint64[felt.Felt](1)},
 				{felt.FromUint64[felt.Felt](2)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](3),
-				felt.NewFromUint64[felt.Felt](4),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](3),
+				felt.FromUint64[felt.Felt](4),
 			},
 			expected: true,
 		},
@@ -104,9 +104,9 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{felt.FromUint64[felt.Felt](2)},
 				{},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
 			},
 			expected: false,
 		},
@@ -119,7 +119,7 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 					felt.FromUint64[felt.Felt](3),
 				},
 			},
-			eventKeys: []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
+			eventKeys: []felt.Felt{felt.FromUint64[felt.Felt](1)},
 			expected:  true,
 		},
 		{
@@ -131,7 +131,7 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 					felt.FromUint64[felt.Felt](3),
 				},
 			},
-			eventKeys: []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
+			eventKeys: []felt.Felt{felt.FromUint64[felt.Felt](2)},
 			expected:  true,
 		},
 		{
@@ -143,29 +143,29 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 					felt.FromUint64[felt.Felt](3),
 				},
 			},
-			eventKeys: []*felt.Felt{felt.NewFromUint64[felt.Felt](99)},
+			eventKeys: []felt.Felt{felt.FromUint64[felt.Felt](99)},
 			expected:  false,
 		},
 		{
 			name:       "empty filter matches all events",
 			filterKeys: [][]felt.Felt{},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](3),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](3),
 			},
 			expected: true,
 		},
 		{
 			name:       "empty event with empty filter",
 			filterKeys: [][]felt.Felt{},
-			eventKeys:  []*felt.Felt{},
+			eventKeys:  []felt.Felt{},
 			expected:   true,
 		},
 		{
 			name:       "empty event with non-empty filter",
 			filterKeys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}},
-			eventKeys:  []*felt.Felt{},
+			eventKeys:  []felt.Felt{},
 			expected:   false,
 		},
 		{
@@ -175,10 +175,10 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{},
 				{felt.FromUint64[felt.Felt](5), felt.FromUint64[felt.Felt](6)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](999),
-				felt.NewFromUint64[felt.Felt](5),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](999),
+				felt.FromUint64[felt.Felt](5),
 			},
 			expected: true,
 		},
@@ -189,30 +189,30 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{},
 				{felt.FromUint64[felt.Felt](5), felt.FromUint64[felt.Felt](6)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](999),
-				felt.NewFromUint64[felt.Felt](99),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](999),
+				felt.FromUint64[felt.Felt](99),
 			},
 			expected: false,
 		},
 		{
 			name:       "all positions empty except last",
 			filterKeys: [][]felt.Felt{{}, {}, {felt.FromUint64[felt.Felt](3)}},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](3),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](3),
 			},
 			expected: true,
 		},
 		{
 			name:       "all positions empty except last - wrong value",
 			filterKeys: [][]felt.Felt{{}, {}, {felt.FromUint64[felt.Felt](3)}},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
-				felt.NewFromUint64[felt.Felt](99),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
+				felt.FromUint64[felt.Felt](99),
 			},
 			expected: false,
 		},
@@ -223,9 +223,9 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 				{},
 				{felt.FromUint64[felt.Felt](3)},
 			},
-			eventKeys: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](1),
-				felt.NewFromUint64[felt.Felt](2),
+			eventKeys: []felt.Felt{
+				felt.FromUint64[felt.Felt](1),
+				felt.FromUint64[felt.Felt](2),
 			},
 			expected: false,
 		},

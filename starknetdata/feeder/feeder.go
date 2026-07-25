@@ -16,10 +16,7 @@ import (
 
 var _ starknetdata.StarknetData = (*Feeder)(nil)
 
-const (
-	latestID  = "latest"
-	pendingID = "pending"
-)
+const latestID = "latest"
 
 type Feeder struct {
 	client feeder.Reader
@@ -56,32 +53,18 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 	}, nil
 }
 
-// BlockPreLatest gets the pre-latest (pending) block from the feeder,
-// then adapts it to the core.Block type.
-func (f *Feeder) BlockPreLatest(ctx context.Context) (*core.Block, error) {
-	return f.block(ctx, pendingID)
-}
-
 func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
 	response, err := f.client.Block(ctx, blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	if blockID == pendingID && response.Status != "PENDING" {
-		return nil, errors.New("no pending block")
+	sig, err := f.client.Signature(ctx, blockID)
+	if err != nil {
+		return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
 	}
 
-	var signature []*felt.Felt
-	if blockID != pendingID {
-		sig, sErr := f.client.Signature(ctx, blockID)
-		if sErr != nil {
-			return nil, fmt.Errorf("get signature for block %q: %v", blockID, sErr)
-		}
-		signature = sig.Signature
-	}
-
-	return sn2core.AdaptBlock(response, signature)
+	return sn2core.AdaptBlock(&response, sig.Signature)
 }
 
 // Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
@@ -115,7 +98,14 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDef
 			return nil, cErr
 		}
 
-		return sn2core.AdaptSierraClass(response.Sierra, casmClass)
+		// A deprecated compiled class yields no CASM; pass nil so the adapter
+		// treats the Sierra class as having no compiled counterpart.
+		var compiledClass *starknet.CasmClass
+		if cErr == nil {
+			compiledClass = &casmClass
+		}
+
+		return sn2core.AdaptSierraClass(response.Sierra, compiledClass)
 	case response.DeprecatedCairo != nil:
 		return sn2core.AdaptDeprecatedCairoClass(response.DeprecatedCairo)
 	default:
@@ -129,7 +119,7 @@ func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUp
 		return nil, err
 	}
 
-	return sn2core.AdaptStateUpdate(response)
+	return sn2core.AdaptStateUpdate(&response)
 }
 
 // StateUpdate gets the state update for a given block number from the feeder,
@@ -138,55 +128,23 @@ func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.Sta
 	return f.stateUpdate(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
-// StateUpdatePending gets the state update for the pending block from the feeder,
-// then adapts it to the core.StateUpdate type.
-func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	return f.stateUpdate(ctx, pendingID)
-}
-
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
-	var (
-		stateUpBlock starknet.StateUpdateWithBlock
-		signature    []*felt.Felt
-	)
-
-	if blockID == pendingID {
-		resp, err := f.client.StateUpdateWithBlock(ctx, blockID)
-		if err != nil {
-			return nil, nil, err
-		}
-		stateUpBlock = *resp
-	} else {
-		resp, err := f.client.StateUpdateWithBlockAndSignature(ctx, blockID)
-		if err != nil {
-			return nil, nil, err
-		}
-		stateUpBlock.Block = resp.Block
-		stateUpBlock.StateUpdate = resp.StateUpdate
-		signature = resp.Signature
-	}
-
-	var adaptedState *core.StateUpdate
-	var adaptedBlock *core.Block
-	var err error
-
-	if adaptedState, err = sn2core.AdaptStateUpdate(stateUpBlock.StateUpdate); err != nil {
+	resp, err := f.client.StateUpdateWithBlockAndSignature(ctx, blockID)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	if adaptedBlock, err = sn2core.AdaptBlock(stateUpBlock.Block, signature); err != nil {
+	adaptedState, err := sn2core.AdaptStateUpdate(resp.StateUpdate)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	adaptedBlock, err := sn2core.AdaptBlock(resp.Block, resp.Signature)
+	if err != nil {
 		return nil, nil, err
 	}
 
 	return adaptedState, adaptedBlock, nil
-}
-
-// StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
-// then adapts them to the core.StateUpdate and core.Block types respectively
-func (f *Feeder) StateUpdatePendingWithBlock(
-	ctx context.Context,
-) (*core.StateUpdate, *core.Block, error) {
-	return f.stateUpdateWithBlock(ctx, pendingID)
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
@@ -216,4 +174,15 @@ func (f *Feeder) PreConfirmedBlockByNumber(
 		blockIdentifier,
 		knownTransactionCount,
 	)
+}
+
+// PreConfirmedBlockLatest fetches whichever pre_confirmed block the sequencer is
+// currently exposing as latest.
+// The returned block number is the height the response describes.
+func (f *Feeder) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	return f.client.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
 }

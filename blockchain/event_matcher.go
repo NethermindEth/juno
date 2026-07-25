@@ -42,7 +42,7 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	return filterKeysMaps
 }
 
-func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
+func (e *EventMatcher) MatchesEventKeys(eventKeys []felt.Felt) bool {
 	// short circuit if event doest have enough keys
 	if len(eventKeys) < len(e.keysMap) {
 		return false
@@ -64,7 +64,7 @@ func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 			continue
 		}
 		// check if event key is in filter keys
-		if _, found := e.keysMap[index][*eventKey]; !found {
+		if _, found := e.keysMap[index][eventKey]; !found {
 			return false
 		}
 	}
@@ -152,23 +152,15 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 
 func (e *EventMatcher) AppendBlockEvents(
 	matchedEventsSofar []FilteredEvent,
-	header *core.Header,
+	blockNum uint64,
+	blockHash *felt.Felt,
 	receipts []*core.TransactionReceipt,
 	skippedEvents uint64,
 	chunkSize uint64,
-	isPreLatest bool,
 ) ([]FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for txIndex, receipt := range receipts {
 		for i, event := range receipt.Events {
-			var blockNumber *uint64
-			// if header.Hash == nil it's a pending block
-			// if header.Hash == nil and header.ParentHash is nil preconfirmed block
-			// if isPreLatest is true, it's a prelatest block (should have block number)
-			if header.Hash != nil || header.ParentHash == nil || isPreLatest {
-				blockNumber = &header.Number
-			}
-
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
 			if processedEvents < skippedEvents {
@@ -192,9 +184,8 @@ func (e *EventMatcher) AppendBlockEvents(
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:      blockNumber,
-					BlockHash:        header.Hash,
-					BlockParentHash:  header.ParentHash,
+					BlockNumber:      &blockNum,
+					BlockHash:        blockHash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
 					EventIndex:       uint(i),

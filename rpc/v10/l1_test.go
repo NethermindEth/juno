@@ -111,7 +111,7 @@ func TestGetMessageStatus(t *testing.T) {
 					},
 				},
 			}
-			mockSyncReader.EXPECT().PreConfirmed().Return(preConfirmed, nil).AnyTimes()
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
 				//nolint:staticcheck //SA1019: used here to get the stored txs in testdata feeder
@@ -123,7 +123,7 @@ func TestGetMessageStatus(t *testing.T) {
 			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(),
 				gomock.Any(),
-			).Return(&test.l1TxnReceipt, nil)
+			).Return(test.l1TxnReceipt, nil)
 			for i, msg := range test.msgs {
 				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(
 					*msg.L1HandlerHash,
@@ -162,7 +162,7 @@ func TestGetMessageStatus(t *testing.T) {
 			"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
 		)
 		mockL1Client.EXPECT().TransactionReceipt(gomock.Any(), gomock.Any()).Return(
-			&eth.Receipt{Logs: []eth.Log{{Topics: []eth.Hash{sig}}}}, nil,
+			eth.Receipt{Logs: []eth.Log{{Topics: []eth.Hash{sig}}}}, nil,
 		)
 		msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
 		require.Nil(t, rpcErr)

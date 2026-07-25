@@ -72,7 +72,7 @@ type SierraClass struct {
 	Abi         string
 	AbiHash     *felt.Felt
 	EntryPoints SierraEntryPointsByType
-	Program     []*felt.Felt
+	Program     felt.Slice[felt.Felt]
 	ProgramHash *felt.Felt
 	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
@@ -85,7 +85,7 @@ type SegmentLengths struct {
 }
 
 type CasmClass struct {
-	Bytecode               []*felt.Felt
+	Bytecode               felt.Slice[felt.Felt]
 	PythonicHints          json.RawMessage
 	CompilerVersion        string
 	Hints                  json.RawMessage
@@ -121,7 +121,7 @@ func (c *SierraClass) Hash() (felt.Felt, error) {
 	externalEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.External)
 	l1HandlerEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.L1Handler)
 	constructorHash := sierraEntryPointsHash(c.EntryPoints.Constructor)
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
 		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -168,14 +168,14 @@ const (
 
 // Hasher wraps hash algorithm operations
 type Hasher interface {
-	HashArray(felts ...*felt.Felt) felt.Felt
+	HashArray(felts []felt.Felt) felt.Felt
 	NewDigest() crypto.Digest
 }
 
 type poseidonHasher struct{}
 
-func (h poseidonHasher) HashArray(felts ...*felt.Felt) felt.Felt {
-	return crypto.PoseidonArray(felts...)
+func (h poseidonHasher) HashArray(felts []felt.Felt) felt.Felt {
+	return crypto.PoseidonArray(felts)
 }
 
 func (h poseidonHasher) NewDigest() crypto.Digest {
@@ -184,8 +184,8 @@ func (h poseidonHasher) NewDigest() crypto.Digest {
 
 type blake2sHasher struct{}
 
-func (h blake2sHasher) HashArray(felts ...*felt.Felt) felt.Felt {
-	hash := blake2s.Blake2sArray(felts...)
+func (h blake2sHasher) HashArray(felts []felt.Felt) felt.Felt {
+	hash := blake2s.Blake2sArray(felts)
 	return felt.Felt(hash)
 }
 
@@ -214,7 +214,7 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
-		bytecodeHash = hasher.HashArray(c.Bytecode...)
+		bytecodeHash = hasher.HashArray(c.Bytecode)
 	} else {
 		bytecodeHash = SegmentedBytecodeHash(c.Bytecode, c.BytecodeSegmentLengths.Children, hasher)
 	}
@@ -223,17 +223,17 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 	l1HandlerEntryPointsHash := compiledEntryPointsHash(c.L1Handler, hasher)
 	constructorHash := compiledEntryPointsHash(c.Constructor, hasher)
 
-	return hasher.HashArray(
-		compiledClassV1Prefix,
-		&externalEntryPointsHash,
-		&l1HandlerEntryPointsHash,
-		&constructorHash,
-		&bytecodeHash,
-	)
+	return hasher.HashArray([]felt.Felt{
+		*compiledClassV1Prefix,
+		externalEntryPointsHash,
+		l1HandlerEntryPointsHash,
+		constructorHash,
+		bytecodeHash,
+	})
 }
 
 func SegmentedBytecodeHash(
-	bytecode []*felt.Felt,
+	bytecode []felt.Felt,
 	segmentLengths []SegmentLengths,
 	hasher Hasher,
 ) felt.Felt {
@@ -250,7 +250,7 @@ func SegmentedBytecodeHash(
 			if len(segment.Children) == 0 {
 				curSegmentLength = segment.Length
 				segmentBytecode := bytecode[startingOffset : startingOffset+segment.Length]
-				curSegmentHash = hasher.HashArray(segmentBytecode...)
+				curSegmentHash = hasher.HashArray(segmentBytecode)
 			} else {
 				curSegmentLength, curSegmentHash = digestSegment(segment.Children)
 			}

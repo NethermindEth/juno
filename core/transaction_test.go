@@ -37,9 +37,9 @@ func TestTransactionEncoding(t *testing.T) {
 				ClassHash:       new(felt.Felt).SetUint64(2),
 				SenderAddress:   new(felt.Felt).SetUint64(3),
 				MaxFee:          new(felt.Felt).SetUint64(4),
-				TransactionSignature: []*felt.Felt{
-					new(felt.Felt).SetUint64(5),
-					new(felt.Felt).SetUint64(6),
+				TransactionSignature: []felt.Felt{
+					felt.FromUint64[felt.Felt](5),
+					felt.FromUint64[felt.Felt](6),
 				},
 				Nonce:   new(felt.Felt).SetUint64(7),
 				Version: new(core.TransactionVersion).SetUint64(8),
@@ -52,9 +52,9 @@ func TestTransactionEncoding(t *testing.T) {
 				ContractAddressSalt: new(felt.Felt).SetUint64(2),
 				ContractAddress:     new(felt.Felt).SetUint64(3),
 				ClassHash:           new(felt.Felt).SetUint64(4),
-				ConstructorCallData: []*felt.Felt{
-					new(felt.Felt).SetUint64(5),
-					new(felt.Felt).SetUint64(6),
+				ConstructorCallData: []felt.Felt{
+					felt.FromUint64[felt.Felt](5),
+					felt.FromUint64[felt.Felt](6),
 				},
 				Version: new(core.TransactionVersion).SetUint64(7),
 			},
@@ -63,13 +63,13 @@ func TestTransactionEncoding(t *testing.T) {
 			name: "Invoke Transaction",
 			tx: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(1),
-				CallData: []*felt.Felt{
-					new(felt.Felt).SetUint64(2),
-					new(felt.Felt).SetUint64(3),
+				CallData: []felt.Felt{
+					felt.FromUint64[felt.Felt](2),
+					felt.FromUint64[felt.Felt](3),
 				},
-				TransactionSignature: []*felt.Felt{
-					new(felt.Felt).SetUint64(4),
-					new(felt.Felt).SetUint64(5),
+				TransactionSignature: []felt.Felt{
+					felt.FromUint64[felt.Felt](4),
+					felt.FromUint64[felt.Felt](5),
 				},
 				MaxFee:             new(felt.Felt).SetUint64(6),
 				ContractAddress:    new(felt.Felt).SetUint64(7),
@@ -86,16 +86,16 @@ func TestTransactionEncoding(t *testing.T) {
 					ContractAddressSalt: new(felt.Felt).SetUint64(2),
 					ContractAddress:     new(felt.Felt).SetUint64(3),
 					ClassHash:           new(felt.Felt).SetUint64(4),
-					ConstructorCallData: []*felt.Felt{
-						new(felt.Felt).SetUint64(5),
-						new(felt.Felt).SetUint64(6),
+					ConstructorCallData: []felt.Felt{
+						felt.FromUint64[felt.Felt](5),
+						felt.FromUint64[felt.Felt](6),
 					},
 					Version: new(core.TransactionVersion).SetUint64(7),
 				},
 				MaxFee: new(felt.Felt).SetUint64(8),
-				TransactionSignature: []*felt.Felt{
-					new(felt.Felt).SetUint64(9),
-					new(felt.Felt).SetUint64(10),
+				TransactionSignature: []felt.Felt{
+					felt.FromUint64[felt.Felt](9),
+					felt.FromUint64[felt.Felt](10),
 				},
 				Nonce: new(felt.Felt).SetUint64(11),
 			},
@@ -107,9 +107,9 @@ func TestTransactionEncoding(t *testing.T) {
 				ContractAddress:    new(felt.Felt).SetUint64(2),
 				EntryPointSelector: new(felt.Felt).SetUint64(3),
 				Nonce:              new(felt.Felt).SetUint64(4),
-				CallData: []*felt.Felt{
-					new(felt.Felt).SetUint64(5),
-					new(felt.Felt).SetUint64(6),
+				CallData: []felt.Felt{
+					felt.FromUint64[felt.Felt](5),
+					felt.FromUint64[felt.Felt](6),
 				},
 				Version: new(core.TransactionVersion).SetUint64(7),
 			},
@@ -328,11 +328,13 @@ func TestMessageHash(t *testing.T) {
 				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x02d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
 				Nonce:              felt.NewUnsafeFromString[felt.Felt]("0xbf0dd"),
-				CallData: []*felt.Felt{
-					felt.NewUnsafeFromString[felt.Felt]("0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e"),
-					felt.NewUnsafeFromString[felt.Felt]("0x3efc988748484820f1c157fb48e218d39cadc07a662482d3875d37445b3c082"),
-					felt.NewUnsafeFromString[felt.Felt]("0x11c37937e08000"),
-					felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				CallData: []felt.Felt{
+					felt.UnsafeFromString[felt.Felt]("0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e"),
+					felt.UnsafeFromString[felt.Felt](
+						"0x3efc988748484820f1c157fb48e218d39cadc07a662482d3875d37445b3c082",
+					),
+					felt.UnsafeFromString[felt.Felt]("0x11c37937e08000"),
+					felt.UnsafeFromString[felt.Felt]("0x0"),
 				},
 			},
 		},
@@ -341,10 +343,10 @@ func TestMessageHash(t *testing.T) {
 			tx: &core.L1HandlerTransaction{
 				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac"),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b"),
-				CallData: []*felt.Felt{
-					felt.NewUnsafeFromString[felt.Felt]("0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
-					felt.NewUnsafeFromString[felt.Felt]("0x8c1e1e5b47980d214965f3bd8ea34c413e120ae4"),
-					felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				CallData: []felt.Felt{
+					felt.UnsafeFromString[felt.Felt]("0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
+					felt.UnsafeFromString[felt.Felt]("0x8c1e1e5b47980d214965f3bd8ea34c413e120ae4"),
+					felt.UnsafeFromString[felt.Felt]("0x1"),
 				},
 			},
 		},
@@ -380,7 +382,7 @@ func TestContractAddress(t *testing.T) {
 		callerAddress       *felt.Felt
 		classHash           *felt.Felt
 		salt                *felt.Felt
-		constructorCallData []*felt.Felt
+		constructorCallData []felt.Felt
 		want                *felt.Felt
 	}{
 		{
@@ -392,18 +394,18 @@ func TestContractAddress(t *testing.T) {
 			salt: felt.NewUnsafeFromString[felt.Felt](
 				"0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b",
 			),
-			constructorCallData: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			constructorCallData: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt]("0x2"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328",
 				),
 			},

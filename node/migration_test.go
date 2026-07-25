@@ -35,7 +35,7 @@ func TestFetchL1HeadIfMissing_WrapsL1ClientError(t *testing.T) {
 	database := memory.New()
 	cfg := &Config{EthNode: ""}
 	err := fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger())
-	require.ErrorContains(t, err, "creating a new L1 client")
+	require.ErrorContains(t, err, "creating L1 state provider")
 }
 
 func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
@@ -45,5 +45,5 @@ func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
 		Network: networks.Sepolia,
 	}
 	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
-	require.ErrorContains(t, err, "fetch L1 head for pruning")
+	require.ErrorContains(t, err, "fetching L1 head for pruning")
 }

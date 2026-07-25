@@ -93,7 +93,7 @@ func TestGetMessageStatus(t *testing.T) {
 
 			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(), gomock.Any(),
-			).Return(&test.l1TxnReceipt, nil)
+			).Return(test.l1TxnReceipt, nil)
 			for i, msg := range test.msgs {
 				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(
 					*msg.L1HandlerHash,

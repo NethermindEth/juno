@@ -98,7 +98,7 @@ func StoreBlockWithTimestamp(
 		ContractAddress:    felt.NewRandom[felt.Felt](),
 		EntryPointSelector: felt.NewRandom[felt.Felt](),
 		Nonce:              felt.NewFromUint64[felt.Felt](blockNum),
-		CallData:           []*felt.Felt{felt.NewRandom[felt.Felt](), felt.NewRandom[felt.Felt]()},
+		CallData:           []felt.Felt{felt.Random[felt.Felt](), felt.Random[felt.Felt]()},
 		Version:            new(core.TransactionVersion).SetUint64(3),
 	}
 

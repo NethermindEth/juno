@@ -209,7 +209,6 @@ func AdaptReceiptWithBlockInfo(
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
-	// Assign block number for canonical, pre_latest and pre_confirmed block
 	adaptedReceipt.BlockNumber = &blockNumber
 	adaptedReceipt.BlockHash = blockHash
 
@@ -352,7 +351,7 @@ func adaptContractClassToStarknet(class *ContractClass) starknet.SierraClass {
 	return starknet.SierraClass{
 		Abi:     class.ABI,
 		Version: class.ContractClassVersion,
-		Program: utils.ToPtrSlice(class.SierraProgram),
+		Program: class.SierraProgram,
 		EntryPoints: starknet.SierraEntryPoints{
 			Constructor: handleEntryPoints(class.EntryPoints.Constructor),
 			External:    handleEntryPoints(class.EntryPoints.External),

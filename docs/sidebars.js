@@ -38,9 +38,9 @@ const sidebars = {
         },
       ],
     },
+    "snapshots",
     "staking-validator",
     "monitoring",
-    "snapshots",
     "faq",
   ],
 };

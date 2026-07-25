@@ -76,7 +76,7 @@ func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    AdaptFelt(m.FromAddress),
 		To:      AdaptEthAddress(m.ToAddress),
-		Payload: utils.Map(m.Payload, AdaptFelt),
+		Payload: AdaptFeltSlice(m.Payload),
 	}
 }
 

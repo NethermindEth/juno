@@ -281,16 +281,16 @@ type Transaction struct {
 	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]felt.Felt          `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
-	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	Signature             *[]felt.Felt          `json:"signature,omitempty" validate:"required"`
+	CallData              *[]felt.Felt          `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
 	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
 	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
-	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	PaymasterData         *[]felt.Felt          `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *[]felt.Felt          `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
 	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
 	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
 }
@@ -302,9 +302,9 @@ type TransactionStatus struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt   `json:"from_address,omitempty"`
-	To      eth.Address  `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	From    *felt.Felt  `json:"from_address,omitempty"`
+	To      eth.Address `json:"to_address"`
+	Payload []felt.Felt `json:"payload"`
 }
 
 type ComputationResources struct {
@@ -533,9 +533,9 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
-	// Check the pre-confirmed block first
-	if preConfirmed, err := h.syncReader.PreConfirmed(); err == nil {
-		if txn, err := preConfirmed.TransactionByHash(hash); err == nil {
+	// Check the pre-confirmed chain first.
+	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+		if txn, err := chain.TransactionByHash(hash); err == nil {
 			return AdaptTransaction(txn), nil
 		}
 	}
@@ -566,16 +566,17 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		preConfirmed, err := h.syncReader.PreConfirmed()
+		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) >= preConfirmed.GetBlock().TransactionCount {
+		tipBlock := chain.Head().Block
+		if uint64(txIndex) >= tipBlock.TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(preConfirmed.GetBlock().Transactions[txIndex]), nil
+		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
 	case latest:
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
@@ -612,17 +613,17 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *jsonrpc.Error) {
-	preConfirmed, err := h.syncReader.PreConfirmed()
+	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	receipt, _, blockNumber, err := preConfirmed.ReceiptByHash(hash)
+	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	txn, err := preConfirmed.TransactionByHash(hash)
+	txn, err := chain.TransactionByHash(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -865,7 +866,7 @@ func (h *Handler) TransactionStatus(
 			}
 		}
 
-		status, err := AdaptTransactionStatus(txStatus)
+		status, err := AdaptTransactionStatus(&txStatus)
 		if err != nil {
 			if !errors.Is(err, ErrTransactionNotFound) {
 				h.logger.Error("Failed to adapt transaction status", zap.Error(err))
@@ -979,7 +980,7 @@ func AdaptReceiptWithBlockInfo(
 ) *TransactionReceipt {
 	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
 
-	// Assign block number for canonical, pre_latest and pre_confirmed block
+	// Assign block number for canonical and pre_confirmed block
 	adaptedReceipt.BlockNumber = &blockNumber
 	adaptedReceipt.BlockHash = blockHash
 

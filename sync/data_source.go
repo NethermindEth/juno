@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -17,19 +16,23 @@ type CommittedBlock struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
 	NewClasses  map[felt.Felt]core.ClassDefinition
-	Persisted   chan struct{} // This is used to signal that the block has been persisted
+	Persisted   chan error // This is used to signal whether the block was persisted successfully
 }
 
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
-	BlockPreLatest(ctx context.Context) (pending.PreLatest, error)
 	PreConfirmedBlockByNumber(
 		ctx context.Context,
 		blockNumber uint64,
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
+	PreConfirmedBlockLatest(
+		ctx context.Context,
+		blockIdentifier string,
+		knownTransactionCount uint64,
+	) (starknet.PreConfirmedUpdate, uint64, error)
 }
 
 type feederGatewayDataSource struct {
@@ -59,7 +62,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 		Block:       block,
 		StateUpdate: stateUpdate,
 		NewClasses:  newClasses,
-		Persisted:   make(chan struct{}),
+		Persisted:   make(chan error, 1),
 	}, nil
 }
 
@@ -69,24 +72,6 @@ func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.
 		return nil, err
 	}
 	return &header, nil
-}
-
-func (f *feederGatewayDataSource) BlockPreLatest(ctx context.Context) (pending.PreLatest, error) {
-	pendingStateUpdate, pendingBlock, err := f.starknetData.StateUpdatePendingWithBlock(ctx)
-	if err != nil {
-		return pending.PreLatest{}, err
-	}
-
-	newClasses, err := f.fetchUnknownClasses(ctx, pendingStateUpdate)
-	if err != nil {
-		return pending.PreLatest{}, err
-	}
-
-	return pending.PreLatest{
-		Block:       pendingBlock,
-		StateUpdate: pendingStateUpdate,
-		NewClasses:  newClasses,
-	}, nil
 }
 
 func (f *feederGatewayDataSource) fetchUnknownClasses(
@@ -156,4 +141,12 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 		blockIdentifier,
 		knownTransactionCount,
 	)
+}
+
+func (f *feederGatewayDataSource) PreConfirmedBlockLatest(
+	ctx context.Context,
+	blockIdentifier string,
+	knownTransactionCount uint64,
+) (starknet.PreConfirmedUpdate, uint64, error) {
+	return f.starknetData.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
 }

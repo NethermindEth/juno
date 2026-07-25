@@ -2,6 +2,7 @@ package driver_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 
 func TestOnCommit_DropsProposalsAtCommittedHeight(t *testing.T) {
 	proposalStore := &proposal.ProposalStore[starknet.Hash]{}
-	listener := driver.NewCommitListener[starknet.Value, starknet.Hash](
+	listener := driver.NewCommitListener[starknet.Value](
 		log.NewNopZapLogger(),
 		proposalStore,
 	)
@@ -45,12 +46,50 @@ func TestOnCommit_DropsProposalsAtCommittedHeight(t *testing.T) {
 	}()
 
 	block := <-listener.Listen()
-	close(block.Persisted)
+	block.Persisted <- nil
 	<-done
 
 	require.Nil(t, proposalStore.Get(committedValue.Hash()))
 	require.Nil(t, proposalStore.Get(losingValue.Hash()))
 	require.NotNil(t, proposalStore.Get(nextHeightValue.Hash()))
+}
+
+type testCommitHook struct {
+	called chan struct{}
+}
+
+func (h *testCommitHook) OnCommit(context.Context, types.Height, starknet.Value) {
+	h.called <- struct{}{}
+}
+
+func TestCommitListenerOnCommitReturnsFalseWhenPersistenceFails(t *testing.T) {
+	committedHeight := types.Height(1)
+	value := felt.FromUint64[starknet.Value](1)
+	store := &proposal.ProposalStore[starknet.Hash]{}
+	store.Store(value.Hash(), buildResultAtHeight(uint64(committedHeight)))
+
+	hook := &testCommitHook{called: make(chan struct{}, 1)}
+	listener := driver.NewCommitListener(
+		log.NewNopZapLogger(),
+		store,
+		hook,
+	)
+
+	resultCh := make(chan bool, 1)
+	go func() {
+		resultCh <- listener.OnCommit(context.Background(), committedHeight, value)
+	}()
+
+	committedBlock := <-listener.Listen()
+	committedBlock.Persisted <- errors.New("store failed")
+
+	require.False(t, <-resultCh)
+
+	select {
+	case <-hook.called:
+		t.Fatal("commit hook should not run when persistence fails")
+	default:
+	}
 }
 
 func buildResultAtHeight(blockNumber uint64) *builder.BuildResult {

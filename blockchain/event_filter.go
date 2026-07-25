@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/pruner"
 )
@@ -32,7 +31,7 @@ type EventFilter struct {
 	toBlock        uint64
 	matcher        EventMatcher
 	maxScanned     uint // maximum number of scanned blocks in single call.
-	preConfirmedFn func() (*pending.PreConfirmed, error)
+	preConfirmedFn func() (PreConfirmedReader, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
 }
@@ -44,12 +43,15 @@ const (
 	EventFilterTo
 )
 
+// PreConfirmedFilterSentinel marks a filter block bound as the pre_confirmed tag.
+const PreConfirmedFilterSentinel uint64 = math.MaxUint64
+
 func newEventFilter(
 	database db.KeyValueStore,
 	contractAddresses []felt.Address,
 	keys [][]felt.Felt,
 	fromBlock, toBlock uint64,
-	preConfirmedFn func() (*pending.PreConfirmed, error),
+	preConfirmedFn func() (PreConfirmedReader, error),
 	cachedFilters *AggregatedBloomFilterCache,
 	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
@@ -92,11 +94,11 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 	filterRange EventFilterRange,
 	blockHash *felt.Felt,
 ) error {
-	header, err := core.GetBlockHeaderByHash(e.database, blockHash)
+	blockNum, err := core.GetBlockHeaderNumberByHash(e.database, blockHash)
 	if err != nil {
 		return err
 	}
-	return e.SetRangeEndBlockByNumber(filterRange, header.Number)
+	return e.SetRangeEndBlockByNumber(filterRange, blockNum)
 }
 
 // SetRangeEndBlockToL1Head sets an end of the block range to latest `l1_accepted` block
@@ -133,14 +135,8 @@ func (c *ContinuationToken) FromString(str string) error {
 
 type FilteredEvent struct {
 	*core.Event
-	BlockNumber *uint64
-	BlockHash   *felt.Felt
-	// BlockParentHash is used to distinguish pre_latest from pre_confirmed blocks
-	// when assigning finality status.
-	// If BlockNumber > latest_canonical_block_number or block hash is nil:
-	//   - BlockParentHash == nil indicates pre_confirmed block
-	//   - BlockParentHash != nil indicates pre_latest block
-	BlockParentHash  *felt.Felt
+	BlockNumber      *uint64
+	BlockHash        *felt.Felt
 	TransactionHash  *felt.Felt
 	TransactionIndex uint
 	EventIndex       uint
@@ -150,7 +146,17 @@ func (e *EventFilter) Events(
 	cToken *ContinuationToken,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	var matchedEvents []FilteredEvent
+	// Read pre_confirmed before latest. If latest were read first, the head could
+	// advance before this fetch, leaving blocks committed in between scanned by
+	// neither the canonical range (stopped at the stale latest) nor pre_confirmed
+	// (based above them), a gap. This order makes latest >= the snapshot's base,
+	// so the ranges overlap instead. Pinning a fixed head wouldn't help: once a
+	// block commits, SnapshotForBlock trims it, so a stale head yields an empty
+	// view. On error, drop it and serve canonical only.
+	preConfirmed, err := e.preConfirmedFn()
+	if err != nil {
+		preConfirmed = nil
+	}
 
 	latest, err := core.GetChainHeight(e.database)
 	if err != nil {
@@ -174,6 +180,7 @@ func (e *EventFilter) Events(
 		}
 	}
 
+	var matchedEvents []FilteredEvent
 	// Case [canonicalBlock, canonicalBlock]
 	if e.toBlock <= latest {
 		return e.canonicalEvents(
@@ -206,8 +213,15 @@ func (e *EventFilter) Events(
 		skippedEvents = 0
 	}
 
-	// Case [canonicalBlock, pre-confirmed] || [pre-confirmed, pre-confirmed]
-	return e.pendingEvents(matchedEvents, startBlock, skippedEvents, chunkSize)
+	// Case [canonicalBlock, pre-confirmed] || [pre-confirmed, pre-confirmed].
+	return e.preConfirmedEvents(
+		matchedEvents,
+		preConfirmed,
+		startBlock,
+		latest,
+		skippedEvents,
+		chunkSize,
+	)
 }
 
 func (e *EventFilter) canonicalEvents(
@@ -230,30 +244,31 @@ func (e *EventFilter) canonicalEvents(
 
 	var lastProccessedBlock uint64
 	for {
-		curBlock, ok, err := matchedBlockIter.Next()
+		curBlockNum, ok, err := matchedBlockIter.Next()
 		if !ok {
+			// iteration complete
 			if err == nil {
 				break
 			}
+
 			// If max scans exhausted end of block
 			if errors.Is(err, ErrMaxScannedBlockLimitExceed) {
 				// Next candidate block for continuation token
-				lastProccessedBlock = curBlock
+				lastProccessedBlock = curBlockNum
 				break
 			}
 			return nil, ContinuationToken{}, err
 		}
 
-		lastProccessedBlock = curBlock
+		lastProccessedBlock = curBlockNum
 
-		var header *core.Header
-		header, err = core.GetBlockHeaderByNumber(e.database, curBlock)
+		curBlockHash, err := core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
 
 		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.database, header.Number)
+		receipts, err = core.GetReceiptsByBlockNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
@@ -261,16 +276,16 @@ func (e *EventFilter) canonicalEvents(
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
-			header,
+			curBlockNum,
+			curBlockHash,
 			receipts,
 			skippedEvents,
 			chunkSize,
-			false,
 		)
 		if err != nil {
 			// Max events to scan exhausted mid block, continue from next unprocessed event
 			if errors.Is(err, errChunkSizeReached) {
-				cToken := ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
+				cToken := ContinuationToken{fromBlock: curBlockNum, processedEvents: processedEvents}
 				return matchedEvents, cToken, nil
 			}
 			return nil, ContinuationToken{}, err
@@ -281,7 +296,9 @@ func (e *EventFilter) canonicalEvents(
 	}
 
 	// If max scans exhausted end of block
-	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned && lastProccessedBlock <= e.toBlock {
+	maxScanReachedPrematurely := matchedBlockIter.scannedCount > matchedBlockIter.maxScanned &&
+		lastProccessedBlock <= e.toBlock
+	if maxScanReachedPrematurely {
 		cToken := ContinuationToken{fromBlock: lastProccessedBlock, processedEvents: 0}
 		return matchedEvents, cToken, nil
 	}
@@ -289,112 +306,71 @@ func (e *EventFilter) canonicalEvents(
 	return matchedEvents, ContinuationToken{}, nil
 }
 
-// pendingEvents processes pending events
-// Returns events from pre-latest block and pre-confirmed block
-// Support access to pre-confirmed block in isolation when fromBlock > preLatest.Block.Number
-func (e *EventFilter) pendingEvents(
+// preConfirmedEvents processes pending events across every pre-confirmed block in
+// the chain (head+1 .. tip), oldest-first. fromBlock and the continuation
+// token's fromBlock select where to resume; the token's processedEvents
+// counter applies to the resume block only.
+func (e *EventFilter) preConfirmedEvents(
 	matchedEvents []FilteredEvent,
+	preConfirmed PreConfirmedReader,
 	fromBlock,
+	latest,
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	preConfirmed, err := e.preConfirmedFn()
-	if err != nil {
-		if errors.Is(err, pending.ErrPreConfirmedNotFound) {
-			return matchedEvents, ContinuationToken{}, nil
-		}
-		return nil, ContinuationToken{}, err
+	if preConfirmed == nil || preConfirmed.Length() == 0 {
+		return matchedEvents, ContinuationToken{}, nil
 	}
 
-	preLatest := preConfirmed.GetPreLatest()
-	if preLatest != nil && fromBlock <= preLatest.Block.Number {
-		var cToken ContinuationToken
-		var err error
-		matchedEvents, cToken, err = e.processPreLatestBlock(
+	// fromBlock = PreConfirmedFilterSentinel is the sentinel for "BlockID =
+	// preConfirmed". The pre_confirmed tag refers to the single most recent block,
+	// so pin fromBlock to the tip and let the per-block skip below drop the rest of
+	// the chain.
+	if fromBlock == PreConfirmedFilterSentinel {
+		fromBlock = preConfirmed.Head().Block.Number
+	}
+
+	var err error
+	for entry := range preConfirmed.OldestFirst() {
+		blockNumber := entry.Block.Number
+		// Skip blocks the canonical scan already covered (numbers <= latest, an
+		// overlap opened by a head advance mid-query) and blocks below the resume
+		// point.
+		if blockNumber <= latest || blockNumber < fromBlock {
+			continue
+		}
+		if blockNumber > e.toBlock {
+			break
+		}
+
+		header := entry.GetHeader()
+		if !e.matcher.TestBloom(header.EventsBloom) {
+			// Skipped events are scoped to the resume block; once we step past
+			// it, reset so later blocks aren't under-counted.
+			skippedEvents = 0
+			continue
+		}
+
+		var processedEvents uint64
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
-			preLatest.Block,
+			blockNumber,
+			header.Hash,
+			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
 		)
 		if err != nil {
+			if errors.Is(err, errChunkSizeReached) {
+				cToken := ContinuationToken{
+					fromBlock:       blockNumber,
+					processedEvents: processedEvents,
+				}
+				return matchedEvents, cToken, nil
+			}
 			return nil, ContinuationToken{}, err
 		}
-
-		if !cToken.IsEmpty() {
-			return matchedEvents, cToken, nil
-		}
 		skippedEvents = 0
-	}
-	// Process pre-confirmed block
-	return e.processPreConfirmedBlock(matchedEvents, preConfirmed, skippedEvents, chunkSize)
-}
-
-// processPreLatestBlock processes pre-latest block events
-func (e *EventFilter) processPreLatestBlock(
-	matchedEvents []FilteredEvent,
-	preLatest *core.Block,
-	skippedEvents,
-	chunkSize uint64,
-) ([]FilteredEvent, ContinuationToken, error) {
-	if !e.matcher.TestBloom(preLatest.EventsBloom) {
-		return matchedEvents, ContinuationToken{}, nil
-	}
-
-	var processedEvents uint64
-	var err error
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
-		matchedEvents,
-		preLatest.Header,
-		preLatest.Receipts,
-		skippedEvents,
-		chunkSize,
-		true,
-	)
-	if err != nil {
-		if errors.Is(err, errChunkSizeReached) {
-			cToken := ContinuationToken{
-				fromBlock:       preLatest.Number,
-				processedEvents: processedEvents,
-			}
-			return matchedEvents, cToken, nil
-		}
-		return nil, ContinuationToken{}, err
-	}
-
-	return matchedEvents, ContinuationToken{}, nil
-}
-
-// processPreConfirmedBlock processes pre-confirmed block events
-func (e *EventFilter) processPreConfirmedBlock(
-	matchedEvents []FilteredEvent,
-	preConfirmed *pending.PreConfirmed,
-	skippedEvents,
-	chunkSize uint64,
-) ([]FilteredEvent, ContinuationToken, error) {
-	pendingHeader := preConfirmed.GetHeader()
-	if !e.matcher.TestBloom(pendingHeader.EventsBloom) {
-		return matchedEvents, ContinuationToken{}, nil
-	}
-
-	var processedEvents uint64
-	var err error
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
-		matchedEvents,
-		pendingHeader,
-		preConfirmed.GetBlock().Receipts,
-		skippedEvents,
-		chunkSize,
-		false,
-	)
-	if err != nil {
-		if errors.Is(err, errChunkSizeReached) {
-			cToken := ContinuationToken{
-				fromBlock:       preConfirmed.GetBlock().Number,
-				processedEvents: processedEvents,
-			}
-			return matchedEvents, cToken, nil
-		}
-		return nil, ContinuationToken{}, err
 	}
 
 	return matchedEvents, ContinuationToken{}, nil

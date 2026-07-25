@@ -51,8 +51,7 @@ func (s *State) putNewContract(
 		return err
 	}
 
-	numBytes := core.MarshalBlockNumber(blockNumber)
-	if err = s.txn.Put(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
+	if err = core.WriteContractDeploymentHeight(s.txn, addr, blockNumber); err != nil {
 		return err
 	}
 
@@ -127,7 +126,7 @@ func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 		return storageRoot, nil
 	}
 
-	root := crypto.PoseidonArray(stateVersion, &storageRoot, &classesRoot)
+	root := crypto.PoseidonElems(stateVersion, &storageRoot, &classesRoot)
 	return root, nil
 }
 
@@ -610,12 +609,7 @@ func (s *State) updateDeclaredClassesTrie(
 
 // ContractDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
-	var deployedAt uint64
-
-	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
-		deployedAt = binary.BigEndian.Uint64(data)
-		return nil
-	})
+	deployedAt, err := core.GetContractDeploymentHeight(s.txn, addr)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
@@ -763,7 +757,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if err = s.txn.Delete(db.ContractDeploymentHeightKey(addr)); err != nil {
+	if err = core.DeleteContractDeploymentHeight(s.txn, addr); err != nil {
 		return err
 	}
 

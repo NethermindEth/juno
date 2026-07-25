@@ -807,7 +807,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), time.Duration(0), false, testDB)
+	synchronizer := sync.New(bc, dataSource, logger, time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))
@@ -1007,6 +1007,6 @@ func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot
 	if classRoot.IsZero() {
 		assert.Equal(t, globalStateRoot, storageRoot)
 	} else {
-		assert.Equal(t, globalStateRoot, crypto.PoseidonArray(stateVersion, storageRoot, classRoot))
+		assert.Equal(t, globalStateRoot, crypto.PoseidonElems(stateVersion, storageRoot, classRoot))
 	}
 }

@@ -264,7 +264,10 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.EventListener {
+// makeL1Metrics registers the chain-reader gauges and returns the shared
+// EventListener. L1 height gauges are registered separately by
+// registerL1Metrics so the listener can be attached at construction.
+func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "l2_finalised_height",
@@ -277,36 +280,6 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.Ev
 		return float64(l1Head.BlockNumber)
 	})
 	prometheus.MustRegister(l2BlockFinalizedOnL1)
-
-	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "l1",
-		Name:      "finalised_height",
-		Help:      "Current L1 (Ethereum) finalised blockchain height",
-	}, func() float64 {
-		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
-		defer cancel()
-		height, err := l1Subscriber.FinalisedHeight(ctx)
-		if err != nil {
-			return 0
-		}
-		return float64(height)
-	})
-	prometheus.MustRegister(l1Height)
-
-	l1LatestHeight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "l1",
-		Name:      "latest_height",
-		Help:      "Current latest L1 (Ethereum) blockchain height",
-	}, func() float64 {
-		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
-		defer cancel()
-		height, err := l1Subscriber.LatestHeight(ctx)
-		if err != nil {
-			return 0
-		}
-		return float64(height)
-	})
-	prometheus.MustRegister(l1LatestHeight)
 
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "l1",
@@ -321,6 +294,41 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.Ev
 			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
 		},
 	}
+}
+
+// registerL1Metrics registers the L1 height gauges that poll the provider.
+// Kept separate from makeL1Metrics so the provider can be constructed with
+// its listener already attached.
+func registerL1Metrics(provider l1.L1StateProvider) {
+	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "finalised_height",
+		Help:      "Current L1 (Ethereum) finalised blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := provider.FinalisedHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
+	prometheus.MustRegister(l1Height)
+
+	l1LatestHeight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "latest_height",
+		Help:      "Current latest L1 (Ethereum) blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := provider.LatestHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
+	prometheus.MustRegister(l1LatestHeight)
 }
 
 func makeFeederMetrics() feeder.EventListener {

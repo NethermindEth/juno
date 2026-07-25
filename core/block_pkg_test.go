@@ -23,10 +23,10 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
-		signatures := [][]*felt.Felt{
+		signatures := [][]felt.Felt{
 			nil,
 			{},
-			{felt.NewFromUint64[felt.Felt](3)},
+			{felt.FromUint64[felt.Felt](3)},
 		}
 		txs := make([]Transaction, 0, len(signatures)*3)
 
@@ -88,10 +88,10 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
-		signatures := [][]*felt.Felt{
+		signatures := [][]felt.Felt{
 			nil,
 			{},
-			{felt.NewFromUint64[felt.Felt](3)},
+			{felt.FromUint64[felt.Felt](3)},
 		}
 		txs := make([]Transaction, 0, len(signatures)*3)
 

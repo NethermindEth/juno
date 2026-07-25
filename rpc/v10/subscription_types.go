@@ -131,8 +131,3 @@ type SubscriptionTransactionStatus struct {
 	TransactionHash *felt.Felt        `json:"transaction_hash"`
 	Status          TransactionStatus `json:"status"`
 }
-
-type SentReceipt struct {
-	TransactionHash  felt.Felt
-	TransactionIndex int
-}

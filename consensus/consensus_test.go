@@ -159,7 +159,6 @@ func initNode(
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		dht, err := dht.New(
-			t.Context(),
 			syncNode.Host,
 			&network,
 			starknetp2p.SyncProtocolID,
@@ -206,7 +205,7 @@ func writeBlock(
 			require.NoError(t, err)
 			require.NoError(t, bc.Store(committedBlock.Block, commitments, committedBlock.StateUpdate, committedBlock.NewClasses))
 
-			close(committedBlock.Persisted)
+			committedBlock.Persisted <- nil
 
 			commit := commit{
 				nodeIndex:      index,
@@ -371,6 +370,10 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 }
 
 func TestTendermintCluster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow cluster test; run via FULL_TESTS=true make test")
+	}
+
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    4,
 		targetHeight: 60,

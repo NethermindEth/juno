@@ -75,7 +75,7 @@ func TestSyncing(t *testing.T) {
 			},
 			nil,
 		)
-		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
+		mockReader.EXPECT().BlockHeaderHashByNumber(startingBlock).Return(&felt.Zero, nil)
 
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)
@@ -99,7 +99,7 @@ func TestSyncing(t *testing.T) {
 			},
 			nil,
 		)
-		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(nil, errors.New("pruned"))
+		mockReader.EXPECT().BlockHeaderHashByNumber(startingBlock).Return(nil, errors.New("pruned"))
 
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)

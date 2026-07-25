@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
@@ -17,6 +18,16 @@ type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
 }
 
+// PreConfirmedReader is the subset of the preconfirmed.ChainReader API the
+// blockchain's EventFilter needs. Declared here to keep blockchain free of a
+// cyclic dependency on the sync/preconfirmed package (the poller already
+// imports blockchain).
+type PreConfirmedReader interface {
+	Length() int
+	Head() *pending.PreConfirmed
+	OldestFirst() iter.Seq[*pending.PreConfirmed]
+}
+
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
 	Height() (height uint64, err error)
@@ -29,7 +40,9 @@ type Reader interface {
 
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
+	BlockHeaderHashByNumber(number uint64) (blockHash *felt.Felt, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+	BlockTransactionCountByNumber(number uint64) (count uint64, err error)
 
 	BlockNumberByHash(hash *felt.Felt) (uint64, error)
 	BlockNumberAndIndexByTxHash(
@@ -42,7 +55,9 @@ type Reader interface {
 	) (transaction core.Transaction, err error)
 	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
 
-	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+	Receipt(
+		hash *felt.Felt,
+	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	ReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
@@ -60,7 +75,7 @@ type Reader interface {
 	EventFilter(
 		addresses []felt.Address,
 		keys [][]felt.Felt,
-		preConfirmedFn func() (*pending.PreConfirmed, error),
+		preConfirmedFn func() (PreConfirmedReader, error),
 	) (EventFilterer, error)
 
 	Network() *networks.Network
@@ -191,6 +206,21 @@ func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 	b.listener.OnRead("BlockHeaderByNumber")
 	return core.GetBlockHeaderByNumber(b.database, number)
+}
+
+func (b *Blockchain) BlockTransactionCountByNumber(number uint64) (uint64, error) {
+	b.listener.OnRead("BlockTransactionCountByNumber")
+	return core.GetBlockTransactionCountByNumber(b.database, number)
+}
+
+func (b *Blockchain) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockHeaderHashByNumber")
+	return core.GetBlockHeaderHashByNumber(b.database, number)
+}
+
+func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("GlobalStateRootByBlockNumber")
+	return core.GetGlobalStateRootByBlockNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
@@ -376,7 +406,7 @@ func (b *Blockchain) StateAtBlockHash(
 func (b *Blockchain) EventFilter(
 	addresses []felt.Address,
 	keys [][]felt.Felt,
-	preConfirmedFn func() (*pending.PreConfirmed, error),
+	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)

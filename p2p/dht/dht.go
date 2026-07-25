@@ -1,7 +1,6 @@
 package dht
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -13,14 +12,12 @@ import (
 )
 
 func New(
-	ctx context.Context,
 	host host.Host,
 	network *networks.Network,
 	starknetProtocol starknetp2p.Protocol,
 	bootstrapPeersFn func() []peer.AddrInfo,
 ) (*dht.IpfsDHT, error) {
 	return dht.New(
-		ctx,
 		host,
 		append(
 			starknetp2p.DHT(network, starknetProtocol),

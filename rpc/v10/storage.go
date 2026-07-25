@@ -105,21 +105,29 @@ func (h *Handler) StorageAt(
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
-	// This checks if the contract exists because if a key doesn't exist in contract storage,
-	// the returned value is always zero and error is nil.
-	_, err := stateReader.ContractClassHash(addressFelt)
+	value, err := stateReader.ContractStorage(addressFelt, key)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
 		}
-		h.logger.Error("Failed to get contract class hash", zap.Error(err))
+		h.logger.Error("Failed to get contract storage", zap.Error(err))
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	result.Value, err = stateReader.ContractStorage(addressFelt, key)
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+	// Head readers return zero for a missing contract, so probe the class hash to
+	// tell it apart from an unset slot. Other readers already return ErrKeyNotFound.
+	// Genesis pre_confirmed case is ignored deliberately
+	if value.IsZero() && id.IsLatest() {
+		if _, err := stateReader.ContractClassHash(addressFelt); err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return nil, rpccore.ErrContractNotFound
+			}
+			h.logger.Error("Failed to get contract class hash", zap.Error(err))
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
 	}
+
+	result.Value = value
 
 	if !flags.IncludeLastUpdateBlock {
 		return &result, nil
@@ -170,7 +178,7 @@ func (h *Handler) StorageProof(
 	// transaction to get the block number. We don't use the head query directly to avoid
 	// race condition where there is a new incoming block. Currently it's still working
 	// because we don't have revert yet. We should figure out a way to merge the two transactions.
-	header, err := h.bcReader.BlockHeaderByNumber(chainHeight)
+	blockHash, err := h.bcReader.BlockHeaderHashByNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -233,7 +241,7 @@ func (h *Handler) StorageProof(
 		GlobalRoots: &GlobalRoots{
 			ContractsTreeRoot: &contractTreeRoot,
 			ClassesTreeRoot:   &classTreeRoot,
-			BlockHash:         header.Hash,
+			BlockHash:         blockHash,
 		},
 	}, nil
 }
@@ -279,14 +287,14 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	case blockID.IsPreConfirmed():
 		return rpccore.ErrCallOnPreConfirmed
 	case blockID.IsHash():
-		header, err := h.bcReader.BlockHeaderByHash(blockID.Hash())
+		num, err := h.bcReader.BlockNumberByHash(blockID.Hash())
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return rpccore.ErrBlockNotFound
 			}
 			return rpccore.ErrInternal.CloneWithData(err)
 		}
-		blockNumber = header.Number
+		blockNumber = num
 	case blockID.IsNumber():
 		blockNumber = blockID.Number()
 	case blockID.IsL1Accepted():

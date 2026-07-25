@@ -16,7 +16,6 @@ import (
 	networks "github.com/NethermindEth/juno/blockchain/networks"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	pending "github.com/NethermindEth/juno/core/pending"
 	eth "github.com/NethermindEth/juno/l1/eth"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -120,6 +119,21 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), number)
 }
 
+// BlockHeaderHashByNumber mocks base method.
+func (m *MockReader) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockHeaderHashByNumber", number)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockHeaderHashByNumber indicates an expected call of BlockHeaderHashByNumber.
+func (mr *MockReaderMockRecorder) BlockHeaderHashByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderHashByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderHashByNumber), number)
+}
+
 // BlockNumberAndIndexByTxHash mocks base method.
 func (m *MockReader) BlockNumberAndIndexByTxHash(hash *felt.TransactionHash) (uint64, uint64, error) {
 	m.ctrl.T.Helper()
@@ -151,8 +165,23 @@ func (mr *MockReaderMockRecorder) BlockNumberByHash(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockNumberByHash", reflect.TypeOf((*MockReader)(nil).BlockNumberByHash), hash)
 }
 
+// BlockTransactionCountByNumber mocks base method.
+func (m *MockReader) BlockTransactionCountByNumber(number uint64) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockTransactionCountByNumber", number)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockTransactionCountByNumber indicates an expected call of BlockTransactionCountByNumber.
+func (mr *MockReaderMockRecorder) BlockTransactionCountByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockTransactionCountByNumber", reflect.TypeOf((*MockReader)(nil).BlockTransactionCountByNumber), number)
+}
+
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (*pending.PreConfirmed, error)) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(addresses []felt.Address, keys [][]felt.Felt, preConfirmedFn func() (blockchain.PreConfirmedReader, error)) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", addresses, keys, preConfirmedFn)
 	ret0, _ := ret[0].(blockchain.EventFilterer)

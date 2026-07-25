@@ -27,13 +27,14 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		return stateDiff, nil
 	}
 
-	header, err := bc.BlockHeaderByNumber(blockNumber - core.BlockHashLag)
+	targetBlock := blockNumber - core.BlockHashLag
+	blockHash, err := bc.BlockHeaderHashByNumber(targetBlock)
 	if err != nil {
 		return nil, err
 	}
 
 	stateDiff.StorageDiffs[*core.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
-		*new(felt.Felt).SetUint64(header.Number): header.Hash,
+		*new(felt.Felt).SetUint64(targetBlock): blockHash,
 	}
 	return stateDiff, nil
 }
@@ -118,61 +119,4 @@ func MakeEmptyPreConfirmedForParent(
 	}
 
 	return preConfirmed, nil
-}
-
-// ResolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
-func ResolvePreConfirmedBaseState(
-	preConfirmed *pending.PreConfirmed,
-	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	preLatest := preConfirmed.PreLatest
-	// If pre-latest exists, use its parent hash as the base state
-	if preLatest != nil {
-		return stateReader.StateAtBlockHash(preLatest.Block.ParentHash)
-	}
-
-	// Otherwise, use the parent of the pre-confirmed block
-	blockNumber := preConfirmed.Block.Number
-	if blockNumber > 0 {
-		return stateReader.StateAtBlockNumber(blockNumber - 1)
-	}
-
-	// For genesis block (number 0), use zero hash to get empty state
-	return stateReader.StateAtBlockHash(&felt.Zero)
-}
-
-// PendingState is a convenience function that combines
-// base state resolution with pending state creation
-func PendingState(
-	preConfirmed *pending.PreConfirmed,
-	stateReader blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preConfirmed, stateReader)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return preConfirmed.PendingState(baseState), baseStateCloser, nil
-}
-
-// PendingStateBeforeIndex is a convenience function that combines
-// base state resolution with pending state before index creation
-func PendingStateBeforeIndex(
-	preConfirmed *pending.PreConfirmed,
-	stateReader blockchain.Reader,
-	index uint,
-) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePreConfirmedBaseState(preConfirmed, stateReader)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pendingStateReader, err := preConfirmed.PendingStateBeforeIndex(baseState, index)
-	if err != nil {
-		// Clean up base state if pending state creation fails
-		_ = baseStateCloser()
-		return nil, nil, err
-	}
-
-	return pendingStateReader, baseStateCloser, nil
 }

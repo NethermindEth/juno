@@ -30,10 +30,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 		}
 	}
 
-	preConfirmed, err := s.PreConfirmed()
-	if err != nil {
-		s.logger.Infof("Failed to get pending block")
-	}
+	preConfirmed := s.buildState.PreConfirmed
 	if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 		return nil, err
 	}
@@ -55,7 +52,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 
 func newBlockSigner(privKey *ecdsa.PrivateKey) core.BlockSignFunc {
 	return func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
-		data := crypto.PoseidonArray(blockHash, stateDiffCommitment)
+		data := crypto.PoseidonElems(blockHash, stateDiffCommitment)
 		dataBytes := data.Bytes()
 		signatureBytes, err := privKey.Sign(dataBytes[:], nil)
 		if err != nil {

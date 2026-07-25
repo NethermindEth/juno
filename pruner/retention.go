@@ -54,31 +54,37 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 	return &BlockPrunedError{BlockNumber: blockNumber, OldestRetained: oldest}
 }
 
-// HeaderByNumberIfStateRetained returns the header for blockNumber only if
-// state at that block is queryable. Use this for state access only; for
-// block-level data (transactions, receipts, etc.) use [RequireRetained] + the
-// plain core accessors instead — the two checks diverge at oldestKept-1,
-// where state is preserved by carve-out but block-level data is not.
-// See [PruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
-// when state at blockNumber is not available.
-func HeaderByNumberIfStateRetained(r db.KeyValueReader, blockNumber uint64) (*core.Header, error) {
-	header, err := core.GetBlockHeaderByNumber(r, blockNumber)
+// RequireStateRetainedByBlockNumber checks state retention by number, avoiding the full
+// header decode (and its heavy fields like EventsBloom) when only the hash is needed.
+func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) error {
+	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
+	if err != nil {
+		return err
+	}
+	_, err = core.GetBlockHeaderNumberByHash(r, hash)
+	return err
+}
+
+// StateRootIfStateRetainedByBlockNumber returns the global state root for blockNumber
+// only if state at that block is queryable, decoding hash and state root in a single header read.
+func StateRootIfStateRetainedByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) (*felt.Felt, error) {
+	hash, stateRoot, err := core.GetBlockHeaderHashAndStateRootByNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := core.GetBlockHeaderNumberByHash(r, header.Hash); err != nil {
+	if _, err := core.GetBlockHeaderNumberByHash(r, hash); err != nil {
 		return nil, err
 	}
-	return header, nil
+	return stateRoot, nil
 }
 
-// HeaderByHashIfStateRetained returns the header for blockHash only if
-// state at that block is queryable. Use this for state access only; for
-// block-level data use [RequireRetained] + the plain core accessors instead.
-// See [PruneUpto] for the carve-out semantics. Returns db.ErrKeyNotFound
-// when state at blockHash is not available.
-func HeaderByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (*core.Header, error) {
-	return core.GetBlockHeaderByHash(r, blockHash)
+// BlockNumberByHashIfStateRetained resolves blockHash to its number, avoiding the full
+// header decode (and its heavy fields like EventsBloom) when only the number is needed.
+func BlockNumberByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (uint64, error) {
+	return core.GetBlockHeaderNumberByHash(r, blockHash)
 }
 
 // OldestRetainedBlock returns the lowest block number still fully retained,

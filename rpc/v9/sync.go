@@ -58,8 +58,8 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	// requires starting_block_hash, so fall back to a fresh zero (not &felt.Zero, which
 	// would alias the shared global) instead of reporting "not syncing".
 	startingBlockHash := new(felt.Felt)
-	if startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber); err == nil {
-		startingBlockHash = startingBlockHeader.Hash
+	if hash, err := h.bcReader.BlockHeaderHashByNumber(startingBlockNumber); err == nil {
+		startingBlockHash = hash
 	}
 
 	return &Sync{

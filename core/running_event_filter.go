@@ -254,7 +254,7 @@ func (f *RunningEventFilter) onReorg(writer db.KeyValueWriter) error {
 		}
 
 		rangeStartAligned := curBlock - (curBlock % NumBlocksPerFilter)
-		rangeEndAligned := rangeStartAligned + NumBlocksPerFilter - 1
+		rangeEndAligned := rangeStartAligned + MaxBlockOffsetPerFilter
 
 		lastStoredFilter, err := GetAggregatedBloomFilter(
 			f.database,
@@ -344,11 +344,11 @@ func fillRunningEventFilter(
 	latest uint64,
 ) error {
 	for blockNum := from; blockNum <= latest; blockNum++ {
-		header, err := GetBlockHeaderByNumber(database, blockNum)
+		eventsBloom, err := GetBlockHeaderEventsBloomByNumber(database, blockNum)
 		if err != nil {
-			return fmt.Errorf("getting block header by number %d: %w", blockNum, err)
+			return fmt.Errorf("getting events bloom for block %d: %w", blockNum, err)
 		}
-		if err := rf.Insert(header.EventsBloom, blockNum); err != nil {
+		if err := rf.Insert(eventsBloom, blockNum); err != nil {
 			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
 		}
 	}
@@ -364,7 +364,7 @@ func rebuildRunningEventFilter(
 	latest uint64,
 ) (*RunningEventFilter, error) {
 	rangeStartAligned := latest - latest%NumBlocksPerFilter
-	lastStoredFilterRangeEnd := rangeStartAligned + NumBlocksPerFilter - 1
+	lastStoredFilterRangeEnd := rangeStartAligned + MaxBlockOffsetPerFilter
 
 	var continueFrom uint64
 	for {

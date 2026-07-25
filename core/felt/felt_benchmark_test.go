@@ -12,7 +12,7 @@ var (
 	benchFeltSink  felt.Felt
 )
 
-func benchJSONInputs(b *testing.B) []struct {
+func benchFeltInputs(b *testing.B) []struct {
 	name string
 	hex  string
 } {
@@ -33,13 +33,13 @@ func benchJSONInputs(b *testing.B) []struct {
 }
 
 func BenchmarkMarshalJSON(b *testing.B) {
-	for _, tc := range benchJSONInputs(b) {
-		f := felt.UnsafeFromString[felt.Felt](tc.hex)
+	for _, tc := range benchFeltInputs(b) {
+		value := felt.UnsafeFromString[felt.Felt](tc.hex)
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 			var out []byte
 			for b.Loop() {
-				out, _ = f.MarshalJSON()
+				out, _ = value.MarshalJSON()
 			}
 			benchBytesSink = out
 		})
@@ -47,15 +47,57 @@ func BenchmarkMarshalJSON(b *testing.B) {
 }
 
 func BenchmarkUnmarshalJSON(b *testing.B) {
-	for _, tc := range benchJSONInputs(b) {
+	for _, tc := range benchFeltInputs(b) {
 		input := []byte(`"` + tc.hex + `"`)
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
-			var f felt.Felt
+			var value felt.Felt
 			for b.Loop() {
-				_ = f.UnmarshalJSON(input)
+				_ = value.UnmarshalJSON(input)
 			}
-			benchFeltSink = f
+			benchFeltSink = value
+		})
+	}
+}
+
+// Felts used in CBOR pass through a Montgomery transformation,
+// so they only come in two flavors: zero or nonzero.
+var benchCBORInputs = []struct {
+	name string
+	hex  string
+}{
+	{"zero", "0x0"},
+	{"nonzero", "0xdeadbeef"},
+}
+
+func BenchmarkMarshalCBOR(b *testing.B) {
+	for _, tc := range benchCBORInputs {
+		value := felt.UnsafeFromString[felt.Felt](tc.hex)
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			var out []byte
+			for b.Loop() {
+				out, _ = value.MarshalCBOR()
+			}
+			benchBytesSink = out
+		})
+	}
+}
+
+func BenchmarkUnmarshalCBOR(b *testing.B) {
+	for _, tc := range benchCBORInputs {
+		value := felt.UnsafeFromString[felt.Felt](tc.hex)
+		input, err := value.MarshalCBOR()
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			var out felt.Felt
+			for b.Loop() {
+				_ = out.UnmarshalCBOR(input)
+			}
+			benchFeltSink = out
 		})
 	}
 }

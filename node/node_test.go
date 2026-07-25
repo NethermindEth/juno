@@ -11,6 +11,7 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
@@ -36,7 +37,6 @@ func TestNewNode(t *testing.T) {
 		Pprof:                              true,
 		PprofPort:                          0,
 		Colour:                             true,
-		PreLatestPollInterval:              time.Second,
 		PreConfirmedPollInterval:           time.Second,
 		Metrics:                            true,
 		MetricsPort:                        0,
@@ -44,6 +44,7 @@ func TestNewNode(t *testing.T) {
 		P2PAddr:                            "",
 		P2PPeers:                           "",
 		SubmittedTransactionsCacheEntryTTL: time.Second,
+		// MaxConcurrentCompilations left unset (not Explicit) to exercise the auto-derive path.
 	}
 
 	logLevel := log.NewLevel(log.INFO)
@@ -53,6 +54,59 @@ func TestNewNode(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	n.Run(ctx)
+}
+
+func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		// MaxConcurrentCompilations left unset: derive, then floor to 1.
+		MaxCompilationMemory: 4096,
+		// Reserve more than the machine has, so nothing fits.
+		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
+}
+
+func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		MaxConcurrentCompilations:          2,
+		MaxConcurrentCompilationsExplicit:  true,
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
+}
+
+func TestNewNodeSkipsDerivedQueue(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		MaxCompilationQueue:                8,
+		MaxCompilationQueueExplicit:        true,
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
@@ -84,7 +138,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
-			syncer := sync.New(chain, dataSource, logger, 0, 0, false, database).
+			syncer := sync.New(chain, dataSource, logger, 0, false, database).
 				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.
 					if op == sync.OpStore {

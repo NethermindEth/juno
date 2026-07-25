@@ -37,9 +37,9 @@ type EmittedEvent struct {
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address,omitempty"`
-	Keys []*felt.Felt `json:"keys"`
-	Data []*felt.Felt `json:"data"`
+	From *felt.Felt  `json:"from_address,omitempty"`
+	Keys []felt.Felt `json:"keys"`
+	Data []felt.Felt `json:"data"`
 }
 
 func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
@@ -50,7 +50,7 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 
 		switch blockID.Type() {
 		case preConfirmed:
-			return filter.SetRangeEndBlockByNumber(filterRange, ^uint64(0))
+			return filter.SetRangeEndBlockByNumber(filterRange, blockchain.PreConfirmedFilterSentinel)
 		case latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case hash:
@@ -106,7 +106,13 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	filter, err := h.bcReader.EventFilter(
 		addresses,
 		args.EventFilter.Keys,
-		h.syncReader.PreConfirmed,
+		func() (blockchain.PreConfirmedReader, error) {
+			chain, err := h.syncReader.PreConfirmedChain()
+			if err != nil {
+				return nil, err
+			}
+			return &chain, nil
+		},
 	)
 	if err != nil {
 		return EventsChunk{}, rpccore.ErrInternal

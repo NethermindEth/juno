@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -254,5 +255,215 @@ func TestDeleteTransactionsAndReceipts(t *testing.T) {
 		batch := memDB.NewBatch()
 		err := core.DeleteTransactionsAndReceipts(memDB, batch, nonexistentBlockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	tests := []struct {
+		name               string
+		readPartial        func(db.KeyValueReader, uint64) (*felt.Felt, error)
+		getExpected        func(*core.Header) *felt.Felt
+		headerWithoutField any
+	}{
+		{
+			name:        "global state root",
+			readPartial: core.GetGlobalStateRootByBlockNumber,
+			getExpected: func(header *core.Header) *felt.Felt {
+				return header.GlobalStateRoot
+			},
+			headerWithoutField: struct {
+				Hash *felt.Felt
+			}{Hash: block.Hash},
+		},
+		{
+			name:        "block hash",
+			readPartial: core.GetBlockHeaderHashByNumber,
+			getExpected: func(header *core.Header) *felt.Felt {
+				return header.Hash
+			},
+			headerWithoutField: struct {
+				GlobalStateRoot *felt.Felt
+			}{GlobalStateRoot: block.GlobalStateRoot},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			t.Run("matches full header decode", func(t *testing.T) {
+				t.Parallel()
+				header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+				require.NoError(t, err)
+				got, err := tt.readPartial(memDB, block.Number)
+				require.NoError(t, err)
+				assert.Equal(t, tt.getExpected(header), got)
+			})
+
+			t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+				t.Parallel()
+				_, err := tt.readPartial(memDB, nonexistentBlockNumber)
+				require.ErrorIs(t, err, db.ErrKeyNotFound)
+			})
+
+			t.Run("missing field returns error", func(t *testing.T) {
+				t.Parallel()
+				partialHeaderDB := memory.New()
+				data, err := encoder.Marshal(tt.headerWithoutField)
+				require.NoError(t, err)
+				require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+				_, err = tt.readPartial(partialHeaderDB, block.Number)
+				require.Error(t, err)
+			})
+		})
+	}
+}
+
+func TestGetBlockTransactionCountByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		count, err := core.GetBlockTransactionCountByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block.TransactionCount, count)
+		assert.Equal(t, header.TransactionCount, count)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetBlockTransactionCountByNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	// TransactionCount is a value field, so an absent field is indistinguishable
+	// from a genuine zero-transaction block: the accessor returns 0 without error.
+	t.Run("header without transaction count returns zero", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct {
+			Hash *felt.Felt
+		}{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		count, err := core.GetBlockTransactionCountByNumber(partialHeaderDB, block.Number)
+		require.NoError(t, err)
+		assert.Zero(t, count)
+	})
+}
+
+//nolint:dupl // Similar to the other partial-header accessor tests, but they're different methods
+func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		got, err := core.GetBlockHeaderTimestampByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block.Header.Timestamp, got)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetBlockHeaderTimestampByNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing field returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, err = core.GetBlockHeaderTimestampByNumber(partialHeaderDB, block.Number)
+		require.Error(t, err)
+	})
+}
+
+//nolint:dupl // Similar to the other partial-header accessor tests, but they're different methods
+func TestGetBlockHeaderEventsBloomByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		got, err := core.GetBlockHeaderEventsBloomByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block.Header.EventsBloom, got)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetBlockHeaderEventsBloomByNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing field returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, err = core.GetBlockHeaderEventsBloomByNumber(partialHeaderDB, block.Number)
+		require.Error(t, err)
+	})
+}
+
+func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		hash, stateRoot, err := core.GetBlockHeaderHashAndStateRootByNumber(memDB, block.Number)
+		require.NoError(t, err)
+		assert.Equal(t, block.Header.Hash, hash)
+		assert.Equal(t, block.Header.GlobalStateRoot, stateRoot)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := core.GetBlockHeaderHashAndStateRootByNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing hash returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(
+			struct{ GlobalStateRoot *felt.Felt }{GlobalStateRoot: block.GlobalStateRoot},
+		)
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, _, err = core.GetBlockHeaderHashAndStateRootByNumber(partialHeaderDB, block.Number)
+		require.Error(t, err)
+	})
+
+	t.Run("missing state root returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+
+		_, _, err = core.GetBlockHeaderHashAndStateRootByNumber(partialHeaderDB, block.Number)
+		require.Error(t, err)
 	})
 }

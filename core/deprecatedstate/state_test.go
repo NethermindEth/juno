@@ -95,7 +95,9 @@ func TestUpdate(t *testing.T) {
 		),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt]("0xBEEFDEAD"),
+				felt.UnsafeFromString[felt.Felt]("0xDEADBEEF"): felt.NewUnsafeFromString[felt.Felt](
+					"0xBEEFDEAD",
+				),
 			},
 		},
 	}
@@ -105,7 +107,7 @@ func TestUpdate(t *testing.T) {
 			require.Error(t, state.Update(&core.Header{Number: 3}, su3, nil, false))
 		})
 		require.NoError(t, state.Update(&core.Header{Number: 3}, su3, map[felt.Felt]core.ClassDefinition{
-			*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.SierraClass{},
+			felt.UnsafeFromString[felt.Felt]("0xDEADBEEF"): &core.SierraClass{},
 		}, false))
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
@@ -609,7 +611,7 @@ func TestRevert(t *testing.T) {
 					Selector: felt.NewFromBytes[felt.Felt]([]byte("l1")),
 				}},
 			},
-			Program:         []*felt.Felt{felt.NewFromBytes[felt.Felt]([]byte("random program"))},
+			Program:         []felt.Felt{felt.FromBytes[felt.Felt]([]byte("random program"))},
 			ProgramHash:     felt.NewFromBytes[felt.Felt]([]byte("random program hash")),
 			SemanticVersion: "version 1",
 			Compiled:        &core.CasmClass{},

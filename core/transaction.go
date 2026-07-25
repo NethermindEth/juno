@@ -81,9 +81,9 @@ func (rb ResourceBounds) IsZero() bool {
 }
 
 type Event struct {
-	Data []*felt.Felt
+	Data []felt.Felt
 	From *felt.Felt
-	Keys []*felt.Felt
+	Keys []felt.Felt
 }
 
 type L1ToL2Message struct {
@@ -91,14 +91,14 @@ type L1ToL2Message struct {
 	//            here. We should change this to felt.Address
 	From     eth.Address
 	Nonce    *felt.Felt
-	Payload  []*felt.Felt
+	Payload  []felt.Felt
 	Selector *felt.Felt
 	To       *felt.Felt
 }
 
 type L2ToL1Message struct {
 	From    *felt.Felt
-	Payload []*felt.Felt
+	Payload []felt.Felt
 	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
 	//            here. We should change this to felt.Address
 	To eth.Address
@@ -138,7 +138,7 @@ type BuiltinInstanceCounter struct {
 type Transaction interface {
 	// TODO: This should be TransactionHash instead of Felt.
 	Hash() *felt.Felt
-	Signature() []*felt.Felt
+	Signature() []felt.Felt
 	TxVersion() *TransactionVersion
 }
 
@@ -213,7 +213,7 @@ type DeployTransaction struct {
 	// The hash of the class which defines the contract’s functionality.
 	ClassHash *felt.Felt
 	// The arguments passed to the constructor during deployment.
-	ConstructorCallData []*felt.Felt
+	ConstructorCallData []felt.Felt
 	// The transaction’s version. Possible values are 1 or 0.
 	//
 	// When the fields that comprise a transaction change,
@@ -231,8 +231,8 @@ func (d *DeployTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
 
-func (d *DeployTransaction) Signature() []*felt.Felt {
-	return make([]*felt.Felt, 0)
+func (d *DeployTransaction) Signature() []felt.Felt {
+	return make([]felt.Felt, 0)
 }
 
 type DeployAccountTransaction struct {
@@ -240,7 +240,7 @@ type DeployAccountTransaction struct {
 	// The maximum fee that the sender is willing to pay for the transaction.
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
 
@@ -248,7 +248,7 @@ type DeployAccountTransaction struct {
 	// See InvokeTransaction for descriptions of the fields.
 	ResourceBounds map[Resource]ResourceBounds
 	Tip            uint64
-	PaymasterData  []*felt.Felt
+	PaymasterData  []felt.Felt
 	NonceDAMode    DataAvailabilityMode
 	FeeDAMode      DataAvailabilityMode
 }
@@ -257,16 +257,16 @@ func (d *DeployAccountTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
 
-func (d *DeployAccountTransaction) Signature() []*felt.Felt {
+func (d *DeployAccountTransaction) Signature() []felt.Felt {
 	return d.TransactionSignature
 }
 
 type InvokeTransaction struct {
 	TransactionHash *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
-	CallData []*felt.Felt
+	CallData []felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction
 	// Available in version 1 only
 	MaxFee *felt.Felt
@@ -291,9 +291,9 @@ type InvokeTransaction struct {
 	ResourceBounds map[Resource]ResourceBounds
 	Tip            uint64
 	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
-	PaymasterData []*felt.Felt
+	PaymasterData []felt.Felt
 	// From RPC spec: data needed to deploy the account contract from which this tx will be initiated
-	AccountDeploymentData []*felt.Felt
+	AccountDeploymentData []felt.Felt
 	// From RPC spec: The storage domain of the account's nonce (an account has a nonce per DA mode)
 	NonceDAMode DataAvailabilityMode
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
@@ -310,7 +310,7 @@ func (i *InvokeTransaction) Hash() *felt.Felt {
 	return i.TransactionHash
 }
 
-func (i *InvokeTransaction) Signature() []*felt.Felt {
+func (i *InvokeTransaction) Signature() []felt.Felt {
 	return i.TransactionSignature
 }
 
@@ -324,7 +324,7 @@ type DeclareTransaction struct {
 	// Available in versions 1, 2
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []*felt.Felt
+	TransactionSignature []felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The transaction’s version. Possible values are 0, 1, 2, or 3.
@@ -341,8 +341,8 @@ type DeclareTransaction struct {
 	// See InvokeTransaction for descriptions of the fields.
 	ResourceBounds        map[Resource]ResourceBounds
 	Tip                   uint64
-	PaymasterData         []*felt.Felt
-	AccountDeploymentData []*felt.Felt
+	PaymasterData         []felt.Felt
+	AccountDeploymentData []felt.Felt
 	NonceDAMode           DataAvailabilityMode
 	FeeDAMode             DataAvailabilityMode
 }
@@ -355,7 +355,7 @@ func (d *DeclareTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
 
-func (d *DeclareTransaction) Signature() []*felt.Felt {
+func (d *DeclareTransaction) Signature() []felt.Felt {
 	return d.TransactionSignature
 }
 
@@ -368,7 +368,7 @@ type L1HandlerTransaction struct {
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
-	CallData []*felt.Felt
+	CallData []felt.Felt
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
@@ -383,8 +383,8 @@ func (l *L1HandlerTransaction) Hash() *felt.Felt {
 	return l.TransactionHash
 }
 
-func (l *L1HandlerTransaction) Signature() []*felt.Felt {
-	return make([]*felt.Felt, 0)
+func (l *L1HandlerTransaction) Signature() []felt.Felt {
+	return make([]felt.Felt, 0)
 }
 
 func (l *L1HandlerTransaction) MessageHash() []byte {
@@ -455,8 +455,8 @@ func errInvalidTransactionVersion(t Transaction, version *TransactionVersion) er
 func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt, error) {
 	switch {
 	case i.Version.Is(0):
-		calldataHash := crypto.PedersenArray(i.CallData...)
-		return crypto.PedersenArray(
+		calldataHash := crypto.PedersenArray(i.CallData)
+		return crypto.PedersenElems(
 			invokeFelt,
 			i.Version.AsFelt(),
 			i.ContractAddress,
@@ -466,8 +466,8 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 			n.L2ChainIDFelt(),
 		), nil
 	case i.Version.Is(1):
-		calldataHash := crypto.PedersenArray(i.CallData...)
-		return crypto.PedersenArray(
+		calldataHash := crypto.PedersenArray(i.CallData)
+		return crypto.PedersenElems(
 			invokeFelt,
 			i.Version.AsFelt(),
 			i.SenderAddress,
@@ -479,9 +479,9 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 		), nil
 	case i.Version.Is(3):
 		tipAndResourceBoundsHash := tipAndResourcesHash(i.Tip, i.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(i.PaymasterData...)
-		accountDeploymentDataHash := crypto.PoseidonArray(i.AccountDeploymentData...)
-		calldataHash := crypto.PoseidonArray(i.CallData...)
+		paymasterDataHash := crypto.PoseidonArray(i.PaymasterData)
+		accountDeploymentDataHash := crypto.PoseidonArray(i.AccountDeploymentData)
+		calldataHash := crypto.PoseidonArray(i.CallData)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode))
 
 		var digest crypto.PoseidonDigest
@@ -500,9 +500,7 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 
 		if len(i.ProofFacts) > 0 {
 			var proofFactsDigest crypto.PoseidonDigest
-			for j := range i.ProofFacts {
-				proofFactsDigest.Update(&i.ProofFacts[j])
-			}
+			proofFactsDigest.UpdateArray(i.ProofFacts)
 			proofFactsHash := proofFactsDigest.Finish()
 			digest.Update(&proofFactsHash)
 		}
@@ -543,8 +541,8 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 			// This is only going to happen when a transaction is received from p2p as no hash is passed along with a p2p transaction.
 			// Therefore, we have to calculate the transaction hash.
 			// This may become problematic if blockifier create a hash which is different from below.
-			emptyHash := crypto.PedersenArray()
-			h := crypto.PedersenArray(
+			emptyHash := crypto.PedersenElems()
+			h := crypto.PedersenElems(
 				declareFelt,
 				d.Version.AsFelt(),
 				d.SenderAddress,
@@ -559,8 +557,8 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 
 		return *d.TransactionHash, nil
 	case d.Version.Is(1):
-		classHash := crypto.PedersenArray(d.ClassHash)
-		return crypto.PedersenArray(
+		classHash := crypto.PedersenElems(d.ClassHash)
+		return crypto.PedersenElems(
 			declareFelt,
 			d.Version.AsFelt(),
 			d.SenderAddress,
@@ -571,8 +569,8 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 			d.Nonce,
 		), nil
 	case d.Version.Is(2):
-		classHash := crypto.PedersenArray(d.ClassHash)
-		return crypto.PedersenArray(
+		classHash := crypto.PedersenElems(d.ClassHash)
+		return crypto.PedersenElems(
 			declareFelt,
 			d.Version.AsFelt(),
 			d.SenderAddress,
@@ -585,10 +583,10 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 		), nil
 	case d.Version.Is(3):
 		resourceHash := tipAndResourcesHash(d.Tip, d.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData...)
-		accountDeploymentDataHash := crypto.PoseidonArray(d.AccountDeploymentData...)
+		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData)
+		accountDeploymentDataHash := crypto.PoseidonArray(d.AccountDeploymentData)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode))
-		return crypto.PoseidonArray(
+		return crypto.PoseidonElems(
 			declareFelt,
 			d.Version.AsFelt(),
 			d.SenderAddress,
@@ -614,8 +612,8 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *networks.Network) (fel
 		if l.Nonce == nil {
 			return *l.TransactionHash, nil
 		}
-		calldataHash := crypto.PedersenArray(l.CallData...)
-		return crypto.PedersenArray(
+		calldataHash := crypto.PedersenArray(l.CallData)
+		return crypto.PedersenElems(
 			l1HandlerFelt,
 			l.Version.AsFelt(),
 			l.ContractAddress,
@@ -640,10 +638,10 @@ func deployAccountTransactionHash(
 		var digest crypto.PedersenDigest
 		digest.Update(d.ClassHash)
 		digest.Update(d.ContractAddressSalt)
-		digest.Update(d.ConstructorCallData...)
+		digest.UpdateArray(d.ConstructorCallData)
 		callDataHash := digest.Finish()
 
-		return crypto.PedersenArray(
+		return crypto.PedersenElems(
 			deployAccountFelt,
 			d.Version.AsFelt(),
 			d.ContractAddress,
@@ -655,10 +653,10 @@ func deployAccountTransactionHash(
 		), nil
 	case d.Version.Is(3):
 		resourcesHash := tipAndResourcesHash(d.Tip, d.ResourceBounds)
-		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData...)
-		ctorCallDataHash := crypto.PoseidonArray(d.ConstructorCallData...)
+		paymasterDataHash := crypto.PoseidonArray(d.PaymasterData)
+		ctorCallDataHash := crypto.PoseidonArray(d.ConstructorCallData)
 		daMode := felt.FromUint64[felt.Felt](dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode))
-		return crypto.PoseidonArray(
+		return crypto.PoseidonElems(
 			deployAccountFelt,
 			d.Version.AsFelt(),
 			d.ContractAddress,
@@ -718,14 +716,14 @@ func transactionCommitmentPedersen(
 	var hashFunc processFunc[Transaction]
 	if blockVersion.GreaterThanEqual(v0_11_1) {
 		hashFunc = func(transaction Transaction) felt.Felt {
-			signatureHash := crypto.PedersenArray(transaction.Signature()...)
+			signatureHash := crypto.PedersenArray(transaction.Signature())
 			return crypto.Pedersen(transaction.Hash(), &signatureHash)
 		}
 	} else {
 		hashFunc = func(transaction Transaction) felt.Felt {
-			signatureHash := crypto.PedersenArray()
+			signatureHash := crypto.PedersenElems()
 			if _, ok := transaction.(*InvokeTransaction); ok {
-				signatureHash = crypto.PedersenArray(transaction.Signature()...)
+				signatureHash = crypto.PedersenArray(transaction.Signature())
 			}
 			return crypto.Pedersen(transaction.Hash(), &signatureHash)
 		}
@@ -748,7 +746,7 @@ func transactionCommitmentPoseidon0134(
 			digest.Update(transaction.Hash())
 
 			if txSignature := transaction.Signature(); len(txSignature) > 0 {
-				digest.Update(txSignature...)
+				digest.UpdateArray(txSignature)
 			}
 
 			return digest.Finish()
@@ -769,7 +767,7 @@ func transactionCommitmentPoseidon0132(
 			digest.Update(transaction.Hash())
 
 			if txSignature := transaction.Signature(); len(txSignature) > 0 {
-				digest.Update(txSignature...)
+				digest.UpdateArray(txSignature)
 			} else {
 				digest.Update(&felt.Zero)
 			}
@@ -806,20 +804,15 @@ func eventCommitmentPoseidon(
 		items,
 		backend.RunOnTempTriePoseidon,
 		func(item *eventWithTxHash) felt.Felt {
-			return crypto.PoseidonArray(
-				slices.Concat(
-					[]*felt.Felt{
-						item.Event.From,
-						item.TxHash,
-						felt.NewFromUint64[felt.Felt](uint64(len(item.Event.Keys))),
-					},
-					item.Event.Keys,
-					[]*felt.Felt{
-						felt.NewFromUint64[felt.Felt](uint64(len(item.Event.Data))),
-					},
-					item.Event.Data,
-				)...,
-			)
+			keysLen := felt.FromUint64[felt.Felt](uint64(len(item.Event.Keys)))
+			dataLen := felt.FromUint64[felt.Felt](uint64(len(item.Event.Data)))
+
+			var digest crypto.PoseidonDigest
+			digest.Update(item.Event.From, item.TxHash, &keysLen)
+			digest.UpdateArray(item.Event.Keys)
+			digest.Update(&dataLen)
+			digest.UpdateArray(item.Event.Data)
+			return digest.Finish()
 		},
 	)
 }
@@ -838,9 +831,9 @@ func eventCommitmentPedersen(
 		events = append(events, receipt.Events...)
 	}
 	return calculateCommitment(events, backend.RunOnTempTriePedersen, func(event *Event) felt.Felt {
-		keysHash := crypto.PedersenArray(event.Keys...)
-		dataHash := crypto.PedersenArray(event.Data...)
-		return crypto.PedersenArray(
+		keysHash := crypto.PedersenArray(event.Keys)
+		dataHash := crypto.PedersenArray(event.Data)
+		return crypto.PedersenElems(
 			event.From,
 			&keysHash,
 			&dataHash,
@@ -855,8 +848,8 @@ func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
 		for _, event := range receipt.Events {
 			fromBytes := event.From.Bytes()
 			filter.TestOrAdd(fromBytes[:])
-			for index, key := range event.Keys {
-				keyBytes := key.Bytes()
+			for index := range event.Keys {
+				keyBytes := event.Keys[index].Bytes()
 				keyAndIndexBytes := binary.AppendVarint(keyBytes[:], int64(index))
 				filter.TestOrAdd(keyAndIndexBytes)
 			}
@@ -870,13 +863,13 @@ func ContractAddress(
 	callerAddress,
 	classHash,
 	salt *felt.Felt,
-	constructorCallData []*felt.Felt,
+	constructorCallData []felt.Felt,
 ) felt.Felt {
 	prefix := felt.FromBytes[felt.Felt]([]byte("STARKNET_CONTRACT_ADDRESS"))
-	callDataHash := crypto.PedersenArray(constructorCallData...)
+	callDataHash := crypto.PedersenArray(constructorCallData)
 
 	// https://www.starknet.io/cairo-book/ch100-01-contracts-classes-and-instances.html
-	return crypto.PedersenArray(
+	return crypto.PedersenElems(
 		&prefix,
 		callerAddress,
 		salt,

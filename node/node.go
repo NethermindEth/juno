@@ -83,7 +83,6 @@ type Config struct {
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
 	Colour                   bool             `mapstructure:"colour"`
-	PreLatestPollInterval    time.Duration    `mapstructure:"prelatest-poll-interval"`
 	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
@@ -133,14 +132,21 @@ type Config struct {
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 
-	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
-	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
-	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
-	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
-	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState                  bool          `mapstructure:"new-state"`
+	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+
+	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
+	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
+	MaxConcurrentCompilations         uint64 `mapstructure:"max-concurrent-compilations"`
+	MaxConcurrentCompilationsExplicit bool
+	MaxCompilationQueue               uint64 `mapstructure:"max-compilation-queue"`
+	MaxCompilationQueueExplicit       bool
+
+	MaxCompilationMemory  uint `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
+	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
+	NewState              bool `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
@@ -293,20 +299,22 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	throttledCompiler := NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	compiler := compiler.New(
+		&compiler.Config{
+			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+		},
+		"",
+		logger,
 	)
+	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
 	if cfg.Sequencer {
+		logger.Warn(
+			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+		)
+
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
@@ -368,11 +376,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
 		}
 
-		client = feeder.NewClient(cfg.Network.FeederURL).
-			WithUserAgent(ua).
-			WithLogger(logger).
-			WithTimeouts(timeouts, fixed).
-			WithAPIKey(cfg.GatewayAPIKey)
+		feederClientOpts := []feeder.Option{
+			feeder.WithUserAgent(ua),
+			feeder.WithLogger(logger),
+			feeder.WithTimeouts(timeouts, fixed),
+			feeder.WithAPIKey(cfg.GatewayAPIKey),
+		}
+		if cfg.Metrics {
+			feederClientOpts = append(feederClientOpts, feeder.WithListener(makeFeederMetrics()))
+		}
+		client = feeder.NewClient(cfg.Network.FeederURL, feederClientOpts...)
 
 		// Handle fee tokens for custom networks
 		feeTokens := networks.DefaultFeeTokenAddresses
@@ -397,7 +410,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			chain,
 			feederGatewayDataSource,
 			logger,
-			cfg.PreLatestPollInterval,
 			cfg.PreConfirmedPollInterval,
 			dbIsRemote,
 			database,
@@ -555,7 +567,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.Websocket {
-		services = append(services,
+		services = append(
+			services,
 			makeRPCOverWebsocket(
 				cfg.WebsocketHost,
 				cfg.WebsocketPort,
@@ -567,8 +580,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
-			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		logger.Info(
+			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
+				"/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
@@ -584,7 +599,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		jsonrpcServerV09.WithListener(rpcMetrics[1])
 		jsonrpcServerV08.WithListener(rpcMetrics[2])
 		if !cfg.Sequencer {
-			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
 			if synchronizer != nil {
 				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
@@ -619,20 +633,25 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
+		l1Client, provider, err := newL1Client(
+			context.Background(), cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
+			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
+
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
+		rpcHandler.WithL1Client(provider)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
-		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger)
+		ug := upgrader.NewUpgrader(
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+		)
 		n.services = append(n.services, ug)
 	} else {
-		logger.Warn("Failed to parse Juno version, will not warn about new releases",
+		logger.Warn(
+			"Failed to parse Juno version, will not warn about new releases",
 			zap.String("version", version),
 		)
 	}
@@ -641,29 +660,65 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 }
 
 func newL1Client(
-	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log log.StructuredLogger,
-) (*l1.Client, error) {
+	ctx context.Context,
+	ethNode string,
+	includeMetrics bool,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (*l1.Client, *l1.GethL1StateProvider, error) {
+	// One EventListener, shared by the L1 client (OnNewL1Head) and
+	// the provider (OnL1Call), wired only under --metrics.
+	l1Opts := []l1.Option{}
+	providerOpts := []l1.GethL1StateProviderOption{}
+	if includeMetrics {
+		listener := makeL1Metrics(chain)
+		l1Opts = append(l1Opts, l1.WithEventListener(listener))
+		providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
+	}
+
+	provider, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating L1 state provider: %w", err)
+	}
+	if includeMetrics {
+		registerL1Metrics(provider)
+	}
+
+	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
+}
+
+// newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
+// client. ws/wss is enforced at the URL level because subscribe-based
+// log delivery (eth_subscribe) requires a long-lived connection that
+// HTTP doesn't provide.
+func newGethL1StateProvider(
+	ctx context.Context,
+	ethNode string,
+	chain *blockchain.Blockchain,
+	opts ...l1.GethL1StateProviderOption,
+) (*l1.GethL1StateProvider, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...)",
+		)
 	}
 
-	network := chain.Network()
+	// One-minute timeout layered on the caller's ctx so a slow dial
+	// can't outlive node startup or the migration that triggered it.
+	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
+	provider, err := l1.NewGethL1StateProvider(
+		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
 	}
-
-	opts := make([]l1.Option, 0, 1)
-	if includeMetrics {
-		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
-	}
-	return l1.NewClient(ethSubscriber, chain, log, opts...), nil
+	return provider, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

@@ -18,7 +18,7 @@ import (
 const transactionHashArg = "transactionHash"
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t testing.TB, network *networks.Network) *Client {
+func NewTestClient(t testing.TB, network *networks.Network, opts ...Option) *Client {
 	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
@@ -26,27 +26,35 @@ func NewTestClient(t testing.TB, network *networks.Network) *Client {
 
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	c := NewClient(feederURL).
-		WithBackoff(NopBackoff).
-		WithMaxRetries(0).
-		WithUserAgent(ua).
-		WithAPIKey(apiKey)
-	c.client = &http.Client{
-		Transport: &http.Transport{
-			// On macOS tests often fail with the following error:
-			//
-			// "Get "http://127.0.0.1:xxxx/get_{feeder gateway method}?{arg}={value}": dial tcp 127.0.0.1:xxxx:
-			//    connect: can't assign requested address"
-			//
-			// This error makes running local tests, in quick succession, difficult because we have to wait for the OS to release ports.
-			// Sometimes the sync tests will hang because sync process will keep making requests if there was some error.
-			// This problem is further exacerbated by having parallel tests.
-			//
-			// Increasing test client's idle conns allows for large concurrent requests to be made from a single test client.
-			MaxIdleConnsPerHost: 1000,
-		},
+
+	//nolint:prealloc // test code, allocation performance is not important
+	clientOpts := []Option{
+		WithBackoff(NopBackoff),
+		WithMaxRetries(0),
+		WithUserAgent(ua),
+		WithAPIKey(apiKey),
+		WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				// On macOS tests often fail with the following error:
+				//
+				// "Get "http://127.0.0.1:xxxx/get_{feeder gateway method}?{arg}={value}":
+				//    dial tcp 127.0.0.1:xxxx:
+				//    connect: can't assign requested address"
+				//
+				// This error makes running local tests, in quick succession, difficult
+				// because we have to wait for the OS to release ports. Sometimes the sync
+				// tests will hang because sync process will keep making requests if there was some error.
+				// This problem is further exacerbated by having parallel tests.
+				//
+				// Increasing test client's idle conns allows for large concurrent requests
+				// to be made from a single test client.
+				MaxIdleConnsPerHost: 1000,
+			},
+		}),
 	}
-	return c
+	clientOpts = append(clientOpts, opts...)
+
+	return NewClient(feederURL, clientOpts...)
 }
 
 func newTestServer(t testing.TB, network *networks.Network) *httptest.Server {
@@ -156,12 +164,15 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		queryArg = "blockHash"
 
 	case strings.HasSuffix(path, "get_preconfirmed_block"):
-		if _, ok := queryMap["blockIdentifier"]; ok {
-			return "pre_confirmed_delta", blockNumberArg, nil
+		// A blank identifier (re)syncs from preconfirmed/<blockNumber>/full;
+		// any other identifier selects the exact response fixture at
+		// preconfirmed/<blockNumber>/<identifier>/<knownTransactionCount>.
+		blockNumber := queryMap.Get(blockNumberArg)
+		if identifier := queryMap.Get("blockIdentifier"); identifier != PreConfirmedBlankIdentifier {
+			return filepath.Join("preconfirmed", blockNumber, identifier), "knownTransactionCount", nil
 		}
-
-		dir = "pre_confirmed"
-		queryArg = blockNumberArg
+		queryMap["preconfirmedFile"] = []string{"full"}
+		return filepath.Join("preconfirmed", blockNumber), "preconfirmedFile", nil
 
 	default:
 		err = errors.New("unknown endpoint")

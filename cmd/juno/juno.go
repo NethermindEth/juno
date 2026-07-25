@@ -58,7 +58,6 @@ const (
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
-	preLatestPollIntervalF              = "prelatest-poll-interval"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
@@ -112,6 +111,7 @@ const (
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
+	nodeMemoryReserveF                  = "node-memory-reserve"
 	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
@@ -130,7 +130,6 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPreLatestPollInterval              = time.Second
 	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
@@ -176,7 +175,10 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
+	defaultMaxConcurrentCompilations          = uint64(0)
+	defaultMaxCompilationQueue                = uint64(0)
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
+	defaultNodeMemoryReserve                  = 4 * 1024 // MB (4 GB) reserved for the rest of the node
 	defaultMaxCompilationCPUTime              = 10       // seconds of CPU time per compilation process
 	defaultDisableReceivedTxnStream           = false
 	defaultPruneMode                          = uint64(0)
@@ -206,9 +208,7 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	preLatestPollIntervalUsage = "Sets polling interval for pre-latest block updates. " +
-		"(0s will disable polling)."
+	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
@@ -243,10 +243,10 @@ const (
 	corsEnableUsage                    = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
 	pluginPathUsage                    = "Path to the plugin .so file"
-	seqEnUsage                         = "Enables sequencer mode of operation"
-	seqBlockTimeUsage                  = "Time to build a block, in seconds"
-	seqGenesisFileUsage                = "Path to the genesis file"
-	seqDisableFeesUsage                = "Skip charge fee for sequencer execution"
+	seqEnUsage                         = "EXPERIMENTAL: Enables sequencer mode of operation"
+	seqBlockTimeUsage                  = "EXPERIMENTAL: Time to build a block, in seconds"
+	seqGenesisFileUsage                = "EXPERIMENTAL: Path to the genesis file"
+	seqDisableFeesUsage                = "EXPERIMENTAL: Skip charging fees for sequencer execution"
 	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
@@ -264,14 +264,17 @@ const (
 	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
 	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit."
-	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations."
-	maxCompilationQueueUsage       = "Maximum number of compilation requests to queue after " +
-		"reaching max-concurrent-compilations before starting to reject incoming requests."
-	maxCompilationMemoryUsage = "Maximum memory (in MB) each Sierra compilation process may " +
+	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
+		"Default is set based on available hardware resources."
+	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +
+		"reaching max-concurrent-compilations. Default sets the queue to twice the concurrency limit."
+	maxCompilationMemoryUsage = "Maximum virtual memory (in MB) a Sierra compilation process may " +
 		"use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit."
 	maxCompilationCPUTimeUsage = "Maximum CPU time (in seconds) each Sierra compilation process " +
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
 		"0 disables the limit."
+	maxCompilationReserveMemory = "Memory (in MB) excluded from the compilations memory budget when " +
+		"calculating the default for `max-concurrent-compilations`"
 	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
@@ -298,7 +301,7 @@ const (
 		"transactions that have been accepted on L2. Users can optionally provide " +
 		"a set of finality statuses to be notified about, including transactions " +
 		"from canonical blocks, blocks with softer finality guarantees such as " +
-		"pre-confirmed and pre-latest, as well as transactions not yet part of " +
+		"pre-confirmed, as well as transactions not yet part of " +
 		"any block such as received and candidate. When subscribers select the " +
 		"RECEIVED status, they will be notified about transactions that have been " +
 		"submitted through this node — these transactions are local to the node " +
@@ -428,6 +431,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		// An absent compilation-sizing flag means "derive at startup";
+		// a present one (CLI, env, or YAML) is used as-is, including an explicit 0.
+		config.MaxConcurrentCompilationsExplicit = v.IsSet(maxConcurrentCompilationsF)
+		config.MaxCompilationQueueExplicit = v.IsSet(maxCompilationQueueF)
+
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
@@ -481,7 +489,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
-	defaultMaxConcurrentCompilations := runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -538,9 +545,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// --- Sync & Polling ---
 	junoCmd.Flags().Duration(
-		preLatestPollIntervalF, defaultPreLatestPollInterval, preLatestPollIntervalUsage,
-	)
-	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
@@ -548,8 +552,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		preLatestPollIntervalF, preConfirmedPollIntervalF,
-		remoteDBF, readinessBlockToleranceF,
+		preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---
@@ -612,17 +615,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// --- VM & Compilation ---
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().Uint64(
 		maxConcurrentCompilationsF,
-		uint(defaultMaxConcurrentCompilations),
+		defaultMaxConcurrentCompilations,
 		maxConcurrentCompilationsUsage,
 	)
-	junoCmd.Flags().Uint(
+	junoCmd.Flags().Uint64(
 		maxCompilationQueueF,
-		2*uint(defaultMaxConcurrentCompilations),
+		defaultMaxCompilationQueue,
 		maxCompilationQueueUsage,
 	)
 	junoCmd.Flags().Uint(maxCompilationMemoryF, defaultMaxCompilationMemory, maxCompilationMemoryUsage)
+	junoCmd.Flags().Uint(
+		nodeMemoryReserveF, defaultNodeMemoryReserve, maxCompilationReserveMemory,
+	)
 	junoCmd.Flags().Uint(
 		maxCompilationCPUTimeF, defaultMaxCompilationCPUTime, maxCompilationCPUTimeUsage,
 	)
@@ -634,6 +640,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		maxConcurrentCompilationsF,
 		maxCompilationQueueF,
 		maxCompilationMemoryF,
+		nodeMemoryReserveF,
 		maxCompilationCPUTimeF,
 		versionedConstantsFileF,
 	)

@@ -17,11 +17,11 @@ import (
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L3159
 type Class struct {
-	SierraProgram        []*felt.Felt `json:"sierra_program,omitempty"`
-	Program              string       `json:"program,omitempty"`
-	ContractClassVersion string       `json:"contract_class_version,omitempty"`
-	EntryPoints          EntryPoints  `json:"entry_points_by_type"`
-	Abi                  any          `json:"abi"`
+	SierraProgram        []felt.Felt `json:"sierra_program,omitempty"`
+	Program              string      `json:"program,omitempty"`
+	ContractClassVersion string      `json:"contract_class_version,omitempty"`
+	EntryPoints          EntryPoints `json:"entry_points_by_type"`
+	Abi                  any         `json:"abi"`
 }
 
 type EntryPoints struct {
