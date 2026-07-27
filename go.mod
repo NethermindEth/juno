@@ -13,7 +13,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/consensys/gnark-crypto v0.20.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ethereum/go-ethereum v1.17.4
+	github.com/ethereum/go-ethereum v1.17.5
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -70,7 +70,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
-	github.com/ethereum/c-kzg-4844/v2 v2.1.6 // indirect
+	github.com/ethereum/c-kzg-4844/v2 v2.1.8 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
 	github.com/fjl/jsonw v0.1.0 // indirect
@@ -85,7 +85,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/snappy v1.0.0 // indirect
+	github.com/golang/snappy v1.0.1-0.20260716114414-9ae09f520e93 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
