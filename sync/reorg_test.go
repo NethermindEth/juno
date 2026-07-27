@@ -206,6 +206,7 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 			commitments,
 			committedBlock.StateUpdate,
 			committedBlock.NewClasses,
+			core.EventsBloom(committedBlock.Block.Receipts),
 		)
 		require.NoError(t, err)
 	}

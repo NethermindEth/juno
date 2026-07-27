@@ -321,20 +321,29 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *networks.Network) e
 	return nil
 }
 
-// recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
+// recalculateBloomFilters recomputes each block header's embedded event bloom
+// filter from the block's receipts and writes it back. This runs before the
+// bloom is stripped out of headers, so it reads and writes the legacy
+// bloom-carrying header layout via DeprecatedBlockHeader. Receipts are read via
+// the legacy per-transaction layout because this runs before the
+// blocktransactions migration moves them to the combined per-block layout.
 //
 //nolint:staticcheck // [db.IndexedBatch] is necessary for deprecated migrations
 func recalculateBloomFilters(txn db.IndexedBatch, _ *networks.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := txlayout.TransactionLayoutPerTx.BlockByNumber(txn, blockNumber)
+		header, err := getDeprecatedBlockHeader(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
 			}
 			return err
 		}
-		block.EventsBloom = core.EventsBloom(block.Receipts)
-		if err = core.WriteBlockHeader(txn, block.Header); err != nil {
+		receipts, err := txlayout.TransactionLayoutPerTx.ReceiptsByBlockNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		header.EventsBloom = core.EventsBloom(receipts)
+		if err = writeDeprecatedBlockHeader(txn, header); err != nil {
 			return err
 		}
 	}
@@ -875,7 +884,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *networks.Ne
 			filter := core.NewAggregatedFilter(start)
 
 			for blockNum := rangeStart; blockNum <= rangeEnd; blockNum++ {
-				header, err := core.GetBlockHeaderByNumber(txn, blockNum)
+				header, err := getDeprecatedBlockHeader(txn, blockNum)
 				if err != nil {
 					return fmt.Errorf("failed to load block header %d: %w", blockNum, err)
 				}
@@ -910,7 +919,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *networks.Ne
 	runningFilter := core.NewRunningEventFilterHot(nil, &filter, runningFilterStart)
 
 	for blockNum := runningFilterStart; blockNum <= chainHeight; blockNum++ {
-		header, err := core.GetBlockHeaderByNumber(txn, blockNum)
+		header, err := getDeprecatedBlockHeader(txn, blockNum)
 		if err != nil {
 			return fmt.Errorf("failed to load block header %d: %w", blockNum, err)
 		}

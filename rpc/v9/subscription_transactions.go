@@ -115,8 +115,9 @@ func (s *transactionsSubscriberState) onNewHead(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	head *core.Block,
+	headWithBloom *core.WithBloom[*core.Block],
 ) error {
+	head := headWithBloom.Value
 	// Canonical blocks are published exactly once, so they bypass the deduper.
 	for txn := range transactionsOf(head, s.senders, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
 		if err := sendTransaction(s.conn, txn, id); err != nil {
@@ -130,8 +131,9 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	preConfirmed *pending.PreConfirmed,
+	preConfirmedWithBloom *core.WithBloom[*pending.PreConfirmed],
 ) error {
+	preConfirmed := preConfirmedWithBloom.Value
 	block := preConfirmed.GetBlock()
 	status := TxnStatusWithoutL1(TxnStatusPreConfirmed)
 	// The pre_confirmed tip is re-published in full on every delta; skip already-sent

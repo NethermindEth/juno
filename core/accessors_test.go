@@ -393,37 +393,6 @@ func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 	})
 }
 
-//nolint:dupl // Similar to the other partial-header accessor tests, but they're different methods
-func TestGetBlockHeaderEventsBloomByNumber(t *testing.T) {
-	t.Parallel()
-	memDB, block := setupForTxsAndReceiptsTests(t)
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
-
-	t.Run("matches full header decode", func(t *testing.T) {
-		t.Parallel()
-		got, err := core.GetBlockHeaderEventsBloomByNumber(memDB, block.Number)
-		require.NoError(t, err)
-		assert.Equal(t, block.Header.EventsBloom, got)
-	})
-
-	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
-		t.Parallel()
-		_, err := core.GetBlockHeaderEventsBloomByNumber(memDB, nonexistentBlockNumber)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
-
-	t.Run("missing field returns error", func(t *testing.T) {
-		t.Parallel()
-		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
-		require.NoError(t, err)
-		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
-
-		_, err = core.GetBlockHeaderEventsBloomByNumber(partialHeaderDB, block.Number)
-		require.Error(t, err)
-	})
-}
-
 func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)

@@ -45,7 +45,7 @@ type Poller struct {
 	dataSource         DataSource
 	storage            *ChainStorage
 	blockchain         *blockchain.Blockchain
-	out                *feed.Feed[*pending.PreConfirmed]
+	out                *feed.Feed[*core.WithBloom[*pending.PreConfirmed]]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
 	logger             log.StructuredLogger
@@ -55,7 +55,7 @@ func NewPoller(
 	dataSource DataSource,
 	storage *ChainStorage,
 	bc *blockchain.Blockchain,
-	out *feed.Feed[*pending.PreConfirmed],
+	out *feed.Feed[*core.WithBloom[*pending.PreConfirmed]],
 	highestBlockHeader *atomic.Pointer[core.Header],
 	interval time.Duration,
 	logger log.StructuredLogger,

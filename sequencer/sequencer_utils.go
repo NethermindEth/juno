@@ -31,7 +31,14 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	}
 
 	preConfirmed := s.buildState.PreConfirmed
-	if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
+	eventsBloom := core.EventsBloom(preConfirmed.Block.Receipts)
+	err = s.builder.Finalise(
+		preConfirmed,
+		newBlockSigner(s.privKey),
+		s.privKey,
+		eventsBloom,
+	)
+	if err != nil {
 		return nil, err
 	}
 	s.logger.Infof("Finalised new block")
@@ -42,7 +49,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 		}
 	}
 	// push the new head to the feed
-	s.subNewHeads.Send(preConfirmed.Block)
+	s.subNewHeads.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
 
 	if err := s.initPendingBlock(); err != nil {
 		return nil, err

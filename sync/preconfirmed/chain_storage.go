@@ -27,8 +27,8 @@ var ErrBaseTxCountMismatch = errors.New("pre-confirmed base transaction count mi
 // newer than it, so concurrent readers walking a prior snapshot see a stable
 // graph. Popped nodes become unreferenced and GC-collectable.
 type node struct {
-	preconfirmed *pending.PreConfirmed
-	parent       *node
+	entry  core.WithBloom[*pending.PreConfirmed]
+	parent *node
 }
 
 // ChainReader is an immutable snapshot of a contiguous run of pre-confirmed
@@ -59,7 +59,7 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 				index, entry.Block.Number, entries[index-1].Block.Number,
 			)
 		}
-		head = &node{preconfirmed: entry, parent: head}
+		head = &node{entry: pending.NewPreConfirmedWithBloom(entry), parent: head}
 	}
 	return ChainReader{head: head, length: len(entries)}, nil
 }
@@ -74,7 +74,7 @@ func (c *ChainReader) Head() *pending.PreConfirmed {
 	if c.length == 0 {
 		return nil
 	}
-	return c.head.preconfirmed
+	return c.head.entry.Value
 }
 
 // NewestFirst yields entries from the most recent down to head+1, bounded by Length.
@@ -82,7 +82,7 @@ func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
 		current := c.head
 		for count := 0; count < c.length && current != nil; count++ {
-			if !yield(current.preconfirmed) {
+			if !yield(current.entry.Value) {
 				return
 			}
 			current = current.parent
@@ -94,6 +94,14 @@ func (c *ChainReader) NewestFirst() iter.Seq[*pending.PreConfirmed] {
 func (c *ChainReader) OldestFirst() iter.Seq[*pending.PreConfirmed] {
 	return func(yield func(*pending.PreConfirmed) bool) {
 		walkOldestFirst(c.head, c.length, yield)
+	}
+}
+
+// OldestFirstWithBloom yields entries paired with their event bloom, oldest-first,
+// bounded by Length. The event filter uses the bloom to skip receipt scans.
+func (c *ChainReader) OldestFirstWithBloom() iter.Seq[*core.WithBloom[*pending.PreConfirmed]] {
+	return func(yield func(*core.WithBloom[*pending.PreConfirmed]) bool) {
+		walkOldestFirstWithBloom(c.head, c.length, yield)
 	}
 }
 
@@ -226,12 +234,12 @@ func (c *ChainReader) contains(blockNum uint64) bool {
 
 // tip returns the most recent block number contained in the ChainReader
 func (c *ChainReader) tip() uint64 {
-	return c.head.preconfirmed.Block.Number
+	return c.head.entry.Value.Block.Number
 }
 
 // oldestPreConf returns the oldest block number contained in the ChainReader
 func (c *ChainReader) oldestPreConf() uint64 {
-	return c.head.preconfirmed.Block.Number - uint64(c.length-1)
+	return c.head.entry.Value.Block.Number - uint64(c.length-1)
 }
 
 // walkOldestFirst recurses to the oldest entry of the chain and yields entries on
@@ -251,7 +259,23 @@ func walkOldestFirst(
 	if !walkOldestFirst(current.parent, remaining-1, yield) {
 		return false
 	}
-	return yield(current.preconfirmed)
+	return yield(current.entry.Value)
+}
+
+// walkOldestFirstWithBloom mirrors [walkOldestFirst] but yields the bloom-paired
+// entry by pointer into the (immutable) node.
+func walkOldestFirstWithBloom(
+	current *node,
+	remaining int,
+	yield func(*core.WithBloom[*pending.PreConfirmed]) bool,
+) bool {
+	if current == nil || remaining == 0 {
+		return true
+	}
+	if !walkOldestFirstWithBloom(current.parent, remaining-1, yield) {
+		return false
+	}
+	return yield(&current.entry)
 }
 
 // ChainStorage holds a contiguous run of pre-confirmed blocks above the
@@ -298,7 +322,7 @@ func (s *ChainStorage) ApplyUpdate(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
-) (*pending.PreConfirmed, error) {
+) (*core.WithBloom[*pending.PreConfirmed], error) {
 	if _, ok := update.(starknet.PreConfirmedNoChange); ok {
 		return nil, nil
 	}
@@ -369,7 +393,7 @@ func rebuild(current *node, keep int) *node {
 		return nil
 	}
 	child := rebuild(current.parent, keep-1)
-	return &node{preconfirmed: current.preconfirmed, parent: child}
+	return &node{entry: current.entry, parent: child}
 }
 
 // computeUpdate is the pure dispatcher that turns a wire-side update into a
@@ -392,7 +416,7 @@ func computeUpdate(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
-) (*ChainReader, *pending.PreConfirmed, error) {
+) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	if current == nil || current.length == 0 {
 		block, ok := update.(starknet.PreConfirmedBlock)
 		if !ok {
@@ -453,7 +477,7 @@ func bootstrapChain(
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
 	oldestPreConf uint64,
-) (*ChainReader, *pending.PreConfirmed, error) {
+) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	if blockNumber != oldestPreConf {
 		return nil, nil, fmt.Errorf(
 			"bootstrap block %d invalid: oldest pre-confirmed slot is %d", blockNumber, oldestPreConf,
@@ -466,8 +490,8 @@ func bootstrapChain(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
-	newNode := &node{preconfirmed: &next, parent: nil}
-	return &ChainReader{head: newNode, length: 1}, &next, nil
+	newNode := &node{entry: pending.NewPreConfirmedWithBloom(&next), parent: nil}
+	return &ChainReader{head: newNode, length: 1}, &newNode.entry, nil
 }
 
 // extend grows the chain by one when the incoming block's blockNumber equals
@@ -476,7 +500,7 @@ func extend(
 	current *ChainReader,
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
-) (*ChainReader, *pending.PreConfirmed, error) {
+) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	next, err := sn2core.AdaptPreConfirmedBlock(block, blockNumber)
 	if err != nil {
 		return nil, nil, err
@@ -484,8 +508,8 @@ func extend(
 	if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 		return nil, nil, err
 	}
-	newNode := &node{preconfirmed: &next, parent: current.head}
-	return &ChainReader{head: newNode, length: current.length + 1}, &next, nil
+	newNode := &node{entry: pending.NewPreConfirmedWithBloom(&next), parent: current.head}
+	return &ChainReader{head: newNode, length: current.length + 1}, &newNode.entry, nil
 }
 
 // replaceSlot locates the in-chain slot at blockNumber and mutates it,
@@ -506,7 +530,7 @@ func replaceSlot(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-) (*ChainReader, *pending.PreConfirmed, error) {
+) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	depthFromHead := int(current.tip() - blockNumber)
 	target := current.head
 	for range depthFromHead {
@@ -522,32 +546,32 @@ func replaceSlot(
 		if err := core.CheckBlockVersion(next.Block.ProtocolVersion); err != nil {
 			return nil, nil, err
 		}
-		if shouldPreserveSlot(target.preconfirmed, &next) {
+		if shouldPreserveSlot(target.entry.Value, &next) {
 			return nil, nil, nil
 		}
-		newNode := &node{preconfirmed: &next, parent: target.parent}
+		newNode := &node{entry: pending.NewPreConfirmedWithBloom(&next), parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length - depthFromHead,
-		}, &next, nil
+		}, &newNode.entry, nil
 
 	case starknet.PreConfirmedDeltaUpdate:
 		// Delta updates can only target the chain tip
 		if depthFromHead != 0 {
 			return nil, nil, fmt.Errorf("delta at non-tip slot %d (depth %d)", blockNumber, depthFromHead)
 		}
-		if uint64(len(target.preconfirmed.Block.Transactions)) != baseTxCount {
+		if uint64(len(target.entry.Value.Block.Transactions)) != baseTxCount {
 			return nil, nil, ErrBaseTxCountMismatch
 		}
-		next, err := sn2core.AdaptPreConfirmedWithDelta(target.preconfirmed, &variant)
+		next, err := sn2core.AdaptPreConfirmedWithDelta(target.entry.Value, &variant)
 		if err != nil {
 			return nil, nil, err
 		}
-		newNode := &node{preconfirmed: &next, parent: target.parent}
+		newNode := &node{entry: pending.NewPreConfirmedWithBloom(&next), parent: target.parent}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length,
-		}, &next, nil
+		}, &newNode.entry, nil
 	}
 	return nil, nil, fmt.Errorf("unknown PreConfirmedUpdate variant %T", update)
 }

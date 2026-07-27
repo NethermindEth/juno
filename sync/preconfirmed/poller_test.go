@@ -145,7 +145,7 @@ type harness struct {
 	storage *preconfirmed.ChainStorage
 	head    *core.Header
 	highest *atomic.Pointer[core.Header]
-	sub     *feed.Subscription[*pending.PreConfirmed]
+	sub     *feed.Subscription[*core.WithBloom[*pending.PreConfirmed]]
 }
 
 // wirePoller creates the in-memory bits (storage, feed, atomic header, poller)
@@ -158,7 +158,7 @@ func wirePoller(
 ) harness {
 	t.Helper()
 	storage := preconfirmed.NewChainStorage()
-	out := feed.New[*pending.PreConfirmed]()
+	out := feed.New[*core.WithBloom[*pending.PreConfirmed]]()
 	sub := out.SubscribeKeepLast()
 	t.Cleanup(sub.Unsubscribe)
 
@@ -791,8 +791,8 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 		select {
 		case pc := <-h.sub.Recv():
 			require.NotNil(t, pc)
-			require.Equal(t, uint64(1), pc.Block.Number)
-			require.Equal(t, "r0", pc.BlockIdentifier)
+			require.Equal(t, uint64(1), pc.Value.Block.Number)
+			require.Equal(t, "r0", pc.Value.BlockIdentifier)
 		default:
 			t.Fatal("expected a pre_confirmed broadcast on successful apply")
 		}

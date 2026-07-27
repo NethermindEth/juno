@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/pruner"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 type stateBackend struct {
@@ -78,6 +79,7 @@ func (b *stateBackend) Store(
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
+	eventsBloom *bloom.BloomFilter,
 ) error {
 	return b.database.Write(func(batch db.Batch) error {
 		if err := verifyBlockSuccession(b.database, block); err != nil {
@@ -104,7 +106,7 @@ func (b *stateBackend) Store(
 			return err
 		}
 
-		return b.runningFilter.InsertWithBatch(batch, block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(batch, eventsBloom, block.Number)
 	})
 }
 
@@ -206,6 +208,7 @@ func (b *stateBackend) Finalise(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
+	eventsBloom *bloom.BloomFilter,
 ) error {
 	return b.database.Write(func(batch db.Batch) error {
 		st, err := state.New(stateUpdate.OldRoot, b.stateDB, batch)
@@ -241,7 +244,7 @@ func (b *stateBackend) Finalise(
 			return err
 		}
 
-		return b.runningFilter.InsertWithBatch(batch, block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(batch, eventsBloom, block.Number)
 	})
 }
 

@@ -88,7 +88,7 @@ type Pruner struct {
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
 	// drives the floor from this event's block number; otherwise the L1
 	// path drives the floor and this event acts only as a trigger.
-	newHeadSub *feed.Subscription[*core.Block]
+	newHeadSub *feed.Subscription[*core.WithBloom[*core.Block]]
 	// l1HeadSub fires on each new L1 head. In normal operation (L1 < L2)
 	// L1 advances move the retention floor; during catch-up this path
 	// short-circuits and the L2 path drives the floor instead.
@@ -156,7 +156,7 @@ func WithFloorTickInterval(duration time.Duration) Option {
 func New(
 	database db.KeyValueStore,
 	retainedBlocks uint64,
-	newHeadSub *feed.Subscription[*core.Block],
+	newHeadSub *feed.Subscription[*core.WithBloom[*core.Block]],
 	l1HeadSub *feed.Subscription[*core.L1Head],
 	logger log.StructuredLogger,
 	opts ...Option,
@@ -215,7 +215,8 @@ func (p *Pruner) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 
-		case block := <-p.newHeadSub.Recv():
+		case headWithBloom := <-p.newHeadSub.Recv():
+			block := headWithBloom.Value
 			if err := p.onNewBlock(ctx, block); err != nil {
 				p.listener.OnPruneError(err)
 				p.logger.Error("on new L2 block",

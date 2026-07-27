@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/bits-and-blooms/bloom/v3"
 )
 
 /**
@@ -328,7 +327,7 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 }
 
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
-// callers opening state don't need heavier fields like EventsBloom.
+// callers opening state don't need the rest of the header.
 func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header struct {
 		GlobalStateRoot *felt.Felt
@@ -392,25 +391,6 @@ func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint
 		return 0, fmt.Errorf("missing Timestamp in block header %d", blockNum)
 	}
 	return *header.Timestamp, nil
-}
-
-func GetBlockHeaderEventsBloomByNumber(
-	r db.KeyValueReader,
-	blockNum uint64,
-) (*bloom.BloomFilter, error) {
-	var header struct {
-		EventsBloom *bloom.BloomFilter
-	}
-	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
-	})
-	if err != nil {
-		return nil, err
-	}
-	if header.EventsBloom == nil {
-		return nil, fmt.Errorf("missing EventsBloom in block header %d", blockNum)
-	}
-	return header.EventsBloom, nil
 }
 
 func GetBlockHeaderHashAndStateRootByNumber(

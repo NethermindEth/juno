@@ -33,7 +33,6 @@ func createEventPreConfirmedFromBlock(
 		Number:           block.Header.Number,
 		Timestamp:        block.Header.Timestamp,
 		SequencerAddress: block.Header.SequencerAddress,
-		EventsBloom:      core.EventsBloom(block.Receipts),
 	}
 
 	preConfirmedBlock := &core.Block{
@@ -159,7 +158,7 @@ func fetchAndStoreBlock(
 	require.NoError(t, err)
 	s, err := gw.StateUpdate(t.Context(), blockNumber)
 	require.NoError(t, err)
-	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
+	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil, core.EventsBloom(b.Receipts)))
 }
 
 // setupTestChain sets up a test chain with the given number of blocks

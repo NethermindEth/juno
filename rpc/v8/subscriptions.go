@@ -90,7 +90,7 @@ type on[T any] func(ctx context.Context, id string, sub *subscription, event T) 
 type subscriber struct {
 	onStart   on[any]
 	onReorg   on[*sync.ReorgBlockRange]
-	onNewHead on[*core.Block]
+	onNewHead on[*core.WithBloom[*core.Block]]
 	onL1Head  on[*core.L1Head]
 }
 
@@ -218,7 +218,10 @@ func (h *Handler) SubscribeEvents(
 			nextBlock = reorg.StartBlockNum
 			return nil
 		},
-		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
+		onNewHead: func(
+			ctx context.Context, id string, _ *subscription, headWithBloom *core.WithBloom[*core.Block],
+		) error {
+			head := headWithBloom.Value
 			fromB := BlockIDFromNumber(nextBlock)
 			toB := BlockIDFromNumber(head.Number)
 			err := h.processEvents(
@@ -256,7 +259,9 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
+		onNewHead: func(
+			ctx context.Context, id string, sub *subscription, _ *core.WithBloom[*core.Block],
+		) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -439,8 +444,10 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
-			return sendHeader(w, head.Header, id)
+		onNewHead: func(
+			ctx context.Context, id string, _ *subscription, headWithBloom *core.WithBloom[*core.Block],
+		) error {
+			return sendHeader(w, headWithBloom.Value.Header, id)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)

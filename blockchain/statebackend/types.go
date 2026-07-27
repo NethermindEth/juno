@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 // StateBackend is the interface for state operations in blockchain.
@@ -19,6 +20,7 @@ type StateBackend interface {
 		commitments *core.BlockCommitments,
 		stateUpdate *core.StateUpdate,
 		newClasses map[felt.Felt]core.ClassDefinition,
+		eventsBloom *bloom.BloomFilter,
 	) error
 	RevertHead() error
 	GetReverseStateDiff() (core.StateDiff, error)
@@ -33,6 +35,7 @@ type StateBackend interface {
 		stateUpdate *core.StateUpdate,
 		newClasses map[felt.Felt]core.ClassDefinition,
 		sign core.BlockSignFunc,
+		eventsBloom *bloom.BloomFilter,
 	) error
 	VerifyBlockHash(
 		b *core.Block,
