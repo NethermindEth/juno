@@ -53,6 +53,7 @@ func (s *wsLogSub) Unsubscribe() {
 	s.fail(nil)
 	s.transport.mu.Lock()
 	id := s.id
+	s.id = ""
 	if s.transport.subs != nil && id != "" {
 		delete(s.transport.subs, id)
 	}
@@ -64,7 +65,8 @@ func (s *wsLogSub) Unsubscribe() {
 	ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
 	defer cancel()
 	if _, err := s.transport.call(ctx, "eth_unsubscribe", id); err != nil {
-		s.transport.logger.Trace("ws: eth_unsubscribe failed",
+		s.transport.logger.Trace(
+			"ws: eth_unsubscribe failed",
 			zap.String("subscription", id),
 			zap.Error(err),
 		)
@@ -92,6 +94,7 @@ func (s *wsLogSub) dispatch() {
 			var log eth.Log
 			if err := json.Unmarshal(raw, &log); err != nil {
 				s.fail(fmt.Errorf("decoding log: %w", err))
+				s.transport.removeSub(s)
 				return
 			}
 			select {

@@ -44,7 +44,7 @@ func WithPingConfig(interval, timeout time.Duration) Option {
 func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse url: %w", err)
+		return nil, fmt.Errorf("parsing url: %w", err)
 	}
 	if u.Scheme != "ws" && u.Scheme != "wss" {
 		return nil, fmt.Errorf("unsupported url scheme %q (need ws/wss)", u.Scheme)
@@ -134,7 +134,7 @@ func (c *Client) FilterLogs(ctx context.Context, q FilterQuery) ([]eth.Log, erro
 func decodeQuantityUint64(raw json.RawMessage) (uint64, error) {
 	var q eth.HexU64
 	if err := json.Unmarshal(raw, &q); err != nil {
-		return 0, fmt.Errorf("decode quantity: %w", err)
+		return 0, fmt.Errorf("decoding quantity: %w", err)
 	}
 	return uint64(q), nil
 }
@@ -142,21 +142,24 @@ func decodeQuantityUint64(raw json.RawMessage) (uint64, error) {
 func decodeQuantityBig(raw json.RawMessage) (*big.Int, error) {
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, fmt.Errorf("decode quantity: %w", err)
+		return nil, fmt.Errorf("decoding quantity: %w", err)
 	}
 	if len(s) < 2 || s[0] != '0' || (s[1] != 'x' && s[1] != 'X') {
-		return nil, fmt.Errorf("decode quantity: missing 0x prefix in %q", s)
+		return nil, fmt.Errorf("decoding quantity: missing 0x prefix in %q", s)
 	}
 	body := s[2:]
 	if body == "" {
-		return nil, fmt.Errorf("decode quantity: no digits in %q", s)
+		return nil, fmt.Errorf("decoding quantity: no digits in %q", s)
+	}
+	if body[0] == '+' || body[0] == '-' {
+		return nil, fmt.Errorf("decoding quantity: sign prefix in %q", s)
 	}
 	if len(body) > 1 && body[0] == '0' {
-		return nil, fmt.Errorf("decode quantity: leading zero in %q", s)
+		return nil, fmt.Errorf("decoding quantity: leading zero in %q", s)
 	}
 	out, ok := new(big.Int).SetString(body, 16)
 	if !ok {
-		return nil, fmt.Errorf("decode quantity: invalid hex %q", s)
+		return nil, fmt.Errorf("decoding quantity: invalid hex %q", s)
 	}
 	return out, nil
 }

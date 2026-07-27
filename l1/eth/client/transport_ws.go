@@ -50,10 +50,9 @@ type rpcReply struct {
 // wsTransport multiplexes unary calls and eth_subscribe notifications over
 // one conn, routed by request id / subscription id.
 type wsTransport struct {
-	conn    *websocket.Conn
-	writeMu sync.Mutex
-	nextID  atomic.Uint64
-	logger  log.StructuredLogger
+	conn   *websocket.Conn
+	nextID atomic.Uint64
+	logger log.StructuredLogger
 
 	mu      sync.Mutex
 	pending map[uint64]chan rpcReply // by request id
@@ -90,7 +89,7 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 		_ = resp.Body.Close()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("dial ws: %w", err)
+		return nil, fmt.Errorf("dialing ws: %w", err)
 	}
 	conn.SetReadLimit(wsReadLimit)
 	t := &wsTransport{
@@ -146,7 +145,7 @@ func (t *wsTransport) pingLoop() {
 			err := t.conn.Ping(ctx)
 			cancel()
 			if err != nil {
-				t.shutdown(fmt.Errorf("ws ping: %w", err))
+				t.shutdown(fmt.Errorf("pinging ws: %w", err))
 				return
 			}
 			timer.Reset(t.pingInterval)
@@ -281,13 +280,21 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 	default:
 		// Full buffer: fail the slow subscription rather than block the shared
 		// readLoop, which would stall every unary call on the connection.
-		t.mu.Lock()
-		if t.subs != nil {
-			delete(t.subs, notif.Params.Subscription)
-		}
-		t.mu.Unlock()
 		sub.fail(ErrSubscriptionQueueOverflow)
-		t.unsubscribeInBackground(notif.Params.Subscription)
+		t.removeSub(sub)
+	}
+}
+
+func (t *wsTransport) removeSub(s *wsLogSub) {
+	t.mu.Lock()
+	id := s.id
+	s.id = ""
+	if t.subs != nil && id != "" {
+		delete(t.subs, id)
+	}
+	t.mu.Unlock()
+	if id != "" {
+		t.unsubscribeInBackground(id)
 	}
 }
 
@@ -339,11 +346,10 @@ func (t *wsTransport) writeJSON(v any) error {
 	if err != nil {
 		return err
 	}
-	t.writeMu.Lock()
-	defer t.writeMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), wsWriteTimeout)
 	defer cancel()
 	if err := t.conn.Write(ctx, websocket.MessageText, data); err != nil {
+		t.shutdown(fmt.Errorf("writing frame: %w", err))
 		return fmt.Errorf("%w: writing frame: %w", ErrTransportClosed, err)
 	}
 	select {

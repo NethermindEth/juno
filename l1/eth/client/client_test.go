@@ -71,7 +71,7 @@ func TestNew_SchemeDispatch(t *testing.T) {
 		{"https://example.com", "unsupported url scheme"},
 		{"ipc:///tmp/geth.ipc", "unsupported url scheme"},
 		{"file:///tmp/x", "unsupported url scheme"},
-		{"::not-a-url", "parse url"},
+		{"::not-a-url", "parsing url"},
 	}
 	for _, c := range cases {
 		t.Run(c.url, func(t *testing.T) {
@@ -128,7 +128,9 @@ func TestChainID_DecodeErrors(t *testing.T) {
 		raw     any
 		wantSub string
 	}{
-		{"non-string", 1, "decode quantity"},
+		{"non-string", 1, "decoding quantity"},
+		{"signed", "0x-1", "sign prefix"},
+		{"signed with zero", "0x-01", "sign prefix"},
 		{"missing prefix", "abc", "missing 0x prefix"},
 		{"no digits", "0x", "no digits"},
 		{"leading zero", "0x01", "leading zero"},
@@ -156,7 +158,7 @@ func TestBlockNumber_DecodeError(t *testing.T) {
 
 	_, err := cli.BlockNumber(t.Context())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "decode quantity")
+	assert.Contains(t, err.Error(), "decoding quantity")
 }
 
 func TestFilterLogs_DecodeFailure(t *testing.T) {

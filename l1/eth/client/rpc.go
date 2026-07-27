@@ -57,7 +57,7 @@ func parseResponseID(raw json.RawMessage) (uint64, error) {
 	}
 	n, err := strconv.ParseUint(string(trimmed), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("parse id %q: %w", raw, err)
+		return 0, fmt.Errorf("parsing id %q: %w", raw, err)
 	}
 	return n, nil
 }

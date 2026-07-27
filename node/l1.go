@@ -40,7 +40,7 @@ func newL1Client(
 	var provider l1StateProviderFull
 	var err error
 	if useNewL1Client {
-		var providerOpts []l1.EthL1StateProviderOption
+		providerOpts := []l1.EthL1StateProviderOption{l1.WithEthL1StateProviderLogger(logger)}
 		if includeMetrics {
 			providerOpts = append(providerOpts, l1.WithEthL1StateProviderListener(listener))
 		}
@@ -67,9 +67,10 @@ func newMigrationL1StateProvider(
 	useNewL1Client bool,
 	ethNode string,
 	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
 ) (l1.L1StateProvider, error) {
 	if useNewL1Client {
-		return newEthL1StateProvider(ctx, ethNode, chain)
+		return newEthL1StateProvider(ctx, ethNode, chain, l1.WithEthL1StateProviderLogger(logger))
 	}
 	return newGethL1StateProvider(ctx, ethNode, chain)
 }

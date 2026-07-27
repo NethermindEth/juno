@@ -6,6 +6,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/l1/eth"
@@ -33,10 +34,31 @@ func TestWS_WriteFailureClassifiedAsTransportClosed(t *testing.T) {
 		closed:       make(chan struct{}),
 	}
 
+	sub := &wsLogSub{
+		transport: tr,
+		logCh:     make(chan json.RawMessage, 1),
+		errCh:     make(chan error, 1),
+		closed:    make(chan struct{}),
+	}
+	tr.subs["0xabc"] = sub
+
 	_, err = tr.call(context.Background(), "eth_chainId")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrTransportClosed,
 		"write failures must classify as ErrTransportClosed so the caller redials")
+
+	select {
+	case <-tr.closed:
+	default:
+		t.Fatal("a failed write must shut the transport down, not leave it half-alive")
+	}
+	select {
+	case errOut := <-sub.Err():
+		require.ErrorIs(t, errOut, ErrTransportClosed,
+			"active subscriptions must fail promptly on write failure")
+	default:
+		t.Fatal("active subscription was not failed on write failure")
+	}
 }
 
 func TestWS_CancelledSubscribeDoesNotRetainPendingSub(t *testing.T) {

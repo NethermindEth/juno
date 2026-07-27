@@ -44,10 +44,14 @@ type EthL1StateProvider struct {
 	logger          log.StructuredLogger
 	listener        EventListener
 
-	mu     sync.Mutex // protects client and closed
-	client *client.Client
-	closed bool
+	clientMu sync.Mutex
+	client   *client.Client
+	closed   bool
+
+	dialMu sync.Mutex
 }
+
+const redialTimeout = time.Minute
 
 func NewEthL1StateProvider(
 	ctx context.Context,
@@ -85,36 +89,54 @@ func (s *EthL1StateProvider) observe(method string) func() {
 }
 
 func (s *EthL1StateProvider) currentClient() (*client.Client, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.clientMu.Lock()
+	defer s.clientMu.Unlock()
 	if s.closed {
 		return nil, ErrClosed
 	}
 	return s.client, nil
 }
 
-// redial coalesces concurrent callers: losers pick up the winner's client
-// without dialing again.
+// redial coalesces concurrent callers: losers wait on dialMu and pick up the
+// winner's client without dialing again.
 func (s *EthL1StateProvider) redial(
 	ctx context.Context, stale *client.Client,
 ) (*client.Client, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.dialMu.Lock()
+	defer s.dialMu.Unlock()
+
+	s.clientMu.Lock()
 	if s.closed {
+		s.clientMu.Unlock()
 		return nil, ErrClosed
 	}
 	if s.client != stale {
 		// Someone else won the race; their fresh client is current.
-		return s.client, nil
+		c := s.client
+		s.clientMu.Unlock()
+		return c, nil
 	}
+	s.clientMu.Unlock()
+
 	stale.Close()
 	s.logger.Info("L1 transport closed; redialing")
-	c, err := client.New(ctx, s.url, s.clientOpts...)
+	dialCtx, cancel := context.WithTimeout(ctx, redialTimeout)
+	defer cancel()
+	c, err := client.New(dialCtx, s.url, s.clientOpts...)
 	if err != nil {
 		s.logger.Trace("L1 redial failed", zap.Error(err))
 		return nil, fmt.Errorf("redialing L1: %w", err)
 	}
+
+	s.clientMu.Lock()
+	if s.closed {
+		// Close raced the dial; don't leak the fresh client.
+		s.clientMu.Unlock()
+		c.Close()
+		return nil, ErrClosed
+	}
 	s.client = c
+	s.clientMu.Unlock()
 	return c, nil
 }
 
@@ -230,8 +252,8 @@ func (s *EthL1StateProvider) TransactionReceipt(
 
 // Close is terminal: no further redials.
 func (s *EthL1StateProvider) Close() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.clientMu.Lock()
+	defer s.clientMu.Unlock()
 	if s.closed {
 		return
 	}
