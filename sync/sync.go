@@ -567,9 +567,18 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 
 func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
 	header := s.startingBlockHeader.Load()
-	if header == nil {
-		return nil, errors.New("starting block header not available")
+	if header != nil {
+		return header, nil
 	}
+	if s.startingBlockNumber == nil {
+		return nil, errors.New("not running")
+	}
+
+	header, err := s.blockchain.BlockHeaderByNumber(*s.startingBlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	s.startingBlockHeader.Store(header)
 	return header, nil
 }
 

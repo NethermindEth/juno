@@ -181,6 +181,49 @@ func TestSyncBlocks(t *testing.T) {
 	})
 }
 
+func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	startingHeader := &core.Header{Number: 1, Hash: felt.NewFromUint64[felt.Felt](1)}
+	require.NoError(t, core.WriteChainHeight(testDB, 0))
+	require.NoError(t, core.WriteBlockHeaderByNumber(testDB, startingHeader))
+
+	dataSource := newTestBlockDataSource()
+	dataSource.setBlocks([]sync.CommittedBlock{
+		{Block: &core.Block{Header: &core.Header{Number: 0}}},
+		{Block: &core.Block{Header: startingHeader}},
+		{Block: &core.Block{Header: &core.Header{Number: 2, Hash: felt.NewFromUint64[felt.Felt](2)}}},
+	})
+
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		header, err := synchronizer.StartingBlockHeader()
+		assert.NoError(c, err)
+		assert.Equal(c, startingHeader, header)
+	}, timeout, 10*time.Millisecond)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
 func TestReorg(t *testing.T) {
 	mainClient := feeder.NewTestClient(t, &networks.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
