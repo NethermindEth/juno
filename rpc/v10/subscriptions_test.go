@@ -944,9 +944,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 
 		// PreConfirmed Status
-		rpcTx := AdaptCoreTransaction(block.Transactions[0])
-		rpcTx.Hash = (*felt.Felt)(&txHash)
-
 		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
