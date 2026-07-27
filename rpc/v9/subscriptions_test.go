@@ -848,9 +848,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 
 		// PreConfirmed Status
-		rpcTx := AdaptTransaction(block.Transactions[0])
-		rpcTx.Hash = txHash
-
 		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
