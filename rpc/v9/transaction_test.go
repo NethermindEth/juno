@@ -535,7 +535,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: hash}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
 		}
-		_, err := storage.ApplyUpdate(block, blockNumber, 0, oldestPreConf)
+		_, err := storage.ApplyUpdate(block, blockNumber, 0, oldestPreConf, nil)
 		require.NoError(t, err)
 	}
 	chain := storage.SnapshotForBlock(oldestPreConf)
