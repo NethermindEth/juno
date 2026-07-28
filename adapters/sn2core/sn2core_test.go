@@ -296,15 +296,9 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &networks.Goerli)
-	clientMainnet := feeder.NewTestClient(t, &networks.Mainnet)
-	ctx := t.Context()
-
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
+		responseTx := feeder.TransactionFromTestData(t, &networks.Goerli, hash)
 
 		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
@@ -324,9 +318,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
+		responseTx := feeder.TransactionFromTestData(t, &networks.Goerli, hash)
 
 		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
@@ -344,9 +336,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("deploy account transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
-		response, err := clientMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
+		responseTx := feeder.TransactionFromTestData(t, &networks.Mainnet, hash)
 
 		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
@@ -367,9 +357,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("declare transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
+		responseTx := feeder.TransactionFromTestData(t, &networks.Goerli, hash)
 
 		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
@@ -388,9 +376,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("l1handler transaction", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
-		response, err := clientMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
+		responseTx := feeder.TransactionFromTestData(t, &networks.Mainnet, hash)
 
 		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
@@ -408,9 +394,6 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionV3(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-	ctx := t.Context()
-
 	tests := map[string]core.Transaction{
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
 		"invoke": &core.InvokeTransaction{
@@ -561,9 +544,8 @@ func TestTransactionV3(t *testing.T) {
 
 	for description, want := range tests {
 		t.Run(description, func(t *testing.T) {
-			status, err := client.Transaction(ctx, want.Hash())
-			require.NoError(t, err)
-			tx, err := sn2core.AdaptTransaction(status.Transaction)
+			responseTx := feeder.TransactionFromTestData(t, &networks.Integration, want.Hash())
+			tx, err := sn2core.AdaptTransaction(responseTx)
 			require.NoError(t, err)
 			require.Equal(t, want, tx)
 		})

@@ -1,6 +1,7 @@
 package feeder
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +58,33 @@ func NewTestClient(t testing.TB, network *networks.Network, opts ...Option) *Cli
 	clientOpts = append(clientOpts, opts...)
 
 	return NewClient(feederURL, clientOpts...)
+}
+
+// TransactionFromTestData loads a transaction fixture captured from the legacy
+// get_transaction endpoint and returns the transaction body it contains.
+func TransactionFromTestData(
+	t testing.TB,
+	network *networks.Network,
+	transactionHash *felt.Felt,
+) *starknet.Transaction {
+	t.Helper()
+
+	dataPath, err := findTargetDirectory("clients/feeder/testdata")
+	require.NoError(t, err)
+
+	fixturePath := filepath.Join(
+		dataPath, network.String(), "transaction", transactionHash.String()+".json",
+	)
+	raw, err := os.ReadFile(fixturePath)
+	require.NoError(t, err)
+
+	var fixture struct {
+		Transaction *starknet.Transaction `json:"transaction"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &fixture))
+	require.NotNil(t, fixture.Transaction)
+
+	return fixture.Transaction
 }
 
 func newTestServer(t testing.TB, network *networks.Network) *httptest.Server {
@@ -138,10 +168,6 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		dir = "transaction_status"
 		queryArg = transactionHashArg
 
-	case strings.HasSuffix(path, "get_transaction"):
-		dir = "transaction"
-		queryArg = transactionHashArg
-
 	case strings.HasSuffix(path, "get_class_by_hash"):
 		dir = "class"
 		queryArg = classHashArg
@@ -182,9 +208,6 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 
 func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	switch {
-	case dir == "transaction" && queryArg == transactionHashArg:
-		// get_transaction not-found response
-		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
 	case dir == "transaction_status" && queryArg == transactionHashArg:
 		// get_transaction_status not-found response
 		resp := `{"tx_status":"NOT_RECEIVED","finality_status":"NOT_RECEIVED","execution_status":null}`

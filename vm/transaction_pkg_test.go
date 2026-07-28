@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -14,9 +13,6 @@ import (
 )
 
 func TestTransactionMarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-	gw := adaptfeeder.New(client)
-
 	tests := map[string]struct {
 		Hash     *felt.Felt
 		Expected string
@@ -362,8 +358,7 @@ func TestTransactionMarshal(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			txn, err := gw.Transaction(t.Context(), test.Hash)
-			require.NoError(t, err)
+			txn := adaptfeeder.TransactionFromTestData(t, &networks.Integration, test.Hash)
 
 			jsonB, err := marshalTxn(txn)
 			require.NoError(t, err)

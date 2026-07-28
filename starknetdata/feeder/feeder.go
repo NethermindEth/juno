@@ -67,22 +67,6 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 	return sn2core.AdaptBlock(&response, sig.Signature)
 }
 
-// Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
-// then adapts it to the appropriate core.Transaction types.
-// Uses the old get_transaction endpoint; prefer get_transaction_status for status-only queries.
-func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := f.client.Transaction(ctx, transactionHash)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := sn2core.AdaptTransaction(response.Transaction)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx, nil
-}
-
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
 func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {

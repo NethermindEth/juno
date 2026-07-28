@@ -409,12 +409,11 @@ func TestTransactionByHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw := adaptfeeder.New(feeder.NewTestClient(t, test.network))
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-				return gw.Transaction(t.Context(), hash)
+				return adaptfeeder.TransactionFromTestData(t, test.network, hash), nil
 			}).Times(1)
 			handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -967,10 +966,8 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	n := &networks.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
-		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
-		require.NoError(t, err)
+		tx := adaptfeeder.TransactionFromTestData(t, n, felt.NewUnsafeFromString[felt.Felt](hash))
 		return rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
 		}
@@ -1311,15 +1308,13 @@ func TestAddTransaction(t *testing.T) {
 			sub := receivedTxFeed.SubscribeKeepLast()
 			defer sub.Unsubscribe()
 
-			gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-			//nolint:staticcheck // Intention here is reading the transaction, not its status
-			tx, err := gw.Transaction(
-				t.Context(),
+			tx := adaptfeeder.TransactionFromTestData(
+				t,
+				n,
 				felt.NewUnsafeFromString[felt.Felt](
 					"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
 				),
 			)
-			require.NoError(t, err)
 
 			broadcastedTxn := rpc.BroadcastedTransaction{
 				Transaction: *rpc.AdaptTransaction(tx),

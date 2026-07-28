@@ -45,7 +45,6 @@ type Client struct {
 }
 
 //go:generate mockgen -destination=../../mocks/mock_feeder.go -mock_names Reader=MockFeederReader -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
-//nolint:staticcheck // Transaction() returns the deprecated DeprecatedTransactionStatus type.
 type Reader interface {
 	Block(ctx context.Context, blockID string) (starknet.Block, error)
 	BlockHeader(ctx context.Context, blockID string) (starknet.BlockHeader, error)
@@ -71,11 +70,6 @@ type Reader interface {
 		ctx context.Context,
 		blockID string,
 	) (starknet.StateUpdateWithBlockAndSignature, error)
-	// Deprecated: Use TransactionStatus() instead.
-	Transaction(
-		ctx context.Context,
-		transactionHash *felt.Felt,
-	) (starknet.DeprecatedTransactionStatus, error)
 	TransactionStatus(
 		ctx context.Context,
 		transactionHash *felt.Felt,
@@ -414,18 +408,6 @@ func (c *Client) fetchPreConfirmedUpdate(
 		)
 	}
 	return &env, nil
-}
-
-// Deprecated: Transaction calls the get_transaction endpoint which returns
-// the full transaction body. Use TransactionStatus() instead.
-func (c *Client) Transaction(
-	ctx context.Context, transactionHash *felt.Felt,
-) (starknet.DeprecatedTransactionStatus, error) {
-	queryURL := buildQueryString(c.url, "get_transaction", map[string]string{
-		"transactionHash": transactionHash.String(),
-	})
-
-	return doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
 }
 
 // TransactionStatus calls the get_transaction_status endpoint which returns only status fields

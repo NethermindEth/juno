@@ -114,10 +114,9 @@ func TestGetMessageStatus(t *testing.T) {
 			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
-				//nolint:staticcheck //SA1019: used here to get the stored txs in testdata feeder
-				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)
-				require.NoError(t, err)
-				l1handlerTxns[i] = txn
+				l1handlerTxns[i] = adaptfeeder.TransactionFromTestData(
+					t, &test.network, test.msgs[i].L1HandlerHash,
+				)
 			}
 
 			mockL1Client.EXPECT().TransactionReceipt(

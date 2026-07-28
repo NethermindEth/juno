@@ -22,14 +22,10 @@ const (
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Mainnet)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
-
-		declareTx := status.Transaction
+		declareTx := feeder.TransactionFromTestData(t, &networks.Mainnet, txnHash)
 		assert.Equal(
 			t,
 			"0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d",
@@ -63,12 +59,10 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
+		declareTx := feeder.TransactionFromTestData(t, &networks.Integration, txnHash)
 
 		require.Equal(t, &starknet.Transaction{
 			Hash: felt.NewUnsafeFromString[felt.Felt](
@@ -113,21 +107,16 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			),
 			AccountDeploymentData: &[]felt.Felt{},
 			Type:                  starknet.TxnDeclare,
-		}, status.Transaction)
+		}, declareTx)
 	})
 }
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Mainnet)
-
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
-
-		invokeTx := status.Transaction
+		invokeTx := feeder.TransactionFromTestData(t, &networks.Mainnet, txnHash)
 		assert.Equal(
 			t,
 			"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
@@ -157,12 +146,10 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
+		invokeTx := feeder.TransactionFromTestData(t, &networks.Integration, txnHash)
 
 		require.Equal(t, &starknet.Transaction{
 			Hash: felt.NewUnsafeFromString[felt.Felt](
@@ -234,21 +221,16 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			},
 			AccountDeploymentData: &[]felt.Felt{},
 			Type:                  starknet.TxnInvoke,
-		}, status.Transaction)
+		}, invokeTx)
 	})
 }
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
 	)
-	status, err := client.Transaction(t.Context(), txnHash)
-	require.NoError(t, err)
-
-	deployTx := status.Transaction
+	deployTx := feeder.TransactionFromTestData(t, &networks.Mainnet, txnHash)
 	assert.Equal(
 		t,
 		"0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee",
@@ -292,15 +274,10 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Mainnet)
-
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
-
-		deployTx := status.Transaction
+		deployTx := feeder.TransactionFromTestData(t, &networks.Mainnet, txnHash)
 		assert.Equal(
 			t,
 			"0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e",
@@ -358,12 +335,10 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &networks.Integration)
 		txnHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 		)
-		status, err := client.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
+		deployTx := feeder.TransactionFromTestData(t, &networks.Integration, txnHash)
 
 		require.Equal(t, &starknet.Transaction{
 			Hash: felt.NewUnsafeFromString[felt.Felt](
@@ -410,21 +385,16 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 				),
 			},
 			Type: starknet.TxnDeployAccount,
-		}, status.Transaction)
+		}, deployTx)
 	})
 }
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-
 	txnHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
 	)
-	status, err := client.Transaction(t.Context(), txnHash)
-	require.NoError(t, err)
-
-	handlerTx := status.Transaction
+	handlerTx := feeder.TransactionFromTestData(t, &networks.Mainnet, txnHash)
 	assert.Equal(
 		t,
 		"0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190",
@@ -926,29 +896,6 @@ func TestCompiledClassDefinition(t *testing.T) {
 		"0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50",
 		class.EntryPoints.External[9].Selector.String(),
 	)
-}
-
-func TestTransactionStatusRevertError(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-
-	txnHash := felt.NewUnsafeFromString[felt.Felt](
-		"0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
-	)
-	status, err := client.Transaction(t.Context(), txnHash)
-	require.NoError(t, err)
-	require.NotEmpty(t, status.RevertError)
-}
-
-func TestTransactionStatusTransactionFailureReason(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-
-	txnHash := felt.NewUnsafeFromString[felt.Felt]("0x1111")
-	expectedMessage := "some error"
-	expectedErrorCode := "SOME_ERROR_CODE"
-	status, err := client.Transaction(t.Context(), txnHash)
-	require.NoError(t, err)
-	require.Equal(t, expectedMessage, status.FailureReason.Message)
-	require.Equal(t, expectedErrorCode, status.FailureReason.Code)
 }
 
 func TestPublicKey(t *testing.T) {

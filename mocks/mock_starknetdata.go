@@ -164,18 +164,3 @@ func (mr *MockStarknetDataMockRecorder) StateUpdateWithBlock(ctx, blockNumber an
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdateWithBlock), ctx, blockNumber)
 }
-
-// Transaction mocks base method.
-func (m *MockStarknetData) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Transaction", ctx, transactionHash)
-	ret0, _ := ret[0].(core.Transaction)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Transaction indicates an expected call of Transaction.
-func (mr *MockStarknetDataMockRecorder) Transaction(ctx, transactionHash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockStarknetData)(nil).Transaction), ctx, transactionHash)
-}
