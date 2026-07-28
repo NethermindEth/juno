@@ -174,3 +174,11 @@ func TestNew_RejectsPruneWithoutL1Verification(t *testing.T) {
 	}, "test", log.NewLevel(log.INFO))
 	require.ErrorContains(t, err, "prune-mode requires L1 verification")
 }
+
+func TestNew_RejectsNewL1ClientWithoutL1Verification(t *testing.T) {
+	_, err := node.New(&node.Config{
+		UseNewL1Client:        true,
+		DisableL1Verification: true,
+	}, "test", log.NewLevel(log.INFO))
+	require.ErrorContains(t, err, "--use-new-l1-client requires L1 verification")
+}
