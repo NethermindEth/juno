@@ -984,12 +984,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.ExecutionStatus{
+			Reverted:     block.Receipts[0].Reverted,
+			RevertReason: block.Receipts[0].RevertReason,
+		}, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(block)
@@ -1009,12 +1009,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.ExecutionStatus{
+			Reverted:     block.Receipts[0].Reverted,
+			RevertReason: block.Receipts[0].RevertReason,
+		}, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(

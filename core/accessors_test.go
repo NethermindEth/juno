@@ -211,6 +211,77 @@ func TestGetReceiptByBlockAndIndex(t *testing.T) {
 	})
 }
 
+func TestGetExecutionStatusByBlockAndIndex(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+
+	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
+		require.NotEmpty(t, block.Receipts)
+		for i := range block.Receipts {
+			status, err := core.GetExecutionStatusByBlockAndIndex(memDB, block.Number, uint64(i))
+			require.NoError(t, err)
+
+			// The partial decode must recover the same status the full receipt carries.
+			full, err := core.GetReceiptByBlockAndIndex(memDB, block.Number, uint64(i))
+			require.NoError(t, err)
+			assert.Equal(t, core.ExecutionStatus{
+				Reverted:     full.Reverted,
+				RevertReason: full.RevertReason,
+			}, status)
+		}
+	})
+	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetExecutionStatusByBlockAndIndex(memDB, nonexistentBlockNumber, 0)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("non-existent index", func(t *testing.T) {
+		t.Parallel()
+		// one past the last index should return ErrKeyNotFound
+		_, err := core.GetExecutionStatusByBlockAndIndex(memDB, block.Number, uint64(len(block.Receipts)))
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	// The fixture block only carries SUCCEEDED receipts, so seed a reverted one with
+	// heavy fields populated to prove the partial decode recovers the revert status
+	// while skipping the fields it is meant to ignore.
+	t.Run("reverted receipt with heavy fields", func(t *testing.T) {
+		t.Parallel()
+		revertedDB := memory.New()
+
+		tx := block.Transactions[0]
+		reverted := &core.TransactionReceipt{
+			TransactionHash:    tx.Hash(),
+			Reverted:           true,
+			RevertReason:       "some revert reason",
+			Events:             block.Receipts[0].Events,
+			L2ToL1Message:      block.Receipts[0].L2ToL1Message,
+			ExecutionResources: block.Receipts[0].ExecutionResources,
+		}
+		const revertedBlockNumber = 999
+		require.NoError(t, core.WriteTransactionsAndReceipts(
+			revertedDB,
+			revertedBlockNumber,
+			[]core.Transaction{tx},
+			[]*core.TransactionReceipt{reverted},
+		))
+
+		status, err := core.GetExecutionStatusByBlockAndIndex(revertedDB, revertedBlockNumber, 0)
+		require.NoError(t, err)
+
+		full, err := core.GetReceiptByBlockAndIndex(revertedDB, revertedBlockNumber, 0)
+		require.NoError(t, err)
+		assert.Equal(t, core.ExecutionStatus{
+			Reverted:     full.Reverted,
+			RevertReason: full.RevertReason,
+		}, status)
+		assert.True(t, status.Reverted)
+		assert.Equal(t, "some revert reason", status.RevertReason)
+	})
+}
+
 func TestGetBlockByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)

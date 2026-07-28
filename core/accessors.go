@@ -518,6 +518,16 @@ func GetReceiptByBlockAndIndex(
 	return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
 }
 
+// GetExecutionStatusByBlockAndIndex returns only the status subset of a receipt,
+// skipping its heavier fields.
+func GetExecutionStatusByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (ExecutionStatus, error) {
+	return BlockTransactionsExecutionStatusPartialBucket.Get(r, blockNumber, int(index))
+}
+
 // GetBlockByNumber returns a full block by number
 func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 	header, err := GetBlockHeaderByNumber(r, blockNumber)

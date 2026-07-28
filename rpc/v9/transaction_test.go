@@ -1753,12 +1753,12 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(tx.Hash()),
 					).Return(block.Number, uint64(0), nil)
-					mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 						block.Number, uint64(0),
-					).Return(tx, nil)
-					mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-						block.Number, uint64(0),
-					).Return(*block.Receipts[0], block.Hash, nil)
+					).Return(core.ExecutionStatus{
+						Reverted:     block.Receipts[0].Reverted,
+						RevertReason: block.Receipts[0].RevertReason,
+					}, nil)
 					mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 					handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -1784,12 +1784,12 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(tx.Hash()),
 					).Return(block.Number, uint64(0), nil)
-					mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 						block.Number, uint64(0),
-					).Return(tx, nil)
-					mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-						block.Number, uint64(0),
-					).Return(*block.Receipts[0], block.Hash, nil)
+					).Return(core.ExecutionStatus{
+						Reverted:     block.Receipts[0].Reverted,
+						RevertReason: block.Receipts[0].RevertReason,
+					}, nil)
 					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
