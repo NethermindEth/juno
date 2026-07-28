@@ -191,6 +191,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			"remove --disable-l1-verification or disable --prune-mode")
 	}
 
+	if cfg.UseNewL1Client && cfg.DisableL1Verification {
+		return nil, errors.New("--use-new-l1-client requires L1 verification; " +
+			"remove --disable-l1-verification or --use-new-l1-client")
+	}
+
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {

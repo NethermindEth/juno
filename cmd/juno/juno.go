@@ -210,10 +210,8 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-
-	useNewL1ClientUsage = "Use the experimental L1 client implementation."
-
+	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
+	useNewL1ClientUsage           = "Use the experimental L1 client implementation."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."

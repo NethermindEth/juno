@@ -66,7 +66,7 @@ func (s *wsLogSub) Unsubscribe() {
 	defer cancel()
 	if _, err := s.transport.call(ctx, "eth_unsubscribe", id); err != nil {
 		s.transport.logger.Trace(
-			"ws: eth_unsubscribe failed",
+			"eth_unsubscribe failed",
 			zap.String("subscription", id),
 			zap.Error(err),
 		)

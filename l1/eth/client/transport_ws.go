@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -69,9 +68,11 @@ type wsTransport struct {
 	pingInterval time.Duration
 	pingTimeout  time.Duration
 
-	closed    chan struct{}
-	closeErr  error
-	closeOnce sync.Once
+	closed chan struct{}
+	// cancelLoops ends readLoop and pingLoop; called from shutdown.
+	cancelLoops context.CancelFunc
+	closeErr    error
+	closeOnce   sync.Once
 }
 
 func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, error) {
@@ -104,16 +105,18 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 		pingTimeout:  opts.pingTimeout,
 		closed:       make(chan struct{}),
 	}
-	go t.readLoop() //nolint:gosec // G118: long-lived loop, not request-scoped
-	go t.pingLoop() //nolint:gosec // G118: long-lived loop, not request-scoped
+	loopCtx, cancel := context.WithCancel(context.Background())
+	t.cancelLoops = cancel
+	go t.readLoop(loopCtx) //nolint:gosec // G118: long-lived loop, not request-scoped
+	go t.pingLoop(loopCtx) //nolint:gosec // G118: long-lived loop, not request-scoped
 	return t, nil
 }
 
 // readLoop drops malformed frames rather than tearing the transport down —
 // a misbehaving remote manifests as a call timeout.
-func (t *wsTransport) readLoop() {
+func (t *wsTransport) readLoop(ctx context.Context) {
 	for {
-		_, data, err := t.conn.Read(context.Background())
+		_, data, err := t.conn.Read(ctx)
 		if err != nil {
 			t.shutdown(err)
 			return
@@ -125,12 +128,12 @@ func (t *wsTransport) readLoop() {
 // pingLoop pings only after pingInterval of write silence — regular traffic
 // already proves the conn is alive. A ping failure shuts the transport down
 // via the same path as a read error.
-func (t *wsTransport) pingLoop() {
+func (t *wsTransport) pingLoop(ctx context.Context) {
 	timer := time.NewTimer(t.pingInterval)
 	defer timer.Stop()
 	for {
 		select {
-		case <-t.closed:
+		case <-ctx.Done():
 			return
 		case <-t.pingReset:
 			if !timer.Stop() {
@@ -141,8 +144,8 @@ func (t *wsTransport) pingLoop() {
 			}
 			timer.Reset(t.pingInterval)
 		case <-timer.C:
-			ctx, cancel := context.WithTimeout(context.Background(), t.pingTimeout)
-			err := t.conn.Ping(ctx)
+			pingCtx, cancel := context.WithTimeout(ctx, t.pingTimeout)
+			err := t.conn.Ping(pingCtx)
 			cancel()
 			if err != nil {
 				t.shutdown(fmt.Errorf("pinging ws: %w", err))
@@ -160,7 +163,7 @@ func (t *wsTransport) dispatch(data []byte) {
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
 		t.logger.Trace(
-			"ws: drop unparseable frame",
+			"drop unparseable frame",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -169,11 +172,11 @@ func (t *wsTransport) dispatch(data []byte) {
 	switch {
 	case probe.Method == "eth_subscription":
 		t.dispatchNotification(data)
-	case len(probe.ID) > 0 && !bytes.Equal(probe.ID, jsonNull):
+	case len(probe.ID) > 0 && !isJSONNull(probe.ID):
 		t.dispatchResponse(data)
 	default:
 		t.logger.Trace(
-			"ws: drop frame with no id and no recognised method",
+			"drop frame with no id and no recognised method",
 			zap.ByteString("method", []byte(probe.Method)),
 		)
 	}
@@ -183,7 +186,7 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 	var resp rpcResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		t.logger.Trace(
-			"ws: drop response (decode failed)",
+			"drop response (decode failed)",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -192,7 +195,7 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 	id, err := parseResponseID(resp.ID)
 	if err != nil {
 		t.logger.Trace(
-			"ws: drop response (bad id)",
+			"drop response (bad id)",
 			zap.ByteString("rawID", resp.ID),
 			zap.Error(err),
 		)
@@ -217,7 +220,7 @@ func (t *wsTransport) dispatchResponse(data []byte) {
 			}
 		}
 		t.logger.Trace(
-			"ws: drop response (no pending caller)",
+			"drop response (no pending caller)",
 			zap.Uint64("id", id),
 		)
 		return
@@ -258,7 +261,7 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 	}
 	if err := json.Unmarshal(data, &notif); err != nil {
 		t.logger.Trace(
-			"ws: drop notification (decode failed)",
+			"drop notification (decode failed)",
 			zap.Int("bytes", len(data)),
 			zap.Error(err),
 		)
@@ -270,7 +273,7 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 	if sub == nil {
 		// Late notification between our eth_unsubscribe and the server processing it. Harmless.
 		t.logger.Trace(
-			"ws: drop notification for unknown subscription",
+			"drop notification for unknown subscription",
 			zap.String("subscription", notif.Params.Subscription),
 		)
 		return
@@ -331,6 +334,9 @@ func (t *wsTransport) shutdown(cause error) {
 		}
 		for _, sub := range subs {
 			sub.fail(cause)
+		}
+		if t.cancelLoops != nil {
+			t.cancelLoops()
 		}
 		// CloseNow: don't block on a handshake the remote may have abandoned.
 		_ = t.conn.CloseNow()
@@ -490,7 +496,7 @@ func (t *wsTransport) unsubscribeInBackground(subID string) {
 		defer cancel()
 		if _, err := t.call(ctx, "eth_unsubscribe", subID); err != nil {
 			t.logger.Trace(
-				"ws: best-effort eth_unsubscribe failed",
+				"best-effort eth_unsubscribe failed",
 				zap.String("subscription", subID),
 				zap.Error(err),
 			)

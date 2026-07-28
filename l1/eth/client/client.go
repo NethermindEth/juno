@@ -19,8 +19,6 @@ type Client struct {
 
 const BlockFinalized = "finalized"
 
-var jsonNull = []byte("null")
-
 type Option func(*options)
 
 type options struct {
@@ -62,10 +60,6 @@ func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 
 func (c *Client) Close() { c.tr.close() }
 
-func isJSONNull(raw json.RawMessage) bool {
-	return bytes.Equal(bytes.TrimSpace(raw), jsonNull)
-}
-
 func (c *Client) ChainID(ctx context.Context) (*big.Int, error) {
 	raw, err := c.tr.call(ctx, "eth_chainId")
 	if err != nil {
@@ -84,36 +78,36 @@ func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 
 // HeaderByNumber maps a null result — the server's signal for "the named
 // block does not exist yet" — to eth.ErrNotFound.
-func (c *Client) HeaderByNumber(ctx context.Context, tag string) (*eth.Header, error) {
+func (c *Client) HeaderByNumber(ctx context.Context, tag string) (eth.Header, error) {
 	raw, err := c.tr.call(ctx, "eth_getBlockByNumber", tag, false /* hydrated txs */)
 	if err != nil {
-		return nil, fmt.Errorf("getting block: %w", err)
+		return eth.Header{}, fmt.Errorf("getting block: %w", err)
 	}
 	if isJSONNull(raw) {
-		return nil, eth.ErrNotFound
+		return eth.Header{}, eth.ErrNotFound
 	}
 	var h eth.Header
 	if err := json.Unmarshal(raw, &h); err != nil {
-		return nil, fmt.Errorf("decoding header: %w", err)
+		return eth.Header{}, fmt.Errorf("decoding header: %w", err)
 	}
-	return &h, nil
+	return h, nil
 }
 
 // TransactionReceipt maps a null result (receipt unknown to the node) to
 // eth.ErrNotFound.
-func (c *Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error) {
+func (c *Client) TransactionReceipt(ctx context.Context, txHash eth.Hash) (eth.Receipt, error) {
 	raw, err := c.tr.call(ctx, "eth_getTransactionReceipt", txHash)
 	if err != nil {
-		return nil, fmt.Errorf("getting receipt: %w", err)
+		return eth.Receipt{}, fmt.Errorf("getting receipt: %w", err)
 	}
 	if isJSONNull(raw) {
-		return nil, eth.ErrNotFound
+		return eth.Receipt{}, eth.ErrNotFound
 	}
 	var r eth.Receipt
 	if err := json.Unmarshal(raw, &r); err != nil {
-		return nil, fmt.Errorf("decoding receipt: %w", err)
+		return eth.Receipt{}, fmt.Errorf("decoding receipt: %w", err)
 	}
-	return &r, nil
+	return r, nil
 }
 
 func (c *Client) FilterLogs(ctx context.Context, q FilterQuery) ([]eth.Log, error) {
@@ -162,4 +156,8 @@ func decodeQuantityBig(raw json.RawMessage) (*big.Int, error) {
 		return nil, fmt.Errorf("decoding quantity: invalid hex %q", s)
 	}
 	return out, nil
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return string(bytes.TrimSpace(raw)) == "null"
 }

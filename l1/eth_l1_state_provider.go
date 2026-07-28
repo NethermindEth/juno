@@ -48,7 +48,7 @@ type EthL1StateProvider struct {
 	client   *client.Client
 	closed   bool
 
-	dialMu sync.Mutex
+	dialSem chan struct{}
 }
 
 const redialTimeout = time.Minute
@@ -79,6 +79,7 @@ func NewEthL1StateProvider(
 		clientOpts:      clientOpts,
 		logger:          logger,
 		listener:        o.listener,
+		dialSem:         make(chan struct{}, 1),
 	}
 	return s, nil
 }
@@ -97,13 +98,17 @@ func (s *EthL1StateProvider) currentClient() (*client.Client, error) {
 	return s.client, nil
 }
 
-// redial coalesces concurrent callers: losers wait on dialMu and pick up the
+// redial coalesces concurrent callers: losers wait on dialSem and pick up the
 // winner's client without dialing again.
 func (s *EthL1StateProvider) redial(
 	ctx context.Context, stale *client.Client,
 ) (*client.Client, error) {
-	s.dialMu.Lock()
-	defer s.dialMu.Unlock()
+	select {
+	case s.dialSem <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-s.dialSem }()
 
 	s.clientMu.Lock()
 	if s.closed {
@@ -174,7 +179,7 @@ func (s *EthL1StateProvider) ChainID(ctx context.Context) (*big.Int, error) {
 // yet, distinguishing that from a transport failure.
 func (s *EthL1StateProvider) FinalisedHeight(ctx context.Context) (uint64, error) {
 	defer s.observe("eth_getBlockByNumber")()
-	h, err := withRetryOnClosed(ctx, s, func(c *client.Client) (*eth.Header, error) {
+	h, err := withRetryOnClosed(ctx, s, func(c *client.Client) (eth.Header, error) {
 		return c.HeaderByNumber(ctx, client.BlockFinalized)
 	})
 	if err != nil {
@@ -207,7 +212,8 @@ func (s *EthL1StateProvider) FilterStateUpdate(
 	}
 	out := make([]*StateUpdate, len(events))
 	for i, ev := range events {
-		out[i] = stateUpdateFromContract(ev)
+		su := stateUpdateFromContract(ev)
+		out[i] = &su
 	}
 	return out, nil
 }
@@ -241,13 +247,9 @@ func (s *EthL1StateProvider) TransactionReceipt(
 	txHash eth.Hash,
 ) (eth.Receipt, error) {
 	defer s.observe("eth_getTransactionReceipt")()
-	r, err := withRetryOnClosed(ctx, s, func(c *client.Client) (*eth.Receipt, error) {
+	return withRetryOnClosed(ctx, s, func(c *client.Client) (eth.Receipt, error) {
 		return c.TransactionReceipt(ctx, txHash)
 	})
-	if err != nil {
-		return eth.Receipt{}, err
-	}
-	return *r, nil
 }
 
 // Close is terminal: no further redials.
@@ -263,8 +265,8 @@ func (s *EthL1StateProvider) Close() {
 	}
 }
 
-func stateUpdateFromContract(ev *contract.LogStateUpdate) *StateUpdate {
-	return &StateUpdate{
+func stateUpdateFromContract(ev *contract.LogStateUpdate) StateUpdate {
+	return StateUpdate{
 		L2BlockNumber: ev.BlockNumber,
 		L2BlockHash:   ev.BlockHash,
 		StateRoot:     ev.GlobalRoot,
@@ -323,7 +325,7 @@ func (w *stateUpdateForwarder) run() {
 			}
 			su := stateUpdateFromContract(ev)
 			select {
-			case w.sink <- su:
+			case w.sink <- &su:
 			case <-w.closed:
 				return
 			}

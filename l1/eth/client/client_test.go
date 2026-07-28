@@ -206,7 +206,6 @@ func TestHeaderByNumber_Finalized(t *testing.T) {
 
 	h, err := cli.HeaderByNumber(t.Context(), client.BlockFinalized)
 	require.NoError(t, err)
-	require.NotNil(t, h)
 	assert.Equal(t, uint64(1337), uint64(h.Number))
 
 	require.Len(t, *calls, 1)

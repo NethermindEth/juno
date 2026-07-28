@@ -49,7 +49,7 @@ func (e *RPCError) Error() string {
 // it was answering, so there is no caller to route the reply to.
 func parseResponseID(raw json.RawMessage) (uint64, error) {
 	trimmed := bytes.TrimSpace(raw)
-	if len(trimmed) == 0 || bytes.Equal(trimmed, jsonNull) {
+	if len(trimmed) == 0 || isJSONNull(trimmed) {
 		return 0, errors.New("missing or null id")
 	}
 	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
