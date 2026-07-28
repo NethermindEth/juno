@@ -65,15 +65,23 @@ type StorageProofResult struct {
 func (h *Handler) StorageProof(
 	id *BlockID, classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
-	state, closer, err := h.bcReader.HeadState()
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
-	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
-
 	chainHeight, err := h.bcReader.Height()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	// We do not support historical storage proofs for now
+	// Ensure that the block requested is the head block
+	if rpcErr := h.isBlockSupported(id, chainHeight); rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Do a sanity check and remove duplicates from the inputs
+	classes = utils.Set(classes)
+	contracts = utils.Set(contracts)
+	uniqueStorageKeys, rpcErr := processStorageKeys(storageKeys)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	// TODO(infrmtcs): This is still a half baked solution because we're using another transaction to get the block number.
@@ -85,11 +93,11 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	// We do not support historical storage proofs for now
-	// Ensure that the block requested is the head block
-	if rpcErr := h.isBlockSupported(id, chainHeight); rpcErr != nil {
-		return nil, rpcErr
+	state, closer, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
+	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
 
 	classTrie, err := state.ClassTrie()
 	if err != nil {
@@ -99,14 +107,6 @@ func (h *Handler) StorageProof(
 	contractTrie, err := state.ContractTrie()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
-
-	// Do a sanity check and remove duplicates from the inputs
-	classes = utils.Set(classes)
-	contracts = utils.Set(contracts)
-	uniqueStorageKeys, rpcErr := processStorageKeys(storageKeys)
-	if rpcErr != nil {
-		return nil, rpcErr
 	}
 
 	classProof, err := getClassProof(classTrie, classes)
