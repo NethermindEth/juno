@@ -283,6 +283,10 @@ func TestHelpers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), num)
 
+	header, err = seq.StartingBlockHeader()
+	require.Error(t, err)
+	require.Nil(t, header)
+
 	reorgSub := seq.SubscribeReorg()
 	require.NotNil(t, reorgSub)
 	require.NotNil(t, reorgSub.Subscription)
