@@ -19,10 +19,23 @@ import (
 
 var ErrTransportClosed = errors.New("transport closed")
 
+// ErrSubscriptionQueueOverflow fails a subscription whose sink is not drained
+// fast enough, matching go-ethereum's behaviour.
+var ErrSubscriptionQueueOverflow = errors.New("subscription queue overflow (slow subscriber)")
+
 const (
 	// wsReadLimit (16 MiB) is far above any real payload; it only stops a
 	// malicious server from forcing unbounded allocations.
 	wsReadLimit = 16 << 20
+
+	wsLogSubBuffer = 64
+
+	// maxOrphanedSubs bounds the orphaned-subscribe tracking against a server
+	// that never answers; past the cap a late reply leaks its server-side sub,
+	// which such a server was never going to honour anyway.
+	maxOrphanedSubs = 1024
+
+	wsUnsubscribeTimeout = 2 * time.Second
 
 	wsPingInterval = 30 * time.Second
 	wsPingTimeout  = 10 * time.Second
@@ -49,7 +62,8 @@ func (e rpcError) Error() string {
 	return fmt.Sprintf("jsonrpc %d: %s", e.err.Code, e.err.Message)
 }
 
-// wsTransport multiplexes unary calls over one conn, routed by request id.
+// wsTransport multiplexes unary calls and eth_subscribe notifications over
+// one conn, routed by request id / subscription id.
 type wsTransport struct {
 	conn   *websocket.Conn
 	nextID atomic.Uint64
@@ -57,6 +71,13 @@ type wsTransport struct {
 
 	mu      sync.Mutex
 	pending map[uint64]chan rpcReply // by request id
+	// pendingSubs: subscribe calls awaiting the server-assigned sub id, keyed by request id.
+	pendingSubs map[uint64]*wsLogSub
+	// orphanedSubs: request ids of cancelled subscribes whose reply never arrived. A late
+	// successful reply still triggers a best-effort eth_unsubscribe, without retaining the
+	// full wsLogSub.
+	orphanedSubs map[uint64]struct{}
+	subs         map[string]*wsLogSub // active subscriptions, by sub id
 
 	pingInterval time.Duration
 	pingTimeout  time.Duration
@@ -98,6 +119,9 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 		conn:         conn,
 		logger:       opts.logger,
 		pending:      make(map[uint64]chan rpcReply),
+		pendingSubs:  make(map[uint64]*wsLogSub),
+		orphanedSubs: make(map[uint64]struct{}),
+		subs:         make(map[string]*wsLogSub),
 		pingInterval: opts.pingInterval,
 		pingTimeout:  opts.pingTimeout,
 		closed:       make(chan struct{}),
@@ -160,6 +184,8 @@ func (t *wsTransport) dispatch(data []byte) {
 		return
 	}
 	switch {
+	case probe.Method == "eth_subscription":
+		t.dispatchNotification(data)
 	case len(probe.ID) > 0 && !isJSONNull(probe.ID):
 		t.dispatchResponse(data, probe.ID)
 	default:
@@ -194,10 +220,20 @@ func (t *wsTransport) dispatchResponse(data []byte, rawID json.RawMessage) {
 	t.mu.Lock()
 	ch, hasPending := t.pending[id]
 	delete(t.pending, id)
+	pendingSub, isSubscribe := t.pendingSubs[id]
+	delete(t.pendingSubs, id)
+	_, isOrphaned := t.orphanedSubs[id]
+	delete(t.orphanedSubs, id)
 	t.mu.Unlock()
 
 	if !hasPending {
-		// Caller's ctx fired before the reply landed, or an unsolicited reply.
+		// Caller's ctx fired before the reply landed (or an unsolicited reply). A successful
+		// subscribe orphaned a server-side sub the caller will never own — release it.
+		if (isSubscribe || isOrphaned) && resp.Error == nil {
+			if subID, derr := decodeSubID(rawResult); derr == nil {
+				t.unsubscribeInBackground(subID)
+			}
+		}
 		t.logger.Trace(
 			"drop response (no pending caller)",
 			zap.Uint64("id", id),
@@ -206,9 +242,20 @@ func (t *wsTransport) dispatchResponse(data []byte, rawID json.RawMessage) {
 	}
 
 	reply := rpcReply{}
-	if resp.Error != nil {
+	switch {
+	case resp.Error != nil:
 		reply.err = rpcError{resp.Error}
-	} else {
+	case isSubscribe:
+		// Register the sub before waking the caller, else a notification could race in ahead of it.
+		if subID, derr := decodeSubID(rawResult); derr != nil {
+			reply.err = derr
+		} else if t.registerSub(pendingSub, subID) {
+			reply.result = rawResult
+		} else {
+			// Transport closed or caller cancelled; registerSub released any orphaned server-side sub.
+			reply.err = ErrTransportClosed
+		}
+	default:
 		reply.result = rawResult
 	}
 
@@ -216,6 +263,56 @@ func (t *wsTransport) dispatchResponse(data []byte, rawID json.RawMessage) {
 	select {
 	case ch <- reply:
 	default:
+	}
+}
+
+func (t *wsTransport) dispatchNotification(data []byte) {
+	var notif struct {
+		Method string `json:"method"`
+		Params struct {
+			Subscription string          `json:"subscription"`
+			Result       json.RawMessage `json:"result"`
+		} `json:"params"`
+	}
+	if err := json.Unmarshal(data, &notif); err != nil {
+		t.logger.Trace(
+			"drop notification (decode failed)",
+			zap.Int("bytes", len(data)),
+			zap.Error(err),
+		)
+		return
+	}
+	t.mu.Lock()
+	sub := t.subs[notif.Params.Subscription]
+	t.mu.Unlock()
+	if sub == nil {
+		// Late notification between our eth_unsubscribe and the server processing it. Harmless.
+		t.logger.Trace(
+			"drop notification for unknown subscription",
+			zap.String("subscription", notif.Params.Subscription),
+		)
+		return
+	}
+	select {
+	case sub.logCh <- notif.Params.Result:
+	default:
+		// Full buffer: fail the slow subscription rather than block the shared
+		// readLoop, which would stall every unary call on the connection.
+		sub.fail(ErrSubscriptionQueueOverflow)
+		t.removeSub(sub)
+	}
+}
+
+func (t *wsTransport) removeSub(s *wsLogSub) {
+	t.mu.Lock()
+	id := s.id
+	s.id = ""
+	if t.subs != nil && id != "" {
+		delete(t.subs, id)
+	}
+	t.mu.Unlock()
+	if id != "" {
+		t.unsubscribeInBackground(id)
 	}
 }
 
@@ -232,8 +329,11 @@ func (t *wsTransport) shutdown(cause error) {
 			cause = fmt.Errorf("%w: %w", ErrTransportClosed, cause)
 		}
 		t.mu.Lock()
-		pending := t.pending
+		pending, pendingSubs, subs := t.pending, t.pendingSubs, t.subs
 		t.pending = nil
+		t.pendingSubs = nil
+		t.orphanedSubs = nil
+		t.subs = nil
 		t.closeErr = cause
 		t.mu.Unlock()
 		close(t.closed)
@@ -243,6 +343,12 @@ func (t *wsTransport) shutdown(cause error) {
 			case ch <- rpcReply{err: cause}:
 			default:
 			}
+		}
+		for _, sub := range pendingSubs {
+			sub.fail(cause)
+		}
+		for _, sub := range subs {
+			sub.fail(cause)
 		}
 		if t.cancelLoops != nil {
 			t.cancelLoops()
@@ -275,6 +381,17 @@ func (t *wsTransport) call(
 	method string,
 	params ...any,
 ) (json.RawMessage, error) {
+	return t.callWithSubReg(ctx, method, nil, params...)
+}
+
+// callWithSubReg registers a non-nil pendingSub atomically with the reply
+// delivery, so no notification can arrive before the sub is routable.
+func (t *wsTransport) callWithSubReg(
+	ctx context.Context,
+	method string,
+	pendingSub *wsLogSub,
+	params ...any,
+) (json.RawMessage, error) {
 	if params == nil {
 		params = []any{}
 	}
@@ -287,12 +404,16 @@ func (t *wsTransport) call(
 		return nil, ErrTransportClosed
 	}
 	t.pending[id] = ch
+	if pendingSub != nil {
+		t.pendingSubs[id] = pendingSub
+	}
 	t.mu.Unlock()
 
 	deregister := func() {
 		t.mu.Lock()
 		if t.pending != nil {
 			delete(t.pending, id)
+			delete(t.pendingSubs, id)
 		}
 		t.mu.Unlock()
 	}
@@ -319,7 +440,7 @@ func (t *wsTransport) call(
 		}
 		return reply.result, nil
 	case <-ctx.Done():
-		deregister()
+		t.cancelPending(id, pendingSub)
 		return nil, ctx.Err()
 	case <-t.closed:
 		deregister()
@@ -330,6 +451,81 @@ func (t *wsTransport) call(
 		}
 		return nil, t.closeErr
 	}
+}
+
+// registerSub returns false (releasing the server-side sub) if the transport
+// closed or the caller cancelled. Atomic against cancelPending under t.mu:
+// whoever locks first wins.
+func (t *wsTransport) registerSub(pendingSub *wsLogSub, subID string) bool {
+	t.mu.Lock()
+	switch {
+	case t.subs == nil:
+		t.mu.Unlock()
+		return false
+	case pendingSub.cancelled:
+		t.mu.Unlock()
+		t.unsubscribeInBackground(subID)
+		return false
+	default:
+		pendingSub.id = subID
+		t.subs[subID] = pendingSub
+		t.mu.Unlock()
+		return true
+	}
+}
+
+// cancelPending tears down a pending call whose caller's ctx fired, releasing
+// any server-side sub it would otherwise leak.
+func (t *wsTransport) cancelPending(id uint64, pendingSub *wsLogSub) {
+	var leakedSubID string
+	t.mu.Lock()
+	if t.pending != nil {
+		delete(t.pending, id)
+	}
+	if pendingSub != nil {
+		pendingSub.cancelled = true
+		if _, awaitingReply := t.pendingSubs[id]; awaitingReply {
+			delete(t.pendingSubs, id)
+			if len(t.orphanedSubs) < maxOrphanedSubs {
+				t.orphanedSubs[id] = struct{}{}
+			}
+		}
+		if pendingSub.id != "" && t.subs != nil {
+			leakedSubID = pendingSub.id
+			delete(t.subs, leakedSubID)
+		}
+	}
+	t.mu.Unlock()
+	if leakedSubID == "" {
+		return
+	}
+	t.unsubscribeInBackground(leakedSubID)
+}
+
+// unsubscribeInBackground never delays the caller; bounded by wsUnsubscribeTimeout.
+func (t *wsTransport) unsubscribeInBackground(subID string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), wsUnsubscribeTimeout)
+		defer cancel()
+		if _, err := t.call(ctx, "eth_unsubscribe", subID); err != nil {
+			t.logger.Trace(
+				"best-effort eth_unsubscribe failed",
+				zap.String("subscription", subID),
+				zap.Error(err),
+			)
+		}
+	}()
+}
+
+func decodeSubID(raw json.RawMessage) (string, error) {
+	var subID string
+	if err := json.Unmarshal(raw, &subID); err != nil {
+		return "", fmt.Errorf("decoding subscription id: %w", err)
+	}
+	if subID == "" {
+		return "", errors.New("empty subscription id")
+	}
+	return subID, nil
 }
 
 func isJSONNull(raw json.RawMessage) bool {
