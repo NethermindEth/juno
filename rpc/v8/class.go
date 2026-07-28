@@ -163,7 +163,7 @@ func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error
 	if err != nil {
 		// getClassAt only returns CONTRACT_NOT_FOUND / BLOCK_NOT_FOUND per spec;
 		// a class-hash miss here means the contract is not properly deployed.
-		if err == rpccore.ErrClassHashNotFound {
+		if err.Code == rpccore.ErrClassHashNotFound.Code {
 			return nil, rpccore.ErrContractNotFound
 		}
 		return nil, err
