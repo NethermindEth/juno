@@ -333,21 +333,6 @@ func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(blockNumber, inde
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex), blockNumber, index)
 }
 
-// TransactionExecutionStatusByBlockNumberAndIndex mocks base method.
-func (m *MockReader) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index uint64) (core.ExecutionStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransactionExecutionStatusByBlockNumberAndIndex", blockNumber, index)
-	ret0, _ := ret[0].(core.ExecutionStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// TransactionExecutionStatusByBlockNumberAndIndex indicates an expected call of TransactionExecutionStatusByBlockNumberAndIndex.
-func (mr *MockReaderMockRecorder) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionExecutionStatusByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionExecutionStatusByBlockNumberAndIndex), blockNumber, index)
-}
-
 // StateAtBlockHash mocks base method.
 func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
@@ -452,6 +437,21 @@ func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
+}
+
+// TransactionExecutionStatusByBlockNumberAndIndex mocks base method.
+func (m *MockReader) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index uint64) (core.ExecutionStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionExecutionStatusByBlockNumberAndIndex", blockNumber, index)
+	ret0, _ := ret[0].(core.ExecutionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TransactionExecutionStatusByBlockNumberAndIndex indicates an expected call of TransactionExecutionStatusByBlockNumberAndIndex.
+func (mr *MockReaderMockRecorder) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionExecutionStatusByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionExecutionStatusByBlockNumberAndIndex), blockNumber, index)
 }
 
 // TransactionsByBlockNumber mocks base method.

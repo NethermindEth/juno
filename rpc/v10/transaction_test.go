@@ -1630,7 +1630,22 @@ func TestTransactionStatus(t *testing.T) {
 			Times(1)
 	}
 
-	// TODO(Ege): Add test with failure reason REVERTED
+	mockFoundInDBReverted := func(
+		mockReader *mocks.MockReader,
+		mockSyncReader *mocks.MockSyncReader,
+	) {
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(tx.Hash()),
+		).Return(block.Number, uint64(0), nil)
+		mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(core.ExecutionStatus{
+			Reverted:     true,
+			RevertReason: "some revert reason",
+		}, nil)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
+	}
+
 	testCases := []testCase{
 		{
 			description: "status ACCEPTED_ON_L2",
@@ -1642,6 +1657,20 @@ func TestTransactionStatus(t *testing.T) {
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
+				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
+			},
+		},
+		{
+			description: "status ACCEPTED_ON_L2 REVERTED",
+			network:     &networks.Mainnet,
+			txHash:      targetTxnHash,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:      rpc.TxnStatusAcceptedOnL2,
+				Execution:     rpc.TxnFailure,
+				FailureReason: "some revert reason",
+			},
+			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockFoundInDBReverted(mockReader, mockSyncReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},

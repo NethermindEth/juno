@@ -1804,6 +1804,38 @@ func TestTransactionStatus(t *testing.T) {
 					require.Nil(t, rpcErr)
 					require.Equal(t, *want, status)
 				})
+				t.Run("reverted", func(t *testing.T) {
+					mockReader := mocks.NewMockReader(mockCtrl)
+					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+					mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &pending.PreConfirmed{
+						Block: &core.Block{
+							Header: &core.Header{
+								Number: block.Number + 1,
+							},
+						},
+					}), nil)
+					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+						(*felt.TransactionHash)(tx.Hash()),
+					).Return(block.Number, uint64(0), nil)
+					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
+						block.Number, uint64(0),
+					).Return(core.ExecutionStatus{
+						Reverted:     true,
+						RevertReason: "some revert reason",
+					}, nil)
+					mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
+
+					handler := rpc.New(mockReader, mockSyncReader, nil, logger)
+
+					want := &rpc.TransactionStatus{
+						Finality:      rpc.TxnStatusAcceptedOnL2,
+						Execution:     rpc.TxnFailure,
+						FailureReason: "some revert reason",
+					}
+					status, rpcErr := handler.TransactionStatus(ctx, tx.Hash())
+					require.Nil(t, rpcErr)
+					require.Equal(t, *want, status)
+				})
 			})
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
