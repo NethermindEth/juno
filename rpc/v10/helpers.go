@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -198,7 +199,7 @@ func (h *Handler) stateByBlockID(
 	return reader, closer, nil
 }
 
-func getTransactionType(t core.Transaction) TransactionType {
+func TransactionTypeFrom(t core.Transaction) TransactionType {
 	switch t.(type) {
 	case *core.DeployTransaction:
 		return TxnDeploy
@@ -211,7 +212,7 @@ func getTransactionType(t core.Transaction) TransactionType {
 	case *core.L1HandlerTransaction:
 		return TxnL1Handler
 	default:
-		panic("unknown transaction type")
+		panic(fmt.Sprintf("unknown transaction type %T", t))
 	}
 }
 

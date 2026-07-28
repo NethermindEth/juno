@@ -320,7 +320,7 @@ func AdaptFeederBlockTrace(
 		feederTrace := &blockTrace.Traces[index]
 
 		trace := TransactionTrace{
-			Type: getTransactionType(block.Transactions[index]),
+			Type: TransactionTypeFrom(block.Transactions[index]),
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {

@@ -5,6 +5,7 @@ package rpcv8
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -159,6 +160,23 @@ func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
 	}
 
 	return WEI
+}
+
+func TransactionTypeFrom(txn core.Transaction) TransactionType {
+	switch txn.(type) {
+	case *core.DeployTransaction:
+		return TxnDeploy
+	case *core.InvokeTransaction:
+		return TxnInvoke
+	case *core.DeclareTransaction:
+		return TxnDeclare
+	case *core.DeployAccountTransaction:
+		return TxnDeployAccount
+	case *core.L1HandlerTransaction:
+		return TxnL1Handler
+	default:
+		panic(fmt.Sprintf("unknown transaction type %T", txn))
+	}
 }
 
 func (h *Handler) stateByBlockID(
