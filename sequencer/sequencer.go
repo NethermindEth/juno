@@ -224,7 +224,7 @@ func (s *Sequencer) StartingBlockNumber() (uint64, error) {
 }
 
 func (s *Sequencer) StartingBlockHeader() (*core.Header, error) {
-	return nil, nil // Not relevant for Sequencer. Todo: clean Reader
+	return nil, errors.New("StartingBlockHeader() not implemented") // Not relevant for Sequencer. Todo: clean Reader
 }
 
 // The builder has no reorg logic (centralised sequencer that can't reorg)

@@ -97,7 +97,7 @@ func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
 }
 
 func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
-	return nil, nil
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
