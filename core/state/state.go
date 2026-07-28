@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -20,16 +21,20 @@ import (
 var (
 	stateVersion0 = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
 	leafVersion0  = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
+)
 
-	// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
-	// but have no Cairo class; their class hash is always zero. They are not part
-	// of StateDiff.DeployedContracts and are auto-created during state commit so
-	// their storage trie can exist.
-	SystemContract1Address = felt.One // block-hash storage contract
+// TODO: copy the actual values from deprecatedstate when we remove it
+//
+// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
+// but have no Cairo class; their class hash is always zero. They are not part
+// of StateDiff.DeployedContracts and are auto-created during state commit so
+// their storage trie can exist.
+var (
+	SystemContract1Address = deprecatedstate.SystemContract1Address
 	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
-	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
-	SystemContractsClassHash = felt.Zero
-	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
+	SystemContract2Address   = deprecatedstate.SystemContract2Address
+	SystemContractsClassHash = deprecatedstate.SystemContractsClassHash
+	SystemContracts          = deprecatedstate.SystemContracts
 )
 
 var (
