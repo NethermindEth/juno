@@ -20,8 +20,12 @@ func TransactionFromTestData(
 ) core.Transaction {
 	t.Helper()
 
+	require.NotNil(t, network)
+	require.NotNil(t, transactionHash)
+
 	tx, err := sn2core.AdaptTransaction(feeder.TransactionFromTestData(t, network, transactionHash))
 	require.NoError(t, err)
+	require.NotNil(t, tx)
 
 	return tx
 }

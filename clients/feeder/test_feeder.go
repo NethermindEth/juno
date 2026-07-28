@@ -69,6 +69,9 @@ func TransactionFromTestData(
 ) *starknet.Transaction {
 	t.Helper()
 
+	require.NotNil(t, network)
+	require.NotNil(t, transactionHash)
+
 	dataPath, err := findTargetDirectory("clients/feeder/testdata")
 	require.NoError(t, err)
 
