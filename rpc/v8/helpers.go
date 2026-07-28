@@ -162,7 +162,7 @@ func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
 	return WEI
 }
 
-func TransactionTypeFrom(txn core.Transaction) TransactionType {
+func transactionTypeFrom(txn core.Transaction) TransactionType {
 	switch txn.(type) {
 	case *core.DeployTransaction:
 		return TxnDeploy

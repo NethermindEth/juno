@@ -1032,7 +1032,7 @@ func AdaptReceipt(
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            TransactionTypeFrom(txn),
+		Type:            transactionTypeFrom(txn),
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,

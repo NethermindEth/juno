@@ -199,7 +199,15 @@ func (h *Handler) stateByBlockID(
 	return reader, closer, nil
 }
 
-func TransactionTypeFrom(t core.Transaction) TransactionType {
+func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
+	if version.Is(3) {
+		return FRI
+	}
+
+	return WEI
+}
+
+func transactionTypeFrom(t core.Transaction) TransactionType {
 	switch t.(type) {
 	case *core.DeployTransaction:
 		return TxnDeploy

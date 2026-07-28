@@ -452,11 +452,3 @@ type TransactionExecutionErrorData struct {
 	TransactionIndex uint64          `json:"transaction_index"`
 	ExecutionError   json.RawMessage `json:"execution_error"`
 }
-
-func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
-	if version.Is(3) {
-		return FRI
-	}
-
-	return WEI
-}
