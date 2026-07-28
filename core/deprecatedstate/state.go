@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/sourcegraph/conc/pool"
@@ -32,11 +33,10 @@ var (
 // of StateDiff.DeployedContracts and are auto-created during state commit so
 // their storage trie can exist.
 var (
-	SystemContract1Address = felt.One // block-hash storage contract
-	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
-	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
-	SystemContractsClassHash = felt.Zero
-	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
+	SystemContract1Address   = state.SystemContract1Address
+	SystemContract2Address   = state.SystemContract2Address
+	SystemContractsClassHash = state.SystemContractsClassHash
+	SystemContracts          = state.SystemContracts
 )
 
 type State struct {
