@@ -204,17 +204,3 @@ func (mr *MockStateReaderMockRecorder) IsSystemContract(addr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSystemContract", reflect.TypeOf((*MockStateReader)(nil).IsSystemContract), addr)
 }
-
-// SystemContracts mocks base method.
-func (m *MockStateReader) SystemContracts() []felt.Felt {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemContracts")
-	ret0, _ := ret[0].([]felt.Felt)
-	return ret0
-}
-
-// SystemContracts indicates an expected call of SystemContracts.
-func (mr *MockStateReaderMockRecorder) SystemContracts() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemContracts", reflect.TypeOf((*MockStateReader)(nil).SystemContracts))
-}

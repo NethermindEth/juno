@@ -74,11 +74,6 @@ func (s *State) IsSystemContract(addr *felt.Felt) bool {
 	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
-// SystemContracts returns the addresses of all protocol system contracts (0x1, 0x2)
-func (s *State) SystemContracts() []felt.Felt {
-	return SystemContracts[:]
-}
-
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return core.GetContractClassHash(s.txn, addr)

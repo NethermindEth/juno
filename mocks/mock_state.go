@@ -234,20 +234,6 @@ func (mr *MockStateMockRecorder) Revert(header, update any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockState)(nil).Revert), header, update)
 }
 
-// SystemContracts mocks base method.
-func (m *MockState) SystemContracts() []felt.Felt {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemContracts")
-	ret0, _ := ret[0].([]felt.Felt)
-	return ret0
-}
-
-// SystemContracts indicates an expected call of SystemContracts.
-func (mr *MockStateMockRecorder) SystemContracts() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemContracts", reflect.TypeOf((*MockState)(nil).SystemContracts))
-}
-
 // Update mocks base method.
 func (m *MockState) Update(header *core.Header, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot bool) error {
 	m.ctrl.T.Helper()

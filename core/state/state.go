@@ -70,11 +70,6 @@ func (s *State) IsSystemContract(addr *felt.Felt) bool {
 	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
-// SystemContracts returns the addresses of all protocol system contracts (0x1, 0x2)
-func (s *State) SystemContracts() []felt.Felt {
-	return []felt.Felt{SystemContract1Address, SystemContract2Address}
-}
-
 // Applies a state update to a given state. If any error is encountered, state is not updated.
 // After a state update is applied, the root of the state must match the given new root in the state update.
 func (s *State) Update(

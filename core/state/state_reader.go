@@ -40,11 +40,6 @@ func (s *StateReader) IsSystemContract(addr *felt.Felt) bool {
 	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
-// SystemContracts returns the addresses of all protocol system contracts (0x1, 0x2)
-func (s *StateReader) SystemContracts() []felt.Felt {
-	return SystemContracts[:]
-}
-
 func (s *StateReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
