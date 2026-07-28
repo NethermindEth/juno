@@ -776,13 +776,8 @@ func (n *Node) StartService(
 		}
 
 		// The service returned without an error. Let it exit on its own without
-		// taking the rest of the node down. A clean return before shutdown was
-		// requested is unexpected for a long-running service, so flag it.
-		if ctx.Err() == nil {
-			n.logger.Warn("Service stopped before node shutdown was requested", zap.String("name", name))
-		} else {
-			n.logger.Debug("Service stopped", zap.String("name", name))
-		}
+		// taking the rest of the node down.
+		n.logger.Info("Service finished", zap.String("name", name))
 	})
 }
 
