@@ -8,6 +8,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/internal/clienttest"
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
@@ -38,4 +39,61 @@ func TestWS_WriteFailureClassifiedAsTransportClosed(t *testing.T) {
 	default:
 		t.Fatal("a failed write must shut the transport down, not leave it half-alive")
 	}
+}
+
+func TestWS_OrphanedSubsIsBounded(t *testing.T) {
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	srv := clienttest.NewTestServer(t)
+	srv.SetHandler(func(_ clienttest.TestRequest) (any, *clienttest.TestRPCError) {
+		<-gate // never reply
+		return nil, nil
+	})
+
+	tr := newTestTransport(t, srv)
+
+	// A pre-cancelled ctx makes every subscribe write its frame and then
+	// immediately abandon the call, orphaning the request id.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	sink := make(chan *eth.Log, 1)
+	for range maxOrphanedSubs + 1 {
+		_, err := tr.subscribeLogs(ctx, FilterQuery{}, sink)
+		require.ErrorIs(t, err, context.Canceled)
+	}
+
+	tr.mu.Lock()
+	orphans := len(tr.orphanedSubs)
+	tr.mu.Unlock()
+	require.LessOrEqual(t, orphans, maxOrphanedSubs,
+		"orphanedSubs must not grow beyond its cap against an unresponsive server")
+}
+
+func TestWS_CancelledSubscribeDoesNotRetainPendingSub(t *testing.T) {
+	received := make(chan struct{})
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	srv := clienttest.NewTestServer(t)
+	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
+		close(received)
+		<-gate // hold the reply past the caller's cancellation
+		return "0xfeed", nil
+	})
+
+	tr := newTestTransport(t, srv)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		<-received
+		cancel()
+	}()
+	sink := make(chan *eth.Log, 1)
+	_, err := tr.subscribeLogs(ctx, FilterQuery{}, sink)
+	require.ErrorIs(t, err, context.Canceled)
+
+	tr.mu.Lock()
+	retained := len(tr.pendingSubs)
+	tr.mu.Unlock()
+	require.Zero(t, retained,
+		"cancelled subscribe must not retain its wsLogSub in pendingSubs")
 }
