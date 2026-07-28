@@ -73,7 +73,6 @@ type ReorgBlockRange struct {
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
-	StartingBlockNumber() (uint64, error)
 	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
@@ -84,10 +83,6 @@ type Reader interface {
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
 type NoopSynchronizer struct{}
-
-func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
-	return 0, errors.New("StartingBlockNumber() not implemented")
-}
 
 func (n *NoopSynchronizer) StartingBlockHeader() (*core.Header, error) {
 	return nil, errors.New("StartingBlockHeader() not implemented")
@@ -556,13 +551,6 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 	}
 
 	s.listener.OnReorg(localHeader.Number)
-}
-
-func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
-	if s.startingBlockNumber == nil {
-		return 0, errors.New("not running")
-	}
-	return *s.startingBlockNumber, nil
 }
 
 func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {

@@ -86,21 +86,6 @@ func (mr *MockSyncReaderMockRecorder) PreConfirmedChain() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedChain", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedChain))
 }
 
-// StartingBlockNumber mocks base method.
-func (m *MockSyncReader) StartingBlockNumber() (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartingBlockNumber")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StartingBlockNumber indicates an expected call of StartingBlockNumber.
-func (mr *MockSyncReaderMockRecorder) StartingBlockNumber() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockNumber", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockNumber))
-}
-
 // SubscribeNewHeads mocks base method.
 func (m *MockSyncReader) SubscribeNewHeads() sync.NewHeadSubscription {
 	m.ctrl.T.Helper()
