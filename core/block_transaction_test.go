@@ -148,4 +148,19 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 			serialised,
 		)
 	})
+
+	t.Run("BlockTransactionsExecutionStatusPartialSerializer", func(t *testing.T) {
+		for i := range transactionCount {
+			assertPartialSerializer(
+				t,
+				core.BlockTransactionsExecutionStatusPartialSerializer,
+				i,
+				core.ExecutionStatus{
+					Reverted:     receipts[i].Reverted,
+					RevertReason: receipts[i].RevertReason,
+				},
+				serialised,
+			)
+		}
+	})
 }
