@@ -17,7 +17,7 @@ func TestMsgToL1_JSONShape_Stable_v8(t *testing.T) {
 	in := rpc.MsgToL1{
 		From:    felt.NewFromUint64[felt.Felt](0xabc),
 		To:      eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		Payload: []*felt.Felt{felt.NewFromUint64[felt.Felt](1), felt.NewFromUint64[felt.Felt](2)},
+		Payload: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
 	}
 
 	raw, err := json.Marshal(in)
@@ -39,7 +39,7 @@ func TestMsgToL1_JSONShape_OmitsFromWhenNil_v8(t *testing.T) {
 	// MsgToL1.From has omitempty; a nil pointer must not emit the key.
 	in := rpc.MsgToL1{
 		To:      eth.AddressFromString("0x0000000000000000000000000000000000000001"),
-		Payload: []*felt.Felt{},
+		Payload: []felt.Felt{},
 	}
 	raw, err := json.Marshal(in)
 	require.NoError(t, err)

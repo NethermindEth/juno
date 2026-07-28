@@ -5,6 +5,7 @@ package rpcv9
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -176,14 +177,29 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 	}
 }
 
-func feeUnit(txn core.Transaction) FeeUnit {
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
+func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
+	if version.Is(3) {
+		return FRI
 	}
 
-	return feeUnit
+	return WEI
+}
+
+func transactionTypeFrom(txn core.Transaction) TransactionType {
+	switch txn.(type) {
+	case *core.DeployTransaction:
+		return TxnDeploy
+	case *core.InvokeTransaction:
+		return TxnInvoke
+	case *core.DeclareTransaction:
+		return TxnDeclare
+	case *core.DeployAccountTransaction:
+		return TxnDeployAccount
+	case *core.L1HandlerTransaction:
+		return TxnL1Handler
+	default:
+		panic(fmt.Sprintf("unknown transaction type %T", txn))
+	}
 }
 
 func (h *Handler) stateByBlockID(

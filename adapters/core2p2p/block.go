@@ -99,7 +99,7 @@ func AdaptEvent(e *core.Event, txH *felt.Felt) *event.Event {
 	return &event.Event{
 		TransactionHash: AdaptHash(txH),
 		FromAddress:     AdaptFelt(e.From),
-		Keys:            utils.Map(e.Keys, AdaptFelt),
-		Data:            utils.Map(e.Data, AdaptFelt),
+		Keys:            AdaptFeltSlice(e.Keys),
+		Data:            AdaptFeltSlice(e.Data),
 	}
 }

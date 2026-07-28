@@ -33,6 +33,7 @@ type DataSource interface {
 		blockIdentifier string,
 		knownTransactionCount uint64,
 	) (starknet.PreConfirmedUpdate, uint64, error)
+	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
 }
 
 type feederGatewayDataSource struct {
@@ -149,4 +150,11 @@ func (f *feederGatewayDataSource) PreConfirmedBlockLatest(
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
 	return f.starknetData.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
+}
+
+func (f *feederGatewayDataSource) Class(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (core.ClassDefinition, error) {
+	return f.starknetData.Class(ctx, classHash)
 }

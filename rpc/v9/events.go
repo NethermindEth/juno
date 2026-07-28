@@ -37,9 +37,9 @@ type EmittedEvent struct {
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address,omitempty"`
-	Keys []*felt.Felt `json:"keys"`
-	Data []*felt.Felt `json:"data"`
+	From *felt.Felt  `json:"from_address,omitempty"`
+	Keys []felt.Felt `json:"keys"`
+	Data []felt.Felt `json:"data"`
 }
 
 func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {

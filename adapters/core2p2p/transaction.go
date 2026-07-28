@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	synctransaction "github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/transaction"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
@@ -159,8 +158,8 @@ func AdaptDeclareV3Common(tx *core.DeclareTransaction) *transaction.DeclareV3Com
 		CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
 		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
 		Tip:                       tx.Tip,
-		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-		AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		PaymasterData:             AdaptFeltSlice(tx.PaymasterData),
+		AccountDeploymentData:     AdaptFeltSlice(tx.AccountDeploymentData),
 		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
 		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
 	}
@@ -175,7 +174,7 @@ func AdaptDeployAccountV3Transaction(tx *core.DeployAccountTransaction) *transac
 		Calldata:                  AdaptFeltSlice(tx.ConstructorCallData),
 		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
 		Tip:                       tx.Tip,
-		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+		PaymasterData:             AdaptFeltSlice(tx.PaymasterData),
 		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
 		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
 	}
@@ -188,8 +187,8 @@ func AdaptInvokeV3Transaction(tx *core.InvokeTransaction) *transaction.InvokeV3 
 		Calldata:                  AdaptFeltSlice(tx.CallData),
 		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
 		Tip:                       tx.Tip,
-		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-		AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		PaymasterData:             AdaptFeltSlice(tx.PaymasterData),
+		AccountDeploymentData:     AdaptFeltSlice(tx.AccountDeploymentData),
 		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
 		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
 		Nonce:                     AdaptFelt(tx.Nonce),

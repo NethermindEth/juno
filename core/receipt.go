@@ -62,7 +62,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 		msgTo.SetBytes(msg.To.Bytes())
 		payloadSize.SetUint64(uint64(len(msg.Payload)))
 		digest.Update(msg.From, &msgTo, &payloadSize)
-		digest.Update(msg.Payload...)
+		digest.UpdateArray(msg.Payload)
 	}
 
 	return digest.Finish()

@@ -42,7 +42,7 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	return filterKeysMaps
 }
 
-func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
+func (e *EventMatcher) MatchesEventKeys(eventKeys []felt.Felt) bool {
 	// short circuit if event doest have enough keys
 	if len(eventKeys) < len(e.keysMap) {
 		return false
@@ -64,7 +64,7 @@ func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 			continue
 		}
 		// check if event key is in filter keys
-		if _, found := e.keysMap[index][*eventKey]; !found {
+		if _, found := e.keysMap[index][eventKey]; !found {
 			return false
 		}
 	}

@@ -1,7 +1,6 @@
 package crypto_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -70,66 +69,33 @@ func TestPoseidonArray(t *testing.T) {
 	}
 }
 
-func BenchmarkPoseidonArray(b *testing.B) {
-	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
+func TestPoseidonDigestUpdateArrayMatchesUpdate(t *testing.T) {
+	for size := range 33 {
+		vals := make([]felt.Felt, size)
+		ptrs := make([]*felt.Felt, size)
+		for idx := range size {
+			vals[idx] = felt.Random[felt.Felt]()
+			ptrs[idx] = &vals[idx]
+		}
 
-	for _, n := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
-			pointerSlice := genRandomFelts(b, n)
-
-			feltsArray := make([]felt.Felt, len(pointerSlice))
-			for i, p := range pointerSlice {
-				if p != nil {
-					feltsArray[i] = *p
-				}
-			}
-
-			var f felt.Felt
-			for b.Loop() {
-				f = crypto.PoseidonArray(feltsArray)
-			}
-			benchHashR = f
-		})
+		var byArray, byElems crypto.PoseidonDigest
+		byArray.UpdateArray(vals)
+		byElems.Update(ptrs...)
+		assert.Equal(t, byElems.Finish(), byArray.Finish())
 	}
 }
 
-func BenchmarkPoseidonElems(b *testing.B) {
-	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
+// Test vectors from https://github.com/starkware-industries/poseidon
+func TestHadesPermutation(t *testing.T) {
+	state := [3]felt.Felt{}
+	crypto.HadesPermutation(&state)
 
-	for _, n := range numOfElems {
-		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
-			elems := genRandomFelts(b, n)
-			var f felt.Felt
-			for b.Loop() {
-				f = crypto.PoseidonElems(elems...)
-			}
-			benchHashR = f
-		})
+	want := [3]string{
+		"3446325744004048536138401612021367625846492093718951375866996507163446763827",
+		"1590252087433376791875644726012779423683501236913937337746052470473806035332",
+		"867921192302518434283879514999422690776342565400001269945778456016268852423",
 	}
-}
-
-func BenchmarkPoseidon(b *testing.B) {
-	in := genRandomFelts(b, 2)
-
-	var f felt.Felt
-	for b.Loop() {
-		f = crypto.Poseidon(in[0], in[1])
+	for i, w := range want {
+		assert.Equal(t, w, state[i].Text(10))
 	}
-	benchHashR = f
-}
-
-// BenchmarkPoseidonDigest locks in the allocation count of the streaming
-// digest path (Update + Finish), which struct/array hashing relies on.
-// 40 felts exercises ~20 Hades permutations.
-func BenchmarkPoseidonDigest(b *testing.B) {
-	elems := genRandomFelts(b, 40)
-
-	var f felt.Felt
-	b.ReportAllocs()
-	for b.Loop() {
-		var digest crypto.PoseidonDigest
-		digest.Update(elems...)
-		f = digest.Finish()
-	}
-	benchHashR = f
 }

@@ -260,9 +260,9 @@ type FeePayment struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt   `json:"from_address,omitempty"`
-	To      eth.Address  `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	From    *felt.Felt  `json:"from_address,omitempty"`
+	To      eth.Address `json:"to_address"`
+	Payload []felt.Felt `json:"payload"`
 }
 
 type ComputationResources struct {
@@ -404,16 +404,16 @@ type Transaction struct {
 	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]felt.Felt          `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
-	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	Signature             *[]felt.Felt          `json:"signature,omitempty" validate:"required"`
+	CallData              *[]felt.Felt          `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
 	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required"`
 	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
-	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	PaymasterData         *[]felt.Felt          `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *[]felt.Felt          `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
 	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
 	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
 	ProofFacts            *[]felt.Felt          `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
@@ -451,16 +451,4 @@ type BroadcastedTransaction struct {
 type TransactionExecutionErrorData struct {
 	TransactionIndex uint64          `json:"transaction_index"`
 	ExecutionError   json.RawMessage `json:"execution_error"`
-}
-
-// todo(rdr): This should be modified to receive a transaction version instead
-// and the if conditions can be simplified by just asking if version is 3 :)
-func feeUnit(txn core.Transaction) FeeUnit {
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
-	}
-
-	return feeUnit
 }

@@ -17,7 +17,7 @@ func TestMsgToL1_JSONShape_Stable_v9(t *testing.T) {
 	in := rpc.MsgToL1{
 		From:    felt.NewFromUint64[felt.Felt](0xabc),
 		To:      eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		Payload: []*felt.Felt{felt.NewFromUint64[felt.Felt](1), felt.NewFromUint64[felt.Felt](2)},
+		Payload: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
 	}
 
 	raw, err := json.Marshal(in)
@@ -38,7 +38,7 @@ func TestMsgToL1_JSONShape_Stable_v9(t *testing.T) {
 func TestMsgToL1_JSONShape_OmitsFromWhenNil_v9(t *testing.T) {
 	in := rpc.MsgToL1{
 		To:      eth.AddressFromString("0x0000000000000000000000000000000000000001"),
-		Payload: []*felt.Felt{},
+		Payload: []felt.Felt{},
 	}
 	raw, err := json.Marshal(in)
 	require.NoError(t, err)
@@ -52,9 +52,9 @@ func TestMsgFromL1_JSONShape_Stable_v9(t *testing.T) {
 	two := felt.NewFromUint64[felt.Felt](2)
 	in := rpc.MsgFromL1{
 		From:     eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		To:       *felt.NewFromUint64[felt.Felt](0xdef),
+		To:       felt.FromUint64[felt.Felt](0xdef),
 		Payload:  []felt.Felt{*one, *two},
-		Selector: *felt.NewFromUint64[felt.Felt](0x3),
+		Selector: felt.FromUint64[felt.Felt](0x3),
 	}
 
 	raw, err := json.Marshal(in)

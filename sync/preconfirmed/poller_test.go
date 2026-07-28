@@ -37,7 +37,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i := range txCount {
 		hash := felt.NewFromUint64[felt.Felt](uint64(i + 1))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
@@ -82,7 +82,7 @@ func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDelta
 	stateDiffs := make([]*starknet.StateDiff, addedCount)
 	for i := range addedCount {
 		hash := new(felt.Felt).SetUint64(uint64(100 + i))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
@@ -343,7 +343,7 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 
@@ -378,7 +378,7 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -393,11 +393,10 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 	})
 }
 
-// Sequencer advanced by exactly one: backfill re-polls mostRecent's own
-// height with its identifier+txCount hints, and the server replies with a
-// Delta carrying the final txs the sequencer appended before publishing the
-// next block. The delta merges into the existing slot (identifier preserved,
-// txs summed), then the new most recent is applied.
+// Sequencer advanced by exactly one: backfill re-polls mostRecent's own height with its
+// identifier+txCount hints, and the server replies with a Delta carrying the final txs
+// appended before the next block. The delta merges into the existing slot (identifier
+// preserved, txs summed), then the new most recent is applied.
 func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
@@ -421,7 +420,7 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -471,7 +470,7 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())
@@ -654,9 +653,9 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 2, before.Length())
@@ -702,11 +701,11 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number))
+		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 3, before.Length())
@@ -743,11 +742,11 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed1, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number))
+		_, err = h.storage.ApplyUpdate(seed2, h.head.Number+2, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
-		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number))
+		_, err = h.storage.ApplyUpdate(seed3, h.head.Number+3, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 		before := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Equal(t, 3, before.Length())
@@ -765,6 +764,155 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 			entry(2, &seed2),
 			entry(3, &replacement),
 		)
+	})
+}
+
+// classesAt returns the NewClasses registered on the snapshot's slot at blockNumber.
+func classesAt(
+	snap *preconfirmed.ChainReader,
+	blockNumber uint64,
+) map[felt.Felt]core.ClassDefinition {
+	for pc := range snap.OldestFirst() {
+		if pc.Block.Number == blockNumber {
+			return pc.NewClasses
+		}
+	}
+	return nil
+}
+
+func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
+	t.Parallel()
+
+	// A full-block re-poll (a new round at the old tip) fetches that block's own declared
+	// classes.
+	t.Run("full block re-poll fetches its declared classes", func(t *testing.T) {
+		t.Parallel()
+		fx := newChainFixture(t)
+
+		classHash := new(felt.Felt).SetUint64(0xC1A55)
+		classDef := &core.SierraClass{}
+
+		seed := makeTestPreConfirmedBlock("r1", 0) // stored old tip, declares nothing
+		repoll := makeTestPreConfirmedBlock("r1b", 1)
+		repoll.TransactionStateDiffs[0].DeclaredClasses = []struct {
+			ClassHash         *felt.Felt `json:"class_hash"`
+			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+		}{{ClassHash: classHash}}
+		newTip := makeTestPreConfirmedBlock("r2", 0)
+
+		ctrl := gomock.NewController(t)
+		ds := mocks.NewMockStarknetData(ctrl)
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r1", uint64(0)).
+			Return(newTip, uint64(2), nil)
+		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r1", uint64(0)).
+			Return(repoll, nil)
+		ds.EXPECT().Class(gomock.Any(), classHash).Return(classDef, nil)
+
+		synctest.Test(t, func(t *testing.T) {
+			h := wirePoller(t, fx.bc, fx.head, ds)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
+			require.NoError(t, err)
+
+			go h.poller.Run(t.Context())
+			synctest.Wait()
+			time.Sleep(tickInterval)
+			synctest.Wait()
+
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+			require.Equal(t, classDef, classesAt(&view, 1)[*classHash],
+				"the re-polled full block's declared class must be fetched and land on slot 1")
+		})
+	})
+
+	// A delta re-poll fetches both the stored tip's already-declared classes and the
+	// delta's newly-declared ones.
+	t.Run("delta re-poll fetches stored tip and delta classes", func(t *testing.T) {
+		t.Parallel()
+		fx := newChainFixture(t)
+
+		storedClass := new(felt.Felt).SetUint64(0xADD)
+		deltaClass := new(felt.Felt).SetUint64(0xC1A55)
+		storedDef := &core.SierraClass{}
+		deltaDef := &core.SierraClass{}
+
+		seed := makeTestPreConfirmedBlock("r1", 1) // stored old tip declares storedClass
+		seed.TransactionStateDiffs[0].DeclaredClasses = []struct {
+			ClassHash         *felt.Felt `json:"class_hash"`
+			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+		}{{ClassHash: storedClass}}
+		repoll := makeTestDelta("r1", 1) // same-round delta declares deltaClass
+		repoll.TransactionStateDiffs[0].DeclaredClasses = []struct {
+			ClassHash         *felt.Felt `json:"class_hash"`
+			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+		}{{ClassHash: deltaClass}}
+		newTip := makeTestPreConfirmedBlock("r2", 0)
+
+		ctrl := gomock.NewController(t)
+		ds := mocks.NewMockStarknetData(ctrl)
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r1", uint64(1)).
+			Return(newTip, uint64(2), nil)
+		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r1", uint64(1)).
+			Return(repoll, nil)
+		ds.EXPECT().Class(gomock.Any(), storedClass).Return(storedDef, nil)
+		ds.EXPECT().Class(gomock.Any(), deltaClass).Return(deltaDef, nil)
+
+		synctest.Test(t, func(t *testing.T) {
+			h := wirePoller(t, fx.bc, fx.head, ds)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
+			require.NoError(t, err)
+
+			go h.poller.Run(t.Context())
+			synctest.Wait()
+			time.Sleep(tickInterval)
+			synctest.Wait()
+
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+			classes := classesAt(&view, 1)
+			require.Equal(t, storedDef, classes[*storedClass],
+				"the stored tip's declared class must be recovered and fetched")
+			require.Equal(t, deltaDef, classes[*deltaClass],
+				"the delta's newly-declared class must be fetched")
+		})
+	})
+
+	// A NoChange re-poll fetches the stored tip's declared classes, recovered from the
+	// stored entry even though the poll carries no content.
+	t.Run("no-change re-poll recovers stored tip classes", func(t *testing.T) {
+		t.Parallel()
+		fx := newChainFixture(t)
+
+		storedClass := new(felt.Felt).SetUint64(0xADD)
+		storedDef := &core.SierraClass{}
+
+		seed := makeTestPreConfirmedBlock("r1", 1) // stored old tip declares storedClass
+		seed.TransactionStateDiffs[0].DeclaredClasses = []struct {
+			ClassHash         *felt.Felt `json:"class_hash"`
+			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+		}{{ClassHash: storedClass}}
+		newTip := makeTestPreConfirmedBlock("r2", 0)
+
+		ctrl := gomock.NewController(t)
+		ds := mocks.NewMockStarknetData(ctrl)
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r1", uint64(1)).
+			Return(newTip, uint64(2), nil)
+		ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "r1", uint64(1)).
+			Return(starknet.PreConfirmedNoChange{}, nil)
+		ds.EXPECT().Class(gomock.Any(), storedClass).Return(storedDef, nil)
+
+		synctest.Test(t, func(t *testing.T) {
+			h := wirePoller(t, fx.bc, fx.head, ds)
+			_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
+			require.NoError(t, err)
+
+			go h.poller.Run(t.Context())
+			synctest.Wait()
+			time.Sleep(tickInterval)
+			synctest.Wait()
+
+			view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+			require.Equal(t, storedDef, classesAt(&view, 1)[*storedClass],
+				"the stored tip's declared class must be recovered despite a NoChange re-poll")
+		})
 	})
 }
 
@@ -815,7 +963,7 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
 		// Seed directly through storage; this does NOT publish (only the
 		// poller's apply wrapper does Send), so the feed starts clean.
-		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number))
+		_, err := h.storage.ApplyUpdate(seed, h.head.Number+1, 0, oldestPreConfFor(h.head.Number), nil)
 		require.NoError(t, err)
 
 		go h.poller.Run(t.Context())

@@ -55,7 +55,7 @@ func applyBlock(
 ) starknet.PreConfirmedBlock {
 	t.Helper()
 	block := makeTestPreConfirmedBlock(identifier, txCount)
-	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf)
+	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf, nil)
 	require.NoError(t, err)
 	return block
 }
@@ -74,7 +74,7 @@ func rangeEntries(from uint64, blocks []starknet.PreConfirmedBlock) []expectedEn
 
 func TestChainStorageApplyUpdate(t *testing.T) {
 	t.Run("bootstrap: rejects Delta on empty chain", testApplyUpdateBootstrapRejectsDelta)
-	t.Run("bootstrap: NoChange on empty is a no-op", testApplyUpdateBootstrapNoChangeNoop)
+	t.Run("bootstrap: NoChange on empty is rejected", testApplyUpdateBootstrapNoChangeRejected)
 	t.Run("bootstrap: rejected at wrong height", testApplyUpdateBootstrapWrongHeight)
 	t.Run("bootstrap: accepted at head+1", testApplyUpdateBootstrapAtHeadPlusOne)
 	t.Run("bootstrap: accepted at genesis before any head", testApplyUpdateBootstrapAtGenesis)
@@ -91,6 +91,14 @@ func TestChainStorageApplyUpdate(t *testing.T) {
 	t.Run(
 		"replace-tip: same identifier richer block replaces",
 		testApplyUpdateReplaceTipRicherReplaces,
+	)
+	t.Run(
+		"delta: registers freshly-fetched classes on the tip",
+		testApplyUpdateDeltaRegistersNewClass,
+	)
+	t.Run(
+		"no-change: registers freshly-fetched classes on the tip",
+		testApplyUpdateNoChangeRegistersClasses,
 	)
 	t.Run("replace-tip: new round at most recent replaces", testApplyUpdateReplaceTipNewRound)
 	t.Run("replace-tip: blank identifier never overrides a real round",
@@ -115,7 +123,7 @@ func TestChainStorageApplyUpdate(t *testing.T) {
 func testApplyUpdateBootstrapRejectsDelta(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(100)
 	s := preconfirmed.NewChainStorage()
-	pc, err := s.ApplyUpdate(starknet.PreConfirmedDeltaUpdate{}, 101, 0, oldestPreConf)
+	pc, err := s.ApplyUpdate(starknet.PreConfirmedDeltaUpdate{}, 101, 0, oldestPreConf, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bootstrap rejected")
 	require.Nil(t, pc)
@@ -123,12 +131,11 @@ func testApplyUpdateBootstrapRejectsDelta(t *testing.T) {
 	require.Zero(t, view.Length())
 }
 
-func testApplyUpdateBootstrapNoChangeNoop(t *testing.T) {
+func testApplyUpdateBootstrapNoChangeRejected(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(100)
 	s := preconfirmed.NewChainStorage()
-	pc, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 101, 0, oldestPreConf)
-	require.NoError(t, err)
-	require.Nil(t, pc)
+	_, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 101, 0, oldestPreConf, nil)
+	require.Error(t, err)
 	view := s.SnapshotForBlock(oldestPreConf)
 	require.Zero(t, view.Length())
 }
@@ -136,7 +143,7 @@ func testApplyUpdateBootstrapNoChangeNoop(t *testing.T) {
 func testApplyUpdateBootstrapWrongHeight(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(100)
 	s := preconfirmed.NewChainStorage()
-	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(103), 0), 103, 0, oldestPreConf)
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(103), 0), 103, 0, oldestPreConf, nil)
 	require.Error(t, err)
 	view := s.SnapshotForBlock(oldestPreConf)
 	require.Zero(t, view.Length())
@@ -159,7 +166,7 @@ func testApplyUpdateBootstrapAtGenesis(t *testing.T) {
 
 func testApplyUpdateBootstrapNonzeroAtGenesis(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
-	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, 0)
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, 0, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "oldest pre-confirmed slot is 0")
 	view := s.SnapshotForBlock(0)
@@ -174,7 +181,7 @@ func testApplyUpdateExtendGapRejected(t *testing.T) {
 	before := s.SnapshotForBlock(oldestPreConf)
 
 	// Skip slot 103, attempt to apply at 104.
-	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(104), 0), 104, 0, oldestPreConf)
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(104), 0), 104, 0, oldestPreConf, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "gap above tip")
 	after := s.SnapshotForBlock(oldestPreConf)
@@ -191,7 +198,7 @@ func testApplyUpdateExtendNonBlockRejected(t *testing.T) {
 	// A Delta at brand-new slot 2 is rejected before identifier validation —
 	// only PreConfirmedBlock is valid at a new tip.
 	delta := makeTestDelta(roundID(2), 1)
-	_, err := s.ApplyUpdate(delta, 2, 0, oldestPreConf)
+	_, err := s.ApplyUpdate(delta, 2, 0, oldestPreConf, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "append rejected")
 	after := s.SnapshotForBlock(oldestPreConf)
@@ -225,6 +232,53 @@ func testApplyUpdateReplaceTipRicherReplaces(t *testing.T) {
 	after := s.SnapshotForBlock(oldestPreConf)
 	require.NotSame(t, before.Head(), after.Head())
 	assertChain(t, &after, entry(1, &b1), entry(2, &bRicher))
+}
+
+func testApplyUpdateDeltaRegistersNewClass(t *testing.T) {
+	oldestSlot := oldestPreConfFor(0)
+	s := preconfirmed.NewChainStorage()
+	const round = "round-1"
+	applyBlock(t, s, round, 1, 1, oldestSlot) // stored without classes
+	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classDef := &core.DeprecatedCairoClass{}
+
+	delta := makeTestDelta(round, 1)
+	affected, err := s.ApplyUpdate(
+		delta, 1, 1, oldestSlot, map[felt.Felt]core.ClassDefinition{classHash: classDef},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, affected, "a delta advancing the tip must publish the affected entry")
+
+	view := s.SnapshotForBlock(oldestSlot)
+	require.Equal(t, classDef, view.Head().NewClasses[classHash],
+		"the delta's declared class must be readable on the stored tip")
+}
+
+func testApplyUpdateNoChangeRegistersClasses(t *testing.T) {
+	oldestSlot := oldestPreConfFor(0)
+	s := preconfirmed.NewChainStorage()
+	applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
+	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classDef := &core.DeprecatedCairoClass{}
+	classes := map[felt.Felt]core.ClassDefinition{classHash: classDef}
+
+	affected, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 1, 0, oldestSlot, classes)
+	require.NoError(t, err)
+	require.NotNil(t, affected, "NoChange with new classes must refresh the tip")
+
+	view := s.SnapshotForBlock(oldestSlot)
+	require.Equal(t, classDef, view.Head().NewClasses[classHash],
+		"the recovered class must be readable on the stored tip")
+
+	// Re-registering an already-present class is a no-op.
+	affected, err = s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 1, 0, oldestSlot, classes)
+	require.NoError(t, err)
+	require.Nil(t, affected, "re-registering an already-present class must be a no-op")
+
+	// A plain NoChange with no classes stays a no-op.
+	affected, err = s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 1, 0, oldestSlot, nil)
+	require.NoError(t, err)
+	require.Nil(t, affected)
 }
 
 func testApplyUpdateReplaceTipNewRound(t *testing.T) {
@@ -371,7 +425,7 @@ func testApplyUpdateDeltaAtTip(t *testing.T) {
 	seed := applyBlock(t, s, round, 2, 1, oldestPreConf)
 
 	delta := makeTestDelta(round, 3)
-	_, err := s.ApplyUpdate(delta, 1, 2, oldestPreConf)
+	_, err := s.ApplyUpdate(delta, 1, 2, oldestPreConf, nil)
 	require.NoError(t, err)
 
 	// 2 base + 3 appended via delta.
@@ -389,7 +443,7 @@ func testApplyUpdateDeltaAtNonTipRejected(t *testing.T) {
 	before := s.SnapshotForBlock(oldestPreConf)
 
 	delta := makeTestDelta(slot1Round, 2)
-	_, err := s.ApplyUpdate(delta, 1, 1, oldestPreConf)
+	_, err := s.ApplyUpdate(delta, 1, 1, oldestPreConf, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "non-tip")
 	after := s.SnapshotForBlock(oldestPreConf)
@@ -405,7 +459,7 @@ func testApplyUpdateDeltaWrongBaseTxCount(t *testing.T) {
 
 	// Matching identifier — failure is purely from the baseTxCount race-check.
 	delta := makeTestDelta(round, 1)
-	_, err := s.ApplyUpdate(delta, 1, 99, oldestPreConf)
+	_, err := s.ApplyUpdate(delta, 1, 99, oldestPreConf, nil)
 	require.ErrorIs(t, err, preconfirmed.ErrBaseTxCountMismatch)
 	after := s.SnapshotForBlock(oldestPreConf)
 	require.Same(t, before.Head(), after.Head())
@@ -419,7 +473,7 @@ func testApplyUpdateDeltaIdentifierMismatch(t *testing.T) {
 	before := s.SnapshotForBlock(oldestPreConf)
 
 	delta := makeTestDelta("round-1-different", 1)
-	_, err := s.ApplyUpdate(delta, 1, 1, oldestPreConf)
+	_, err := s.ApplyUpdate(delta, 1, 1, oldestPreConf, nil)
 	require.Error(t, err)
 	after := s.SnapshotForBlock(oldestPreConf)
 	require.Same(t, before.Head(), after.Head())
@@ -437,7 +491,7 @@ func testApplyUpdateBelowOldestPreConfRejected(t *testing.T) {
 
 	// Identifier is irrelevant here — the below-oldest-slot check fires first.
 	delta := makeTestDelta(roundID(1), 1)
-	_, err := s.ApplyUpdate(delta, 1, 0, oldestPreConfFor(1))
+	_, err := s.ApplyUpdate(delta, 1, 0, oldestPreConfFor(1), nil)
 	require.Error(t, err, "apply target below the oldest slot must surface as an error")
 	after := s.SnapshotForBlock(oldestPreConfFor(1))
 	require.Same(t, before.Head(), after.Head())
@@ -622,6 +676,8 @@ func TestChainReader(t *testing.T) {
 	t.Run("iterators are alloc-free", testChainReaderIteratorsAllocFree)
 	t.Run("PreConfirmedStateAt composes diffs through target block",
 		testChainReaderPreConfirmedStateAtComposes)
+	t.Run("PreConfirmedStateAt resolves a class declared in a lower entry",
+		testChainReaderPreConfirmedStateAtResolvesDeclaredClass)
 	t.Run("PreConfirmedStateAt rejects blockNumber outside chain",
 		testChainReaderPreConfirmedStateAtOutOfRange)
 	t.Run("PreConfirmedStateBeforeIndexAt walks tx diffs of slot",
@@ -750,7 +806,7 @@ func applyBlockWithStorageWrites(
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i, w := range writes {
 		hash := new(felt.Felt).SetUint64(number*1000 + uint64(i))
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
@@ -784,7 +840,7 @@ func applyBlockWithStorageWrites(
 		L1DAMode:              starknet.Blob,
 		L1DataGasPrice:        &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
 	}
-	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf)
+	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf, nil)
 	require.NoError(t, err)
 }
 
@@ -858,6 +914,38 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 			"PreConfirmedStateAt(%d) keyOnlyInSlot1 must survive the merge", tc.blockNumber)
 		require.NoError(t, closer())
 	}
+}
+
+func testChainReaderPreConfirmedStateAtResolvesDeclaredClass(t *testing.T) {
+	oldestSlot := oldestPreConfFor(0)
+	s := preconfirmed.NewChainStorage()
+	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classDef := core.DeprecatedCairoClass{}
+
+	// Slot 1 (a backfilled block) declares the class; slot 2 is the tip.
+	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestSlot,
+		map[felt.Felt]core.ClassDefinition{classHash: &classDef})
+	require.NoError(t, err)
+	_, err = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(2), 0), 2, 0, oldestSlot, nil)
+	require.NoError(t, err)
+
+	view := s.SnapshotForBlock(oldestSlot)
+
+	ctrl := gomock.NewController(t)
+	bc := mocks.NewMockReader(ctrl)
+	baseReader := mocks.NewMockStateReader(ctrl)
+	// Base state is opened for the read; its Class is never consulted because the
+	// class resolves from the merged pre_confirmed NewClasses first.
+	bc.EXPECT().StateAtBlockNumber(uint64(0)).
+		Return(baseReader, func() error { return nil }, nil)
+
+	state, closer, err := view.PreConfirmedStateAt(2, bc)
+	require.NoError(t, err)
+
+	declared, err := state.Class(&classHash)
+	require.NoError(t, err)
+	require.Equal(t, &classDef, declared.Class)
+	require.NoError(t, closer())
 }
 
 func testChainReaderPreConfirmedStateAtOutOfRange(t *testing.T) {
@@ -1287,7 +1375,7 @@ func testPinnedSnapshotImmuneToExtend(t *testing.T) {
 	s, pinned, blocks := pinChain(t)
 	oldestPreConf := oldestPreConfFor(0)
 	for n := uint64(6); n <= 20; n++ {
-		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestPreConf)
+		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestPreConf, nil)
 		require.NoError(t, err)
 	}
 	assertChain(t, pinned, rangeEntries(1, blocks)...)
@@ -1298,7 +1386,7 @@ func testPinnedSnapshotImmuneToReplaceTip(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	// Richer-replace must share the existing tip's identifier (roundID(5)).
 	for txCount := 1; txCount <= 10; txCount++ {
-		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(5), txCount), 5, 0, oldestPreConf)
+		_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(5), txCount), 5, 0, oldestPreConf, nil)
 		require.NoError(t, err)
 	}
 	assertChain(t, pinned, rangeEntries(1, blocks)...)
@@ -1311,7 +1399,7 @@ func testPinnedSnapshotImmuneToDelta(t *testing.T) {
 	// baseTxCount must follow.
 	tipTxCount := uint64(0)
 	for _, add := range []int{3, 2, 4} {
-		_, err := s.ApplyUpdate(makeTestDelta(roundID(5), add), 5, tipTxCount, oldestPreConfFor(0))
+		_, err := s.ApplyUpdate(makeTestDelta(roundID(5), add), 5, tipTxCount, oldestPreConfFor(0), nil)
 		require.NoError(t, err)
 		tipTxCount += uint64(add)
 	}
@@ -1404,7 +1492,7 @@ func testAllocsAdvanceTrim(t *testing.T) {
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
 		for n := uint64(1); n <= chainLen; n++ {
-			_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestPreConf)
+			_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(n), 0), n, 0, oldestPreConf, nil)
 		}
 		return s
 	}
@@ -1427,7 +1515,7 @@ func testAllocsApplyNoChange(t *testing.T) {
 	noChange := starknet.PreConfirmedNoChange{}
 
 	allocs := testing.AllocsPerRun(100, func() {
-		_, _ = s.ApplyUpdate(noChange, 1, 0, oldestPreConf)
+		_, _ = s.ApplyUpdate(noChange, 1, 0, oldestPreConf, nil)
 	})
 	require.Zero(t, allocs)
 }
@@ -1442,14 +1530,14 @@ func testAllocsApplyDelta(t *testing.T) {
 	const expectedDeltaCost = 29
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
-		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestPreConf)
+		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestPreConf, nil)
 		return s
 	}
 	delta := makeTestDelta(roundID(1), 1)
 	baseline := testing.AllocsPerRun(50, func() { _ = build() })
 	withApply := testing.AllocsPerRun(50, func() {
 		s := build()
-		_, _ = s.ApplyUpdate(delta, 1, 0, oldestPreConf)
+		_, _ = s.ApplyUpdate(delta, 1, 0, oldestPreConf, nil)
 	})
 	require.InDelta(t, float64(expectedDeltaCost), withApply-baseline, 0.5)
 }
@@ -1459,14 +1547,14 @@ func testAllocsApplyExtend(t *testing.T) {
 	const expectedExtendCost = 22
 	build := func() *preconfirmed.ChainStorage {
 		s := preconfirmed.NewChainStorage()
-		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestPreConf)
+		_, _ = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestPreConf, nil)
 		return s
 	}
 	extendBlock := makeTestPreConfirmedBlock(roundID(2), 0)
 	baseline := testing.AllocsPerRun(50, func() { _ = build() })
 	withApply := testing.AllocsPerRun(50, func() {
 		s := build()
-		_, _ = s.ApplyUpdate(extendBlock, 2, 0, oldestPreConf)
+		_, _ = s.ApplyUpdate(extendBlock, 2, 0, oldestPreConf, nil)
 	})
 	require.InDelta(t, float64(expectedExtendCost), withApply-baseline, 0.5)
 }
