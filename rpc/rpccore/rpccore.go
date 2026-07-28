@@ -18,6 +18,8 @@ const (
 	MaxBlocksBack                 = 1024
 	EntrypointNotFoundFelt string = "0x454e545259504f494e545f4e4f545f464f554e44"
 	ErrEPSNotFound                = "Entry point EntryPointSelector(%s) not found in contract."
+
+	DefaultMaxSubscriptions int64 = 2048
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore Gateway
@@ -90,4 +92,5 @@ var (
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
+	ErrTooManySubscriptions = &jsonrpc.Error{Code: 101, Message: "Too many subscriptions"}
 )

@@ -23,6 +23,7 @@ import (
 	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
+	"golang.org/x/sync/semaphore"
 )
 
 type Handler struct {
@@ -41,8 +42,9 @@ type Handler struct {
 	l1Heads                 *feed.Feed[*core.L1Head]
 	receivedTransactionFeed *feed.Feed[core.Transaction]
 
-	idgen         func() string
-	subscriptions stdsync.Map // map[string]*subscription
+	idgen               func() string
+	subscriptions       stdsync.Map // map[string]*subscription
+	subscriptionLimiter *semaphore.Weighted
 
 	blockTraceCache *lru.Cache[felt.Felt, []TracedBlockTransaction]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
@@ -89,6 +91,11 @@ func New(
 		](rpccore.TraceCacheSize),
 		filterLimit: math.MaxUint,
 	}
+}
+
+func (h *Handler) WithSubscriptionLimiter(limiter *semaphore.Weighted) *Handler {
+	h.subscriptionLimiter = limiter
+	return h
 }
 
 func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
