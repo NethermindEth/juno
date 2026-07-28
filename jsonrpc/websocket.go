@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -20,6 +21,17 @@ const (
 	maxConns            = 2048 // TODO: an arbitrary default number, should be revisited after monitoring
 )
 
+var serverBusyResponse = func() []byte {
+	b, err := json.Marshal(&response{
+		Version: "2.0",
+		Error:   &Error{Code: InternalError, Message: ErrServerBusy.Error()},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return b
+}()
+
 type Websocket struct {
 	rpc            *Server
 	logger         log.StructuredLogger
@@ -27,6 +39,7 @@ type Websocket struct {
 	listener       NewRequestListener
 	shutdown       <-chan struct{}
 	requestTimeout time.Duration
+	gate           *Gate
 
 	// Add connection tracking
 	connSem *semaphore.Weighted
@@ -59,6 +72,11 @@ func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 
 func (ws *Websocket) WithRequestTimeout(d time.Duration) *Websocket {
 	ws.requestTimeout = d
+	return ws
+}
+
+func (ws *Websocket) WithGate(g *Gate) *Websocket {
+	ws.gate = g
 	return ws
 }
 
@@ -116,7 +134,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		ws.listener.OnNewRequest("any")
-		if err = ws.rpc.HandleReadWriter(wsc.ctx, ws.requestTimeout, wsc); err != nil {
+		if err = ws.handleMessage(wsc); err != nil {
 			break
 		}
 		// From websocket docs: "Read to EOF otherwise connection will hang."
@@ -144,6 +162,27 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ws.logger.Error("Failed to close websocket connection", zap.String("err", errString))
 		}
 	}
+}
+
+func (ws *Websocket) handleMessage(wsc *websocketConn) error {
+	if ws.gate != nil {
+		acquireCtx := wsc.ctx
+		if ws.requestTimeout > 0 {
+			var cancel context.CancelFunc
+			acquireCtx, cancel = context.WithTimeout(acquireCtx, ws.requestTimeout)
+			defer cancel()
+		}
+		if err := ws.gate.Acquire(acquireCtx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return err
+			}
+			_, writeErr := wsc.Write(serverBusyResponse)
+			return writeErr
+		}
+		defer ws.gate.Release()
+	}
+
+	return ws.rpc.HandleReadWriter(wsc.ctx, ws.requestTimeout, wsc)
 }
 
 type WebsocketConnParams struct {
