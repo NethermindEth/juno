@@ -666,7 +666,8 @@ func (s *Server) callMethod(ctx context.Context, req *Request) (*response, http.
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := jsonv1.Marshal(req)
 			errJSON, _ := jsonv1.Marshal(res.Error)
-			s.logger.Debug("Failed handing RPC request",
+			s.logger.Debug(
+				"Failed handling RPC request",
 				zap.String("req", log.SanitizeString(string(reqJSON))),
 				zap.String("res", log.SanitizeString(string(errJSON))),
 			)
