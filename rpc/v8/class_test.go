@@ -130,11 +130,6 @@ func TestClassAt(t *testing.T) {
 	mockState.EXPECT().IsSystemContract(deprecatedCairoContractAddress).Return(false)
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).
-		DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-			class, err := integGw.Class(t.Context(), classHash)
-			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
-		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -144,6 +139,12 @@ func TestClassAt(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
+		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+				class, err := integGw.Class(t.Context(), classHash)
+				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+			},
+		)
 		coreClass, err := integGw.Class(t.Context(), sierraClassHash)
 		require.NoError(t, err)
 
@@ -154,6 +155,12 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
+		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+				class, err := integGw.Class(t.Context(), classHash)
+				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+			},
+		)
 		coreClass, err := integGw.Class(t.Context(), deprecatedCairoClassHash)
 		require.NoError(t, err)
 
@@ -182,6 +189,7 @@ func TestClassAt(t *testing.T) {
 		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xdead")
 		mockState.EXPECT().IsSystemContract(danglingAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
+		mockState.EXPECT().Class(gomock.Eq(unknownClassHash)).Return(nil, db.ErrKeyNotFound)
 
 		class, rpcErr := handler.ClassAt(latest, *danglingAddress)
 		require.Nil(t, class)
