@@ -108,19 +108,21 @@ func fetchL1HeadIfMissing(
 	logger.Info("Fetching the L1 head before running the prune migration")
 	// Metrics are registered by the long-lived L1 client built in node.New; reusing
 	// them here would panic via prometheus.MustRegister. Hence no listener.
-	provider, err := newGethL1StateProvider(ctx, config.EthNode, chain)
+	provider, err := newMigrationL1StateProvider(
+		ctx, config.UseNewL1Client, config.EthNode, chain, logger,
+	)
 	if err != nil {
 		return fmt.Errorf("creating L1 state provider: %w", err)
 	}
 
 	client := l1.NewClient(provider, chain, logger)
 	if err := client.CatchUpL1Head(ctx); err != nil {
-		return fmt.Errorf("catching up to the latest L1 head: %w", err)
+		return fmt.Errorf("catching up L1 head: %w", err)
 	}
 
 	if _, err := core.GetL1Head(database); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return errors.New("couldn't find a finalized Starknet state update on L1")
+			return errors.New("no finalised Starknet state update found on L1")
 		}
 		return fmt.Errorf("getting L1 head: %w", err)
 	}
