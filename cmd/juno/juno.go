@@ -345,6 +345,7 @@ func main() {
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		fmt.Printf("error: %v\n", err)
+		cancel()
 		os.Exit(1)
 	}
 }
