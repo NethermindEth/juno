@@ -22,8 +22,23 @@ func TestSyncing(t *testing.T) {
 	defaultSyncState := false
 
 	startingBlockHeader := &core.Header{Number: 0, Hash: &felt.Zero}
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+	synchronizer.EXPECT().HighestBlockHeader().Return(
+		&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)},
+	)
 	synchronizer.EXPECT().StartingBlockHeader().Return(nil, errors.New("nope"))
 	t.Run("undefined starting block header", func(t *testing.T) {
+		syncing, err := handler.Syncing()
+		assert.Nil(t, err)
+		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
+	})
+
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+	synchronizer.EXPECT().HighestBlockHeader().Return(
+		&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)},
+	)
+	synchronizer.EXPECT().StartingBlockHeader().Return(nil, nil)
+	t.Run("nil starting block header", func(t *testing.T) {
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)

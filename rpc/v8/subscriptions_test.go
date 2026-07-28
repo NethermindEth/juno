@@ -4,6 +4,7 @@ package rpcv8
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -455,7 +456,7 @@ func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
 }
 
 func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
-	return nil, nil
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
