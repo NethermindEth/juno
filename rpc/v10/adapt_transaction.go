@@ -138,6 +138,23 @@ func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet
 	}
 }
 
+func TransactionTypeFrom(txn core.Transaction) TransactionType {
+	switch txn.(type) {
+	case *core.DeployTransaction:
+		return TxnDeploy
+	case *core.InvokeTransaction:
+		return TxnInvoke
+	case *core.DeclareTransaction:
+		return TxnDeclare
+	case *core.DeployAccountTransaction:
+		return TxnDeployAccount
+	case *core.L1HandlerTransaction:
+		return TxnL1Handler
+	default:
+		panic(fmt.Sprintf("unknown transaction type %T", txn))
+	}
+}
+
 // AdaptReceipt adapts a receipt and transaction into a local *TransactionReceipt.
 // todo(rdr): TransactionReceipt should be returned by value
 func AdaptReceipt(
@@ -184,7 +201,7 @@ func AdaptReceipt(
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            AdaptCoreTransaction(txn).Type,
+		Type:            TransactionTypeFrom(txn),
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,

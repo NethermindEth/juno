@@ -968,6 +968,23 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	return txn
 }
 
+func TransactionTypeFrom(txn core.Transaction) TransactionType {
+	switch txn.(type) {
+	case *core.DeployTransaction:
+		return TxnDeploy
+	case *core.InvokeTransaction:
+		return TxnInvoke
+	case *core.DeclareTransaction:
+		return TxnDeclare
+	case *core.DeployAccountTransaction:
+		return TxnDeployAccount
+	case *core.L1HandlerTransaction:
+		return TxnL1Handler
+	default:
+		panic(fmt.Sprintf("unknown transaction type %T", txn))
+	}
+}
+
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 //
 // AdaptReceiptWithoutBlockInfo returns JSON-RPC TXN_RECEIPT_WITH_BLOCK_INFO
@@ -1032,7 +1049,7 @@ func AdaptReceipt(
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            AdaptTransaction(txn).Type,
+		Type:            TransactionTypeFrom(txn),
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
