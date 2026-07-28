@@ -1032,11 +1032,11 @@ func AdaptReceipt(
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            AdaptTransaction(txn).Type,
+		Type:            transactionTypeFrom(txn),
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
+			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
 		MessagesSent:       messages,
 		Events:             events,
