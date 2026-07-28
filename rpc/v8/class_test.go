@@ -118,17 +118,11 @@ func TestClassAt(t *testing.T) {
 	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
-	mockState.EXPECT().
-		ContractClassHash(deprecatedCairoContractAddress).
-		Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	mockState.EXPECT().IsSystemContract(cairo1ContractAddress).Return(false)
-	mockState.EXPECT().IsSystemContract(deprecatedCairoContractAddress).Return(false)
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
@@ -139,6 +133,8 @@ func TestClassAt(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
+		mockState.EXPECT().IsSystemContract(cairo1ContractAddress).Return(false)
+		mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
 			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 				class, err := integGw.Class(t.Context(), classHash)
@@ -155,6 +151,8 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
+		mockState.EXPECT().IsSystemContract(deprecatedCairoContractAddress).Return(false)
+		mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
 			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 				class, err := integGw.Class(t.Context(), classHash)
