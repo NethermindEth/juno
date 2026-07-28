@@ -220,6 +220,63 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 		assert.Equal(c, startingHeader, header)
 	}, timeout, 10*time.Millisecond)
 
+	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, startingHeader.Number))
+	header, err := synchronizer.StartingBlockHeader()
+	require.NoError(t, err)
+	require.Equal(t, startingHeader, header)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
+func TestStartingBlockHeaderNotRunning(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	synchronizer := sync.New(
+		bc,
+		newTestBlockDataSource(),
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+
+	header, err := synchronizer.StartingBlockHeader()
+	require.Error(t, err)
+	require.Nil(t, header)
+}
+
+func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	synchronizer := sync.New(
+		bc,
+		newTestBlockDataSource(),
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		header, err := synchronizer.StartingBlockHeader()
+		assert.Error(c, err)
+		assert.Nil(c, header)
+	}, timeout, 10*time.Millisecond)
+
 	cancel()
 	require.NoError(t, <-done)
 }
