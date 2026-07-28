@@ -590,6 +590,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 	}
+	var rpcGate *jsonrpc.Gate
+	if cfg.RPCMaxConcurrentRequests > 0 {
+		rpcGate = jsonrpc.NewGate(cfg.RPCMaxConcurrentRequests, uint64(cfg.RPCMaxRequestQueue))
+		if cfg.Metrics {
+			makeHTTPGateMetrics(rpcGate)
+		}
+	}
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, syncReader, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
@@ -609,8 +616,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
-				cfg.RPCMaxConcurrentRequests,
-				cfg.RPCMaxRequestQueue,
+				rpcGate,
 			),
 		)
 	}
@@ -625,6 +631,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
+				rpcGate,
 			),
 		)
 	}

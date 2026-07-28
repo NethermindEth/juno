@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -44,9 +45,13 @@ type Handler struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger log.Logger, network *networks.Network,
 ) *Handler {
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger)
+	subscriptionLimiter := semaphore.NewWeighted(rpccore.DefaultMaxSubscriptions)
+	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger).
+		WithSubscriptionLimiter(subscriptionLimiter)
+	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger).
+		WithSubscriptionLimiter(subscriptionLimiter)
+	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger).
+		WithSubscriptionLimiter(subscriptionLimiter)
 
 	return &Handler{
 		rpcv8Handler:  handlerv8,

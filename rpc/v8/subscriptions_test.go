@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/sync/semaphore"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -546,6 +547,80 @@ func TestSubscribeNewHeads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, newHeadsResponse(id), string(headerGot))
 	})
+}
+
+// TestSubscribeNewHeadsRespectsLimit checks the subscription limiter rejects a
+// subscribe once the slot budget is exhausted and reclaims the slot on unsubscribe.
+// The acquire/release logic lives in the shared subscribe(), so covering it via
+// SubscribeNewHeads exercises the same path used by every Subscribe* entrypoint.
+func TestSubscribeNewHeadsRespectsLimit(t *testing.T) {
+	logger := log.NewNopZapLogger()
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockChain := mocks.NewMockReader(mockCtrl)
+
+	handler := New(mockChain, nil, nil, logger).
+		WithSubscriptionLimiter(semaphore.NewWeighted(1))
+
+	// Every subscribe resolves the range (HeadsHeader); the two that acquire a
+	// slot each send the latest header as the single historical head.
+	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(3)
+
+	// First subscription takes the only slot.
+	server1, client1 := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, server1.Close())
+		require.NoError(t, client1.Close())
+	})
+	ctx1, cancel1 := context.WithCancel(t.Context())
+	t.Cleanup(cancel1)
+	conn1 := &fakeConn{w: server1, ctx: ctx1}
+	id1, rpcErr := handler.SubscribeNewHeads(
+		context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn1), nil,
+	)
+	require.Nil(t, rpcErr)
+	// Drain the historical header so the goroutine parks; otherwise Unsubscribe's
+	// wg.Wait() blocks on it still writing to the unbuffered pipe.
+	_, err := client1.Read(make([]byte, db.Megabyte))
+	require.NoError(t, err)
+
+	// Second subscription is rejected while the slot is held.
+	server2, client2 := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, server2.Close())
+		require.NoError(t, client2.Close())
+	})
+	conn2 := &fakeConn{w: server2, ctx: t.Context()}
+	id2, rpcErr := handler.SubscribeNewHeads(
+		context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn2), nil,
+	)
+	assert.Zero(t, id2)
+	assert.Equal(t, rpccore.ErrTooManySubscriptions, rpcErr)
+
+	// Unsubscribing the first frees the slot.
+	ok, rpcErr := handler.Unsubscribe(
+		context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn1), string(id1),
+	)
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+
+	// Third subscription now acquires the reclaimed slot.
+	server3, client3 := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, server3.Close())
+		require.NoError(t, client3.Close())
+	})
+	ctx3, cancel3 := context.WithCancel(t.Context())
+	t.Cleanup(cancel3)
+	conn3 := &fakeConn{w: server3, ctx: ctx3}
+	id3, rpcErr := handler.SubscribeNewHeads(
+		context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn3), nil,
+	)
+	require.Nil(t, rpcErr)
+	require.NotZero(t, id3)
+	_, err = client3.Read(make([]byte, db.Megabyte))
+	require.NoError(t, err)
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
