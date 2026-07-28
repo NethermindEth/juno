@@ -562,9 +562,13 @@ func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
 		return nil, errors.New("not running")
 	}
 
-	header, err := s.blockchain.BlockHeaderByNumber(*s.startingBlockNumber)
+	hash, err := core.GetBlockHeaderHashByNumber(s.db, *s.startingBlockNumber)
 	if err != nil {
 		return nil, err
+	}
+	header = &core.Header{
+		Number: *s.startingBlockNumber,
+		Hash:   hash,
 	}
 	s.startingBlockHeader.Store(header)
 	return header, nil
