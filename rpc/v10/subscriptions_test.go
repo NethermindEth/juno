@@ -91,10 +91,6 @@ func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription 
 	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
-func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
-}
-
 func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
 	return nil, errors.New("StartingBlockHeader() not implemented")
 }

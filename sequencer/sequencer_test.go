@@ -279,10 +279,6 @@ func TestHelpers(t *testing.T) {
 	header := seq.HighestBlockHeader()
 	require.Nil(t, header)
 
-	num, err := seq.StartingBlockNumber()
-	require.NoError(t, err)
-	require.Equal(t, uint64(0), num)
-
 	header, err = seq.StartingBlockHeader()
 	require.Error(t, err)
 	require.Nil(t, header)
