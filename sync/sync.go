@@ -114,7 +114,7 @@ type Synchronizer struct {
 	db                   db.KeyValueStore
 	readOnlyBlockchain   bool
 	dataSource           DataSource
-	startingBlockNumber  *uint64
+	startingBlockNumber  atomic.Pointer[uint64]
 	startingBlockHeader  atomic.Pointer[core.Header]
 	highestBlockHeader   atomic.Pointer[core.Header]
 	newHeads             *feed.Feed[*core.Block]
@@ -373,7 +373,8 @@ func (s *Synchronizer) storeTask(
 	}
 	committedBlock.Persisted <- nil
 
-	if s.startingBlockNumber != nil && block.Number == *s.startingBlockNumber {
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber != nil && block.Number == *startingBlockNumber {
 		s.startingBlockHeader.Store(block.Header)
 	}
 
@@ -459,14 +460,14 @@ func (s *Synchronizer) nextHeight() uint64 {
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
-		s.startingBlockNumber = nil
+		s.startingBlockNumber.Store(nil)
 		s.startingBlockHeader.Store(nil)
 		s.highestBlockHeader.Store(nil)
 	}()
 
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
-	s.startingBlockNumber = &startingHeight
+	s.startingBlockNumber.Store(&startingHeight)
 
 	if s.readOnlyBlockchain {
 		s.pollLatest(syncCtx)
@@ -558,19 +559,31 @@ func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
 	if header != nil {
 		return header, nil
 	}
-	if s.startingBlockNumber == nil {
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber == nil {
 		return nil, errors.New("not running")
 	}
 
-	hash, err := core.GetBlockHeaderHashByNumber(s.db, *s.startingBlockNumber)
+	hash, err := core.GetBlockHeaderHashByNumber(s.db, *startingBlockNumber)
 	if err != nil {
 		return nil, err
 	}
 	header = &core.Header{
-		Number: *s.startingBlockNumber,
+		Number: *startingBlockNumber,
 		Hash:   hash,
 	}
-	s.startingBlockHeader.Store(header)
+	// The sync loop may stop or restart while the fallback DB read is in flight.
+	// Only cache the fallback header if it still belongs to the same sync run.
+	if s.startingBlockNumber.Load() != startingBlockNumber {
+		return nil, errors.New("not running")
+	}
+	// Avoid overwriting a full header cached by storeTask while this fallback was reading from DB.
+	if !s.startingBlockHeader.CompareAndSwap(nil, header) {
+		header = s.startingBlockHeader.Load()
+		if header == nil {
+			return nil, errors.New("not running")
+		}
+	}
 	return header, nil
 }
 
