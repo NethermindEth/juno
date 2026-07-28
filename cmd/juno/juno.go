@@ -346,6 +346,7 @@ func main() {
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		fmt.Printf("error: %v\n", err)
 		cancel()
+		//nolint:gocritic // exitAfterDefer: cancel() is called explicitly above before exiting.
 		os.Exit(1)
 	}
 }
