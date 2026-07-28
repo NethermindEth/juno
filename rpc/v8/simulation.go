@@ -278,7 +278,7 @@ func createSimulatedTransactions(
 		// Compute data for FeeEstimate
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
 		//nolint:gosec // False positive, txns len is verified to be the same to overallFees on top
-		feeUnit := feeUnit(txns[i])
+		feeUnit := feeUnitFromTransactionVersion(txns[i].TxVersion())
 		switch feeUnit {
 		case WEI:
 			l1GasPrice = l1GasPriceWei

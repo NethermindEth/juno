@@ -974,7 +974,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
+			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
 		BlockHash:          blockHash,
 		BlockNumber:        receiptBlockNumber,

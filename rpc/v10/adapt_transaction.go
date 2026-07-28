@@ -205,7 +205,7 @@ func AdaptReceipt(
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
+			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
 		MessagesSent:       messages,
 		Events:             events,

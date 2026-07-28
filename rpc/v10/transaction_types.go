@@ -453,14 +453,10 @@ type TransactionExecutionErrorData struct {
 	ExecutionError   json.RawMessage `json:"execution_error"`
 }
 
-// todo(rdr): This should be modified to receive a transaction version instead
-// and the if conditions can be simplified by just asking if version is 3 :)
-func feeUnit(txn core.Transaction) FeeUnit {
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
+func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
+	if version.Is(3) {
+		return FRI
 	}
 
-	return feeUnit
+	return WEI
 }

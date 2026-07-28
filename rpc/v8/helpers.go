@@ -153,14 +153,12 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 	}
 }
 
-func feeUnit(txn core.Transaction) FeeUnit {
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
+func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
+	if version.Is(3) {
+		return FRI
 	}
 
-	return feeUnit
+	return WEI
 }
 
 func (h *Handler) stateByBlockID(
