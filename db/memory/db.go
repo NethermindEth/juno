@@ -190,6 +190,7 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copyLocked()
 }
 
+//nolint:staticcheck // signature fixed by KeyValueStore, which still uses deprecated IndexedBatch
 func (d *Database) Update(fn func(db.IndexedBatch) error) error {
 	if err := d.checkClosed(); err != nil {
 		return err
