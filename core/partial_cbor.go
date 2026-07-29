@@ -16,14 +16,17 @@ import (
 // is never taken; a discarded field costs only a byte-range skip with no allocation.
 type discardedCBOR struct{}
 
+// errDiscardedCBORMarshal is returned when a decode-only projection is marshaled.
+var errDiscardedCBORMarshal = errors.New(
+	"core: partial CBOR projection is decode-only and must not be marshaled",
+)
+
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }
 
 // MarshalCBOR refuses to encode: projections are decode-only, and marshaling one would emit its
 // discarded fields as empty maps, silently corrupting the record.
 func (discardedCBOR) MarshalCBOR() ([]byte, error) {
-	return nil, errors.New(
-		"core: partial CBOR projection is decode-only and must not be marshaled",
-	)
+	return nil, errDiscardedCBORMarshal
 }
 
 // discardedHeaderSkeleton names every Header field as discarded. A partial projection embeds it and

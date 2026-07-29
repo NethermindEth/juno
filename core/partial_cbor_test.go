@@ -308,7 +308,7 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 // corrupt record from its discarded fields.
 func TestProjectionsAreDecodeOnly(t *testing.T) {
 	_, err := encoder.Marshal(&headerHashProjection{Hash: felt.NewFromUint64[felt.Felt](1)})
-	require.Error(t, err)
+	require.ErrorIs(t, err, errDiscardedCBORMarshal)
 }
 
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
