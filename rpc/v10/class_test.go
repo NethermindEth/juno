@@ -112,6 +112,9 @@ func TestClassAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockState.EXPECT().IsSystemContract(gomock.Any()).
+		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
+		AnyTimes()
 
 	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
 	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
@@ -132,7 +135,6 @@ func TestClassAt(t *testing.T) {
 	latest := rpc.BlockIDLatest()
 
 	t.Run("sierra class", func(t *testing.T) {
-		mockState.EXPECT().IsSystemContract(cairo1ContractAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
 			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
@@ -150,7 +152,6 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		mockState.EXPECT().IsSystemContract(deprecatedCairoContractAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
 			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
@@ -171,7 +172,6 @@ func TestClassAt(t *testing.T) {
 	t.Run("system contracts return contract not found", func(t *testing.T) {
 		for i := range deprecatedstate.SystemContracts {
 			addr := deprecatedstate.SystemContracts[i]
-			mockState.EXPECT().IsSystemContract(&addr).Return(true)
 
 			class, rpcErr := handler.ClassAt(&latest, &addr)
 			require.Nil(t, class)
@@ -184,7 +184,6 @@ func TestClassAt(t *testing.T) {
 		// must return CONTRACT_NOT_FOUND, not CLASS_HASH_NOT_FOUND.
 		danglingAddress := felt.NewRandom[felt.Felt]()
 		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xdead")
-		mockState.EXPECT().IsSystemContract(danglingAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
 		mockState.EXPECT().Class(gomock.Eq(unknownClassHash)).Return(nil, db.ErrKeyNotFound)
 
@@ -229,10 +228,12 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockState.EXPECT().IsSystemContract(gomock.Any()).
+		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
+		AnyTimes()
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(&targetAddress).
 			Return(felt.Felt{}, errors.New("non-existent contract"))
 		latest := rpc.BlockIDLatest()
@@ -245,7 +246,6 @@ func TestClassHashAt(t *testing.T) {
 		for i := range deprecatedstate.SystemContracts {
 			addr := deprecatedstate.SystemContracts[i]
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-			mockState.EXPECT().IsSystemContract(&addr).Return(true)
 			latest := rpc.BlockIDLatest()
 			classHash, rpcErr := handler.ClassHashAt(&latest, &addr)
 			require.Nil(t, classHash)
@@ -257,7 +257,6 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		latest := rpc.BlockIDLatest()
 		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
@@ -267,7 +266,6 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		hash := rpc.BlockIDFromHash(&felt.Zero)
 		classHash, rpcErr := handler.ClassHashAt(&hash, &targetAddress)
@@ -277,7 +275,6 @@ func TestClassHashAt(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
 		number := rpc.BlockIDFromNumber(0)
 		classHash, rpcErr := handler.ClassHashAt(&number, &targetAddress)
@@ -302,7 +299,6 @@ func TestClassHashAt(t *testing.T) {
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 			Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		classHash, rpcErr := handler.ClassHashAt(&preConfirmedID, &targetAddress)
@@ -330,7 +326,6 @@ func TestClassHashAt(t *testing.T) {
 		}
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, baseEntry, tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(uint64(1)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		classHash, rpcErr := handler.ClassHashAt(&preConfirmedID, &targetAddress)
@@ -350,7 +345,6 @@ func TestClassHashAt(t *testing.T) {
 		)
 		mockReader.EXPECT().Height().Return(l1HeadBlockNumber, nil)
 		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&felt.Zero).Return(false)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, &felt.Zero)
@@ -367,7 +361,6 @@ func TestClassHashAt(t *testing.T) {
 		)
 		mockReader.EXPECT().Height().Return(chainHeight, nil)
 		mockReader.EXPECT().StateAtBlockNumber(chainHeight).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&felt.Zero).Return(false)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, &felt.Zero)

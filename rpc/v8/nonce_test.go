@@ -60,10 +60,12 @@ func TestNonce(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockState.EXPECT().IsSystemContract(gomock.Any()).
+		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
+		AnyTimes()
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractNonce(&targetAddress).
 			Return(felt.Felt{}, errors.New("non-existent contract"))
 
@@ -79,7 +81,6 @@ func TestNonce(t *testing.T) {
 		for i := range deprecatedstate.SystemContracts {
 			addr := deprecatedstate.SystemContracts[i]
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-			mockState.EXPECT().IsSystemContract(&addr).Return(true)
 
 			nonce, rpcErr := handler.Nonce(blockIDLatest(t), addr)
 			require.Nil(t, nonce)
@@ -91,7 +92,6 @@ func TestNonce(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(
@@ -104,7 +104,6 @@ func TestNonce(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(
@@ -117,7 +116,6 @@ func TestNonce(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(
@@ -129,7 +127,6 @@ func TestNonce(t *testing.T) {
 	})
 	t.Run("blockID - pending", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().IsSystemContract(&targetAddress).Return(false)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(
