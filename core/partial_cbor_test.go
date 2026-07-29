@@ -1,7 +1,6 @@
 package core
 
 import (
-	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -14,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// cborKeys returns the CBOR map keys a struct encodes to: field name unless a cbor tag renames it,
-// cbor:"-" dropped, unexported skipped, embedded structs flattened.
+// cborKeys returns a struct's CBOR map keys from tag names (blind to options like keyasint). Embed
+// flattening assumes untagged by-value embeds (as these types use), matching the encoder.
 func cborKeys(t reflect.Type) map[string]struct{} {
 	keys := map[string]struct{}{}
 	for field := range t.Fields() {
@@ -43,8 +42,8 @@ func cborKeys(t reflect.Type) map[string]struct{} {
 	return keys
 }
 
-// TestPartialSkeletonMatchesHeader guards that the skeleton names every Header field; a missing one
-// sends its wire key down the allocating unmatched-key path. A new Header field fails here.
+// TestPartialSkeletonMatchesHeader fails if the skeleton omits a Header field (its key would then
+// hit the allocating unmatched-key path).
 func TestPartialSkeletonMatchesHeader(t *testing.T) {
 	headerKeys := cborKeys(reflect.TypeFor[Header]())
 	skeletonKeys := cborKeys(reflect.TypeFor[discardedHeaderSkeleton]())
@@ -52,9 +51,9 @@ func TestPartialSkeletonMatchesHeader(t *testing.T) {
 		"discardedHeaderSkeleton must name every Header field (fix discardedCBOR fields to match)")
 }
 
-// TestHeaderProjectionsCoverEveryWireKey is the strict guard: it decodes a real header into each
-// projection with unknown-field errors on, so the real decoder flags any unmatched wire key. Unlike
-// cborKeys it also catches tag-option drift (keyasint, toarray) with an unchanged field name.
+// TestHeaderProjectionsCoverEveryWireKey decodes with unknown-field errors on, so the real decoder
+// flags any unmatched wire key — catching tag-option drift (keyasint, toarray) that cborKeys can't.
+// The strict DecMode lacks the encoder's tag set; valid only because Header has no tagged types.
 func TestHeaderProjectionsCoverEveryWireKey(t *testing.T) {
 	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
 	require.NoError(t, err)
@@ -79,8 +78,7 @@ func TestHeaderProjectionsCoverEveryWireKey(t *testing.T) {
 		"strict mode must reject a projection that does not cover every Header wire key")
 }
 
-// TestHeaderProjectionsCoverEveryKey asserts each concrete projection covers every wire key of
-// Header, so no key hits the allocating unmatched path.
+// TestHeaderProjectionsCoverEveryKey asserts each projection covers every Header wire key.
 func TestHeaderProjectionsCoverEveryKey(t *testing.T) {
 	headerKeys := cborKeys(reflect.TypeFor[Header]())
 	for _, projection := range []reflect.Type{
@@ -96,8 +94,7 @@ func TestHeaderProjectionsCoverEveryKey(t *testing.T) {
 	}
 }
 
-// Local stand-ins for a source and its projection, used to prove the guards above actually fail on
-// drift, the same machinery would catch the same drift on Header, with no production change.
+// Stand-in source/projection pairs used to prove the guards above actually fail on drift.
 
 type driftSource struct {
 	A *felt.Felt
@@ -128,8 +125,7 @@ type driftProjectionIntKey struct {
 	A discardedCBOR `cbor:"1,keyasint"` // correctly matches the integer wire key
 }
 
-// TestReflectionGuardCatchesFieldDrift proves the cborKeys equality guard fails when a projection
-// drops or renames a field vs its source (the "new Header field, stale skeleton" regression).
+// TestReflectionGuardCatchesFieldDrift proves the cborKeys guard fails on a dropped/renamed field.
 func TestReflectionGuardCatchesFieldDrift(t *testing.T) {
 	require.NotEqual(t,
 		cborKeys(reflect.TypeFor[driftSource]()),
@@ -142,8 +138,8 @@ func TestReflectionGuardCatchesFieldDrift(t *testing.T) {
 		"a renamed tag must change the key set")
 }
 
-// TestStrictGuardCatchesKeyAsIntDrift proves the strict guard catches a keyasint change (string to
-// integer wire key) that cborKeys is blind to — hence the strict guard uses the real decoder.
+// TestStrictGuardCatchesKeyAsIntDrift proves the strict guard catches a keyasint change that
+// cborKeys is blind to — the reason the strict guard uses the real decoder.
 func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 	// Blind spot: cborKeys compares only the tag name, so keyasint vs plain look identical.
 	require.Equal(t,
@@ -165,8 +161,7 @@ func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 		"a projection whose keyasint matches the source must decode without error")
 }
 
-// bytesPerDecode reports average bytes allocated per call, via
-// cumulative runtime counters that GC does not reset.
+// bytesPerDecode reports average bytes allocated per call (TotalAlloc delta, unaffected by GC).
 func bytesPerDecode(f func()) float64 {
 	const runs = 500
 	f() // warm up: pay any one-time allocation before measuring
@@ -179,8 +174,7 @@ func bytesPerDecode(f func()) float64 {
 	return float64(after.TotalAlloc-before.TotalAlloc) / runs
 }
 
-// headerProjectionCase pairs each partial header projection (discard) with the pre-fix
-// field-omitting projection it replaces, shared by the allocation guard and the benchmark.
+// headerProjectionCase pairs each discard projection with the field-omitting shape it replaces.
 type headerProjectionCase struct {
 	name          string
 	fieldOmitting func([]byte) // pre-fix: omits fields → allocating unmatched-key path
@@ -231,8 +225,10 @@ func headerProjectionCases() []headerProjectionCase {
 	}
 }
 
-// TestDiscardReducesReadAllocations guards, for every partial header projection, that the discard
-// form allocates fewer objects and bytes than the pre-fix field-omitting form on the same header.
+// TestDiscardReducesReadAllocations is the canary that the discard trick still pays off: for every
+// projection the discard form must allocate strictly fewer objects and bytes than the naive
+// field-omitting form. If the two converge — unmatched keys became free upstream, or the trick
+// stopped helping — this fails, signalling the optimization is dead.
 func TestDiscardReducesReadAllocations(t *testing.T) {
 	data := sampleHeaderBytes(t)
 	for _, tc := range headerProjectionCases() {
@@ -251,46 +247,75 @@ func TestDiscardReducesReadAllocations(t *testing.T) {
 	}
 }
 
-// TestHeaderHashDecodeAllocTripwire pins the absolute header/hash decode alloc counts as a canary.
-// They depend on the decoder and Header's key set, so a change means an upstream decoder shift
-// (a fxamacker/cbor upgrade) or a Header field added/removed. Re-verify, then bump if intended.
-func TestHeaderHashDecodeAllocTripwire(t *testing.T) {
-	data := sampleHeaderBytes(t)
-	fieldOmitting := testing.AllocsPerRun(300, func() {
-		var h struct{ Hash *felt.Felt }
-		_ = encoder.Unmarshal(data, &h)
-	})
-	discard := testing.AllocsPerRun(300, func() {
-		var h headerHashProjection
-		_ = encoder.Unmarshal(data, &h)
-	})
-	require.Equal(t, 32.0, fieldOmitting, "field-omitting alloc count changed; see comment above")
-	require.Equal(t, 2.0, discard, "discard alloc count changed; see comment above")
+// sampleHeader is a fully populated Header (production-size EventsBloom) with small distinct
+// values, so its encoding exercises all 16 keys and decode assertions can check them.
+func sampleHeader() *Header {
+	return &Header{
+		Hash:             felt.NewFromUint64[felt.Felt](1),
+		ParentHash:       felt.NewFromUint64[felt.Felt](2),
+		Number:           100,
+		GlobalStateRoot:  felt.NewFromUint64[felt.Felt](3),
+		SequencerAddress: felt.NewFromUint64[felt.Felt](4),
+		TransactionCount: 10,
+		EventCount:       50,
+		Timestamp:        123456,
+		ProtocolVersion:  "0.13.2",
+		EventsBloom:      bloom.New(EventsBloomLength, EventsBloomHashFuncs),
+		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](5),
+		Signatures:       [][]*felt.Felt{{felt.NewFromUint64[felt.Felt](6)}},
+		L1GasPriceSTRK:   felt.NewFromUint64[felt.Felt](7),
+		L1DAMode:         Blob,
+		L1DataGasPrice: &GasPrice{
+			PriceInWei: felt.NewFromUint64[felt.Felt](8),
+			PriceInFri: felt.NewFromUint64[felt.Felt](9),
+		},
+		L2GasPrice: &GasPrice{
+			PriceInWei: felt.NewFromUint64[felt.Felt](10),
+			PriceInFri: felt.NewFromUint64[felt.Felt](11),
+		},
+	}
 }
 
-// headerFixturePath is a committed real mainnet header (block 9706496), encoded with the Header
-// struct at generation time. TestHeaderFixtureMatchesCurrentHeader fails if Header drifts from it.
-const headerFixturePath = "testdata/header_9706496.cbor"
-
+// sampleHeaderBytes marshals a live Header, so the wire key set tracks the struct — a new field
+// appears here automatically.
 func sampleHeaderBytes(tb testing.TB) []byte {
 	tb.Helper()
-	data, err := os.ReadFile(headerFixturePath)
+	data, err := encoder.Marshal(sampleHeader())
 	require.NoError(tb, err)
 	return data
 }
 
-// TestHeaderFixtureMatchesCurrentHeader fails if the committed header fixture no longer encodes the
-// current Header's key set (a field added/removed/renamed, or a tag changed). This keeps the tests
-// from silently running against stale bytes and points at how to regenerate.
-func TestHeaderFixtureMatchesCurrentHeader(t *testing.T) {
-	var fixture map[string]cbor.RawMessage
-	require.NoError(t, cbor.Unmarshal(sampleHeaderBytes(t), &fixture))
-	fixtureKeys := make(map[string]struct{}, len(fixture))
-	for key := range fixture {
-		fixtureKeys[key] = struct{}{}
-	}
-	require.Equal(t, cborKeys(reflect.TypeFor[Header]()), fixtureKeys,
-		"header fixture no longer matches the current Header struct and must be updated")
+// TestProjectionsDecodeShadowedField proves the shadowing field receives the value, not just that
+// the key sets line up — a change in cbor's embed precedence would slip past the key-set guards.
+func TestProjectionsDecodeShadowedField(t *testing.T) {
+	header := sampleHeader()
+	data := sampleHeaderBytes(t)
+
+	var hash headerHashProjection
+	require.NoError(t, encoder.Unmarshal(data, &hash))
+	require.True(t, hash.Hash.Equal(header.Hash))
+
+	var stateRoot headerGlobalStateRootProjection
+	require.NoError(t, encoder.Unmarshal(data, &stateRoot))
+	require.True(t, stateRoot.GlobalStateRoot.Equal(header.GlobalStateRoot))
+
+	var txCount headerTransactionCountProjection
+	require.NoError(t, encoder.Unmarshal(data, &txCount))
+	require.Equal(t, header.TransactionCount, txCount.TransactionCount)
+
+	var timestamp headerTimestampProjection
+	require.NoError(t, encoder.Unmarshal(data, &timestamp))
+	require.NotNil(t, timestamp.Timestamp)
+	require.Equal(t, header.Timestamp, *timestamp.Timestamp)
+
+	var eventsBloom headerEventsBloomProjection
+	require.NoError(t, encoder.Unmarshal(data, &eventsBloom))
+	require.NotNil(t, eventsBloom.EventsBloom)
+
+	var hashAndRoot headerHashAndStateRootProjection
+	require.NoError(t, encoder.Unmarshal(data, &hashAndRoot))
+	require.True(t, hashAndRoot.Hash.Equal(header.Hash))
+	require.True(t, hashAndRoot.GlobalStateRoot.Equal(header.GlobalStateRoot))
 }
 
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.

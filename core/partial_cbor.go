@@ -7,27 +7,19 @@ import (
 
 // discardedCBOR is a no-op unmarshaler for fields a partial projection does not want.
 //
-// A record (header, receipt, transaction) is stored as a CBOR map keyed by field name. When the
-// decoder unmarshals such a map into a struct, it allocates a Go string for every map key that has
-// no matching struct field — the string feeds duplicate-key detection that is a no-op in our
-// decode mode but is still built unconditionally at the call site (fxamacker/cbor
-// decode.go:2800). A projection that names only the one field it wants therefore pays one string
-// allocation per skipped key, per record — and that scales with the number of records.
-//
-// Naming every field and giving the unwanted ones this type makes every wire key match a field, so
-// the allocating unmatched-key path is never taken. A field whose type implements Unmarshaler is
-// handled by fxamacker with a plain byte-range skip over a non-copied sub-slice (decode.go:1863),
-// so discarding costs a structural walk with no allocation and no reflection.
+// When fxamacker decodes a CBOR map into a struct, every map key with no matching field takes an
+// unmatched-key path that allocates ~2 objects per key: a Go string of the key name, plus boxing it
+// into an interface. A projection naming only the wanted field pays that for every skipped key, per
+// record. Naming every field and discarding the unwanted ones makes every key match, so that path
+// is never taken; a discarded field costs only a byte-range skip with no allocation.
 type discardedCBOR struct{}
 
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }
 
-// discardedHeaderSkeleton names every field of Header as discarded. Partial header projections
-// embed it and shadow the one field they want with a typed field of the same name: the shadowing
-// field (shallower depth) wins for that key, every other key still matches a skeleton field, and
-// no key falls through to the allocating unmatched-key path. A reflection test asserts this
-// skeleton's field set stays identical to Header's, so a new Header field fails the build's test
-// rather than silently regressing allocations.
+// discardedHeaderSkeleton names every Header field as discarded. A partial projection embeds it and
+// shadows the field it wants with a typed field of the same name (shallower depth wins the key), so
+// every other key still matches and none hits the unmatched-key path. A shadow of a tagged field
+// (e.g. L1GasPriceETH `cbor:"gasprice"`) must repeat the tag, or it keys on the Go field name.
 type discardedHeaderSkeleton struct {
 	Hash             discardedCBOR
 	ParentHash       discardedCBOR
