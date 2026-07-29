@@ -2,7 +2,6 @@ package core
 
 import (
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -269,16 +268,32 @@ func TestHeaderHashDecodeAllocTripwire(t *testing.T) {
 	require.Equal(t, 2.0, discard, "discard alloc count changed; see comment above")
 }
 
-// sampleHeaderBytes returns the CBOR encoding of a real mainnet header (block 9706496).
+// headerFixturePath is a committed real mainnet header (block 9706496), encoded with the Header
+// struct at generation time. TestHeaderFixtureMatchesCurrentHeader fails if Header drifts from it.
+const headerFixturePath = "testdata/header_9706496.cbor"
+
 func sampleHeaderBytes(tb testing.TB) []byte {
 	tb.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", "header_9706496.cbor"))
+	data, err := os.ReadFile(headerFixturePath)
 	require.NoError(tb, err)
 	return data
 }
 
-// BenchmarkPartialHeaderProjections covers every partial header projection, before (field-omitting)
-// and after (discard).
+// TestHeaderFixtureMatchesCurrentHeader fails if the committed header fixture no longer encodes the
+// current Header's key set (a field added/removed/renamed, or a tag changed). This keeps the tests
+// from silently running against stale bytes and points at how to regenerate.
+func TestHeaderFixtureMatchesCurrentHeader(t *testing.T) {
+	var fixture map[string]cbor.RawMessage
+	require.NoError(t, cbor.Unmarshal(sampleHeaderBytes(t), &fixture))
+	fixtureKeys := make(map[string]struct{}, len(fixture))
+	for key := range fixture {
+		fixtureKeys[key] = struct{}{}
+	}
+	require.Equal(t, cborKeys(reflect.TypeFor[Header]()), fixtureKeys,
+		"header fixture no longer matches the current Header struct and must be updated")
+}
+
+// BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
 func BenchmarkPartialHeaderProjections(b *testing.B) {
 	data := sampleHeaderBytes(b)
 	for _, tc := range headerProjectionCases() {
