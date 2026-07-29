@@ -152,7 +152,9 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		mockState.EXPECT().ContractClassHash(deprecatedCairoContractAddress).Return(*deprecatedCairoClassHash, nil)
+		mockState.EXPECT().
+			ContractClassHash(deprecatedCairoContractAddress).
+			Return(*deprecatedCairoClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
 			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
 				class, err := integGw.Class(t.Context(), classHash)
