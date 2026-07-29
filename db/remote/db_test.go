@@ -40,8 +40,8 @@ func TestRemote(t *testing.T) {
 	}()
 
 	remoteDB, err := New(
-		l.Addr().String(),
 		t.Context(),
+		l.Addr().String(),
 		log.NewNopZapLogger(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

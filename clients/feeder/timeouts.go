@@ -159,7 +159,7 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 			return nil,
 				false,
 				fmt.Errorf(
-					"timeout values must be in ascending order, got %d <= %d",
+					"timeout values must be in ascending order, got %s <= %s",
 					timeouts[i],
 					timeouts[i-1],
 				)

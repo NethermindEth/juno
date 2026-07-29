@@ -123,8 +123,9 @@ func VerifyBlockHash(
 	for i, tx := range block.Transactions {
 		if !tx.Hash().Equal(block.Receipts[i].TransactionHash) {
 			return nil, fmt.Errorf(
-				"transaction hash (%s) at index: %d does not match receipt's hash (%d)",
-				tx.Hash().String(), i, block.Receipts[i].TransactionHash)
+				"transaction hash (%s) at index: %d does not match receipt's hash (%s)",
+				tx.Hash(), i, block.Receipts[i].TransactionHash,
+			)
 		}
 	}
 

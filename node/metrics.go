@@ -331,14 +331,22 @@ func registerL1Metrics(provider l1.L1StateProvider) {
 	prometheus.MustRegister(l1LatestHeight)
 }
 
-func makeFeederMetrics() feeder.EventListener {
-	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "feeder",
-		Subsystem: "client",
-		Name:      "request_latency",
-		Help:      "Feeder client request latency in seconds",
-	}, []string{labelMethod, "status"})
+func makeFeederMetrics(metrics bool) feeder.EventListener {
+	if !metrics {
+		return &feeder.SelectiveListener{}
+	}
+
+	requestLatencies := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "feeder",
+			Subsystem: "client",
+			Name:      "request_latency",
+			Help:      "Feeder client request latency in seconds",
+		},
+		[]string{labelMethod, "status"},
+	)
 	prometheus.MustRegister(requestLatencies)
+
 	return &feeder.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
 			statusString := strconv.FormatInt(int64(status), 10)
@@ -418,7 +426,11 @@ func makeCompilerThrottlerMetrics(throttledCompiler *ThrottledCompiler) {
 	prometheus.MustRegister(compilerJobs, compilerQueue)
 }
 
-func makePrunerMetrics() pruner.EventListener {
+func makePrunerMetrics(metrics bool) pruner.EventListener {
+	if !metrics {
+		return &pruner.SelectiveListener{}
+	}
+
 	oldestBlockKept := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespacePruner,
 		Name:      "oldest_block_kept",

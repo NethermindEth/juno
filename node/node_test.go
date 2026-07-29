@@ -48,7 +48,7 @@ func TestNewNode(t *testing.T) {
 	}
 
 	logLevel := log.NewLevel(log.INFO)
-	n, err := node.New(config, "v0.3", logLevel)
+	n, err := node.New(t.Context(), config, "v0.3", logLevel)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -71,7 +71,7 @@ func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
 		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
 	}
 
-	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	_, err := node.New(t.Context(), config, "v0.3", log.NewLevel(log.INFO))
 	require.NoError(t, err)
 }
 
@@ -88,7 +88,7 @@ func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
 		MaxConcurrentCompilationsExplicit:  true,
 	}
 
-	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	_, err := node.New(t.Context(), config, "v0.3", log.NewLevel(log.INFO))
 	require.NoError(t, err)
 }
 
@@ -105,7 +105,7 @@ func TestNewNodeSkipsDerivedQueue(t *testing.T) {
 		MaxCompilationQueueExplicit:        true,
 	}
 
-	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	_, err := node.New(t.Context(), config, "v0.3", log.NewLevel(log.INFO))
 	require.NoError(t, err)
 }
 
@@ -150,14 +150,18 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			require.NoError(t, database.Close())
 
 			logLevel := log.NewLevel(log.INFO)
-			_, err = node.New(&node.Config{
-				DatabasePath:                       dbPath,
-				DBCompression:                      "zstd",
-				Network:                            test.network,
-				NewState:                           statetestutils.UseNewState(),
-				DisableL1Verification:              true,
-				SubmittedTransactionsCacheEntryTTL: time.Second,
-			}, "v0.1", logLevel)
+			_, err = node.New(t.Context(),
+				&node.Config{
+					DatabasePath:                       dbPath,
+					DBCompression:                      "zstd",
+					Network:                            test.network,
+					NewState:                           statetestutils.UseNewState(),
+					DisableL1Verification:              true,
+					SubmittedTransactionsCacheEntryTTL: time.Second,
+				},
+				"v0.1",
+				logLevel,
+			)
 			if test.errString == "" {
 				require.NoError(t, err)
 			} else {
@@ -168,9 +172,14 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 }
 
 func TestNew_RejectsPruneWithoutL1Verification(t *testing.T) {
-	_, err := node.New(&node.Config{
-		Prune:                 true,
-		DisableL1Verification: true,
-	}, "test", log.NewLevel(log.INFO))
+	_, err := node.New(
+		t.Context(),
+		&node.Config{
+			Prune:                 true,
+			DisableL1Verification: true,
+		},
+		"test",
+		log.NewLevel(log.INFO),
+	)
 	require.ErrorContains(t, err, "prune-mode requires L1 verification")
 }
