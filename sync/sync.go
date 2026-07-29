@@ -73,6 +73,8 @@ type ReorgBlockRange struct {
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
+	// StartingBlockHeader returns the header for the first block of the current sync run.
+	// Implementations may return a partial header containing only Number and Hash.
 	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription

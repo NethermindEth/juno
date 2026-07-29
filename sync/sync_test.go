@@ -229,6 +229,58 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
+func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		false,
+		testDB,
+	)
+
+	storedStartingBlock := make(chan struct{}, 1)
+	synchronizer.WithListener(&sync.SelectiveListener{
+		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
+			if op == sync.OpStore && blockNum == 0 {
+				storedStartingBlock <- struct{}{}
+			}
+		},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	select {
+	case <-storedStartingBlock:
+	case <-time.After(timeout):
+		t.Fatal("starting block was not stored")
+	}
+
+	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, block0.Number))
+	header, err := synchronizer.StartingBlockHeader()
+	require.NoError(t, err)
+	require.Equal(t, block0.Header, header)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
 func TestStartingBlockHeaderNotRunning(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(
@@ -257,9 +309,13 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 		&networks.Mainnet,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
+	dataSource := newTestBlockDataSource()
+	dataSource.setBlocks([]sync.CommittedBlock{
+		{Block: &core.Block{Header: &core.Header{Number: 0, Hash: felt.NewFromUint64[felt.Felt](0)}}},
+	})
 	synchronizer := sync.New(
 		bc,
-		newTestBlockDataSource(),
+		dataSource,
 		log.NewNopZapLogger(),
 		time.Duration(0),
 		true,
@@ -272,10 +328,12 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 	}()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		header, err := synchronizer.StartingBlockHeader()
-		assert.Error(c, err)
-		assert.Nil(c, header)
+		assert.NotNil(c, synchronizer.HighestBlockHeader())
 	}, timeout, 10*time.Millisecond)
+
+	header, err := synchronizer.StartingBlockHeader()
+	require.Error(t, err)
+	require.Nil(t, header)
 
 	cancel()
 	require.NoError(t, <-done)
