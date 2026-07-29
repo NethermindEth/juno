@@ -557,13 +557,14 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 }
 
 func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
-	header := s.startingBlockHeader.Load()
-	if header != nil {
-		return header, nil
-	}
 	startingBlockNumber := s.startingBlockNumber.Load()
 	if startingBlockNumber == nil {
 		return nil, errors.New("not running")
+	}
+
+	header := s.startingBlockHeader.Load()
+	if header != nil {
+		return header, nil
 	}
 
 	hash, err := core.GetBlockHeaderHashByNumber(s.db, *startingBlockNumber)

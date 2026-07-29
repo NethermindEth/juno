@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -272,6 +273,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 		t.Fatal("starting block was not stored")
 	}
 
+	// Delete before canceling because sync shutdown clears the cached starting header.
 	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, block0.Number))
 	header, err := synchronizer.StartingBlockHeader()
 	require.NoError(t, err)
@@ -332,7 +334,7 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 	}, timeout, 10*time.Millisecond)
 
 	header, err := synchronizer.StartingBlockHeader()
-	require.Error(t, err)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	require.Nil(t, header)
 
 	cancel()
