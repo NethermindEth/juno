@@ -63,15 +63,19 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	if dataSize < len(`"0x0"`) || data[0] != '"' || data[dataSize-1] != '"' {
 		return errors.New("felt: expected a quoted 0x hex string")
 	}
+	return z.setHex(data[1 : dataSize-1])
+}
 
-	digits := data[1 : dataSize-1]
-	if digits[0] != '0' || (digits[1] != 'x' && digits[1] != 'X') {
+// setHex parses a 0x-prefixed hex string (without surrounding quotes) into z.
+// It is the decode counterpart of AppendText.
+func (z *Felt) setHex(data []byte) error {
+	if len(data) < len("0x0") || data[0] != '0' || (data[1] != 'x' && data[1] != 'X') {
 		return errors.New("felt: expected hex string starting with 0x")
 	}
-	if len(digits) > MaxFeltAsHexSize {
+	if len(data) > MaxFeltAsHexSize {
 		return errors.New("felt: value exceeds field size")
 	}
-	digits = digits[2:]
+	digits := data[2:]
 
 	// hex.Decode consumes digits in pairs, so an odd number means a leading zero.
 	if len(digits)%2 == 1 {

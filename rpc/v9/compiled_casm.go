@@ -29,11 +29,11 @@ type EntryPointsByType struct {
 type CompiledCasmResponse struct {
 	EntryPointsByType EntryPointsByType `json:"entry_points_by_type"`
 	// can't use felt.Felt here because prime is larger than felt
-	Prime                  string          `json:"prime"`
-	CompilerVersion        string          `json:"compiler_version"`
-	Bytecode               []felt.Felt     `json:"bytecode"`
-	Hints                  json.RawMessage `json:"hints"`
-	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
+	Prime                  string                `json:"prime"`
+	CompilerVersion        string                `json:"compiler_version"`
+	Bytecode               felt.Slice[felt.Felt] `json:"bytecode"`
+	Hints                  json.RawMessage       `json:"hints"`
+	BytecodeSegmentLengths []int                 `json:"bytecode_segment_lengths,omitempty"`
 }
 
 // CompiledCasm receives a class hash and returns the compiled cairo assembly (CASM)
