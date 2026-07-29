@@ -43,6 +43,9 @@ juno-cached: ## Cached Juno compilation
 	@mkdir -p build
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
+corpus-gen: ## Build the corpus generator
+	@mkdir -p build
+	@go build -o build/corpus-gen ./bench/rpc/cmd/corpus-gen
 
 MINIMUM_RUST_VERSION = 1.94.1
 CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
@@ -105,6 +108,9 @@ install-mockgen:
 
 install-golangci-lint:
 	@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+install-k6: ## Install the k6 load generator used by the RPC benchmark harness
+	go install go.k6.io/k6@latest
 
 lint: install-golangci-lint lint-diff
 	golangci-lint run

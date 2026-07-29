@@ -20,3 +20,8 @@ OPTIONS-*
 CURRENT
 LOCK
 
+# RPC benchmark harness: generated corpora and run results (keep the dir).
+bench/rpc/corpus/*
+!bench/rpc/corpus/.gitkeep
+bench/rpc/results/
+
