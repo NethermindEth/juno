@@ -304,6 +304,13 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 	require.Equal(t, header.GlobalStateRoot, hashAndRoot.GlobalStateRoot, shadowMsg)
 }
 
+// TestProjectionsAreDecodeOnly proves marshaling a projection fails loudly rather than emitting a
+// corrupt record from its discarded fields.
+func TestProjectionsAreDecodeOnly(t *testing.T) {
+	_, err := encoder.Marshal(&headerHashProjection{Hash: felt.NewFromUint64[felt.Felt](1)})
+	require.Error(t, err)
+}
+
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
 func BenchmarkPartialHeaderProjections(b *testing.B) {
 	data := sampleHeaderBytes(b)

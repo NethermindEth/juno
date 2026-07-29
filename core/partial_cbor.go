@@ -1,6 +1,8 @@
 package core
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core/felt"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 )
@@ -15,6 +17,14 @@ import (
 type discardedCBOR struct{}
 
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }
+
+// MarshalCBOR refuses to encode: projections are decode-only, and marshaling one would emit its
+// discarded fields as empty maps, silently corrupting the record.
+func (discardedCBOR) MarshalCBOR() ([]byte, error) {
+	return nil, errors.New(
+		"core: partial CBOR projection is decode-only and must not be marshaled",
+	)
+}
 
 // discardedHeaderSkeleton names every Header field as discarded. A partial projection embeds it and
 // shadows the field it wants with a typed field of the same name (shallower depth wins the key), so
