@@ -1,8 +1,6 @@
 package deprecated_test
 
 import (
-	"bytes"
-	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -44,33 +42,22 @@ func TestBucketMover(t *testing.T) {
 	intermediateState, err = mover.Migrate(t.Context(), testDB, &networks.Mainnet, nil)
 	require.NoError(t, err)
 
-	err = testDB.View(func(txn db.Snapshot) error {
-		err := txn.Get(sourceBucket.Key(), func(data []byte) error {
-			if !bytes.Equal(data, []byte{44}) {
-				return errors.New("shouldnt have changed")
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+	snap := testDB.NewSnapshot()
+	defer snap.Close()
 
-		for i := byte(0); i < 3; i++ {
-			err := txn.Get(destBucket.Key([]byte{i}), func(data []byte) error {
-				if !bytes.Equal(data, []byte{i}) {
-					return errors.New("shouldve moved")
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-
-			err = txn.Get(sourceBucket.Key([]byte{i}), func([]byte) error { return nil })
-			require.ErrorIs(t, db.ErrKeyNotFound, err)
-		}
+	require.NoError(t, snap.Get(sourceBucket.Key(), func(data []byte) error {
+		require.Equal(t, []byte{44}, data, "shouldnt have changed")
 		return nil
-	})
-	require.NoError(t, err)
+	}))
+
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, snap.Get(destBucket.Key([]byte{i}), func(data []byte) error {
+			require.Equal(t, []byte{i}, data, "shouldve moved")
+			return nil
+		}))
+
+		err = snap.Get(sourceBucket.Key([]byte{i}), func([]byte) error { return nil })
+		require.ErrorIs(t, db.ErrKeyNotFound, err)
+	}
 	require.Nil(t, intermediateState)
 }

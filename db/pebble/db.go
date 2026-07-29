@@ -92,11 +92,6 @@ func (d *DB) Write(fn func(w db.Batch) error) error {
 	return batch.Write()
 }
 
-func (d *DB) View(fn func(r db.Snapshot) error) error {
-	snap := d.NewSnapshot()
-	return fn(snap)
-}
-
 func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	d.listener = listener
 	return d
