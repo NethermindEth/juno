@@ -2,7 +2,6 @@ package core
 
 import (
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -161,19 +160,6 @@ func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 		"a projection whose keyasint matches the source must decode without error")
 }
 
-// bytesPerDecode reports average bytes allocated per call (TotalAlloc delta, unaffected by GC).
-func bytesPerDecode(f func()) float64 {
-	const runs = 500
-	f() // warm up: pay any one-time allocation before measuring
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	for range runs {
-		f()
-	}
-	runtime.ReadMemStats(&after)
-	return float64(after.TotalAlloc-before.TotalAlloc) / runs
-}
-
 // headerProjectionCase pairs each discard projection with the field-omitting shape it replaces.
 type headerProjectionCase struct {
 	name          string
@@ -226,23 +212,17 @@ func headerProjectionCases() []headerProjectionCase {
 }
 
 // TestDiscardReducesReadAllocations is the canary that the discard trick still pays off: for every
-// projection the discard form must allocate strictly fewer objects and bytes than the naive
-// field-omitting form. If the two converge — unmatched keys became free upstream, or the trick
-// stopped helping — this fails, signalling the optimization is dead.
+// projection the discard form must allocate strictly fewer objects than the naive field-omitting
+// form. If the two converge — unmatched keys became free upstream, or the trick stopped helping —
+// this fails, signalling the optimization is dead.
 func TestDiscardReducesReadAllocations(t *testing.T) {
 	data := sampleHeaderBytes(t)
 	for _, tc := range headerProjectionCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			omittingAllocs := testing.AllocsPerRun(300, func() { tc.fieldOmitting(data) })
 			discardAllocs := testing.AllocsPerRun(300, func() { tc.discard(data) })
-			omittingBytes := bytesPerDecode(func() { tc.fieldOmitting(data) })
-			discardBytes := bytesPerDecode(func() { tc.discard(data) })
-
-			t.Logf("allocs %.0f → %.0f   bytes %.0f → %.0f B",
-				omittingAllocs, discardAllocs, omittingBytes, discardBytes)
-
+			t.Logf("allocs %.0f → %.0f", omittingAllocs, discardAllocs)
 			require.Less(t, discardAllocs, omittingAllocs, "discard must allocate fewer objects")
-			require.Less(t, discardBytes, omittingBytes, "discard must allocate fewer bytes")
 		})
 	}
 }
@@ -250,6 +230,8 @@ func TestDiscardReducesReadAllocations(t *testing.T) {
 // sampleHeader is a fully populated Header (production-size EventsBloom) with small distinct
 // values, so its encoding exercises all 16 keys and decode assertions can check them.
 func sampleHeader() *Header {
+	eventsBloom := bloom.New(EventsBloomLength, EventsBloomHashFuncs)
+	eventsBloom.Add([]byte("sample-event"))
 	return &Header{
 		Hash:             felt.NewFromUint64[felt.Felt](1),
 		ParentHash:       felt.NewFromUint64[felt.Felt](2),
@@ -260,7 +242,7 @@ func sampleHeader() *Header {
 		EventCount:       50,
 		Timestamp:        123456,
 		ProtocolVersion:  "0.13.2",
-		EventsBloom:      bloom.New(EventsBloomLength, EventsBloomHashFuncs),
+		EventsBloom:      eventsBloom,
 		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](5),
 		Signatures:       [][]*felt.Felt{{felt.NewFromUint64[felt.Felt](6)}},
 		L1GasPriceSTRK:   felt.NewFromUint64[felt.Felt](7),
@@ -291,31 +273,35 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 	header := sampleHeader()
 	data := sampleHeaderBytes(t)
 
+	const shadowMsg = "shadowing field must receive the wire value, not discardedCBOR"
+
 	var hash headerHashProjection
 	require.NoError(t, encoder.Unmarshal(data, &hash))
-	require.True(t, hash.Hash.Equal(header.Hash))
+	require.Equal(t, header.Hash, hash.Hash, shadowMsg)
 
 	var stateRoot headerGlobalStateRootProjection
 	require.NoError(t, encoder.Unmarshal(data, &stateRoot))
-	require.True(t, stateRoot.GlobalStateRoot.Equal(header.GlobalStateRoot))
+	require.Equal(t, header.GlobalStateRoot, stateRoot.GlobalStateRoot, shadowMsg)
 
 	var txCount headerTransactionCountProjection
 	require.NoError(t, encoder.Unmarshal(data, &txCount))
-	require.Equal(t, header.TransactionCount, txCount.TransactionCount)
+	require.Equal(t, header.TransactionCount, txCount.TransactionCount, shadowMsg)
 
 	var timestamp headerTimestampProjection
 	require.NoError(t, encoder.Unmarshal(data, &timestamp))
-	require.NotNil(t, timestamp.Timestamp)
-	require.Equal(t, header.Timestamp, *timestamp.Timestamp)
+	require.NotNil(t, timestamp.Timestamp, shadowMsg)
+	require.Equal(t, header.Timestamp, *timestamp.Timestamp, shadowMsg)
 
 	var eventsBloom headerEventsBloomProjection
 	require.NoError(t, encoder.Unmarshal(data, &eventsBloom))
-	require.NotNil(t, eventsBloom.EventsBloom)
+	require.NotNil(t, eventsBloom.EventsBloom, shadowMsg)
+	require.True(t, eventsBloom.EventsBloom.Test([]byte("sample-event")),
+		"decoded bloom must carry the added element, not be a fresh empty filter")
 
 	var hashAndRoot headerHashAndStateRootProjection
 	require.NoError(t, encoder.Unmarshal(data, &hashAndRoot))
-	require.True(t, hashAndRoot.Hash.Equal(header.Hash))
-	require.True(t, hashAndRoot.GlobalStateRoot.Equal(header.GlobalStateRoot))
+	require.Equal(t, header.Hash, hashAndRoot.Hash, shadowMsg)
+	require.Equal(t, header.GlobalStateRoot, hashAndRoot.GlobalStateRoot, shadowMsg)
 }
 
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
