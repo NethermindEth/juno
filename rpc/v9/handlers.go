@@ -31,7 +31,7 @@ type Handler struct {
 	feederClient  feeder.Reader
 	vm            vm.VM
 	compiler      compiler.Compiler
-	logger        log.Logger
+	logger        log.StructuredLogger
 	memPool       mempool.Pool
 
 	newHeads                *feed.Feed[*core.Block]
@@ -66,7 +66,7 @@ func New(
 	bcReader blockchain.Reader,
 	syncReader sync.Reader,
 	virtualMachine vm.VM,
-	logger log.Logger,
+	logger log.StructuredLogger,
 ) *Handler {
 	return &Handler{
 		bcReader:   bcReader,

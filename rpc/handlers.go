@@ -41,8 +41,13 @@ type Handler struct {
 	version       string
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger log.Logger, network *networks.Network,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	version string,
+	logger log.StructuredLogger,
+	network *networks.Network,
 ) *Handler {
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)

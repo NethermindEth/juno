@@ -18,7 +18,7 @@ type Executor interface {
 }
 
 type executor struct {
-	logger       log.Logger
+	logger       log.StructuredLogger
 	blockchain   *blockchain.Blockchain
 	vm           vm.VM
 	disableFees  bool
@@ -28,7 +28,7 @@ type executor struct {
 func NewExecutor(
 	blockchain *blockchain.Blockchain,
 	vm vm.VM,
-	logger log.Logger,
+	logger log.StructuredLogger,
 	disableFees bool,
 	skipValidate bool,
 ) Executor {

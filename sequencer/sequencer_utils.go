@@ -34,7 +34,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 		return nil, err
 	}
-	s.logger.Infof("Finalised new block")
+	s.logger.Info("Finalised new block")
 	if s.plugin != nil {
 		err := s.plugin.NewBlock(preConfirmed.Block, preConfirmed.StateUpdate, preConfirmed.NewClasses)
 		if err != nil {
