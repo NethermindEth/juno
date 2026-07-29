@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ func TestNew(t *testing.T) {
 		filter := core.NewRunningEventFilterLazy(memDB, core.InitializeRunningEventFilter)
 		network := &networks.Mainnet
 
-		backend := New(memDB, filter, network, true)
+		backend := New(memDB, filter, network, &pruner.RetentionFloor{}, true)
 
 		sb, ok := backend.(*stateBackend)
 		require.True(t, ok, "expected *stateBackend, got %T", backend)
@@ -31,7 +32,7 @@ func TestNew(t *testing.T) {
 		filter := core.NewRunningEventFilterLazy(memDB, core.InitializeRunningEventFilter)
 		network := &networks.Mainnet
 
-		backend := New(memDB, filter, network, false)
+		backend := New(memDB, filter, network, &pruner.RetentionFloor{}, false)
 
 		dsb, ok := backend.(*deprecatedStateBackend)
 		require.True(t, ok, "expected *deprecatedStateBackend, got %T", backend)

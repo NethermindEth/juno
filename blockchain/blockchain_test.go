@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/pruner"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/assert"
@@ -444,6 +445,40 @@ func TestTransactionAndReceipt(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestStateAtBlockNumberWithRetentionFloor(t *testing.T) {
+	testDB := memory.New()
+	floor, err := pruner.NewRetentionFloor(testDB)
+	require.NoError(t, err)
+
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+		blockchain.WithRetentionFloor(floor),
+	)
+
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	var lastHash *felt.Felt
+	for i := range uint64(2) {
+		block, err := gw.BlockByNumber(t.Context(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(t.Context(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
+		lastHash = block.Hash
+	}
+
+	// Drop the hash → number index for block 1: the header-probe retention
+	// check would reject it, so only the floor fast path can accept it.
+	require.NoError(t, testDB.Delete(db.BlockHeaderNumbersByHashKey(lastHash)))
+
+	_, closer, err := chain.StateAtBlockNumber(1)
+	require.NoError(t, err)
+	require.NoError(t, closer())
 }
 
 func TestState(t *testing.T) {

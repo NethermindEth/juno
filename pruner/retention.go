@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -54,9 +55,79 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 	return &BlockPrunedError{BlockNumber: blockNumber, OldestRetained: oldest}
 }
 
-// RequireStateRetainedByBlockNumber checks state retention by number, avoiding the full
-// header decode (and its heavy fields like EventsBloom) when only the hash is needed.
-func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) error {
+// RetentionFloor publishes the lowest block number whose historical state is
+// still queryable. The pruner raises it after each prune and readers consult
+// it instead of probing header indexes in the database. The zero value is
+// unseeded: readers fall back to the database probe, preserving correctness
+// for standalone tools that never wire a floor. Seed via [NewRetentionFloor].
+type RetentionFloor struct {
+	// state holds floor+1 so the zero value reads as unseeded.
+	state atomic.Uint64
+}
+
+// NewRetentionFloor derives the floor from the database: state at
+// oldestRetained-1 is still reconstructible from the retained history
+// entries (they record pre-block values), matching the hash → number
+// carve-out left by [PruneUpto]. An empty database floors at zero.
+func NewRetentionFloor(r db.KeyValueReader) (*RetentionFloor, error) {
+	oldest, err := OldestRetainedBlock(r)
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	f := &RetentionFloor{}
+	if oldest > 0 {
+		f.raiseTo(oldest - 1)
+	} else {
+		f.raiseTo(0)
+	}
+	return f, nil
+}
+
+// raiseTo raises the floor to the given value; lower values are ignored so
+// concurrent readers never observe the floor moving down.
+func (f *RetentionFloor) raiseTo(floor uint64) {
+	for {
+		cur := f.state.Load()
+		if floor+1 <= cur {
+			return
+		}
+		if f.state.CompareAndSwap(cur, floor+1) {
+			return
+		}
+	}
+}
+
+// floor returns the current floor and whether it has been seeded.
+func (f *RetentionFloor) floor() (uint64, bool) {
+	s := f.state.Load()
+	return s - 1, s > 0
+}
+
+// RequireStateRetainedByBlockNumber checks state retention by number. With a
+// seeded floor the check is floor ≤ blockNumber ≤ chain height — no header
+// reads. Unseeded, it probes the header indexes: the hash → number entry is
+// deleted by the pruner (no carve-out beyond oldest-1), so its presence
+// proves retention.
+func RequireStateRetainedByBlockNumber(
+	r db.KeyValueReader,
+	floor *RetentionFloor,
+	blockNumber uint64,
+) error {
+	if f, seeded := floor.floor(); seeded {
+		if blockNumber < f {
+			return db.ErrKeyNotFound
+		}
+		height, err := core.GetChainHeight(r)
+		if err != nil {
+			return err
+		}
+		if blockNumber > height {
+			return db.ErrKeyNotFound
+		}
+		return nil
+	}
+
 	hash, err := core.GetBlockHeaderHashByNumber(r, blockNumber)
 	if err != nil {
 		return err
@@ -65,12 +136,25 @@ func RequireStateRetainedByBlockNumber(r db.KeyValueReader, blockNumber uint64) 
 	return err
 }
 
-// StateRootIfStateRetainedByBlockNumber returns the global state root for blockNumber
-// only if state at that block is queryable, decoding hash and state root in a single header read.
+// StateRootIfStateRetainedByBlockNumber returns the global state root for
+// blockNumber only if state at that block is queryable. With a seeded floor
+// only the state root is read; unseeded, retention is probed by decoding
+// hash and state root in a single header read and resolving the hash back.
 func StateRootIfStateRetainedByBlockNumber(
 	r db.KeyValueReader,
+	floor *RetentionFloor,
 	blockNumber uint64,
 ) (*felt.Felt, error) {
+	if f, seeded := floor.floor(); seeded {
+		if blockNumber < f {
+			return nil, db.ErrKeyNotFound
+		}
+		// The header read doubles as the upper-bound check: headers above
+		// the chain height don't exist, and retained headers below the
+		// floor (the BlockHashLag carve-out) are already rejected above.
+		return core.GetGlobalStateRootByBlockNumber(r, blockNumber)
+	}
+
 	hash, stateRoot, err := core.GetBlockHeaderHashAndStateRootByNumber(r, blockNumber)
 	if err != nil {
 		return nil, err

@@ -84,7 +84,10 @@ type Pruner struct {
 	// latestSampledHeight is the lowest block with Timestamp >= now-minAge,
 	// re-derived each floorTickInterval tick.
 	latestSampledHeight uint64
-	database            db.KeyValueStore
+	// retentionFloor is raised after each prune so state readers can check
+	// retention without probing the database. Shared with the state backend.
+	retentionFloor *RetentionFloor
+	database       db.KeyValueStore
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
 	// drives the floor from this event's block number; otherwise the L1
 	// path drives the floor and this event acts only as a trigger.
@@ -146,15 +149,17 @@ func WithFloorTickInterval(duration time.Duration) Option {
 	}
 }
 
-// New constructs a Pruner. retainedBlocks is the number of blocks
-// retained below the retention pivot (= min(l1Head, l2Head); the pivot
-// itself is always retained), so the pruner keeps blocks in
-// [pivot - retainedBlocks, l2Head] and deletes everything below.
-// newHeadSub and l1HeadSub are the two trigger feeds (see [Pruner]).
-// Subscriptions are [feed.Subscription.Unsubscribe]'d when [Pruner.Run]
-// returns.
+// New constructs a Pruner. retentionFloor is raised after each prune and
+// must be the same instance the state backend reads (see [NewRetentionFloor]).
+// retainedBlocks is the number of blocks retained below the retention pivot
+// (= min(l1Head, l2Head); the pivot itself is always retained), so the
+// pruner keeps blocks in [pivot - retainedBlocks, l2Head] and deletes
+// everything below. newHeadSub and l1HeadSub are the two trigger feeds (see
+// [Pruner]). Subscriptions are [feed.Subscription.Unsubscribe]'d when
+// [Pruner.Run] returns.
 func New(
 	database db.KeyValueStore,
+	retentionFloor *RetentionFloor,
 	retainedBlocks uint64,
 	newHeadSub *feed.Subscription[*core.Block],
 	l1HeadSub *feed.Subscription[*core.L1Head],
@@ -171,6 +176,7 @@ func New(
 		opt(&o)
 	}
 	return &Pruner{
+		retentionFloor:      retentionFloor,
 		numRetainedBlocks:   retainedBlocks,
 		targetBatchByteSize: o.targetBatchByteSize,
 		l2HeadsPerPrune:     o.l2HeadsPerPrune,
@@ -409,6 +415,12 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 	// Keep latestSampledHeight at or above the retention floor so the next
 	// sampleHeight binary search never starts from a pruned block.
 	p.latestSampledHeight = max(p.latestSampledHeight, oldestKept)
+
+	// State at oldestKept-1 stays reconstructible: history entries record
+	// pre-block values, so entries at or above oldestKept cover it.
+	if oldestKept > 0 {
+		p.retentionFloor.raiseTo(oldestKept - 1)
+	}
 
 	elapsed := time.Since(start)
 	p.listener.OnPrune(oldestKept, blocksPruned, elapsed)

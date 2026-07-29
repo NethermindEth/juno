@@ -60,6 +60,7 @@ func startPrunerService(
 
 	p := pruner.New(
 		database,
+		&pruner.RetentionFloor{},
 		retention,
 		l2Feed.Subscribe(),
 		l1Feed.Subscribe(),
