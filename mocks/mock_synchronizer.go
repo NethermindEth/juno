@@ -68,7 +68,11 @@ func (m *MockSyncReader) StartingBlockHeader() (*core.Header, error) {
 // StartingBlockHeader indicates an expected call of StartingBlockHeader.
 func (mr *MockSyncReaderMockRecorder) StartingBlockHeader() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockHeader))
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"StartingBlockHeader",
+		reflect.TypeOf((*MockSyncReader)(nil).StartingBlockHeader),
+	)
 }
 
 // PreConfirmedChain mocks base method.
@@ -83,7 +87,11 @@ func (m *MockSyncReader) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 // PreConfirmedChain indicates an expected call of PreConfirmedChain.
 func (mr *MockSyncReaderMockRecorder) PreConfirmedChain() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedChain", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedChain))
+	return mr.mock.ctrl.RecordCallWithMethodType(
+		mr.mock,
+		"PreConfirmedChain",
+		reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedChain),
+	)
 }
 
 // SubscribeNewHeads mocks base method.

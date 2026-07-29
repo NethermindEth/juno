@@ -220,7 +220,8 @@ func (s *Sequencer) HighestBlockHeader() *core.Header {
 }
 
 func (s *Sequencer) StartingBlockHeader() (*core.Header, error) {
-	return nil, errors.New("StartingBlockHeader() not implemented") // Not relevant for Sequencer. Todo: clean Reader
+	// Not relevant for Sequencer. Todo: clean Reader.
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 // The builder has no reorg logic (centralised sequencer that can't reorg)
