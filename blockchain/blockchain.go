@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type L1HeadSubscription struct {
@@ -107,6 +108,7 @@ type options struct {
 	listener                EventListener
 	stateVersion            bool
 	runningFilterInitialize core.RunningEventFilterInitializer
+	retentionFloor          *pruner.RetentionFloor
 }
 
 // Option is a functional option for configuring Blockchain options.
@@ -134,11 +136,21 @@ func WithRunningEventFilterInitializer(initialize core.RunningEventFilterInitial
 	}
 }
 
+// WithRetentionFloor shares a seeded retention floor (see
+// [pruner.NewRetentionFloor]) with the state backend, so retention checks
+// skip the database. The default unseeded floor probes the database instead.
+func WithRetentionFloor(floor *pruner.RetentionFloor) Option {
+	return func(o *options) {
+		o.retentionFloor = floor
+	}
+}
+
 func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *Blockchain {
 	o := options{
 		listener:                &SelectiveListener{},
 		stateVersion:            false,
 		runningFilterInitialize: core.InitializeRunningEventFilter,
+		retentionFloor:          &pruner.RetentionFloor{},
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -163,6 +175,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 			database,
 			runningFilter,
 			network,
+			o.retentionFloor,
 			o.stateVersion,
 		),
 	}

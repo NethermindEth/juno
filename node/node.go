@@ -233,13 +233,20 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	opts := make([]blockchain.Option, 0, 3)
+	retentionFloor, err := pruner.NewRetentionFloor(database)
+	if err != nil {
+		return nil, fmt.Errorf("seeding retention floor: %w", err)
+	}
+
+	opts := make([]blockchain.Option, 0, 4)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
-	opts = append(opts, blockchain.WithNewState(
-		cfg.NewState,
-	))
+	opts = append(
+		opts,
+		blockchain.WithNewState(cfg.NewState),
+		blockchain.WithRetentionFloor(retentionFloor),
+	)
 	if cfg.Prune {
 		opts = append(
 			opts,
@@ -352,6 +359,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
+				retentionFloor,
 				cfg.RetainedBlocks,
 				seq.SubscribeNewHeads().Subscription,
 				chain.SubscribeL1Head().Subscription,
@@ -484,6 +492,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
+					retentionFloor,
 					cfg.RetainedBlocks,
 					synchronizer.SubscribeNewHeads().Subscription,
 					chain.SubscribeL1Head().Subscription,
