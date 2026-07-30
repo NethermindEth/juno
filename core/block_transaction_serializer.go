@@ -44,12 +44,18 @@ func (extractReceipt) extract(b *BlockTransactions, subKey int) (*TransactionRec
 
 type extractExecutionStatus struct{}
 
-func (extractExecutionStatus) extract(b *BlockTransactions, subKey int) (ExecutionStatus, error) {
+func (extractExecutionStatus) extract(
+	b *BlockTransactions,
+	subKey int,
+) (TransactionExecutionStatus, error) {
 	projection, err := b.executionStatusProjections().Get(subKey)
 	if err != nil {
-		return ExecutionStatus{}, err
+		return TransactionExecutionStatus{}, err
 	}
-	return ExecutionStatus{Reverted: projection.Reverted, RevertReason: projection.RevertReason}, nil
+	return TransactionExecutionStatus{
+		Reverted:     projection.Reverted,
+		RevertReason: projection.RevertReason,
+	}, nil
 }
 
 type extractAllTransactions struct{}
@@ -104,7 +110,7 @@ var (
 	BlockTransactionsExecutionStatusPartialSerializer = blockTransactionsPartialSerializer[
 		extractExecutionStatus,
 		int,
-		ExecutionStatus,
+		TransactionExecutionStatus,
 	]{}
 	BlockTransactionsAllTransactionsPartialSerializer = blockTransactionsPartialSerializer[
 		extractAllTransactions,

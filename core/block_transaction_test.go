@@ -155,7 +155,7 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 				t,
 				core.BlockTransactionsExecutionStatusPartialSerializer,
 				i,
-				core.ExecutionStatus{
+				core.TransactionExecutionStatus{
 					Reverted:     receipts[i].Reverted,
 					RevertReason: receipts[i].RevertReason,
 				},

@@ -359,7 +359,7 @@ func TestPartialSkeletonMatchesReceipt(t *testing.T) {
 // TransactionReceipt wire key.
 func TestReceiptProjectionCoversEveryKey(t *testing.T) {
 	assertProjectionsCoverSource(t, reflect.TypeFor[TransactionReceipt](),
-		reflect.TypeFor[receiptExecutionStatus]())
+		reflect.TypeFor[receiptExecutionStatusProjection]())
 }
 
 // TestReceiptProjectionCoversEveryWireKey guards against tag-option drift that cborKeys
@@ -367,7 +367,7 @@ func TestReceiptProjectionCoversEveryKey(t *testing.T) {
 func TestReceiptProjectionCoversEveryWireKey(t *testing.T) {
 	assertProjectionsCoverEveryWireKey(t, sampleReceiptBytes(t),
 		&discardedReceiptSkeleton{},
-		&receiptExecutionStatus{},
+		&receiptExecutionStatusProjection{},
 	)
 }
 
@@ -375,7 +375,7 @@ func TestReceiptProjectionCoversEveryWireKey(t *testing.T) {
 // values, not discardedCBOR — a change in cbor's embed precedence would slip past the key guards.
 func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
 	receipt := sampleReceipt()
-	var projection receiptExecutionStatus
+	var projection receiptExecutionStatusProjection
 	require.NoError(t, encoder.Unmarshal(sampleReceiptBytes(t), &projection))
 	require.Equal(t, receipt.Reverted, projection.Reverted,
 		"Reverted must receive the wire value, not discardedCBOR")
@@ -422,7 +422,7 @@ func BenchmarkExecutionStatusProjection(b *testing.B) {
 	b.Run("discard", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			var r receiptExecutionStatus
+			var r receiptExecutionStatusProjection
 			_ = encoder.Unmarshal(data, &r)
 		}
 	})

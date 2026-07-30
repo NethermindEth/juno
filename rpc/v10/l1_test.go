@@ -128,7 +128,7 @@ func TestGetMessageStatus(t *testing.T) {
 				).Return(block.Number, uint64(i), nil)
 				mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 					block.Number, uint64(i),
-				).Return(core.ExecutionStatus{
+				).Return(core.TransactionExecutionStatus{
 					Reverted:     block.Receipts[i].Reverted,
 					RevertReason: block.Receipts[i].RevertReason,
 				}, nil)

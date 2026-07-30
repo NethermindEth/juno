@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestExecutionStatusDecodesFromReceipt ensures ExecutionStatus decodes from an
-// encoded TransactionReceipt so the status is read correctly.
+// TestExecutionStatusDecodesFromReceipt ensures TransactionExecutionStatus decodes from
+// an encoded TransactionReceipt so the status is read correctly.
 func TestExecutionStatusDecodesFromReceipt(t *testing.T) {
 	receipt := TransactionReceipt{
 		Reverted:     true,
@@ -24,9 +24,9 @@ func TestExecutionStatusDecodesFromReceipt(t *testing.T) {
 	data, err := encoder.Marshal(&receipt)
 	require.NoError(t, err)
 
-	var status ExecutionStatus
+	var status TransactionExecutionStatus
 	require.NoError(t, encoder.Unmarshal(data, &status))
-	require.Equal(t, ExecutionStatus{
+	require.Equal(t, TransactionExecutionStatus{
 		Reverted:     receipt.Reverted,
 		RevertReason: receipt.RevertReason,
 	}, status)

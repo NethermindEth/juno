@@ -99,7 +99,7 @@ type discardedReceiptSkeleton struct {
 	RevertReason       discardedCBOR
 }
 
-type receiptExecutionStatus struct {
+type receiptExecutionStatusProjection struct {
 	discardedReceiptSkeleton
 	Reverted     bool
 	RevertReason string

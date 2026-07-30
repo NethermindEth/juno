@@ -92,8 +92,11 @@ func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
 	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
 }
 
+// executionStatusProjectionSlice is the lazily-decoded slice of execution-status projections.
+type executionStatusProjectionSlice = indexed.LazySlice[receiptExecutionStatusProjection]
+
 // executionStatusProjections decodes receipts into the execution-status subset, skipping the
 // heavier receipt fields.
-func (b *BlockTransactions) executionStatusProjections() indexed.LazySlice[receiptExecutionStatus] {
-	return indexed.NewLazySlice[receiptExecutionStatus](b.Indexes.Receipts, b.Data)
+func (b *BlockTransactions) executionStatusProjections() executionStatusProjectionSlice {
+	return indexed.NewLazySlice[receiptExecutionStatusProjection](b.Indexes.Receipts, b.Data)
 }

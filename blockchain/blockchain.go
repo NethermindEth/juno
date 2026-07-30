@@ -63,7 +63,7 @@ type Reader interface {
 	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
 	TransactionExecutionStatusByBlockNumberAndIndex(
 		blockNumber, index uint64,
-	) (status core.ExecutionStatus, err error)
+	) (status core.TransactionExecutionStatus, err error)
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -336,9 +336,9 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 // TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.
 func (b *Blockchain) TransactionExecutionStatusByBlockNumberAndIndex(
 	blockNumber, index uint64,
-) (core.ExecutionStatus, error) {
+) (core.TransactionExecutionStatus, error) {
 	b.listener.OnRead("TransactionExecutionStatusByBlockNumberAndIndex")
-	return core.GetExecutionStatusByBlockAndIndex(b.database, blockNumber, index)
+	return core.GetTransactionExecutionStatusByBlockAndIndex(b.database, blockNumber, index)
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
