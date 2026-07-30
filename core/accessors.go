@@ -330,9 +330,7 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
 // callers opening state don't need heavier fields like EventsBloom.
 func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
-	var header struct {
-		GlobalStateRoot *felt.Felt
-	}
+	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -348,9 +346,7 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 // GetBlockHeaderHashByNumber only materialises Hash from the header,
 // skipping heavier unused fields.
 func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
-	var header struct {
-		Hash *felt.Felt
-	}
+	var header headerHashProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -366,9 +362,7 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 // GetBlockTransactionCountByNumber decodes TransactionCount from the stored
 // header, skipping allocation of the unused fields.
 func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
-	var header struct {
-		TransactionCount uint64
-	}
+	var header headerTransactionCountProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -379,9 +373,7 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 }
 
 func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
-	var header struct {
-		Timestamp *uint64
-	}
+	var header headerTimestampProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -398,9 +390,7 @@ func GetBlockHeaderEventsBloomByNumber(
 	r db.KeyValueReader,
 	blockNum uint64,
 ) (*bloom.BloomFilter, error) {
-	var header struct {
-		EventsBloom *bloom.BloomFilter
-	}
+	var header headerEventsBloomProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -417,10 +407,7 @@ func GetBlockHeaderHashAndStateRootByNumber(
 	r db.KeyValueReader,
 	blockNum uint64,
 ) (hash, stateRoot *felt.Felt, err error) {
-	var header struct {
-		Hash            *felt.Felt
-		GlobalStateRoot *felt.Felt
-	}
+	var header headerHashAndStateRootProjection
 	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
