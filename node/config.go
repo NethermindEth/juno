@@ -32,10 +32,10 @@ type Config struct {
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
 
-	Sequencer      bool   `mapstructure:"seq-enable"`
-	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
-	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
-	SeqDisableFees bool   `mapstructure:"seq-disable-fees"`
+	// Sequencer support was removed and no CLI flag is registered for this
+	// key. It is still decoded from config files so that stale sequencer
+	// configs fail loudly in New instead of silently running a full node.
+	Sequencer bool `mapstructure:"seq-enable"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
