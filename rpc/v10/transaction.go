@@ -278,14 +278,10 @@ func (h *Handler) TransactionStatus(
 	ctx context.Context,
 	hash *felt.Felt,
 ) (TransactionStatus, *jsonrpc.Error) {
-	receipt, txErr := h.TransactionReceiptByHash(hash)
+	status, txErr := h.transactionStatusFromStore(hash)
 	switch txErr {
 	case nil:
-		return TransactionStatus{
-			Finality:      TxnStatus(receipt.FinalityStatus),
-			Execution:     receipt.ExecutionStatus,
-			FailureReason: receipt.RevertReason,
-		}, nil
+		return status, nil
 	case rpccore.ErrTxnHashNotFound:
 		if h.feederClient == nil {
 			break
@@ -312,6 +308,75 @@ func (h *Handler) TransactionStatus(
 		return status, nil
 	}
 	return TransactionStatus{}, txErr
+}
+
+// transactionStatusFromStore resolves a transaction's status from the
+// pre_confirmed chain or the committed store, decoding only the receipt fields
+// the status needs instead of adapting the whole receipt. Returns
+// rpccore.ErrTxnHashNotFound if the transaction is not found locally.
+func (h *Handler) transactionStatusFromStore(
+	hash *felt.Felt,
+) (TransactionStatus, *jsonrpc.Error) {
+	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+		if receipt, _, err := chain.ReceiptByHash(hash); err == nil {
+			return newTransactionStatus(
+				TxnStatusPreConfirmed, receipt.Reverted, receipt.RevertReason,
+			), nil
+		}
+	}
+
+	blockNumber, index, err := h.bcReader.BlockNumberAndIndexByTxHash(
+		(*felt.TransactionHash)(hash),
+	)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return TransactionStatus{}, rpccore.ErrInternal.CloneWithData(err)
+		}
+		return TransactionStatus{}, rpccore.ErrTxnHashNotFound
+	}
+
+	executionStatus, err := h.bcReader.TransactionExecutionStatusByBlockNumberAndIndex(
+		blockNumber,
+		index,
+	)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return TransactionStatus{}, rpccore.ErrInternal.CloneWithData(err)
+		}
+		return TransactionStatus{}, rpccore.ErrTxnHashNotFound
+	}
+
+	l1H, jsonErr := h.l1Head()
+	if jsonErr != nil {
+		return TransactionStatus{}, jsonErr
+	}
+
+	finality := TxnStatusAcceptedOnL2
+	if isL1Verified(blockNumber, l1H) {
+		finality = TxnStatusAcceptedOnL1
+	}
+
+	return newTransactionStatus(
+		finality, executionStatus.Reverted, executionStatus.RevertReason,
+	), nil
+}
+
+// newTransactionStatus builds a TransactionStatus from a finality status and the
+// receipt's execution outcome.
+func newTransactionStatus(
+	finality TxnStatus,
+	reverted bool,
+	revertReason string,
+) TransactionStatus {
+	execution := TxnSuccess
+	if reverted {
+		execution = TxnFailure
+	}
+	return TransactionStatus{
+		Finality:      finality,
+		Execution:     execution,
+		FailureReason: revertReason,
+	}
 }
 
 /****************************************************

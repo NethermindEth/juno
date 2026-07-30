@@ -91,3 +91,9 @@ func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
 func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
 	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
 }
+
+// ExecutionStatuses decodes receipts into the ExecutionStatus subset, skipping the
+// heavier receipt fields.
+func (b *BlockTransactions) ExecutionStatuses() indexed.LazySlice[ExecutionStatus] {
+	return indexed.NewLazySlice[ExecutionStatus](b.Indexes.Receipts, b.Data)
+}

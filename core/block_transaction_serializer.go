@@ -42,6 +42,12 @@ func (extractReceipt) extract(b *BlockTransactions, subKey int) (*TransactionRec
 	return b.Receipts().Get(subKey)
 }
 
+type extractExecutionStatus struct{}
+
+func (extractExecutionStatus) extract(b *BlockTransactions, subKey int) (ExecutionStatus, error) {
+	return b.ExecutionStatuses().Get(subKey)
+}
+
 type extractAllTransactions struct{}
 
 func (extractAllTransactions) extract(b *BlockTransactions, _ struct{}) ([]Transaction, error) {
@@ -90,6 +96,11 @@ var (
 		extractReceipt,
 		int,
 		*TransactionReceipt,
+	]{}
+	BlockTransactionsExecutionStatusPartialSerializer = blockTransactionsPartialSerializer[
+		extractExecutionStatus,
+		int,
+		ExecutionStatus,
 	]{}
 	BlockTransactionsAllTransactionsPartialSerializer = blockTransactionsPartialSerializer[
 		extractAllTransactions,

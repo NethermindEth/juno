@@ -5,8 +5,32 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/stretchr/testify/require"
 )
+
+// TestExecutionStatusDecodesFromReceipt ensures ExecutionStatus decodes from an
+// encoded TransactionReceipt so the status is read correctly.
+func TestExecutionStatusDecodesFromReceipt(t *testing.T) {
+	receipt := TransactionReceipt{
+		Reverted:     true,
+		RevertReason: "some revert reason",
+		// Heavy fields the subset is meant to skip, populated to prove it does.
+		Fee:             new(felt.Felt).SetUint64(7),
+		TransactionHash: new(felt.Felt).SetUint64(9),
+		Events:          []*Event{{}},
+	}
+
+	data, err := encoder.Marshal(&receipt)
+	require.NoError(t, err)
+
+	var status ExecutionStatus
+	require.NoError(t, encoder.Unmarshal(data, &status))
+	require.Equal(t, ExecutionStatus{
+		Reverted:     receipt.Reverted,
+		RevertReason: receipt.RevertReason,
+	}, status)
+}
 
 // note(rdr): based on git blame, it seems this global var is here to avoid certain compiler optimizations.
 //			  it would be nice to have extra clarity
