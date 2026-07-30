@@ -45,7 +45,11 @@ func (extractReceipt) extract(b *BlockTransactions, subKey int) (*TransactionRec
 type extractExecutionStatus struct{}
 
 func (extractExecutionStatus) extract(b *BlockTransactions, subKey int) (ExecutionStatus, error) {
-	return b.ExecutionStatuses().Get(subKey)
+	projection, err := b.executionStatusProjections().Get(subKey)
+	if err != nil {
+		return ExecutionStatus{}, err
+	}
+	return ExecutionStatus{Reverted: projection.Reverted, RevertReason: projection.RevertReason}, nil
 }
 
 type extractAllTransactions struct{}
