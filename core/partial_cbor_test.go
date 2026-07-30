@@ -63,6 +63,8 @@ func assertProjectionsCoverSource(t *testing.T, source reflect.Type, projections
 // decoder flags any unmatched key, catching top-level tag-option drift (keyasint, toarray) that
 // cborKeys can't. Only top-level keys matter: discarded fields throw their nested value away, so
 // the projection is only responsible for lining up the keys it names.
+//
+// Non-vacuous: see TestStrictGuardCatchesKeyAsIntDrift.
 func assertProjectionsCoverEveryWireKey(t *testing.T, data []byte, projections ...any) {
 	t.Helper()
 	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
