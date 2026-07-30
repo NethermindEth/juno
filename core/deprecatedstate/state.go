@@ -853,7 +853,7 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *core.StateDiff) 
 }
 
 func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
-	it, err := s.txn.NewIterator(nil, false)
+	it, err := s.txn.NewIterator(key, true)
 	if err != nil {
 		return nil, err
 	}
