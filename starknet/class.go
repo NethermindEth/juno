@@ -25,8 +25,12 @@ func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
 	return err
 }
 
-func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
-	return (*felt.Felt)(&o).MarshalJSON()
+func (o EntryPointOffset) MarshalText() ([]byte, error) {
+	return felt.Felt(o).MarshalText()
+}
+
+func (o EntryPointOffset) AppendText(data []byte) ([]byte, error) {
+	return felt.Felt(o).AppendText(data)
 }
 
 func (o EntryPointOffset) String() string {
