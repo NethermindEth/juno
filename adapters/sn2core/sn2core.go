@@ -220,7 +220,7 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 
 func adaptResourceBounds(rb *starknet.ResourceBoundsMap) core.ResourceBoundsMap {
 	if rb == nil {
-		return core.ResourceBoundsMap{}
+		return core.EmptyResourceBoundsMap()
 	}
 	return core.ResourceBoundsMap{
 		L1Gas:     adaptResourceBound(rb.L1Gas),
@@ -235,7 +235,7 @@ func adaptResourceBounds(rb *starknet.ResourceBoundsMap) core.ResourceBoundsMap 
 // the transaction hash and the DB encoding, exactly as with the old map.
 func adaptResourceBound(b starknet.ResourceBounds) core.ResourceBounds {
 	if b.MaxPricePerUnit == nil {
-		return core.ResourceBounds{}
+		return core.EmptyResourceBounds()
 	}
 	var maxAmount uint64
 	if b.MaxAmount != nil {

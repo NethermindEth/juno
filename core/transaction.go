@@ -98,6 +98,23 @@ type ResourceBoundsMap struct {
 	L1DataGas ResourceBounds
 }
 
+// EmptyResourceBounds returns a ResourceBounds with all fields set to zero values.
+func EmptyResourceBounds() ResourceBounds {
+	return ResourceBounds{
+		MaxAmount:       0,
+		MaxPricePerUnit: nil,
+	}
+}
+
+// EmptyResourceBoundsMap returns a ResourceBoundsMap with all resources set to zero values.
+func EmptyResourceBoundsMap() ResourceBoundsMap {
+	return ResourceBoundsMap{
+		L1Gas:     EmptyResourceBounds(),
+		L2Gas:     EmptyResourceBounds(),
+		L1DataGas: EmptyResourceBounds(),
+	}
+}
+
 // MarshalCBOR encodes the bounds using the legacy map[Resource]ResourceBounds
 // layout so the on-disk format is unchanged.
 func (rb ResourceBoundsMap) MarshalCBOR() ([]byte, error) {
