@@ -57,36 +57,38 @@ func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
 }
 
 // RetentionFloor publishes the lowest block number whose historical state is
-// still queryable. The pruner raises it after each prune and readers consult
-// it instead reaching to DB. The zero value is unseeded: readers fall back to
-// the database probe, preserving correctness for standalone tools that never
-// wire a floor. Seed via [NewRetentionFloor].
+// still queryable, letting readers check retention without reaching for the
+// database. The zero value is unseeded: readers fall back to the database
+// probe.
 type RetentionFloor struct {
 	// state holds floor+1 so the zero value reads as unseeded.
 	state atomic.Uint64
 }
 
-// NewRetentionFloor derives the floor from the database: state at
-// oldestRetained-1 is still reconstructible from the retained history
-// entries (they record pre-block values), matching the hash → number
-// carve-out left by [PruneUpto]. An empty database floors at zero.
+// NewRetentionFloor returns a floor seeded from the database.
 func NewRetentionFloor(r db.KeyValueReader) (*RetentionFloor, error) {
-	oldest, err := OldestRetainedBlock(r)
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, err
-	}
-
 	f := &RetentionFloor{}
-	if oldest > 0 {
-		f.raiseTo(oldest - 1)
-	} else {
-		f.raiseTo(0)
+	if err := f.Seed(r); err != nil {
+		return nil, err
 	}
 	return f, nil
 }
 
-// raiseTo raises the floor to the given value; lower values are ignored so
-// concurrent readers never observe the floor moving down.
+// Seed derives the floor from the database. The floor is oldestRetained-1:
+// history entries record pre-block values, so state one block below the
+// oldest retained block stays reconstructible. An empty database seeds a
+// floor of zero that counts as seeded. Seeding never lowers the floor.
+func (f *RetentionFloor) Seed(r db.KeyValueReader) error {
+	oldest, err := OldestRetainedBlock(r)
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
+	f.raiseTo(max(oldest, 1) - 1)
+	return nil
+}
+
+// raiseTo raises the floor; lower values are ignored so concurrent readers
+// never observe it moving down.
 func (f *RetentionFloor) raiseTo(floor uint64) {
 	for {
 		cur := f.state.Load()
@@ -102,10 +104,16 @@ func (f *RetentionFloor) raiseTo(floor uint64) {
 // floor returns the current floor and whether it has been seeded.
 func (f *RetentionFloor) floor() (uint64, bool) {
 	s := f.state.Load()
-	return s - 1, s > 0
+	if s == 0 {
+		return 0, false
+	}
+	return s - 1, true
 }
 
 // RequireStateRetainedByBlockNumber checks state retention by number.
+// The upper bound is the chain height, while
+// [StateRootIfStateRetainedByBlockNumber] uses header existence — equivalent
+// only because headers and the chain height are written in the same batch.
 func RequireStateRetainedByBlockNumber(
 	r db.KeyValueReader,
 	floor *RetentionFloor,
@@ -144,9 +152,7 @@ func StateRootIfStateRetainedByBlockNumber(
 		if blockNumber < f {
 			return nil, db.ErrKeyNotFound
 		}
-		// The header read doubles as the upper-bound check: headers above
-		// the chain height don't exist, and retained headers below the
-		// floor (the BlockHashLag carve-out) are already rejected above.
+		// The header read doubles as the upper-bound check.
 		return core.GetGlobalStateRootByBlockNumber(r, blockNumber)
 	}
 

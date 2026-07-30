@@ -448,37 +448,53 @@ func TestTransactionAndReceipt(t *testing.T) {
 }
 
 func TestStateAtBlockNumberWithRetentionFloor(t *testing.T) {
-	testDB := memory.New()
-	floor, err := pruner.NewRetentionFloor(testDB)
-	require.NoError(t, err)
+	for _, newState := range []bool{false, true} {
+		t.Run(fmt.Sprintf("newState=%t", newState), func(t *testing.T) {
+			testDB := memory.New()
+			floor := &pruner.RetentionFloor{}
 
-	chain := blockchain.New(
-		testDB,
-		&networks.Mainnet,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-		blockchain.WithRetentionFloor(floor),
-	)
+			chain := blockchain.New(
+				testDB,
+				&networks.Mainnet,
+				blockchain.WithNewState(newState),
+				blockchain.WithRetentionFloor(floor),
+			)
 
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
+			client := feeder.NewTestClient(t, &networks.Mainnet)
+			gw := adaptfeeder.New(client)
 
-	var lastHash *felt.Felt
-	for i := range uint64(2) {
-		block, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
-		require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
-		lastHash = block.Hash
+			var lastHash *felt.Felt
+			for i := range uint64(3) {
+				block, err := gw.BlockByNumber(t.Context(), i)
+				require.NoError(t, err)
+				su, err := gw.StateUpdate(t.Context(), i)
+				require.NoError(t, err)
+				require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
+				lastHash = block.Hash
+			}
+
+			require.NoError(t, testDB.Delete(db.BlockCommitmentsKey(0)))
+			require.NoError(t, testDB.Delete(db.BlockCommitmentsKey(1)))
+			require.NoError(t, floor.Seed(testDB))
+
+			_, _, err := chain.StateAtBlockNumber(0)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+			for blockNumber := uint64(1); blockNumber <= 2; blockNumber++ {
+				_, closer, err := chain.StateAtBlockNumber(blockNumber)
+				require.NoError(t, err)
+				require.NoError(t, closer())
+			}
+
+			_, _, err = chain.StateAtBlockNumber(3)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+			require.NoError(t, testDB.Delete(db.BlockHeaderNumbersByHashKey(lastHash)))
+			_, closer, err := chain.StateAtBlockNumber(2)
+			require.NoError(t, err)
+			require.NoError(t, closer())
+		})
 	}
-
-	// Drop the hash → number index for block 1: the header-probe retention
-	// check would reject it, so only the floor fast path can accept it.
-	require.NoError(t, testDB.Delete(db.BlockHeaderNumbersByHashKey(lastHash)))
-
-	_, closer, err := chain.StateAtBlockNumber(1)
-	require.NoError(t, err)
-	require.NoError(t, closer())
 }
 
 func TestState(t *testing.T) {

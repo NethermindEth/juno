@@ -84,8 +84,8 @@ type Pruner struct {
 	// latestSampledHeight is the lowest block with Timestamp >= now-minAge,
 	// re-derived each floorTickInterval tick.
 	latestSampledHeight uint64
-	// retentionFloor is raised after each prune so state readers can check
-	// retention without probing the database. Shared with the state backend.
+	// retentionFloor is shared with the state backend and raised before
+	// each prune.
 	retentionFloor *RetentionFloor
 	database       db.KeyValueStore
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
@@ -405,6 +405,10 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error {
 	start := time.Now()
 
+	if oldestBlockToKeep > 0 {
+		p.retentionFloor.raiseTo(oldestBlockToKeep - 1)
+	}
+
 	blocksPruned, oldestKept, err := PruneUpto(
 		ctx,
 		p.database,
@@ -418,12 +422,6 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 	// Keep latestSampledHeight at or above the retention floor so the next
 	// sampleHeight binary search never starts from a pruned block.
 	p.latestSampledHeight = max(p.latestSampledHeight, oldestKept)
-
-	// State at oldestKept-1 stays reconstructible: history entries record
-	// pre-block values, so entries at or above oldestKept cover it.
-	if oldestKept > 0 {
-		p.retentionFloor.raiseTo(oldestKept - 1)
-	}
 
 	elapsed := time.Since(start)
 	p.listener.OnPrune(oldestKept, blocksPruned, elapsed)

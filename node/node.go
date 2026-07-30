@@ -160,6 +160,9 @@ type Node struct {
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 	compiler   compiler.Compiler
+	// retentionFloor is shared with the blockchain and pruner; seeded in
+	// Run after migrations.
+	retentionFloor *pruner.RetentionFloor
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -233,10 +236,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	retentionFloor, err := pruner.NewRetentionFloor(database)
-	if err != nil {
-		return nil, fmt.Errorf("seeding retention floor: %w", err)
-	}
+	// Unseeded until Run: the historyprunner migration prunes blocks before
+	// services start, and a floor seeded now would go stale.
+	retentionFloor := &pruner.RetentionFloor{}
 
 	opts := make([]blockchain.Option, 0, 4)
 	if cfg.Metrics {
@@ -626,14 +628,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	n := &Node{
-		cfg:           cfg,
-		logger:        logger,
-		version:       version,
-		db:            database,
-		blockchain:    chain,
-		compiler:      throttledCompiler,
-		services:      services,
-		earlyServices: earlyServices,
+		cfg:            cfg,
+		logger:         logger,
+		version:        version,
+		db:             database,
+		blockchain:     chain,
+		compiler:       throttledCompiler,
+		services:       services,
+		earlyServices:  earlyServices,
+		retentionFloor: retentionFloor,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -769,6 +772,13 @@ func (n *Node) Run(ctx context.Context) {
 			return
 		}
 		n.logger.Error("Error while running migrations", zap.Error(err))
+		return
+	}
+
+	// Seed only after migrations: the historyprunner migration prunes
+	// blocks without going through the pruner service.
+	if err := n.retentionFloor.Seed(n.db); err != nil {
+		n.logger.Error("Error while seeding retention floor", zap.Error(err))
 		return
 	}
 

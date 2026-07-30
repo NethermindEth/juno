@@ -126,8 +126,6 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
 
-		// Drop the hash → number index: the probe path would reject this
-		// block, so only the floor fast path can accept it.
 		require.NoError(t,
 			database.Delete(db.BlockHeaderNumbersByHashKey(blocks[blockNumber].Header.Hash)))
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, blockNumber))
@@ -146,8 +144,6 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 3)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
-		// State at oldestRetained-1 is still reconstructible from the
-		// retained history entries, matching the hash carve-out semantics.
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 4))
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 5))
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 7))
@@ -165,6 +161,41 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 
 		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 5)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestRetentionFloorSeed(t *testing.T) {
+	t.Run("reseeding after out-of-band pruning raises the floor", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		for i := range uint64(10) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 9))
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		batch := database.NewBatch()
+		require.NoError(t, pruner.PruneBlockDataUpto(batch, 5))
+		require.NoError(t, batch.Write())
+
+		require.NoError(t, floor.Seed(database))
+
+		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 3)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 4))
+	})
+
+	t.Run("seeding an empty database leaves nothing rejected", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		floor := &pruner.RetentionFloor{}
+		require.NoError(t, floor.Seed(database))
+
+		for i := range uint64(3) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 2))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 0))
 	})
 }
 
@@ -230,8 +261,6 @@ func TestStateRootIfStateRetainedByBlockNumber(t *testing.T) {
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
 
-		// Drop the hash → number index: the probe path would reject this
-		// block, so only the floor fast path can accept it.
 		require.NoError(t,
 			database.Delete(db.BlockHeaderNumbersByHashKey(blocks[blockNumber].Header.Hash)))
 		stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(database, floor, blockNumber)
