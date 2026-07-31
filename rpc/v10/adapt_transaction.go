@@ -173,6 +173,12 @@ func AdaptReceipt(
 		es = TxnSuccess
 	}
 
+	// Zero-copy: rpc.Event is field-identical to core.Event (guarded in events.go), so the decoded
+	// []*core.Event is reinterpreted as []*Event reusing the same backing array (no copy).
+	events := *(*[]*Event)(unsafe.Pointer(&receipt.Events))
+	if events == nil {
+		events = []*Event{}
+	}
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
@@ -182,10 +188,8 @@ func AdaptReceipt(
 			Amount: receipt.Fee,
 			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
-		MessagesSent: messages,
-		// Zero-copy: rpc.Event has the same layout as core.Event (guarded in events.go), so the
-		// decoded []*core.Event is reinterpreted as []*Event without a per-element copy.
-		Events:             *(*[]*Event)(unsafe.Pointer(&receipt.Events)),
+		MessagesSent:       messages,
+		Events:             events,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
 		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),

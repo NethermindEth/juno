@@ -1071,6 +1071,9 @@ func AdaptReceipt(
 	// Zero-copy: rpc.Event has the same layout as core.Event (guarded in events.go), so the decoded
 	// []*core.Event is reinterpreted as []*Event without a per-element copy.
 	events := *(*[]*Event)(unsafe.Pointer(&receipt.Events))
+	if events == nil {
+		events = []*Event{}
+	}
 
 	var messageHash string
 	var contractAddress *felt.Felt
