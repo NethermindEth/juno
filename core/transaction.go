@@ -90,14 +90,14 @@ type L1ToL2Message struct {
 	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
 	//            here. We should change this to felt.Address
 	From     eth.Address
-	Nonce    *felt.Felt
+	Nonce    *felt.Felt // Note(Ege): can ever be nil
 	Payload  []felt.Felt
-	Selector *felt.Felt
-	To       *felt.Felt
+	Selector *felt.Felt // Note(Ege): can ever be nil
+	To       *felt.Felt // Note(Ege): can ever be nil
 }
 
 type L2ToL1Message struct {
-	From    *felt.Felt
+	From    *felt.Felt // Note(Ege): can ever be nil
 	Payload []felt.Felt
 	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
 	//            here. We should change this to felt.Address

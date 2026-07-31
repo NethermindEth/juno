@@ -15,12 +15,12 @@ type GasConsumed struct {
 }
 
 type TransactionReceipt struct {
-	Fee                *felt.Felt
+	Fee                *felt.Felt // Note(Ege): check if ever nil
 	FeeUnit            FeeUnit
-	Events             []*Event
+	Events             []*Event // Note(Ege): check if ever nil
 	ExecutionResources *ExecutionResources
 	L1ToL2Message      *L1ToL2Message
-	L2ToL1Message      []*L2ToL1Message
+	L2ToL1Message      []*L2ToL1Message // Note(Ege): check if ever nil
 	TransactionHash    *felt.Felt
 	Reverted           bool
 	RevertReason       string
