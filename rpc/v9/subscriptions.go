@@ -103,16 +103,15 @@ func unsubscribeFeedSubscription[T any](sub *feed.Subscription[T]) {
 
 //nolint:gocyclo // select statement with multiple subscription cases
 func (h *Handler) subscribe(
-	ctx context.Context,
-	w jsonrpc.Conn,
+	wsConn jsonrpc.Conn,
 	subscriber subscriber,
 ) (SubscriptionID, *jsonrpc.Error) {
 	id := h.idgen()
 	//nolint:gosec // G118: cancel called in unsubscribe()
-	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(wsConn.Context())
 	sub := &subscription{
 		cancel: subscriptionCtxCancel,
-		conn:   w,
+		conn:   wsConn,
 	}
 	h.subscriptions.Store(id, sub)
 
@@ -256,7 +255,7 @@ type ReorgEvent struct {
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
@@ -266,7 +265,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 	}
 
 	subs := sub.(*subscription)
-	if !subs.conn.Equal(w) {
+	if !subs.conn.Equal(wsConn) {
 		return false, rpccore.ErrInvalidSubscriptionID
 	}
 
@@ -338,8 +337,8 @@ func (s TxnStatusWithoutL1) MarshalText() ([]byte, error) {
 	}
 }
 
-func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
-	return sendResponse("starknet_subscriptionReorg", w, id, &ReorgEvent{
+func sendReorg(wsConn jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
+	return sendResponse("starknet_subscriptionReorg", wsConn, id, &ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
 		EndBlockHash:   reorg.EndBlockHash,
@@ -347,7 +346,7 @@ func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
 	})
 }
 
-func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
+func sendResponse(method string, wsConn jsonrpc.Conn, id string, result any) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
@@ -359,6 +358,6 @@ func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(resp)
+	_, err = wsConn.Write(resp)
 	return err
 }

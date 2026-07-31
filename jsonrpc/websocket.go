@@ -21,11 +21,12 @@ const (
 )
 
 type Websocket struct {
-	rpc        *Server
-	logger     log.StructuredLogger
-	connParams *WebsocketConnParams
-	listener   NewRequestListener
-	shutdown   <-chan struct{}
+	rpc            *Server
+	logger         log.StructuredLogger
+	connParams     *WebsocketConnParams
+	listener       NewRequestListener
+	shutdown       <-chan struct{}
+	requestTimeout time.Duration
 
 	// Add connection tracking
 	connSem *semaphore.Weighted
@@ -53,6 +54,11 @@ func (ws *Websocket) WithMaxConnections(maxConns int64) *Websocket {
 // WithConnParams sanity checks and applies the provided params.
 func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 	ws.connParams = p
+	return ws
+}
+
+func (ws *Websocket) WithRequestTimeout(d time.Duration) *Websocket {
+	ws.requestTimeout = d
 	return ws
 }
 
@@ -110,7 +116,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		ws.listener.OnNewRequest("any")
-		if err = ws.rpc.HandleReadWriter(wsc.ctx, wsc); err != nil {
+		if err = ws.rpc.HandleReadWriter(wsc.ctx, ws.requestTimeout, wsc); err != nil {
 			break
 		}
 		// From websocket docs: "Read to EOF otherwise connection will hang."

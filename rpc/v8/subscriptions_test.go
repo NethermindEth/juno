@@ -37,7 +37,8 @@ import (
 var emptyCommitments = core.BlockCommitments{}
 
 type fakeConn struct {
-	w io.Writer
+	w   io.Writer
+	ctx context.Context
 }
 
 func (fc *fakeConn) Write(p []byte) (int, error) {
@@ -50,6 +51,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 		return false
 	}
 	return fc.w == fc2.w
+}
+
+func (fc *fakeConn) Context() context.Context {
+	return fc.ctx
 }
 
 func TestSubscribeEvents(t *testing.T) {
@@ -1237,8 +1242,10 @@ func createTestWebsocket(t *testing.T, subscribe func(context.Context) (Subscrip
 	serverConn, clientConn := net.Pipe()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	reqCtx, reqCancel := context.WithCancel(ctx)
+	subCtx := context.WithValue(reqCtx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn, ctx: ctx})
 	id, rpcErr := subscribe(subCtx)
+	reqCancel()
 	require.Nil(t, rpcErr)
 
 	t.Cleanup(func() {

@@ -248,11 +248,13 @@ func (s *Server) registerMethod(method Method) error {
 type Conn interface {
 	io.Writer
 	Equal(Conn) bool
+	Context() context.Context
 }
 
 type connection struct {
 	w         io.Writer
 	activated <-chan struct{}
+	ctx       context.Context
 
 	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
 	initialErr error
@@ -276,6 +278,10 @@ func (c *connection) Equal(other Conn) bool {
 	return c.w == c2.w
 }
 
+func (c *connection) Context() context.Context {
+	return c.ctx
+}
+
 // ConnKey the key used to retrieve the connection from the context passed to a handler.
 // It is exported to allow transports to set it manually if they decide not to use HandleReadWriter, which sets it automatically.
 // Manually setting the connection can be especially useful when testing handlers.
@@ -296,14 +302,31 @@ func ConnFromContext(ctx context.Context) (Conn, bool) {
 // HandleReadWriter permits methods to send messages on the connection after the server sends the initial response.
 // rw must permit concurrent writes.
 // A non-nil error indicates the initial response could not be sent, and that no method will be able to write the connection.
-func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
+func (s *Server) HandleReadWriter(
+	connCtx context.Context,
+	requestTimeout time.Duration,
+	rw io.ReadWriter,
+) error {
 	activated := make(chan struct{})
 	defer close(activated)
 	conn := &connection{
 		w:         rw.(io.Writer),
 		activated: activated,
+		ctx:       connCtx,
 	}
-	msgCtx := context.WithValue(ctx, ConnKey{}, conn)
+
+	var (
+		requestCtx context.Context
+		cancel     context.CancelFunc
+	)
+	if requestTimeout > 0 {
+		requestCtx, cancel = context.WithTimeout(connCtx, requestTimeout)
+	} else {
+		requestCtx, cancel = context.WithCancel(connCtx)
+	}
+	defer cancel()
+
+	msgCtx := context.WithValue(requestCtx, ConnKey{}, conn)
 	// header is unnecessary for read-writer(websocket)
 	resp, _, err := s.HandleReader(msgCtx, rw)
 	if err != nil {
