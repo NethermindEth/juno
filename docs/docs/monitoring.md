@@ -1,5 +1,5 @@
 ---
-title: Monitoring Juno
+title: Metrics Monitoring
 ---
 
 # Monitoring Juno :bar_chart:

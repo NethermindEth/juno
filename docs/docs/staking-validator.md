@@ -1,4 +1,4 @@
-# Become a Staking Validator
+# Staking with Juno
 
 Staking on Starknet provides an opportunity to contribute to network security and earn rewards by becoming a validator. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide to learn more about the validator process.
 
