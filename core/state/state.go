@@ -301,6 +301,9 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 		// we can use the lack of key's existence as reason for purging system contracts.
 		if IsSystemContract(&addr) {
 			obj := s.stateObjects[addr]
+			if obj == nil {
+				continue
+			}
 			root, err := obj.getStorageRoot()
 			if err != nil {
 				return felt.Zero, emptyStateUpdate, err
