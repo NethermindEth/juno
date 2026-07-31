@@ -1,8 +1,6 @@
 package statebackend
 
 import (
-	"errors"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,15 +14,13 @@ type deprecatedStateBackend struct {
 }
 
 func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
-	snap := b.database.NewSnapshot()
-
 	// Fail early if no block has been committed (no head state to open)
 	// only the key's existence matters, not the height itself.
-	if _, err := core.GetChainHeight(snap); err != nil {
-		return nil, nil, errors.Join(err, snap.Close())
+	if _, err := core.GetChainHeight(b.database); err != nil {
+		return nil, nil, err
 	}
 
-	return deprecatedstate.New(db.NewReaderBatch(snap)), snap.Close, nil
+	return deprecatedstate.New(db.NewReaderBatch(b.database)), NoopStateCloser, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockNumber(
@@ -33,11 +29,10 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 	if err := pruner.RequireStateRetainedByBlockNumber(b.database, blockNumber); err != nil {
 		return nil, nil, err
 	}
-	snap := b.database.NewSnapshot()
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(db.NewReaderBatch(snap)),
+		deprecatedstate.New(db.NewReaderBatch(b.database)),
 		blockNumber,
-	), snap.Close, nil
+	), NoopStateCloser, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockHash(
@@ -52,11 +47,10 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return nil, nil, err
 	}
 
-	snap := b.database.NewSnapshot()
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(db.NewReaderBatch(snap)),
+		deprecatedstate.New(db.NewReaderBatch(b.database)),
 		blockNumber,
-	), snap.Close, nil
+	), NoopStateCloser, nil
 }
 
 func (b *deprecatedStateBackend) Store(
