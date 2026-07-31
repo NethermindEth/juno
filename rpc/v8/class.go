@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
@@ -184,7 +185,7 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
 	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
-	if stateReader.IsSystemContract(&address) {
+	if state.IsSystemContract(&address) {
 		return nil, rpccore.ErrContractNotFound
 	}
 

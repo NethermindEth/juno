@@ -70,12 +70,6 @@ func (s *State) putNewContract(
 	return s.updateContractCommitment(stateTrie, contract)
 }
 
-// IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
-// that has no Cairo class.
-func (s *State) IsSystemContract(addr *felt.Felt) bool {
-	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
-}
-
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return core.GetContractClassHash(s.txn, addr)
@@ -447,7 +441,7 @@ func (s *State) updateContractStorages(
 
 	// make sure all system contracts are deployed
 	for addr := range diffs {
-		if !s.IsSystemContract(&addr) {
+		if !state.IsSystemContract(&addr) {
 			continue
 		}
 

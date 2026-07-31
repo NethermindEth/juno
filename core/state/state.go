@@ -68,7 +68,7 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 
 // IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
 // that has no Cairo class.
-func (s *State) IsSystemContract(addr *felt.Felt) bool {
+func IsSystemContract(addr *felt.Felt) bool {
 	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
@@ -299,7 +299,7 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 		// their storage no longer exists. Updating contracts with reverse diff will eventually
 		// lead to the deletion of the system contract's storage key from db. Thus,
 		// we can use the lack of key's existence as reason for purging system contracts.
-		if s.IsSystemContract(&addr) {
+		if IsSystemContract(&addr) {
 			obj := s.stateObjects[addr]
 			root, err := obj.getStorageRoot()
 			if err != nil {
@@ -493,7 +493,7 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
-			if s.IsSystemContract(&addr) && errors.Is(err, db.ErrKeyNotFound) {
+			if IsSystemContract(&addr) && errors.Is(err, db.ErrKeyNotFound) {
 				contract := newContractDeployed(SystemContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
 				obj = &newObj

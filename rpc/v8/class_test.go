@@ -113,9 +113,6 @@ func TestClassAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
-	mockState.EXPECT().IsSystemContract(gomock.Any()).
-		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
-		AnyTimes()
 
 	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
 	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
@@ -238,9 +235,6 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
-	mockState.EXPECT().IsSystemContract(gomock.Any()).
-		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
-		AnyTimes()
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

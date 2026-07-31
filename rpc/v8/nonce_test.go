@@ -60,9 +60,6 @@ func TestNonce(t *testing.T) {
 	})
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
-	mockState.EXPECT().IsSystemContract(gomock.Any()).
-		DoAndReturn((&deprecatedstate.State{}).IsSystemContract).
-		AnyTimes()
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
