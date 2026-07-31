@@ -1,6 +1,8 @@
 package statebackend
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -14,16 +16,15 @@ type deprecatedStateBackend struct {
 }
 
 func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
+	snap := b.database.NewSnapshot()
 
 	// Fail early if no block has been committed (no head state to open)
 	// only the key's existence matters, not the height itself.
-	if _, err := core.GetChainHeight(txn); err != nil {
-		return nil, nil, err
+	if _, err := core.GetChainHeight(snap); err != nil {
+		return nil, nil, errors.Join(err, snap.Close())
 	}
 
-	return deprecatedstate.New(txn), NoopStateCloser, nil
+	return deprecatedstate.New(db.NewReaderBatch(snap)), snap.Close, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockNumber(
@@ -32,22 +33,18 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 	if err := pruner.RequireStateRetainedByBlockNumber(b.database, blockNumber); err != nil {
 		return nil, nil, err
 	}
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
+	snap := b.database.NewSnapshot()
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(txn),
+		deprecatedstate.New(db.NewReaderBatch(snap)),
 		blockNumber,
-	), NoopStateCloser, nil
+	), snap.Close, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockHash(
 	blockHash *felt.Felt,
 ) (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
 	if blockHash.IsZero() {
-		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
-		return deprecatedstate.New(txn), NoopStateCloser, nil
+		return deprecatedstate.New(db.NewReaderBatch(memory.New())), NoopStateCloser, nil
 	}
 
 	blockNumber, err := pruner.BlockNumberByHashIfStateRetained(b.database, blockHash)
@@ -55,11 +52,11 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return nil, nil, err
 	}
 
-	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
+	snap := b.database.NewSnapshot()
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(txn),
+		deprecatedstate.New(db.NewReaderBatch(snap)),
 		blockNumber,
-	), NoopStateCloser, nil
+	), snap.Close, nil
 }
 
 func (b *deprecatedStateBackend) Store(
