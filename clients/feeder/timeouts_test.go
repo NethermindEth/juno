@@ -75,25 +75,60 @@ func TestParseTimeouts(t *testing.T) {
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
 		},
 		{
+			name:    "input with just white-spaces falls back to the default timeout",
+			input:   "   ",
+			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
+			wantErr: false,
+		},
+		{
 			name:  "single value",
 			input: "5s",
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
 		},
 		{
-			name:    "single value with trailing comma",
-			input:   "5s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
-			wantErr: false,
+			name:  "single value with trailing comma",
+			input: "5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with trailing comma and white-space",
+			input: "5s, ",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with trailing comma and new line",
+			input: "5s,\n",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value after leading white space",
+			input: " 5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value after with leading new line",
+			input: "\n5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
 		},
 		{
 			name:  "multiple values",
 			input: "5s,7s,10s",
-			want:  want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			want: want{
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second,
+				},
+				fixed: false,
+			},
 		},
 		{
-			name:    "multiple values with trailing comma",
-			input:   "5s,7s,10s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			name:  "multiple values with trailing comma",
+			input: "5s,7s,10s,",
+			want: want{
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second,
+				},
+				fixed: false,
+			},
 			wantErr: false,
 		},
 		{
@@ -112,8 +147,9 @@ func TestParseTimeouts(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "max amount of timeouts exceeded",
-			input:   "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s,16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
+			name: "max amount of timeouts exceeded",
+			input: "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s," +
+				"16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
 			wantErr: true,
 		},
 	}

@@ -14,13 +14,8 @@ import (
 )
 
 const (
-	growthFactorFast    = 2
-	growthFactorMedium  = 1.5
-	growthFactorSlow    = 1.2
-	fastGrowThreshold   = 1 * time.Minute
-	mediumGrowThreshold = 2 * time.Minute
-	timeoutsCount       = 30
-	DefaultTimeouts     = "5s"
+	DefaultTimeouts = "5s"
+	timeoutsCount   = 30
 )
 
 type Timeouts struct {
@@ -70,15 +65,22 @@ func timeoutsListFromNumber(initial time.Duration) []time.Duration {
 	timeouts[0] = initial
 
 	for i := 1; i < timeoutsCount; i++ {
-		prev := timeouts[i-1]
-		next := increaseDuration(prev)
-		timeouts[i] = next
+		timeouts[i] = increaseDuration(timeouts[i-1])
 	}
 
 	return timeouts
 }
 
 func increaseDuration(prev time.Duration) time.Duration {
+	const (
+		fastGrowThreshold   = 1 * time.Minute
+		mediumGrowThreshold = 2 * time.Minute
+
+		growthFactorFast   = 2
+		growthFactorMedium = 1.5
+		growthFactorSlow   = 1.2
+	)
+
 	var next time.Duration
 	if prev < fastGrowThreshold {
 		seconds := math.Ceil(float64(prev.Seconds()) * growthFactorFast)
@@ -93,33 +95,32 @@ func increaseDuration(prev time.Duration) time.Duration {
 	return next
 }
 
-func getDynamicTimeouts(timeouts time.Duration) Timeouts {
-	return Timeouts{
+func getDynamicTimeouts(timeouts time.Duration) *Timeouts {
+	return &Timeouts{
 		curTimeout: 0,
 		timeouts:   timeoutsListFromNumber(timeouts),
+		mu:         sync.RWMutex{},
 	}
 }
 
-func getFixedTimeouts(timeouts []time.Duration) Timeouts {
-	return Timeouts{
+func getFixedTimeouts(timeouts []time.Duration) *Timeouts {
+	return &Timeouts{
 		curTimeout: 0,
 		timeouts:   timeouts,
+		mu:         sync.RWMutex{},
 	}
 }
 
-func getDefaultFixedTimeouts() Timeouts {
+func getDefaultFixedTimeouts() *Timeouts {
 	timeouts, _, _ := ParseTimeouts(DefaultTimeouts)
 	return getFixedTimeouts(timeouts)
 }
 
 func makeTimeouts(timeouts []time.Duration, fixed bool) *Timeouts {
-	var t Timeouts
 	if len(timeouts) > 1 || fixed {
-		t = getFixedTimeouts(timeouts)
-	} else {
-		t = getDynamicTimeouts(timeouts[0])
+		return getFixedTimeouts(timeouts)
 	}
-	return &t
+	return getDynamicTimeouts(timeouts[0])
 }
 
 // ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration
@@ -128,27 +129,38 @@ func makeTimeouts(timeouts []time.Duration, fixed bool) *Timeouts {
 // - if a fixed or dynamic timeouts should be used
 // - an error in case the string cannot be parsed
 func ParseTimeouts(value string) ([]time.Duration, bool, error) {
+	value = strings.TrimSpace(value)
 	if value == "" {
 		value = DefaultTimeouts
 	}
 
+	hasTrailingComma := value[len(value)-1] == ','
 	values := strings.Split(value, ",")
-	for i := range values {
-		values[i] = strings.TrimSpace(values[i])
-	}
-
-	hasTrailingComma := len(values) > 0 && values[len(values)-1] == ""
 	if hasTrailingComma {
 		values = values[:len(values)-1]
 	}
 
-	timeouts := make([]time.Duration, 0, len(values))
+	for i := range values {
+		values[i] = strings.TrimSpace(values[i])
+	}
+
+	if len(values) > timeoutsCount {
+		return nil,
+			false,
+			fmt.Errorf(
+				"exceeded max amount of allowed timeout parameters. Set %d but max is %d",
+				len(values),
+				timeoutsCount,
+			)
+	}
+
+	timeouts := make([]time.Duration, len(values))
 	for i, v := range values {
-		d, err := time.ParseDuration(v)
+		duration, err := time.ParseDuration(v)
 		if err != nil {
 			return nil, false, fmt.Errorf("parsing timeout parameter number %d: %w", i+1, err)
 		}
-		timeouts = append(timeouts, d)
+		timeouts[i] = duration
 	}
 	if len(timeouts) == 1 && hasTrailingComma {
 		return timeouts, true, nil
@@ -166,16 +178,6 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 		}
 	}
 
-	if len(timeouts) > timeoutsCount {
-		return nil,
-			false,
-			fmt.Errorf(
-				"exceeded max amount of allowed timeout parameters. Set %d but max is %d",
-				len(timeouts),
-				timeoutsCount,
-			)
-	}
-
 	return timeouts, false, nil
 }
 
@@ -185,20 +187,21 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 		timeouts := client.timeouts.Load()
 		fmt.Fprintf(w, "%s\n", timeouts.String())
 	case http.MethodPut:
-		timeoutsStr := r.URL.Query().Get("timeouts")
-		if timeoutsStr == "" {
+		newTimeoutsReq := r.URL.Query().Get("timeouts")
+		newTimeoutsReq = strings.TrimSpace(newTimeoutsReq)
+		if newTimeoutsReq == "" {
 			http.Error(w, "missing timeouts query parameter", http.StatusBadRequest)
 			return
 		}
 
-		newTimeouts, fixed, err := ParseTimeouts(timeoutsStr)
+		newTimeouts, fixed, err := ParseTimeouts(newTimeoutsReq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		client.SetTimeouts(newTimeouts, fixed)
-		//nolint:gosec // G705: `timeoutsStr` was validated by `ParseTimeouts`
-		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
+		//nolint:gosec // G705: `newTimeoutsReq` was validated by `ParseTimeouts`
+		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", newTimeoutsReq)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
