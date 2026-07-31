@@ -101,18 +101,33 @@ func TestParseTimeouts(t *testing.T) {
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
 		},
 		{
-			name:  "single value after leading white space",
+			name:  "single value with leading white space",
 			input: " 5s,",
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
 		},
 		{
-			name:  "single value after with leading new line",
+			name:  "single value with leading new line",
 			input: "\n5s,",
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
 		},
 		{
+			name:    "only a comma",
+			input:   ",",
+			wantErr: true,
+		},
+		{
+			name:    "only a comma surrounded by white space",
+			input:   "  ,  \n",
+			wantErr: true,
+		},
+		{
+			name:    "double trailing comma",
+			input:   "5s,,",
+			wantErr: true,
+		},
+		{
 			name:  "multiple values",
-			input: "5s,7s,10s",
+			input: "5s, 7s , 10s",
 			want: want{
 				timeouts: []time.Duration{
 					5 * time.Second, 7 * time.Second, 10 * time.Second,
@@ -129,7 +144,6 @@ func TestParseTimeouts(t *testing.T) {
 				},
 				fixed: false,
 			},
-			wantErr: false,
 		},
 		{
 			name:    "invalid duration",
@@ -287,6 +301,12 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Equal(t, "timeout values must be in ascending order, got 5s <= 10s\n", rr.Body.String())
+	})
+
+	t.Run("PUT update timeouts with blank parameter", func(t *testing.T) {
+		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=%20%20", client)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "missing timeouts query parameter\n", rr.Body.String())
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {
