@@ -3,19 +3,35 @@ package rpcv10
 import (
 	"encoding/json"
 	"slices"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 )
 
+// Event is the RPC wire type for an event. It has the SAME memory layout as core.Event (identical
+// fields, order, and types, only the json tags differ), which lets `AdaptReceipt` reinterpret a
+// receipt's []*core.Event as []*Event with zero copies. The layout guards below make a divergence a
+// compile error.
 type Event struct {
 	From *felt.Felt  `json:"from_address,omitempty"`
 	Keys []felt.Felt `json:"keys"`
 	Data []felt.Felt `json:"data"`
 }
+
+// Compile-time layout guards: rpc.Event must stay byte-identical to core.Event for the unsafe
+// reinterpret in AdaptReceipt to be sound. Any size/offset drift fails the build (index out of
+// range).
+var (
+	_ = [1]struct{}{}[unsafe.Sizeof(Event{})-unsafe.Sizeof(core.Event{})]
+	_ = [1]struct{}{}[unsafe.Offsetof(Event{}.Data)-unsafe.Offsetof(core.Event{}.Data)]
+	_ = [1]struct{}{}[unsafe.Offsetof(Event{}.From)-unsafe.Offsetof(core.Event{}.From)]
+	_ = [1]struct{}{}[unsafe.Offsetof(Event{}.Keys)-unsafe.Offsetof(core.Event{}.Keys)]
+)
 
 type ResultPageRequest struct {
 	ContinuationToken string `json:"continuation_token"`
