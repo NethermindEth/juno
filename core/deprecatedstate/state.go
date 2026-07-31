@@ -28,17 +28,6 @@ var (
 	ErrCheckHeadState = errors.New("check head state")
 )
 
-// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
-// but have no Cairo class; their class hash is always zero. They are not part
-// of StateDiff.DeployedContracts and are auto-created during state commit so
-// their storage trie can exist.
-var (
-	SystemContract1Address   = state.SystemContract1Address
-	SystemContract2Address   = state.SystemContract2Address
-	SystemContractsClassHash = state.SystemContractsClassHash
-	SystemContracts          = state.SystemContracts
-)
-
 type State struct {
 	txn db.IndexedBatch
 }
@@ -451,7 +440,7 @@ func (s *State) updateContractStorages(
 				return err
 			}
 			// Deploy system contract
-			err = s.putNewContract(stateTrie, &addr, &SystemContractsClassHash, blockNumber)
+			err = s.putNewContract(stateTrie, &addr, &state.SystemContractsClassHash, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -689,7 +678,7 @@ func (s *State) purgesystemContracts() error {
 	// their storage no longer exists. Updating contracts with reverse diff will eventually
 	// lead to the deletion of the system contract's storage key from db. Thus,
 	// we can use the lack of key's existence as reason for purging system contracts.
-	for _, addr := range SystemContracts {
+	for _, addr := range state.SystemContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
 			if !errors.Is(err, ErrContractNotDeployed) {

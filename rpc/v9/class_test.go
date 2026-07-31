@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -169,8 +169,8 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("system contracts return contract not found", func(t *testing.T) {
-		for i := range deprecatedstate.SystemContracts {
-			addr := deprecatedstate.SystemContracts[i]
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
 
 			class, rpcErr := handler.ClassAt(&latest, &addr)
 			require.Nil(t, class)
@@ -182,7 +182,7 @@ func TestClassAt(t *testing.T) {
 		// Contract resolves to a class hash that has no declared class: getClassAt
 		// must return CONTRACT_NOT_FOUND, not CLASS_HASH_NOT_FOUND.
 		danglingAddress := felt.NewRandom[felt.Felt]()
-		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xdead")
+		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xcaf3")
 		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
 		mockState.EXPECT().Class(gomock.Eq(unknownClassHash)).Return(nil, db.ErrKeyNotFound)
 
@@ -239,8 +239,8 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("system contracts return contract not found", func(t *testing.T) {
-		for i := range deprecatedstate.SystemContracts {
-			addr := deprecatedstate.SystemContracts[i]
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			latest := blockIDLatest(t)
 			classHash, rpcErr := handler.ClassHashAt(&latest, &addr)

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -68,8 +68,8 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("system contracts return contract not found", func(t *testing.T) {
-		for i := range deprecatedstate.SystemContracts {
-			addr := deprecatedstate.SystemContracts[i]
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
 			latest := rpc.BlockIDLatest()
