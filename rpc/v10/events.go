@@ -193,11 +193,9 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 			TransactionHash:  fEvent.TransactionHash,
 			TransactionIndex: fEvent.TransactionIndex,
 			EventIndex:       fEvent.EventIndex,
-			Event: &Event{
-				From: fEvent.From,
-				Keys: fEvent.Keys,
-				Data: fEvent.Data,
-			},
+			// rpc.Event is field-identical to core.Event (guarded in this file), so alias the
+			// filtered *core.Event instead of allocating a fresh Event per emitted event.
+			Event: (*Event)(fEvent.Event),
 		}
 	}
 
