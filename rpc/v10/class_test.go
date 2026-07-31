@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -116,21 +117,12 @@ func TestClassAt(t *testing.T) {
 	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
-	mockState.EXPECT().
-		ContractClassHash(deprecatedCairoContractAddress).
-		Return(*deprecatedCairoClassHash, nil)
 
 	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
 	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
-		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-			class, err := integGw.Class(t.Context(), classHash)
-			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
-		}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
@@ -140,6 +132,13 @@ func TestClassAt(t *testing.T) {
 	latest := rpc.BlockIDLatest()
 
 	t.Run("sierra class", func(t *testing.T) {
+		mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
+		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+				class, err := integGw.Class(t.Context(), classHash)
+				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+			},
+		)
 		coreClass, err := integGw.Class(t.Context(), sierraClassHash)
 		require.NoError(t, err)
 
@@ -150,6 +149,15 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
+		mockState.EXPECT().
+			ContractClassHash(deprecatedCairoContractAddress).
+			Return(*deprecatedCairoClassHash, nil)
+		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
+			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+				class, err := integGw.Class(t.Context(), classHash)
+				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
+			},
+		)
 		coreClass, err := integGw.Class(t.Context(), deprecatedCairoClassHash)
 		require.NoError(t, err)
 
@@ -158,6 +166,29 @@ func TestClassAt(t *testing.T) {
 
 		deprecatedCairoClass := coreClass.(*core.DeprecatedCairoClass)
 		assertEqualDeprecatedCairoClass(t, deprecatedCairoClass, class)
+	})
+
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
+
+			class, rpcErr := handler.ClassAt(&latest, &addr)
+			require.Nil(t, class)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
+	})
+
+	t.Run("class hash not found is reported as contract not found", func(t *testing.T) {
+		// Contract resolves to a class hash that has no declared class: getClassAt
+		// must return CONTRACT_NOT_FOUND, not CLASS_HASH_NOT_FOUND.
+		danglingAddress := felt.NewRandom[felt.Felt]()
+		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xcaf3")
+		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
+		mockState.EXPECT().Class(gomock.Eq(unknownClassHash)).Return(nil, db.ErrKeyNotFound)
+
+		class, rpcErr := handler.ClassAt(&latest, danglingAddress)
+		require.Nil(t, class)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 }
 
@@ -205,6 +236,17 @@ func TestClassHashAt(t *testing.T) {
 		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+			latest := rpc.BlockIDLatest()
+			classHash, rpcErr := handler.ClassHashAt(&latest, &addr)
+			require.Nil(t, classHash)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
 	})
 
 	expectedClassHash := felt.NewFromUint64[felt.Felt](3)
