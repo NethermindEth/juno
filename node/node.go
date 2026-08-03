@@ -160,6 +160,9 @@ type Node struct {
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 	compiler   compiler.Compiler
+	// retentionFloor is shared with the blockchain and pruner; seeded in
+	// Run after migrations.
+	retentionFloor *pruner.RetentionFloor
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -233,13 +236,19 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	opts := make([]blockchain.Option, 0, 3)
+	// Unseeded until Run: the historyprunner migration prunes blocks before
+	// services start, and a floor seeded now would go stale.
+	retentionFloor := &pruner.RetentionFloor{}
+
+	opts := make([]blockchain.Option, 0, 4)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
-	opts = append(opts, blockchain.WithNewState(
-		cfg.NewState,
-	))
+	opts = append(
+		opts,
+		blockchain.WithNewState(cfg.NewState),
+		blockchain.WithRetentionFloor(retentionFloor),
+	)
 	if cfg.Prune {
 		opts = append(
 			opts,
@@ -352,6 +361,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
+				retentionFloor,
 				cfg.RetainedBlocks,
 				seq.SubscribeNewHeads().Subscription,
 				chain.SubscribeL1Head().Subscription,
@@ -484,6 +494,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
+					retentionFloor,
 					cfg.RetainedBlocks,
 					synchronizer.SubscribeNewHeads().Subscription,
 					chain.SubscribeL1Head().Subscription,
@@ -618,14 +629,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	n := &Node{
-		cfg:           cfg,
-		logger:        logger,
-		version:       version,
-		db:            database,
-		blockchain:    chain,
-		compiler:      throttledCompiler,
-		services:      services,
-		earlyServices: earlyServices,
+		cfg:            cfg,
+		logger:         logger,
+		version:        version,
+		db:             database,
+		blockchain:     chain,
+		compiler:       throttledCompiler,
+		services:       services,
+		earlyServices:  earlyServices,
+		retentionFloor: retentionFloor,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -761,6 +773,13 @@ func (n *Node) Run(ctx context.Context) {
 			return
 		}
 		n.logger.Error("Error while running migrations", zap.Error(err))
+		return
+	}
+
+	// Seed only after migrations: the historyprunner migration prunes
+	// blocks without going through the pruner service.
+	if err := n.retentionFloor.Seed(n.db); err != nil {
+		n.logger.Error("Error while seeding retention floor", zap.Error(err))
 		return
 	}
 

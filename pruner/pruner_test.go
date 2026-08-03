@@ -31,6 +31,7 @@ type servicePruner struct {
 	l1Feed *feed.Feed[*core.L1Head]
 	l2Feed *feed.Feed[*core.Block]
 	pruned chan pruneEvent
+	floor  *pruner.RetentionFloor
 }
 
 func startPrunerService(
@@ -58,8 +59,10 @@ func startPrunerService(
 		}),
 	}, extraOpts...)
 
+	floor := &pruner.RetentionFloor{}
 	p := pruner.New(
 		database,
+		floor,
 		retention,
 		l2Feed.Subscribe(),
 		l1Feed.Subscribe(),
@@ -78,7 +81,7 @@ func startPrunerService(
 		}
 	})
 
-	return &servicePruner{l1Feed: l1Feed, l2Feed: l2Feed, pruned: pruned}
+	return &servicePruner{l1Feed: l1Feed, l2Feed: l2Feed, pruned: pruned, floor: floor}
 }
 
 // sendL1AndAwait broadcasts an L1 head to the pruner and waits for the
@@ -181,6 +184,27 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range uint64(85) - core.BlockHashLag {
 			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
+	})
+
+	t.Run("prune raises the shared retention floor for readers", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		for i := range totalBlocks {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+
+		sp := startPrunerService(t, database, 10)
+		require.NoError(t, sp.floor.Seed(database))
+
+		ev := sp.sendL1AndAwait(t, 95)
+		require.Equal(t, uint64(85), ev.oldest)
+
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, sp.floor, 84))
+		err := pruner.RequireStateRetainedByBlockNumber(database, sp.floor, 83)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+		_, err = pruner.StateRootIfStateRetainedByBlockNumber(database, sp.floor, 83)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("L1 head at or beyond chainHeight is a no-op", func(t *testing.T) {

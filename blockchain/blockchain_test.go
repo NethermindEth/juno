@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/pruner"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/assert"
@@ -444,6 +445,56 @@ func TestTransactionAndReceipt(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestStateAtBlockNumberWithRetentionFloor(t *testing.T) {
+	for _, newState := range []bool{false, true} {
+		t.Run(fmt.Sprintf("newState=%t", newState), func(t *testing.T) {
+			testDB := memory.New()
+			floor := &pruner.RetentionFloor{}
+
+			chain := blockchain.New(
+				testDB,
+				&networks.Mainnet,
+				blockchain.WithNewState(newState),
+				blockchain.WithRetentionFloor(floor),
+			)
+
+			client := feeder.NewTestClient(t, &networks.Mainnet)
+			gw := adaptfeeder.New(client)
+
+			var lastHash *felt.Felt
+			for i := range uint64(3) {
+				block, err := gw.BlockByNumber(t.Context(), i)
+				require.NoError(t, err)
+				su, err := gw.StateUpdate(t.Context(), i)
+				require.NoError(t, err)
+				require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
+				lastHash = block.Hash
+			}
+
+			require.NoError(t, testDB.Delete(db.BlockCommitmentsKey(0)))
+			require.NoError(t, testDB.Delete(db.BlockCommitmentsKey(1)))
+			require.NoError(t, floor.Seed(testDB))
+
+			_, _, err := chain.StateAtBlockNumber(0)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+			for blockNumber := uint64(1); blockNumber <= 2; blockNumber++ {
+				_, closer, err := chain.StateAtBlockNumber(blockNumber)
+				require.NoError(t, err)
+				require.NoError(t, closer())
+			}
+
+			_, _, err = chain.StateAtBlockNumber(3)
+			require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+			require.NoError(t, testDB.Delete(db.BlockHeaderNumbersByHashKey(lastHash)))
+			_, closer, err := chain.StateAtBlockNumber(2)
+			require.NoError(t, err)
+			require.NoError(t, closer())
+		})
+	}
 }
 
 func TestState(t *testing.T) {

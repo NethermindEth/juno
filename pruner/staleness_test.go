@@ -33,6 +33,7 @@ func startStalenessPruner(t *testing.T) (*atomic.Int64, *feed.Feed[*core.L1Head]
 	staleCount := &atomic.Int64{}
 	p := pruner.New(
 		database,
+		&pruner.RetentionFloor{},
 		64,
 		l2Feed.Subscribe(),
 		l1Feed.Subscribe(),
