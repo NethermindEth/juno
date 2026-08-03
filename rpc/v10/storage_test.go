@@ -1576,6 +1576,173 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	})
 }
 
+func BenchmarkStorageProof(b *testing.B) {
+	var (
+		blkHash     = felt.NewFromUint64[felt.Felt](0x11ead)
+		key         = felt.NewFromUint64[felt.Felt](1)
+		key2        = felt.NewFromUint64[felt.Felt](8)
+		noSuchKey   = felt.NewFromUint64[felt.Felt](0)
+		contract    = felt.NewFromUint64[felt.Felt](0xadd0)
+		nonce       = felt.NewFromUint64[felt.Felt](121)
+		classHash   = felt.NewFromUint64[felt.Felt](1234)
+		blockLatest = rpc.BlockIDLatest()
+		blockNumber = uint64(1313)
+		oldBlock    = rpc.BlockIDFromNumber(1)
+	)
+
+	smallClasses := []felt.Felt{*key, *key2}
+	smallContracts := []felt.Felt{*contract}
+	storageTrieKeys := []felt.Felt{*key, *key2}
+	manyClasses := benchmarkUnsortedFelts(0x1000, 128)
+	manyContracts := benchmarkUnsortedFelts(0x2000, 128)
+
+	setup := func(
+		b *testing.B,
+		classTrieKeys []felt.Felt,
+		contractTrieKeys []felt.Felt,
+		storageTrieKeys []felt.Felt,
+	) (*rpc.Handler, func()) {
+		b.Helper()
+
+		classTrie, contractTrie, storageTrie := benchmarkStorageProofTries(b, classTrieKeys, contractTrieKeys, storageTrieKeys)
+		mockCtrl := gomock.NewController(b)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
+
+		mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).Return(blkHash, nil).AnyTimes()
+		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
+
+		mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()
+		mockState.EXPECT().ContractTrie().Return(contractTrie, nil).AnyTimes()
+		mockState.EXPECT().ContractNonce(gomock.Any()).Return(*nonce, nil).AnyTimes()
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*classHash, nil).AnyTimes()
+		mockState.EXPECT().ContractStorageTrie(gomock.Any()).Return(storageTrie, nil).AnyTimes()
+
+		return rpc.New(mockReader, nil, nil, log.NewNopZapLogger()), mockCtrl.Finish
+	}
+
+	b.Run("empty latest", func(b *testing.B) {
+		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
+		defer finish()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, nil)
+			if rpcErr != nil {
+				b.Fatal(rpcErr)
+			}
+			if proof == nil {
+				b.Fatal("expected proof")
+			}
+		}
+	})
+
+	b.Run("class contract and storage proofs", func(b *testing.B) {
+		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
+		defer finish()
+
+		storageKeys := []rpc.StorageKeys{{
+			Contract: contract,
+			Keys:     []felt.Felt{*key, *key2, *noSuchKey},
+		}}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, smallClasses, smallContracts, storageKeys)
+			if rpcErr != nil {
+				b.Fatal(rpcErr)
+			}
+			if proof == nil {
+				b.Fatal("expected proof")
+			}
+		}
+	})
+
+	b.Run("many classes", func(b *testing.B) {
+		handler, finish := setup(b, manyClasses, smallContracts, storageTrieKeys)
+		defer finish()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, manyClasses, nil, nil)
+			if rpcErr != nil {
+				b.Fatal(rpcErr)
+			}
+			if proof == nil {
+				b.Fatal("expected proof")
+			}
+		}
+	})
+
+	b.Run("many contracts", func(b *testing.B) {
+		handler, finish := setup(b, smallClasses, manyContracts, storageTrieKeys)
+		defer finish()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, nil, manyContracts, nil)
+			if rpcErr != nil {
+				b.Fatal(rpcErr)
+			}
+			if proof == nil {
+				b.Fatal("expected proof")
+			}
+		}
+	})
+
+	b.Run("many classes and contracts", func(b *testing.B) {
+		handler, finish := setup(b, manyClasses, manyContracts, storageTrieKeys)
+		defer finish()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, manyClasses, manyContracts, nil)
+			if rpcErr != nil {
+				b.Fatal(rpcErr)
+			}
+			if proof == nil {
+				b.Fatal("expected proof")
+			}
+		}
+	})
+
+	b.Run("unsupported historical block", func(b *testing.B) {
+		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
+		defer finish()
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&oldBlock, nil, nil, nil)
+			if rpcErr != rpccore.ErrStorageProofNotSupported {
+				b.Fatalf("expected storage proof unsupported, got proof=%v err=%v", proof, rpcErr)
+			}
+		}
+	})
+
+	b.Run("invalid storage keys", func(b *testing.B) {
+		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
+		defer finish()
+
+		storageKeys := []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		for b.Loop() {
+			proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
+			if rpcErr == nil || rpcErr.Code != jsonrpc.InvalidParams || rpcErr.Data != rpc.MissingContractAddress {
+				b.Fatalf("expected missing contract address, got proof=%v err=%v", proof, rpcErr)
+			}
+		}
+	})
+}
+
 func arityTest(t *testing.T,
 	proof *rpc.StorageProofResult,
 	classesProofArity int,
@@ -1629,6 +1796,104 @@ func emptyTrie(t *testing.T) core.TrieReader {
 		return tempTrie
 	}
 	return emptyDeprecatedTrie(t)
+}
+
+func benchmarkUnsortedFelts(start, count uint64) []felt.Felt {
+	if count == 0 {
+		return nil
+	}
+
+	values := make([]felt.Felt, count)
+	for i := range values {
+		offset := (uint64(i)*73 + 19) % count
+		values[i] = *felt.NewFromUint64[felt.Felt](start + offset)
+	}
+	return values
+}
+
+func benchmarkStorageProofTries(
+	b *testing.B,
+	classKeys []felt.Felt,
+	contractKeys []felt.Felt,
+	storageKeys []felt.Felt,
+) (core.TrieReader, core.TrieReader, core.TrieReader) {
+	b.Helper()
+
+	if !statetestutils.UseNewState() {
+		classTrie := benchmarkDeprecatedTrie(b, []byte{0}, classKeys)
+		contractTrie := benchmarkDeprecatedTrie(b, []byte{1}, contractKeys)
+		storageTrie := benchmarkDeprecatedTrie(b, []byte{2}, storageKeys)
+		return classTrie, contractTrie, storageTrie
+	}
+
+	newComm := felt.FromUint64[felt.StateRootHash](1)
+	trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
+	benchmarkTrie(b, &trieDB, trieutils.NewClassTrieID(felt.FromUint64[felt.StateRootHash](0)), newComm, classKeys)
+	benchmarkTrie(b, &trieDB, trieutils.NewContractTrieID(felt.FromUint64[felt.StateRootHash](0)), newComm, contractKeys)
+	benchmarkTrie(b, &trieDB, trieutils.NewContractStorageTrieID(felt.FromUint64[felt.StateRootHash](0), felt.Address{}), newComm, storageKeys)
+
+	classTrie, err := trie2.New(
+		trieutils.NewClassTrieID(newComm),
+		251,
+		crypto.Pedersen,
+		&trieDB,
+	)
+	require.NoError(b, err)
+
+	contractTrie, err := trie2.New(
+		trieutils.NewContractTrieID(newComm),
+		251,
+		crypto.Pedersen,
+		&trieDB,
+	)
+	require.NoError(b, err)
+
+	storageTrie, err := trie2.New(
+		trieutils.NewContractStorageTrieID(newComm, felt.Address{}),
+		251,
+		crypto.Pedersen,
+		&trieDB,
+	)
+	require.NoError(b, err)
+
+	return classTrie, contractTrie, storageTrie
+}
+
+func benchmarkDeprecatedTrie(b *testing.B, bucket []byte, keys []felt.Felt) *trie.Trie {
+	b.Helper()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, bucket, 251)
+	require.NoError(b, err)
+	for i := range keys {
+		value := felt.NewFromUint64[felt.Felt](uint64(i + 1))
+		_, err = tempTrie.Put(&keys[i], value)
+		require.NoError(b, err)
+	}
+	require.NoError(b, tempTrie.Commit())
+
+	return tempTrie
+}
+
+func benchmarkTrie(
+	b *testing.B,
+	trieDB *trie2.TestNodeDatabase,
+	id trieutils.TrieID,
+	commitment felt.StateRootHash,
+	keys []felt.Felt,
+) {
+	b.Helper()
+
+	tr, err := trie2.New(id, 251, crypto.Pedersen, trieDB)
+	require.NoError(b, err)
+	for i := range keys {
+		value := felt.NewFromUint64[felt.Felt](uint64(i + 1))
+		require.NoError(b, tr.Update(&keys[i], value))
+	}
+	_, nodes := tr.Commit()
+	err = trieDB.Update((*felt.Felt)(&commitment), &felt.Zero, trienode.NewMergeNodeSet(nodes))
+	require.NoError(b, err)
 }
 
 func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot *felt.Felt) {
