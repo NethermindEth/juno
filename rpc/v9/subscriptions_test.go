@@ -891,7 +891,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(core.ExecutionStatus{
+		).Return(core.TransactionExecutionStatus{
 			Reverted:     block.Receipts[0].Reverted,
 			RevertReason: block.Receipts[0].RevertReason,
 		}, nil)
@@ -908,7 +908,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(core.ExecutionStatus{
+		).Return(core.TransactionExecutionStatus{
 			Reverted:     block.Receipts[0].Reverted,
 			RevertReason: block.Receipts[0].RevertReason,
 		}, nil)

@@ -440,10 +440,10 @@ func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 }
 
 // TransactionExecutionStatusByBlockNumberAndIndex mocks base method.
-func (m *MockReader) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index uint64) (core.ExecutionStatus, error) {
+func (m *MockReader) TransactionExecutionStatusByBlockNumberAndIndex(blockNumber, index uint64) (core.TransactionExecutionStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionExecutionStatusByBlockNumberAndIndex", blockNumber, index)
-	ret0, _ := ret[0].(core.ExecutionStatus)
+	ret0, _ := ret[0].(core.TransactionExecutionStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -41,24 +41,52 @@ func cborKeys(t reflect.Type) map[string]struct{} {
 	return keys
 }
 
+// assertSkeletonNamesAllFields fails if the skeleton's CBOR key set differs from its source's — a
+// dropped or renamed field would send that key back to the allocating unmatched-key path.
+func assertSkeletonNamesAllFields(t *testing.T, source, skeleton reflect.Type) {
+	t.Helper()
+	require.Equalf(t, cborKeys(source), cborKeys(skeleton),
+		"%s must name every %s field (fix discardedCBOR fields to match)", skeleton, source)
+}
+
+// assertProjectionsCoverSource fails if any projection's CBOR key set differs from its source's.
+func assertProjectionsCoverSource(t *testing.T, source reflect.Type, projections ...reflect.Type) {
+	t.Helper()
+	sourceKeys := cborKeys(source)
+	for _, projection := range projections {
+		require.Equalf(t, sourceKeys, cborKeys(projection),
+			"%s must cover exactly the %s keys", projection, source)
+	}
+}
+
+// assertProjectionsCoverEveryWireKey strict-decodes real wire bytes into each projection so the
+// decoder flags any unmatched key, catching top-level tag-option drift (keyasint, toarray) that
+// cborKeys can't. Only top-level keys matter: discarded fields throw their nested value away, so
+// the projection is only responsible for lining up the keys it names.
+//
+// Non-vacuous: see TestStrictGuardCatchesKeyAsIntDrift.
+func assertProjectionsCoverEveryWireKey(t *testing.T, data []byte, projections ...any) {
+	t.Helper()
+	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
+	require.NoError(t, err)
+	for _, projection := range projections {
+		require.NoErrorf(t, strict.Unmarshal(data, projection),
+			"%T leaves a wire key unmatched (field added, or a tag name/option changed)", projection)
+	}
+}
+
 // TestPartialSkeletonMatchesHeader fails if the skeleton omits a Header field (its key would then
 // hit the allocating unmatched-key path).
 func TestPartialSkeletonMatchesHeader(t *testing.T) {
-	headerKeys := cborKeys(reflect.TypeFor[Header]())
-	skeletonKeys := cborKeys(reflect.TypeFor[discardedHeaderSkeleton]())
-	require.Equal(t, headerKeys, skeletonKeys,
-		"discardedHeaderSkeleton must name every Header field (fix discardedCBOR fields to match)")
+	assertSkeletonNamesAllFields(t,
+		reflect.TypeFor[Header](),
+		reflect.TypeFor[discardedHeaderSkeleton](),
+	)
 }
 
-// TestHeaderProjectionsCoverEveryWireKey decodes with unknown-field errors on, so the real decoder
-// flags any unmatched wire key — catching tag-option drift (keyasint, toarray) that cborKeys can't.
-// The strict DecMode lacks the encoder's tag set; valid only because Header has no tagged types.
+// TestHeaderProjectionsCoverEveryWireKey guards against tag-option drift that cborKeys is blind to.
 func TestHeaderProjectionsCoverEveryWireKey(t *testing.T) {
-	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
-	require.NoError(t, err)
-
-	data := sampleHeaderBytes(t)
-	for _, target := range []any{
+	assertProjectionsCoverEveryWireKey(t, sampleHeaderBytes(t),
 		&discardedHeaderSkeleton{},
 		&headerHashProjection{},
 		&headerGlobalStateRootProjection{},
@@ -66,31 +94,19 @@ func TestHeaderProjectionsCoverEveryWireKey(t *testing.T) {
 		&headerTimestampProjection{},
 		&headerEventsBloomProjection{},
 		&headerHashAndStateRootProjection{},
-	} {
-		require.NoErrorf(t, strict.Unmarshal(data, target),
-			"%T leaves a Header wire key unmatched (field added, or a tag name/option changed)", target)
-	}
-
-	// The guard is not vacuous: a projection that omits fields (the pre-fix shape) must be rejected.
-	var omitting struct{ Hash *felt.Felt }
-	require.Error(t, strict.Unmarshal(data, &omitting),
-		"strict mode must reject a projection that does not cover every Header wire key")
+	)
 }
 
 // TestHeaderProjectionsCoverEveryKey asserts each projection covers every Header wire key.
 func TestHeaderProjectionsCoverEveryKey(t *testing.T) {
-	headerKeys := cborKeys(reflect.TypeFor[Header]())
-	for _, projection := range []reflect.Type{
+	assertProjectionsCoverSource(t, reflect.TypeFor[Header](),
 		reflect.TypeFor[headerHashProjection](),
 		reflect.TypeFor[headerGlobalStateRootProjection](),
 		reflect.TypeFor[headerTransactionCountProjection](),
 		reflect.TypeFor[headerTimestampProjection](),
 		reflect.TypeFor[headerEventsBloomProjection](),
 		reflect.TypeFor[headerHashAndStateRootProjection](),
-	} {
-		require.Equal(t, headerKeys, cborKeys(projection),
-			"%s must cover exactly the Header keys", projection)
-	}
+	)
 }
 
 // Stand-in source/projection pairs used to prove the guards above actually fail on drift.
@@ -311,6 +327,64 @@ func TestProjectionsAreDecodeOnly(t *testing.T) {
 	require.ErrorIs(t, err, errDiscardedCBORMarshal)
 }
 
+// --- Receipt projections ---
+
+// sampleReceipt is a reverted receipt with distinct values, so its encoding exercises every
+// TransactionReceipt key and the execution-status assertions can check Reverted and RevertReason.
+func sampleReceipt() *TransactionReceipt {
+	return &TransactionReceipt{
+		Fee:             felt.NewFromUint64[felt.Felt](1),
+		TransactionHash: felt.NewFromUint64[felt.Felt](2),
+		Reverted:        true,
+		RevertReason:    "sample revert reason",
+	}
+}
+
+// sampleReceiptBytes marshals a live TransactionReceipt, so the wire key set tracks the struct.
+func sampleReceiptBytes(tb testing.TB) []byte {
+	tb.Helper()
+	data, err := encoder.Marshal(sampleReceipt())
+	require.NoError(tb, err)
+	return data
+}
+
+// TestPartialSkeletonMatchesReceipt fails if the skeleton omits a TransactionReceipt field (its key
+// would then hit the allocating unmatched-key path).
+func TestPartialSkeletonMatchesReceipt(t *testing.T) {
+	assertSkeletonNamesAllFields(t,
+		reflect.TypeFor[TransactionReceipt](),
+		reflect.TypeFor[discardedReceiptSkeleton](),
+	)
+}
+
+// TestReceiptProjectionCoversEveryKey asserts the execution-status projection covers every
+// TransactionReceipt wire key.
+func TestReceiptProjectionCoversEveryKey(t *testing.T) {
+	assertProjectionsCoverSource(t, reflect.TypeFor[TransactionReceipt](),
+		reflect.TypeFor[receiptExecutionStatusProjection]())
+}
+
+// TestReceiptProjectionCoversEveryWireKey guards against tag-option drift that cborKeys
+// is blind to.
+func TestReceiptProjectionCoversEveryWireKey(t *testing.T) {
+	assertProjectionsCoverEveryWireKey(t, sampleReceiptBytes(t),
+		&discardedReceiptSkeleton{},
+		&receiptExecutionStatusProjection{},
+	)
+}
+
+// TestExecutionStatusProjectionDecodesShadowedFields proves the shadowing fields receive the wire
+// values, not discardedCBOR — a change in cbor's embed precedence would slip past the key guards.
+func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
+	receipt := sampleReceipt()
+	var projection receiptExecutionStatusProjection
+	require.NoError(t, encoder.Unmarshal(sampleReceiptBytes(t), &projection))
+	require.Equal(t, receipt.Reverted, projection.Reverted,
+		"Reverted must receive the wire value, not discardedCBOR")
+	require.Equal(t, receipt.RevertReason, projection.RevertReason,
+		"RevertReason must receive the wire value, not discardedCBOR")
+}
+
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
 func BenchmarkPartialHeaderProjections(b *testing.B) {
 	data := sampleHeaderBytes(b)
@@ -330,4 +404,28 @@ func BenchmarkPartialHeaderProjections(b *testing.B) {
 			})
 		})
 	}
+}
+
+// BenchmarkExecutionStatusProjection compares decoding the execution-status subset via the naive
+// field-omitting struct (every unwanted key hits the allocating unmatched-key path) against the
+// discard projection (every key named, unwanted ones discarded without allocation).
+func BenchmarkExecutionStatusProjection(b *testing.B) {
+	data := sampleReceiptBytes(b)
+	b.Run("field_omitting", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r struct {
+				Reverted     bool
+				RevertReason string
+			}
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
+	b.Run("discard", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r receiptExecutionStatusProjection
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
 }

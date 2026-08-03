@@ -82,3 +82,25 @@ type headerHashAndStateRootProjection struct {
 	Hash            *felt.Felt
 	GlobalStateRoot *felt.Felt
 }
+
+// discardedReceiptSkeleton names every field of TransactionReceipt as discarded. Receipt
+// projections embed it and shadow the fields they want with typed fields of the same name (see
+// [discardedCBOR] for why every field must be named). A reflection test asserts this skeleton's
+// field set stays identical to TransactionReceipt's.
+type discardedReceiptSkeleton struct {
+	Fee                discardedCBOR
+	FeeUnit            discardedCBOR
+	Events             discardedCBOR
+	ExecutionResources discardedCBOR
+	L1ToL2Message      discardedCBOR
+	L2ToL1Message      discardedCBOR
+	TransactionHash    discardedCBOR
+	Reverted           discardedCBOR
+	RevertReason       discardedCBOR
+}
+
+type receiptExecutionStatusProjection struct {
+	discardedReceiptSkeleton
+	Reverted     bool
+	RevertReason string
+}
