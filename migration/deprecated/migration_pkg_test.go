@@ -719,89 +719,89 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// Assert:
 	// - Both state diffs have been updated.
 	// - There are no extraneous entries in the DB.
-	require.NoError(t, testdb.View(func(txn db.Snapshot) error {
-		iter, err := txn.NewIterator(nil, false)
-		require.NoError(t, err)
-		defer func() {
-			require.NoError(t, iter.Close())
-		}()
+	snap := testdb.NewSnapshot()
+	defer snap.Close()
 
-		updates := []struct {
-			key  []byte
-			want *core.StateUpdate
-		}{
-			//nolint: dupl
-			{
-				key: su0Key,
-				want: &core.StateUpdate{
-					BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x0"),
-					NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x1"),
-					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
-					StateDiff: &core.StateDiff{
-						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x3"): {
-								felt.UnsafeFromString[felt.Felt]("0x4"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
-							},
+	iter, err := snap.NewIterator(nil, false)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, iter.Close())
+	}()
+
+	updates := []struct {
+		key  []byte
+		want *core.StateUpdate
+	}{
+		//nolint: dupl // the two state-update fixtures differ only in their felt values
+		{
+			key: su0Key,
+			want: &core.StateUpdate{
+				BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				StateDiff: &core.StateDiff{
+					StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x3"): {
+							felt.UnsafeFromString[felt.Felt]("0x4"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
 						},
-						Nonces: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
-						},
-						DeployedContracts: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x8"): felt.NewUnsafeFromString[felt.Felt]("0x9"),
-						},
-						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
-						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x11"): felt.NewUnsafeFromString[felt.Felt]("0x12"),
-						},
-						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x13"): felt.NewUnsafeFromString[felt.Felt]("0x14"),
-						},
+					},
+					Nonces: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
+					},
+					DeployedContracts: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x8"): felt.NewUnsafeFromString[felt.Felt]("0x9"),
+					},
+					DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
+					DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x11"): felt.NewUnsafeFromString[felt.Felt]("0x12"),
+					},
+					ReplacedClasses: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x13"): felt.NewUnsafeFromString[felt.Felt]("0x14"),
 					},
 				},
 			},
-			//nolint: dupl
-			{
-				key: su1Key,
-				want: &core.StateUpdate{
-					BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x15"),
-					NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x16"),
-					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
-					StateDiff: &core.StateDiff{
-						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x18"): {
-								felt.UnsafeFromString[felt.Felt]("0x19"): felt.NewUnsafeFromString[felt.Felt]("0x20"),
-							},
+		},
+		//nolint: dupl // the two state-update fixtures differ only in their felt values
+		{
+			key: su1Key,
+			want: &core.StateUpdate{
+				BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x15"),
+				NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x16"),
+				OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
+				StateDiff: &core.StateDiff{
+					StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x18"): {
+							felt.UnsafeFromString[felt.Felt]("0x19"): felt.NewUnsafeFromString[felt.Felt]("0x20"),
 						},
-						Nonces: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
-						},
-						DeployedContracts: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x23"): felt.NewUnsafeFromString[felt.Felt]("0x24"),
-						},
-						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
-						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x26"): felt.NewUnsafeFromString[felt.Felt]("0x27"),
-						},
-						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							felt.UnsafeFromString[felt.Felt]("0x28"): felt.NewUnsafeFromString[felt.Felt]("0x29"),
-						},
+					},
+					Nonces: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
+					},
+					DeployedContracts: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x23"): felt.NewUnsafeFromString[felt.Felt]("0x24"),
+					},
+					DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
+					DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x26"): felt.NewUnsafeFromString[felt.Felt]("0x27"),
+					},
+					ReplacedClasses: map[felt.Felt]*felt.Felt{
+						felt.UnsafeFromString[felt.Felt]("0x28"): felt.NewUnsafeFromString[felt.Felt]("0x29"),
 					},
 				},
 			},
-		}
-		for _, update := range updates {
-			require.True(t, iter.Next())
-			key := iter.Key()
-			require.Equal(t, update.key, key)
-			value, err := iter.Value()
-			require.NoError(t, err)
-			got := new(core.StateUpdate)
-			require.NoError(t, encoder.Unmarshal(value, got))
-			require.Equal(t, update.want, got)
-		}
-		require.False(t, iter.Next())
-		return nil
-	}))
+		},
+	}
+	for _, update := range updates {
+		require.True(t, iter.Next())
+		key := iter.Key()
+		require.Equal(t, update.key, key)
+		value, err := iter.Value()
+		require.NoError(t, err)
+		got := new(core.StateUpdate)
+		require.NoError(t, encoder.Unmarshal(value, got))
+		require.Equal(t, update.want, got)
+	}
+	require.False(t, iter.Next())
 }
 
 func randSlice(t *testing.T) []felt.Felt {
