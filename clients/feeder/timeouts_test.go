@@ -70,9 +70,9 @@ func TestParseTimeouts(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "empty input",
-			input:   "",
-			wantErr: true,
+			name:  "empty input falls back to the default timeout",
+			input: "",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
 		},
 		{
 			name:  "single value",
@@ -99,11 +99,6 @@ func TestParseTimeouts(t *testing.T) {
 		{
 			name:    "invalid duration",
 			input:   "5s,invalid,10s",
-			wantErr: true,
-		},
-		{
-			name:    "empty timeouts",
-			input:   "",
 			wantErr: true,
 		},
 		{

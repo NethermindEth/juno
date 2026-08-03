@@ -2,48 +2,34 @@ package node
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
-	"runtime"
 	"slices"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/feed"
-	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1"
-	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
-	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
-	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/sourcegraph/conc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -52,116 +38,16 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	mempoolLimit     = 1024
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
-	sequencerAddress = 1337
-	PruneModeFlag    = "prune-mode"
-	PruneMinAgeFlag  = "prune-min-age"
+	PruneModeFlag   = "prune-mode"
+	PruneMinAgeFlag = "prune-min-age"
 )
-
-// Config is the top-level juno configuration.
-type Config struct {
-	LogLevel                 string           `mapstructure:"log-level"`
-	LogJSON                  bool             `mapstructure:"log-json"`
-	HTTP                     bool             `mapstructure:"http"`
-	HTTPHost                 string           `mapstructure:"http-host"`
-	HTTPPort                 uint16           `mapstructure:"http-port"`
-	RPCCorsEnable            bool             `mapstructure:"rpc-cors-enable"`
-	Websocket                bool             `mapstructure:"ws"`
-	WebsocketHost            string           `mapstructure:"ws-host"`
-	WebsocketPort            uint16           `mapstructure:"ws-port"`
-	GRPC                     bool             `mapstructure:"grpc"`
-	GRPCHost                 string           `mapstructure:"grpc-host"`
-	GRPCPort                 uint16           `mapstructure:"grpc-port"`
-	DatabasePath             string           `mapstructure:"db-path"`
-	Network                  networks.Network `mapstructure:"network"`
-	EthNode                  string           `mapstructure:"eth-node"`
-	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
-	Pprof                    bool             `mapstructure:"pprof"`
-	PprofHost                string           `mapstructure:"pprof-host"`
-	PprofPort                uint16           `mapstructure:"pprof-port"`
-	Colour                   bool             `mapstructure:"colour"`
-	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
-	RemoteDB                 string           `mapstructure:"remote-db"`
-	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
-
-	Sequencer      bool   `mapstructure:"seq-enable"`
-	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
-	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
-	SeqDisableFees bool   `mapstructure:"seq-disable-fees"`
-
-	Metrics     bool   `mapstructure:"metrics"`
-	MetricsHost string `mapstructure:"metrics-host"`
-	MetricsPort uint16 `mapstructure:"metrics-port"`
-
-	P2P           bool   `mapstructure:"p2p"`
-	P2PAddr       string `mapstructure:"p2p-addr"`
-	P2PPublicAddr string `mapstructure:"p2p-public-addr"`
-	P2PPeers      string `mapstructure:"p2p-peers"`
-	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
-	P2PPrivateKey string `mapstructure:"p2p-private-key"`
-
-	MaxVMs                  uint   `mapstructure:"max-vms"`
-	MaxVMQueue              uint   `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan         uint   `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps         uint64 `mapstructure:"rpc-call-max-steps"`
-	RPCCallMaxGas           uint64 `mapstructure:"rpc-call-max-gas"`
-	ReadinessBlockTolerance uint   `mapstructure:"readiness-block-tolerance"`
-
-	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
-	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
-
-	DBCacheSize             uint   `mapstructure:"db-cache-size"`
-	DBMaxHandles            int    `mapstructure:"db-max-handles"`
-	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
-	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
-	DBMemtableCount         uint   `mapstructure:"db-memtable-count"`
-	DBCompression           string `mapstructure:"db-compression"`
-
-	GatewayAPIKey   string `mapstructure:"gw-api-key"`
-	GatewayTimeouts string `mapstructure:"gw-timeouts"`
-
-	PluginPath string `mapstructure:"plugin-path"`
-
-	HTTPUpdateHost string `mapstructure:"http-update-host"`
-	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
-
-	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
-
-	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
-
-	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
-
-	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
-	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
-	MaxConcurrentCompilations         uint64 `mapstructure:"max-concurrent-compilations"`
-	MaxConcurrentCompilationsExplicit bool
-	MaxCompilationQueue               uint64 `mapstructure:"max-compilation-queue"`
-	MaxCompilationQueueExplicit       bool
-
-	MaxCompilationMemory  uint `mapstructure:"max-compilation-memory"`   // megabytes
-	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
-	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState              bool `mapstructure:"new-state"`
-
-	// Prune is true when --prune-mode was provided (any value, including 0
-	// or absent). Set in cmd PreRunE; not bound via mapstructure.
-	Prune          bool
-	RetainedBlocks uint64        `mapstructure:"prune-mode"`
-	PruneMinAge    time.Duration `mapstructure:"prune-min-age"`
-}
 
 type Node struct {
 	cfg        *Config
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
-	compiler   compiler.Compiler
-
-	earlyServices []service.Service // Services that needs to start before than other services and before migration.
+	// Services that needs to start before than other services and before migration.
+	earlyServices []service.Service
 	services      []service.Service
 	logger        log.Logger
 
@@ -173,7 +59,23 @@ type Node struct {
 // Todo: (immediate follow-up PR) tidy this function up.
 //
 //nolint:gocyclo,funlen // TODO: refactor this function to reduce complexity
-func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
+func New(
+	ctx context.Context,
+	cfg *Config,
+	version string,
+	logLevel *log.Level,
+) (*Node, error) {
+	if cfg.Sequencer {
+		return nil, errors.New("sequencer configuration is no longer supported")
+	}
+
+	// History pruning needs an L1-finalised cutoff to know which blocks are
+	// safe to drop. If no L1 client is given, new cutoffs cannot be set.
+	if cfg.Prune && cfg.DisableL1Verification {
+		return nil, errors.New("--prune-mode requires L1 verification; " +
+			"remove --disable-l1-verification or disable --prune-mode")
+	}
+
 	logger, err := log.NewZapLogger(
 		logLevel,
 		log.WithColour(cfg.Colour),
@@ -183,75 +85,42 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	// History pruning needs an L1-finalised cutoff to know which blocks are
-	// safe to drop. The cutoff is established by the L1 client, so disabling
-	// L1 verification makes pruning unsafe — reject the combination up front
-	// instead of crashing later when the migration cannot find an L1 head.
-	if cfg.Prune && cfg.DisableL1Verification {
-		return nil, errors.New("--prune-mode requires L1 verification; " +
-			"remove --disable-l1-verification or disable --prune-mode")
-	}
-
-	dbIsRemote := cfg.RemoteDB != ""
+	isRemoteDB := cfg.RemoteDB != ""
 	var database db.KeyValueStore
-	if dbIsRemote {
+	if isRemoteDB {
 		database, err = remote.New(
+			ctx,
 			cfg.RemoteDB,
-			context.TODO(),
 			logger,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
-	} else {
-		// note(rdr): A dedicated logger with level Error to avoid noise.
-		var dbLog *log.ZapLogger
-		dbLog, err = log.NewZapLogger(
-			log.NewLevel(log.ERROR),
-			log.WithColour(cfg.Colour),
-			log.WithJSON(cfg.LogJSON),
-		)
 		if err != nil {
-			return nil, fmt.Errorf("create DB logger: %w", err)
+			return nil, fmt.Errorf("opening remote DB: %w", err)
 		}
-		database, err = pebblev2.New(
-			cfg.DatabasePath,
-			pebblev2.WithCacheSize(cfg.DBCacheSize),
-			pebblev2.WithMaxOpenFiles(cfg.DBMaxHandles),
-			pebblev2.WithLogger(dbLog),
-			pebblev2.WithCompactionConcurrency(cfg.DBCompactionConcurrency),
-			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
-			pebblev2.WithMemtableCount(cfg.DBMemtableCount),
-			pebblev2.WithCompression(cfg.DBCompression),
-		)
+	} else {
+		database, err = initializeLocalDB(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("opening local DB: %w", err)
+		}
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("open DB: %w", err)
-	}
-
-	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
-
-	services := make([]service.Service, 0)
-	earlyServices := make([]service.Service, 0)
-
-	opts := make([]blockchain.Option, 0, 3)
+	chainOpts := make([]blockchain.Option, 0, 3)
+	chainOpts = append(chainOpts, blockchain.WithNewState(cfg.NewState))
 	if cfg.Metrics {
-		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
+		chainOpts = append(chainOpts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
-	opts = append(opts, blockchain.WithNewState(
-		cfg.NewState,
-	))
 	if cfg.Prune {
-		opts = append(
-			opts,
+		chainOpts = append(
+			chainOpts,
 			blockchain.WithRunningEventFilterInitializer(pruner.InitializeRunningEventFilter),
 		)
 	}
-	chain := blockchain.New(database, &cfg.Network, opts...)
+	chain := blockchain.New(database, &cfg.Network, chainOpts...)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, fmt.Errorf("get head block from database: %v", err)
+		return nil, fmt.Errorf("getting head block from database: %w", err)
 	}
 	if head != nil {
 		stateUpdate, err := chain.StateUpdateByNumber(head.Number)
@@ -259,33 +128,28 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, err
 		}
 
-		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
+		// We assume that there is at least one transaction in the block
+		// or that it is a pre-0.7 block.
 		trieBackend := core.DeprecatedTrieBackend
 		if cfg.NewState {
 			trieBackend = core.TrieBackend
 		}
-		if _, err = core.VerifyBlockHash(
-			head,
-			&cfg.Network,
-			stateUpdate.StateDiff,
-			trieBackend,
-		); err != nil {
-			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		_, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff, trieBackend)
+		if err != nil {
+			return nil, errors.New(
+				"unable to verify latest block hash; " +
+					"are the database and --network option compatible?")
 		}
 	}
 
 	if cfg.VersionedConstantsFile != "" {
 		err = vm.SetVersionedConstants(cfg.VersionedConstantsFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to set versioned constants: %w", err)
+			return nil, fmt.Errorf("setting custom versioned constants: %w", err)
 		}
 	}
 
-	var synchronizer *sync.Synchronizer
-	var rpcHandler *rpc.Handler
-	var client *feeder.Client
-	var gatewayClient *gateway.Client
-	var p2pService *p2p.Service
+	services := make([]service.Service, 0)
 
 	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
@@ -295,9 +159,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 		services = append(services, plugin.NewService(junoPlugin))
 	}
-
-	var nodeVM vm.VM
-	var throttledVM *ThrottledVM
 
 	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
 	compiler := compiler.New(
@@ -310,241 +171,140 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
-	if cfg.Sequencer {
-		logger.Warn(
-			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+	userAgentID := fmt.Sprintf("Juno/%s Starknet Client", version)
+	timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
+	if err != nil {
+		return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
+	}
+	if cfg.Network.FeederURL == nil {
+		return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
+	}
+	feederClient := feeder.NewClient(
+		cfg.Network.FeederURL,
+		feeder.WithUserAgent(userAgentID),
+		feeder.WithLogger(logger),
+		feeder.WithTimeouts(timeouts, fixed),
+		feeder.WithAPIKey(cfg.GatewayAPIKey),
+		feeder.WithListener(makeFeederMetrics(cfg.Metrics)),
+	)
+
+	// Handle fee tokens for custom networks
+	feeTokens := networks.DefaultFeeTokenAddresses
+	if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
+		// For custom networks, fetch fee tokens from the gateway
+		feeTokens, err = feederClient.FeeTokenAddresses(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to fetch fee token addresses for custom network: %w", err,
+			)
+		}
+	}
+
+	chainInfo := vm.ChainInfo{
+		ChainID:           cfg.Network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	nodeVM := vm.New(&chainInfo, false, logger)
+	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
+
+	feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feederClient))
+	synchronizer := sync.New(
+		chain,
+		feederGatewayDataSource,
+		logger,
+		cfg.PreConfirmedPollInterval,
+		isRemoteDB,
+		database,
+	)
+	synchronizer.WithPlugin(junoPlugin)
+
+	if cfg.Network.GatewayURL == nil {
+		return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
+	}
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, logger).
+		WithUserAgent(userAgentID).
+		WithAPIKey(cfg.GatewayAPIKey)
+
+	var p2pService *p2p.Service
+	if cfg.P2P {
+		if cfg.Network == networks.Mainnet {
+			return nil, fmt.Errorf("P2P cannot be used on %v network", networks.Mainnet)
+		}
+		logger.Warn("P2P features enabled. Please note P2P is in experimental stage")
+
+		if !cfg.P2PFeederNode {
+			// Do not start the feeder synchronisation
+			synchronizer = nil
+		}
+		p2pService, err = p2p.New(
+			cfg.P2PAddr,
+			cfg.P2PPublicAddr,
+			version,
+			cfg.P2PPeers,
+			cfg.P2PPrivateKey,
+			cfg.P2PFeederNode,
+			chain,
+			&cfg.Network,
+			logger,
+			database,
+			throttledCompiler,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("set up p2p service: %w", err)
+		}
 
-		// Sequencer mode only supports known networks and
-		// uses default fee tokens (custom networks not supported yet)
-		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
-			return nil, fmt.Errorf("custom networks are not supported in sequencer mode yet")
-		}
-		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
-		if kErr != nil {
-			return nil, kErr
-		}
-		feeTokens := networks.DefaultFeeTokenAddresses
-		chainInfo := vm.ChainInfo{
-			ChainID:           cfg.Network.L2ChainID,
-			FeeTokenAddresses: feeTokens,
-		}
-		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
-		mempool := mempool.New(database, chain, mempoolLimit, logger)
-		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
-		builder := builder.New(chain, executor)
-		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
-			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
-		seq.WithPlugin(junoPlugin)
-		rpcHandler = rpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
-			WithCompiler(throttledCompiler).
-			WithMempool(mempool).
-			WithCallMaxSteps(cfg.RPCCallMaxSteps).
-			WithCallMaxGas(cfg.RPCCallMaxGas)
-		services = append(services, &seq)
+		services = append(services, p2pService)
+	}
+
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
+	if synchronizer != nil {
+		syncReader = synchronizer
+	}
+
+	submittedTransactionsCache := rpccore.NewTransactionCache(
+		cfg.SubmittedTransactionsCacheEntryTTL,
+		cfg.SubmittedTransactionsCacheSize,
+	)
+	services = append(services, submittedTransactionsCache)
+
+	if synchronizer != nil {
+		services = append(services, synchronizer)
 		if cfg.Prune {
-			prunerOpts := make([]pruner.Option, 0, 2)
-			if cfg.Metrics {
-				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
-			}
-
-			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
 				cfg.RetainedBlocks,
-				seq.SubscribeNewHeads().Subscription,
+				synchronizer.SubscribeNewHeads().Subscription,
 				chain.SubscribeL1Head().Subscription,
 				logger,
-				prunerOpts...,
+				pruner.WithListener(makePrunerMetrics(cfg.Metrics)),
+				pruner.WithMinAge(cfg.PruneMinAge),
 			)
 			services = append(services, p)
 		}
-	} else {
-		if cfg.GatewayTimeouts == "" {
-			cfg.GatewayTimeouts = feeder.DefaultTimeouts
-		}
-		timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
-		if err != nil {
-			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
-		}
-
-		if cfg.Network.FeederURL == nil {
-			return nil, fmt.Errorf("network %q has no feeder URL configured", cfg.Network.Name)
-		}
-		if cfg.Network.GatewayURL == nil {
-			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
-		}
-
-		feederClientOpts := []feeder.Option{
-			feeder.WithUserAgent(ua),
-			feeder.WithLogger(logger),
-			feeder.WithTimeouts(timeouts, fixed),
-			feeder.WithAPIKey(cfg.GatewayAPIKey),
-		}
-		if cfg.Metrics {
-			feederClientOpts = append(feederClientOpts, feeder.WithListener(makeFeederMetrics()))
-		}
-		client = feeder.NewClient(cfg.Network.FeederURL, feederClientOpts...)
-
-		// Handle fee tokens for custom networks
-		feeTokens := networks.DefaultFeeTokenAddresses
-		if !slices.Contains(networks.KnownNetworkNames, cfg.Network.Name) {
-			// For custom networks, fetch fee tokens from the gateway
-			feeTokens, err = client.FeeTokenAddresses(context.Background())
-			if err != nil {
-				return nil, fmt.Errorf(
-					"failed to fetch fee token addresses for custom network: %w", err,
-				)
-			}
-		}
-		chainInfo := vm.ChainInfo{
-			ChainID:           cfg.Network.L2ChainID,
-			FeeTokenAddresses: feeTokens,
-		}
-		nodeVM = vm.New(&chainInfo, false, logger)
-		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
-
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			logger,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
-		synchronizer.WithPlugin(junoPlugin)
-
-		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, logger).
-			WithUserAgent(ua).
-			WithAPIKey(cfg.GatewayAPIKey)
-
-		if cfg.P2P {
-			if cfg.Network == networks.Mainnet {
-				return nil, fmt.Errorf("P2P cannot be used on %v network", networks.Mainnet)
-			}
-			logger.Warn("P2P features enabled. Please note P2P is in experimental stage")
-
-			if !cfg.P2PFeederNode {
-				// Do not start the feeder synchronisation
-				synchronizer = nil
-			}
-			p2pService, err = p2p.New(
-				cfg.P2PAddr,
-				cfg.P2PPublicAddr,
-				version,
-				cfg.P2PPeers,
-				cfg.P2PPrivateKey,
-				cfg.P2PFeederNode,
-				chain,
-				&cfg.Network,
-				logger,
-				database,
-				throttledCompiler,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("set up p2p service: %w", err)
-			}
-
-			services = append(services, p2pService)
-		}
-
-		var syncReader sync.Reader = &sync.NoopSynchronizer{}
-		if synchronizer != nil {
-			syncReader = synchronizer
-		}
-
-		submittedTransactionsCache := rpccore.NewTransactionCache(
-			cfg.SubmittedTransactionsCacheEntryTTL,
-			cfg.SubmittedTransactionsCacheSize,
-		)
-		services = append(services, submittedTransactionsCache)
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
-			WithCompiler(throttledCompiler).
-			WithGateway(gatewayClient).
-			WithFeeder(client).
-			WithSubmittedTransactionsCache(submittedTransactionsCache).
-			WithFilterLimit(cfg.RPCMaxBlockScan).
-			WithCallMaxSteps(cfg.RPCCallMaxSteps).
-			WithCallMaxGas(cfg.RPCCallMaxGas)
-
-		if !cfg.DisableReceivedTxnStream {
-			receivedTxFeed := feed.New[core.Transaction]()
-			rpcHandler = rpcHandler.WithReceivedTransactionFeed(receivedTxFeed)
-		}
-		if synchronizer != nil {
-			services = append(services, synchronizer)
-			if cfg.Prune {
-				prunerOpts := make([]pruner.Option, 0, 2)
-				if cfg.Metrics {
-					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
-				}
-
-				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
-				p := pruner.New(
-					database,
-					cfg.RetainedBlocks,
-					synchronizer.SubscribeNewHeads().Subscription,
-					chain.SubscribeL1Head().Subscription,
-					logger,
-					prunerOpts...,
-				)
-				services = append(services, p)
-			}
-		}
 	}
 
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
+		WithCompiler(throttledCompiler).
+		WithGateway(gatewayClient).
+		WithFeeder(feederClient).
+		WithSubmittedTransactionsCache(submittedTransactionsCache).
+		WithFilterLimit(cfg.RPCMaxBlockScan).
+		WithCallMaxSteps(cfg.RPCCallMaxSteps).
+		WithCallMaxGas(cfg.RPCCallMaxGas)
+
+	if !cfg.DisableReceivedTxnStream {
+		receivedTxFeed := feed.New[core.Transaction]()
+		rpcHandler = rpcHandler.WithReceivedTransactionFeed(receivedTxFeed)
+	}
 	services = append(services, rpcHandler)
 
-	// to improve RPC throughput we double GOMAXPROCS
-	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-
-	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithValidator(rpcv10.Validator()).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
-	if err = jsonrpcServerV10.RegisterMethods(methodsV10...); err != nil {
-		return nil, err
+	rpcServers, err := makeRPCServers(cfg, rpcHandler, logger)
+	if err != nil {
+		return nil, fmt.Errorf("building rpc servers: %w", err)
 	}
 
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithValidator(rpcv9.Validator()).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
-	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
-		return nil, err
-	}
-
-	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithValidator(rpcv8.Validator()).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
-	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
-		return nil, err
-	}
-
-	// All the following endpoints will be available for both HTTP and WS.
-	// Also, additional WS endpoints will be created in the following format: /ws/<path>
-	// E.g.:
-	// /ws + /
-	// /ws + /rpc
-	// /ws + /v0_10
-	// /ws + /rpc/v0_10
-	rpcServers := map[string]*jsonrpc.Server{
-		// Default RPC endpoints
-		"/":    jsonrpcServerV10,
-		"/rpc": jsonrpcServerV10,
-
-		pathV10:          jsonrpcServerV10,
-		pathV09:          jsonrpcServerV09,
-		pathV08:          jsonrpcServerV08,
-		"/rpc" + pathV10: jsonrpcServerV10,
-		"/rpc" + pathV09: jsonrpcServerV09,
-		"/rpc" + pathV08: jsonrpcServerV08,
-	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
+		readinessHandlers := NewReadinessHandlers(chain, syncReader, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/live":       readinessHandlers.HandleLive,
 			"/ready":      readinessHandlers.HandleReadySync,
@@ -566,6 +326,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			),
 		)
 	}
+
 	if cfg.Websocket {
 		services = append(
 			services,
@@ -580,13 +341,19 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			),
 		)
 	}
+
+	earlyServices := make([]service.Service, 0)
+
 	if cfg.HTTPUpdatePort != 0 {
 		logger.Info(
 			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
 				"/log/level and /feeder/timeouts",
 		)
-		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
+		earlyServices = append(
+			earlyServices,
+			makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, feederClient),
+		)
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
@@ -595,19 +362,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		makePebbleMetrics(database)
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08)
-		jsonrpcServerV10.WithListener(rpcMetrics[0])
-		jsonrpcServerV09.WithListener(rpcMetrics[1])
-		jsonrpcServerV08.WithListener(rpcMetrics[2])
-		if !cfg.Sequencer {
-			gatewayClient.WithListener(makeGatewayMetrics())
-			if synchronizer != nil {
-				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
-			} else if p2pService != nil {
-				// regular p2p node
-				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-			}
+		gatewayClient.WithListener(makeGatewayMetrics())
+		if synchronizer != nil {
+			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		} else if p2pService != nil {
+			// regular p2p node
+			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
 		}
+
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
@@ -617,39 +379,43 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
 
-	n := &Node{
+	node := &Node{
 		cfg:           cfg,
 		logger:        logger,
 		version:       version,
 		db:            database,
 		blockchain:    chain,
-		compiler:      throttledCompiler,
 		services:      services,
 		earlyServices: earlyServices,
 	}
 
-	if !n.cfg.DisableL1Verification {
+	if !node.cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
-		if n.cfg.EthNode == "" {
-			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
+		if node.cfg.EthNode == "" {
+			return nil, fmt.Errorf("ethereum node address not set; " +
+				"Use --disable-l1-verification flag if L1 verification is not required",
+			)
 		}
 
 		l1Client, provider, err := newL1Client(
-			context.Background(), cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
+			ctx, cfg.EthNode, cfg.Metrics, node.blockchain, node.logger,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
 
-		n.services = append(n.services, l1Client)
+		node.services = append(node.services, l1Client)
 		rpcHandler.WithL1Client(provider)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
+		const upgraderDelay = 5 * time.Minute
+		const githubAPIUrl = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+		const latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 		ug := upgrader.NewUpgrader(
-			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.logger,
+			semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, node.logger,
 		)
-		n.services = append(n.services, ug)
+		node.services = append(node.services, ug)
 	} else {
 		logger.Warn(
 			"Failed to parse Juno version, will not warn about new releases",
@@ -657,69 +423,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 
-	return n, nil
-}
-
-func newL1Client(
-	ctx context.Context,
-	ethNode string,
-	includeMetrics bool,
-	chain *blockchain.Blockchain,
-	logger log.StructuredLogger,
-) (*l1.Client, *l1.GethL1StateProvider, error) {
-	// One EventListener, shared by the L1 client (OnNewL1Head) and
-	// the provider (OnL1Call), wired only under --metrics.
-	l1Opts := []l1.Option{}
-	providerOpts := []l1.GethL1StateProviderOption{}
-	if includeMetrics {
-		listener := makeL1Metrics(chain)
-		l1Opts = append(l1Opts, l1.WithEventListener(listener))
-		providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
-	}
-
-	provider, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating L1 state provider: %w", err)
-	}
-	if includeMetrics {
-		registerL1Metrics(provider)
-	}
-
-	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
-}
-
-// newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
-// client. ws/wss is enforced at the URL level because subscribe-based
-// log delivery (eth_subscribe) requires a long-lived connection that
-// HTTP doesn't provide.
-func newGethL1StateProvider(
-	ctx context.Context,
-	ethNode string,
-	chain *blockchain.Blockchain,
-	opts ...l1.GethL1StateProviderOption,
-) (*l1.GethL1StateProvider, error) {
-	ethNodeURL, err := url.Parse(ethNode)
-	if err != nil {
-		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
-	}
-	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New(
-			"non-websocket Ethereum node URL (need wss://... or ws://...)",
-		)
-	}
-
-	// One-minute timeout layered on the caller's ctx so a slow dial
-	// can't outlive node startup or the migration that triggered it.
-	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	provider, err := l1.NewGethL1StateProvider(
-		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
-	}
-	return provider, nil
+	return node, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
@@ -762,34 +466,6 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.logger.Error("Error while running migrations", zap.Error(err))
 		return
-	}
-
-	if n.cfg.Sequencer {
-		// Custom networks are not supported in sequencer mode yet
-		if !slices.Contains(networks.KnownNetworkNames, n.cfg.Network.Name) {
-			n.logger.Error("Custom networks are not supported in sequencer mode yet")
-			return
-		}
-		feeTokens := networks.DefaultFeeTokenAddresses
-		chainInfo := vm.ChainInfo{
-			ChainID:           n.cfg.Network.L2ChainID,
-			FeeTokenAddresses: feeTokens,
-		}
-
-		err := buildGenesis(
-			ctx,
-			n.cfg.SeqGenesisFile,
-			n.blockchain,
-			vm.New(&chainInfo, false, n.logger),
-			n.cfg.RPCCallMaxSteps,
-			n.cfg.RPCCallMaxGas,
-			n.cfg.NewState,
-			n.compiler,
-		)
-		if err != nil {
-			n.logger.Error("Error building genesis state", zap.Error(err))
-			return
-		}
 	}
 
 	for _, s := range n.services {

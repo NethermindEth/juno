@@ -33,7 +33,7 @@ type Sequencer struct {
 	buildState       *builder.BuildState
 	sequencerAddress *felt.Felt
 	privKey          *ecdsa.PrivateKey
-	logger           log.Logger
+	logger           log.StructuredLogger
 	blockTime        time.Duration
 	mempool          *mempool.SequencerMempool
 
@@ -51,7 +51,7 @@ func New(
 	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
-	logger log.Logger,
+	logger log.StructuredLogger,
 ) Sequencer {
 	return Sequencer{
 		builder:          b,
@@ -108,7 +108,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			if err := s.builder.Finalise(preConfirmed, newBlockSigner(s.privKey), s.privKey); err != nil {
 				return err
 			}
-			s.logger.Infof("Finalised new block")
+			s.logger.Info("Finalised new block")
 			if s.plugin != nil {
 				err := s.plugin.NewBlock(preConfirmed.Block, preConfirmed.StateUpdate, preConfirmed.NewClasses)
 				if err != nil {

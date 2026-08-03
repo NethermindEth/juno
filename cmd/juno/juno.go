@@ -91,10 +91,6 @@ const (
 	corsEnableF                         = "rpc-cors-enable"
 	versionedConstantsFileF             = "versioned-constants-file"
 	pluginPathF                         = "plugin-path"
-	seqEnF                              = "seq-enable"
-	seqBlockTimeF                       = "seq-block-time"
-	seqGenesisFileF                     = "seq-genesis-file"
-	seqDisableFeesF                     = "seq-disable-fees"
 	readinessBlockToleranceF            = "readiness-block-tolerance"
 	httpUpdateHostF                     = "http-update-host"
 	httpUpdatePortF                     = "http-update-port"
@@ -158,10 +154,6 @@ const (
 	defaultCorsEnable                         = false
 	defaultVersionedConstantsFile             = ""
 	defaultPluginPath                         = ""
-	defaultSeqEn                              = false
-	defaultSeqBlockTime                       = 60
-	defaultSeqGenesisFile                     = ""
-	defaultSeqDisableFees                     = false
 	defaultReadinessBlockTolerance            = 6
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
@@ -243,10 +235,6 @@ const (
 	corsEnableUsage                    = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
 	pluginPathUsage                    = "Path to the plugin .so file"
-	seqEnUsage                         = "EXPERIMENTAL: Enables sequencer mode of operation"
-	seqBlockTimeUsage                  = "EXPERIMENTAL: Time to build a block, in seconds"
-	seqGenesisFileUsage                = "EXPERIMENTAL: Path to the genesis file"
-	seqDisableFeesUsage                = "EXPERIMENTAL: Skip charging fees for sequencer execution"
 	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
@@ -334,7 +322,7 @@ func main() {
 			return err
 		}
 
-		n, err := node.New(config, Version, logLevel)
+		n, err := node.New(cmd.Context(), config, Version, logLevel)
 		if err != nil {
 			return err
 		}
@@ -682,13 +670,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catP2P,
 		p2pF, p2pAddrF, p2pPublicAddrF, p2pPeersF, p2pFeederNodeF, p2pPrivateKey,
 	)
-
-	// --- Sequencer ---
-	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
-	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
-	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
-	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
-	setCategory(junoCmd, catSequencer, seqEnF, seqBlockTimeF, seqGenesisFileF, seqDisableFeesF)
 
 	// --- gRPC ---
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)

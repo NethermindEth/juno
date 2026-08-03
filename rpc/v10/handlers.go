@@ -30,7 +30,7 @@ type Handler struct {
 	gatewayClient rpccore.Gateway
 	feederClient  feeder.Reader
 	vm            vm.VM
-	logger        log.Logger
+	logger        log.StructuredLogger
 	memPool       mempool.Pool
 
 	newHeads                *feed.Feed[*core.Block]
@@ -67,7 +67,7 @@ func New(
 	bcReader blockchain.Reader,
 	syncReader sync.Reader,
 	virtualMachine vm.VM,
-	logger log.Logger,
+	logger log.StructuredLogger,
 ) *Handler {
 	return &Handler{
 		bcReader:   bcReader,

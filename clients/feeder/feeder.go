@@ -97,7 +97,8 @@ func NewClient(clientURL *url.URL, opts ...Option) *Client {
 	o := options{
 		httpClient: http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
+		// ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
+		maxRetries: 10,
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
 		logger:     log.NewNopZapLogger(),

@@ -122,14 +122,14 @@ func makeTimeouts(timeouts []time.Duration, fixed bool) *Timeouts {
 	return &t
 }
 
-// ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration.
-// Returns:
+// ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration
+// and returns the timeout values. An empty string returns a default timeouts.
 // - the parsed timeout values
 // - if a fixed or dynamic timeouts should be used
 // - an error in case the string cannot be parsed
 func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 	if value == "" {
-		return nil, true, fmt.Errorf("timeouts are not set")
+		value = DefaultTimeouts
 	}
 
 	values := strings.Split(value, ",")
@@ -146,7 +146,7 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 	for i, v := range values {
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return nil, false, fmt.Errorf("parsing timeout parameter number %d: %v", i+1, err)
+			return nil, false, fmt.Errorf("parsing timeout parameter number %d: %w", i+1, err)
 		}
 		timeouts = append(timeouts, d)
 	}
@@ -156,13 +156,26 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 
 	for i := 1; i < len(timeouts); i++ {
 		if timeouts[i] <= timeouts[i-1] {
-			return nil, false, fmt.Errorf("timeout values must be in ascending order, got %v <= %v", timeouts[i], timeouts[i-1])
+			return nil,
+				false,
+				fmt.Errorf(
+					"timeout values must be in ascending order, got %s <= %s",
+					timeouts[i],
+					timeouts[i-1],
+				)
 		}
 	}
 
 	if len(timeouts) > timeoutsCount {
-		return nil, false, fmt.Errorf("exceeded max amount of allowed timeout parameters. Set %d but max is %d", len(timeouts), timeoutsCount)
+		return nil,
+			false,
+			fmt.Errorf(
+				"exceeded max amount of allowed timeout parameters. Set %d but max is %d",
+				len(timeouts),
+				timeoutsCount,
+			)
 	}
+
 	return timeouts, false, nil
 }
 

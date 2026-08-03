@@ -110,31 +110,33 @@ type BlockCommitments struct {
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
 func VerifyBlockHash(
-	b *Block,
+	block *Block,
 	network *networks.Network,
 	stateDiff *StateDiff,
 	backend TempTrieBackend,
 ) (*BlockCommitments, error) {
-	if len(b.Transactions) != len(b.Receipts) {
-		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
-			len(b.Transactions), len(b.Receipts))
+	if len(block.Transactions) != len(block.Receipts) {
+		return nil, fmt.Errorf("len of transactions: %d do not match len of receipts: %d",
+			len(block.Transactions), len(block.Receipts))
 	}
 
-	for i, tx := range b.Transactions {
-		if !tx.Hash().Equal(b.Receipts[i].TransactionHash) {
+	for i, tx := range block.Transactions {
+		if !tx.Hash().Equal(block.Receipts[i].TransactionHash) {
 			return nil, fmt.Errorf(
-				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
-				tx.Hash().String(), i, b.Receipts[i].TransactionHash)
+				"transaction hash (%s) at index: %d does not match receipt's hash (%s)",
+				tx.Hash(), i, block.Receipts[i].TransactionHash,
+			)
 		}
 	}
 
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
 
-	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
-	// todo should we still keep it after p2p ?
+	skipVerification := len(unverifiableRange) == 2 &&
+		block.Number >= unverifiableRange[0] && block.Number <= unverifiableRange[1]
 	if !skipVerification {
-		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
+		err := VerifyTransactions(block.Transactions, network, block.ProtocolVersion)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -146,20 +148,19 @@ func VerifyBlockHash(
 
 	for _, fallbackSeq := range fallbackSeqAddresses {
 		var overrideSeq *felt.Felt
-		if b.SequencerAddress == nil {
+		if block.SequencerAddress == nil {
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq, backend)
+		hash, commitments, err := BlockHash(block, stateDiff, network, overrideSeq, backend)
 		if err != nil {
 			return nil, err
 		}
-
-		if hash.Equal(b.Hash) {
+		if skipVerification {
 			return commitments, nil
-		} else if skipVerification {
-			// Check if the block number is in the unverifiable range
-			// If so, return success
+		}
+
+		if hash.Equal(block.Hash) {
 			return commitments, nil
 		}
 	}

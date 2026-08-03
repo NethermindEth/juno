@@ -25,7 +25,10 @@ type DB struct {
 }
 
 func New(
-	rawURL string, ctx context.Context, logger log.StructuredLogger, opts ...grpc.DialOption,
+	ctx context.Context,
+	rawURL string,
+	logger log.StructuredLogger,
+	opts ...grpc.DialOption,
 ) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {

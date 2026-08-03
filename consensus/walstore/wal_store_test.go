@@ -19,8 +19,8 @@ import (
 
 func TestNewTendermintWALStoreRejectsDatabaseWithoutLocalPath(t *testing.T) {
 	testDB, err := remote.New(
-		"localhost:1234",
 		context.Background(),
+		"localhost:1234",
 		log.NewNopZapLogger(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
