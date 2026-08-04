@@ -5,17 +5,23 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 )
 
+// Event is the RPC wire type for an event. It is field-for-field identical to core.Event (only the
+// json tags differ), which lets `AdaptReceipt` reinterpret a receipt's []*core.Event as []*Event
+// with zero copies. The conversion guard below makes any divergence a compile error.
 type Event struct {
 	From *felt.Felt  `json:"from_address,omitempty"`
 	Keys []felt.Felt `json:"keys"`
 	Data []felt.Felt `json:"data"`
 }
+
+var _ = Event(core.Event{})
 
 type ResultPageRequest struct {
 	ContinuationToken string `json:"continuation_token"`
@@ -187,11 +193,9 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 			TransactionHash:  fEvent.TransactionHash,
 			TransactionIndex: fEvent.TransactionIndex,
 			EventIndex:       fEvent.EventIndex,
-			Event: &Event{
-				From: fEvent.From,
-				Keys: fEvent.Keys,
-				Data: fEvent.Data,
-			},
+			// rpc.Event is field-identical to core.Event (guarded in this file), so alias the
+			// filtered *core.Event instead of allocating a fresh Event per emitted event.
+			Event: (*Event)(fEvent.Event),
 		}
 	}
 

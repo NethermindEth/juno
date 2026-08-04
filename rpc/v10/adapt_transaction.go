@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -145,21 +146,12 @@ func AdaptReceipt(
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
 ) *TransactionReceipt {
-	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
-		messages[idx] = &MsgToL1{
+		messages[idx] = MsgToL1{
 			To:      msg.To,
 			Payload: msg.Payload,
 			From:    msg.From,
-		}
-	}
-
-	events := make([]*Event, len(receipt.Events))
-	for idx, event := range receipt.Events {
-		events[idx] = &Event{
-			From: event.From,
-			Keys: event.Keys,
-			Data: event.Data,
 		}
 	}
 
@@ -181,12 +173,18 @@ func AdaptReceipt(
 		es = TxnSuccess
 	}
 
+	// Zero-copy: rpc.Event is field-identical to core.Event (guarded in events.go), so the decoded
+	// []*core.Event is reinterpreted as []*Event reusing the same backing array (no copy).
+	events := *(*[]*Event)(unsafe.Pointer(&receipt.Events))
+	if events == nil {
+		events = []*Event{}
+	}
 	return &TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
 		Type:            transactionTypeFrom(txn),
 		Hash:            txn.Hash(),
-		ActualFee: &FeePayment{
+		ActualFee: FeePayment{
 			Amount: receipt.Fee,
 			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},

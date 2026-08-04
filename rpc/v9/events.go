@@ -2,6 +2,7 @@ package rpcv9
 
 import (
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -36,11 +37,16 @@ type EmittedEvent struct {
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
 
+// Event is the RPC wire type for an event. It is field-for-field identical to core.Event (only the
+// json tags differ), which lets AdaptReceipt reinterpret a receipt's []*core.Event as []*Event with
+// zero copies. The conversion guard below makes any divergence a compile error.
 type Event struct {
 	From *felt.Felt  `json:"from_address,omitempty"`
 	Keys []felt.Felt `json:"keys"`
 	Data []felt.Felt `json:"data"`
 }
+
+var _ = Event(core.Event{})
 
 func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
 	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
@@ -148,11 +154,9 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
-			Event: &Event{
-				From: fEvent.From,
-				Keys: fEvent.Keys,
-				Data: fEvent.Data,
-			},
+			// rpc.Event is field-identical to core.Event (guarded in this file), so alias the
+			// filtered *core.Event instead of allocating a fresh Event per emitted event.
+			Event: (*Event)(fEvent.Event),
 		}
 	}
 
