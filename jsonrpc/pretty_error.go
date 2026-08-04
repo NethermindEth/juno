@@ -48,9 +48,9 @@ func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	)
 	switch {
 	case errors.As(err, &syntaxErr):
-		return min(int(syntaxErr.Offset)-1, inputLength), true
+		return min(int(syntaxErr.Offset)-errorOffsetAdjustment, inputLength), true
 	case errors.As(err, &typeErr):
-		return min(int(typeErr.Offset)-1, inputLength), true
+		return min(int(typeErr.Offset)-errorOffsetAdjustment, inputLength), true
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return inputLength, true
 	default:
