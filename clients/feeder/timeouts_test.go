@@ -75,26 +75,75 @@ func TestParseTimeouts(t *testing.T) {
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
 		},
 		{
+			name:    "input with just white-spaces falls back to the default timeout",
+			input:   "   ",
+			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
+			wantErr: false,
+		},
+		{
 			name:  "single value",
 			input: "5s",
 			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
 		},
 		{
-			name:    "single value with trailing comma",
-			input:   "5s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
-			wantErr: false,
+			name:  "single value with trailing comma",
+			input: "5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with trailing comma and white-space",
+			input: "5s, ",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with trailing comma and new line",
+			input: "5s,\n",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with leading white space",
+			input: " 5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:  "single value with leading new line",
+			input: "\n5s,",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+		},
+		{
+			name:    "only a comma",
+			input:   ",",
+			wantErr: true,
+		},
+		{
+			name:    "only a comma surrounded by white space",
+			input:   "  ,  \n",
+			wantErr: true,
+		},
+		{
+			name:    "double trailing comma",
+			input:   "5s,,",
+			wantErr: true,
 		},
 		{
 			name:  "multiple values",
-			input: "5s,7s,10s",
-			want:  want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			input: "5s, 7s , 10s",
+			want: want{
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second,
+				},
+				fixed: false,
+			},
 		},
 		{
-			name:    "multiple values with trailing comma",
-			input:   "5s,7s,10s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
-			wantErr: false,
+			name:  "multiple values with trailing comma",
+			input: "5s,7s,10s,",
+			want: want{
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second,
+				},
+				fixed: false,
+			},
 		},
 		{
 			name:    "invalid duration",
@@ -112,8 +161,9 @@ func TestParseTimeouts(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "max amount of timeouts exceeded",
-			input:   "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s,16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
+			name: "max amount of timeouts exceeded",
+			input: "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s," +
+				"16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
 			wantErr: true,
 		},
 	}
@@ -251,6 +301,12 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Equal(t, "timeout values must be in ascending order, got 5s <= 10s\n", rr.Body.String())
+	})
+
+	t.Run("PUT update timeouts with blank parameter", func(t *testing.T) {
+		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=%20%20", client)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "missing timeouts query parameter\n", rr.Body.String())
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {

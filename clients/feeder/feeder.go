@@ -103,7 +103,7 @@ func NewClient(clientURL *url.URL, opts ...Option) *Client {
 		minWait:    500 * time.Millisecond,
 		logger:     log.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
-		timeouts:   &defaultTimeouts,
+		timeouts:   defaultTimeouts,
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -183,7 +183,7 @@ func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, err
 			}
 
 			currentTimeout := timeouts.GetCurrentTimeout()
-			if currentTimeout >= mediumGrowThreshold {
+			if currentTimeout >= 2*time.Minute {
 				c.logger.Warn("Failed query to feeder, retrying...",
 					zap.String("req", log.SanitizeString(req.URL.String())),
 					zap.String("retryAfter", wait.String()),
