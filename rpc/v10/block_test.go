@@ -2,6 +2,7 @@ package rpcv10_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -13,6 +14,7 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
@@ -1438,4 +1440,58 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestBlockMethodsRejectCommitmentsWithoutStateDiffLength(t *testing.T) {
+	network := &networks.Mainnet
+	client := feeder.NewTestClient(t, network)
+	block, _, _ := rpc.GetTestBlockWithCommitments(t, client, 16697)
+
+	commitmentsWithoutLength := &core.BlockCommitments{
+		TransactionCommitment: &felt.Zero,
+		EventCommitment:       &felt.Zero,
+		ReceiptCommitment:     &felt.Zero,
+		StateDiffCommitment:   &felt.Zero,
+	}
+
+	for _, tc := range []struct {
+		name string
+		call func(h *rpc.Handler, id *rpc.BlockID) *jsonrpc.Error
+	}{
+		{"BlockWithTxs", func(h *rpc.Handler, id *rpc.BlockID) *jsonrpc.Error {
+			_, err := h.BlockWithTxs(id, rpc.ResponseFlags{})
+			return err
+		}},
+		{"BlockWithTxHashes", func(h *rpc.Handler, id *rpc.BlockID) *jsonrpc.Error {
+			_, err := h.BlockWithTxHashes(id)
+			return err
+		}},
+		{"BlockWithReceipts", func(h *rpc.Handler, id *rpc.BlockID) *jsonrpc.Error {
+			_, err := h.BlockWithReceipts(id, rpc.ResponseFlags{})
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+			mockReader := mocks.NewMockReader(mockCtrl)
+
+			mockReader.EXPECT().BlockHeaderByNumber(block.Number).
+				Return(block.Header, nil).AnyTimes()
+			mockReader.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
+			mockReader.EXPECT().TransactionsByBlockNumber(block.Number).
+				Return(block.Transactions, nil).AnyTimes()
+			mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
+			mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).
+				Return(commitmentsWithoutLength, nil).AnyTimes()
+
+			handler := rpc.New(mockReader, nil, nil, log.NewNopZapLogger())
+			blockID := rpc.BlockIDFromNumber(block.Number)
+
+			rpcErr := tc.call(handler, &blockID)
+			require.NotNil(t, rpcErr, "expected an error, got a response")
+			assert.Equal(t, rpccore.ErrInternal.Code, rpcErr.Code)
+			assert.Contains(t, fmt.Sprintf("%v", rpcErr.Data), "state diff length")
+		})
+	}
 }

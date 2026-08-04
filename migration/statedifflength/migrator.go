@@ -11,18 +11,14 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 
 const (
-	batchByteSize = 16 * db.Megabyte
-	timeLogRate   = 5 * time.Second
-)
-
-var (
-	shouldRerun    = []byte{}
-	shouldNotRerun = []byte(nil)
+	defaultBatchByteSize = 16 * db.Megabyte
+	timeLogRate          = 5 * time.Second
 )
 
 var _ migration.Migration = (*Migrator)(nil)
@@ -35,6 +31,9 @@ var _ migration.Migration = (*Migrator)(nil)
 // interrupted run continues where it stopped. Re-run safe: blocks that already
 // have a length are skipped.
 type Migrator struct {
+	// BatchByteSize overrides the write batch size. Zero uses the default.
+	BatchByteSize int
+
 	nextBlock uint64
 }
 
@@ -59,43 +58,52 @@ func (m *Migrator) Migrate(
 	height, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return shouldNotRerun, nil // empty database, nothing to backfill
+			return nil, nil // empty database, nothing to backfill
 		}
-		return shouldNotRerun, fmt.Errorf("getting chain height: %w", err)
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
-	if m.nextBlock > height {
-		return shouldNotRerun, nil
+	start, err := m.startBlock(database)
+	if err != nil {
+		return nil, err
+	}
+	if start > height {
+		return nil, nil
 	}
 
 	logger.Info("Backfilling state diff length",
-		zap.Uint64("fromBlock", m.nextBlock),
+		zap.Uint64("fromBlock", start),
 		zap.Uint64("toBlock", height),
 	)
+
+	batchByteSize := m.BatchByteSize
+	if batchByteSize == 0 {
+		batchByteSize = defaultBatchByteSize
+	}
 
 	batch := database.NewBatchWithSize(batchByteSize)
 	lastLog := time.Now()
 	var updated uint64
 
-	for blockNumber := m.nextBlock; blockNumber <= height; blockNumber++ {
+	for blockNumber := start; blockNumber <= height; blockNumber++ {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			if err := commit(batch, m, blockNumber); err != nil {
-				return shouldRerun, err
+			if err := m.commit(batch, blockNumber); err != nil {
+				return nil, err
 			}
 			return m.state(), ctxErr
 		}
 
 		done, err := backfillBlock(database, batch, blockNumber)
 		if err != nil {
-			return shouldRerun, fmt.Errorf("backfilling block %d: %w", blockNumber, err)
+			return nil, fmt.Errorf("backfilling block %d: %w", blockNumber, err)
 		}
 		if done {
 			updated++
 		}
 
 		if batch.Size() >= batchByteSize {
-			if err := commit(batch, m, blockNumber+1); err != nil {
-				return shouldRerun, err
+			if err := m.commit(batch, blockNumber+1); err != nil {
+				return nil, err
 			}
 			batch = database.NewBatchWithSize(batchByteSize)
 		}
@@ -111,11 +119,24 @@ func (m *Migrator) Migrate(
 	}
 
 	if err := batch.Write(); err != nil {
-		return shouldRerun, fmt.Errorf("writing final batch: %w", err)
+		return nil, fmt.Errorf("writing final batch: %w", err)
 	}
 
 	logger.Info("Backfilled state diff length", zap.Uint64("updated", updated))
-	return shouldNotRerun, nil
+	return nil, nil
+}
+
+// startBlock skips the pruned prefix, where every lookup would miss, without
+// losing the resume point.
+func (m *Migrator) startBlock(r db.KeyValueReader) (uint64, error) {
+	oldest, err := pruner.OldestRetainedBlock(r)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return m.nextBlock, nil
+		}
+		return 0, fmt.Errorf("finding oldest retained block: %w", err)
+	}
+	return max(m.nextBlock, oldest), nil
 }
 
 // backfillBlock reports whether the block's commitments were rewritten.
@@ -144,7 +165,7 @@ func backfillBlock(r db.KeyValueReader, w db.KeyValueWriter, blockNumber uint64)
 	return true, nil
 }
 
-func commit(batch db.Batch, m *Migrator, nextBlock uint64) error {
+func (m *Migrator) commit(batch db.Batch, nextBlock uint64) error {
 	if err := batch.Write(); err != nil {
 		return fmt.Errorf("writing batch: %w", err)
 	}
