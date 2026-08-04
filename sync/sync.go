@@ -105,7 +105,7 @@ func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription 
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	return preconfirmed.ChainReader{}, errors.New("PreConfirmedChain() is not implemented")
+	return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
