@@ -311,3 +311,18 @@ func (h *readinessHandlers) isSynced() bool {
 func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *readinessHandlers) HandleReadyRPC(w http.ResponseWriter, r *http.Request) {
+	if _, err := h.bcReader.HeadsHeader(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		if errors.Is(err, db.ErrKeyNotFound) {
+			emptyDatabaseMessage := []byte("RPC not ready: database contains no blocks.")
+			w.Write(emptyDatabaseMessage) //nolint:errcheck // best-effort body
+		} else {
+			w.Write([]byte("RPC not ready: database not serving.")) //nolint:errcheck // best-effort body
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

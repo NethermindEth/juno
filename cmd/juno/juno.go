@@ -59,6 +59,7 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
+	syncF                               = "sync"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -131,6 +132,7 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
+	defaultSync                               = true
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -211,6 +213,10 @@ const (
 	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
+	syncUsage = "Enables L2 blockchain synchronization. " +
+		"L1 verification is controlled independently by --disable-l1-verification. " +
+		"Disabling synchronization is intended for tests or benchmarks using a preloaded database. " +
+		"Use /ready/rpc for readiness."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -404,6 +410,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return err
 		}
 
+		// Keep the CLI option positive while storing its inverse so existing Config
+		// literals that omit this new field continue to enable synchronization.
+		config.DisableSync = !v.GetBool(syncF)
+
 		// Pruning is gated on the flag's *presence* (CLI, YAML, or env), not
 		// its numeric value — --prune-mode=0 is still "on, retain 0".
 		config.Prune = v.IsSet(pruneModeF)
@@ -540,6 +550,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
 
 	// --- Sync & Polling ---
+	junoCmd.Flags().Bool(syncF, defaultSync, syncUsage)
 	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
@@ -548,7 +559,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
+		syncF, preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---
