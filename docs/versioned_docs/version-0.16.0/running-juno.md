@@ -17,7 +17,7 @@ You can run a Juno node using several methods:
 - [Google Cloud Platform (GCP)](running-on-gcp)
 
 :::tip
-You can use a snapshot to quickly synchronise your node with the network. Check out the [Database Snapshots](snapshots) guide to get started.
+You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started.
 :::
 
 <Tabs groupId="install">

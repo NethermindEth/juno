@@ -49,7 +49,7 @@ You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [We
 <details>
   <summary>How can I monitor my Juno node?</summary>
 
-Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
+Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Metrics Monitoring](monitoring) guide to get started.
 
 </details>
 
@@ -81,7 +81,7 @@ The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides 
 <details>
   <summary>Does Juno provide snapshots to sync with Starknet quickly?</summary>
 
-Yes, Juno provides snapshots for both the Starknet Mainnet and Sepolia networks. Check out the [Database Snapshots](snapshots) guide to get started.
+Yes, Juno provides snapshots for both the Starknet Mainnet and Sepolia networks. Check out the [Sync from a Snapshot](snapshots) guide to get started.
 
 </details>
 

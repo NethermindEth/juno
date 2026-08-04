@@ -44,7 +44,7 @@ import GuideCard from '@site/src/components/GuideCard';
 <GuideCard
   href="snapshots"
   icon="📸"
-  title="Download a Juno Snapshot"
+  title="Syncing quickly from a Snapshot"
   description="Download and use a snapshot to quickly sync your node with the network"
 />
 ```
