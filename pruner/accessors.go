@@ -94,6 +94,7 @@ func PruneUpto(
 	}
 
 	batch := database.NewBatch()
+	defer batch.Close()
 	if err := PruneBlockDataUpto(batch, blockNum); err != nil {
 		return 0, 0, err
 	}
@@ -174,6 +175,8 @@ func pruneHashKeyedUpto(
 	targetBatchByteSize int,
 ) (uint64, error) {
 	batch := database.NewBatch()
+	// batch is rotated below, so close whichever one is current at return.
+	defer func() { _ = batch.Close() }()
 	// Clean up the carve-out left by the previous PruneUpto call.
 	if start > 0 {
 		blockHash, err := core.GetBlockHeaderHashByNumber(database, start-1)
