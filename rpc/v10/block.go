@@ -203,10 +203,9 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	}
 
 	var commitments *core.BlockCommitments
-	var stateDiff *core.StateDiff
 	if header.Hash != nil {
 		var err error
-		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(header.Number)
+		commitments, err = h.blockCommitments(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -214,7 +213,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: AdaptBlockHeader(header, commitments, stateDiff),
+		BlockHeader: AdaptBlockHeader(header, commitments),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -265,10 +264,9 @@ func (h *Handler) BlockWithReceipts(
 	}
 
 	var commitments *core.BlockCommitments
-	var stateDiff *core.StateDiff
 	var err error
 	if block.Hash != nil {
-		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(block.Number)
+		commitments, err = h.blockCommitments(block.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -276,7 +274,7 @@ func (h *Handler) BlockWithReceipts(
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  AdaptBlockHeader(block.Header, commitments, stateDiff),
+		BlockHeader:  AdaptBlockHeader(block.Header, commitments),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -319,10 +317,9 @@ func (h *Handler) BlockWithTxs(
 	}
 
 	var commitments *core.BlockCommitments
-	var stateDiff *core.StateDiff
 	var err error
 	if header.Hash != nil {
-		commitments, stateDiff, err = h.getCommitmentsAndStateDiff(header.Number)
+		commitments, err = h.blockCommitments(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -330,7 +327,7 @@ func (h *Handler) BlockWithTxs(
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  AdaptBlockHeader(header, commitments, stateDiff),
+		BlockHeader:  AdaptBlockHeader(header, commitments),
 		Transactions: txs,
 	}, nil
 }
@@ -357,7 +354,6 @@ func (h *Handler) blockStatus(
 func AdaptBlockHeader(
 	header *core.Header,
 	commitments *core.BlockCommitments,
-	stateDiff *core.StateDiff,
 ) BlockHeader {
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
@@ -426,9 +422,7 @@ func AdaptBlockHeader(
 		blockHeader.TransactionCount = &header.TransactionCount
 		blockHeader.EventCount = &header.EventCount
 
-		// Populate state diff length
-		stateDiffLength := stateDiff.Length()
-		blockHeader.StateDiffLength = &stateDiffLength
+		blockHeader.StateDiffLength = commitments.StateDiffLength
 	}
 
 	return blockHeader

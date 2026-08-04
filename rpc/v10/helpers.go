@@ -224,21 +224,16 @@ func transactionTypeFrom(t core.Transaction) TransactionType {
 	}
 }
 
-// getCommitmentsAndStateDiff retrieves commitments and stateDiff by block number.
-func (h *Handler) getCommitmentsAndStateDiff(
-	blockNumber uint64,
-) (*core.BlockCommitments, *core.StateDiff, error) {
-	// Get commitments
+// blockCommitments retrieves the commitments by block number
+func (h *Handler) blockCommitments(blockNumber uint64) (*core.BlockCommitments, error) {
 	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	// Get stateDiff from stateUpdate
-	stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
+	if commitments.StateDiffLength == nil {
+		return nil, fmt.Errorf(
+			"block %d has commitments without a state diff length", blockNumber,
+		)
 	}
-
-	return commitments, stateUpdate.StateDiff, nil
+	return commitments, nil
 }

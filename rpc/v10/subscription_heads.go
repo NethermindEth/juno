@@ -69,12 +69,12 @@ func (s *headsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	commitments, stateDiff, err := s.handler.getCommitmentsAndStateDiff(head.Number)
+	commitments, err := s.handler.blockCommitments(head.Number)
 	if err != nil {
 		return err
 	}
 
-	adaptedHeader := AdaptBlockHeader(head.Header, commitments, stateDiff)
+	adaptedHeader := AdaptBlockHeader(head.Header, commitments)
 	return sendHeader(s.conn, &adaptedHeader, id)
 }
 
@@ -91,7 +91,7 @@ func (s *headsSubscriberState) sendHistoricalHeaders(
 		default:
 		}
 
-		commitments, stateDiff, err := s.handler.getCommitmentsAndStateDiff(currentBlock)
+		commitments, err := s.handler.blockCommitments(currentBlock)
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func (s *headsSubscriberState) sendHistoricalHeaders(
 			return err
 		}
 
-		adaptedHeader := AdaptBlockHeader(currentHeader, commitments, stateDiff)
+		adaptedHeader := AdaptBlockHeader(currentHeader, commitments)
 		if err = sendHeader(s.conn, &adaptedHeader, id); err != nil {
 			return err
 		}

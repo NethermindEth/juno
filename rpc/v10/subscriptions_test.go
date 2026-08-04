@@ -1176,9 +1176,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
-	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, _ := GetTestBlockWithCommitments(t, client, blockNumber3)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1190,7 +1190,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
@@ -1199,21 +1198,19 @@ func TestSubscribeNewHeads(t *testing.T) {
 	)
 
 	// Receive one historical head
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
 	handler.newHeads.Send(block2)
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
 	handler.newHeads.Send(block3)
-	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
 
@@ -1223,9 +1220,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
-	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, _ := GetTestBlockWithCommitments(t, client, blockNumber3)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1238,9 +1235,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
 	blockID := BlockIDFromNumber(block1.Number)
 	subID, conn := createTestNewHeadsWebsocket(
@@ -1250,18 +1245,17 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	)
 
 	// Receive two historical heads
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
 	// Receive new block
 	handler.newHeads.Send(block3)
-	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
 
@@ -1270,8 +1264,8 @@ func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1285,9 +1279,7 @@ func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
 	blockID := BlockIDFromHash(block1.Hash)
 	subID, conn := createTestNewHeadsWebsocket(
@@ -1298,10 +1290,10 @@ func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 
 	// The hash resolves to block1's number, so the replay starts there and
 	// covers the range up to the latest block.
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
 
@@ -1309,7 +1301,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1321,7 +1313,6 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
@@ -1330,7 +1321,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	)
 
 	// Receive one historical head
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 
 	// Receive reorg event
@@ -1351,9 +1342,8 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 	// Keep receiving incoming heads
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	handler.newHeads.Send(block1)
-	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
 
@@ -1363,8 +1353,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1375,7 +1365,6 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(2)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
 
 	blockIDLatest := SubscriptionBlockID(BlockIDLatest())
 	// Create two subscriber
@@ -1383,16 +1372,15 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	subID2, conn2 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
 
 	// Both subscribers receives one historical head
-	adaptedHeader1 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader1 := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn1, subID1, &adaptedHeader1)
 	assertNextHead(t, conn2, subID2, &adaptedHeader1)
 
 	// Both subscribers receives new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil).Times(2)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil).Times(2)
 	handler.newHeads.Send(block2)
 
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn1, subID1, &adaptedHeader2)
 	assertNextHead(t, conn2, subID2, &adaptedHeader2)
 
@@ -2887,11 +2875,13 @@ func GetTestBlockWithCommitments(
 	adaptedBlock, err := sn2core.AdaptBlock(blockWithStateUpdate.Block, blockWithStateUpdate.Signature)
 	require.NoError(t, err)
 
+	stateDiffLength := adaptedState.StateDiff.Length()
 	commitments := &core.BlockCommitments{
 		TransactionCommitment: blockWithStateUpdate.Block.TransactionCommitment,
 		EventCommitment:       blockWithStateUpdate.Block.EventCommitment,
 		ReceiptCommitment:     blockWithStateUpdate.Block.ReceiptCommitment,
 		StateDiffCommitment:   blockWithStateUpdate.Block.StateDiffCommitment,
+		StateDiffLength:       &stateDiffLength,
 	}
 
 	return adaptedBlock, commitments, adaptedState

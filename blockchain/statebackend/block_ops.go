@@ -140,7 +140,15 @@ func writeBlockContent(
 		return err
 	}
 
-	if err := core.WriteBlockCommitment(writer, block.Number, commitments); err != nil {
+	commitmentsWithLength := *commitments
+	if commitmentsWithLength.StateDiffLength == nil {
+		stateDiffLength := stateUpdate.StateDiff.Length()
+		commitmentsWithLength.StateDiffLength = &stateDiffLength
+	}
+
+	if err := core.WriteBlockCommitment(
+		writer, block.Number, &commitmentsWithLength,
+	); err != nil {
 		return err
 	}
 
