@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	stdsync "sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -26,6 +28,9 @@ var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
 )
+
+// Temporary for benchmarking: sync up to this height, then shut down.
+const benchTargetHeight = 15908814
 
 const (
 	OpVerify = "verify"
@@ -468,6 +473,13 @@ func (s *Synchronizer) storeTask(
 			s.logger.Error("Plugin NewBlock failure:", zap.Error(err))
 		}
 	}
+
+	if block.Number >= benchTargetHeight {
+		s.logger.Info("Reached benchmark target block, shutting down", zap.Uint64("number", block.Number))
+		if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+			s.logger.Error("Failed to send SIGINT to self", zap.Error(err))
+		}
+	}
 }
 
 func (s *Synchronizer) revertTask(
@@ -561,6 +573,10 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				)
 			}
 		default:
+			if nextHeight > benchTargetHeight {
+				<-streamCtx.Done()
+				continue
+			}
 		}
 
 		curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
