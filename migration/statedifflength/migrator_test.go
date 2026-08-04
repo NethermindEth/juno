@@ -17,7 +17,12 @@ import (
 
 // writeBlock stores a state update with storageDiffs entries plus a commitments
 // record
-func writeBlock(t *testing.T, database db.KeyValueStore, blockNum, storageDiffs uint64, length *uint64) {
+func writeBlock(
+	t *testing.T,
+	database db.KeyValueStore,
+	blockNum, storageDiffs uint64,
+	length *uint64,
+) {
 	t.Helper()
 
 	diffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
