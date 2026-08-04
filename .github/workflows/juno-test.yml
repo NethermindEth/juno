@@ -7,6 +7,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -88,3 +92,58 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           files: coverage/coverage.old.out,coverage/coverage.new.out
+
+  # TODO(granza): Delete this run once jsonv2 is the default.
+  test-jsonv2:
+    name: Run Tests (jsonv2)
+    runs-on: ubuntu-latest
+    env:
+      VM_DEBUG: true
+      GOEXPERIMENT: jsonv2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
+        with:
+          go-version-file: go.mod
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: "1.94.1"
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2.8.1
+        with:
+          key: rust-toolchain-ubuntu-latest
+          workspaces: |
+            vm/rust
+            starknet/compiler/rust
+
+      - name: Install Jemalloc
+        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
+
+      - name: Fail once jsonv2 is no longer an experiment
+        run: |
+          if GOEXPERIMENT= go list encoding/json/v2 >/dev/null 2>&1; then
+            echo "::error::json/v2 no longer needs GOEXPERIMENT, so this job is now a"
+            echo "::error::duplicate of 'Run Tests' and its build tags are dead. Delete"
+            echo "::error::this job, then fold each file below into the one it splits"
+            echo "::error::from and drop the !goexperiment.jsonv2 half:"
+            git grep -l 'goexperiment\.jsonv2' -- '*.go' | while read -r tagged; do
+              echo "::error::  $tagged"
+            done
+            exit 1
+          fi
+
+      - name: Verify the jsonv2 build tag is applied
+        run: |
+          for tagged in $(git grep -l '^//go:build goexperiment\.jsonv2$' -- '*.go'); do
+            if ! go list -f '{{join .GoFiles "\n"}}' "./$(dirname "$tagged")" \
+              | grep -qx "$(basename "$tagged")"; then
+              echo "::error::$tagged is excluded from the build, so the tag is not applied"
+              exit 1
+            fi
+          done
+
+      - name: Tests
+        run: make test
