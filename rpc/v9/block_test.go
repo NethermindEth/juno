@@ -859,18 +859,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        new(rpc.Blob),
-			L1GasPrice: &rpc.ResourcePrice{
+			L1DAMode:        rpc.Blob,
+			L1GasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpc.ResourcePrice{
+			L1DataGasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
-			L2GasPrice: &rpc.ResourcePrice{
+			L2GasPrice: rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},
