@@ -139,13 +139,12 @@ func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet
 	}
 }
 
-// AdaptReceipt adapts a receipt and transaction into a local *TransactionReceipt.
-// todo(rdr): TransactionReceipt should be returned by value
+// AdaptReceipt adapts a receipt and transaction into a TransactionReceipt.
 func AdaptReceipt(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
-) *TransactionReceipt {
+) TransactionReceipt {
 	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = MsgToL1{
@@ -179,7 +178,7 @@ func AdaptReceipt(
 	if events == nil {
 		events = []*Event{}
 	}
-	return &TransactionReceipt{
+	return TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
 		Type:            transactionTypeFrom(txn),
@@ -204,13 +203,12 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceipt {
-	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
-
-	adaptedReceipt.BlockNumber = &blockNumber
-	adaptedReceipt.BlockHash = blockHash
-
-	return adaptedReceipt
+) *TransactionReceiptWithBlockInfo {
+	return &TransactionReceiptWithBlockInfo{
+		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
+		BlockHash:          blockHash,
+		BlockNumber:        blockNumber,
+	}
 }
 
 func AdaptTransactionStatus(

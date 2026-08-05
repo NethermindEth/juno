@@ -331,7 +331,7 @@ func assertBlockWithTxs(
 func assertTransactionsEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactions []*rpc.Transaction,
+	actualTransactions []rpc.Transaction,
 	includeProofFacts bool,
 ) {
 	t.Helper()
@@ -339,7 +339,7 @@ func assertTransactionsEq(
 	for i, expectedTransaction := range expectedTransactions {
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
 		adaptedTransaction := rpc.AdaptTransaction(expectedTransaction, includeProofFacts)
-		require.Equal(t, adaptedTransaction, *actualTransactions[i])
+		require.Equal(t, adaptedTransaction, actualTransactions[i])
 	}
 }
 
@@ -377,7 +377,7 @@ func assertTransactionsWithReceiptsEq(
 			expectedTxnFinalityStatus,
 		)
 
-		actualTx := *actual[i].Transaction
+		actualTx := actual[i].Transaction
 		require.Equal(t, adaptedTransaction, actualTx)
 		require.Equal(t, adaptedReceipt, actual[i].Receipt)
 	}
@@ -1192,7 +1192,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			EventCount:            &block.EventCount,
 		},
 		Status: rpc.BlockAcceptedL2,
-		Transactions: []*rpc.Transaction{
+		Transactions: []rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
 				Type:               rpc.TxnInvoke,
