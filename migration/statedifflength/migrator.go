@@ -91,7 +91,8 @@ func (m *Migrator) Migrate(
 
 	source := pipeline.Source(blockRange(start, height))
 	readers := pipeline.New(
-		source, concurrency, newIngestor(database, batchSemaphore, concurrency, min(batchByteSize, targetBatchByteSize)),
+		source, concurrency, newIngestor(database, batchSemaphore,
+			concurrency, min(batchByteSize, targetBatchByteSize)),
 	)
 	committed := pipeline.New(
 		readers, 1, newCommitter(logger, batchSemaphore, height),
