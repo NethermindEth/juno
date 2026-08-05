@@ -1,6 +1,9 @@
 package statedifflength
 
 import (
+	"fmt"
+
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
@@ -27,7 +30,8 @@ var _ pipeline.State[uint64, task] = (*ingestor)(nil)
 func newIngestor(
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	workers, flushAt int,
+	workers,
+	flushAt int,
 ) *ingestor {
 	batches := make([]task, workers)
 	for i := range batches {
@@ -59,4 +63,23 @@ func (in *ingestor) Run(index int, blockNumber uint64, outputs chan<- task) erro
 func (in *ingestor) Done(index int, outputs chan<- task) error {
 	outputs <- in.batches[index]
 	return nil
+}
+
+// backfillBlock derives the state diff length from the block's state update and
+// writes the block's commitments with it into batch. A missing commitments or
+// state update record above the pruned prefix means the two buckets disagree, i.e.
+// the database is corrupt, so the read error is returned rather than skipped.
+func backfillBlock(r db.KeyValueReader, batch db.KeyValueWriter, blockNumber uint64) error {
+	commitments, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
+	if err != nil {
+		return fmt.Errorf("getting commitments for block %d: %w", blockNumber, err)
+	}
+
+	stateUpdate, err := core.GetStateUpdateByBlockNum(r, blockNumber)
+	if err != nil {
+		return fmt.Errorf("getting state update for block %d: %w", blockNumber, err)
+	}
+
+	commitments.StateDiffLength = stateUpdate.StateDiff.Length()
+	return core.WriteBlockCommitment(batch, blockNumber, commitments)
 }
