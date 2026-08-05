@@ -174,5 +174,5 @@ func (h *Handler) Run(ctx context.Context) error {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.10.2", nil
+	return "0.10.3", nil
 }
