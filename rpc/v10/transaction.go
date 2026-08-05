@@ -479,7 +479,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(
 	hash *felt.Felt,
-) (*TransactionReceipt, *jsonrpc.Error) {
+) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
@@ -526,7 +526,7 @@ func (h *Handler) TransactionReceiptByHash(
 // Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
-) (*TransactionReceipt, *jsonrpc.Error) {
+) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound

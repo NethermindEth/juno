@@ -686,7 +686,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
-				require.Equal(t, wantBlock, *receipt.BlockNumber)
+				require.Equal(t, wantBlock, receipt.BlockNumber)
 			})
 		}
 	})
@@ -1004,7 +1004,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string
 		network        *networks.Network
-		expected       *rpc.TransactionReceipt
+		expected       *rpc.TransactionReceiptWithBlockInfo
 		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
 	}
@@ -1037,7 +1037,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l2",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
 			),
@@ -1047,7 +1047,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l1",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
 			),
@@ -1057,7 +1057,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre confirmed",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_pre_confirmed.json",
 			),
@@ -1067,7 +1067,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt reverted",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_reverted.json",
 			),
@@ -1077,7 +1077,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt invoke v3",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_invoke_v3.json",
 			),
@@ -1087,7 +1087,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt non empty da",
 			network:     &networks.SepoliaIntegration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_non_empty_da.json",
 			),
@@ -1097,7 +1097,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt deploy",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_deploy.json",
 			),
@@ -1109,7 +1109,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.description, func(t *testing.T) {
 			expected := test.expected
-			require.NotNil(t, expected.BlockNumber)
 
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
@@ -1119,7 +1118,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			loadedBlock := loadBlockFromFeederTestdata(t, test.network, *expected.BlockNumber)
+			loadedBlock := loadBlockFromFeederTestdata(t, test.network, expected.BlockNumber)
 			var transaction core.Transaction
 			var transactionIndex int
 			// find the transaction in the block
