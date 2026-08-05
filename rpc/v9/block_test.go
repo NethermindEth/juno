@@ -579,7 +579,7 @@ func TestBlockWithTxs(t *testing.T) {
 			txn, err := handler.TransactionByHash(&txnHash)
 			require.Nil(t, err)
 
-			assert.Equal(t, txn, blockWithTxs.Transactions[i])
+			assert.Equal(t, *txn, blockWithTxs.Transactions[i])
 		}
 	}
 

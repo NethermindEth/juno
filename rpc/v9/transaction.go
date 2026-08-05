@@ -545,7 +545,8 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Erro
 	// Check the pre-confirmed chain first.
 	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if txn, err := chain.TransactionByHash(hash); err == nil {
-			return AdaptTransaction(txn), nil
+			adaptedTxn := AdaptTransaction(txn)
+			return &adaptedTxn, nil
 		}
 	}
 
@@ -586,7 +587,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 			return Transaction{}, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
+		adaptedTxn := AdaptTransaction(tipBlock.Transactions[txIndex])
+		return &adaptedTxn, nil
 	case latest:
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
@@ -615,7 +617,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
 
-	return AdaptTransaction(txn), nil
+	adaptedTxn := AdaptTransaction(txn)
+	return &adaptedTxn, nil
 }
 
 // getPendingTransactionReceipt searches for a transaction receipt in the pre-confirmed block.
