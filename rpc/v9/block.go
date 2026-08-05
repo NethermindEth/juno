@@ -432,7 +432,7 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 		return nil, rpcErr
 	}
 
-	txs := make([]Transaction, header.TransactionCount)
+	txs := make([]Transaction, len(blockTxns))
 	for index, txn := range blockTxns {
 		txs[index] = AdaptTransaction(txn)
 	}
