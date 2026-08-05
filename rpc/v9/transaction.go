@@ -654,7 +654,9 @@ func (h *Handler) getPendingTransactionReceipt(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
+func (h *Handler) TransactionReceiptByHash(
+	hash *felt.Felt,
+) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
