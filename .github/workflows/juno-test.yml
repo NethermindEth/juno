@@ -13,14 +13,16 @@ concurrency:
 
 jobs:
   test:
-    name: Run Tests
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
+        juno_new_state: [false, true]
     runs-on: ${{ matrix.os }}
+    name: Run Tests${{ matrix.juno_new_state && ' [New State]' || '' }}
     env:
       VM_DEBUG: true
+      JUNO_NEW_STATE: ${{ matrix.juno_new_state }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -88,3 +90,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
           files: coverage/coverage.old.out,coverage/coverage.new.out
+          flags: ${{ matrix.juno_new_state && 'new-state' || 'old-state' }}
