@@ -513,7 +513,7 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
 		L1GasPrice: ResourcePrice{
-			InWei: header.L1GasPriceETH,
+			InWei: nilToZero(header.L1GasPriceETH),
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
 		L1DataGasPrice:  l1DataGasPrice,
