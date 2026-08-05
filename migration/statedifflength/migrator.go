@@ -22,7 +22,8 @@ import (
 
 const (
 	maxConcurrency       = 8
-	defaultBatchByteSize = 16 * db.Megabyte
+	defaultBatchByteSize = 24 * db.Megabyte
+	targetBatchByteSize  = 16 * db.Megabyte
 )
 
 var (
@@ -41,7 +42,7 @@ var _ migration.Migration = (*Migrator)(nil)
 // cursor: an interrupted run restarts from the oldest retained block on the next
 // boot, which is safe because re-deriving a length yields the same value.
 type Migrator struct {
-	Concurrency int
+	Concurrency   int
 	BatchByteSize int
 }
 
@@ -90,7 +91,7 @@ func (m *Migrator) Migrate(
 
 	source := pipeline.Source(blockRange(start, height))
 	readers := pipeline.New(
-		source, concurrency, newIngestor(database, batchSemaphore, concurrency, batchByteSize),
+		source, concurrency, newIngestor(database, batchSemaphore, concurrency, min(batchByteSize, targetBatchByteSize)),
 	)
 	committed := pipeline.New(
 		readers, 1, newCommitter(logger, batchSemaphore, height),
@@ -140,12 +141,12 @@ func blockRange(start, end uint64) iter.Seq[uint64] {
 func backfillBlock(r db.KeyValueReader, batch db.KeyValueWriter, blockNumber uint64) error {
 	commitments, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting commitments for block %d: %w", blockNumber, err)
 	}
 
 	stateUpdate, err := core.GetStateUpdateByBlockNum(r, blockNumber)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting state update for block %d: %w", blockNumber, err)
 	}
 
 	commitments.StateDiffLength = stateUpdate.StateDiff.Length()
