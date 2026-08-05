@@ -338,14 +338,22 @@ type TransactionReceipt struct {
 	ActualFee          FeePayment         `json:"actual_fee"`
 	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
 	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
-	BlockHash          *felt.Felt         `json:"block_hash,omitempty"`
-	BlockNumber        *uint64            `json:"block_number,omitempty"`
 	MessagesSent       []MsgToL1          `json:"messages_sent"`
 	Events             []*Event           `json:"events"`
 	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
 	RevertReason       string             `json:"revert_reason,omitempty"`
 	ExecutionResources ExecutionResources `json:"execution_resources"`
 	MessageHash        string             `json:"message_hash,omitempty"`
+}
+
+// TransactionReceiptWithBlockInfo is TXN_RECEIPT_WITH_BLOCK_INFO.
+//
+// BlockHash is a pointer because this type is shared with pre_confirmed transaction receipts,
+// which have no block hash yet.
+type TransactionReceiptWithBlockInfo struct {
+	TransactionReceipt
+	BlockHash   *felt.Felt `json:"block_hash,omitempty"`
+	BlockNumber uint64     `json:"block_number"`
 }
 
 type FeePayment struct {
@@ -537,7 +545,8 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 	// Check the pre-confirmed chain first.
 	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if txn, err := chain.TransactionByHash(hash); err == nil {
-			return AdaptTransaction(txn), nil
+			adaptedTxn := AdaptTransaction(txn)
+			return &adaptedTxn, nil
 		}
 	}
 
@@ -548,7 +557,8 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 		}
 		return nil, rpccore.ErrTxnHashNotFound
 	}
-	return AdaptTransaction(txn), nil
+	adaptedTxn := AdaptTransaction(txn)
+	return &adaptedTxn, nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -577,7 +587,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
+		adaptedTxn := AdaptTransaction(tipBlock.Transactions[txIndex])
+		return &adaptedTxn, nil
 	case latest:
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
@@ -606,14 +617,15 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	return AdaptTransaction(txn), nil
+	adaptedTxn := AdaptTransaction(txn)
+	return &adaptedTxn, nil
 }
 
 // getPendingTransactionReceipt searches for a transaction receipt in the pre-confirmed block.
 // Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
-) (*TransactionReceipt, *jsonrpc.Error) {
+) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
@@ -642,7 +654,7 @@ func (h *Handler) getPendingTransactionReceipt(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
@@ -991,7 +1003,13 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	}
 }
 
-func AdaptTransaction(t core.Transaction) *Transaction {
+// AdaptTransaction adapts a core.Transaction to a local Transaction.
+func AdaptTransaction(t core.Transaction) Transaction {
+	return *AdaptCoreTransaction(t)
+}
+
+// AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
+func AdaptCoreTransaction(t core.Transaction) *Transaction {
 	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
@@ -1036,29 +1054,27 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 //
-// AdaptReceiptWithoutBlockInfo returns JSON-RPC TXN_RECEIPT_WITH_BLOCK_INFO
+// AdaptReceiptWithBlockInfo returns JSON-RPC TXN_RECEIPT_WITH_BLOCK_INFO
 func AdaptReceiptWithBlockInfo(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceipt {
-	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
-
-	// Assign block number for canonical and pre_confirmed block
-	adaptedReceipt.BlockNumber = &blockNumber
-	adaptedReceipt.BlockHash = blockHash
-
-	return adaptedReceipt
+) *TransactionReceiptWithBlockInfo {
+	return &TransactionReceiptWithBlockInfo{
+		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
+		BlockHash:          blockHash,
+		BlockNumber:        blockNumber,
+	}
 }
 
-// AdaptReceiptWithoutBlockInfo adapts a receipt and transaction into JSON-RPC TXN_RECEIPT.
+// AdaptReceipt adapts a receipt and transaction into JSON-RPC TXN_RECEIPT.
 func AdaptReceipt(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
-) *TransactionReceipt {
+) TransactionReceipt {
 	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = MsgToL1{
@@ -1093,7 +1109,7 @@ func AdaptReceipt(
 		es = TxnSuccess
 	}
 
-	return &TransactionReceipt{
+	return TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
 		Type:            transactionTypeFrom(txn),

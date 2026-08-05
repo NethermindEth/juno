@@ -572,7 +572,7 @@ func TestBlockWithTxs(t *testing.T) {
 			txn, err := handler.TransactionByHash(txnHash)
 			require.Nil(t, err)
 
-			assert.Equal(t, txn, blockWithTxs.Transactions[i])
+			assert.Equal(t, *txn, blockWithTxs.Transactions[i])
 		}
 	}
 
@@ -876,7 +876,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			},
 		},
 		Status: rpc.BlockAcceptedL2,
-		Transactions: []*rpc.Transaction{
+		Transactions: []rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
 				Type:               rpc.TxnInvoke,
