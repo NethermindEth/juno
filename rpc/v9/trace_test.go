@@ -1108,7 +1108,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 	t.Run("inconsistent blockWithTxs and blockTrace", func(t *testing.T) {
 		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
+			Transactions: []rpc.Transaction{
 				{},
 			},
 		}
@@ -1121,7 +1121,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 	t.Run("L1_HANDLER tx gets successfully adapted", func(t *testing.T) {
 		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
+			Transactions: []rpc.Transaction{
 				{
 					Type: rpc.TxnL1Handler,
 				},
@@ -1183,7 +1183,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 	t.Run("INVOKE tx gets successfully adapted (with revert error)", func(t *testing.T) {
 		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
+			Transactions: []rpc.Transaction{
 				{
 					Type: rpc.TxnInvoke,
 				},

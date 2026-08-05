@@ -146,8 +146,8 @@ func receiptsOf(
 	block *core.Block,
 	senders []felt.Felt,
 	finalityStatus TxnFinalityStatusWithoutL1,
-) iter.Seq[*TransactionReceipt] {
-	return func(yield func(*TransactionReceipt) bool) {
+) iter.Seq[*TransactionReceiptWithBlockInfo] {
+	return func(yield func(*TransactionReceiptWithBlockInfo) bool) {
 		for i, txn := range block.Transactions {
 			if !filterTxBySender(txn, senders) {
 				continue
@@ -168,6 +168,10 @@ func receiptsOf(
 	}
 }
 
-func sendTransactionReceipt(wsConn jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
+func sendTransactionReceipt(
+	wsConn jsonrpc.Conn,
+	receipt *TransactionReceiptWithBlockInfo,
+	id string,
+) error {
 	return sendResponse("starknet_subscriptionNewTransactionReceipts", wsConn, id, receipt)
 }
