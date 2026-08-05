@@ -2,6 +2,7 @@ package statedifflength_test
 
 import (
 	"context"
+	"encoding/binary"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -114,14 +115,17 @@ func TestMigrateCancelledReruns(t *testing.T) {
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
 	state, err := migrate(ctx, database, m)
-	require.ErrorIs(t, err, context.Canceled)
+	require.NoError(t, err)
 	require.NotNil(t, state, "a cancelled run must ask to re-run")
 
 	for blockNum := range uint64(4) {
 		require.Zero(t, storedLength(t, database, blockNum), "block %d", blockNum)
 	}
 
-	// A fresh run finishes the job.
+	// Nothing was committed, so the checkpoint points back at the start.
+	require.Equal(t, uint64(0), binary.BigEndian.Uint64(state))
+
+	// A fresh run resumes and finishes the job.
 	resumed := &statedifflength.Migrator{}
 	require.NoError(t, resumed.Before(state))
 	require.Nil(t, run(t, database, resumed))
@@ -129,6 +133,39 @@ func TestMigrateCancelledReruns(t *testing.T) {
 	for blockNum := range uint64(4) {
 		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
 	}
+}
+
+func TestMigrateResumesFromCheckpointWithoutGaps(t *testing.T) {
+	database := memory.New()
+	const blocks = 300
+	for blockNum := range uint64(blocks) {
+		writeBlock(t, database, blockNum, blockNum+1)
+	}
+	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+
+	// Simulate a checkpoint left by a previous graceful shutdown: blocks below it
+	// are already done, the migration must cover exactly [checkpoint, height].
+	const checkpoint = 120
+	var state [8]byte
+	binary.BigEndian.PutUint64(state[:], checkpoint)
+
+	m := &statedifflength.Migrator{Concurrency: 8}
+	require.NoError(t, m.Before(state[:]))
+	require.Nil(t, run(t, database, m))
+
+	// Below the checkpoint stays untouched (still 0); from it up every block is set,
+	// with no gaps.
+	for blockNum := range uint64(checkpoint) {
+		require.Zero(t, storedLength(t, database, blockNum), "block %d below checkpoint", blockNum)
+	}
+	for blockNum := uint64(checkpoint); blockNum < blocks; blockNum++ {
+		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
+	}
+}
+
+func TestBeforeRejectsMalformedState(t *testing.T) {
+	m := &statedifflength.Migrator{}
+	require.Error(t, m.Before([]byte{1, 2, 3}))
 }
 
 func TestMigrateRotatesBatches(t *testing.T) {

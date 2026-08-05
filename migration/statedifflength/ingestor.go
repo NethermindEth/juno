@@ -9,11 +9,11 @@ import (
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
-// task is a filled batch handed from a reader to the committer, with the number of
-// blocks it covers for progress reporting.
+// task is a filled batch handed from a reader to the committer
 type task struct {
-	batch  db.Batch
-	blocks int
+	batch    db.Batch
+	blocks   int
+	maxBlock uint64
 }
 
 // ingestor reads blocks and fills per-worker batches. Each pipeline worker owns one
@@ -52,6 +52,7 @@ func (in *ingestor) Run(index int, blockNumber uint64, outputs chan<- task) erro
 		return err
 	}
 	cur.blocks++
+	cur.maxBlock = max(cur.maxBlock, blockNumber)
 
 	if cur.batch.Size() >= in.flushAt {
 		outputs <- *cur

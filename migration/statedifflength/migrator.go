@@ -4,6 +4,7 @@ package statedifflength
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"iter"
@@ -24,11 +25,8 @@ const (
 	maxConcurrency       = 8
 	defaultBatchByteSize = 128 * db.Megabyte
 	targetBatchByteSize  = 96 * db.Megabyte
-)
-
-var (
-	shouldRerun    = []byte{}
-	shouldNotRerun []byte
+	// intermediateStateSize is the encoded resume checkpoint: one big-endian uint64.
+	intermediateStateSize = 8
 )
 
 var _ migration.Migration = (*Migrator)(nil)
@@ -38,15 +36,34 @@ var _ migration.Migration = (*Migrator)(nil)
 // missing field, which this replaces with the real value.
 //
 // Work is fanned out across Concurrency reader goroutines that each fill their own
-// write batch; a single committer drains the batches to disk. There is no resume
-// cursor: an interrupted run restarts from the oldest retained block on the next
-// boot, which is safe because re-deriving a length yields the same value.
+// write batch; a single committer drains them to disk. On a graceful shutdown the
+// committed blocks form a contiguous range — the source emits in order and the
+// pipeline drains everything it emitted — so the migration checkpoints the next
+// block to resume from. After an error or crash it restarts from the oldest
+// retained block, which is safe because re-deriving a length is idempotent.
 type Migrator struct {
-	Concurrency   int
+	// Concurrency is the number of reader goroutines. Zero uses the default.
+	Concurrency int
+	// BatchByteSize is the allocated batch size. Zero uses the default.
 	BatchByteSize int
+
+	nextBlock uint64
 }
 
-func (m *Migrator) Before([]byte) error { return nil }
+// Before restores the resume checkpoint from persisted intermediate state. A
+// nil/empty state means a fresh run.
+func (m *Migrator) Before(state []byte) error {
+	if len(state) == 0 {
+		m.nextBlock = 0
+		return nil
+	}
+	if len(state) != intermediateStateSize {
+		return fmt.Errorf("statedifflength: invalid intermediate state size: got %d, want %d",
+			len(state), intermediateStateSize)
+	}
+	m.nextBlock = binary.BigEndian.Uint64(state)
+	return nil
+}
 
 func (m *Migrator) Migrate(
 	ctx context.Context,
@@ -57,17 +74,17 @@ func (m *Migrator) Migrate(
 	height, err := core.GetChainHeight(database)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return shouldNotRerun, nil // empty database, nothing to backfill
+			return nil, nil // empty database, nothing to backfill
 		}
-		return shouldNotRerun, fmt.Errorf("getting chain height: %w", err)
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
 	start, err := m.startBlock(database)
 	if err != nil {
-		return shouldNotRerun, err
+		return nil, err
 	}
 	if start > height {
-		return shouldNotRerun, nil
+		return nil, nil
 	}
 
 	concurrency := m.Concurrency
@@ -100,37 +117,42 @@ func (m *Migrator) Migrate(
 			min(batchByteSize, targetBatchByteSize),
 		),
 	)
-	committed := pipeline.New(
-		readers,
-		1,
-		newCommitter(logger, batchSemaphore, height),
-	)
+	comm := newCommitter(logger, batchSemaphore, height)
+	committed := pipeline.New(readers, 1, comm)
 
 	_, wait := committed.Run(ctx)
 	res := wait()
 
 	if res.Err != nil {
-		return shouldRerun, res.Err
+		return nil, res.Err
 	}
 	if !res.IsDone {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return shouldRerun, ctxErr
+		resume := start
+		if comm.updated > 0 {
+			resume = comm.maxCommitted + 1
 		}
-		return shouldRerun, errors.New("state diff length pipeline did not complete")
+		return encodeResume(resume), nil
 	}
-	return shouldNotRerun, nil
+	return nil, nil
 }
 
-// startBlock skips the pruned prefix, where every lookup would miss.
+// startBlock is the higher of the resume checkpoint and the oldest retained block,
+// so a re-run skips finished work without touching the pruned prefix.
 func (m *Migrator) startBlock(r db.KeyValueReader) (uint64, error) {
 	oldest, err := pruner.OldestRetainedBlock(r)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return 0, nil
+			return m.nextBlock, nil // no commitments stored at all
 		}
 		return 0, fmt.Errorf("finding oldest retained block: %w", err)
 	}
-	return oldest, nil
+	return max(m.nextBlock, oldest), nil
+}
+
+func encodeResume(block uint64) []byte {
+	buf := make([]byte, intermediateStateSize)
+	binary.BigEndian.PutUint64(buf, block)
+	return buf
 }
 
 func blockRange(start, end uint64) iter.Seq[uint64] {

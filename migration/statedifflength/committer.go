@@ -19,8 +19,9 @@ type committer struct {
 	semaphore semaphore.ResourceSemaphore[db.Batch]
 	toBlock   uint64
 
-	updated uint64
-	lastLog time.Time
+	updated      uint64
+	maxCommitted uint64
+	lastLog      time.Time
 }
 
 var _ pipeline.State[task, struct{}] = (*committer)(nil)
@@ -45,6 +46,9 @@ func (c *committer) Run(_ int, t task, _ chan<- struct{}) error {
 	c.semaphore.Put()
 
 	c.updated += uint64(t.blocks)
+	if t.maxBlock > c.maxCommitted {
+		c.maxCommitted = t.maxBlock
+	}
 	if time.Since(c.lastLog) >= timeLogRate {
 		c.logger.Info("Backfilling state diff length",
 			zap.Uint64("updated", c.updated),
