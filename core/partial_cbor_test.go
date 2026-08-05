@@ -329,8 +329,9 @@ func TestProjectionsAreDecodeOnly(t *testing.T) {
 
 // --- Receipt projections ---
 
-// sampleReceipt is a reverted receipt with distinct values, so its encoding exercises every
-// TransactionReceipt key and the projection assertions can check their shadowed fields.
+// sampleReceipt is a reverted receipt with every field populated with distinct values, so its
+// encoding exercises every TransactionReceipt key with realistic nested payloads and the
+// projection assertions can check their shadowed fields.
 func sampleReceipt() *TransactionReceipt {
 	return &TransactionReceipt{
 		Fee:             felt.NewFromUint64[felt.Felt](1),
@@ -342,6 +343,17 @@ func sampleReceipt() *TransactionReceipt {
 			Keys: []felt.Felt{felt.FromUint64[felt.Felt](4)},
 			Data: []felt.Felt{felt.FromUint64[felt.Felt](5)},
 		}},
+		ExecutionResources: &ExecutionResources{
+			BuiltinInstanceCounter: BuiltinInstanceCounter{
+				Pedersen:   6,
+				RangeCheck: 7,
+				Poseidon:   8,
+			},
+			MemoryHoles:      9,
+			Steps:            10,
+			DataAvailability: &DataAvailability{L1Gas: 11, L1DataGas: 12},
+			TotalGasConsumed: &GasConsumed{L1Gas: 13, L1DataGas: 14, L2Gas: 15},
+		},
 	}
 }
 
@@ -424,6 +436,26 @@ func BenchmarkPartialHeaderProjections(b *testing.B) {
 			})
 		})
 	}
+}
+
+// BenchmarkTransactionEventsProjection compares decoding a receipt in full against decoding
+// only the events subset getEvents filtering needs, via the discard projection.
+func BenchmarkTransactionEventsProjection(b *testing.B) {
+	data := sampleReceiptBytes(b)
+	b.Run("full_receipt", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r TransactionReceipt
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
+	b.Run("events_projection", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r receiptEventsProjection
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
 }
 
 // BenchmarkExecutionStatusProjection compares decoding the execution-status subset via the naive

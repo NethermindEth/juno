@@ -271,7 +271,7 @@ func (e *EventFilter) canonicalEvents(
 
 		lastProccessedBlock = curBlockNum
 
-		receipts, err := core.GetTransactionEventsByBlockNumber(e.database, curBlockNum)
+		blockEvents, err := core.GetTransactionEventsByBlockNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
@@ -283,7 +283,7 @@ func (e *EventFilter) canonicalEvents(
 			func() (*felt.Felt, error) {
 				return core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
 			},
-			receipts,
+			blockEvents,
 			skippedEvents,
 			chunkSize,
 		)
@@ -312,9 +312,8 @@ func (e *EventFilter) canonicalEvents(
 }
 
 // transactionEventsFromReceipts projects in-memory receipts down to the events
-// subset the matcher consumes. The adapter slice is one small allocation per
-// pre-confirmed block; an iterator would instead cost several heap escapes per
-// canonical candidate block (range-over-func closure), measured strictly worse.
+// subset the matcher consumes, so both event sources feed it one shape. The call
+// inlines and the slice does not escape, making the projection stack-only.
 func transactionEventsFromReceipts(receipts []*core.TransactionReceipt) []core.TransactionEvents {
 	events := make([]core.TransactionEvents, len(receipts))
 	for i, receipt := range receipts {
