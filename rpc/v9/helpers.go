@@ -149,12 +149,12 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	return header, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		return ExecutionResources{}
 	}
 
-	res := &ExecutionResources{}
+	res := ExecutionResources{}
 	if tgc := resources.TotalGasConsumed; tgc != nil {
 		res.L1Gas = tgc.L1Gas
 		res.L2Gas = tgc.L2Gas

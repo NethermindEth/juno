@@ -978,6 +978,28 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 }
 
+// A receipt with no events must marshal "events" as an empty JSON array, not null.
+// AdaptReceipt reinterprets receipt.Events ([]*core.Event) as []*rpc.Event via unsafe
+// pointer aliasing, so a nil slice would marshal to `null` without the nil -> []*Event{}
+// guard. Fixtures built through adaptfeeder/sn2core always wrap events in a non-nil slice
+// (utils.NonNilSlice), so no other test exercises this branch.
+func TestAdaptReceiptNilEventsMarshalsAsEmptyArray(t *testing.T) {
+	txn := &core.InvokeTransaction{
+		TransactionHash: new(felt.Felt),
+		Version:         new(core.TransactionVersion).SetUint64(1),
+	}
+	receipt := &core.TransactionReceipt{
+		Fee:             new(felt.Felt),
+		Events:          nil,
+		TransactionHash: txn.TransactionHash,
+	}
+
+	got, err := json.Marshal(rpc.AdaptReceipt(receipt, txn, rpc.TxnAcceptedOnL2))
+	require.NoError(t, err)
+	assert.Contains(t, string(got), `"events":[]`)
+	assert.NotContains(t, string(got), `"events":null`)
+}
+
 func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string

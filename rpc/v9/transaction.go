@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -332,19 +333,19 @@ type InnerExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType     `json:"type"`
-	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
-	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
-	BlockNumber        *uint64             `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
-	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
-	RevertReason       string              `json:"revert_reason,omitempty"`
-	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
-	MessageHash        string              `json:"message_hash,omitempty"`
+	Type               TransactionType    `json:"type"`
+	Hash               *felt.Felt         `json:"transaction_hash"`
+	ActualFee          FeePayment         `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
+	BlockHash          *felt.Felt         `json:"block_hash,omitempty"`
+	BlockNumber        *uint64            `json:"block_number,omitempty"`
+	MessagesSent       []MsgToL1          `json:"messages_sent"`
+	Events             []*Event           `json:"events"`
+	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
+	RevertReason       string             `json:"revert_reason,omitempty"`
+	ExecutionResources ExecutionResources `json:"execution_resources"`
+	MessageHash        string             `json:"message_hash,omitempty"`
 }
 
 type FeePayment struct {
@@ -1058,22 +1059,20 @@ func AdaptReceipt(
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
 ) *TransactionReceipt {
-	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
-		messages[idx] = &MsgToL1{
+		messages[idx] = MsgToL1{
 			To:      msg.To,
 			Payload: msg.Payload,
 			From:    msg.From,
 		}
 	}
 
-	events := make([]*Event, len(receipt.Events))
-	for idx, event := range receipt.Events {
-		events[idx] = &Event{
-			From: event.From,
-			Keys: event.Keys,
-			Data: event.Data,
-		}
+	// Zero-copy: rpc.Event is field-identical to core.Event (guarded in events.go), so the decoded
+	// []*core.Event is reinterpreted as []*Event without a per-element copy.
+	events := *(*[]*Event)(unsafe.Pointer(&receipt.Events))
+	if events == nil {
+		events = []*Event{}
 	}
 
 	var messageHash string
@@ -1099,7 +1098,7 @@ func AdaptReceipt(
 		ExecutionStatus: es,
 		Type:            transactionTypeFrom(txn),
 		Hash:            txn.Hash(),
-		ActualFee: &FeePayment{
+		ActualFee: FeePayment{
 			Amount: receipt.Fee,
 			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
