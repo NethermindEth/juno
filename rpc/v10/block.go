@@ -88,7 +88,7 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L830-L848
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L830-L848
 type BlockHashAndNumber struct {
 	Hash   *felt.Felt `json:"block_hash"`
 	Number uint64     `json:"block_number"`
@@ -101,7 +101,7 @@ type BlockHashAndNumber struct {
 // BlockNumber returns the latest synced block number.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L809
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L809
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
@@ -114,7 +114,7 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 // BlockHashAndNumber returns the block hash and number of the latest synced block.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L827
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L827
 func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 	block, err := h.bcReader.Head()
 	if err != nil {
@@ -127,7 +127,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // identified by the given BlockID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L622
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L622
 func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 	var count uint64
 	var err error
