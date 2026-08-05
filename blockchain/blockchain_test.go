@@ -329,6 +329,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{
 			TransactionCommitment: new(felt.Felt).SetUint64(i),
 			EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+			StateDiffLength:       stateDiffLengths[i],
 		}, su, nil))
 	}
 
