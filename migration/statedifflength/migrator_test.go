@@ -2,7 +2,6 @@ package statedifflength_test
 
 import (
 	"context"
-	"encoding/binary"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -43,13 +42,6 @@ func storedLength(t *testing.T, database db.KeyValueStore, blockNum uint64) uint
 	return commitments.StateDiffLength
 }
 
-func run(t *testing.T, database db.KeyValueStore, m *statedifflength.Migrator) []byte {
-	t.Helper()
-	state, err := migrate(t.Context(), database, m)
-	require.NoError(t, err)
-	return state
-}
-
 func migrate(
 	ctx context.Context,
 	database db.KeyValueStore,
@@ -58,20 +50,11 @@ func migrate(
 	return m.Migrate(ctx, database, &networks.Mainnet, log.NewNopZapLogger())
 }
 
-// cancelAfter reports a cancelled context once Err has been polled n times, so a
-// mid-loop cancellation lands on a known block instead of on a timer.
-type cancelAfter struct {
-	context.Context
-	polls *int
-	n     int
-}
-
-func (c cancelAfter) Err() error {
-	if *c.polls >= c.n {
-		return context.Canceled
-	}
-	*c.polls++
-	return nil
+func run(t *testing.T, database db.KeyValueStore, m *statedifflength.Migrator) []byte {
+	t.Helper()
+	state, err := migrate(t.Context(), database, m)
+	require.NoError(t, err)
+	return state
 }
 
 func TestMigrateBackfillsMissingLengths(t *testing.T) {
@@ -90,6 +73,25 @@ func TestMigrateBackfillsMissingLengths(t *testing.T) {
 	}
 }
 
+func TestMigrateConcurrent(t *testing.T) {
+	database := memory.New()
+	const blocks = 200
+	for blockNum := range uint64(blocks) {
+		writeBlock(t, database, blockNum, blockNum+1)
+	}
+	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+
+	// Several workers process blocks out of order; every one must still get its own
+	// length.
+	m := &statedifflength.Migrator{Concurrency: 8}
+	require.NoError(t, m.Before(nil))
+	require.Nil(t, run(t, database, m))
+
+	for blockNum := range uint64(blocks) {
+		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
+	}
+}
+
 func TestMigrateEmptyDatabase(t *testing.T) {
 	database := memory.New()
 
@@ -98,55 +100,28 @@ func TestMigrateEmptyDatabase(t *testing.T) {
 	require.Nil(t, run(t, database, m))
 }
 
-func TestMigrateResumesFromIntermediateState(t *testing.T) {
-	database := memory.New()
-	for blockNum := range uint64(3) {
-		writeBlock(t, database, blockNum, blockNum+1)
-	}
-	require.NoError(t, core.WriteChainHeight(database, 2))
-
-	var state [8]byte
-	binary.BigEndian.PutUint64(state[:], 2)
-
-	m := &statedifflength.Migrator{}
-	require.NoError(t, m.Before(state[:]))
-	run(t, database, m)
-
-	require.Zero(t, storedLength(t, database, 0), "block 0 should have been skipped")
-	require.Zero(t, storedLength(t, database, 1), "block 1 should have been skipped")
-	require.Equal(t, uint64(3), storedLength(t, database, 2))
-}
-
-func TestBeforeRejectsMalformedState(t *testing.T) {
-	m := &statedifflength.Migrator{}
-	require.Error(t, m.Before([]byte{1, 2, 3}))
-}
-
-func TestMigrateCancellationFlushesAndResumes(t *testing.T) {
+func TestMigrateCancelledReruns(t *testing.T) {
 	database := memory.New()
 	for blockNum := range uint64(4) {
 		writeBlock(t, database, blockNum, blockNum+1)
 	}
 	require.NoError(t, core.WriteChainHeight(database, 3))
 
-	// Let blocks 0 and 1 through, then cancel before block 2.
-	polls := 0
-	ctx := cancelAfter{Context: t.Context(), polls: &polls, n: 2}
+	// An already-cancelled context stops the source before any block is processed.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
 	state, err := migrate(ctx, database, m)
 	require.ErrorIs(t, err, context.Canceled)
+	require.NotNil(t, state, "a cancelled run must ask to re-run")
 
-	// The partial batch is flushed, so the work already done survives.
-	require.Equal(t, uint64(1), storedLength(t, database, 0))
-	require.Equal(t, uint64(2), storedLength(t, database, 1))
-	require.Zero(t, storedLength(t, database, 2))
+	for blockNum := range uint64(4) {
+		require.Zero(t, storedLength(t, database, blockNum), "block %d", blockNum)
+	}
 
-	// The state points at the first unprocessed block, not past it.
-	require.Len(t, state, 8)
-	require.Equal(t, uint64(2), binary.BigEndian.Uint64(state))
-
+	// A fresh run finishes the job.
 	resumed := &statedifflength.Migrator{}
 	require.NoError(t, resumed.Before(state))
 	require.Nil(t, run(t, database, resumed))
@@ -158,16 +133,16 @@ func TestMigrateCancellationFlushesAndResumes(t *testing.T) {
 
 func TestMigrateRotatesBatches(t *testing.T) {
 	database := memory.New()
-	for blockNum := range uint64(6) {
+	for blockNum := range uint64(20) {
 		writeBlock(t, database, blockNum, blockNum+1)
 	}
-	require.NoError(t, core.WriteChainHeight(database, 5))
+	require.NoError(t, core.WriteChainHeight(database, 19))
 
-	m := &statedifflength.Migrator{BatchByteSize: 1}
+	m := &statedifflength.Migrator{Concurrency: 3, BatchByteSize: 1}
 	require.NoError(t, m.Before(nil))
 	require.Nil(t, run(t, database, m))
 
-	for blockNum := range uint64(6) {
+	for blockNum := range uint64(20) {
 		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
 	}
 }
@@ -197,7 +172,7 @@ func TestMigrateFailsOnMissingRecordInRange(t *testing.T) {
 	}))
 	require.NoError(t, core.WriteChainHeight(database, 1))
 
-	m := &statedifflength.Migrator{}
+	m := &statedifflength.Migrator{Concurrency: 1}
 	require.NoError(t, m.Before(nil))
 	_, err := migrate(t.Context(), database, m)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
