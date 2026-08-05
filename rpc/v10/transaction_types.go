@@ -420,7 +420,7 @@ type Transaction struct {
 }
 
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L3369
 type ContractClass struct {
 	SierraProgram        []felt.Felt              `json:"sierra_program" validate:"required"`
 	ContractClassVersion string                   `json:"contract_class_version" validate:"required"`

@@ -208,7 +208,7 @@ func assertCommittedBlockHeader(
 	case core.Calldata:
 		expectedl1DAMode = rpc.Calldata
 	}
-	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
+	assert.Equal(t, expectedl1DAMode, actual.L1DAMode)
 	assert.Equal(t, expectedBlock.ProtocolVersion, actual.StarknetVersion)
 	assert.Equal(
 		t,
@@ -261,7 +261,7 @@ func assertPreConfirmedBlockHeader(
 	case core.Calldata:
 		expectedl1DAMode = rpc.Calldata
 	}
-	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
+	assert.Equal(t, expectedl1DAMode, actual.L1DAMode)
 
 	assert.Nil(t, actual.Hash)
 	assert.Nil(t, actual.ParentHash)
@@ -1161,18 +1161,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         block.GlobalStateRoot,
 			Number:          &block.Number,
 			ParentHash:      block.ParentHash,
-			L1DAMode:        new(rpc.Blob),
-			L1GasPrice: &rpc.ResourcePrice{
+			L1DAMode:        rpc.Blob,
+			L1GasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpc.ResourcePrice{
+			L1DataGasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: block.SequencerAddress,
 			Timestamp:        block.Timestamp,
-			L2GasPrice: &rpc.ResourcePrice{
+			L2GasPrice: rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},

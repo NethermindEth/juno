@@ -174,7 +174,7 @@ type StorageProofResult struct {
 // of storage proofs (classes, contracts, and storage).
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L980
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L980
 func (h *Handler) StorageProof(
 	id *BlockID, classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {

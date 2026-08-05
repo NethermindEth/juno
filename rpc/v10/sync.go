@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L1350
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L1350
 type Sync struct {
 	Syncing             *bool      `json:"-"`
 	StartingBlockHash   *felt.Felt `json:"starting_block_hash,omitempty"`
@@ -34,7 +34,7 @@ func (s Sync) MarshalJSON() ([]byte, error) {
 // Syncing returns the syncing status of the node.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L869
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L869
 func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
