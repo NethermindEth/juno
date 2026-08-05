@@ -211,6 +211,35 @@ func TestGetReceiptByBlockAndIndex(t *testing.T) {
 	})
 }
 
+func TestGetTransactionEventsByBlockNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+
+	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
+		require.NotEmpty(t, block.Receipts)
+		events, err := core.GetTransactionEventsByBlockNumber(memDB, block.Number)
+		require.NoError(t, err)
+
+		// The partial decode must recover the same events the full receipts carry.
+		full, err := core.GetReceiptsByBlockNumber(memDB, block.Number)
+		require.NoError(t, err)
+		require.Len(t, events, len(full))
+		for i, receipt := range full {
+			assert.Equal(t, core.TransactionEvents{
+				Events:          receipt.Events,
+				TransactionHash: receipt.TransactionHash,
+			}, events[i])
+		}
+	})
+
+	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetTransactionEventsByBlockNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
 func TestGetTransactionExecutionStatusByBlockAndIndex(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)

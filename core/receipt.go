@@ -33,6 +33,13 @@ type TransactionExecutionStatus struct {
 	RevertReason string
 }
 
+// TransactionEvents is the events subset of a TransactionReceipt: the emitted events
+// and the hash of the transaction that emitted them.
+type TransactionEvents struct {
+	Events          []*Event
+	TransactionHash *felt.Felt
+}
+
 func (r *TransactionReceipt) hash() felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {

@@ -10,6 +10,9 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
+// maxPreallocatedEvents caps the matched-events preallocation for one Events call.
+const maxPreallocatedEvents = 1024
+
 type EventMatcher struct {
 	contractAddresses    []felt.Address
 	contractAddressBytes [][]byte
@@ -150,14 +153,19 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
+// AppendBlockEvents appends the block's events matching the filter to matchedEventsSofar.
+// blockHashFn resolves the block hash and is called on the first match only, so blocks a
+// bloom false positive let through never pay the header read.
 func (e *EventMatcher) AppendBlockEvents(
 	matchedEventsSofar []FilteredEvent,
 	blockNum uint64,
-	blockHash *felt.Felt,
-	receipts []*core.TransactionReceipt,
+	blockHashFn func() (*felt.Felt, error),
+	receipts []core.TransactionEvents,
 	skippedEvents uint64,
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {
+	var blockHash *felt.Felt
+	blockHashResolved := false
 	processedEvents := uint64(0)
 	for txIndex, receipt := range receipts {
 		for i, event := range receipt.Events {
@@ -183,6 +191,19 @@ func (e *EventMatcher) AppendBlockEvents(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
+				// Preallocate for the chunk on the first match, so growth never
+				// reallocates and no-match queries never pay for it. The cap keeps
+				// an oversized chunk request from ballooning the allocation.
+				if matchedEventsSofar == nil {
+					matchedEventsSofar = make([]FilteredEvent, 0, min(chunkSize, maxPreallocatedEvents))
+				}
+				if !blockHashResolved {
+					var err error
+					if blockHash, err = blockHashFn(); err != nil {
+						return nil, 0, err
+					}
+					blockHashResolved = true
+				}
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
 					BlockNumber:      &blockNum,
 					BlockHash:        blockHash,
