@@ -2875,13 +2875,12 @@ func GetTestBlockWithCommitments(
 	adaptedBlock, err := sn2core.AdaptBlock(blockWithStateUpdate.Block, blockWithStateUpdate.Signature)
 	require.NoError(t, err)
 
-	stateDiffLength := adaptedState.StateDiff.Length()
 	commitments := &core.BlockCommitments{
 		TransactionCommitment: blockWithStateUpdate.Block.TransactionCommitment,
 		EventCommitment:       blockWithStateUpdate.Block.EventCommitment,
 		ReceiptCommitment:     blockWithStateUpdate.Block.ReceiptCommitment,
 		StateDiffCommitment:   blockWithStateUpdate.Block.StateDiffCommitment,
-		StateDiffLength:       &stateDiffLength,
+		StateDiffLength:       adaptedState.StateDiff.Length(),
 	}
 
 	return adaptedBlock, commitments, adaptedState

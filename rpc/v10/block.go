@@ -205,7 +205,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	var commitments *core.BlockCommitments
 	if header.Hash != nil {
 		var err error
-		commitments, err = h.blockCommitments(header.Number)
+		commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -266,7 +266,7 @@ func (h *Handler) BlockWithReceipts(
 	var commitments *core.BlockCommitments
 	var err error
 	if block.Hash != nil {
-		commitments, err = h.blockCommitments(block.Number)
+		commitments, err = h.bcReader.BlockCommitmentsByNumber(block.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -319,7 +319,7 @@ func (h *Handler) BlockWithTxs(
 	var commitments *core.BlockCommitments
 	var err error
 	if header.Hash != nil {
-		commitments, err = h.blockCommitments(header.Number)
+		commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
@@ -422,7 +422,7 @@ func AdaptBlockHeader(
 		blockHeader.TransactionCount = &header.TransactionCount
 		blockHeader.EventCount = &header.EventCount
 
-		blockHeader.StateDiffLength = commitments.StateDiffLength
+		blockHeader.StateDiffLength = &commitments.StateDiffLength
 	}
 
 	return blockHeader

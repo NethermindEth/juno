@@ -105,7 +105,7 @@ type BlockCommitments struct {
 	EventCommitment       *felt.Felt
 	ReceiptCommitment     *felt.Felt
 	StateDiffCommitment   *felt.Felt
-	StateDiffLength       *uint64
+	StateDiffLength       uint64
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have

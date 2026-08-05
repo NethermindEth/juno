@@ -23,13 +23,13 @@ const (
 
 var _ migration.Migration = (*Migrator)(nil)
 
-// Migrator walks every stored block and, where the commitments record predates
-// StateDiffLength, reads the state update once to compute the length and rewrites
-// the commitments with it
+// Migrator walks every stored block, reads its state update to compute the state
+// diff length, and rewrites the commitments with it. Pre-existing blocks stored 0
+// for the missing field, which this replaces with the real value.
 //
 // Resumable: the next block to visit is carried in the intermediate state, so an
-// interrupted run continues where it stopped. Re-run safe: blocks that already
-// have a length are skipped.
+// interrupted run continues where it stopped. Re-run safe: re-deriving a block's
+// length yields the same value, so a restart from an earlier point is harmless.
 type Migrator struct {
 	// BatchByteSize overrides the write batch size. Zero uses the default.
 	BatchByteSize int
@@ -93,13 +93,10 @@ func (m *Migrator) Migrate(
 			return m.state(), ctxErr
 		}
 
-		done, err := backfillBlock(database, batch, blockNumber)
-		if err != nil {
+		if err := backfillBlock(database, batch, blockNumber); err != nil {
 			return nil, fmt.Errorf("backfilling block %d: %w", blockNumber, err)
 		}
-		if done {
-			updated++
-		}
+		updated++
 
 		if batch.Size() >= batchByteSize {
 			if err := m.commit(batch, blockNumber+1); err != nil {
@@ -139,30 +136,21 @@ func (m *Migrator) startBlock(r db.KeyValueReader) (uint64, error) {
 	return max(m.nextBlock, oldest), nil
 }
 
-// backfillBlock reports whether the block's commitments were rewritten.
-func backfillBlock(r db.KeyValueReader, w db.KeyValueWriter, blockNumber uint64) (bool, error) {
+// backfillBlock derives the state diff length from the block's state update and
+// rewrites its commitments with it
+func backfillBlock(r db.KeyValueReader, w db.KeyValueWriter, blockNumber uint64) error {
 	commitments, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	if commitments.StateDiffLength != nil {
-		return false, nil
+		return err
 	}
 
 	stateUpdate, err := core.GetStateUpdateByBlockNum(r, blockNumber)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	length := stateUpdate.StateDiff.Length()
-	commitments.StateDiffLength = &length
-	if err := core.WriteBlockCommitment(w, blockNumber, commitments); err != nil {
-		return false, err
-	}
-	return true, nil
+	commitments.StateDiffLength = stateUpdate.StateDiff.Length()
+	return core.WriteBlockCommitment(w, blockNumber, commitments)
 }
 
 func (m *Migrator) commit(batch db.Batch, nextBlock uint64) error {

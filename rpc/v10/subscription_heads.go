@@ -69,7 +69,7 @@ func (s *headsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	commitments, err := s.handler.blockCommitments(head.Number)
+	commitments, err := s.handler.bcReader.BlockCommitmentsByNumber(head.Number)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (s *headsSubscriberState) sendHistoricalHeaders(
 		default:
 		}
 
-		commitments, err := s.handler.blockCommitments(currentBlock)
+		commitments, err := s.handler.bcReader.BlockCommitmentsByNumber(currentBlock)
 		if err != nil {
 			return err
 		}

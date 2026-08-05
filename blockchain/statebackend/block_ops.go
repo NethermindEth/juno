@@ -141,8 +141,7 @@ func writeBlockContent(
 	}
 
 	commitmentsWithLength := *commitments
-	stateDiffLength := stateUpdate.StateDiff.Length()
-	commitmentsWithLength.StateDiffLength = &stateDiffLength
+	commitmentsWithLength.StateDiffLength = stateUpdate.StateDiff.Length()
 
 	if err := core.WriteBlockCommitment(
 		writer, block.Number, &commitmentsWithLength,

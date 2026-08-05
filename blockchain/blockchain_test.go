@@ -297,15 +297,13 @@ func TestBlockCommitments(t *testing.T) {
 		EventCommitment:       new(felt.Felt).SetUint64(2),
 		ReceiptCommitment:     new(felt.Felt).SetUint64(3),
 		StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+		StateDiffLength:       su.StateDiff.Length(),
 	}
 
 	require.NoError(t, chain.Store(b, expectedCommitments, su, nil))
 
 	commitments, err := chain.BlockCommitmentsByNumber(0)
 	require.NoError(t, err)
-
-	stateDiffLength := su.StateDiff.Length()
-	expectedCommitments.StateDiffLength = &stateDiffLength
 	require.Equal(t, expectedCommitments, commitments)
 }
 
@@ -446,7 +444,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 				require.Equal(t, &core.BlockCommitments{
 					TransactionCommitment: new(felt.Felt).SetUint64(i),
 					EventCommitment:       new(felt.Felt).SetUint64(2 * i),
-					StateDiffLength:       &stateDiffLengths[i],
+					StateDiffLength:       stateDiffLengths[i],
 				}, commitments)
 			})
 		}

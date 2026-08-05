@@ -223,17 +223,3 @@ func transactionTypeFrom(t core.Transaction) TransactionType {
 		panic(fmt.Sprintf("unknown transaction type %T", t))
 	}
 }
-
-// blockCommitments retrieves the commitments by block number
-func (h *Handler) blockCommitments(blockNumber uint64) (*core.BlockCommitments, error) {
-	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	if commitments.StateDiffLength == nil {
-		return nil, fmt.Errorf(
-			"block %d has commitments without a state diff length", blockNumber,
-		)
-	}
-	return commitments, nil
-}
