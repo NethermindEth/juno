@@ -126,6 +126,7 @@ func (b *batch) Write() error {
 	if b.batch == nil {
 		return pebble.ErrClosed
 	}
+	defer b.listener.OnCommit(time.Now())
 
 	b.db.closeLock.RLock()
 	defer b.db.closeLock.RUnlock()
@@ -133,18 +134,6 @@ func (b *batch) Write() error {
 	if b.db.closed {
 		return pebble.ErrClosed
 	}
-
-	return b.write()
-}
-
-// write commits the batch without taking closeLock. Callers must hold the
-// lock (read or write) and have checked that the database is not closed,
-// otherwise commit races with Close.
-func (b *batch) write() error {
-	if b.batch == nil {
-		return pebble.ErrClosed
-	}
-	defer b.listener.OnCommit(time.Now())
 
 	if err := b.batch.Commit(pebble.Sync); err != nil {
 		return err

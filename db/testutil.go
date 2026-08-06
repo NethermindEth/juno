@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -842,7 +843,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			<-start
 			for range 50 {
 				// Errors are expected once the database closes; the point
-				// is that no operation panics or races with Close.
+				// is that no operation panics, races or deadlocks with Close.
 				_ = op()
 			}
 		}
@@ -850,20 +851,39 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		wg.Add(2)
 		go worker(func() error {
 			return database.Update(func(b IndexedBatch) error {
-				return b.Put([]byte("key"), []byte("value"))
+				if err := b.Put([]byte("key"), []byte("value")); err != nil {
+					return err
+				}
+				_, err := database.Has([]byte("key"))
+				return err
 			})
 		})
 		go worker(func() error {
 			return database.Write(func(b Batch) error {
-				return b.Put([]byte("key"), []byte("value"))
+				if err := b.Put([]byte("key"), []byte("value")); err != nil {
+					return err
+				}
+				_, err := database.Has([]byte("key"))
+				return err
 			})
 		})
 
 		close(start)
-		// The error is ignored: the test only asserts that no operation
-		// panics or races with Close.
-		_ = database.Close()
-		wg.Wait()
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			// The error is ignored: the test only asserts that no operation
+			// panics, races or deadlocks with Close.
+			_ = database.Close()
+			wg.Wait()
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			t.Fatal("Close deadlocked against in-flight transactions")
+		}
 	})
 }
 
