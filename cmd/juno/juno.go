@@ -54,6 +54,7 @@ const (
 	networkF                            = "network"
 	ethNodeF                            = "eth-node"
 	disableL1VerificationF              = "disable-l1-verification"
+	useNewL1ClientF                     = "use-new-l1-client"
 	pprofF                              = "pprof"
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
@@ -127,6 +128,7 @@ const (
 	defaultWSPort                             = 6061
 	defaultEthNode                            = ""
 	defaultDisableL1Verification              = false
+	defaultUseNewL1Client                     = false
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
@@ -209,6 +211,7 @@ const (
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
+	useNewL1ClientUsage           = "Use the experimental L1 client implementation."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
@@ -536,8 +539,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
+	junoCmd.Flags().Bool(useNewL1ClientF, defaultUseNewL1Client, useNewL1ClientUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
+	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF, useNewL1ClientF)
 
 	// --- Sync & Polling ---
 	junoCmd.Flags().Duration(
