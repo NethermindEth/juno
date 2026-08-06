@@ -435,11 +435,10 @@ func setupMockBlockTest(
 	l1Head *core.L1Head,
 	preConfirmedBase ...*pending.PreConfirmed,
 ) {
-	// mock L1 head
 	if l1Head != nil {
 		mockChain.EXPECT().L1Head().Return(*l1Head, nil).AnyTimes()
 	} else {
-		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 	}
 
 	// if pre_confirmed do not mock commitments
