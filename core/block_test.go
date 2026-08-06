@@ -263,7 +263,8 @@ func Test0132BlockHash(t *testing.T) {
 
 			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, testTrieBackend())
 			require.NoError(t, err)
-			assert.NotNil(t, c)
+			require.NotNil(t, c)
+			assert.Equal(t, su.StateDiff.Length(), c.StateDiffLength)
 		})
 	}
 }
@@ -288,7 +289,8 @@ func Test0134BlockHash(t *testing.T) {
 
 			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, testTrieBackend())
 			require.NoError(t, err)
-			assert.NotNil(t, c)
+			require.NotNil(t, c)
+			assert.Equal(t, su.StateDiff.Length(), c.StateDiffLength)
 		})
 	}
 }
