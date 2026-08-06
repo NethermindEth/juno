@@ -2,12 +2,14 @@ package pebblev2
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/bloom"
 	"github.com/cockroachdb/pebble/v2/sstable/block"
 )
 
@@ -15,6 +17,10 @@ const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble
 	// read and write caching. This is also pebble's default value.
 	minCacheSizeMB = 8
+
+	// bloomFilterBitsPerKey gives a ~1% false-positive rate, the industry
+	// standard trade-off between filter size and skipped reads.
+	bloomFilterBitsPerKey = 10
 )
 
 type Option = func(*pebble.Options) error
@@ -23,6 +29,30 @@ func WithCacheSize(cacheSizeMB uint) Option {
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 	return func(opts *pebble.Options) error {
 		opts.Cache = pebble.NewCache(int64(cacheSizeMB * db.Megabyte))
+		return nil
+	}
+}
+
+// WithBloomFilter enables per-sstable bloom filters so point reads skip
+// tables that cannot contain the key. Filters are built as sstables are
+// written; existing tables gain them through compaction.
+func WithBloomFilter() Option {
+	return func(opts *pebble.Options) error {
+		for i := range opts.Levels {
+			opts.Levels[i].FilterPolicy = bloom.FilterPolicy(bloomFilterBitsPerKey)
+		}
+		return nil
+	}
+}
+
+// WithOfflineCompaction tunes an exclusively-held database for bulk manual
+// compaction: automatic compactions stay off so they cannot merge the forced
+// rewrite's per-chunk marker sstables into one (serializing the chunks),
+// and L0 never stalls writes.
+func WithOfflineCompaction() Option {
+	return func(opts *pebble.Options) error {
+		opts.DisableAutomaticCompactions = true
+		opts.L0StopWritesThreshold = math.MaxInt32
 		return nil
 	}
 }

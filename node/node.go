@@ -249,6 +249,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			pebblev2.WithMemtableSize(cfg.DBMemtableSize),
 			pebblev2.WithMemtableCount(cfg.DBMemtableCount),
 			pebblev2.WithCompression(cfg.DBCompression),
+			pebblev2.WithBloomFilter(),
 		)
 	}
 

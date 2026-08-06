@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
+	"strconv"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -22,6 +25,7 @@ import (
 
 const (
 	dbRevertToBlockF = "to-block"
+	dbCompactForceF  = "force"
 )
 
 type DBInfo struct {
@@ -44,7 +48,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
 	dbCmd.PersistentFlags().Bool(newStateF, defaultNewState, newStateUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBCompactCmd())
 	return dbCmd
 }
 
@@ -76,6 +80,72 @@ func DBRevertCmd() *cobra.Command {
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
 
 	return cmd
+}
+
+func DBCompactCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "compact",
+		Short: "Compact the database so current table options apply to existing data",
+		Long: `This subcommand compacts the full key range with the current table options ` +
+			`(bloom filters, compression). Without --force, data already settled in the ` +
+			`bottom level — most of an aged database — is not rewritten; pass --force to ` +
+			`rewrite every sstable. It may take a long time and needs enough free disk ` +
+			`space to hold rewritten tables while old ones are dropped.`,
+		RunE: dbCompact,
+	}
+	cmd.Flags().String(dbCompressionF, "",
+		dbCompressionUsage+" Required: rewritten data is stored with it.")
+	cmd.Flags().Bool(dbCompactForceF, false,
+		"Rewrite every sstable even if the database is already fully compacted")
+	cmd.Flags().String(dbCompactionConcurrencyF, strconv.Itoa(runtime.GOMAXPROCS(0)),
+		"Number of concurrent compactions; the database is held exclusively, so default to all cores")
+
+	return cmd
+}
+
+func dbCompact(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	compression, err := cmd.Flags().GetString(dbCompressionF)
+	if err != nil {
+		return err
+	}
+	if compression == "" {
+		return fmt.Errorf("--%s is required: compaction stores rewritten data with it", dbCompressionF)
+	}
+
+	force, err := cmd.Flags().GetBool(dbCompactForceF)
+	if err != nil {
+		return err
+	}
+
+	concurrency, err := cmd.Flags().GetString(dbCompactionConcurrencyF)
+	if err != nil {
+		return err
+	}
+
+	database, err := openDB(
+		dbPath,
+		pebblev2.WithCompression(compression),
+		pebblev2.WithCompactionConcurrency(concurrency),
+		pebblev2.WithOfflineCompaction(),
+	)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	fmt.Fprintln(cmd.OutOrStdout(), "Compacting the whole database, this may take a while")
+	start := time.Now()
+	if err := database.(*pebblev2.DB).CompactAll(cmd.Context(), force); err != nil {
+		return fmt.Errorf("compacting database: %w", err)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Compaction finished in %s\n", time.Since(start).Round(time.Second))
+
+	return nil
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
@@ -355,13 +425,13 @@ func getNetwork(
 	return "unknown"
 }
 
-func openDB(path string) (db.KeyValueStore, error) {
+func openDB(path string, options ...pebblev2.Option) (db.KeyValueStore, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebblev2.New(path)
+	database, err := pebblev2.New(path, append(options, pebblev2.WithBloomFilter())...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
