@@ -55,6 +55,7 @@ type Reader interface {
 		blockNumber, index uint64,
 	) (transaction core.Transaction, err error)
 	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
+	TransactionHashesByBlockNumber(blockNumber uint64) (hashes []felt.Felt, err error)
 
 	Receipt(
 		hash *felt.Felt,
@@ -344,6 +345,12 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 	}
 
 	return *receipt, header.Hash, nil
+}
+
+// TransactionHashesByBlockNumber returns the transaction hashes of a given block.
+func (b *Blockchain) TransactionHashesByBlockNumber(number uint64) ([]felt.Felt, error) {
+	b.listener.OnRead("TransactionHashesByBlockNumber")
+	return core.GetTransactionHashesByBlockNumber(b.database, number)
 }
 
 // TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.

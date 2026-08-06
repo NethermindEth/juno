@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"slices"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 )
 
@@ -56,6 +57,14 @@ func (extractExecutionStatus) extract(
 		Reverted:     projection.Reverted,
 		RevertReason: projection.RevertReason,
 	}, nil
+}
+
+type extractAllTransactionHashes struct{}
+
+// extract reads each transaction's own TransactionHash field, decoded without the rest of the
+// transaction.
+func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]felt.Felt, error) {
+	return b.TransactionHashes()
 }
 
 type extractAllTransactions struct{}
@@ -121,5 +130,10 @@ var (
 		extractAllReceipts,
 		struct{},
 		[]*TransactionReceipt,
+	]{}
+	BlockTransactionsAllTransactionHashesPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionHashes,
+		struct{},
+		[]felt.Felt,
 	]{}
 )
