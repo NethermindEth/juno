@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -479,4 +480,133 @@ func BenchmarkExecutionStatusProjection(b *testing.B) {
 			_ = encoder.Unmarshal(data, &r)
 		}
 	})
+}
+
+// --- Transaction projections ---
+
+// sampleTransactions returns a fully-populated instance of every transaction type, so each encoding
+// carries every key that type can write — including InvokeTransaction.ProofFacts, whose omitempty
+// would drop the key if left nil.
+func sampleTransactions() []Transaction {
+	felts := []felt.Felt{*felt.NewFromUint64[felt.Felt](1), *felt.NewFromUint64[felt.Felt](2)}
+	deploy := DeployTransaction{
+		TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+		ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
+		ContractAddress:     felt.NewFromUint64[felt.Felt](3),
+		ClassHash:           felt.NewFromUint64[felt.Felt](4),
+		ConstructorCallData: felts,
+		Version:             new(TransactionVersion).SetUint64(3),
+	}
+	resourceBounds := map[Resource]ResourceBounds{ResourceL1Gas: {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](2)}}
+	return []Transaction{
+		&deploy,
+		&DeployAccountTransaction{
+			DeployTransaction:    deploy,
+			MaxFee:               felt.NewFromUint64[felt.Felt](5),
+			TransactionSignature: felts,
+			Nonce:                felt.NewFromUint64[felt.Felt](6),
+			ResourceBounds:       resourceBounds,
+			Tip:                  7,
+			PaymasterData:        felts,
+			NonceDAMode:          DAModeL1,
+			FeeDAMode:            DAModeL1,
+		},
+		&InvokeTransaction{
+			TransactionHash:       felt.NewFromUint64[felt.Felt](1),
+			CallData:              felts,
+			TransactionSignature:  felts,
+			MaxFee:                felt.NewFromUint64[felt.Felt](2),
+			ContractAddress:       felt.NewFromUint64[felt.Felt](3),
+			Version:               felt.NewFromUint64[TransactionVersion](3),
+			EntryPointSelector:    felt.NewFromUint64[felt.Felt](4),
+			Nonce:                 felt.NewFromUint64[felt.Felt](5),
+			SenderAddress:         felt.NewFromUint64[felt.Felt](6),
+			ResourceBounds:        resourceBounds,
+			Tip:                   7,
+			PaymasterData:         felts,
+			AccountDeploymentData: felts,
+			NonceDAMode:           DAModeL1,
+			FeeDAMode:             DAModeL1,
+			ProofFacts:            felts,
+		},
+		&DeclareTransaction{
+			TransactionHash:       felt.NewFromUint64[felt.Felt](1),
+			ClassHash:             felt.NewFromUint64[felt.Felt](2),
+			SenderAddress:         felt.NewFromUint64[felt.Felt](3),
+			MaxFee:                felt.NewFromUint64[felt.Felt](4),
+			TransactionSignature:  felts,
+			Nonce:                 felt.NewFromUint64[felt.Felt](5),
+			Version:               felt.NewFromUint64[TransactionVersion](3),
+			CompiledClassHash:     felt.NewFromUint64[felt.Felt](6),
+			ResourceBounds:        resourceBounds,
+			Tip:                   7,
+			PaymasterData:         felts,
+			AccountDeploymentData: felts,
+			NonceDAMode:           DAModeL1,
+			FeeDAMode:             DAModeL1,
+		},
+		&L1HandlerTransaction{
+			TransactionHash:    felt.NewFromUint64[felt.Felt](1),
+			ContractAddress:    felt.NewFromUint64[felt.Felt](2),
+			EntryPointSelector: felt.NewFromUint64[felt.Felt](3),
+			Nonce:              felt.NewFromUint64[felt.Felt](4),
+			CallData:           felts,
+			Version:            felt.NewFromUint64[TransactionVersion](3),
+		},
+	}
+}
+
+// TestTransactionHashProjectionNamesEveryTransactionKey fails if the projection's key set differs
+// from the union across every transaction type: a missing key would send it to the allocating
+// unmatched-key path, and an extra key means a transaction field was renamed or removed.
+func TestTransactionHashProjectionNamesEveryTransactionKey(t *testing.T) {
+	union := map[string]struct{}{}
+	for _, transaction := range sampleTransactions() {
+		for key := range cborKeys(reflect.TypeOf(transaction).Elem()) {
+			union[key] = struct{}{}
+		}
+	}
+	require.Equal(t, union, cborKeys(reflect.TypeFor[transactionHashProjection]()),
+		"transactionHashProjection must name exactly the union of every transaction type's keys")
+}
+
+// cborMajorTypeTag is the CBOR major type of a tag, held in the initial byte's top 3 bits.
+const cborMajorTypeTag = 6
+
+// sampleTransactionBytes marshals a transaction as production stores it, asserting the record really
+// is tag-wrapped. The projection relies on the decoder ignoring that tag, so a record that arrived
+// untagged here would silently stop covering the case the production reader hits.
+func sampleTransactionBytes(tb testing.TB, transaction Transaction) []byte {
+	tb.Helper()
+	data, err := encoder.Marshal(transaction)
+	require.NoError(tb, err)
+	require.EqualValues(tb, cborMajorTypeTag, data[0]>>5,
+		"transaction records must be tag-wrapped (needs encoder/registry linked into this binary)")
+	return data
+}
+
+// TestTransactionHashProjectionCoversEveryWireKey strict-decodes each transaction type's real wire
+// bytes, so the decoder flags any unmatched key — catching tag-option drift cborKeys is blind to.
+func TestTransactionHashProjectionCoversEveryWireKey(t *testing.T) {
+	for _, transaction := range sampleTransactions() {
+		t.Run(fmt.Sprintf("%T", transaction), func(t *testing.T) {
+			assertProjectionsCoverEveryWireKey(t, sampleTransactionBytes(t, transaction),
+				&transactionHashProjection{})
+		})
+	}
+}
+
+// TestTransactionHashProjectionDecodesHash proves the hash field receives the wire value for every
+// transaction type, including the one whose hash arrives through an embedded struct. It also pins
+// the behaviour the reader leans on: the projection is not a registered type, so the decoder walks
+// past the record's tag into its content rather than rejecting it.
+func TestTransactionHashProjectionDecodesHash(t *testing.T) {
+	for _, transaction := range sampleTransactions() {
+		t.Run(fmt.Sprintf("%T", transaction), func(t *testing.T) {
+			var projection transactionHashProjection
+			require.NoError(t, encoder.Unmarshal(sampleTransactionBytes(t, transaction), &projection))
+			require.Equal(t, *transaction.Hash(), projection.TransactionHash,
+				"TransactionHash must receive the wire value, not discardedCBOR")
+		})
+	}
 }

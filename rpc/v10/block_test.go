@@ -347,12 +347,12 @@ func assertTransactionsEq(
 func assertTransactionHashesEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactionHashes []*felt.Felt,
+	actualTransactionHashes []felt.Felt,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactionHashes))
 	for i, expectedTransaction := range expectedTransactions {
-		require.Equal(t, expectedTransaction.Hash(), actualTransactionHashes[i])
+		require.Equal(t, *expectedTransaction.Hash(), actualTransactionHashes[i])
 	}
 }
 
@@ -453,6 +453,8 @@ func setupMockBlockTest(
 		mockChain.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil)
 	}
 
+	txnHashes := transactionHashesOf(block.Transactions)
+
 	switch {
 	case blockID.IsPreConfirmed():
 		// Append the tip (built from block) after any caller-provided base
@@ -466,23 +468,39 @@ func setupMockBlockTest(
 		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			txnHashes, nil).AnyTimes()
 	case blockID.IsHash():
 		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			txnHashes, nil).AnyTimes()
 	case blockID.IsL1Accepted():
 		mockChain.EXPECT().Height().Return(block.Number, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			txnHashes, nil).AnyTimes()
 	default:
 		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			txnHashes, nil).AnyTimes()
 	}
+}
+
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for i, transaction := range transactions {
+		hashes[i] = *transaction.Hash()
+	}
+	return hashes
 }
 
 func TestBlockNumber(t *testing.T) {
@@ -815,7 +833,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 
 		id := rpc.BlockIDFromNumber(blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
 
 		block, rpcErr := handler.BlockWithTxHashes(&id)
 		assert.Nil(t, block)
@@ -831,7 +849,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		id := rpc.BlockIDFromNumber(blockNumber)
 		internalErr := errors.New("some internal error")
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(blockNumber).Return(nil, internalErr)
 
 		block, rpcErr := handler.BlockWithTxHashes(&id)
 		assert.Nil(t, block)
@@ -1131,7 +1149,9 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		block.Header.SequencerAddress = nil
 		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil).Times(2)
 		mockReader.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).Times(2)
+			block.Transactions, nil)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashesOf(block.Transactions), nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 		mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil).Times(2)
 

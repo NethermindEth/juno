@@ -1,9 +1,12 @@
 package core
 
 import (
+	"fmt"
 	"iter"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/indexed"
+	"github.com/NethermindEth/juno/encoder"
 )
 
 type BlockTransactionsIndexes struct {
@@ -113,4 +116,34 @@ type transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjectio
 // transactionEventsProjections decodes receipts into the events subset only.
 func (b *BlockTransactions) transactionEventsProjections() transactionEventsProjectionSlice {
 	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.Data)
+}
+
+// TransactionHashes decodes the transaction-hash field of each transaction into one contiguous
+// slice, skipping the heavier transaction fields.
+func (b *BlockTransactions) TransactionHashes() ([]felt.Felt, error) {
+	offsets := b.Indexes.Transactions
+	sectionEnd := len(b.Data)
+	if len(b.Indexes.Receipts) > 0 {
+		sectionEnd = b.Indexes.Receipts[0]
+	}
+
+	hashes := make([]felt.Felt, len(offsets))
+	var projection transactionHashProjection
+	for i := range offsets {
+		end := sectionEnd
+		if i < len(offsets)-1 {
+			end = offsets[i+1]
+		}
+		// Reset before decoding: CBOR null decodes into a value-typed felt as a no-op, so a
+		// transaction stored without a hash would otherwise yield the previous one's hash.
+		projection.TransactionHash = felt.Zero
+		if err := encoder.Unmarshal(b.Data[offsets[i]:end], &projection); err != nil {
+			return nil, err
+		}
+		if projection.TransactionHash.IsZero() {
+			return nil, fmt.Errorf("missing TransactionHash in transaction %d", i)
+		}
+		hashes[i] = projection.TransactionHash
+	}
+	return hashes, nil
 }
