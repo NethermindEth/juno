@@ -191,3 +191,8 @@ var BlockTransactionsAllReceiptsPartialBucket = partial.NewPartialBucket(
 	BlockTransactionsBucket.Bucket,
 	BlockTransactionsAllReceiptsPartialSerializer,
 )
+
+var BlockTransactionsAllTransactionHashesPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllTransactionHashesPartialSerializer,
+)

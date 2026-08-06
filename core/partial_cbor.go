@@ -104,3 +104,36 @@ type receiptExecutionStatusProjection struct {
 	Reverted     bool
 	RevertReason string
 }
+
+// transactionHashProjection is the union of every field across all five transaction types. There is
+// no single source struct to build a skeleton from, so the union is named directly: every wire key
+// must map to a field so the decoder never hits its allocating unmatched-key path (see
+// [discardedCBOR]). Only TransactionHash is materialised, the rest are skipped in place. A
+// reflection test asserts this field set stays identical to the union across transaction types.
+//
+// Transaction records are tag-wrapped, since the encoder registers each concrete type with a tag to
+// discriminate them when decoding into the Transaction interface. This type is not registered, so
+// the decoder ignores the tag and decodes its content — no need to strip the tag header first.
+type transactionHashProjection struct {
+	TransactionHash felt.Felt
+
+	ContractAddressSalt   discardedCBOR
+	ContractAddress       discardedCBOR
+	ClassHash             discardedCBOR
+	ConstructorCallData   discardedCBOR
+	Version               discardedCBOR
+	MaxFee                discardedCBOR
+	TransactionSignature  discardedCBOR
+	Nonce                 discardedCBOR
+	ResourceBounds        discardedCBOR
+	Tip                   discardedCBOR
+	PaymasterData         discardedCBOR
+	NonceDAMode           discardedCBOR
+	FeeDAMode             discardedCBOR
+	CallData              discardedCBOR
+	EntryPointSelector    discardedCBOR
+	SenderAddress         discardedCBOR
+	AccountDeploymentData discardedCBOR
+	ProofFacts            discardedCBOR
+	CompiledClassHash     discardedCBOR
+}

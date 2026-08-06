@@ -496,6 +496,14 @@ func GetReceiptsByBlockNumber(
 	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetTransactionHashesByBlockNumber returns transaction-hashes of given block.
+func GetTransactionHashesByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]felt.Felt, error) {
+	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,
