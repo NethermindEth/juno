@@ -28,6 +28,154 @@ func newPebbleMem(t *testing.T) *DB {
 	return db.(*DB)
 }
 
+func TestCompactAll(t *testing.T) {
+	testDB := newPebbleMem(t)
+
+	keys := [][]byte{{0}, {1, 2, 3}, {0xfe}, {0xff, 0xff}}
+	for _, key := range keys {
+		require.NoError(t, testDB.Put(key, key))
+	}
+
+	require.NoError(t, testDB.CompactAll(t.Context(), false))
+
+	for _, key := range keys {
+		require.NoError(t, testDB.Get(key, func(value []byte) error {
+			assert.Equal(t, key, value)
+			return nil
+		}))
+	}
+}
+
+func TestCompactAllForce(t *testing.T) {
+	dir := t.TempDir()
+	keys := [][]byte{{0}, {1, 2, 3}, {0xfe}, {0xff, 0xff}}
+
+	// Fully compact without a filter policy: the flat bottom level has no
+	// filter blocks.
+	testDB, err := New(dir)
+	require.NoError(t, err)
+	for _, key := range keys {
+		require.NoError(t, testDB.Put(key, key))
+	}
+	require.NoError(t, testDB.(*DB).CompactAll(t.Context(), false))
+	require.Empty(t, bottomFilterPolicies(t, testDB.(*DB)))
+	require.NoError(t, testDB.Close())
+
+	// A plain compaction of the already-flat database is a no-op, force
+	// rewrites it with the now-configured filter policy.
+	testDB, err = New(dir, WithBloomFilter())
+	require.NoError(t, err)
+	pDB := testDB.(*DB)
+
+	require.NoError(t, pDB.CompactAll(t.Context(), false))
+	require.Empty(t, bottomFilterPolicies(t, pDB))
+
+	require.NoError(t, pDB.CompactAll(t.Context(), true))
+	policies := bottomFilterPolicies(t, pDB)
+	require.NotEmpty(t, policies)
+	for _, policy := range policies {
+		assert.Equal(t, "rocksdb.BuiltinBloomFilter", policy)
+	}
+
+	for _, key := range keys {
+		require.NoError(t, pDB.Get(key, func(value []byte) error {
+			assert.Equal(t, key, value)
+			return nil
+		}))
+	}
+	require.NoError(t, pDB.Close())
+}
+
+func TestCompactAllForceRewritesMovedTables(t *testing.T) {
+	dir := t.TempDir()
+
+	// A flat filter-less bottom level in one key range, plus a filter-less
+	// upper-level table in a disjoint range: with no bottom-level overlap the
+	// latter enters the bottom level through a move compaction, which relinks
+	// the file without rewriting it.
+	testDB, err := New(dir)
+	require.NoError(t, err)
+	pDB := testDB.(*DB)
+	require.NoError(t, pDB.Put([]byte{1, 1}, []byte{1}))
+	require.NoError(t, pDB.Put([]byte{1, 2}, []byte{1}))
+	require.NoError(t, pDB.CompactAll(t.Context(), false))
+	require.NoError(t, pDB.Put([]byte{2, 2}, []byte{2}))
+	require.NoError(t, pDB.Put([]byte{2, 3}, []byte{2}))
+	require.NoError(t, pDB.db.Flush())
+	require.NoError(t, pDB.Close())
+
+	testDB, err = New(dir, WithBloomFilter())
+	require.NoError(t, err)
+	pDB = testDB.(*DB)
+
+	require.NoError(t, pDB.CompactAll(t.Context(), true))
+
+	tables, err := pDB.db.SSTables(pebble.WithProperties())
+	require.NoError(t, err)
+	for _, level := range tables {
+		for i := range level {
+			assert.Equal(t, "rocksdb.BuiltinBloomFilter", level[i].Properties.FilterPolicyName,
+				"table %s has no filter", level[i].FileNum)
+		}
+	}
+
+	for _, key := range [][]byte{{1, 1}, {1, 2}, {2, 2}, {2, 3}} {
+		require.NoError(t, pDB.Get(key, func(value []byte) error {
+			assert.Equal(t, key[:1], value)
+			return nil
+		}))
+	}
+	require.NoError(t, pDB.Close())
+}
+
+func TestCompactAllForceSingleKeyTable(t *testing.T) {
+	dir := t.TempDir()
+
+	// A flat filter-less bottom level holding one sstable with a single key:
+	// a foreign tombstone has no room inside its range, only the same-key
+	// rewrite marker can force it.
+	testDB, err := New(dir)
+	require.NoError(t, err)
+	require.NoError(t, testDB.Put([]byte{7}, []byte{7}))
+	require.NoError(t, testDB.(*DB).CompactAll(t.Context(), false))
+	require.NoError(t, testDB.Close())
+
+	testDB, err = New(dir, WithBloomFilter())
+	require.NoError(t, err)
+	pDB := testDB.(*DB)
+
+	require.NoError(t, pDB.CompactAll(t.Context(), true))
+
+	policies := bottomFilterPolicies(t, pDB)
+	require.NotEmpty(t, policies)
+	for _, policy := range policies {
+		assert.Equal(t, "rocksdb.BuiltinBloomFilter", policy)
+	}
+
+	require.NoError(t, pDB.Get([]byte{7}, func(value []byte) error {
+		assert.Equal(t, []byte{7}, value)
+		return nil
+	}))
+	require.NoError(t, pDB.Close())
+}
+
+// bottomFilterPolicies returns the filter policy name of every non-empty
+// bottom-level sstable.
+func bottomFilterPolicies(t *testing.T, pDB *DB) []string {
+	t.Helper()
+	tables, err := pDB.db.SSTables(pebble.WithProperties())
+	require.NoError(t, err)
+
+	var policies []string
+	bottom := tables[len(tables)-1]
+	for i := range bottom {
+		if name := bottom[i].Properties.FilterPolicyName; name != "" {
+			policies = append(policies, name)
+		}
+	}
+	return policies
+}
+
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
 		testDB := newPebbleMem(t)
