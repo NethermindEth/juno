@@ -36,9 +36,16 @@ type KeyValueRangeDeleter interface {
 // Helper interface
 type Helper interface {
 	// This will create a read-write transaction, apply the callback to it, and flush the changes
+	//
+	// The callback may read from and write to the same store, including nested
+	// Update/Write calls. It must not call Close: Close waits for in-flight
+	// transactions to finish, so closing from inside a callback deadlocks.
 	Update(func(IndexedBatch) error) error
 	// This will create a write-only batch, apply the callback to it, and flush the changes.
 	// Use this instead of Update when you don't need to read from the batch.
+	//
+	// The same callback rules as Update apply: nested reads and writes are fine,
+	// Close is not.
 	Write(func(Batch) error) error
 	// TODO(weiihann): honestly this doesn't make sense, but it's currently needed for the metrics
 	// remove this once the metrics are refactored

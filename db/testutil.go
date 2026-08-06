@@ -885,6 +885,67 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			t.Fatal("Close deadlocked against in-flight transactions")
 		}
 	})
+
+	t.Run("ReentrantTransactions", func(t *testing.T) {
+		database := newDB()
+
+		// A deadlock here would hang the whole suite, so run each nested
+		// transaction in a goroutine and fail fast if it doesn't return.
+		runWithTimeout := func(name string, op func() error) {
+			t.Helper()
+
+			done := make(chan error, 1)
+			go func() { done <- op() }()
+
+			select {
+			case err := <-done:
+				require.NoError(t, err, "%s should not fail", name)
+			case <-time.After(30 * time.Second):
+				t.Fatalf("%s deadlocked", name)
+			}
+		}
+
+		runWithTimeout("Update and Write nested in Update", func() error {
+			return database.Update(func(outer IndexedBatch) error {
+				if err := outer.Put([]byte("outer-update"), []byte("value")); err != nil {
+					return err
+				}
+				// Reading the store while a transaction is in flight must not block.
+				if _, err := database.Has([]byte("outer-update")); err != nil {
+					return err
+				}
+				if err := database.Update(func(inner IndexedBatch) error {
+					return inner.Put([]byte("inner-update"), []byte("value"))
+				}); err != nil {
+					return err
+				}
+				return database.Write(func(inner Batch) error {
+					return inner.Put([]byte("inner-write"), []byte("value"))
+				})
+			})
+		})
+
+		runWithTimeout("Update nested in Write", func() error {
+			return database.Write(func(outer Batch) error {
+				if err := outer.Put([]byte("outer-write"), []byte("value")); err != nil {
+					return err
+				}
+				return database.Update(func(inner IndexedBatch) error {
+					return inner.Put([]byte("nested-update"), []byte("value"))
+				})
+			})
+		})
+
+		for _, key := range []string{
+			"outer-update", "inner-update", "inner-write", "outer-write", "nested-update",
+		} {
+			ok, err := database.Has([]byte(key))
+			require.NoError(t, err)
+			require.True(t, ok, "%s should have been committed", key)
+		}
+
+		require.NoError(t, database.Close(), "Close operation failed")
+	})
 }
 
 // Helper to add keys 1..stop.
