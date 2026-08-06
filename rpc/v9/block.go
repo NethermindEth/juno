@@ -450,19 +450,20 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 }
 
 func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		return BlockPreConfirmed, nil
+	}
+
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := BlockAcceptedL2
-	if id.IsPreConfirmed() {
-		status = BlockPreConfirmed
-	} else if isL1Verified(blockNumber, l1H) {
-		status = BlockAcceptedL1
+	if isL1Verified(blockNumber, l1H) {
+		return BlockAcceptedL1, nil
 	}
 
-	return status, nil
+	return BlockAcceptedL2, nil
 }
 
 func AdaptBlockHeader(header *core.Header) BlockHeader {
