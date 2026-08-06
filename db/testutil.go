@@ -5,7 +5,9 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -819,6 +821,130 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.Panics(t, func() {
 			database.NewSnapshot()
 		})
+	})
+
+	t.Run("TransactionsAfterClose", func(t *testing.T) {
+		database := newDB()
+		require.NoError(t, database.Close(), "Close operation failed")
+
+		require.Error(t, database.Update(func(IndexedBatch) error { return nil }),
+			"Update should fail after Close")
+		require.Error(t, database.Write(func(Batch) error { return nil }),
+			"Write should fail after Close")
+	})
+
+	t.Run("ConcurrentTransactionsAndClose", func(t *testing.T) {
+		database := newDB()
+
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		worker := func(op func() error) {
+			defer wg.Done()
+			<-start
+			for range 50 {
+				// Errors are expected once the database closes; the point
+				// is that no operation panics, races or deadlocks with Close.
+				_ = op()
+			}
+		}
+
+		wg.Add(2)
+		go worker(func() error {
+			return database.Update(func(b IndexedBatch) error {
+				if err := b.Put([]byte("key"), []byte("value")); err != nil {
+					return err
+				}
+				_, err := database.Has([]byte("key"))
+				return err
+			})
+		})
+		go worker(func() error {
+			return database.Write(func(b Batch) error {
+				if err := b.Put([]byte("key"), []byte("value")); err != nil {
+					return err
+				}
+				_, err := database.Has([]byte("key"))
+				return err
+			})
+		})
+
+		close(start)
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			// The error is ignored: the test only asserts that no operation
+			// panics, races or deadlocks with Close.
+			_ = database.Close()
+			wg.Wait()
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			t.Fatal("Close deadlocked against in-flight transactions")
+		}
+	})
+
+	t.Run("ReentrantTransactions", func(t *testing.T) {
+		database := newDB()
+
+		// A deadlock here would hang the whole suite, so run each nested
+		// transaction in a goroutine and fail fast if it doesn't return.
+		runWithTimeout := func(name string, op func() error) {
+			t.Helper()
+
+			done := make(chan error, 1)
+			go func() { done <- op() }()
+
+			select {
+			case err := <-done:
+				require.NoError(t, err, "%s should not fail", name)
+			case <-time.After(30 * time.Second):
+				t.Fatalf("%s deadlocked", name)
+			}
+		}
+
+		runWithTimeout("Update and Write nested in Update", func() error {
+			return database.Update(func(outer IndexedBatch) error {
+				if err := outer.Put([]byte("outer-update"), []byte("value")); err != nil {
+					return err
+				}
+				// Reading the store while a transaction is in flight must not block.
+				if _, err := database.Has([]byte("outer-update")); err != nil {
+					return err
+				}
+				if err := database.Update(func(inner IndexedBatch) error {
+					return inner.Put([]byte("inner-update"), []byte("value"))
+				}); err != nil {
+					return err
+				}
+				return database.Write(func(inner Batch) error {
+					return inner.Put([]byte("inner-write"), []byte("value"))
+				})
+			})
+		})
+
+		runWithTimeout("Update nested in Write", func() error {
+			return database.Write(func(outer Batch) error {
+				if err := outer.Put([]byte("outer-write"), []byte("value")); err != nil {
+					return err
+				}
+				return database.Update(func(inner IndexedBatch) error {
+					return inner.Put([]byte("nested-update"), []byte("value"))
+				})
+			})
+		})
+
+		for _, key := range []string{
+			"outer-update", "inner-update", "inner-write", "outer-write", "nested-update",
+		} {
+			ok, err := database.Has([]byte(key))
+			require.NoError(t, err)
+			require.True(t, ok, "%s should have been committed", key)
+		}
+
+		require.NoError(t, database.Close(), "Close operation failed")
 	})
 }
 
