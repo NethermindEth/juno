@@ -63,7 +63,10 @@ func (r *Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type response struct {
+// Response is a JSON-RPC 2.0 response envelope. A client decoding into it should
+// pre-seed Result with a *json.RawMessage to keep the raw bytes instead of the
+// lossy any (large integers otherwise round-trip through float64).
+type Response struct {
 	Version string `json:"jsonrpc"`
 	Result  any    `json:"result,omitempty"`
 	Error   *Error `json:"error,omitempty"`
@@ -349,7 +352,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	var errorRecoverBuffer windowBuffer
 	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &errorRecoverBuffer), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
-	resp := &response{
+	resp := &Response{
 		Version: "2.0",
 	}
 
@@ -422,7 +425,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
-			addResponse(&response{
+			addResponse(&Response{
 				Version: "2.0",
 				Error:   Err(InvalidRequest, err.Error()),
 			}, http.Header{})
@@ -435,7 +438,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
-				resp = &response{
+				resp = &Response{
 					Version: "2.0",
 					Error:   Err(InvalidRequest, err.Error()),
 				}
@@ -502,7 +505,7 @@ func isNilOrEmpty(i any) (bool, error) {
 
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
 // instead of crashing the HTTP connection
-func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (*Response, http.Header, error) {
 	s.logger.Trace("Received request", zap.Object("req", req))
 
 	header := http.Header{}
@@ -511,7 +514,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		return nil, header, err
 	}
 
-	res := &response{
+	res := &Response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
@@ -547,7 +550,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	errorIndex := 1
 	if len(tuple) == 3 {
 		errorIndex = 2
-		header = (tuple[1].Interface()).(http.Header)
+		header = tuple[1].Interface().(http.Header)
 	}
 
 	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {
@@ -556,7 +559,8 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := json.Marshal(req)
 			errJSON, _ := json.Marshal(res.Error)
-			s.logger.Debug("Failed handing RPC request",
+			s.logger.Debug(
+				"Failed handling RPC request",
 				zap.String("req", log.SanitizeString(string(reqJSON))),
 				zap.String("res", log.SanitizeString(string(errJSON))),
 			)
