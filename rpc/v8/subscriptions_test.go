@@ -4,6 +4,7 @@ package rpcv8
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -455,8 +456,8 @@ func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription 
 	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
-func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
+func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {

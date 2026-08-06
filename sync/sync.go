@@ -73,7 +73,9 @@ type ReorgBlockRange struct {
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
-	StartingBlockNumber() (uint64, error)
+	// StartingBlockHeader returns the header for the first block of the current sync run.
+	// Implementations may return a partial header containing only Number and Hash.
+	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
@@ -84,8 +86,8 @@ type Reader interface {
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
 type NoopSynchronizer struct{}
 
-func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
-	return 0, errors.New("StartingBlockNumber() not implemented")
+func (n *NoopSynchronizer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
@@ -114,7 +116,8 @@ type Synchronizer struct {
 	db                   db.KeyValueStore
 	readOnlyBlockchain   bool
 	dataSource           DataSource
-	startingBlockNumber  *uint64
+	startingBlockNumber  atomic.Pointer[uint64]
+	startingBlockHeader  atomic.Pointer[core.Header]
 	highestBlockHeader   atomic.Pointer[core.Header]
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
@@ -372,6 +375,11 @@ func (s *Synchronizer) storeTask(
 	}
 	committedBlock.Persisted <- nil
 
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber != nil && block.Number == *startingBlockNumber {
+		s.startingBlockHeader.Store(block.Header)
+	}
+
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -454,13 +462,14 @@ func (s *Synchronizer) nextHeight() uint64 {
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
-		s.startingBlockNumber = nil
+		s.startingBlockNumber.Store(nil)
+		s.startingBlockHeader.Store(nil)
 		s.highestBlockHeader.Store(nil)
 	}()
 
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
-	s.startingBlockNumber = &startingHeight
+	s.startingBlockNumber.Store(&startingHeight)
 
 	if s.readOnlyBlockchain {
 		s.pollLatest(syncCtx)
@@ -547,11 +556,38 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 	s.listener.OnReorg(localHeader.Number)
 }
 
-func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
-	if s.startingBlockNumber == nil {
-		return 0, errors.New("not running")
+func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber == nil {
+		return nil, errors.New("not running")
 	}
-	return *s.startingBlockNumber, nil
+
+	header := s.startingBlockHeader.Load()
+	if header != nil {
+		return header, nil
+	}
+
+	hash, err := core.GetBlockHeaderHashByNumber(s.db, *startingBlockNumber)
+	if err != nil {
+		return nil, err
+	}
+	header = &core.Header{
+		Number: *startingBlockNumber,
+		Hash:   hash,
+	}
+	// The sync loop may stop or restart while the fallback DB read is in flight.
+	// Only cache the fallback header if it still belongs to the same sync run.
+	if s.startingBlockNumber.Load() != startingBlockNumber {
+		return nil, errors.New("not running")
+	}
+	// Avoid overwriting a full header cached by storeTask while this fallback was reading from DB.
+	if !s.startingBlockHeader.CompareAndSwap(nil, header) {
+		header = s.startingBlockHeader.Load()
+		if header == nil {
+			return nil, errors.New("not running")
+		}
+	}
+	return header, nil
 }
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {
