@@ -427,16 +427,16 @@ func TestTransactionV3(t *testing.T) {
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0xe97"),
 			NonceDAMode: core.DAModeL1,
 			FeeDAMode:   core.DAModeL1,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: {
+			ResourceBounds: core.ResourceBoundsMap{
+				L1Gas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				core.ResourceL1DataGas: {
+				L1DataGas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				core.ResourceL2Gas: {
+				L2Gas: core.ResourceBounds{
 					MaxAmount:       0,
 					MaxPricePerUnit: new(felt.Felt),
 				},
@@ -494,16 +494,16 @@ func TestTransactionV3(t *testing.T) {
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x1"),
 			NonceDAMode: core.DAModeL1,
 			FeeDAMode:   core.DAModeL1,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: {
+			ResourceBounds: core.ResourceBoundsMap{
+				L1Gas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x2540be400"),
 				},
-				core.ResourceL1DataGas: {
+				L1DataGas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x2540be400"),
 				},
-				core.ResourceL2Gas: {
+				L2Gas: core.ResourceBounds{
 					MaxAmount:       0,
 					MaxPricePerUnit: new(felt.Felt),
 				},
@@ -532,16 +532,16 @@ func TestTransactionV3(t *testing.T) {
 			Nonce:       new(felt.Felt),
 			NonceDAMode: core.DAModeL1,
 			FeeDAMode:   core.DAModeL1,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: {
+			ResourceBounds: core.ResourceBoundsMap{
+				L1Gas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				core.ResourceL1DataGas: {
+				L1DataGas: core.ResourceBounds{
 					MaxAmount:       0x186a0,
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				core.ResourceL2Gas: {
+				L2Gas: core.ResourceBounds{
 					MaxAmount:       0,
 					MaxPricePerUnit: new(felt.Felt),
 				},

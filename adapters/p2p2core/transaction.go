@@ -60,7 +60,7 @@ func AdaptDeclareV0TxnCommon(
 		// version 2 field
 		CompiledClassHash: nil,
 		// version 3 fields (zero values)
-		ResourceBounds:        nil,
+		ResourceBounds:        core.EmptyResourceBoundsMap(),
 		Tip:                   0,
 		PaymasterData:         nil,
 		AccountDeploymentData: nil,
@@ -81,13 +81,13 @@ func AdaptDeclareV1TxnCommon(
 		TransactionSignature:  adaptAccountSignature(tx.Signature),
 		Nonce:                 AdaptFelt(tx.Nonce),
 		Version:               txVersion(1),
-		CompiledClassHash:     nil, // this field is not available on v1
-		ResourceBounds:        nil, // this field is not available on v1
-		Tip:                   0,   // this field is not available on v1
-		PaymasterData:         nil, // this field is not available on v1
-		AccountDeploymentData: nil, // this field is not available on v1
-		NonceDAMode:           0,   // this field is not available on v1
-		FeeDAMode:             0,   // this field is not available on v1
+		CompiledClassHash:     nil,                           // this field is not available on v1
+		ResourceBounds:        core.EmptyResourceBoundsMap(), // this field is not available on v1
+		Tip:                   0,                             // this field is not available on v1
+		PaymasterData:         nil,                           // this field is not available on v1
+		AccountDeploymentData: nil,                           // this field is not available on v1
+		NonceDAMode:           0,                             // this field is not available on v1
+		FeeDAMode:             0,                             // this field is not available on v1
 	}
 }
 
@@ -104,12 +104,12 @@ func AdaptDeclareV2TxnCommon(
 		Nonce:                 AdaptFelt(tx.Nonce),
 		Version:               txVersion(2),
 		CompiledClassHash:     AdaptHash(tx.CompiledClassHash),
-		ResourceBounds:        nil, // this field is not available on v2
-		Tip:                   0,   // this field is not available on v2
-		PaymasterData:         nil, // this field is not available on v2
-		AccountDeploymentData: nil, // this field is not available on v2
-		NonceDAMode:           0,   // this field is not available on v2
-		FeeDAMode:             0,   // this field is not available on v2
+		ResourceBounds:        core.EmptyResourceBoundsMap(), // this field is not available on v2
+		Tip:                   0,                             // this field is not available on v2
+		PaymasterData:         nil,                           // this field is not available on v2
+		AccountDeploymentData: nil,                           // this field is not available on v2
+		NonceDAMode:           0,                             // this field is not available on v2
+		FeeDAMode:             0,                             // this field is not available on v2
 	}
 }
 
@@ -142,10 +142,10 @@ func AdaptDeclareV3TxnCommon(
 		Version:              txVersion(3),
 		CompiledClassHash:    AdaptHash(tx.CompiledClassHash),
 		Tip:                  tx.Tip,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			L2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			L1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
 		PaymasterData:         AdaptFeltSlice(tx.PaymasterData),
 		AccountDeploymentData: AdaptFeltSlice(tx.AccountDeploymentData),
@@ -194,7 +194,7 @@ func AdaptDeployAccountV1TxnCommon(
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		Nonce:                AdaptFelt(tx.Nonce),
 		// version 3 fields (zero values)
-		ResourceBounds: nil,
+		ResourceBounds: core.EmptyResourceBoundsMap(),
 		PaymasterData:  nil,
 		Tip:            0,
 		NonceDAMode:    0,
@@ -239,10 +239,10 @@ func AdaptDeployAccountV3TxnCommon(
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		Nonce:                AdaptFelt(tx.Nonce),
 		Tip:                  tx.Tip,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			L2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			L1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
 		PaymasterData: AdaptFeltSlice(tx.PaymasterData),
 		NonceDAMode:   nDAMode,
@@ -266,7 +266,7 @@ func AdaptInvokeV0TxnCommon(
 		Nonce:         nil,
 		SenderAddress: nil,
 		// version 3 fields (zero values)
-		ResourceBounds:        nil,
+		ResourceBounds:        core.EmptyResourceBoundsMap(),
 		Tip:                   0,
 		PaymasterData:         nil,
 		AccountDeploymentData: nil,
@@ -291,7 +291,7 @@ func AdaptInvokeV1TxnCommon(
 		Version:              txVersion(1),
 		EntryPointSelector:   nil,
 		// version 3 fields (zero values)
-		ResourceBounds:        nil,
+		ResourceBounds:        core.EmptyResourceBoundsMap(),
 		Tip:                   0,
 		PaymasterData:         nil,
 		AccountDeploymentData: nil,
@@ -332,10 +332,10 @@ func AdaptInvokeV3TxnCommon(
 		SenderAddress:        AdaptAddress(tx.Sender),
 		EntryPointSelector:   nil,
 		Tip:                  tx.Tip,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			L2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			L1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
 		PaymasterData:         AdaptFeltSlice(tx.PaymasterData),
 		NonceDAMode:           nDAMode,

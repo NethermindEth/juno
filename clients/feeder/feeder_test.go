@@ -86,16 +86,16 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			Nonce:       new(felt.Felt).SetUint64(1),
 			NonceDAMode: new(starknet.DAModeL1),
 			FeeDAMode:   new(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
-				starknet.ResourceL1Gas: {
+			ResourceBounds: &starknet.ResourceBoundsMap{
+				L1Gas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x2540be400"),
 				},
-				starknet.ResourceL1DataGas: {
+				L1DataGas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x2540be400"),
 				},
-				starknet.ResourceL2Gas: {
+				L2Gas: starknet.ResourceBounds{
 					MaxAmount:       new(felt.Felt),
 					MaxPricePerUnit: new(felt.Felt),
 				},
@@ -180,16 +180,16 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			Nonce:       felt.NewUnsafeFromString[felt.Felt]("0xe97"),
 			NonceDAMode: new(starknet.DAModeL1),
 			FeeDAMode:   new(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
-				starknet.ResourceL1Gas: {
+			ResourceBounds: &starknet.ResourceBoundsMap{
+				L1Gas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				starknet.ResourceL1DataGas: {
+				L1DataGas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				starknet.ResourceL2Gas: {
+				L2Gas: starknet.ResourceBounds{
 					MaxAmount:       new(felt.Felt),
 					MaxPricePerUnit: new(felt.Felt),
 				},
@@ -384,16 +384,16 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			Nonce:       new(felt.Felt),
 			NonceDAMode: new(starknet.DAModeL1),
 			FeeDAMode:   new(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
-				starknet.ResourceL1Gas: {
+			ResourceBounds: &starknet.ResourceBoundsMap{
+				L1Gas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				starknet.ResourceL1DataGas: {
+				L1DataGas: starknet.ResourceBounds{
 					MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x186a0"),
 					MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x5af3107a4000"),
 				},
-				starknet.ResourceL2Gas: {
+				L2Gas: starknet.ResourceBounds{
 					MaxAmount:       new(felt.Felt),
 					MaxPricePerUnit: new(felt.Felt),
 				},

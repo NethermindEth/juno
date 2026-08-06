@@ -162,29 +162,40 @@ type ResourceBounds struct {
 	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
 }
 
+// ResourceBoundsMap holds the per-resource bounds of a v3 transaction as it is
+// sent to and received from the feeder gateway. It replaces the historical
+// map[Resource]ResourceBounds. l1_data_gas was only added in Starknet 0.13.4,
+// so a resource that is absent from the payload stays zero and is omitted when
+// marshalling (omitzero) to keep the wire format identical.
+type ResourceBoundsMap struct {
+	L1Gas     ResourceBounds `json:"L1_GAS,omitzero"`
+	L2Gas     ResourceBounds `json:"L2_GAS,omitzero"`
+	L1DataGas ResourceBounds `json:"L1_DATA_GAS,omitzero"`
+}
+
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
-	Version               *felt.Felt                   `json:"version,omitempty"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty"`
-	ConstructorCallData   *[]felt.Felt                 `json:"constructor_calldata,omitempty"`
-	Type                  TransactionType              `json:"type,omitempty"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty"`
-	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
-	Signature             *[]felt.Felt                 `json:"signature,omitempty"`
-	CallData              *[]felt.Felt                 `json:"calldata,omitempty"`
-	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
-	Nonce                 *felt.Felt                   `json:"nonce,omitempty"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty"`
-	Tip                   *felt.Felt                   `json:"tip,omitempty"`
-	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty"`
-	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
-	AccountDeploymentData *[]felt.Felt                 `json:"account_deployment_data,omitempty"`
-	PaymasterData         *[]felt.Felt                 `json:"paymaster_data,omitempty"`
-	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
+	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
+	Version               *felt.Felt            `json:"version,omitempty"`
+	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty"`
+	ClassHash             *felt.Felt            `json:"class_hash,omitempty"`
+	ConstructorCallData   *[]felt.Felt          `json:"constructor_calldata,omitempty"`
+	Type                  TransactionType       `json:"type,omitempty"`
+	SenderAddress         *felt.Felt            `json:"sender_address,omitempty"`
+	MaxFee                *felt.Felt            `json:"max_fee,omitempty"`
+	Signature             *[]felt.Felt          `json:"signature,omitempty"`
+	CallData              *[]felt.Felt          `json:"calldata,omitempty"`
+	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
+	Nonce                 *felt.Felt            `json:"nonce,omitempty"`
+	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty"`
+	Tip                   *felt.Felt            `json:"tip,omitempty"`
+	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty"`
+	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty"`
+	AccountDeploymentData *[]felt.Felt          `json:"account_deployment_data,omitempty"`
+	PaymasterData         *[]felt.Felt          `json:"paymaster_data,omitempty"`
+	ProofFacts            *[]felt.Felt          `json:"proof_facts,omitempty"`
 }
 
 // Deprecated: Use TransactionStatus with Client.DeprecatedTransactionStatus() instead.

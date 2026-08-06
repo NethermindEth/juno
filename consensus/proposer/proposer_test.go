@@ -311,16 +311,16 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 			felt.UnsafeFromString[felt.Felt]("0x1234"),
 			felt.UnsafeFromString[felt.Felt]("0x0"),
 		},
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas: core.ResourceBounds{
 				MaxAmount:       4,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
-			core.ResourceL2Gas: {
+			L2Gas: core.ResourceBounds{
 				MaxAmount:       520000,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
-			core.ResourceL1DataGas: {
+			L1DataGas: core.ResourceBounds{
 				MaxAmount:       296,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
