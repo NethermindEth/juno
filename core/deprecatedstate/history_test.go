@@ -194,6 +194,13 @@ func TestStateHistory(t *testing.T) {
 		})
 	})
 
+	t.Run("unset slot on deployed contract returns zero", func(t *testing.T) {
+		unsetKey := felt.NewFromUint64[felt.Felt](999)
+		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, unsetKey)
+		require.NoError(t, err)
+		require.Equal(t, felt.Zero, storage)
+	})
+
 	t.Run(
 		"deprecated state history trie methods return ErrHistoricalTrieNotSupported",
 		func(t *testing.T) {
@@ -205,5 +212,61 @@ func TestStateHistory(t *testing.T) {
 
 			_, err = snapshotAtDeployment.ContractStorageTrie(&addrFelt)
 			require.ErrorIs(t, err, deprecatedstate.ErrHistoricalTrieNotSupported)
-		})
+		},
+	)
+}
+
+func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+	state := deprecatedstate.New(txn)
+
+	addr := felt.NewFromUint64[felt.Felt](1)
+	storageKey := felt.NewFromUint64[felt.Felt](2)
+	classHash := felt.NewFromUint64[felt.Felt](10)
+	initialValue := felt.NewFromUint64[felt.Felt](100)
+	updatedValue := felt.NewFromUint64[felt.Felt](200)
+
+	deployedHeight := uint64(3)
+	changeHeight := uint64(10)
+
+	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {*storageKey: initialValue},
+			},
+		},
+	}, nil, true))
+
+	root, err := state.Commitment("")
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
+		OldRoot: &root,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {*storageKey: updatedValue},
+			},
+		},
+	}, nil, true))
+
+	require.NoError(t, txn.Delete(db.ContractDeploymentHeightKey(addr)))
+
+	t.Run("value from history entry", func(t *testing.T) {
+		snapshot := deprecatedstate.NewHistory(state, deployedHeight)
+		storage, err := snapshot.ContractStorage(addr, storageKey)
+		require.NoError(t, err)
+		require.Equal(t, *initialValue, storage)
+	})
+
+	t.Run("value from head fallback", func(t *testing.T) {
+		snapshot := deprecatedstate.NewHistory(state, changeHeight)
+		storage, err := snapshot.ContractStorage(addr, storageKey)
+		require.NoError(t, err)
+		require.Equal(t, *updatedValue, storage)
+	})
 }
