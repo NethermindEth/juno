@@ -150,17 +150,22 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
+// AppendBlockEvents appends the block's events matching the filter to matchedEventsSofar.
+// blockHashFn resolves the block hash and is called on the first match only, so blocks a
+// bloom false positive let through never pay the header read.
 func (e *EventMatcher) AppendBlockEvents(
 	matchedEventsSofar []FilteredEvent,
 	blockNum uint64,
-	blockHash *felt.Felt,
-	receipts []*core.TransactionReceipt,
+	blockHashFn func() (*felt.Felt, error),
+	blockEvents []core.TransactionEvents,
 	skippedEvents uint64,
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {
+	var blockHash *felt.Felt
+	blockHashResolved := false
 	processedEvents := uint64(0)
-	for txIndex, receipt := range receipts {
-		for i, event := range receipt.Events {
+	for txIndex, txEvents := range blockEvents {
+		for i, event := range txEvents.Events {
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
 			if processedEvents < skippedEvents {
@@ -183,10 +188,17 @@ func (e *EventMatcher) AppendBlockEvents(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
+				if !blockHashResolved {
+					var err error
+					if blockHash, err = blockHashFn(); err != nil {
+						return nil, 0, err
+					}
+					blockHashResolved = true
+				}
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
 					BlockNumber:      &blockNum,
 					BlockHash:        blockHash,
-					TransactionHash:  receipt.TransactionHash,
+					TransactionHash:  txEvents.TransactionHash,
 					TransactionIndex: uint(txIndex),
 					EventIndex:       uint(i),
 					Event:            event,

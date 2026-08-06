@@ -146,21 +146,30 @@ func (e *EventFilter) Events(
 	cToken *ContinuationToken,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	// Read pre_confirmed before latest. If latest were read first, the head could
-	// advance before this fetch, leaving blocks committed in between scanned by
-	// neither the canonical range (stopped at the stale latest) nor pre_confirmed
-	// (based above them), a gap. This order makes latest >= the snapshot's base,
-	// so the ranges overlap instead. Pinning a fixed head wouldn't help: once a
-	// block commits, SnapshotForBlock trims it, so a stale head yields an empty
-	// view. On error, drop it and serve canonical only.
-	preConfirmed, err := e.preConfirmedFn()
-	if err != nil {
-		preConfirmed = nil
-	}
-
 	latest, err := core.GetChainHeight(e.database)
 	if err != nil {
 		return nil, ContinuationToken{}, err
+	}
+
+	// Fetch pre_confirmed only when the range can reach past the canonical head; a
+	// purely historical query never consults it. When fetched, re-read latest
+	// afterwards: with the pre-head latest, the head could advance between the two
+	// reads, leaving blocks committed in between scanned by neither the canonical
+	// range (stopped at the stale latest) nor pre_confirmed (based above them), a
+	// gap. Re-reading makes latest >= the snapshot's base, so the ranges overlap
+	// instead. Pinning a fixed head wouldn't help: once a block commits,
+	// SnapshotForBlock trims it, so a stale head yields an empty view. On error,
+	// drop it and serve canonical only.
+	var preConfirmed PreConfirmedReader
+	if e.toBlock > latest {
+		if fetched, err := e.preConfirmedFn(); err == nil {
+			preConfirmed = fetched
+		}
+
+		latest, err = core.GetChainHeight(e.database)
+		if err != nil {
+			return nil, ContinuationToken{}, err
+		}
 	}
 
 	var skippedEvents uint64
@@ -262,13 +271,7 @@ func (e *EventFilter) canonicalEvents(
 
 		lastProccessedBlock = curBlockNum
 
-		curBlockHash, err := core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
-		if err != nil {
-			return nil, ContinuationToken{}, err
-		}
-
-		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.database, curBlockNum)
+		blockEvents, err := core.GetTransactionEventsByBlockNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
@@ -277,8 +280,10 @@ func (e *EventFilter) canonicalEvents(
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
 			curBlockNum,
-			curBlockHash,
-			receipts,
+			func() (*felt.Felt, error) {
+				return core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
+			},
+			blockEvents,
 			skippedEvents,
 			chunkSize,
 		)
@@ -304,6 +309,20 @@ func (e *EventFilter) canonicalEvents(
 	}
 
 	return matchedEvents, ContinuationToken{}, nil
+}
+
+// transactionEventsFromReceipts projects in-memory receipts down to the events
+// subset the matcher consumes, so both event sources feed it one shape. The call
+// inlines and the slice does not escape, making the projection stack-only.
+func transactionEventsFromReceipts(receipts []*core.TransactionReceipt) []core.TransactionEvents {
+	events := make([]core.TransactionEvents, len(receipts))
+	for i, receipt := range receipts {
+		events[i] = core.TransactionEvents{
+			Events:          receipt.Events,
+			TransactionHash: receipt.TransactionHash,
+		}
+	}
+	return events
 }
 
 // preConfirmedEvents processes pending events across every pre-confirmed block in
@@ -355,8 +374,8 @@ func (e *EventFilter) preConfirmedEvents(
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
 			blockNumber,
-			header.Hash,
-			entry.Block.Receipts,
+			func() (*felt.Felt, error) { return header.Hash, nil },
+			transactionEventsFromReceipts(entry.Block.Receipts),
 			skippedEvents,
 			chunkSize,
 		)

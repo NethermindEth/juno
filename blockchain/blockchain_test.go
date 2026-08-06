@@ -784,6 +784,36 @@ func TestEvents(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("pre-confirmed fetch is gated on the range", func(t *testing.T) {
+		fetches := 0
+		countingFn := func() (blockchain.PreConfirmedReader, error) {
+			fetches++
+			return preConfirmedFunc()
+		}
+		runQuery := func(t *testing.T, toBlock uint64) {
+			t.Helper()
+			filter, err := chain.EventFilter(nil, nil, countingFn)
+			require.NoError(t, err)
+			require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+			require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, toBlock))
+			_, _, err = filter.Events(nil, 10)
+			require.NoError(t, err)
+			require.NoError(t, filter.Close())
+		}
+
+		t.Run("historical range never fetches", func(t *testing.T) {
+			fetches = 0
+			runQuery(t, firstPendingBlockNum-1) // toBlock == canonical head
+			require.Zero(t, fetches)
+		})
+
+		t.Run("range past head fetches once", func(t *testing.T) {
+			fetches = 0
+			runQuery(t, firstPendingBlockNum)
+			require.Equal(t, 1, fetches)
+		})
+	})
 }
 
 // TestEventsMultiPreConfirmed covers the blockchain event filter against a
