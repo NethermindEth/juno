@@ -1,7 +1,10 @@
 package pebblev2
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
@@ -157,6 +160,101 @@ func TestCompactAllForceSingleKeyTable(t *testing.T) {
 		return nil
 	}))
 	require.NoError(t, pDB.Close())
+}
+
+func TestStaleChunksMultiLevel(t *testing.T) {
+	dir := t.TempDir()
+	small := func(opts *pebble.Options) error {
+		opts.MemTableSize = 1 << 20
+		for i := range opts.TargetFileSizes {
+			opts.TargetFileSizes[i] = 256 << 10
+		}
+		return nil
+	}
+
+	// Fill with automatic compaction running so tables settle into several
+	// levels, like on a long-running node. Wide upper-level tables straddle
+	// the bottom-level ones and must not chain the chunks together.
+	testDB, err := New(dir, small)
+	require.NoError(t, err)
+	pDB := testDB.(*DB)
+	for round := range 3 {
+		for done := 0; done < 80000; done += 10000 {
+			batch := pDB.NewBatch()
+			for i := done; i < done+10000; i++ {
+				key := fmt.Appendf(nil, "key-%03d-%06d", (i*7+round)%977, i)
+				require.NoError(t, batch.Put(key, bytes.Repeat([]byte{byte(i)}, 512)))
+			}
+			require.NoError(t, batch.Write())
+		}
+	}
+	require.NoError(t, pDB.Close())
+
+	testDB, err = New(dir, small, WithBloomFilter(), WithOfflineCompaction())
+	require.NoError(t, err)
+	pDB = testDB.(*DB)
+	defer pDB.Close()
+
+	tables, err := pDB.db.SSTables()
+	require.NoError(t, err)
+	var levels int
+	for _, level := range tables {
+		if len(level) > 0 {
+			levels++
+		}
+	}
+	require.Greater(t, levels, 1, "fill did not span multiple levels")
+
+	baseline, err := pDB.maxTableNum()
+	require.NoError(t, err)
+	chunks, err := pDB.staleChunks(baseline)
+	require.NoError(t, err)
+	require.Greater(t, len(chunks), 1, "multi-level database must split into several chunks")
+
+	slices.SortFunc(chunks, func(a, b forceChunk) int { return bytes.Compare(a.start, b.start) })
+	for i := range chunks {
+		require.Negative(t, bytes.Compare(chunks[i].start, chunks[i].end))
+		if i > 0 {
+			require.Negative(t, bytes.Compare(chunks[i-1].end, chunks[i].start),
+				"chunks %d and %d overlap", i-1, i)
+		}
+	}
+}
+
+func TestCompactAllForceSkipsUpToDateTables(t *testing.T) {
+	dir := t.TempDir()
+
+	testDB, err := New(dir, WithCompression("zstd"))
+	require.NoError(t, err)
+	for i := range byte(8) {
+		require.NoError(t, testDB.Put([]byte{i}, []byte{i}))
+	}
+	require.NoError(t, testDB.(*DB).CompactAll(t.Context(), false))
+	require.NoError(t, testDB.Close())
+
+	testDB, err = New(dir, WithCompression("zstd"), WithBloomFilter(), WithOfflineCompaction())
+	require.NoError(t, err)
+	pDB := testDB.(*DB)
+	defer pDB.Close()
+
+	tableNums := func() map[pebble.TableNum]bool {
+		tables, err := pDB.db.SSTables()
+		require.NoError(t, err)
+		nums := make(map[pebble.TableNum]bool)
+		for _, level := range tables {
+			for i := range level {
+				nums[level[i].FileNum] = true
+			}
+		}
+		return nums
+	}
+
+	require.NoError(t, pDB.CompactAll(t.Context(), true))
+	require.NotEmpty(t, bottomFilterPolicies(t, pDB))
+
+	before := tableNums()
+	require.NoError(t, pDB.CompactAll(t.Context(), true))
+	assert.Equal(t, before, tableNums(), "second forced compaction must rewrite nothing")
 }
 
 // bottomFilterPolicies returns the filter policy name of every non-empty

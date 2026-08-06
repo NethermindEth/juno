@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/sstable"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,6 +34,12 @@ type DB struct {
 	// bound, which pebble does not expose back; CompactAll fans out this many
 	// concurrent manual compactions.
 	compactionConcurrency int
+	// tableFilterPolicy and tableCompression mirror the options' bottom-level
+	// table settings; forced compaction skips tables whose properties already
+	// match both, making it resumable. Empty when not configured, which
+	// disables skipping.
+	tableFilterPolicy string
+	tableCompression  string
 }
 
 // New opens a new database at the given path with default options
@@ -49,6 +56,15 @@ func New(path string, options ...Option) (db.KeyValueStore, error) {
 		if err := option(&opts); err != nil {
 			return nil, err
 		}
+	}
+
+	bottomLevel := &opts.Levels[len(opts.Levels)-1]
+	var tableFilterPolicy, tableCompression string
+	if bottomLevel.FilterPolicy != nil {
+		tableFilterPolicy = bottomLevel.FilterPolicy.Name()
+	}
+	if bottomLevel.Compression != nil {
+		tableCompression = bottomLevel.Compression().Name
 	}
 
 	pDB, err := pebble.Open(path, &opts)
@@ -69,6 +85,8 @@ func New(path string, options ...Option) (db.KeyValueStore, error) {
 		listener:              &db.SelectiveListener{},
 		writeOpt:              &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
 		compactionConcurrency: compactionConcurrency,
+		tableFilterPolicy:     tableFilterPolicy,
+		tableCompression:      tableCompression,
 	}, nil
 }
 
@@ -280,9 +298,12 @@ type forceChunk struct {
 // making each table an output of a real compaction, and repeats until no
 // table predating the call remains: single-file compactions with no overlap
 // below are "moves" that relink the old file a level down without rewriting
-// it, so one pass is not always enough. Force mode expects a database opened
-// with WithOfflineCompaction — automatic compactions may otherwise merge the
-// per-chunk marker sstables and serialize the chunk compactions.
+// it, so one pass is not always enough. Tables whose properties already match
+// the configured filter policy and compression are skipped, so an interrupted
+// forced compaction resumes instead of starting over. Force mode expects a
+// database opened with WithOfflineCompaction — automatic compactions may
+// otherwise merge the per-chunk marker sstables and serialize the chunk
+// compactions.
 func (d *DB) CompactAll(ctx context.Context, force bool) error {
 	d.closeLock.RLock()
 	defer d.closeLock.RUnlock()
@@ -330,13 +351,24 @@ func (d *DB) CompactAll(ctx context.Context, force bool) error {
 // the chunks out so pebble can run their compactions concurrently. Planting
 // and flushing are serialized so every chunk's markers land in own sstables
 // bounded to its range; a carrier spanning several chunks would make their
-// compactions conflict on it and serialize.
+// compactions conflict on it and serialize. Chunks launch in stride order —
+// key-space neighbors can share a straddling upper-level table, and pebble
+// stalls the whole manual-compaction queue while its head conflicts with a
+// running compaction, so the concurrently-active set is kept spread out.
 func (d *DB) compactChunks(ctx context.Context, chunks []forceChunk) error {
 	var plantMu sync.Mutex
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(d.compactionConcurrency)
 
-	for _, chunk := range chunks {
+	stride := max(1, (len(chunks)+d.compactionConcurrency-1)/d.compactionConcurrency)
+	ordered := make([]forceChunk, 0, len(chunks))
+	for offset := range stride {
+		for i := offset; i < len(chunks); i += stride {
+			ordered = append(ordered, chunks[i])
+		}
+	}
+
+	for _, chunk := range ordered {
 		group.Go(func() error {
 			plantMu.Lock()
 			err := d.plantRewriteMarkers(chunk.bottomSmallest)
@@ -370,65 +402,111 @@ func (d *DB) maxTableNum() (pebble.TableNum, error) {
 	return maxNum, nil
 }
 
-// staleChunks groups every table numbered at or below baseline into
-// disjoint-range chunks of about forceCompactChunkTables tables. Overlapping
-// tables always share a chunk — concurrent manual compactions over
-// overlapping ranges conflict in pebble and stall the whole manual queue —
-// so a chunk grows past the target when a wide upper-level table spans many
-// bottom-level ones.
+// tableUpToDate reports whether a table's properties already match the
+// configured filter policy and compression, so a forced compaction can skip
+// rewriting it. Skipping is disabled when either expectation is unknown.
+func (d *DB) tableUpToDate(props *sstable.Properties) bool {
+	return d.tableFilterPolicy != "" && d.tableCompression != "" && props != nil &&
+		props.FilterPolicyName == d.tableFilterPolicy &&
+		props.CompressionName == d.tableCompression
+}
+
+// keyRange is one table's inclusive user-key span.
+type keyRange struct {
+	start, end []byte
+}
+
+// staleTables returns the ranges of every stale table — numbered at or below
+// baseline and not matching the configured table options — sorted by start
+// key and split into bottom-level and upper-level tables.
+func (d *DB) staleTables(baseline pebble.TableNum) (bottom, upper []keyRange, err error) {
+	tables, err := d.db.SSTables(pebble.WithProperties())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bottomLevel := len(tables) - 1
+	for level, files := range tables {
+		for i := range files {
+			if files[i].FileNum > baseline || d.tableUpToDate(files[i].Properties) {
+				continue
+			}
+			stale := keyRange{
+				start: bytes.Clone(files[i].Smallest.UserKey),
+				end:   bytes.Clone(files[i].Largest.UserKey),
+			}
+			if level == bottomLevel {
+				bottom = append(bottom, stale)
+			} else {
+				upper = append(upper, stale)
+			}
+		}
+	}
+	byStart := func(a, b keyRange) int { return bytes.Compare(a.start, b.start) }
+	slices.SortFunc(bottom, byStart)
+	slices.SortFunc(upper, byStart)
+	return bottom, upper, nil
+}
+
+// gapChunks returns extra chunks for the stale upper-level tables overlapping
+// no chunk. Tables that overlap one need no extra chunk: the first chunk
+// compaction to reach an upper level consumes every overlapping table there
+// whole. The rest sit in a single inter-chunk gap each; tables in the same
+// gap merge into one chunk — two chunks compacting overlapping ranges would
+// conflict in pebble and stall the whole manual queue.
+func gapChunks(chunks []forceChunk, upper []keyRange) []forceChunk {
+	overlapsChunk := func(t keyRange) bool {
+		next, _ := slices.BinarySearchFunc(chunks, t, func(c forceChunk, t keyRange) int {
+			return bytes.Compare(c.start, t.start)
+		})
+		// Candidates: the chunk starting at or after t, and the one before it.
+		return next < len(chunks) && bytes.Compare(chunks[next].start, t.end) <= 0 ||
+			next > 0 && bytes.Compare(t.start, chunks[next-1].end) <= 0
+	}
+
+	var gaps []forceChunk
+	for _, table := range upper {
+		if overlapsChunk(table) {
+			continue
+		}
+		if last := len(gaps) - 1; last >= 0 && bytes.Compare(table.start, gaps[last].end) <= 0 {
+			if bytes.Compare(table.end, gaps[last].end) > 0 {
+				gaps[last].end = table.end
+			}
+			continue
+		}
+		gaps = append(gaps, forceChunk{start: table.start, end: table.end})
+	}
+	return gaps
+}
+
+// staleChunks groups the stale bottom-level tables into chunks of
+// forceCompactChunkTables tables. Bottom-level ranges are disjoint, so the
+// chunks are too, and pebble can compact them concurrently. Stale upper-level
+// tables ride along with the chunks they overlap, or get gap chunks of their
+// own.
 func (d *DB) staleChunks(baseline pebble.TableNum) ([]forceChunk, error) {
-	tables, err := d.db.SSTables()
+	bottom, upper, err := d.staleTables(baseline)
 	if err != nil {
 		return nil, err
 	}
 
-	type interval struct {
-		start, end []byte
-		bottom     bool
-	}
-	var stale []interval
-	bottomLevel := len(tables) - 1
-	for level, files := range tables {
-		for i := range files {
-			if files[i].FileNum > baseline {
-				continue
-			}
-			stale = append(stale, interval{
-				start:  bytes.Clone(files[i].Smallest.UserKey),
-				end:    bytes.Clone(files[i].Largest.UserKey),
-				bottom: level == bottomLevel,
-			})
-		}
-	}
-	slices.SortFunc(stale, func(a, b interval) int { return bytes.Compare(a.start, b.start) })
-
 	var chunks []forceChunk
-	var chunk forceChunk
-	var count int
-	flush := func() {
-		// Compact requires start < end; extend a single-key chunk minimally.
-		if bytes.Equal(chunk.start, chunk.end) {
-			chunk.end = append(bytes.Clone(chunk.end), 0)
+	for start := 0; start < len(bottom); start += forceCompactChunkTables {
+		group := bottom[start:min(start+forceCompactChunkTables, len(bottom))]
+		chunk := forceChunk{start: group[0].start, end: group[len(group)-1].end}
+		for _, table := range group {
+			chunk.bottomSmallest = append(chunk.bottomSmallest, table.start)
 		}
 		chunks = append(chunks, chunk)
 	}
-	for _, table := range stale {
-		if count >= forceCompactChunkTables && bytes.Compare(table.start, chunk.end) > 0 {
-			flush()
-			chunk, count = forceChunk{}, 0
+	chunks = append(chunks, gapChunks(chunks, upper)...)
+
+	for i := range chunks {
+		// Compact requires start < end; extend a single-key chunk minimally.
+		if bytes.Equal(chunks[i].start, chunks[i].end) {
+			chunks[i].end = append(bytes.Clone(chunks[i].end), 0)
 		}
-		if count == 0 {
-			chunk.start, chunk.end = table.start, table.end
-		} else if bytes.Compare(table.end, chunk.end) > 0 {
-			chunk.end = table.end
-		}
-		if table.bottom {
-			chunk.bottomSmallest = append(chunk.bottomSmallest, table.start)
-		}
-		count++
-	}
-	if count > 0 {
-		flush()
 	}
 	return chunks, nil
 }
