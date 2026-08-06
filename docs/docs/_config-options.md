@@ -40,6 +40,7 @@
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
+| `sync` | `true` | Enables L2 blockchain synchronization. L1 verification is controlled independently by --disable-l1-verification. Disabling synchronization is intended for tests or benchmarks using a preloaded database. Use /ready/rpc for readiness |
 
 ### Gateway
 

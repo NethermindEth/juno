@@ -206,6 +206,9 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedNumericCompilationLimits.MaxCompilationQueue = 32
 	expectedNumericCompilationLimits.MaxCompilationQueueExplicit = true
 
+	expectedSyncDisabled := expectedConfig2
+	expectedSyncDisabled.DisableSync = true
+
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
@@ -245,6 +248,19 @@ cn-unverifiable-range: [0,10]
 		"default config with no flags": {
 			inputArgs:      []string{""},
 			expectedConfig: &expectedConfig2,
+		},
+		"sync disabled": {
+			inputArgs:      []string{"--sync=false"},
+			expectedConfig: &expectedSyncDisabled,
+		},
+		"sync disabled in config file": {
+			cfgFile:         true,
+			cfgFileContents: "sync: false\n",
+			expectedConfig:  &expectedSyncDisabled,
+		},
+		"sync disabled in environment": {
+			env:            []string{"JUNO_SYNC", "false"},
+			expectedConfig: &expectedSyncDisabled,
 		},
 		"explicit compilation limits survive": {
 			inputArgs: []string{

@@ -131,6 +131,7 @@ type Config struct {
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
+	DisableSync              bool `mapstructure:"-"`
 
 	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
 	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
@@ -184,6 +185,23 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.DisableSync {
+		if cfg.Sequencer {
+			return nil, errors.New("--sync=false has no effect in sequencer mode; " +
+				"remove --seq-enable or --sync=false")
+		}
+		if cfg.P2P {
+			return nil, errors.New("--p2p requires synchronization; remove --p2p or --sync=false")
+		}
+		if cfg.Prune {
+			return nil, errors.New("--prune-mode requires synchronization; " +
+				"remove --prune-mode or --sync=false")
+		}
+
+		logger.Warn("L2 synchronization and plugin block events are disabled. " +
+			"Use /ready/rpc for readiness (/ready and /ready/sync will report 503).")
 	}
 
 	// History pruning needs an L1-finalised cutoff to know which blocks are
@@ -295,6 +313,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var client *feeder.Client
 	var gatewayClient *gateway.Client
 	var p2pService *p2p.Service
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 
 	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
@@ -415,16 +434,18 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			logger,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
-		synchronizer.WithPlugin(junoPlugin)
+		if !cfg.DisableSync {
+			feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+			synchronizer = sync.New(
+				chain,
+				feederGatewayDataSource,
+				logger,
+				cfg.PreConfirmedPollInterval,
+				dbIsRemote,
+				database,
+			)
+			synchronizer.WithPlugin(junoPlugin)
+		}
 
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, logger).
 			WithUserAgent(ua).
@@ -459,8 +480,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 			services = append(services, p2pService)
 		}
-
-		var syncReader sync.Reader = &sync.NoopSynchronizer{}
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
@@ -555,10 +574,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		"/rpc" + pathV08: jsonrpcServerV08,
 	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
+		readinessHandlers := NewReadinessHandlers(chain, syncReader, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/live":       readinessHandlers.HandleLive,
 			"/ready":      readinessHandlers.HandleReadySync,
+			"/ready/rpc":  readinessHandlers.HandleReadyRPC,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
 		services = append(

@@ -127,6 +127,7 @@ The `/ready` endpoint returns:
 - `503 Service Unavailable` during migrations or when the node is not yet synced
 
 This endpoint is intended for use with Kubernetes `readinessProbe` to control traffic routing.
+When synchronization is disabled with `--sync=false`, use `/ready/rpc` instead.
 
 ```yaml title="Kubernetes readinessProbe example"
 readinessProbe:
@@ -137,6 +138,14 @@ readinessProbe:
   periodSeconds: 5
   failureThreshold: 3
 ```
+
+### `/ready/rpc` and `/ready/sync` endpoints
+
+The `/ready/rpc` endpoint returns `200 OK` once the database has a canonical head and RPC requests can be served.
+Use it as the readiness probe for tests or benchmarks started with `--sync=false` and a preloaded database.
+
+The `/ready/sync` endpoint always applies the synchronization check used by `/ready` on a synchronizing node.
+It returns `503 Service Unavailable` when synchronization is disabled or unavailable.
 
 ### Configuring readiness criteria
 
