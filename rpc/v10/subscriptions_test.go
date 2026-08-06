@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/sync/semaphore"
 )
 
 // mustNewChain builds a pre_confirmed ChainReader from statically valid test
@@ -1215,6 +1216,49 @@ func TestSubscribeNewHeads(t *testing.T) {
 	handler.newHeads.Send(block3)
 	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
+}
+
+func TestSubscribeNewHeadsRespectsLimit(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, 56377)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockChain := mocks.NewMockReader(mockCtrl)
+
+	handler := New(mockChain, nil, nil, logger).
+		WithSubscriptionLimiter(semaphore.NewWeighted(1))
+
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
+
+	blockIDLatest := BlockIDLatest()
+
+	subID1, conn1 := createTestNewHeadsWebsocket(t, handler, (*SubscriptionBlockID)(&blockIDLatest))
+	assertNextHead(t, conn1, subID1, &adaptedHeader)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+	rejConn := &fakeConn{Conn: clientConn, w: serverConn}
+	rejCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, rejConn)
+	id, rpcErr := handler.SubscribeNewHeads(rejCtx, nil)
+	assert.Zero(t, id)
+	assert.Equal(t, rpccore.ErrTooManySubscriptions, rpcErr)
+
+	unsubCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn1)
+	ok, rpcErr := handler.Unsubscribe(unsubCtx, string(subID1))
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+
+	subID3, conn3 := createTestNewHeadsWebsocket(t, handler, (*SubscriptionBlockID)(&blockIDLatest))
+	assertNextHead(t, conn3, subID3, &adaptedHeader)
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
