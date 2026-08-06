@@ -223,22 +223,3 @@ func transactionTypeFrom(t core.Transaction) TransactionType {
 		panic(fmt.Sprintf("unknown transaction type %T", t))
 	}
 }
-
-// getCommitmentsAndStateDiff retrieves commitments and stateDiff by block number.
-func (h *Handler) getCommitmentsAndStateDiff(
-	blockNumber uint64,
-) (*core.BlockCommitments, *core.StateDiff, error) {
-	// Get commitments
-	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get stateDiff from stateUpdate
-	stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return commitments, stateUpdate.StateDiff, nil
-}
