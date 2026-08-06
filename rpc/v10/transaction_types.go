@@ -295,14 +295,22 @@ type TransactionReceipt struct {
 	ActualFee          FeePayment         `json:"actual_fee"`
 	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
 	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
-	BlockHash          *felt.Felt         `json:"block_hash,omitempty"`
-	BlockNumber        *uint64            `json:"block_number,omitempty"`
 	MessagesSent       []MsgToL1          `json:"messages_sent"`
 	Events             []*Event           `json:"events"`
 	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
 	RevertReason       string             `json:"revert_reason,omitempty"`
 	ExecutionResources ExecutionResources `json:"execution_resources"`
 	MessageHash        string             `json:"message_hash,omitempty"`
+}
+
+// TransactionReceiptWithBlockInfo is TXN_RECEIPT_WITH_BLOCK_INFO.
+//
+// BlockHash is a pointer because this type is shared with pre_confirmed transaction receipts,
+// which have no block hash yet.
+type TransactionReceiptWithBlockInfo struct {
+	TransactionReceipt
+	BlockHash   *felt.Felt `json:"block_hash,omitempty"`
+	BlockNumber uint64     `json:"block_number"`
 }
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]

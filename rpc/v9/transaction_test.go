@@ -560,7 +560,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
-				require.Equal(t, wantBlock, *receipt.BlockNumber)
+				require.Equal(t, wantBlock, receipt.BlockNumber)
 			})
 		}
 	})
@@ -598,7 +598,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	expected := rpc.AdaptTransaction(latestBlock.Transactions[index])
 	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index)
 	require.Nil(t, rpcErr)
-	require.Equal(t, expected, got)
+	require.Equal(t, &expected, got)
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
@@ -674,7 +674,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDLatest(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+		require.Equal(t, &expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -690,7 +690,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDHash(t, latestBlock.Hash)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+		require.Equal(t, &expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -705,7 +705,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDNumber(t, latestBlockNumber)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+		require.Equal(t, &expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
@@ -729,7 +729,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDL1Accepted(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+		require.Equal(t, &expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
@@ -753,7 +753,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDL1Accepted(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+		require.Equal(t, &expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
@@ -777,7 +777,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 			require.Nil(t, rpcErr)
-			require.Equal(t, expectedTxn, actualTxn)
+			require.Equal(t, &expectedTxn, actualTxn)
 		})
 	})
 }
@@ -1272,7 +1272,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptTransaction(tx),
+			Transaction: rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1655,7 +1655,7 @@ func TestAddTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		broadcastedTxn := rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptTransaction(tx),
+			Transaction: rpc.AdaptTransaction(tx),
 		}
 
 		mockGateway := mocks.NewMockGateway(mockCtrl)
@@ -2417,7 +2417,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		CallData:      []felt.Felt{},
 	}
 
-	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
+	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: rpc.AdaptTransaction(txnToAdd)}
 
 	var gatewayResponse struct {
 		TransactionHash *felt.Felt `json:"transaction_hash"`
