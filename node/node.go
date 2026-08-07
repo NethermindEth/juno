@@ -41,6 +41,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -331,7 +332,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(
+		cfg,
+		uint64(runtime.GOMAXPROCS(0)),
+		utils.AvailableMemoryMB(),
+		logger,
+	)
 	compiler := compiler.New(
 		&compiler.Config{
 			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,

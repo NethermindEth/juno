@@ -7,6 +7,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDBCacheSizeForMemoryMB(t *testing.T) {
+	tests := []struct {
+		name  string
+		memMB uint64
+		want  uint
+	}{
+		{name: "zero memory clamps to floor", memMB: 0, want: defaultCacheSizeMb},
+		{name: "quarter below floor clamps to floor", memMB: 4095, want: defaultCacheSizeMb},
+		{name: "quarter equals floor", memMB: 4096, want: defaultCacheSizeMb},
+		{name: "quarter within bounds", memMB: 8192, want: 2048},
+		{name: "quarter equals cap", memMB: 32768, want: maxAutoCacheSizeMb},
+		{name: "quarter above cap clamps to cap", memMB: 65536, want: maxAutoCacheSizeMb},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, dbCacheSizeForMemoryMB(tt.memMB))
+		})
+	}
+}
+
 func TestDBMaxHandlesForFDLimit(t *testing.T) {
 	tests := []struct {
 		name    string

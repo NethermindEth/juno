@@ -11,9 +11,9 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
@@ -89,7 +89,7 @@ func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
 		// MaxConcurrentCompilations left unset: derive, then floor to 1.
 		MaxCompilationMemory: 4096,
 		// Reserve more than the machine has, so nothing fits.
-		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
+		NodeMemoryReserve: uint(utils.AvailableMemoryMB() + 4096),
 	}
 
 	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
