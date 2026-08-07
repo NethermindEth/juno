@@ -86,6 +86,21 @@ var parseErrorTests = map[string]struct {
 		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\": 5, \"method\": \"x\", \"id\": 1}\n            ^\nfield \"jsonrpc\" should be string, got number [line 1, position 13]"},"id":null}`,
 	},
 
+	"type mismatch behind the captured window drops the position and marker": {
+		req: `{"jsonrpc": 5, "method": "x", "params": [` + strings.Repeat(`"0x1", `, 80) + `"0x2"], "id": 1}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"field \"jsonrpc\" should be string, got number"},"id":null}`,
+	},
+
+	"syntax error behind the captured window drops the position and marker": {
+		req: `{"jsonrpc": "2.0", "params": [` + strings.Repeat(`"0x1", `, 400) + ` @ ` + strings.Repeat(`"0x1", `, 400) + `"0x2"]}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"invalid character '@' looking for beginning of value"},"id":null}`,
+	},
+
+	"error exactly at the window start still draws the marker": {
+		req: `{"jsonrpc": 5, "method": "x", "params": [` + strings.Repeat(`"0x1", `, 66) + strings.Repeat(" ", 5) + `"0x2"], "id": 1}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5, \"method\": \"x\", \"params\": [\"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x...\n^\nfield \"jsonrpc\" should be string, got number [line 1, position 1]"},"id":null}`,
+	},
+
 	"long line is windowed": {
 		req: `{
   "jsonrpc": "2.0",
