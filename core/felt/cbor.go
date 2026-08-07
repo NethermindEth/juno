@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/NethermindEth/juno/encoder/cborlite"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/fxamacker/cbor/v2"
 )
@@ -24,23 +25,26 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 	return cbor.Unmarshal(data, (*fp.Element)(z))
 }
 
+// DecodeCBORPrefix decodes one felt at the start of data, returning how many bytes
+// it consumed. Unlike UnmarshalCBOR it allows trailing bytes, so a caller decoding
+// a larger structure can keep reading where this left off instead of having to
+// walk the item first to find where it ends.
+//
+// It writes value only on success, and has no generic fallback: the generic
+// decoder cannot report how much it consumed, so a caller that hits an
+// unrecognised shape has to fall back for the whole structure it is decoding.
+func DecodeCBORPrefix[F FeltLike](data []byte, value *F) (int, bool) {
+	return decodeLimbs(data, value)
+}
+
+// The major types and additional-info values come from [cborlite], so the felt
+// encoding and the readers that consume it cannot drift apart. Only the sizes
+// below are felt-specific: a limb is always an unsigned int, so a felt is always
+// an array of exactly Limbs of them.
 const (
-	// These derive from the CBOR spec
-	// Limb types are always unsigned int
-	// The following numbers represent the unsigned integer size
-	// See: https://www.rfc-editor.org/rfc/rfc8949.html#section-3
-	cborUint8AdditionalInfo  = 24 // 1 byte follows
-	cborUint16AdditionalInfo = 25 // 2 bytes follow
-	cborUint32AdditionalInfo = 26 // 4 bytes follow
-	cborUint64AdditionalInfo = 27 // 8 bytes follow
-
-	// cborArrayMajor the major type that represents an Array
-	// Top 3 bits are the major type (4 = array), low 5 bits are the length.
-	cborArrayMajor = 4 << 5
-
 	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
 	// 0b100_00100: an array with Limbs (4) elements.
-	cborArrayHeader4 = cborArrayMajor | Limbs
+	cborArrayHeader4 = cborlite.ArrayMajor | Limbs
 
 	// Header + 8 bytes following
 	maxCBORUintLen = 1 + 8
@@ -62,22 +66,22 @@ func encodeLimbs[F FeltLike](data []byte, value *F) int {
 		// Starting with the most common path, which is a large limb
 		switch {
 		case limb > math.MaxUint32:
-			data[offset] = cborUint64AdditionalInfo
+			data[offset] = cborlite.Info8Byte
 			binary.BigEndian.PutUint64(data[offset+1:], limb)
 			offset += 1 + 8
 
 		case limb > math.MaxUint16:
-			data[offset] = cborUint32AdditionalInfo
+			data[offset] = cborlite.Info4Byte
 			binary.BigEndian.PutUint32(data[offset+1:], uint32(limb))
 			offset += 1 + 4
 
 		case limb > math.MaxUint8:
-			data[offset] = cborUint16AdditionalInfo
+			data[offset] = cborlite.Info2Byte
 			binary.BigEndian.PutUint16(data[offset+1:], uint16(limb))
 			offset += 1 + 2
 
-		case limb >= cborUint8AdditionalInfo:
-			data[offset] = cborUint8AdditionalInfo
+		case limb >= cborlite.Info1Byte:
+			data[offset] = cborlite.Info1Byte
 			data[offset+1] = byte(limb)
 			offset += 2
 
@@ -113,38 +117,38 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 
 		var limb uint64
 		switch {
-		case headerByte > cborUint64AdditionalInfo: // invalid header byte for uint64
+		case headerByte > cborlite.Info8Byte: // invalid header byte for uint64
 			return 0, false
 
-		case headerByte == cborUint64AdditionalInfo:
+		case headerByte == cborlite.Info8Byte:
 			if offset+8 > len(data) {
 				return 0, false
 			}
 			limb = binary.BigEndian.Uint64(data[offset:])
 			offset += 8
 
-		case headerByte == cborUint32AdditionalInfo:
+		case headerByte == cborlite.Info4Byte:
 			if offset+4 > len(data) {
 				return 0, false
 			}
 			limb = uint64(binary.BigEndian.Uint32(data[offset:]))
 			offset += 4
 
-		case headerByte == cborUint16AdditionalInfo:
+		case headerByte == cborlite.Info2Byte:
 			if offset+2 > len(data) {
 				return 0, false
 			}
 			limb = uint64(binary.BigEndian.Uint16(data[offset:]))
 			offset += 2
 
-		case headerByte == cborUint8AdditionalInfo:
+		case headerByte == cborlite.Info1Byte:
 			if offset+1 > len(data) {
 				return 0, false
 			}
 			limb = uint64(data[offset])
 			offset++
 
-		default: // headerByte < cborUint8AdditionalInfo
+		default: // headerByte < cborlite.Info1Byte
 			limb = uint64(headerByte)
 		}
 
