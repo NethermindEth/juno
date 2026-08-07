@@ -86,7 +86,7 @@
 | `db-cache-size` | `1024` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
 | `db-compaction-concurrency` |  | DB compaction concurrency range. Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2 |
 | `db-compression` | `zstd` | Database compression profile. Options: zstd, snappy, minlz. Use zstd for low storage |
-| `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
+| `db-max-handles` | `half of process fd limit (min 1024, max 1048576)` | A soft limit on the number of open files that can be used by the DB. When not set, defaults to half of the process fd limit (min 1024, max 1048576) |
 | `db-memtable-count` | `2` | Determines the number of memtables the database can queue before stalling writes |
 | `db-memtable-size` | `256` | Determines the amount of memory (in MBs) allocated for database memtables |
 | `db-path` | `juno` | Location of the database files |
