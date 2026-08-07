@@ -122,9 +122,7 @@ func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDef
 	key := db.ClassKey(classHash)
 
 	var class core.DeclaredClassDefinition
-	if err := r.Get(key, func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
-	}); err != nil {
+	if err := r.Get(key, class.UnmarshalCBOR); err != nil {
 		return nil, err
 	}
 
