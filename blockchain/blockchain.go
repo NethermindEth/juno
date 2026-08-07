@@ -3,6 +3,7 @@ package blockchain
 import (
 	"errors"
 	"iter"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
@@ -62,6 +63,14 @@ type Reader interface {
 	ReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
+	TransactionAndReceiptByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (
+		transaction core.Transaction,
+		receipt core.TransactionReceipt,
+		blockHash *felt.Felt,
+		err error,
+	)
 	TransactionExecutionStatusByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (status core.TransactionExecutionStatus, err error)
@@ -104,6 +113,13 @@ type Blockchain struct {
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
 	stateBackend  statebackend.StateBackend
+
+	// chainHeight and l1Head mirror their database entries so reads don't hit the database on
+	// every call. A nil pointer means "unknown", not "unset": readers then fall back to the
+	// database, which keeps a failed refresh from serving a stale value. Both are only advanced
+	// by the sync loop, which never stores and reverts concurrently.
+	chainHeight atomic.Pointer[uint64]
+	l1Head      atomic.Pointer[core.L1Head]
 }
 
 // options holds configuration for constructing a Blockchain.
@@ -167,7 +183,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 
 	runningFilter := core.NewRunningEventFilterLazy(database, o.runningFilterInitialize)
 
-	return &Blockchain{
+	chain := &Blockchain{
 		database:      database,
 		network:       network,
 		listener:      o.listener,
@@ -182,6 +198,12 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 			o.stateVersion,
 		),
 	}
+	chain.cacheChainHeight()
+	if l1Head, err := core.GetL1Head(database); err == nil {
+		chain.l1Head.Store(&l1Head)
+	}
+
+	return chain
 }
 
 func (b *Blockchain) Network() *networks.Network {
@@ -191,12 +213,28 @@ func (b *Blockchain) Network() *networks.Network {
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
+	return b.height()
+}
+
+func (b *Blockchain) height() (uint64, error) {
+	if height := b.chainHeight.Load(); height != nil {
+		return *height, nil
+	}
 	return core.GetChainHeight(b.database)
+}
+
+func (b *Blockchain) cacheChainHeight() {
+	height, err := core.GetChainHeight(b.database)
+	if err != nil {
+		b.chainHeight.Store(nil)
+		return
+	}
+	b.chainHeight.Store(&height)
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
 	b.listener.OnRead("Head")
-	curHeight, err := core.GetChainHeight(b.database)
+	curHeight, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +244,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	b.listener.OnRead("HeadsHeader")
-	height, err := core.GetChainHeight(b.database)
+	height, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -320,12 +358,12 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		return nil, nil, 0, err
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, bnIndex.Number)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	return receipt, header.Hash, header.Number, nil
+	return receipt, blockHash, bnIndex.Number, nil
 }
 
 func (b *Blockchain) ReceiptByBlockNumberAndIndex(
@@ -338,12 +376,34 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 		return core.TransactionReceipt{}, nil, err
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
 		return core.TransactionReceipt{}, nil, err
 	}
 
-	return *receipt, header.Hash, nil
+	return *receipt, blockHash, nil
+}
+
+// TransactionAndReceiptByBlockNumberAndIndex returns a transaction, its receipt and the hash of
+// the block holding them.
+func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.Transaction, core.TransactionReceipt, *felt.Felt, error) {
+	b.listener.OnRead("TransactionAndReceiptByBlockNumberAndIndex")
+
+	transaction, receipt, err := core.GetTransactionAndReceiptByBlockAndIndex(
+		b.database, blockNumber, index,
+	)
+	if err != nil {
+		return nil, core.TransactionReceipt{}, nil, err
+	}
+
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
+	if err != nil {
+		return nil, core.TransactionReceipt{}, nil, err
+	}
+
+	return transaction, *receipt, blockHash, nil
 }
 
 // TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.
@@ -360,12 +420,21 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (core.L1Head, error) {
 	b.listener.OnRead("L1Head")
+	if l1Head := b.l1Head.Load(); l1Head != nil {
+		return *l1Head, nil
+	}
 	return core.GetL1Head(b.database)
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 	b.l1HeadFeed.Send(update)
-	return core.WriteL1Head(b.database, update)
+	if err := core.WriteL1Head(b.database, update); err != nil {
+		return err
+	}
+
+	cached := *update
+	b.l1Head.Store(&cached)
+	return nil
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -375,7 +444,12 @@ func (b *Blockchain) Store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	return b.stateBackend.Store(block, blockCommitments, stateUpdate, newClasses)
+	if err := b.stateBackend.Store(block, blockCommitments, stateUpdate, newClasses); err != nil {
+		return err
+	}
+
+	b.cacheChainHeight()
+	return nil
 }
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
@@ -433,7 +507,7 @@ func (b *Blockchain) EventFilter(
 	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	latest, err := core.GetChainHeight(b.database)
+	latest, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +526,12 @@ func (b *Blockchain) EventFilter(
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.stateBackend.RevertHead()
+	if err := b.stateBackend.RevertHead(); err != nil {
+		return err
+	}
+
+	b.cacheChainHeight()
+	return nil
 }
 
 func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
@@ -477,7 +556,12 @@ func (b *Blockchain) Finalise(
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) error {
-	return b.stateBackend.Finalise(block, stateUpdate, newClasses, sign)
+	if err := b.stateBackend.Finalise(block, stateUpdate, newClasses, sign); err != nil {
+		return err
+	}
+
+	b.cacheChainHeight()
+	return nil
 }
 
 func (b *Blockchain) StoreGenesis(

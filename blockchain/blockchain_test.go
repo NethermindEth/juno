@@ -1,7 +1,9 @@
 package blockchain_test
 
 import (
+	"bytes"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -345,6 +347,40 @@ func TestTransactionAndReceipt(t *testing.T) {
 		r, _, _, err := chain.Receipt(new(felt.Felt).SetUint64(234))
 		assert.Nil(t, r)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+	})
+
+	t.Run("TransactionAndReceipt matches the single-item accessors", func(t *testing.T) {
+		block, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, block.Transactions)
+
+		// The full header decode is the reference the block hash projection must reproduce.
+		wantHeader, err := chain.BlockHeaderByNumber(block.Number)
+		require.NoError(t, err)
+
+		for i := range block.Transactions {
+			wantTx, err := chain.TransactionByBlockNumberAndIndex(block.Number, uint64(i))
+			require.NoError(t, err)
+			wantReceipt, wantBlockHash, err := chain.ReceiptByBlockNumberAndIndex(
+				block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+			require.Equal(t, wantHeader.Hash, wantBlockHash)
+
+			gotTx, gotReceipt, gotBlockHash, err := chain.TransactionAndReceiptByBlockNumberAndIndex(
+				block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, wantTx, gotTx)
+			assert.Equal(t, wantReceipt, gotReceipt)
+			assert.Equal(t, wantBlockHash, gotBlockHash)
+		}
+	})
+
+	t.Run("TransactionAndReceipt returns error for unknown index", func(t *testing.T) {
+		_, _, _, err := chain.TransactionAndReceiptByBlockNumberAndIndex(0, 20)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
@@ -1043,6 +1079,64 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	})
 }
 
+// headReadCounter counts reads of the chain height and L1 head keys.
+type headReadCounter struct {
+	db.KeyValueStore
+	chainHeight atomic.Int64
+	l1Head      atomic.Int64
+}
+
+func (c *headReadCounter) Get(key []byte, cb func([]byte) error) error {
+	switch {
+	case bytes.Equal(key, db.ChainHeight.Key()):
+		c.chainHeight.Add(1)
+	case bytes.Equal(key, db.L1Height.Key()):
+		c.l1Head.Add(1)
+	}
+	return c.KeyValueStore.Get(key, cb)
+}
+
+func TestHeightAndL1HeadAreServedWithoutReadingTheDatabase(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+	stateUpdate, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+
+	wantL1Head := core.L1Head{
+		BlockNumber: block.Number,
+		BlockHash:   block.Hash,
+		StateRoot:   block.GlobalStateRoot,
+	}
+	require.NoError(t, chain.SetL1Head(&wantL1Head))
+
+	counter.chainHeight.Store(0)
+	counter.l1Head.Store(0)
+
+	for range 3 {
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, block.Number, height)
+
+		l1Head, err := chain.L1Head()
+		require.NoError(t, err)
+		assert.Equal(t, wantL1Head, l1Head)
+	}
+
+	assert.Zero(t, counter.chainHeight.Load())
+	assert.Zero(t, counter.l1Head.Load())
+}
+
 func TestRevert(t *testing.T) {
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -1112,6 +1206,11 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, it.Next(), it.Key())
 		require.NoError(t, it.Close())
+	})
+
+	t.Run("height should report an empty chain once every block is reverted", func(t *testing.T) {
+		_, err := chain.Height()
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
