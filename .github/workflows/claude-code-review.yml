@@ -19,10 +19,12 @@ concurrency:
   cancel-in-progress: true
 jobs:
   review:
-    # Skip drafts and bot PRs (dependabot, etc.)
+    # Skip drafts, forks, and bots not on the allowlist.
+    # Keep the list in sync with allowed_bots below.
     if: |
       github.event.pull_request.draft == false &&
-      github.event.pull_request.user.type != 'Bot' &&
+      (github.event.pull_request.user.type != 'Bot' ||
+       contains(fromJSON('["infrmtcs-agent[bot]"]'), github.event.pull_request.user.login)) &&
       github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
@@ -43,6 +45,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: "infrmtcs-agent[bot]"
           model: claude-opus-4-7
           timeout_minutes: "20"
           track_progress: true
