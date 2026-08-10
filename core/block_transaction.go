@@ -35,6 +35,11 @@ type BlockTransactions struct {
 	Data    []byte
 }
 
+type TransactionAndReceipt struct {
+	Transaction Transaction
+	Receipt     *TransactionReceipt
+}
+
 func NewBlockTransactionsFromIterators[T, R any](
 	transactions iter.Seq2[T, error],
 	receipts iter.Seq2[R, error],

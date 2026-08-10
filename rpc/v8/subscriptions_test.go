@@ -395,12 +395,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.TransactionAndReceipt{
+			Transaction: block.Transactions[0],
+			Receipt:     block.Receipts[0],
+		}, block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
 			handler.preConfirmedFeed.Send(
@@ -417,12 +417,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.TransactionAndReceipt{
+			Transaction: block.Transactions[0],
+			Receipt:     block.Receipts[0],
+		}, block.Hash, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")

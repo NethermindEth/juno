@@ -52,6 +52,7 @@ func newRootCmd() *cobra.Command {
 		"Batch size per entry; omit for plain request objects, N for JSON-RPC arrays of N.")
 
 	cmd.AddCommand(newGetTxByHashCmd(cfg))
+	cmd.AddCommand(newGetTxReceiptCmd(cfg))
 	return cmd
 }
 

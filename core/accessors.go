@@ -505,6 +505,15 @@ func GetReceiptByBlockAndIndex(
 	return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
 }
 
+// GetTransactionAndReceiptByBlockAndIndex returns a transaction with its receipt
+func GetTransactionAndReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (TransactionAndReceipt, error) {
+	return BlockTransactionsTransactionAndReceiptPartialBucket.Get(r, blockNumber, int(index))
+}
+
 // GetTransactionExecutionStatusByBlockAndIndex returns only the status subset of a
 // receipt, skipping its heavier fields.
 func GetTransactionExecutionStatusByBlockAndIndex(

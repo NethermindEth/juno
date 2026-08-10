@@ -600,15 +600,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		return AdaptReceipt(receipt, txn, TxnPending, nil, 0), nil
 	}
 
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, idx)
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return nil, rpccore.ErrTxnHashNotFound
-	}
-
-	receipt, blockHash, err := h.bcReader.ReceiptByBlockNumberAndIndex(blockNumber, idx)
+	pair, blockHash, err := h.bcReader.TransactionAndReceiptByBlockNumberAndIndex(blockNumber, idx)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -624,7 +616,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(&receipt, txn, status, blockHash, blockNumber), nil
+	return AdaptReceipt(pair.Receipt, pair.Transaction, status, blockHash, blockNumber), nil
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
