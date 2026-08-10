@@ -110,6 +110,11 @@ type Blockchain struct {
 	// every call. A nil pointer means "unknown", not "unset": readers then fall back to the
 	// database, which keeps a failed refresh from serving a stale value. Both stay nil when the
 	// database is written elsewhere (see [WithRemoteDatabase]).
+	//
+	// This holds only while db.ChainHeight and db.L1Height are written exclusively through
+	// Blockchain — by Store, Finalise (which the builder drives) and RevertHead. An in-process
+	// writer holding the raw db.KeyValueStore, as the migrations in node.Run do, would leave the
+	// cache stale.
 	chainHeight atomic.Pointer[uint64]
 	l1Head      atomic.Pointer[core.L1Head]
 	cacheHeads  bool
@@ -229,9 +234,17 @@ func (b *Blockchain) height() (uint64, error) {
 	return core.GetChainHeight(b.database)
 }
 
+// cacheChainHeight refreshes the cached height from the database rather than from the caller's
+// block, so the cache stays derived from what was committed: reverting the genesis block removes
+// the entry entirely instead of decrementing it. A read failure caches "unknown", which sends
+// readers to the database.
 func (b *Blockchain) cacheChainHeight() {
+	if !b.cacheHeads {
+		return
+	}
+
 	height, err := core.GetChainHeight(b.database)
-	if err != nil || !b.cacheHeads {
+	if err != nil {
 		b.chainHeight.Store(nil)
 		return
 	}
@@ -503,7 +516,9 @@ func (b *Blockchain) EventFilter(
 	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	latest, err := b.height()
+	// Not b.height(): Events re-reads the height on every call by design, so taking it from the
+	// cache here would only let one query observe two different values of "latest".
+	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}

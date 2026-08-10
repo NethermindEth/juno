@@ -1185,6 +1185,39 @@ func TestStoreGenesisCachesTheHeight(t *testing.T) {
 	assert.Zero(t, counter.chainHeight.Load())
 }
 
+func TestHeadsAreCachedWhenTheDatabaseIsAlreadyPopulated(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	require.NoError(t, core.WriteChainHeight(counter, 7))
+	wantL1Head := core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}
+	require.NoError(t, core.WriteL1Head(counter, &wantL1Head))
+
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	// Nothing was stored through chain, so only the constructor can have filled the cache. This is
+	// the restarted-node case: heads are served from memory before the first block arrives.
+	counter.chainHeight.Store(0)
+	counter.l1Head.Store(0)
+
+	height, err := chain.Height()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(7), height)
+
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, wantL1Head, l1Head)
+
+	assert.Zero(t, counter.chainHeight.Load())
+	assert.Zero(t, counter.l1Head.Load())
+}
+
 func TestHeadsAreReadFromTheDatabaseWhenAnotherProcessWritesIt(t *testing.T) {
 	testDB := memory.New()
 	require.NoError(t, core.WriteChainHeight(testDB, 7))
@@ -1220,7 +1253,8 @@ func TestHeadsAreReadFromTheDatabaseWhenAnotherProcessWritesIt(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	testDB := memory.New()
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	testDB := counter
 	chain := blockchain.New(
 		testDB,
 		&networks.Mainnet,
@@ -1246,6 +1280,15 @@ func TestRevert(t *testing.T) {
 		height, err := chain.Height()
 		require.NoError(t, err)
 		assert.Equal(t, uint64(1), height)
+	})
+	t.Run("height is cached after reverting onto a block that still exists", func(t *testing.T) {
+		// Zero reads means the revert refreshed the cache. Invalidating alone would leave it nil
+		// and send every later reader back to the database for the rest of the process's life.
+		counter.chainHeight.Store(0)
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), height)
+		assert.Zero(t, counter.chainHeight.Load())
 	})
 	t.Run("head should revert", func(t *testing.T) {
 		block, err := chain.Head()
