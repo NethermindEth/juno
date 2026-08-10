@@ -35,6 +35,12 @@ type BlockTransactions struct {
 	Data    []byte
 }
 
+// TransactionAndReceipt is a transaction paired with its receipt.
+type TransactionAndReceipt struct {
+	Transaction Transaction
+	Receipt     *TransactionReceipt
+}
+
 func NewBlockTransactionsFromIterators[T, R any](
 	transactions iter.Seq2[T, error],
 	receipts iter.Seq2[R, error],

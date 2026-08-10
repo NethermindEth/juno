@@ -62,6 +62,14 @@ type Reader interface {
 	ReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
+	TransactionAndReceiptByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (
+		transaction core.Transaction,
+		receipt core.TransactionReceipt,
+		blockHash *felt.Felt,
+		err error,
+	)
 	TransactionExecutionStatusByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (status core.TransactionExecutionStatus, err error)
@@ -320,12 +328,12 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		return nil, nil, 0, err
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, bnIndex.Number)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	return receipt, header.Hash, header.Number, nil
+	return receipt, blockHash, bnIndex.Number, nil
 }
 
 func (b *Blockchain) ReceiptByBlockNumberAndIndex(
@@ -338,12 +346,34 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 		return core.TransactionReceipt{}, nil, err
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
 		return core.TransactionReceipt{}, nil, err
 	}
 
-	return *receipt, header.Hash, nil
+	return *receipt, blockHash, nil
+}
+
+// TransactionAndReceiptByBlockNumberAndIndex returns a transaction, its receipt and the hash of
+// the block holding them.
+func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.Transaction, core.TransactionReceipt, *felt.Felt, error) {
+	b.listener.OnRead("TransactionAndReceiptByBlockNumberAndIndex")
+
+	transaction, receipt, err := core.GetTransactionAndReceiptByBlockAndIndex(
+		b.database, blockNumber, index,
+	)
+	if err != nil {
+		return nil, core.TransactionReceipt{}, nil, err
+	}
+
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
+	if err != nil {
+		return nil, core.TransactionReceipt{}, nil, err
+	}
+
+	return transaction, *receipt, blockHash, nil
 }
 
 // TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.

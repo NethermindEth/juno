@@ -347,6 +347,40 @@ func TestTransactionAndReceipt(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
+	t.Run("TransactionAndReceipt matches the single-item accessors", func(t *testing.T) {
+		block, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, block.Transactions)
+
+		// The full header decode is the reference the block hash projection must reproduce.
+		wantHeader, err := chain.BlockHeaderByNumber(block.Number)
+		require.NoError(t, err)
+
+		for i := range block.Transactions {
+			wantTx, err := chain.TransactionByBlockNumberAndIndex(block.Number, uint64(i))
+			require.NoError(t, err)
+			wantReceipt, wantBlockHash, err := chain.ReceiptByBlockNumberAndIndex(
+				block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+			require.Equal(t, wantHeader.Hash, wantBlockHash)
+
+			gotTx, gotReceipt, gotBlockHash, err := chain.TransactionAndReceiptByBlockNumberAndIndex(
+				block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, wantTx, gotTx)
+			assert.Equal(t, wantReceipt, gotReceipt)
+			assert.Equal(t, wantBlockHash, gotBlockHash)
+		}
+	})
+
+	t.Run("TransactionAndReceipt returns error for unknown index", func(t *testing.T) {
+		_, _, _, err := chain.TransactionAndReceiptByBlockNumberAndIndex(0, 20)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {

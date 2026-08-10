@@ -1140,12 +1140,14 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
 				).Return(*expected.BlockNumber, uint64(transactionIndex), nil)
-				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 					*expected.BlockNumber, uint64(transactionIndex),
-				).Return(transaction, nil)
-				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-					*expected.BlockNumber, uint64(transactionIndex),
-				).Return(*loadedBlock.Receipts[transactionIndex], expected.BlockHash, nil)
+				).Return(
+					transaction,
+					*loadedBlock.Receipts[transactionIndex],
+					expected.BlockHash,
+					nil,
+				)
 				mockReader.EXPECT().L1Head().Return(test.l1Head, nil)
 			}
 
