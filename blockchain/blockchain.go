@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
@@ -116,6 +117,14 @@ type Blockchain struct {
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
 	stateBackend  statebackend.StateBackend
+
+	// chainHeight and l1Head mirror their database entries so reads don't hit the database on
+	// every call. A nil pointer means "unknown", not "unset": readers then fall back to the
+	// database, which keeps a failed refresh from serving a stale value. Both stay nil when the
+	// database is written elsewhere (see [WithRemoteDatabase]).
+	chainHeight atomic.Pointer[uint64]
+	l1Head      atomic.Pointer[core.L1Head]
+	cacheHeads  bool
 }
 
 // options holds configuration for constructing a Blockchain.
@@ -124,6 +133,7 @@ type options struct {
 	stateVersion            bool
 	runningFilterInitialize core.RunningEventFilterInitializer
 	retentionFloor          *pruner.RetentionFloor
+	remoteDatabase          bool
 }
 
 // Option is a functional option for configuring Blockchain options.
@@ -148,6 +158,15 @@ func WithNewState(enabled bool) Option {
 func WithRunningEventFilterInitializer(initialize core.RunningEventFilterInitializer) Option {
 	return func(o *options) {
 		o.runningFilterInitialize = initialize
+	}
+}
+
+// WithRemoteDatabase marks the database as one another process writes, as `--remote-db` followers
+// do. Such a node never stores or reverts, so it cannot know when the heads move and must read
+// them back instead of caching them.
+func WithRemoteDatabase() Option {
+	return func(o *options) {
+		o.remoteDatabase = true
 	}
 }
 
@@ -179,7 +198,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 
 	runningFilter := core.NewRunningEventFilterLazy(database, o.runningFilterInitialize)
 
-	return &Blockchain{
+	chain := &Blockchain{
 		database:      database,
 		network:       network,
 		listener:      o.listener,
@@ -193,7 +212,16 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 			o.retentionFloor,
 			o.stateVersion,
 		),
+		cacheHeads: !o.remoteDatabase,
 	}
+	if chain.cacheHeads {
+		chain.cacheChainHeight()
+		if l1Head, err := core.GetL1Head(database); err == nil {
+			chain.l1Head.Store(&l1Head)
+		}
+	}
+
+	return chain
 }
 
 func (b *Blockchain) Network() *networks.Network {
@@ -203,12 +231,28 @@ func (b *Blockchain) Network() *networks.Network {
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
+	return b.height()
+}
+
+func (b *Blockchain) height() (uint64, error) {
+	if height := b.chainHeight.Load(); height != nil {
+		return *height, nil
+	}
 	return core.GetChainHeight(b.database)
+}
+
+func (b *Blockchain) cacheChainHeight() {
+	height, err := core.GetChainHeight(b.database)
+	if err != nil || !b.cacheHeads {
+		b.chainHeight.Store(nil)
+		return
+	}
+	b.chainHeight.Store(&height)
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
 	b.listener.OnRead("Head")
-	curHeight, err := core.GetChainHeight(b.database)
+	curHeight, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +262,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	b.listener.OnRead("HeadsHeader")
-	height, err := core.GetChainHeight(b.database)
+	height, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -396,14 +440,38 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 	return L1HeadSubscription{b.l1HeadFeed.Subscribe()}
 }
 
+// L1Head returns the latest L1 head. The returned felts are shared with every other caller and
+// must not be mutated in place.
 func (b *Blockchain) L1Head() (core.L1Head, error) {
 	b.listener.OnRead("L1Head")
+	if l1Head := b.l1Head.Load(); l1Head != nil {
+		return *l1Head, nil
+	}
 	return core.GetL1Head(b.database)
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 	b.l1HeadFeed.Send(update)
-	return core.WriteL1Head(b.database, update)
+	if err := core.WriteL1Head(b.database, update); err != nil {
+		return err
+	}
+
+	if !b.cacheHeads {
+		return nil
+	}
+
+	// Deep copy: update and the felts it points at are shared with the feed's subscribers and
+	// outlive this call, while every later L1Head reader hands out what is cached here. Both
+	// felts are optional, so neither can be cloned unconditionally.
+	cached := core.L1Head{BlockNumber: update.BlockNumber}
+	if update.BlockHash != nil {
+		cached.BlockHash = update.BlockHash.Clone()
+	}
+	if update.StateRoot != nil {
+		cached.StateRoot = update.StateRoot.Clone()
+	}
+	b.l1Head.Store(&cached)
+	return nil
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -413,6 +481,8 @@ func (b *Blockchain) Store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
+	defer b.cacheChainHeight()
+
 	return b.stateBackend.Store(block, blockCommitments, stateUpdate, newClasses)
 }
 
@@ -471,7 +541,7 @@ func (b *Blockchain) EventFilter(
 	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	latest, err := core.GetChainHeight(b.database)
+	latest, err := b.height()
 	if err != nil {
 		return nil, err
 	}
@@ -490,6 +560,12 @@ func (b *Blockchain) EventFilter(
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
+	defer b.cacheChainHeight()
+
+	// Drop the cached height before the batch commits. A stale height outlives the block it names
+	// and would point readers at one that is already deleted; an unknown height sends them to the
+	// database, which is correct on both sides of the commit.
+	b.chainHeight.Store(nil)
 	return b.stateBackend.RevertHead()
 }
 
@@ -515,6 +591,8 @@ func (b *Blockchain) Finalise(
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) error {
+	defer b.cacheChainHeight()
+
 	return b.stateBackend.Finalise(block, stateUpdate, newClasses, sign)
 }
 
