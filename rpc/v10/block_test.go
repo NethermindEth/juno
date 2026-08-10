@@ -1128,7 +1128,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	})
 }
 
-func TestBlockWithTxHashesV013(t *testing.T) {
+func TestBlockWithTxsV013(t *testing.T) {
 	network := new(networks.SepoliaIntegration)
 	blockNumber := uint64(16350)
 	client := feeder.NewTestClient(t, network)
