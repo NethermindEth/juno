@@ -38,14 +38,23 @@ type Helper interface {
 	// This will create a read-write transaction, apply the callback to it, and flush the changes
 	//
 	// The callback may read from and write to the same store, including nested
-	// Update/Write calls. It must not call Close: Close waits for in-flight
-	// transactions to finish, so closing from inside a callback deadlocks.
+	// Update/Write calls.
+	//
+	// It must not start a transaction from inside a Get or Has value callback:
+	// implementations may hold a read lock across those callbacks, so committing
+	// the nested transaction deadlocks.
+	//
+	// It must not call Close either. What happens is implementation-dependent:
+	// pebble-backed stores reject new transactions once Close begins and wait for
+	// the in-flight ones, so Close from inside a callback deadlocks; memory and
+	// remote abort in-flight transactions instead. For the same reason Close is
+	// only a flush barrier on pebble-backed stores — elsewhere, writes still in
+	// flight when Close lands are dropped.
 	Update(func(IndexedBatch) error) error
 	// This will create a write-only batch, apply the callback to it, and flush the changes.
 	// Use this instead of Update when you don't need to read from the batch.
 	//
-	// The same callback rules as Update apply: nested reads and writes are fine,
-	// Close is not.
+	// The same callback rules as Update apply.
 	Write(func(Batch) error) error
 	// TODO(weiihann): honestly this doesn't make sense, but it's currently needed for the metrics
 	// remove this once the metrics are refactored

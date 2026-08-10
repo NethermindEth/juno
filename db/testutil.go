@@ -870,17 +870,19 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		close(start)
 
+		var closeErr error
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			// The error is ignored: the test only asserts that no operation
-			// panics, races or deadlocks with Close.
-			_ = database.Close()
+			closeErr = database.Close()
 			wg.Wait()
 		}()
 
 		select {
 		case <-done:
+			// Workers ignore their errors on purpose: once Close lands, failures are
+			// expected. Close itself must still succeed.
+			require.NoError(t, closeErr, "Close operation failed")
 		case <-time.After(30 * time.Second):
 			t.Fatal("Close deadlocked against in-flight transactions")
 		}
@@ -911,6 +913,8 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 					return err
 				}
 				// Reading the store while a transaction is in flight must not block.
+				// Has goes to the store, not to the uncommitted batch, so it won't see
+				// outer-update yet — the point here is that it returns at all.
 				if _, err := database.Has([]byte("outer-update")); err != nil {
 					return err
 				}
@@ -944,7 +948,9 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.True(t, ok, "%s should have been committed", key)
 		}
 
-		require.NoError(t, database.Close(), "Close operation failed")
+		runWithTimeout("Close after nested transactions", func() error {
+			return database.Close()
+		})
 	})
 }
 
