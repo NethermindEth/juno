@@ -20,7 +20,7 @@ type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimi
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L268-L280
 type Class struct {
-	SierraProgram        []felt.Felt            `json:"sierra_program,omitempty"`
+	SierraProgram        felt.Slice[felt.Felt]  `json:"sierra_program,omitempty"`
 	Program              string                 `json:"program,omitempty"`
 	ContractClassVersion string                 `json:"contract_class_version,omitempty"`
 	EntryPoints          ClassEntryPointsByType `json:"entry_points_by_type"`

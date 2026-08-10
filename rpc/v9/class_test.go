@@ -420,7 +420,7 @@ func assertEqualDeprecatedCairoClass(
 }
 
 func assertEqualSierraClass(t *testing.T, sierraClass *core.SierraClass, class *rpcv9.Class) {
-	assert.Equal(t, []felt.Felt(sierraClass.Program), class.SierraProgram)
+	assert.Equal(t, sierraClass.Program, class.SierraProgram)
 	assert.Equal(t, sierraClass.Abi, class.Abi.(string))
 	assert.Equal(t, sierraClass.SemanticVersion, class.ContractClassVersion)
 

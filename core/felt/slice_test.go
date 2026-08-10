@@ -2,6 +2,7 @@ package felt_test
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"math"
 	"math/rand"
 	"slices"
@@ -44,7 +45,7 @@ func encodeFeltCBOR(t *testing.T, value felt.Felt) []byte {
 
 // requireSliceDecodeEquivalent decodes data with both the fast and generic
 // paths and asserts they agree, either on the decoded felts or on the error.
-func requireSliceDecodeEquivalent[F felt.FeltLike](t *testing.T, data []byte) {
+func requireSliceDecodeCBOREquivalent[F felt.FeltLike](t *testing.T, data []byte) {
 	t.Helper()
 
 	var fast felt.Slice[F]
@@ -85,7 +86,7 @@ func requireSliceDecodeEquivalent[F felt.FeltLike](t *testing.T, data []byte) {
 	}
 }
 
-func TestSliceRoundTripBoundarySizes(t *testing.T) {
+func TestSliceRoundTripCBORBoundarySizes(t *testing.T) {
 	sizes := []struct {
 		name string
 		size int
@@ -115,15 +116,15 @@ func TestSliceRoundTripBoundarySizes(t *testing.T) {
 				tc.size,
 			)
 
-			requireSliceDecodeEquivalent[felt.Felt](t, fast)
-			requireSliceDecodeEquivalent[feltoid](t, fast)
+			requireSliceDecodeCBOREquivalent[felt.Felt](t, fast)
+			requireSliceDecodeCBOREquivalent[feltoid](t, fast)
 		})
 	}
 }
 
 // A nil slice must marshal like the generic encoder (null, not an empty array)
 // and round-trip back to nil rather than an empty slice.
-func TestSliceMarshalNil(t *testing.T) {
+func TestSliceMarshalCBORNil(t *testing.T) {
 	var s felt.Slice[felt.Felt] // nil
 
 	fast, err := s.MarshalCBOR()
@@ -137,7 +138,7 @@ func TestSliceMarshalNil(t *testing.T) {
 	require.Nil(t, back, "nil slice must round-trip back to nil, not empty")
 }
 
-func TestSliceDecodeCornerCases(t *testing.T) {
+func TestSliceDecodeCBORCornerCases(t *testing.T) {
 	feltBytes1 := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
 	feltBytes2 := encodeFeltCBOR(t, fromLimbs[felt.Felt](2))
 
@@ -174,13 +175,13 @@ func TestSliceDecodeCornerCases(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			requireSliceDecodeEquivalent[felt.Felt](t, tc.data)
-			requireSliceDecodeEquivalent[feltoid](t, tc.data)
+			requireSliceDecodeCBOREquivalent[felt.Felt](t, tc.data)
+			requireSliceDecodeCBOREquivalent[feltoid](t, tc.data)
 		})
 	}
 }
 
-func TestSliceDecodeRejectsOversizedHeader(t *testing.T) {
+func TestSliceDecodeCBORRejectsOversizedHeader(t *testing.T) {
 	feltBytes := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
 
 	// cborArrayUint32 reads the element count
@@ -188,13 +189,13 @@ func TestSliceDecodeRejectsOversizedHeader(t *testing.T) {
 	header := binary.BigEndian.AppendUint32([]byte{cborArrayUint32}, math.MaxUint32)
 	data := slices.Concat(header, feltBytes)
 
-	requireSliceDecodeEquivalent[felt.Felt](t, data)
-	requireSliceDecodeEquivalent[feltoid](t, data)
+	requireSliceDecodeCBOREquivalent[felt.Felt](t, data)
+	requireSliceDecodeCBOREquivalent[feltoid](t, data)
 }
 
 // FuzzSliceDecodeEquivalence fuzzes the decode path, the one that can receive
 // arbitrary bytes, to ensure it stays equivalent to the generic decoder and never panics.
-func FuzzSliceDecodeEquivalence(fz *testing.F) {
+func FuzzSliceDecodeCBOREquivalence(fz *testing.F) {
 	for _, n := range []int{0, 1, 2, 23, 24, 255, 256} {
 		encoded, err := randomSlice[felt.Felt](n).MarshalCBOR()
 		require.NoError(fz, err)
@@ -207,7 +208,165 @@ func FuzzSliceDecodeEquivalence(fz *testing.F) {
 	}
 
 	fz.Fuzz(func(t *testing.T, data []byte) {
-		requireSliceDecodeEquivalent[felt.Felt](t, data)
-		requireSliceDecodeEquivalent[feltoid](t, data)
+		requireSliceDecodeCBOREquivalent[felt.Felt](t, data)
+		requireSliceDecodeCBOREquivalent[feltoid](t, data)
+	})
+}
+
+func TestSliceJSON(t *testing.T) {
+	// One below the field modulus, so it exercises the widest hex a felt can print.
+	const maxFelt = "0x800000000000011000000000000000000000000000000000000000000000000"
+
+	cases := []struct {
+		name string
+		in   felt.Slice[felt.Felt]
+		want string
+	}{
+		{"nil", nil, `null`},
+		{"empty", felt.Slice[felt.Felt]{}, `[]`},
+		{"one", felt.Slice[felt.Felt]{felt.UnsafeFromString[felt.Felt]("0xdeadbeef")}, `["0xdeadbeef"]`},
+		{
+			"many",
+			felt.Slice[felt.Felt]{
+				felt.Zero,
+				felt.UnsafeFromString[felt.Felt]("0x1"),
+				felt.UnsafeFromString[felt.Felt](maxFelt),
+			},
+			`["0x0","0x1","` + maxFelt + `"]`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			encoded, err := json.Marshal(tc.in)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, string(encoded))
+
+			// Must match the generic encoder byte for byte.
+			generic, err := json.Marshal([]felt.Felt(tc.in))
+			require.NoError(t, err)
+			require.Equal(t, string(generic), string(encoded))
+
+			// nil and empty have to stay distinct across the round trip.
+			var roundTrip felt.Slice[felt.Felt]
+			require.NoError(t, json.Unmarshal(encoded, &roundTrip))
+			require.Equal(t, tc.in, roundTrip)
+
+			requireSliceDecodeJSONEquivalent(t, encoded)
+		})
+	}
+}
+
+func TestSliceJSONAccepts(t *testing.T) {
+	cases := map[string]string{
+		"interior whitespace": `[ "0x1" , "0x2" ]`,
+		"newlines":            "[\n\t\"0x1\",\n\t\"0x2\"\n]",
+		"leading zeros":       `["0x0001","0x02"]`,
+		"uppercase prefix":    `["0X1","0X2"]`,
+		"mixed case digits":   `["0xAbCd","0xabcd"]`,
+	}
+
+	for name, input := range cases {
+		t.Run(name, func(t *testing.T) {
+			var decoded felt.Slice[felt.Felt]
+			require.NoError(t, json.Unmarshal([]byte(input), &decoded))
+			require.Len(t, decoded, 2)
+
+			requireSliceDecodeJSONEquivalent(t, []byte(input))
+		})
+	}
+}
+
+func TestSliceJSONReusesDestination(t *testing.T) {
+	var slice felt.Slice[felt.Felt]
+	require.NoError(t, json.Unmarshal([]byte(`["0x1","0x2","0x3","0x4","0x5"]`), &slice))
+	require.Len(t, slice, 5)
+
+	require.NoError(t, json.Unmarshal([]byte(`["0xa","0xb"]`), &slice))
+	require.Len(t, slice, 2)
+
+	encoded, err := json.Marshal(slice)
+	require.NoError(t, err)
+	require.Equal(t, `["0xa","0xb"]`, string(encoded))
+
+	// And down to nothing.
+	require.NoError(t, json.Unmarshal([]byte(`[]`), &slice))
+	require.Empty(t, slice)
+	require.NotNil(t, slice)
+}
+
+func requireSliceDecodeJSONEquivalent(t *testing.T, data []byte) {
+	t.Helper()
+
+	var fast felt.Slice[felt.Felt]
+	errFast := json.Unmarshal(data, &fast)
+
+	var generic []felt.Felt
+	errGeneric := json.Unmarshal(data, &generic)
+
+	if errGeneric != nil {
+		require.Error(
+			t,
+			errFast,
+			"fast decoder accepted input the generic decoder rejected (%v): %s",
+			errGeneric,
+			data,
+		)
+
+		return
+	}
+
+	require.NoError(
+		t,
+		errFast,
+		"fast decoder rejected input the generic decoder accepted: %s",
+		data,
+	)
+
+	require.Equal(t, len(generic), len(fast), "length mismatch for %s", data)
+	for idx := range generic {
+		require.True(
+			t,
+			felt.Equal(&generic[idx], &fast[idx]),
+			"element %d mismatch for %s: generic=%v fast=%v",
+			idx,
+			data,
+			generic[idx],
+			fast[idx],
+		)
+	}
+}
+
+func TestSliceJSONRejects(t *testing.T) {
+	for _, input := range []string{
+		`{}`, `[1]`, `[null]`, `[true]`, `[[]]`,
+		`["notahex"]`, `["0x"]`, `["0xzz"]`, `["0x1"}`,
+		`["0xa\"b"]`, `["0x1\n"]`, `["\u00300x1"]`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			var out felt.Slice[felt.Felt]
+			require.Error(t, json.Unmarshal([]byte(input), &out))
+
+			requireSliceDecodeJSONEquivalent(t, []byte(input))
+		})
+	}
+}
+
+func FuzzSliceDecodeJSONEquivalence(fz *testing.F) {
+	for _, n := range []int{0, 1, 2, 17, 256} {
+		encoded, err := json.Marshal(randomSlice[felt.Felt](n))
+		require.NoError(fz, err)
+		fz.Add(encoded)
+	}
+
+	for _, seed := range []string{
+		`null`, `[]`, `[ ]`, `["0x0"]`, `[ "0x1" , "0x2" ]`, `["0X1"]`,
+		`["0xa\"b"]`, `[1]`, `[null]`, `{}`, `[`, `["0x1"`, ``,
+	} {
+		fz.Add([]byte(seed))
+	}
+
+	fz.Fuzz(func(t *testing.T, data []byte) {
+		requireSliceDecodeJSONEquivalent(t, data)
 	})
 }
