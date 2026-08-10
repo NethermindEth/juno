@@ -347,7 +347,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
-	t.Run("TransactionAndReceipt matches the single-item accessors", func(t *testing.T) {
+	t.Run("TransactionAndReceipt returns what was stored", func(t *testing.T) {
 		block, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 		require.NotEmpty(t, block.Transactions)
@@ -357,22 +357,14 @@ func TestTransactionAndReceipt(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := range block.Transactions {
-			wantTx, err := chain.TransactionByBlockNumberAndIndex(block.Number, uint64(i))
-			require.NoError(t, err)
-			wantReceipt, wantBlockHash, err := chain.ReceiptByBlockNumberAndIndex(
-				block.Number, uint64(i),
-			)
-			require.NoError(t, err)
-			require.Equal(t, wantHeader.Hash, wantBlockHash)
-
 			gotTx, gotReceipt, gotBlockHash, err := chain.TransactionAndReceiptByBlockNumberAndIndex(
 				block.Number, uint64(i),
 			)
 			require.NoError(t, err)
 
-			assert.Equal(t, wantTx, gotTx)
-			assert.Equal(t, wantReceipt, gotReceipt)
-			assert.Equal(t, wantBlockHash, gotBlockHash)
+			assert.Equal(t, block.Transactions[i], gotTx)
+			assert.Equal(t, *block.Receipts[i], gotReceipt)
+			assert.Equal(t, wantHeader.Hash, gotBlockHash)
 		}
 	})
 

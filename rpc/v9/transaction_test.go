@@ -914,12 +914,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 				(*felt.TransactionHash)(txHash),
 			).Return(block0.Number, uint64(test.index), nil)
-			mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+			mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 				block0.Number, uint64(test.index),
-			).Return(block0.Transactions[test.index], nil)
-			mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-				block0.Number, uint64(test.index),
-			).Return(*block0.Receipts[test.index], block0.Hash, nil)
+			).Return(
+				block0.Transactions[test.index],
+				*block0.Receipts[test.index], block0.Hash,
+				nil,
+			)
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 			checkTxReceipt(t, txHash, test.expected)
@@ -1012,12 +1013,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block0.Number, uint64(i), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block0.Number, uint64(i),
-		).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block0.Number, uint64(i),
-		).Return(*block0.Receipts[i], block0.Hash, nil)
+		).Return(
+			block0.Transactions[i],
+			*block0.Receipts[i], block0.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block0.Number,
 			BlockHash:   block0.Hash,
@@ -1066,12 +1068,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(revertedTxnHash),
 		).Return(blockWithRevertedTxn.Number, uint64(revertedTxnIdx), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			blockWithRevertedTxn.Number, uint64(revertedTxnIdx),
-		).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			blockWithRevertedTxn.Number, uint64(revertedTxnIdx),
-		).Return(*blockWithRevertedTxn.Receipts[revertedTxnIdx], blockWithRevertedTxn.Hash, nil)
+		).Return(
+			blockWithRevertedTxn.Transactions[revertedTxnIdx],
+			*blockWithRevertedTxn.Receipts[revertedTxnIdx], blockWithRevertedTxn.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, revertedTxnHash, expected)
@@ -1144,12 +1147,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txnHash),
 		).Return(block.Number, uint64(index), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
-		).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(index),
-		).Return(*block.Receipts[index], block.Hash, nil)
+		).Return(
+			block.Transactions[index],
+			*block.Receipts[index], block.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
@@ -1209,12 +1213,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txnHash),
 		).Return(block.Number, uint64(index), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
-		).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(index),
-		).Return(*block.Receipts[index], block.Hash, nil)
+		).Return(
+			block.Transactions[index],
+			*block.Receipts[index], block.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)

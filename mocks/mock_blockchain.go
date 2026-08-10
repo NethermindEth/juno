@@ -317,22 +317,6 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), hash)
 }
 
-// ReceiptByBlockNumberAndIndex mocks base method.
-func (m *MockReader) ReceiptByBlockNumberAndIndex(blockNumber, index uint64) (core.TransactionReceipt, *felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
-	ret0, _ := ret[0].(core.TransactionReceipt)
-	ret1, _ := ret[1].(*felt.Felt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ReceiptByBlockNumberAndIndex indicates an expected call of ReceiptByBlockNumberAndIndex.
-func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex), blockNumber, index)
-}
-
 // StateAtBlockHash mocks base method.
 func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()

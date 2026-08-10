@@ -60,9 +60,6 @@ type Reader interface {
 	Receipt(
 		hash *felt.Felt,
 	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
-	ReceiptByBlockNumberAndIndex(
-		blockNumber, index uint64,
-	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
 	TransactionAndReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (
@@ -337,28 +334,6 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	}
 
 	return receipt, blockHash, bnIndex.Number, nil
-}
-
-func (b *Blockchain) ReceiptByBlockNumberAndIndex(
-	blockNumber, index uint64,
-) (core.TransactionReceipt, *felt.Felt, error) {
-	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
-
-	receipt, err := core.GetReceiptByBlockAndIndex(b.database, blockNumber, index)
-	if err != nil {
-		return core.TransactionReceipt{}, nil, fmt.Errorf(
-			"reading receipt %d/%d: %w", blockNumber, index, err,
-		)
-	}
-
-	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
-	if err != nil {
-		return core.TransactionReceipt{}, nil, fmt.Errorf(
-			"reading hash of block %d: %w", blockNumber, err,
-		)
-	}
-
-	return *receipt, blockHash, nil
 }
 
 // TransactionAndReceiptByBlockNumberAndIndex returns a transaction, its receipt and the hash of
