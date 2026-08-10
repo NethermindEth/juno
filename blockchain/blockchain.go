@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -316,7 +317,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	txHash := (*felt.TransactionHash)(hash)
 	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("locating transaction %v: %w", hash, err)
 	}
 
 	receipt, err := core.GetReceiptByBlockAndIndex(
@@ -325,12 +326,14 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		bnIndex.Index,
 	)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf(
+			"reading receipt %d/%d: %w", bnIndex.Number, bnIndex.Index, err,
+		)
 	}
 
 	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, bnIndex.Number)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("reading hash of block %d: %w", bnIndex.Number, err)
 	}
 
 	return receipt, blockHash, bnIndex.Number, nil
@@ -343,12 +346,16 @@ func (b *Blockchain) ReceiptByBlockNumberAndIndex(
 
 	receipt, err := core.GetReceiptByBlockAndIndex(b.database, blockNumber, index)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading receipt %d/%d: %w", blockNumber, index, err,
+		)
 	}
 
 	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading hash of block %d: %w", blockNumber, err,
+		)
 	}
 
 	return *receipt, blockHash, nil
@@ -365,12 +372,16 @@ func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
 		b.database, blockNumber, index,
 	)
 	if err != nil {
-		return nil, core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading transaction and receipt %d/%d: %w", blockNumber, index, err,
+		)
 	}
 
 	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
-		return nil, core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading hash of block %d: %w", blockNumber, err,
+		)
 	}
 
 	return transaction, *receipt, blockHash, nil

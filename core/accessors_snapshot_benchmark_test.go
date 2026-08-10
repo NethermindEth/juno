@@ -91,9 +91,9 @@ func BenchmarkReceiptByHashReadsSnapshot(b *testing.B) {
 	database := openSnapshotDB(b)
 	b.Cleanup(func() { require.NoError(b, database.Close()) })
 
-	// Disjoint halves: whichever arm runs first must not warm the other's blocks. The cursors are
-	// declared out here so repeat runs under -count keep advancing into unread hashes instead of
-	// replaying the warm prefix.
+	// Disjoint halves: whichever arm runs first must not warm the other's blocks. Under -count each
+	// round re-enters this function, so both arms restart at the same hashes; what keeps the rounds
+	// comparable is the reopen above, which drops pebble's caches every round too.
 	beforeHashes, afterHashes := hashes[:len(hashes)/2], hashes[len(hashes)/2:]
 	beforeAt, afterAt := 0, 0
 

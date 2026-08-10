@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/encoder"
@@ -50,12 +51,12 @@ func (extractTransactionAndReceipt) extract(
 ) (TransactionAndReceipt, error) {
 	transaction, err := b.Transactions().Get(subKey)
 	if err != nil {
-		return TransactionAndReceipt{}, err
+		return TransactionAndReceipt{}, fmt.Errorf("extracting transaction %d: %w", subKey, err)
 	}
 
 	receipt, err := b.Receipts().Get(subKey)
 	if err != nil {
-		return TransactionAndReceipt{}, err
+		return TransactionAndReceipt{}, fmt.Errorf("extracting receipt %d: %w", subKey, err)
 	}
 
 	return TransactionAndReceipt{Transaction: transaction, Receipt: receipt}, nil

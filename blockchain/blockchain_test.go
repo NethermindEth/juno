@@ -344,7 +344,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
 		r, _, _, err := chain.Receipt(new(felt.Felt).SetUint64(234))
 		assert.Nil(t, r)
-		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("TransactionAndReceipt matches the single-item accessors", func(t *testing.T) {
