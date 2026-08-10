@@ -1142,6 +1142,26 @@ func TestCachedL1HeadIsIsolatedFromTheCaller(t *testing.T) {
 	assert.Equal(t, new(felt.Felt).SetUint64(10), l1Head.StateRoot)
 }
 
+func TestClearingTheL1HeadEmptiesTheCache(t *testing.T) {
+	chain := blockchain.New(
+		memory.New(),
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	require.NoError(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}))
+	require.NoError(t, chain.SetL1Head(nil))
+
+	// A nil update is written as an unknown head, so the cache must not keep serving the old one.
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, core.L1Head{}, l1Head)
+}
+
 func TestCachedHeightAdvancesWithEachStoredBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)

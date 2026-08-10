@@ -106,15 +106,10 @@ type Blockchain struct {
 	runningFilter *core.RunningEventFilter
 	stateBackend  statebackend.StateBackend
 
-	// chainHeight and l1Head mirror their database entries so reads don't hit the database on
-	// every call. A nil pointer means "unknown", not "unset": readers then fall back to the
-	// database, which keeps a failed refresh from serving a stale value. Both stay nil when the
-	// database is written elsewhere (see [WithRemoteDatabase]).
-	//
-	// This holds only while db.ChainHeight and db.L1Height are written exclusively through
-	// Blockchain — by Store, Finalise (which the builder drives) and RevertHead. An in-process
-	// writer holding the raw db.KeyValueStore, as the migrations in node.Run do, would leave the
-	// cache stale.
+	// chainHeight and l1Head mirror their database entries. Nil means "unknown", so a failed
+	// refresh sends readers to the database instead of serving a stale value. Only valid while
+	// db.ChainHeight and db.L1Height are written through Blockchain by one writer at a time: a
+	// migration on the raw db.KeyValueStore, or a concurrent store and revert, leave it stale.
 	chainHeight atomic.Pointer[uint64]
 	l1Head      atomic.Pointer[core.L1Head]
 	cacheHeads  bool
@@ -432,6 +427,11 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 	}
 
 	if !b.cacheHeads {
+		return nil
+	}
+
+	if update == nil {
+		b.l1Head.Store(nil)
 		return nil
 	}
 
