@@ -97,16 +97,15 @@ func (extractAllTransactionEvents) extract(
 	_ struct{},
 ) ([]TransactionEvents, error) {
 	projections := b.transactionEventsProjections()
-	events := make([]TransactionEvents, len(b.Indexes.Receipts))
-	for i := range events {
-		projection, err := projections.Get(i)
+	events := make([]TransactionEvents, 0, len(b.Indexes.Receipts))
+	for projection, err := range projections.Iter() {
 		if err != nil {
 			return nil, err
 		}
-		events[i] = TransactionEvents{
+		events = append(events, TransactionEvents{
 			Events:          projection.Events,
 			TransactionHash: projection.TransactionHash,
-		}
+		})
 	}
 	return events, nil
 }

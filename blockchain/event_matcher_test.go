@@ -319,7 +319,9 @@ func TestEventMatcher_AppendBlockEvents(t *testing.T) {
 		firstPage, processed, err := matcher.AppendBlockEvents(
 			nil, 1, countingHashFn(&calls), blockEvents, 0, 2,
 		)
-		require.Error(t, err, "hitting the chunk limit must signal a continuation")
+		// errChunkSizeReached is not exported. Therefore compare the message and do
+		// not use ErrorIs.
+		require.EqualError(t, err, "chunk size reached")
 		require.Len(t, firstPage, 2)
 		require.Equal(t, uint64(2), processed)
 
