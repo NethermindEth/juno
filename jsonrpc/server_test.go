@@ -647,7 +647,7 @@ func BenchmarkHandle(b *testing.B) {
 		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
 	}))
 
-	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	const request = `{"jsonrpc":"2.0","id":1,"method":"bench"}`
 	var header http.Header
 	var err error
 
