@@ -1,6 +1,7 @@
 package deprecatedstate_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -278,4 +279,59 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 		_, err := snapshot.ContractStorage(addr, unsetKey)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
+}
+
+// errInjected is the failure the batch wrappers below inject.
+var errInjected = errors.New("injected db failure")
+
+// iterFailBatch fails the storage history lookup, which reads through an iterator.
+type iterFailBatch struct {
+	db.IndexedBatch
+}
+
+func (iterFailBatch) NewIterator([]byte, bool) (db.Iterator, error) {
+	return nil, errInjected
+}
+
+// getFailBatch fails the head state read, which reads trie nodes through Get.
+type getFailBatch struct {
+	db.IndexedBatch
+}
+
+func (getFailBatch) Get([]byte, func([]byte) error) error {
+	return errInjected
+}
+
+func TestContractStorageWrapsDBFailures(t *testing.T) {
+	testDB := memory.New()
+
+	addr := felt.NewFromUint64[felt.Felt](1)
+	storageKey := felt.NewFromUint64[felt.Felt](2)
+
+	tests := []struct {
+		name    string
+		state   *deprecatedstate.State
+		wantMsg string
+	}{
+		{
+			name:    "history lookup",
+			state:   deprecatedstate.New(iterFailBatch{testDB.NewIndexedBatch()}),
+			wantMsg: "reading storage history",
+		},
+		{
+			// An empty state holds no history entry, so the lookup falls back to the
+			// head state and reaches the failing Get.
+			name:    "head state fallback",
+			state:   deprecatedstate.New(getFailBatch{testDB.NewIndexedBatch()}),
+			wantMsg: "reading head storage",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := deprecatedstate.NewHistory(test.state, 1).ContractStorage(addr, storageKey)
+			require.ErrorIs(t, err, errInjected)
+			require.ErrorContains(t, err, test.wantMsg)
+		})
+	}
 }
