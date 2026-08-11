@@ -34,6 +34,11 @@ type EventFilter struct {
 	preConfirmedFn func() (PreConfirmedReader, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
+	// txEventsBuf holds the pre-confirmed receipt projection. One filter serves one
+	// request from one goroutine. Therefore the code can fill this buffer again for
+	// each chain entry and each call. The projection then makes one allocation for
+	// each filter, and not one allocation for each pre-confirmed block.
+	txEventsBuf []core.TransactionEvents
 }
 
 type EventFilterRange uint
@@ -151,15 +156,14 @@ func (e *EventFilter) Events(
 		return nil, ContinuationToken{}, err
 	}
 
-	// Fetch pre_confirmed only when the range can reach past the canonical head; a
-	// purely historical query never consults it. When fetched, re-read latest
-	// afterwards: with the pre-head latest, the head could advance between the two
-	// reads, leaving blocks committed in between scanned by neither the canonical
-	// range (stopped at the stale latest) nor pre_confirmed (based above them), a
-	// gap. Re-reading makes latest >= the snapshot's base, so the ranges overlap
-	// instead. Pinning a fixed head wouldn't help: once a block commits,
-	// SnapshotForBlock trims it, so a stale head yields an empty view. On error,
-	// drop it and serve canonical only.
+	// Get pre_confirmed only if the range includes blocks above the canonical head.
+	// Then read latest a second time. The first value can be too old, because the
+	// node can commit blocks between the two reads. The canonical range stops at the
+	// old value, and the pre_confirmed snapshot starts above those blocks, so no
+	// range includes them. The second read prevents this. It also keeps those blocks
+	// in the canonical range, which is the only range that has a block hash. A fixed
+	// head is not a solution, because SnapshotForBlock removes committed blocks and
+	// an old head gives an empty view. If the fetch fails, use the canonical range.
 	var preConfirmed PreConfirmedReader
 	if e.toBlock > latest {
 		if fetched, err := e.preConfirmedFn(); err == nil {
@@ -311,18 +315,21 @@ func (e *EventFilter) canonicalEvents(
 	return matchedEvents, ContinuationToken{}, nil
 }
 
-// transactionEventsFromReceipts projects in-memory receipts down to the events
-// subset the matcher consumes, so both event sources feed it one shape. The call
-// inlines and the slice does not escape, making the projection stack-only.
-func transactionEventsFromReceipts(receipts []*core.TransactionReceipt) []core.TransactionEvents {
-	events := make([]core.TransactionEvents, len(receipts))
-	for i, receipt := range receipts {
-		events[i] = core.TransactionEvents{
+// appendTransactionEvents adds the events subset of each receipt to dst. Both event
+// sources then give the matcher the same type. The caller can use dst again for each
+// block. This is safe, because the function copies only slice headers and pointers,
+// and the matcher keeps no reference to dst.
+func appendTransactionEvents(
+	dst []core.TransactionEvents,
+	receipts []*core.TransactionReceipt,
+) []core.TransactionEvents {
+	for _, receipt := range receipts {
+		dst = append(dst, core.TransactionEvents{
 			Events:          receipt.Events,
 			TransactionHash: receipt.TransactionHash,
-		}
+		})
 	}
-	return events
+	return dst
 }
 
 // preConfirmedEvents processes pending events across every pre-confirmed block in
@@ -370,12 +377,14 @@ func (e *EventFilter) preConfirmedEvents(
 			continue
 		}
 
+		e.txEventsBuf = appendTransactionEvents(e.txEventsBuf[:0], entry.Block.Receipts)
+
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
 			matchedEvents,
 			blockNumber,
 			func() (*felt.Felt, error) { return header.Hash, nil },
-			transactionEventsFromReceipts(entry.Block.Receipts),
+			e.txEventsBuf,
 			skippedEvents,
 			chunkSize,
 		)

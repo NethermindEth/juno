@@ -1073,6 +1073,107 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	})
 }
 
+// TestEventsPreConfirmedProjectionReuse tests the pre_confirmed receipt projection,
+// which uses one buffer again for each chain entry. The first entry has more
+// transactions than the second entry. If the buffer keeps the data of the first
+// entry, the second entry shows the transactions of the first entry. The test sets
+// the number of transactions directly, because the fixtures do not control it.
+func TestEventsPreConfirmedProjectionReuse(t *testing.T) {
+	const (
+		canonicalHead  = uint64(0)
+		wideBlockNum   = canonicalHead + 1
+		narrowBlockNum = wideBlockNum + 1
+		wideTxCount    = 5
+		narrowTxCount  = 2
+	)
+
+	testDB := memory.New()
+	chain := blockchain.New(
+		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Sepolia))
+	block, err := gw.BlockByNumber(t.Context(), canonicalHead)
+	require.NoError(t, err)
+	stateUpdate, err := gw.StateUpdate(t.Context(), canonicalHead)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+
+	eventFrom := felt.UnsafeFromString[felt.Felt]("0xdeadbeef")
+	txHash := func(blockNum uint64, txIndex uint) *felt.Felt {
+		return new(felt.Felt).SetUint64(blockNum*100 + uint64(txIndex))
+	}
+	makeEntry := func(blockNum uint64, txCount int) *pending.PreConfirmed {
+		receipts := make([]*core.TransactionReceipt, txCount)
+		for i := range receipts {
+			receipts[i] = &core.TransactionReceipt{
+				TransactionHash: txHash(blockNum, uint(i)),
+				Events: []*core.Event{{
+					From: &eventFrom,
+					Keys: []felt.Felt{felt.One},
+					Data: []felt.Felt{felt.One},
+				}},
+			}
+		}
+		entry := pending.NewPreConfirmed(&core.Block{
+			Header: &core.Header{
+				Number:      blockNum,
+				EventsBloom: core.EventsBloom(receipts),
+			},
+			Receipts: receipts,
+		}, nil, nil, "")
+		return &entry
+	}
+
+	preConfChain, err := preconfirmed.NewChain(
+		makeEntry(wideBlockNum, wideTxCount),
+		makeEntry(narrowBlockNum, narrowTxCount),
+	)
+	require.NoError(t, err)
+
+	filter, err := chain.EventFilter(
+		nil,
+		nil,
+		func() (blockchain.PreConfirmedReader, error) { return &preConfChain, nil },
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, filter.Close()) })
+
+	require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, wideBlockNum))
+	require.NoError(t, filter.SetRangeEndBlockByNumber(
+		blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+	))
+
+	events, cToken, err := filter.Events(nil, 1024)
+	require.NoError(t, err)
+	require.True(t, cToken.IsEmpty())
+
+	// Each transaction has one event. Therefore the second entry must give exactly
+	// narrowTxCount events. If the buffer keeps old data, it gives wideTxCount events.
+	type want struct {
+		blockNum uint64
+		txIndex  uint
+	}
+	wants := make([]want, 0, wideTxCount+narrowTxCount)
+	for i := range uint(wideTxCount) {
+		wants = append(wants, want{wideBlockNum, i})
+	}
+	for i := range uint(narrowTxCount) {
+		wants = append(wants, want{narrowBlockNum, i})
+	}
+
+	require.Len(t, events, len(wants))
+	for i, e := range events {
+		require.NotNil(t, e.BlockNumber)
+		require.Equal(t, wants[i].blockNum, *e.BlockNumber)
+		require.Equal(t, wants[i].txIndex, e.TransactionIndex)
+		require.Zero(t, e.EventIndex)
+		require.Equal(t, txHash(wants[i].blockNum, wants[i].txIndex), e.TransactionHash)
+	}
+}
+
 func TestRevert(t *testing.T) {
 	testDB := memory.New()
 	chain := blockchain.New(
