@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -34,10 +35,11 @@ type EventFilter struct {
 	preConfirmedFn func() (PreConfirmedReader, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
-	// txEventsBuf holds the pre-confirmed receipt projection. One filter serves one
-	// request from one goroutine. Therefore the code can fill this buffer again for
-	// each chain entry and each call. The projection then makes one allocation for
-	// each filter, and not one allocation for each pre-confirmed block.
+	// txEventsBuf holds the pre-confirmed receipt projection. One goroutine uses a
+	// filter, never two at the same time, and no caller keeps the returned slice.
+	// Therefore the code can fill this buffer again for each chain entry and each
+	// call. The projection then makes one allocation for each filter, and not one
+	// allocation for each pre-confirmed block.
 	txEventsBuf []core.TransactionEvents
 }
 
@@ -323,6 +325,7 @@ func appendTransactionEvents(
 	dst []core.TransactionEvents,
 	receipts []*core.TransactionReceipt,
 ) []core.TransactionEvents {
+	dst = slices.Grow(dst, len(receipts))
 	for _, receipt := range receipts {
 		dst = append(dst, core.TransactionEvents{
 			Events:          receipt.Events,
