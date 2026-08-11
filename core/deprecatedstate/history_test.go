@@ -269,4 +269,13 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, *updatedValue, storage)
 	})
+
+	// The zero branch must still probe, otherwise the two sub-tests above would
+	// pass with the probe removed altogether rather than skipped for non-zero values.
+	t.Run("zero value still probes deployment", func(t *testing.T) {
+		unsetKey := felt.NewFromUint64[felt.Felt](999)
+		snapshot := deprecatedstate.NewHistory(state, changeHeight)
+		_, err := snapshot.ContractStorage(addr, unsetKey)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
 }

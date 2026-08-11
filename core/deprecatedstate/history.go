@@ -2,6 +2,7 @@ package deprecatedstate
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -63,10 +64,10 @@ func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	val, err := s.state.ContractStorageAt(addr, key, s.blockNumber)
 	if err != nil {
 		if !errors.Is(err, ErrCheckHeadState) {
-			return felt.Felt{}, err
+			return felt.Felt{}, fmt.Errorf("reading storage history: %w", err)
 		}
 		if val, err = s.state.ContractStorage(addr, key); err != nil {
-			return felt.Felt{}, err
+			return felt.Felt{}, fmt.Errorf("reading head storage: %w", err)
 		}
 	}
 
