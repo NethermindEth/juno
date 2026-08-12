@@ -319,8 +319,6 @@ func TestEventMatcher_AppendBlockEvents(t *testing.T) {
 		firstPage, processed, err := matcher.AppendBlockEventsFromTransactionEvents(
 			nil, 1, countingHashFn(&calls), blockEvents, 0, 2,
 		)
-		// errChunkSizeReached is not exported. Therefore compare the message and do
-		// not use ErrorIs.
 		require.EqualError(t, err, "chunk size reached")
 		require.Len(t, firstPage, 2)
 		require.Equal(t, uint64(2), processed)
@@ -339,8 +337,6 @@ func TestEventMatcher_AppendBlockEvents(t *testing.T) {
 
 	t.Run("a block with no match allocates nothing", func(t *testing.T) {
 		matcher := blockchain.NewEventMatcher([]felt.Address{felt.Address(*otherEmitter)}, nil)
-		// Build the hash function outside the measured body. A closure that captures a
-		// variable is one allocation of the test.
 		calls := 0
 		hashFn := countingHashFn(&calls)
 		allocs := testing.AllocsPerRun(100, func() {
@@ -358,9 +354,6 @@ func constHashFn(hash *felt.Felt) func() (*felt.Felt, error) {
 	}
 }
 
-// TestEventMatcher_BothSourcesAgree compares the two loops of event_matcher.go. The loops
-// hold the same logic for two event sources. Therefore they must give the same result for
-// each filter, resume point and chunk size.
 func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 	emitters := []*felt.Felt{
 		felt.NewFromUint64[felt.Felt](0xa),
@@ -371,8 +364,6 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 	hashFn := constHashFn(blockHash)
 	absent := felt.Address(*felt.NewFromUint64[felt.Felt](0xdead))
 
-	// Five transactions, three events each. The emitters and the keys repeat in a cycle.
-	// An address filter and a key filter then each select a subset.
 	const txCount, eventsPerTx = 5, 3
 	txEvents := make([]core.TransactionEvents, txCount)
 	receipts := make([]*core.TransactionReceipt, txCount)
@@ -418,7 +409,7 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 						nil, 7, hashFn, txEvents, skipped, chunkSize,
 					)
 					gotEvents, gotProcessed, gotErr := matcher.AppendBlockEventsFromReceipts(
-						nil, 7, hashFn, receipts, skipped, chunkSize,
+						nil, 7, blockHash, receipts, skipped, chunkSize,
 					)
 
 					msg := "chunkSize=%d skipped=%d"
@@ -433,7 +424,7 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 	t.Run("a pre-confirmed block with no match allocates nothing", func(t *testing.T) {
 		matcher := blockchain.NewEventMatcher([]felt.Address{absent}, nil)
 		allocs := testing.AllocsPerRun(100, func() {
-			_, _, err := matcher.AppendBlockEventsFromReceipts(nil, 7, hashFn, receipts, 0, 100)
+			_, _, err := matcher.AppendBlockEventsFromReceipts(nil, 7, blockHash, receipts, 0, 100)
 			require.NoError(t, err)
 		})
 		require.Zero(t, allocs)

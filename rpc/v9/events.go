@@ -149,9 +149,10 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	}
 
 	emittedEvents := make([]EmittedEvent, len(filteredEvents))
-	for i, fEvent := range filteredEvents {
+	for i := range filteredEvents {
+		fEvent := &filteredEvents[i]
 		emittedEvents[i] = EmittedEvent{
-			BlockNumber:     fEvent.BlockNumber,
+			BlockNumber:     &fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
 			// rpc.Event is field-identical to core.Event (guarded in this file), so alias the

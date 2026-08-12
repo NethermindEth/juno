@@ -395,13 +395,14 @@ func sendEvents(
 	events []blockchain.FilteredEvent,
 	id string,
 ) error {
-	for _, event := range events {
+	for i := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
+			event := &events[i]
 			emittedEvent := &EmittedEvent{
-				BlockNumber:     event.BlockNumber,
+				BlockNumber:     &event.BlockNumber,
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
 				Event: &Event{

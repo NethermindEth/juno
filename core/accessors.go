@@ -496,8 +496,8 @@ func GetReceiptsByBlockNumber(
 	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
-// GetTransactionEventsByBlockNumber returns only the events subset of every receipt
-// in a given block, skipping the heavier receipt fields.
+// GetTransactionEventsByBlockNumber returns the events subset of every receipt in the
+// block. It skips the heavier receipt fields.
 func GetTransactionEventsByBlockNumber(
 	r db.KeyValueReader,
 	blockNumber uint64,

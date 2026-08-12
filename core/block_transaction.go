@@ -104,8 +104,7 @@ func (b *BlockTransactions) executionStatusProjections() executionStatusProjecti
 // transactionEventsProjectionSlice is the lazily-decoded slice of events projections.
 type transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjection]
 
-// transactionEventsProjections decodes receipts into the events subset, skipping the
-// heavier receipt fields.
+// transactionEventsProjections decodes receipts into the events subset only.
 func (b *BlockTransactions) transactionEventsProjections() transactionEventsProjectionSlice {
 	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.Data)
 }

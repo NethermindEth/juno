@@ -218,7 +218,7 @@ func matchingEvents(
 				}
 
 				filtered := &blockchain.FilteredEvent{
-					BlockNumber:      &block.Number,
+					BlockNumber:      block.Number,
 					BlockHash:        block.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
@@ -299,7 +299,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 	id string,
 	events []blockchain.FilteredEvent,
 ) error {
-	for _, event := range events {
+	for i := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -307,13 +307,13 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 			// Historical replay is bounded to the canonical tip, so every event
 			// here is canonical: L1-finalised at or below the L1 head, else L2.
 			finalityStatus := TxnAcceptedOnL2
-			if *event.BlockNumber <= s.l1HeadNumber {
+			if events[i].BlockNumber <= s.l1HeadNumber {
 				finalityStatus = TxnAcceptedOnL1
 			}
 
 			// Historical replay is a one-shot bootstrap with no internal
 			// duplicates, so it sends directly without the deduper.
-			if err := s.sendFilteredEvent(id, &event, finalityStatus); err != nil {
+			if err := s.sendFilteredEvent(id, &events[i], finalityStatus); err != nil {
 				return err
 			}
 		}
@@ -327,7 +327,7 @@ func (s *eventSubscriberState) sendFilteredEvent(
 	finalityStatus TxnFinalityStatus,
 ) error {
 	emittedEvent := EmittedEvent{
-		BlockNumber:     event.BlockNumber,
+		BlockNumber:     &event.BlockNumber,
 		BlockHash:       event.BlockHash,
 		TransactionHash: event.TransactionHash,
 		Event: &Event{
