@@ -186,9 +186,10 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	}
 
 	emittedEvents := make([]EmittedEvent, len(filteredEvents))
-	for i, fEvent := range filteredEvents {
+	for i := range filteredEvents {
+		fEvent := &filteredEvents[i]
 		emittedEvents[i] = EmittedEvent{
-			BlockNumber:      fEvent.BlockNumber,
+			BlockNumber:      &fEvent.BlockNumber,
 			BlockHash:        fEvent.BlockHash,
 			TransactionHash:  fEvent.TransactionHash,
 			TransactionIndex: fEvent.TransactionIndex,

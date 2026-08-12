@@ -2408,7 +2408,7 @@ func createTestEvents(
 
 			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:            event,
-				BlockNumber:      blockNumber,
+				BlockNumber:      b.Number,
 				BlockHash:        b.Hash,
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),

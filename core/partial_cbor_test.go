@@ -329,9 +329,8 @@ func TestProjectionsAreDecodeOnly(t *testing.T) {
 
 // --- Receipt projections ---
 
-// sampleReceipt is a reverted receipt with every field populated with distinct values, so its
-// encoding exercises every TransactionReceipt key with realistic nested payloads and the
-// projection assertions can check their shadowed fields.
+// sampleReceipt is a reverted receipt with a distinct value in every field, so its encoding
+// holds every TransactionReceipt key, nested payloads included.
 func sampleReceipt() *TransactionReceipt {
 	return &TransactionReceipt{
 		Fee:             felt.NewFromUint64[felt.Felt](1),
@@ -405,8 +404,8 @@ func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
 		"RevertReason must receive the wire value, not discardedCBOR")
 }
 
-// TestEventsProjectionDecodesShadowedFields proves the shadowing fields receive the wire values,
-// not discardedCBOR — a change in cbor's embed precedence would slip past the key guards.
+// TestEventsProjectionDecodesShadowedFields checks the shadowing fields get the wire values,
+// not discardedCBOR. A change in cbor's embed precedence passes the key guards.
 func TestEventsProjectionDecodesShadowedFields(t *testing.T) {
 	receipt := sampleReceipt()
 	var projection receiptEventsProjection
@@ -438,8 +437,8 @@ func BenchmarkPartialHeaderProjections(b *testing.B) {
 	}
 }
 
-// BenchmarkTransactionEventsProjection compares decoding a receipt in full against decoding
-// only the events subset getEvents filtering needs, via the discard projection.
+// BenchmarkTransactionEventsProjection compares a full receipt decode against the
+// events-subset decode.
 func BenchmarkTransactionEventsProjection(b *testing.B) {
 	data := sampleReceiptBytes(b)
 	b.Run("full_receipt", func(b *testing.B) {

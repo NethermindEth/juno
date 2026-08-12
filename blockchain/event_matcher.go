@@ -150,17 +150,13 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
-// AppendBlockEventsFromTransactionEvents appends the events of a canonical block that
-// match the filter to matchedEventsSofar. Canonical receipts decode to the events subset
-// only. blockHashFn gets the block hash. The code calls it on the first match only, so a
+// AppendBlockEventsFromTransactionEvents appends the events of one block that match
+// the filter to matchedEventsSofar. blockEvents holds the events-only projection of
+// the block's receipts. blockHashFn gets the block hash on the first match, so a
 // block with no match reads no header.
 //
-// AppendBlockEventsFromReceipts holds the same loop for pre-confirmed blocks. Change both
-// functions together. One shared loop needs a call for each transaction, and the compiler
-// cannot inline that call. This costs 8-15% on both paths.
-// TestEventMatcher_BothSourcesAgree compares the two functions.
-//
-//nolint:dupl // The two sources keep separate loops on purpose. See above.
+// AppendBlockEventsFromReceipts holds the same loop for full receipts. Change both
+// together: a shared loop needs a per-transaction call the compiler cannot inline.
 func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 	matchedEventsSofar []FilteredEvent,
 	blockNum uint64,
@@ -170,8 +166,8 @@ func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {
 	var (
-		blockHash   *felt.Felt
-		blockNumPtr *uint64
+		blockHash    *felt.Felt
+		hashResolved bool
 	)
 	processedEvents := uint64(0)
 	for txIndex, txEvents := range blockEvents {
@@ -199,19 +195,15 @@ func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
-				if blockNumPtr == nil {
+				if !hashResolved {
 					var err error
 					if blockHash, err = blockHashFn(); err != nil {
 						return nil, 0, err
 					}
-					// Copy the block number. The address of a parameter moves the
-					// parameter to the heap at function entry, also for a block
-					// with no match.
-					num := blockNum
-					blockNumPtr = &num
+					hashResolved = true
 				}
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:      blockNumPtr,
+					BlockNumber:      blockNum,
 					BlockHash:        blockHash,
 					TransactionHash:  txHash,
 					TransactionIndex: uint(txIndex),
@@ -229,24 +221,18 @@ func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 	return matchedEventsSofar, processedEvents, nil
 }
 
-// AppendBlockEventsFromReceipts appends the events of a pre-confirmed block that match
-// the filter to matchedEventsSofar. A pre-confirmed block holds full receipts in memory.
-// This function reads the events from the receipts, so the path needs no projection.
-// See AppendBlockEventsFromTransactionEvents for the reason the loops stay separate.
-//
-//nolint:dupl // The other source keeps its own loop on purpose. See above.
+// AppendBlockEventsFromReceipts appends the events of one block that match the filter
+// to matchedEventsSofar, read from full receipts of any source. The caller holds the
+// block hash, which is nil for a source that has none, so this loop takes it directly.
+// See AppendBlockEventsFromTransactionEvents for why the loops stay separate.
 func (e *EventMatcher) AppendBlockEventsFromReceipts(
 	matchedEventsSofar []FilteredEvent,
 	blockNum uint64,
-	blockHashFn func() (*felt.Felt, error),
+	blockHash *felt.Felt,
 	receipts []*core.TransactionReceipt,
 	skippedEvents uint64,
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {
-	var (
-		blockHash   *felt.Felt
-		blockNumPtr *uint64
-	)
 	processedEvents := uint64(0)
 	for txIndex, receipt := range receipts {
 		txHash, events := receipt.TransactionHash, receipt.Events
@@ -270,16 +256,8 @@ func (e *EventMatcher) AppendBlockEventsFromReceipts(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
-				if blockNumPtr == nil {
-					var err error
-					if blockHash, err = blockHashFn(); err != nil {
-						return nil, 0, err
-					}
-					num := blockNum
-					blockNumPtr = &num
-				}
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:      blockNumPtr,
+					BlockNumber:      blockNum,
 					BlockHash:        blockHash,
 					TransactionHash:  txHash,
 					TransactionIndex: uint(txIndex),

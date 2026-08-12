@@ -1,6 +1,7 @@
 package blockchain_test
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -936,10 +937,10 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		gotPerBlock := map[uint64]int{}
 		for i, e := range events {
 			require.NotNil(t, e.BlockNumber)
-			gotPerBlock[*e.BlockNumber]++
+			gotPerBlock[e.BlockNumber]++
 			// Events must be yielded oldest-first across canonical + pre_confirmed.
 			if i > 0 {
-				require.LessOrEqual(t, *events[i-1].BlockNumber, *e.BlockNumber,
+				require.LessOrEqual(t, events[i-1].BlockNumber, e.BlockNumber,
 					"events must be returned oldest-first by block number")
 			}
 		}
@@ -1013,7 +1014,7 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		require.NotEmpty(t, events)
 		for _, e := range events {
 			require.NotNil(t, e.BlockNumber)
-			require.Equal(t, lastPreConfirmedBlockNum, *e.BlockNumber,
+			require.Equal(t, lastPreConfirmedBlockNum, e.BlockNumber,
 				"pre_confirmed tag should return only the tip block")
 		}
 	})
@@ -1041,7 +1042,7 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 			require.NotNil(t, e.From)
 			require.Equal(t, from[0], felt.Address(*e.From))
 			require.NotNil(t, e.BlockNumber)
-			require.Equal(t, lastPreConfirmedBlockNum, *e.BlockNumber)
+			require.Equal(t, lastPreConfirmedBlockNum, e.BlockNumber)
 		}
 	})
 
@@ -1104,23 +1105,98 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	})
 }
 
-// TestEventsPreConfirmedProjectionReuse tests the pre_confirmed receipt projection,
-// which uses one buffer again for each chain entry. The first entry has more
-// transactions than the second entry. If the buffer keeps the data of the first
-// entry, the second entry shows the transactions of the first entry. The test sets
-// the number of transactions directly, because the fixtures do not control it.
-func TestEventsPreConfirmedProjectionReuse(t *testing.T) {
+func TestEventsHeadAdvancesDuringQuery(t *testing.T) {
 	const (
-		canonicalHead  = uint64(0)
-		wideBlockNum   = canonicalHead + 1
-		narrowBlockNum = wideBlockNum + 1
-		wideTxCount    = 5
-		narrowTxCount  = 2
+		headAtStart       = uint64(3) // blocks 0..3 are stored before the query
+		committedMidQuery = headAtStart + 1
+		preConfirmedNum   = committedMidQuery + 1
 	)
 
 	testDB := memory.New()
 	chain := blockchain.New(
 		testDB,
+		&networks.Sepolia,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Sepolia))
+	store := func(t *testing.T, blockNum uint64) {
+		t.Helper()
+		block, err := gw.BlockByNumber(t.Context(), blockNum)
+		require.NoError(t, err)
+		stateUpdate, err := gw.StateUpdate(t.Context(), blockNum)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+	}
+	for blockNum := range headAtStart + 1 {
+		store(t, blockNum)
+	}
+
+	// The fetch acts as the poller: it commits the next block and returns a chain
+	// above it.
+	preConfirmedFn := func() (blockchain.PreConfirmedReader, error) {
+		store(t, committedMidQuery)
+
+		block, err := gw.BlockByNumber(t.Context(), preConfirmedNum)
+		require.NoError(t, err)
+		block.Hash = nil // a pre-confirmed block has no hash
+		entry := pending.NewPreConfirmed(block, nil, nil, "")
+		preConfChain, err := preconfirmed.NewChain(&entry)
+		require.NoError(t, err)
+		return &preConfChain, nil
+	}
+
+	filter, err := chain.EventFilter(nil, nil, preConfirmedFn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, filter.Close()) })
+
+	require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+	require.NoError(t, filter.SetRangeEndBlockByNumber(
+		blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
+	))
+
+	events, cToken, err := filter.Events(nil, 1024)
+	require.NoError(t, err)
+	require.True(t, cToken.IsEmpty())
+
+	perBlock := map[uint64]int{}
+	for _, event := range events {
+		perBlock[event.BlockNumber]++
+	}
+	require.Equal(t, map[uint64]int{0: 4, committedMidQuery: 4, preConfirmedNum: 2}, perBlock)
+
+	for _, event := range events {
+		if event.BlockNumber == preConfirmedNum {
+			require.Nil(t, event.BlockHash)
+			continue
+		}
+		require.NotNil(t, event.BlockHash,
+			"block %d must be served from the canonical range", event.BlockNumber)
+	}
+}
+
+// chainHeightCounter counts the reads of the chain height key.
+type chainHeightCounter struct {
+	db.KeyValueStore
+	reads int
+}
+
+func (c *chainHeightCounter) Get(key []byte, cb func([]byte) error) error {
+	if bytes.Equal(key, db.ChainHeight.Key()) {
+		c.reads++
+	}
+	return c.KeyValueStore.Get(key, cb)
+}
+
+func TestEventsChainHeightReads(t *testing.T) {
+	const (
+		canonicalHead   = uint64(0)
+		preConfirmedNum = canonicalHead + 1
+	)
+
+	counter := &chainHeightCounter{KeyValueStore: memory.New()}
+	chain := blockchain.New(
+		counter,
 		&networks.Sepolia,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
@@ -1132,76 +1208,39 @@ func TestEventsPreConfirmedProjectionReuse(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 
-	eventFrom := felt.UnsafeFromString[felt.Felt]("0xdeadbeef")
-	txHash := func(blockNum uint64, txIndex uint) *felt.Felt {
-		return new(felt.Felt).SetUint64(blockNum*100 + uint64(txIndex))
-	}
-	makeEntry := func(blockNum uint64, txCount int) *pending.PreConfirmed {
-		receipts := make([]*core.TransactionReceipt, txCount)
-		for i := range receipts {
-			receipts[i] = &core.TransactionReceipt{
-				TransactionHash: txHash(blockNum, uint(i)),
-				Events: []*core.Event{{
-					From: &eventFrom,
-					Keys: []felt.Felt{felt.One},
-					Data: []felt.Felt{felt.One},
-				}},
-			}
-		}
-		entry := pending.NewPreConfirmed(&core.Block{
-			Header: &core.Header{
-				Number:      blockNum,
-				EventsBloom: core.EventsBloom(receipts),
-			},
-			Receipts: receipts,
-		}, nil, nil, "")
-		return &entry
-	}
-
-	preConfChain, err := preconfirmed.NewChain(
-		makeEntry(wideBlockNum, wideTxCount),
-		makeEntry(narrowBlockNum, narrowTxCount),
-	)
+	preConfirmedBlock, err := gw.BlockByNumber(t.Context(), preConfirmedNum)
+	require.NoError(t, err)
+	preConfirmedBlock.Hash = nil
+	entry := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, "")
+	preConfChain, err := preconfirmed.NewChain(&entry)
 	require.NoError(t, err)
 
-	filter, err := chain.EventFilter(
-		nil,
-		nil,
-		func() (blockchain.PreConfirmedReader, error) { return &preConfChain, nil },
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, filter.Close()) })
+	for _, test := range []struct {
+		name    string
+		toBlock uint64
+		reads   int
+	}{
+		{"canonical range", canonicalHead, 1},
+		{"range past the head", preConfirmedNum, 1},
+		{"pre_confirmed tag", blockchain.PreConfirmedFilterSentinel, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			filter, err := chain.EventFilter(
+				nil,
+				nil,
+				func() (blockchain.PreConfirmedReader, error) { return &preConfChain, nil },
+			)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, filter.Close()) })
+			require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
+			require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, test.toBlock))
 
-	require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, wideBlockNum))
-	require.NoError(t, filter.SetRangeEndBlockByNumber(
-		blockchain.EventFilterTo, blockchain.PreConfirmedFilterSentinel,
-	))
-
-	events, cToken, err := filter.Events(nil, 1024)
-	require.NoError(t, err)
-	require.True(t, cToken.IsEmpty())
-
-	// Each transaction has one event. Therefore the second entry must give exactly
-	// narrowTxCount events. If the buffer keeps old data, it gives wideTxCount events.
-	type want struct {
-		blockNum uint64
-		txIndex  uint
-	}
-	wants := make([]want, 0, wideTxCount+narrowTxCount)
-	for i := range uint(wideTxCount) {
-		wants = append(wants, want{wideBlockNum, i})
-	}
-	for i := range uint(narrowTxCount) {
-		wants = append(wants, want{narrowBlockNum, i})
-	}
-
-	require.Len(t, events, len(wants))
-	for i, e := range events {
-		require.NotNil(t, e.BlockNumber)
-		require.Equal(t, wants[i].blockNum, *e.BlockNumber)
-		require.Equal(t, wants[i].txIndex, e.TransactionIndex)
-		require.Zero(t, e.EventIndex)
-		require.Equal(t, txHash(wants[i].blockNum, wants[i].txIndex), e.TransactionHash)
+			counter.reads = 0
+			_, _, err = filter.Events(nil, 1024)
+			require.NoError(t, err)
+			// Blockchain.EventFilter also reads the height, so count only the query.
+			require.Equal(t, test.reads, counter.reads)
+		})
 	}
 }
 
