@@ -10,7 +10,7 @@ import (
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L506-L522
 type Class struct {
-	SierraProgram        []felt.Felt            `json:"sierra_program,omitempty"`
+	SierraProgram        felt.Slice[felt.Felt]  `json:"sierra_program,omitempty"`
 	Program              string                 `json:"program,omitempty"`
 	ContractClassVersion string                 `json:"contract_class_version,omitempty"`
 	EntryPoints          ClassEntryPointsByType `json:"entry_points_by_type"`

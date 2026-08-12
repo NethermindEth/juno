@@ -317,22 +317,6 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), hash)
 }
 
-// ReceiptByBlockNumberAndIndex mocks base method.
-func (m *MockReader) ReceiptByBlockNumberAndIndex(blockNumber, index uint64) (core.TransactionReceipt, *felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReceiptByBlockNumberAndIndex", blockNumber, index)
-	ret0, _ := ret[0].(core.TransactionReceipt)
-	ret1, _ := ret[1].(*felt.Felt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ReceiptByBlockNumberAndIndex indicates an expected call of ReceiptByBlockNumberAndIndex.
-func (mr *MockReaderMockRecorder) ReceiptByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiptByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).ReceiptByBlockNumberAndIndex), blockNumber, index)
-}
-
 // StateAtBlockHash mocks base method.
 func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
@@ -407,6 +391,23 @@ func (m *MockReader) SubscribeL1Head() blockchain.L1HeadSubscription {
 func (mr *MockReaderMockRecorder) SubscribeL1Head() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeL1Head", reflect.TypeOf((*MockReader)(nil).SubscribeL1Head))
+}
+
+// TransactionAndReceiptByBlockNumberAndIndex mocks base method.
+func (m *MockReader) TransactionAndReceiptByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, core.TransactionReceipt, *felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionAndReceiptByBlockNumberAndIndex", blockNumber, index)
+	ret0, _ := ret[0].(core.Transaction)
+	ret1, _ := ret[1].(core.TransactionReceipt)
+	ret2, _ := ret[2].(*felt.Felt)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// TransactionAndReceiptByBlockNumberAndIndex indicates an expected call of TransactionAndReceiptByBlockNumberAndIndex.
+func (mr *MockReaderMockRecorder) TransactionAndReceiptByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionAndReceiptByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionAndReceiptByBlockNumberAndIndex), blockNumber, index)
 }
 
 // TransactionByBlockNumberAndIndex mocks base method.

@@ -28,12 +28,10 @@ func newGetTxByHashCmd(cfg *rootConfig) *cobra.Command {
 				return fmt.Errorf("--block-end (%d) must be > --block-start (%d)", blockEnd, blockStart)
 			}
 			meta := blockRange{Start: blockStart, End: blockEnd}
-			makeGen := func(client *rpcClient, rng *rand.Rand) func() (any, error) {
-				return func() (any, error) {
-					return sampleTxHash(cmd.Context(), client, rng, blockStart, blockEnd)
-				}
+			gen := func(ctx context.Context, client *rpcClient, rng *rand.Rand) (any, error) {
+				return sampleTxHash(ctx, client, rng, blockStart, blockEnd)
 			}
-			return runCorpus(cmd, cfg, methodGetTransactionByHash, meta, makeGen)
+			return runCorpus(cmd, cfg, methodGetTransactionByHash, meta, gen)
 		},
 	}
 
