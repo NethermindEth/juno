@@ -462,7 +462,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		preConfirmedID := blockIDPreConfirmed(t)
 		block, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)
@@ -736,7 +735,6 @@ func TestBlockWithTxs(t *testing.T) {
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmed), nil).
 			Times(4 + len(latestBlock.Transactions))
-		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		preConfirmedID := blockIDPreConfirmed(t)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)
@@ -958,7 +956,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(block0, nil, nil, "")
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
-		mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 		blockID := blockIDPreConfirmed(t)
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
