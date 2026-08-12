@@ -90,6 +90,26 @@ func (extractAllReceipts) extract(b *BlockTransactions, _ struct{}) ([]*Transact
 	return b.Receipts().All()
 }
 
+type extractAllTransactionEvents struct{}
+
+func (extractAllTransactionEvents) extract(
+	b *BlockTransactions,
+	_ struct{},
+) ([]TransactionEvents, error) {
+	projections := b.transactionEventsProjections()
+	events := make([]TransactionEvents, 0, len(b.Indexes.Receipts))
+	for projection, err := range projections.Iter() {
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, TransactionEvents{
+			Events:          projection.Events,
+			TransactionHash: projection.TransactionHash,
+		})
+	}
+	return events, nil
+}
+
 type extractAll struct{}
 
 func (extractAll) extract(b *BlockTransactions, _ struct{}) (BlockTransactions, error) {
@@ -146,5 +166,10 @@ var (
 		extractAllReceipts,
 		struct{},
 		[]*TransactionReceipt,
+	]{}
+	BlockTransactionsAllTransactionEventsPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionEvents,
+		struct{},
+		[]TransactionEvents,
 	]{}
 )

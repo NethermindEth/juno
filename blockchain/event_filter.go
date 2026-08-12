@@ -135,7 +135,7 @@ func (c *ContinuationToken) FromString(str string) error {
 
 type FilteredEvent struct {
 	*core.Event
-	BlockNumber      *uint64
+	BlockNumber      uint64
 	BlockHash        *felt.Felt
 	TransactionHash  *felt.Felt
 	TransactionIndex uint
@@ -146,19 +146,7 @@ func (e *EventFilter) Events(
 	cToken *ContinuationToken,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
-	// Read pre_confirmed before latest. If latest were read first, the head could
-	// advance before this fetch, leaving blocks committed in between scanned by
-	// neither the canonical range (stopped at the stale latest) nor pre_confirmed
-	// (based above them), a gap. This order makes latest >= the snapshot's base,
-	// so the ranges overlap instead. Pinning a fixed head wouldn't help: once a
-	// block commits, SnapshotForBlock trims it, so a stale head yields an empty
-	// view. On error, drop it and serve canonical only.
-	preConfirmed, err := e.preConfirmedFn()
-	if err != nil {
-		preConfirmed = nil
-	}
-
-	latest, err := core.GetChainHeight(e.database)
+	latest, preConfirmed, err := e.headAndPreConfirmed()
 	if err != nil {
 		return nil, ContinuationToken{}, err
 	}
@@ -218,10 +206,41 @@ func (e *EventFilter) Events(
 		matchedEvents,
 		preConfirmed,
 		startBlock,
-		latest,
 		skippedEvents,
 		chunkSize,
 	)
+}
+
+// headAndPreConfirmed returns the canonical head that divides the query, and the
+// pre-confirmed chain if the range goes above that head.
+//
+// The head comes from the chain: its oldest entry is one block above the head the
+// chain was built on. A head read before the fetch can be too old, and blocks
+// committed in between then fall between the two ranges.
+func (e *EventFilter) headAndPreConfirmed() (uint64, PreConfirmedReader, error) {
+	// PreConfirmedFilterSentinel is above every block, so the read changes nothing.
+	var latest uint64
+	if e.toBlock != PreConfirmedFilterSentinel {
+		var err error
+		if latest, err = core.GetChainHeight(e.database); err != nil {
+			return 0, nil, err
+		}
+		if e.toBlock <= latest {
+			return latest, nil, nil
+		}
+	}
+
+	preConfirmed, err := e.preConfirmedFn()
+	if err != nil || preConfirmed == nil || preConfirmed.Length() == 0 {
+		// No chain to derive from. This read also covers the sentinel case above.
+		latest, err = core.GetChainHeight(e.database)
+		if err != nil {
+			return 0, nil, err
+		}
+		return latest, nil, nil
+	}
+
+	return preConfirmed.Head().Block.Number - uint64(preConfirmed.Length()), preConfirmed, nil
 }
 
 func (e *EventFilter) canonicalEvents(
@@ -262,23 +281,19 @@ func (e *EventFilter) canonicalEvents(
 
 		lastProccessedBlock = curBlockNum
 
-		curBlockHash, err := core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
-		if err != nil {
-			return nil, ContinuationToken{}, err
-		}
-
-		var receipts []*core.TransactionReceipt
-		receipts, err = core.GetReceiptsByBlockNumber(e.database, curBlockNum)
+		blockEvents, err := core.GetTransactionEventsByBlockNumber(e.database, curBlockNum)
 		if err != nil {
 			return nil, ContinuationToken{}, err
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromTransactionEvents(
 			matchedEvents,
 			curBlockNum,
-			curBlockHash,
-			receipts,
+			func() (*felt.Felt, error) {
+				return core.GetBlockHeaderHashByNumber(e.database, curBlockNum)
+			},
+			blockEvents,
 			skippedEvents,
 			chunkSize,
 		)
@@ -314,7 +329,6 @@ func (e *EventFilter) preConfirmedEvents(
 	matchedEvents []FilteredEvent,
 	preConfirmed PreConfirmedReader,
 	fromBlock,
-	latest,
 	skippedEvents,
 	chunkSize uint64,
 ) ([]FilteredEvent, ContinuationToken, error) {
@@ -333,10 +347,9 @@ func (e *EventFilter) preConfirmedEvents(
 	var err error
 	for entry := range preConfirmed.OldestFirst() {
 		blockNumber := entry.Block.Number
-		// Skip blocks the canonical scan already covered (numbers <= latest, an
-		// overlap opened by a head advance mid-query) and blocks below the resume
-		// point.
-		if blockNumber <= latest || blockNumber < fromBlock {
+		// Skip blocks below the resume point. The canonical scan stops at the head
+		// this chain was built on, so the ranges cannot overlap.
+		if blockNumber < fromBlock {
 			continue
 		}
 		if blockNumber > e.toBlock {
@@ -352,7 +365,7 @@ func (e *EventFilter) preConfirmedEvents(
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromReceipts(
 			matchedEvents,
 			blockNumber,
 			header.Hash,

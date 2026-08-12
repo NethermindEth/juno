@@ -104,3 +104,9 @@ type receiptExecutionStatusProjection struct {
 	Reverted     bool
 	RevertReason string
 }
+
+type receiptEventsProjection struct {
+	discardedReceiptSkeleton
+	Events          []*Event
+	TransactionHash *felt.Felt
+}

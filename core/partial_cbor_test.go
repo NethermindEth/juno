@@ -329,14 +329,30 @@ func TestProjectionsAreDecodeOnly(t *testing.T) {
 
 // --- Receipt projections ---
 
-// sampleReceipt is a reverted receipt with distinct values, so its encoding exercises every
-// TransactionReceipt key and the execution-status assertions can check Reverted and RevertReason.
+// sampleReceipt is a reverted receipt with a distinct value in every field, so its encoding
+// holds every TransactionReceipt key, nested payloads included.
 func sampleReceipt() *TransactionReceipt {
 	return &TransactionReceipt{
 		Fee:             felt.NewFromUint64[felt.Felt](1),
 		TransactionHash: felt.NewFromUint64[felt.Felt](2),
 		Reverted:        true,
 		RevertReason:    "sample revert reason",
+		Events: []*Event{{
+			From: felt.NewFromUint64[felt.Felt](3),
+			Keys: []felt.Felt{felt.FromUint64[felt.Felt](4)},
+			Data: []felt.Felt{felt.FromUint64[felt.Felt](5)},
+		}},
+		ExecutionResources: &ExecutionResources{
+			BuiltinInstanceCounter: BuiltinInstanceCounter{
+				Pedersen:   6,
+				RangeCheck: 7,
+				Poseidon:   8,
+			},
+			MemoryHoles:      9,
+			Steps:            10,
+			DataAvailability: &DataAvailability{L1Gas: 11, L1DataGas: 12},
+			TotalGasConsumed: &GasConsumed{L1Gas: 13, L1DataGas: 14, L2Gas: 15},
+		},
 	}
 }
 
@@ -357,11 +373,13 @@ func TestPartialSkeletonMatchesReceipt(t *testing.T) {
 	)
 }
 
-// TestReceiptProjectionCoversEveryKey asserts the execution-status projection covers every
+// TestReceiptProjectionCoversEveryKey asserts each receipt projection covers every
 // TransactionReceipt wire key.
 func TestReceiptProjectionCoversEveryKey(t *testing.T) {
 	assertProjectionsCoverSource(t, reflect.TypeFor[TransactionReceipt](),
-		reflect.TypeFor[receiptExecutionStatusProjection]())
+		reflect.TypeFor[receiptExecutionStatusProjection](),
+		reflect.TypeFor[receiptEventsProjection](),
+	)
 }
 
 // TestReceiptProjectionCoversEveryWireKey guards against tag-option drift that cborKeys
@@ -370,6 +388,7 @@ func TestReceiptProjectionCoversEveryWireKey(t *testing.T) {
 	assertProjectionsCoverEveryWireKey(t, sampleReceiptBytes(t),
 		&discardedReceiptSkeleton{},
 		&receiptExecutionStatusProjection{},
+		&receiptEventsProjection{},
 	)
 }
 
@@ -383,6 +402,18 @@ func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
 		"Reverted must receive the wire value, not discardedCBOR")
 	require.Equal(t, receipt.RevertReason, projection.RevertReason,
 		"RevertReason must receive the wire value, not discardedCBOR")
+}
+
+// TestEventsProjectionDecodesShadowedFields checks the shadowing fields get the wire values,
+// not discardedCBOR. A change in cbor's embed precedence passes the key guards.
+func TestEventsProjectionDecodesShadowedFields(t *testing.T) {
+	receipt := sampleReceipt()
+	var projection receiptEventsProjection
+	require.NoError(t, encoder.Unmarshal(sampleReceiptBytes(t), &projection))
+	require.Equal(t, receipt.Events, projection.Events,
+		"Events must receive the wire value, not discardedCBOR")
+	require.Equal(t, receipt.TransactionHash, projection.TransactionHash,
+		"TransactionHash must receive the wire value, not discardedCBOR")
 }
 
 // BenchmarkPartialHeaderProjections benchmarks each header projection, field_omitting vs discard.
@@ -404,6 +435,26 @@ func BenchmarkPartialHeaderProjections(b *testing.B) {
 			})
 		})
 	}
+}
+
+// BenchmarkTransactionEventsProjection compares a full receipt decode against the
+// events-subset decode.
+func BenchmarkTransactionEventsProjection(b *testing.B) {
+	data := sampleReceiptBytes(b)
+	b.Run("full_receipt", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r TransactionReceipt
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
+	b.Run("events_projection", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			var r receiptEventsProjection
+			_ = encoder.Unmarshal(data, &r)
+		}
+	})
 }
 
 // BenchmarkExecutionStatusProjection compares decoding the execution-status subset via the naive

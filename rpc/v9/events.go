@@ -32,7 +32,7 @@ type EventsChunk struct {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber     *uint64    `json:"block_number,omitempty"`
+	BlockNumber     uint64     `json:"block_number"`
 	BlockHash       *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
@@ -149,7 +149,8 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	}
 
 	emittedEvents := make([]EmittedEvent, len(filteredEvents))
-	for i, fEvent := range filteredEvents {
+	for i := range filteredEvents {
+		fEvent := &filteredEvents[i]
 		emittedEvents[i] = EmittedEvent{
 			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,

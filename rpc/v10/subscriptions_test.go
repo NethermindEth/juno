@@ -2724,7 +2724,6 @@ func createTestEvents(
 	finalityStatus TxnFinalityStatus,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
-	blockNumber := &b.Number
 	eventMatcher := blockchain.NewEventMatcher(fromAddresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
@@ -2741,7 +2740,7 @@ func createTestEvents(
 
 			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:            event,
-				BlockNumber:      blockNumber,
+				BlockNumber:      b.Number,
 				BlockHash:        b.Hash,
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),
@@ -2754,7 +2753,7 @@ func createTestEvents(
 						Keys: event.Keys,
 						Data: event.Data,
 					},
-					BlockNumber:      blockNumber,
+					BlockNumber:      b.Number,
 					BlockHash:        b.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),

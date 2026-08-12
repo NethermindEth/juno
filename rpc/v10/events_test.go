@@ -54,8 +54,8 @@ func createEventPreConfirmedFromBlock(
 					Keys: event.Keys,
 					Data: event.Data,
 				},
-				BlockNumber:      &preConfirmedBlock.Number, // Pre-confirmed events have block number
-				BlockHash:        nil,                       // Pre-confirmed events have no block hash
+				BlockNumber:      preConfirmedBlock.Number, // Pre-confirmed events have block number
+				BlockHash:        nil,                      // Pre-confirmed events have no block hash
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),
 				EventIndex:       uint(eventIndex),
@@ -87,7 +87,7 @@ func extractCanonicalEvents(
 						Keys: event.Keys,
 						Data: event.Data,
 					},
-					BlockNumber:      &block.Number,
+					BlockNumber:      block.Number,
 					BlockHash:        block.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
