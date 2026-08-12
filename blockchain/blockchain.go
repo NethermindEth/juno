@@ -459,18 +459,23 @@ func (b *Blockchain) L1Head() (core.L1Head, error) {
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
-	b.l1HeadFeed.Send(update)
 	if err := core.WriteL1Head(b.database, update); err != nil {
 		return err
 	}
+	b.cacheL1Head(update)
+	b.l1HeadFeed.Send(update)
 
+	return nil
+}
+
+func (b *Blockchain) cacheL1Head(update *core.L1Head) {
 	if !b.cacheHeads {
-		return nil
+		return
 	}
 
 	if update == nil {
 		b.l1Head.Store(nil)
-		return nil
+		return
 	}
 
 	// Deep copy: update and the felts it points at are shared with the feed's subscribers and
@@ -484,7 +489,6 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 		cached.StateRoot = update.StateRoot.Clone()
 	}
 	b.l1Head.Store(&cached)
-	return nil
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -554,8 +558,8 @@ func (b *Blockchain) EventFilter(
 	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	// Not b.height(): Events re-reads the height on every call by design, so taking it from the
-	// cache here would only let one query observe two different values of "latest".
+	// Do not use b.height() here. Events reads the height from the database on each call. Thus
+	// this bound and the range logic in Events use the same source.
 	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err

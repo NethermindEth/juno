@@ -2,6 +2,7 @@ package blockchain_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -1347,6 +1348,46 @@ func TestClearingTheL1HeadEmptiesTheCache(t *testing.T) {
 	l1Head, err := chain.L1Head()
 	require.NoError(t, err)
 	assert.Equal(t, core.L1Head{}, l1Head)
+}
+
+// failingL1HeadWriter returns an error for each write of the L1 head key. It sends all other
+// writes to the wrapped store.
+type failingL1HeadWriter struct {
+	db.KeyValueStore
+}
+
+func (w failingL1HeadWriter) Put(key, value []byte) error {
+	if bytes.Equal(key, db.L1Height.Key()) {
+		return errors.New("write failed")
+	}
+	return w.KeyValueStore.Put(key, value)
+}
+
+func TestFailedL1HeadWriteReachesNeitherCacheNorSubscribers(t *testing.T) {
+	chain := blockchain.New(
+		failingL1HeadWriter{KeyValueStore: memory.New()},
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	sub := chain.SubscribeL1Head()
+	t.Cleanup(sub.Unsubscribe)
+
+	require.Error(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}))
+
+	// The pruner deletes historical state when it receives an update from this feed. Thus
+	// SetL1Head must not send a head that the database did not accept. Each reader must
+	// continue to use the database.
+	select {
+	case got := <-sub.Recv():
+		t.Fatalf("published an L1 head that was never committed: %v", got)
+	default:
+	}
+	_, err := chain.L1Head()
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
 }
 
 func TestCachedHeightAdvancesWithEachStoredBlock(t *testing.T) {
