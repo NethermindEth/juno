@@ -497,7 +497,9 @@ func sampleTransactions() []Transaction {
 		ConstructorCallData: felts,
 		Version:             new(TransactionVersion).SetUint64(3),
 	}
-	resourceBounds := map[Resource]ResourceBounds{ResourceL1Gas: {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](2)}}
+	resourceBounds := map[Resource]ResourceBounds{
+		ResourceL1Gas: {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](2)},
+	}
 	return []Transaction{
 		&deploy,
 		&DeployAccountTransaction{
@@ -573,9 +575,9 @@ func TestTransactionHashProjectionNamesEveryTransactionKey(t *testing.T) {
 // cborMajorTypeTag is the CBOR major type of a tag, held in the initial byte's top 3 bits.
 const cborMajorTypeTag = 6
 
-// sampleTransactionBytes marshals a transaction as production stores it, asserting the record really
-// is tag-wrapped. The projection relies on the decoder ignoring that tag, so a record that arrived
-// untagged here would silently stop covering the case the production reader hits.
+// sampleTransactionBytes marshals a transaction as production stores it, asserting the record
+// really is tag-wrapped. The projection relies on the decoder ignoring that tag, so a record that
+// arrived untagged here would silently stop covering the case the production reader hits.
 func sampleTransactionBytes(tb testing.TB, transaction Transaction) []byte {
 	tb.Helper()
 	data, err := encoder.Marshal(transaction)
