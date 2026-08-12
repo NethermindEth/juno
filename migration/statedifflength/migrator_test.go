@@ -45,24 +45,6 @@ func storedLength(t *testing.T, database db.KeyValueStore, blockNum uint64) uint
 
 func TestMigrateBackfillsMissingLengths(t *testing.T) {
 	database := memory.New()
-	for blockNum := range uint64(3) {
-		writeBlock(t, database, blockNum, blockNum+1)
-	}
-	require.NoError(t, core.WriteChainHeight(database, 2))
-
-	m := &statedifflength.Migrator{}
-	require.NoError(t, m.Before(nil))
-	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
-	require.NoError(t, err)
-	require.Nil(t, state, "migration should not ask to re-run")
-
-	for blockNum := range uint64(3) {
-		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
-	}
-}
-
-func TestMigrateConcurrent(t *testing.T) {
-	database := memory.New()
 	const blocks = 200
 	for blockNum := range uint64(blocks) {
 		writeBlock(t, database, blockNum, blockNum+1)

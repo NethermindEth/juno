@@ -27,7 +27,7 @@ const (
 	maxConcurrency      = 8
 	batchByteSize       = 128 * db.Megabyte
 	targetBatchByteSize = 96 * db.Megabyte
-	timeLogRate         = 5 * time.Second
+	timeLogRate         = 30 * time.Second
 	// intermediateStateSize is the encoded resume checkpoint: one big-endian uint64.
 	intermediateStateSize = 8
 )
