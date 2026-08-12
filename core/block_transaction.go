@@ -88,17 +88,25 @@ func NewBlockTransactions(
 	)
 }
 
-func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
-	end := len(b.Data)
+// transactionsSection is the data region holding transactions, ending where receipts begin.
+func (b *BlockTransactions) transactionsSection() []byte {
 	if len(b.Indexes.Receipts) > 0 {
-		end = b.Indexes.Receipts[0]
+		return b.Data[:b.Indexes.Receipts[0]]
 	}
+	return b.Data
+}
 
-	return indexed.NewLazySlice[Transaction](b.Indexes.Transactions, b.Data[:end])
+// receiptsSection is the data region holding receipts, which runs to the end of the data.
+func (b *BlockTransactions) receiptsSection() []byte {
+	return b.Data
+}
+
+func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
+	return indexed.NewLazySlice[Transaction](b.Indexes.Transactions, b.transactionsSection())
 }
 
 func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
-	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.receiptsSection())
 }
 
 // executionStatusProjectionSlice is the lazily-decoded slice of execution-status projections.
@@ -107,7 +115,7 @@ type executionStatusProjectionSlice = indexed.LazySlice[receiptExecutionStatusPr
 // executionStatusProjections decodes receipts into the execution-status subset, skipping the
 // heavier receipt fields.
 func (b *BlockTransactions) executionStatusProjections() executionStatusProjectionSlice {
-	return indexed.NewLazySlice[receiptExecutionStatusProjection](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[receiptExecutionStatusProjection](b.Indexes.Receipts, b.receiptsSection())
 }
 
 // transactionEventsProjectionSlice is the lazily-decoded slice of events projections.
@@ -122,23 +130,20 @@ func (b *BlockTransactions) transactionEventsProjections() transactionEventsProj
 // slice, skipping the heavier transaction fields.
 func (b *BlockTransactions) TransactionHashes() ([]felt.Felt, error) {
 	offsets := b.Indexes.Transactions
-	sectionEnd := len(b.Data)
-	if len(b.Indexes.Receipts) > 0 {
-		sectionEnd = b.Indexes.Receipts[0]
-	}
+	section := b.transactionsSection()
 
 	hashes := make([]felt.Felt, len(offsets))
 	var projection transactionHashProjection
 	for i := range offsets {
-		end := sectionEnd
+		end := len(section)
 		if i < len(offsets)-1 {
 			end = offsets[i+1]
 		}
 		// Reset before decoding: CBOR null decodes into a value-typed felt as a no-op, so a
 		// transaction stored without a hash would otherwise yield the previous one's hash.
 		projection.TransactionHash = felt.Zero
-		if err := encoder.Unmarshal(b.Data[offsets[i]:end], &projection); err != nil {
-			return nil, err
+		if err := encoder.Unmarshal(section[offsets[i]:end], &projection); err != nil {
+			return nil, fmt.Errorf("decoding transact hash projection at index %d: %w", i, err)
 		}
 		if projection.TransactionHash.IsZero() {
 			return nil, fmt.Errorf("missing TransactionHash in transaction %d", i)
