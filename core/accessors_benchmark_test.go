@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	_ "github.com/NethermindEth/juno/encoder/registry"
@@ -104,72 +103,6 @@ func BenchmarkReadBlockByNumber_Mainnet(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
-		})
-	}
-}
-
-func BenchmarkReceiptByHashReads_Mainnet(b *testing.B) {
-	for _, f := range stateUpdateWithBlockFixtures {
-		b.Run(f.percentile, func(b *testing.B) {
-			block, _ := loadStateUpdateWithBlockFixture(b, f.file)
-			const blockNum = uint64(0)
-			block.Header.Number = blockNum
-			require.NotEmpty(b, block.Transactions)
-			txHash := (*felt.TransactionHash)(block.Transactions[0].Hash())
-
-			database := newBenchDB(b)
-			require.NoError(b, core.WriteBlockHeaderByNumber(database, block.Header))
-			require.NoError(b, core.WriteTransactionsAndReceipts(
-				database, blockNum, block.Transactions, block.Receipts,
-			))
-
-			// before: hash index, transaction, receipt, full header.
-			b.Run("before", func(b *testing.B) {
-				b.ReportAllocs()
-				for b.Loop() {
-					at, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
-						database, txHash,
-					)
-					if err != nil {
-						b.Fatal(err)
-					}
-					if _, err := core.GetTransactionByBlockAndIndex(
-						database, at.Number, at.Index,
-					); err != nil {
-						b.Fatal(err)
-					}
-					if _, err := core.GetReceiptByBlockAndIndex(
-						database, at.Number, at.Index,
-					); err != nil {
-						b.Fatal(err)
-					}
-					if _, err := core.GetBlockHeaderByNumber(database, at.Number); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-
-			// after: transaction and receipt share one read, and the block hash is projected
-			// out of the header rather than decoding all of it.
-			b.Run("after", func(b *testing.B) {
-				b.ReportAllocs()
-				for b.Loop() {
-					at, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
-						database, txHash,
-					)
-					if err != nil {
-						b.Fatal(err)
-					}
-					if _, _, err := core.GetTransactionAndReceiptByBlockAndIndex(
-						database, at.Number, at.Index,
-					); err != nil {
-						b.Fatal(err)
-					}
-					if _, err := core.GetBlockHeaderHashByNumber(database, at.Number); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
 		})
 	}
 }

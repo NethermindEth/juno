@@ -324,7 +324,8 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf(
-			"reading receipt %d/%d: %w", bnIndex.Number, bnIndex.Index, err,
+			"reading receipt at block number %d and index %d: %w",
+			bnIndex.Number, bnIndex.Index, err,
 		)
 	}
 
@@ -348,7 +349,8 @@ func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
 	)
 	if err != nil {
 		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
-			"reading transaction and receipt %d/%d: %w", blockNumber, index, err,
+			"reading transaction and receipt at block number %d and index %d: %w",
+			blockNumber, index, err,
 		)
 	}
 

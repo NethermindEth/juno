@@ -515,7 +515,10 @@ func GetTransactionAndReceiptByBlockAndIndex(
 	pair, err := BlockTransactionsTransactionAndReceiptPartialBucket.Get(
 		r, blockNumber, int(index),
 	)
-	return pair.Transaction, pair.Receipt, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return pair.Transaction, pair.Receipt, nil
 }
 
 // GetTransactionExecutionStatusByBlockAndIndex returns only the status subset of a
