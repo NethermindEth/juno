@@ -24,15 +24,15 @@ func writeBlock(t *testing.T, database db.KeyValueStore, blockNum, storageDiffs 
 	diffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
 	inner := make(map[felt.Felt]*felt.Felt, storageDiffs)
 	for i := range storageDiffs {
-		inner[*new(felt.Felt).SetUint64(i)] = new(felt.Felt).SetUint64(i)
+		inner[felt.FromUint64[felt.Felt](i)] = felt.NewFromUint64[felt.Felt](i)
 	}
-	diffs[*new(felt.Felt).SetUint64(blockNum)] = inner
+	diffs[felt.FromUint64[felt.Felt](blockNum)] = inner
 
 	require.NoError(t, core.WriteStateUpdateByBlockNum(database, blockNum, &core.StateUpdate{
 		StateDiff: &core.StateDiff{StorageDiffs: diffs},
 	}))
 	require.NoError(t, core.WriteBlockCommitment(database, blockNum, &core.BlockCommitments{
-		TransactionCommitment: new(felt.Felt).SetUint64(blockNum),
+		TransactionCommitment: felt.NewFromUint64[felt.Felt](blockNum),
 	}))
 }
 
@@ -41,21 +41,6 @@ func storedLength(t *testing.T, database db.KeyValueStore, blockNum uint64) uint
 	commitments, err := core.GetBlockCommitmentByBlockNum(database, blockNum)
 	require.NoError(t, err)
 	return commitments.StateDiffLength
-}
-
-func migrate(
-	ctx context.Context,
-	database db.KeyValueStore,
-	m *statedifflength.Migrator,
-) ([]byte, error) {
-	return m.Migrate(ctx, database, &networks.Mainnet, log.NewNopZapLogger())
-}
-
-func run(t *testing.T, database db.KeyValueStore, m *statedifflength.Migrator) []byte {
-	t.Helper()
-	state, err := migrate(t.Context(), database, m)
-	require.NoError(t, err)
-	return state
 }
 
 func TestMigrateBackfillsMissingLengths(t *testing.T) {
@@ -67,7 +52,9 @@ func TestMigrateBackfillsMissingLengths(t *testing.T) {
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	require.Nil(t, run(t, database, m), "migration should not ask to re-run")
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state, "migration should not ask to re-run")
 
 	for blockNum := range uint64(3) {
 		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
@@ -82,11 +69,11 @@ func TestMigrateConcurrent(t *testing.T) {
 	}
 	require.NoError(t, core.WriteChainHeight(database, blocks-1))
 
-	// Several workers process blocks out of order; every one must still get its own
-	// length.
-	m := &statedifflength.Migrator{Concurrency: 8}
+	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	require.Nil(t, run(t, database, m))
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
 
 	for blockNum := range uint64(blocks) {
 		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
@@ -98,7 +85,9 @@ func TestMigrateEmptyDatabase(t *testing.T) {
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	require.Nil(t, run(t, database, m))
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
 }
 
 func TestMigrateCancelledReruns(t *testing.T) {
@@ -114,7 +103,7 @@ func TestMigrateCancelledReruns(t *testing.T) {
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	state, err := migrate(ctx, database, m)
+	state, err := m.Migrate(ctx, database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.NotNil(t, state, "a cancelled run must ask to re-run")
 
@@ -128,7 +117,11 @@ func TestMigrateCancelledReruns(t *testing.T) {
 	// A fresh run resumes and finishes the job.
 	resumed := &statedifflength.Migrator{}
 	require.NoError(t, resumed.Before(state))
-	require.Nil(t, run(t, database, resumed))
+	resumedState, err := resumed.Migrate(
+		t.Context(), database, &networks.Mainnet, log.NewNopZapLogger(),
+	)
+	require.NoError(t, err)
+	require.Nil(t, resumedState)
 
 	for blockNum := range uint64(4) {
 		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
@@ -149,9 +142,11 @@ func TestMigrateResumesFromCheckpointWithoutGaps(t *testing.T) {
 	var state [8]byte
 	binary.BigEndian.PutUint64(state[:], checkpoint)
 
-	m := &statedifflength.Migrator{Concurrency: 8}
+	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(state[:]))
-	require.Nil(t, run(t, database, m))
+	migrated, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, migrated)
 
 	// Below the checkpoint stays untouched (still 0); from it up every block is set,
 	// with no gaps.
@@ -168,22 +163,6 @@ func TestBeforeRejectsMalformedState(t *testing.T) {
 	require.Error(t, m.Before([]byte{1, 2, 3}))
 }
 
-func TestMigrateRotatesBatches(t *testing.T) {
-	database := memory.New()
-	for blockNum := range uint64(20) {
-		writeBlock(t, database, blockNum, blockNum+1)
-	}
-	require.NoError(t, core.WriteChainHeight(database, 19))
-
-	m := &statedifflength.Migrator{Concurrency: 3, BatchByteSize: 1}
-	require.NoError(t, m.Before(nil))
-	require.Nil(t, run(t, database, m))
-
-	for blockNum := range uint64(20) {
-		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
-	}
-}
-
 func TestMigrateStartsAfterPrunedPrefix(t *testing.T) {
 	database := memory.New()
 	// Blocks 0..4 pruned away; only 5 and 6 remain. The migration must start at 5
@@ -195,7 +174,9 @@ func TestMigrateStartsAfterPrunedPrefix(t *testing.T) {
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	require.Nil(t, run(t, database, m))
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
 
 	require.Equal(t, uint64(1), storedLength(t, database, 5))
 	require.Equal(t, uint64(2), storedLength(t, database, 6))
@@ -209,8 +190,8 @@ func TestMigrateFailsOnMissingRecordInRange(t *testing.T) {
 	}))
 	require.NoError(t, core.WriteChainHeight(database, 1))
 
-	m := &statedifflength.Migrator{Concurrency: 1}
+	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	_, err := migrate(t.Context(), database, m)
+	_, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 }

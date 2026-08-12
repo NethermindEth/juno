@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"iter"
 	"runtime"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	"github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/utils/log"
@@ -22,9 +24,10 @@ import (
 )
 
 const (
-	maxConcurrency       = 8
-	defaultBatchByteSize = 128 * db.Megabyte
-	targetBatchByteSize  = 96 * db.Megabyte
+	maxConcurrency      = 8
+	batchByteSize       = 128 * db.Megabyte
+	targetBatchByteSize = 96 * db.Megabyte
+	timeLogRate         = 5 * time.Second
 	// intermediateStateSize is the encoded resume checkpoint: one big-endian uint64.
 	intermediateStateSize = 8
 )
@@ -35,18 +38,13 @@ var _ migration.Migration = (*Migrator)(nil)
 // rewrites the block's commitments with it. Pre-existing blocks stored 0 for the
 // missing field, which this replaces with the real value.
 //
-// Work is fanned out across Concurrency reader goroutines that each fill their own
-// write batch; a single committer drains them to disk. On a graceful shutdown the
+// Work is fanned out across reader goroutines that each fill their own write
+// batch; a single committer drains them to disk. On a graceful shutdown the
 // committed blocks form a contiguous range — the source emits in order and the
 // pipeline drains everything it emitted — so the migration checkpoints the next
 // block to resume from. After an error or crash it restarts from the oldest
 // retained block, which is safe because re-deriving a length is idempotent.
 type Migrator struct {
-	// Concurrency is the number of reader goroutines. Zero uses the default.
-	Concurrency int
-	// BatchByteSize is the allocated batch size. Zero uses the default.
-	BatchByteSize int
-
 	nextBlock uint64
 }
 
@@ -79,7 +77,7 @@ func (m *Migrator) Migrate(
 		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
-	start, err := m.startBlock(database)
+	start, oldest, err := m.startBlock(database)
 	if err != nil {
 		return nil, err
 	}
@@ -87,14 +85,7 @@ func (m *Migrator) Migrate(
 		return nil, nil
 	}
 
-	concurrency := m.Concurrency
-	if concurrency <= 0 {
-		concurrency = min(runtime.GOMAXPROCS(0), maxConcurrency)
-	}
-	batchByteSize := m.BatchByteSize
-	if batchByteSize <= 0 {
-		batchByteSize = defaultBatchByteSize
-	}
+	concurrency := min(runtime.GOMAXPROCS(0), maxConcurrency)
 
 	logger.Info("Backfilling state diff length",
 		zap.Uint64("fromBlock", start),
@@ -106,19 +97,20 @@ func (m *Migrator) Migrate(
 		return database.NewBatchWithSize(batchByteSize)
 	})
 
-	source := pipeline.Source(blockRange(start, height))
+	progressTracker := progresslogger.NewBlockProgressTracker(
+		"statedifflength", logger, height-oldest+1, start-oldest,
+	)
+	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
+	defer loggerCancel()
+
+	nextBlock := start
+	source := pipeline.Source(blockRange(start, height, &nextBlock))
 	readers := pipeline.New(
 		source,
 		concurrency,
-		newIngestor(
-			database,
-			batchSemaphore,
-			concurrency,
-			min(batchByteSize, targetBatchByteSize),
-		),
+		newIngestor(database, batchSemaphore, concurrency, progressTracker),
 	)
-	comm := newCommitter(logger, batchSemaphore, height)
-	committed := pipeline.New(readers, 1, comm)
+	committed := pipeline.New(readers, 1, newCommitter(batchSemaphore))
 
 	_, wait := committed.Run(ctx)
 	res := wait()
@@ -127,26 +119,24 @@ func (m *Migrator) Migrate(
 		return nil, res.Err
 	}
 	if !res.IsDone {
-		resume := start
-		if comm.updated > 0 {
-			resume = comm.maxCommitted + 1
-		}
-		return encodeResume(resume), nil
+		logger.Info("Backfilling state diff length interrupted",
+			zap.Uint64("resumeFrom", nextBlock),
+		)
+		return encodeResume(nextBlock), nil
 	}
+
+	logger.Info("Backfilled state diff length", zap.Uint64("throughBlock", height))
 	return nil, nil
 }
 
-// startBlock is the higher of the resume checkpoint and the oldest retained block,
-// so a re-run skips finished work without touching the pruned prefix.
-func (m *Migrator) startBlock(r db.KeyValueReader) (uint64, error) {
-	oldest, err := pruner.OldestRetainedBlock(r)
+// startBlock returns the block to start from — the higher of the resume checkpoint
+// and the oldest retained block
+func (m *Migrator) startBlock(r db.KeyValueReader) (start, oldest uint64, err error) {
+	oldest, err = pruner.OldestRetainedBlock(r)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return m.nextBlock, nil // no commitments stored at all
-		}
-		return 0, fmt.Errorf("finding oldest retained block: %w", err)
+		return 0, 0, fmt.Errorf("finding oldest retained block: %w", err)
 	}
-	return max(m.nextBlock, oldest), nil
+	return max(m.nextBlock, oldest), oldest, nil
 }
 
 func encodeResume(block uint64) []byte {
@@ -155,12 +145,13 @@ func encodeResume(block uint64) []byte {
 	return buf
 }
 
-func blockRange(start, end uint64) iter.Seq[uint64] {
+func blockRange(start, end uint64, next *uint64) iter.Seq[uint64] {
 	return func(yield func(uint64) bool) {
 		for n := start; n <= end; n++ {
 			if !yield(n) {
 				return
 			}
+			*next = n + 1
 		}
 	}
 }

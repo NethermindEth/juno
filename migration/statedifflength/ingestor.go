@@ -6,62 +6,55 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	"github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
-
-// task is a filled batch handed from a reader to the committer
-type task struct {
-	batch    db.Batch
-	blocks   int
-	maxBlock uint64
-}
 
 // ingestor reads blocks and fills per-worker batches. Each pipeline worker owns one
 // entry in batches, so no synchronisation is needed between them.
 type ingestor struct {
 	database  db.KeyValueReader
 	semaphore semaphore.ResourceSemaphore[db.Batch]
-	flushAt   int
-	batches   []task
+	progress  *progresslogger.BlockProgressTracker
+	batches   []db.Batch
 }
 
-var _ pipeline.State[uint64, task] = (*ingestor)(nil)
+var _ pipeline.State[uint64, db.Batch] = (*ingestor)(nil)
 
 func newIngestor(
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	workers,
-	flushAt int,
+	workers int,
+	progress *progresslogger.BlockProgressTracker,
 ) *ingestor {
-	batches := make([]task, workers)
+	batches := make([]db.Batch, workers)
 	for i := range batches {
-		batches[i] = task{batch: batchSemaphore.GetBlocking()}
+		batches[i] = batchSemaphore.GetBlocking()
 	}
 	return &ingestor{
 		database:  database,
 		semaphore: batchSemaphore,
-		flushAt:   flushAt,
+		progress:  progress,
 		batches:   batches,
 	}
 }
 
-func (in *ingestor) Run(index int, blockNumber uint64, outputs chan<- task) error {
-	cur := &in.batches[index]
+func (in *ingestor) Run(index int, blockNumber uint64, outputs chan<- db.Batch) error {
+	batch := in.batches[index]
 
-	if err := backfillBlock(in.database, cur.batch, blockNumber); err != nil {
+	if err := backfillBlock(in.database, batch, blockNumber); err != nil {
 		return err
 	}
-	cur.blocks++
-	cur.maxBlock = max(cur.maxBlock, blockNumber)
+	in.progress.IncrementCompletedBlocks(1)
 
-	if cur.batch.Size() >= in.flushAt {
-		outputs <- *cur
-		in.batches[index] = task{batch: in.semaphore.GetBlocking()}
+	if batch.Size() >= targetBatchByteSize {
+		outputs <- batch
+		in.batches[index] = in.semaphore.GetBlocking()
 	}
 	return nil
 }
 
-func (in *ingestor) Done(index int, outputs chan<- task) error {
+func (in *ingestor) Done(index int, outputs chan<- db.Batch) error {
 	outputs <- in.batches[index]
 	return nil
 }
