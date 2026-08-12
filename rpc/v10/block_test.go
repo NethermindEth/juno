@@ -435,10 +435,17 @@ func setupMockBlockTest(
 	l1Head *core.L1Head,
 	preConfirmedBase ...*pending.PreConfirmed,
 ) {
-	if l1Head != nil {
-		mockChain.EXPECT().L1Head().Return(*l1Head, nil).AnyTimes()
-	} else {
-		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+	switch {
+	case blockID.IsPreConfirmed():
+		// pre_confirmed status is derived without reading the L1 head
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, nil).Times(0)
+	case l1Head == nil:
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(1)
+	case blockID.IsL1Accepted():
+		// the l1_accepted tag resolves to a block number, then blockStatus reads again
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil).Times(2)
+	default:
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil).Times(1)
 	}
 
 	// if pre_confirmed do not mock commitments
