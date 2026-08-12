@@ -32,7 +32,7 @@ type EventsChunk struct {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber     *uint64    `json:"block_number,omitempty"`
+	BlockNumber     uint64     `json:"block_number"`
 	BlockHash       *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
@@ -152,7 +152,7 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 	for i := range filteredEvents {
 		fEvent := &filteredEvents[i]
 		emittedEvents[i] = EmittedEvent{
-			BlockNumber:     &fEvent.BlockNumber,
+			BlockNumber:     fEvent.BlockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
 			// rpc.Event is field-identical to core.Event (guarded in this file), so alias the

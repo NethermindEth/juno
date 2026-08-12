@@ -72,7 +72,7 @@ func (a AddressList) Contains(addr *felt.Address) bool {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber      *uint64    `json:"block_number,omitempty"`
+	BlockNumber      uint64     `json:"block_number"`
 	BlockHash        *felt.Felt `json:"block_hash,omitempty"`
 	TransactionHash  *felt.Felt `json:"transaction_hash"`
 	TransactionIndex uint       `json:"transaction_index"`
@@ -189,7 +189,7 @@ func (h *Handler) Events(args *EventArgs) (EventsChunk, *jsonrpc.Error) {
 	for i := range filteredEvents {
 		fEvent := &filteredEvents[i]
 		emittedEvents[i] = EmittedEvent{
-			BlockNumber:      &fEvent.BlockNumber,
+			BlockNumber:      fEvent.BlockNumber,
 			BlockHash:        fEvent.BlockHash,
 			TransactionHash:  fEvent.TransactionHash,
 			TransactionIndex: fEvent.TransactionIndex,

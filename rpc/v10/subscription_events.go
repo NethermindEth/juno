@@ -307,7 +307,7 @@ func (s *eventSubscriberState) sendFilteredEvent(
 	finalityStatus TxnFinalityStatus,
 ) error {
 	emittedEvent := EmittedEvent{
-		BlockNumber:      &event.BlockNumber,
+		BlockNumber:      event.BlockNumber,
 		BlockHash:        event.BlockHash,
 		TransactionHash:  event.TransactionHash,
 		TransactionIndex: event.TransactionIndex,

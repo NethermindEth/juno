@@ -2387,7 +2387,6 @@ func createTestEvents(
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
 
-	blockNumber := &b.Number
 	var addresses []felt.Address
 	if fromAddress != nil {
 		addresses = []felt.Address{*fromAddress}
@@ -2421,7 +2420,7 @@ func createTestEvents(
 						Keys: event.Keys,
 						Data: event.Data,
 					},
-					BlockNumber:     blockNumber,
+					BlockNumber:     b.Number,
 					BlockHash:       b.Hash,
 					TransactionHash: receipt.TransactionHash,
 				},
