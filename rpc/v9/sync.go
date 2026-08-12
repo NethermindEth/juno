@@ -50,7 +50,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 		return defaultSyncState, nil
 	}
 	startingBlockHeader, err := h.syncReader.StartingBlockHeader()
-	if err != nil || startingBlockHeader == nil {
+	if err != nil {
 		return defaultSyncState, nil
 	}
 

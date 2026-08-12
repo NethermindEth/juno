@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	stdsync "sync"
 	"sync/atomic"
@@ -73,8 +74,6 @@ type ReorgBlockRange struct {
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
-	// StartingBlockHeader returns the header for the first block of the current sync run.
-	// Implementations may return a partial header containing only Number and Hash.
 	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
@@ -557,34 +556,30 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 }
 
 func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
-	startingBlockNumber := s.startingBlockNumber.Load()
-	if startingBlockNumber == nil {
-		return nil, errors.New("not running")
-	}
-
 	header := s.startingBlockHeader.Load()
 	if header != nil {
 		return header, nil
 	}
 
-	hash, err := core.GetBlockHeaderHashByNumber(s.db, *startingBlockNumber)
-	if err != nil {
-		return nil, err
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber == nil {
+		return nil, errors.New("starting block number is not set")
 	}
-	header = &core.Header{
-		Number: *startingBlockNumber,
-		Hash:   hash,
+
+	header, err := core.GetBlockHeaderByNumber(s.db, *startingBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("getting header for block %d: %w", *startingBlockNumber, err)
 	}
 	// The sync loop may stop or restart while the fallback DB read is in flight.
 	// Only cache the fallback header if it still belongs to the same sync run.
 	if s.startingBlockNumber.Load() != startingBlockNumber {
-		return nil, errors.New("not running")
+		return nil, errors.New("starting block number changed")
 	}
 	// Avoid overwriting a full header cached by storeTask while this fallback was reading from DB.
 	if !s.startingBlockHeader.CompareAndSwap(nil, header) {
 		header = s.startingBlockHeader.Load()
 		if header == nil {
-			return nil, errors.New("not running")
+			return nil, errors.New("starting block header changed")
 		}
 	}
 	return header, nil

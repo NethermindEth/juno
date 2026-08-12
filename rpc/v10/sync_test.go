@@ -34,18 +34,6 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	t.Run("nil starting block header", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
-		synchronizer.EXPECT().HighestBlockHeader().Return(
-			&core.Header{Number: 2, Hash: felt.NewFromUint64[felt.Felt](2)},
-		)
-		synchronizer.EXPECT().StartingBlockHeader().Return(nil, nil)
-
-		syncing, err := handler.Syncing()
-		assert.Nil(t, err)
-		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
-	})
-
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
