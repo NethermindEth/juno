@@ -190,8 +190,8 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		}
 		return &BlockWithTxHashes{
 			Status:      BlockPreConfirmed,
-			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header, nil),
-			TxnHashes:   txnHashesOf(preConfirmed.Block.Transactions),
+			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header, nil, nil),
+			TxnHashes:   transactionHashesOf(preConfirmed.Block.Transactions),
 		}, nil
 	}
 
@@ -200,7 +200,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	txnHashes, err := h.bcReader.TransactionHashesByBlockNumber(header.Number)
+	transactionHashes, err := h.bcReader.TransactionHashesByBlockNumber(header.Number)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
@@ -220,17 +220,17 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: AdaptBlockHeader(header, commitments),
-		TxnHashes:   txnHashes,
+		BlockHeader: AdaptBlockHeader(header, commitments, stateDiff),
+		TxnHashes:   transactionHashes,
 	}, nil
 }
 
-// txnHashesOf collects each transaction's hash, for blocks served from memory where the
+// transactionHashesOf collects each transaction's hash, for blocks served from memory where the
 // transactions are already decoded.
-func txnHashesOf(txns []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(txns))
-	for index, txn := range txns {
-		hashes[index] = *txn.Hash()
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for index, transaction := range transactions {
+		hashes[index] = *transaction.Hash()
 	}
 	return hashes
 }
@@ -320,8 +320,8 @@ func (h *Handler) BlockWithTxs(
 		}
 		return &BlockWithTxs{
 			Status:       BlockPreConfirmed,
-			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header, nil),
-			Transactions: adaptTxns(preConfirmed.Block.Transactions, includeProofFacts),
+			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header, nil, nil),
+			Transactions: adaptTransactions(preConfirmed.Block.Transactions, includeProofFacts),
 		}, nil
 	}
 
@@ -330,7 +330,7 @@ func (h *Handler) BlockWithTxs(
 		return nil, rpcErr
 	}
 
-	blockTxns, err := h.bcReader.TransactionsByBlockNumber(header.Number)
+	blockTransactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrBlockNotFound
@@ -350,16 +350,16 @@ func (h *Handler) BlockWithTxs(
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  AdaptBlockHeader(header, commitments),
-		Transactions: adaptTxns(blockTxns, includeProofFacts),
+		BlockHeader:  AdaptBlockHeader(header, commitments, stateDiff),
+		Transactions: adaptTransactions(blockTransactions, includeProofFacts),
 	}, nil
 }
 
-func adaptTxns(txns []core.Transaction, includeProofFacts bool) []*Transaction {
-	adapted := make([]*Transaction, len(txns))
-	for index, txn := range txns {
-		adaptedTxn := AdaptTransaction(txn, includeProofFacts)
-		adapted[index] = &adaptedTxn
+func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []*Transaction {
+	adapted := make([]*Transaction, len(transactions))
+	for index, transaction := range transactions {
+		adaptedTransaction := AdaptTransaction(transaction, includeProofFacts)
+		adapted[index] = &adaptedTransaction
 	}
 	return adapted
 }

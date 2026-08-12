@@ -85,7 +85,7 @@ func matchingReceipts(transactions []core.Transaction) []*core.TransactionReceip
 	return receipts
 }
 
-func expectedHashes(transactions []core.Transaction) []felt.Felt {
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
 	hashes := make([]felt.Felt, len(transactions))
 	for i, transaction := range transactions {
 		hashes[i] = *transaction.Hash()
@@ -107,7 +107,7 @@ func TestTransactionHashesAllTxTypes(t *testing.T) {
 
 	hashes, err := blockTransactions.TransactionHashes()
 	require.NoError(t, err)
-	require.Equal(t, expectedHashes(transactions), hashes)
+	require.Equal(t, transactionHashesOf(transactions), hashes)
 }
 
 // TestTransactionHashesMatchFullDecode pins the partial read to the full decode it replaces: the
@@ -125,7 +125,7 @@ func TestTransactionHashesMatchFullDecode(t *testing.T) {
 
 	hashes, err := blockTransactions.TransactionHashes()
 	require.NoError(t, err)
-	require.Equal(t, expectedHashes(decoded), hashes)
+	require.Equal(t, transactionHashesOf(decoded), hashes)
 }
 
 // TestTransactionHashesRejectMissingHash guards the reused projection: a transaction stored without
@@ -159,5 +159,5 @@ func TestTransactionHashesWithoutReceiptSection(t *testing.T) {
 
 	hashes, err := blockTransactions.TransactionHashes()
 	require.NoError(t, err)
-	require.Equal(t, expectedHashes(transactions), hashes)
+	require.Equal(t, transactionHashesOf(transactions), hashes)
 }

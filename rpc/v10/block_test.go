@@ -453,7 +453,7 @@ func setupMockBlockTest(
 		mockChain.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil)
 	}
 
-	txnHashes := transactionHashesOf(block.Transactions)
+	transactionHashes := transactionHashesOf(block.Transactions)
 
 	switch {
 	case blockID.IsPreConfirmed():
@@ -469,14 +469,14 @@ func setupMockBlockTest(
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			txnHashes, nil).AnyTimes()
+			transactionHashes, nil).AnyTimes()
 	case blockID.IsHash():
 		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			txnHashes, nil).AnyTimes()
+			transactionHashes, nil).AnyTimes()
 	case blockID.IsL1Accepted():
 		mockChain.EXPECT().Height().Return(block.Number, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
@@ -484,14 +484,14 @@ func setupMockBlockTest(
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			txnHashes, nil).AnyTimes()
+			transactionHashes, nil).AnyTimes()
 	default:
 		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
 		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
 			block.Transactions, nil).AnyTimes()
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			txnHashes, nil).AnyTimes()
+			transactionHashes, nil).AnyTimes()
 	}
 }
 

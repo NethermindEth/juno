@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/encoder"
@@ -184,15 +183,11 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 
 	t.Run("BlockTransactionsAllTransactionHashesPartialSerializer", func(t *testing.T) {
 		// The serializer reads each transaction's own hash from the transaction section.
-		expectedHashes := make([]felt.Felt, transactionCount)
-		for i := range transactionCount {
-			expectedHashes[i] = *transactions[i].Hash()
-		}
 		assertPartialSerializer(
 			t,
 			core.BlockTransactionsAllTransactionHashesPartialSerializer,
 			struct{}{},
-			expectedHashes,
+			transactionHashesOf(transactions),
 			serialised,
 		)
 	})
