@@ -6,6 +6,11 @@ Sample a Starknet node into a seeded JSON-RPC corpus, then replay it with
 ## Methods
 
 - `starknet_getTransactionByHash`
+- `starknet_getTransactionReceipt`
+- `starknet_getBlockWithTxs`
+- `starknet_getBlockWithTxHashes`
+- `starknet_getBlockWithReceipts`
+
 
 ## Use
 

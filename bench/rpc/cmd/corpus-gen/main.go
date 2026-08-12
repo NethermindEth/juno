@@ -59,7 +59,13 @@ func newRootCmd() *cobra.Command {
 	pf.IntVar(&cfg.concurrency, "concurrency", runtime.GOMAXPROCS(0),
 		"Max concurrent sampling requests to the source node.")
 
-	cmd.AddCommand(newGetTxByHashCmd(cfg))
+	cmd.AddCommand(
+		newGetTxByHashCmd(cfg),
+		newGetTxReceiptCmd(cfg),
+		newGetBlockWithTxsCmd(cfg),
+		newGetBlockWithTxHashesCmd(cfg),
+		newGetBlockWithReceiptsCmd(cfg),
+	)
 	return cmd
 }
 
@@ -72,6 +78,22 @@ func main() {
 type blockRange struct {
 	Start uint64 `json:"start"`
 	End   uint64 `json:"end"`
+}
+
+func addBlockRangeFlags(cmd *cobra.Command, start, end *uint64) {
+	cmd.Flags().Uint64Var(start, "block-start", 0,
+		"Start block number to sample from (inclusive).")
+	cmd.Flags().Uint64Var(end, "block-end", 0,
+		"End block number to sample from (exclusive).")
+	_ = cmd.MarkFlagRequired("block-start")
+	_ = cmd.MarkFlagRequired("block-end")
+}
+
+func validateBlockRange(start, end uint64) error {
+	if end <= start {
+		return fmt.Errorf("--block-end (%d) must be > --block-start (%d)", end, start)
+	}
+	return nil
 }
 
 type corpusMeta[T any] struct {
