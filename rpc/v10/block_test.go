@@ -431,7 +431,6 @@ func setupMockBlockTest(
 	mockSyncReader *mocks.MockSyncReader,
 	block *core.Block,
 	commitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate,
 	blockID *rpc.BlockID,
 	l1Head *core.L1Head,
 	preConfirmedBase ...*pending.PreConfirmed,
@@ -452,7 +451,6 @@ func setupMockBlockTest(
 	// if pre_confirmed do not mock commitments
 	if !blockID.IsPreConfirmed() {
 		mockChain.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil)
-		mockChain.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil)
 	}
 
 	switch {
@@ -786,7 +784,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -940,7 +937,6 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -1094,7 +1090,6 @@ func TestBlockWithReceipts(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -1127,7 +1122,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	latestBlockNumber := uint64(56378)
 
 	t.Run("default sequencer address", func(t *testing.T) {
-		block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(
+		block, commitments, _ := rpc.GetTestBlockWithCommitments(
 			t,
 			client,
 			latestBlockNumber,
@@ -1139,7 +1134,6 @@ func TestRpcBlockAdaptation(t *testing.T) {
 			block.Transactions, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 		mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil).Times(2)
-		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
 
 		blockID := rpc.BlockIDLatest()
 		actual, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
@@ -1166,7 +1160,6 @@ func TestBlockWithTxsV013(t *testing.T) {
 	mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(block.Transactions, nil)
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 	mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(commitments, nil)
-	mockReader.EXPECT().StateUpdateByNumber(blockNumber).Return(stateUpdate, nil)
 
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -1318,9 +1311,6 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		ReceiptCommitment:     &felt.Zero,
 		StateDiffCommitment:   &felt.Zero,
 	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
-	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
@@ -1413,9 +1403,6 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		EventCommitment:       &felt.Zero,
 		ReceiptCommitment:     &felt.Zero,
 		StateDiffCommitment:   &felt.Zero,
-	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())

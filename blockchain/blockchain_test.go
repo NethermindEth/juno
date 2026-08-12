@@ -297,6 +297,7 @@ func TestBlockCommitments(t *testing.T) {
 		EventCommitment:       new(felt.Felt).SetUint64(2),
 		ReceiptCommitment:     new(felt.Felt).SetUint64(3),
 		StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+		StateDiffLength:       su.StateDiff.Length(),
 	}
 
 	require.NoError(t, chain.Store(b, expectedCommitments, su, nil))
@@ -316,6 +317,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
+	stateDiffLengths := make([]uint64, 3)
 	for i := range uint64(3) {
 		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
@@ -323,9 +325,11 @@ func TestTransactionAndReceipt(t *testing.T) {
 		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 
+		stateDiffLengths[i] = su.StateDiff.Length()
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{
 			TransactionCommitment: new(felt.Felt).SetUint64(i),
 			EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+			StateDiffLength:       stateDiffLengths[i],
 		}, su, nil))
 	}
 
@@ -467,6 +471,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 				require.Equal(t, &core.BlockCommitments{
 					TransactionCommitment: new(felt.Felt).SetUint64(i),
 					EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+					StateDiffLength:       stateDiffLengths[i],
 				}, commitments)
 			})
 		}
