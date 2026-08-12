@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"slices"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -35,12 +34,6 @@ type EventFilter struct {
 	preConfirmedFn func() (PreConfirmedReader, error)
 	cachedFilters  *AggregatedBloomFilterCache
 	runningFilter  *core.RunningEventFilter
-	// txEventsBuf holds the pre-confirmed receipt projection. One goroutine uses a
-	// filter, never two at the same time, and no caller keeps the returned slice.
-	// Therefore the code can fill this buffer again for each chain entry and each
-	// call. The projection then makes one allocation for each filter, and not one
-	// allocation for each pre-confirmed block.
-	txEventsBuf []core.TransactionEvents
 }
 
 type EventFilterRange uint
@@ -283,7 +276,7 @@ func (e *EventFilter) canonicalEvents(
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromTransactionEvents(
 			matchedEvents,
 			curBlockNum,
 			func() (*felt.Felt, error) {
@@ -315,24 +308,6 @@ func (e *EventFilter) canonicalEvents(
 	}
 
 	return matchedEvents, ContinuationToken{}, nil
-}
-
-// appendTransactionEvents adds the events subset of each receipt to dst. Both event
-// sources then give the matcher the same type. The caller can use dst again for each
-// block. This is safe, because the function copies only slice headers and pointers,
-// and the matcher keeps no reference to dst.
-func appendTransactionEvents(
-	dst []core.TransactionEvents,
-	receipts []*core.TransactionReceipt,
-) []core.TransactionEvents {
-	dst = slices.Grow(dst, len(receipts))
-	for _, receipt := range receipts {
-		dst = append(dst, core.TransactionEvents{
-			Events:          receipt.Events,
-			TransactionHash: receipt.TransactionHash,
-		})
-	}
-	return dst
 }
 
 // preConfirmedEvents processes pending events across every pre-confirmed block in
@@ -380,14 +355,12 @@ func (e *EventFilter) preConfirmedEvents(
 			continue
 		}
 
-		e.txEventsBuf = appendTransactionEvents(e.txEventsBuf[:0], entry.Block.Receipts)
-
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromReceipts(
 			matchedEvents,
 			blockNumber,
 			func() (*felt.Felt, error) { return header.Hash, nil },
-			e.txEventsBuf,
+			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
 		)
