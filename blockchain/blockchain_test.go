@@ -1,7 +1,10 @@
 package blockchain_test
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -1043,8 +1046,276 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	})
 }
 
-func TestRevert(t *testing.T) {
+type headReadCounter struct {
+	db.KeyValueStore
+	chainHeight atomic.Int64
+	l1Head      atomic.Int64
+}
+
+func (c *headReadCounter) Get(key []byte, cb func([]byte) error) error {
+	switch {
+	case bytes.Equal(key, db.ChainHeight.Key()):
+		c.chainHeight.Add(1)
+	case bytes.Equal(key, db.L1Height.Key()):
+		c.l1Head.Add(1)
+	}
+	return c.KeyValueStore.Get(key, cb)
+}
+
+func TestHeightAndL1HeadAreServedWithoutReadingTheDatabase(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	block, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+	stateUpdate, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+
+	wantL1Head := core.L1Head{
+		BlockNumber: block.Number,
+		BlockHash:   block.Hash,
+		StateRoot:   block.GlobalStateRoot,
+	}
+	require.NoError(t, chain.SetL1Head(&wantL1Head))
+
+	uncached := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithRemoteDatabase(),
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	counter.chainHeight.Store(0)
+	counter.l1Head.Store(0)
+	_, err = uncached.Height()
+	require.NoError(t, err)
+	_, err = uncached.L1Head()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), counter.chainHeight.Load())
+	require.Equal(t, int64(1), counter.l1Head.Load())
+
+	counter.chainHeight.Store(0)
+	counter.l1Head.Store(0)
+
+	for range 3 {
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, block.Number, height)
+
+		l1Head, err := chain.L1Head()
+		require.NoError(t, err)
+		assert.Equal(t, wantL1Head, l1Head)
+	}
+
+	assert.Zero(t, counter.chainHeight.Load())
+	assert.Zero(t, counter.l1Head.Load())
+}
+
+func TestCachedL1HeadIsIsolatedFromTheCaller(t *testing.T) {
+	chain := blockchain.New(
+		memory.New(),
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	blockHash := new(felt.Felt).SetUint64(9)
+	stateRoot := new(felt.Felt).SetUint64(10)
+	require.NoError(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   blockHash,
+		StateRoot:   stateRoot,
+	}))
+
+	// The L1 client keeps the felts it handed over, so mutating them must not reach the cache.
+	blockHash.SetUint64(0xdead)
+	stateRoot.SetUint64(0xbeef)
+
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, new(felt.Felt).SetUint64(9), l1Head.BlockHash)
+	assert.Equal(t, new(felt.Felt).SetUint64(10), l1Head.StateRoot)
+}
+
+func TestClearingTheL1HeadEmptiesTheCache(t *testing.T) {
+	chain := blockchain.New(
+		memory.New(),
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	require.NoError(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}))
+	require.NoError(t, chain.SetL1Head(nil))
+
+	// A nil update is written as an unknown head, so the cache must not keep serving the old one.
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, core.L1Head{}, l1Head)
+}
+
+// failingL1HeadWriter returns an error for each write of the L1 head key. It sends all other
+// writes to the wrapped store.
+type failingL1HeadWriter struct {
+	db.KeyValueStore
+}
+
+func (w failingL1HeadWriter) Put(key, value []byte) error {
+	if bytes.Equal(key, db.L1Height.Key()) {
+		return errors.New("write failed")
+	}
+	return w.KeyValueStore.Put(key, value)
+}
+
+func TestFailedL1HeadWriteReachesNeitherCacheNorSubscribers(t *testing.T) {
+	chain := blockchain.New(
+		failingL1HeadWriter{KeyValueStore: memory.New()},
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	sub := chain.SubscribeL1Head()
+	t.Cleanup(sub.Unsubscribe)
+
+	require.Error(t, chain.SetL1Head(&core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}))
+
+	// The pruner deletes historical state when it receives an update from this feed. Thus
+	// SetL1Head must not send a head that the database did not accept. Each reader must
+	// continue to use the database.
+	select {
+	case got := <-sub.Recv():
+		t.Fatalf("published an L1 head that was never committed: %v", got)
+	default:
+	}
+	_, err := chain.L1Head()
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+}
+
+func TestCachedHeightAdvancesWithEachStoredBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	for blockNumber := range uint64(2) {
+		block, err := gw.BlockByNumber(t.Context(), blockNumber)
+		require.NoError(t, err)
+		stateUpdate, err := gw.StateUpdate(t.Context(), blockNumber)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+
+		counter.chainHeight.Store(0)
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, blockNumber, height)
+		assert.Zero(t, counter.chainHeight.Load())
+	}
+}
+
+func TestStoreGenesisCachesTheHeight(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	genesisDiff := core.EmptyStateDiff()
+	require.NoError(t, chain.StoreGenesis(&genesisDiff, nil))
+
+	counter.chainHeight.Store(0)
+	height, err := chain.Height()
+	require.NoError(t, err)
+	assert.Zero(t, height)
+	assert.Zero(t, counter.chainHeight.Load())
+}
+
+func TestHeadsAreCachedWhenTheDatabaseIsAlreadyPopulated(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	require.NoError(t, core.WriteChainHeight(counter, 7))
+	wantL1Head := core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}
+	require.NoError(t, core.WriteL1Head(counter, &wantL1Head))
+
+	chain := blockchain.New(
+		counter,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	// Nothing was stored through chain, so only the constructor can have filled the cache. This is
+	// the restarted-node case: heads are served from memory before the first block arrives.
+	counter.chainHeight.Store(0)
+	counter.l1Head.Store(0)
+
+	height, err := chain.Height()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(7), height)
+
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, wantL1Head, l1Head)
+
+	assert.Zero(t, counter.chainHeight.Load())
+	assert.Zero(t, counter.l1Head.Load())
+}
+
+func TestHeadsAreReadFromTheDatabaseWhenAnotherProcessWritesIt(t *testing.T) {
 	testDB := memory.New()
+	require.NoError(t, core.WriteChainHeight(testDB, 7))
+	firstL1Head := core.L1Head{
+		BlockNumber: 3,
+		BlockHash:   new(felt.Felt).SetUint64(9),
+		StateRoot:   new(felt.Felt).SetUint64(10),
+	}
+	require.NoError(t, core.WriteL1Head(testDB, &firstL1Head))
+
+	chain := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithRemoteDatabase(),
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	require.NoError(t, core.WriteChainHeight(testDB, 8))
+	secondL1Head := core.L1Head{
+		BlockNumber: 4,
+		BlockHash:   new(felt.Felt).SetUint64(11),
+		StateRoot:   new(felt.Felt).SetUint64(12),
+	}
+	require.NoError(t, core.WriteL1Head(testDB, &secondL1Head))
+
+	height, err := chain.Height()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(8), height)
+
+	l1Head, err := chain.L1Head()
+	require.NoError(t, err)
+	assert.Equal(t, secondL1Head, l1Head)
+}
+
+func TestRevert(t *testing.T) {
+	counter := &headReadCounter{KeyValueStore: memory.New()}
+	testDB := counter
 	chain := blockchain.New(
 		testDB,
 		&networks.Mainnet,
@@ -1070,6 +1341,15 @@ func TestRevert(t *testing.T) {
 		height, err := chain.Height()
 		require.NoError(t, err)
 		assert.Equal(t, uint64(1), height)
+	})
+	t.Run("height is cached after reverting onto a block that still exists", func(t *testing.T) {
+		// Zero reads means the revert refreshed the cache. Invalidating alone would leave it nil
+		// and send every later reader back to the database for the rest of the process's life.
+		counter.chainHeight.Store(0)
+		height, err := chain.Height()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), height)
+		assert.Zero(t, counter.chainHeight.Load())
 	})
 	t.Run("head should revert", func(t *testing.T) {
 		block, err := chain.Head()
@@ -1114,8 +1394,16 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, it.Close())
 	})
 
+	t.Run("height should report an empty chain once every block is reverted", func(t *testing.T) {
+		_, err := chain.Height()
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
 		require.Error(t, chain.RevertHead())
+
+		_, err := chain.Height()
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
