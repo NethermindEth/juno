@@ -58,6 +58,7 @@ Corpus must be redirected in (`<`), not piped. k6 prints its summary to stdout;
 | `--block-end`   | sample range high (exclusive)                  |
 | `--seed`        | reproducible corpus                            |
 | `--batch N`     | N requests per entry                           |
+| `--concurrency` | concurrent sampling requests (`GOMAXPROCS`)    |
 | `--source-url`  | node to sample (`http://localhost:6060/v0_10`) |
 
 ## k6 flags & env

@@ -15,10 +15,13 @@ type rpcClient struct {
 	client *http.Client
 }
 
-func newRPCClient(url string) *rpcClient {
+func newRPCClient(url string, maxConns int) *rpcClient {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = max(transport.MaxIdleConns, maxConns)
+	transport.MaxIdleConnsPerHost = maxConns
 	return &rpcClient{
 		url:    url,
-		client: &http.Client{Timeout: time.Minute},
+		client: &http.Client{Timeout: time.Minute, Transport: transport},
 	}
 }
 
@@ -65,6 +68,8 @@ func rpcCall[T any](ctx context.Context, c *rpcClient, method string, params any
 	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
 		return zero, fmt.Errorf("%s: decode response: %w", method, err)
 	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+
 	if env.Error != nil {
 		return zero, fmt.Errorf("%s: %w", method, env.Error)
 	}
