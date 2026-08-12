@@ -344,7 +344,33 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
 		r, _, _, err := chain.Receipt(new(felt.Felt).SetUint64(234))
 		assert.Nil(t, r)
-		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("TransactionAndReceipt returns what was stored", func(t *testing.T) {
+		block, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		require.NotEmpty(t, block.Transactions)
+
+		// The full header decode is the reference the block hash projection must reproduce.
+		wantHeader, err := chain.BlockHeaderByNumber(block.Number)
+		require.NoError(t, err)
+
+		for i := range block.Transactions {
+			gotTx, gotReceipt, gotBlockHash, err := chain.TransactionAndReceiptByBlockNumberAndIndex(
+				block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, block.Transactions[i], gotTx)
+			assert.Equal(t, *block.Receipts[i], gotReceipt)
+			assert.Equal(t, wantHeader.Hash, gotBlockHash)
+		}
+	})
+
+	t.Run("TransactionAndReceipt returns error for unknown index", func(t *testing.T) {
+		_, _, _, err := chain.TransactionAndReceiptByBlockNumberAndIndex(0, 20)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {

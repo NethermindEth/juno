@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/encoder"
@@ -40,6 +41,25 @@ type extractReceipt struct{}
 
 func (extractReceipt) extract(b *BlockTransactions, subKey int) (*TransactionReceipt, error) {
 	return b.Receipts().Get(subKey)
+}
+
+type extractTransactionAndReceipt struct{}
+
+func (extractTransactionAndReceipt) extract(
+	b *BlockTransactions,
+	subKey int,
+) (TransactionAndReceipt, error) {
+	transaction, err := b.Transactions().Get(subKey)
+	if err != nil {
+		return TransactionAndReceipt{}, fmt.Errorf("extracting transaction %d: %w", subKey, err)
+	}
+
+	receipt, err := b.Receipts().Get(subKey)
+	if err != nil {
+		return TransactionAndReceipt{}, fmt.Errorf("extracting receipt %d: %w", subKey, err)
+	}
+
+	return TransactionAndReceipt{Transaction: transaction, Receipt: receipt}, nil
 }
 
 type extractExecutionStatus struct{}
@@ -106,6 +126,11 @@ var (
 		extractReceipt,
 		int,
 		*TransactionReceipt,
+	]{}
+	BlockTransactionsTransactionAndReceiptPartialSerializer = blockTransactionsPartialSerializer[
+		extractTransactionAndReceipt,
+		int,
+		TransactionAndReceipt,
 	]{}
 	BlockTransactionsExecutionStatusPartialSerializer = blockTransactionsPartialSerializer[
 		extractExecutionStatus,
