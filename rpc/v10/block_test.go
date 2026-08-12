@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	junosync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -727,6 +728,17 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
+
+	t.Run("pre_confirmed with no-op synchronizer", func(t *testing.T) {
+		chain := blockchain.New(memory.New(), &networks.Mainnet)
+		handler := rpc.New(chain, new(junosync.NoopSynchronizer), nil, log.NewNopZapLogger())
+		id := rpc.BlockIDPreConfirmed()
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
 
 	t.Run("l1head failure", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
