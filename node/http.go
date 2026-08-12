@@ -32,6 +32,7 @@ const (
 	defaultReadHeaderTimeout = 30 * time.Second
 	defaultWriteTimeout      = 30 * time.Second
 	defaultIdleTimeout       = 2 * time.Minute
+	rpcNotReadyMessage       = "RPC not ready: failed to read canonical head."
 )
 
 type httpService struct {
@@ -309,5 +310,15 @@ func (h *readinessHandlers) isSynced() bool {
 }
 
 func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *readinessHandlers) HandleReadyRPC(w http.ResponseWriter, r *http.Request) {
+	if _, err := h.bcReader.HeadsHeader(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(rpcNotReadyMessage)) //nolint:errcheck // best-effort body
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }

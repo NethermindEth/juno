@@ -206,6 +206,9 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedNumericCompilationLimits.MaxCompilationQueue = 32
 	expectedNumericCompilationLimits.MaxCompilationQueueExplicit = true
 
+	expectedSyncDisabled := expectedConfig2
+	expectedSyncDisabled.DisableSync = true
+
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
@@ -245,6 +248,19 @@ cn-unverifiable-range: [0,10]
 		"default config with no flags": {
 			inputArgs:      []string{""},
 			expectedConfig: &expectedConfig2,
+		},
+		"sync disabled": {
+			inputArgs:      []string{"--disable-sync"},
+			expectedConfig: &expectedSyncDisabled,
+		},
+		"sync disabled in config file": {
+			cfgFile:         true,
+			cfgFileContents: "disable-sync: true\n",
+			expectedConfig:  &expectedSyncDisabled,
+		},
+		"sync disabled in environment": {
+			env:            []string{"JUNO_DISABLE_SYNC", "true"},
+			expectedConfig: &expectedSyncDisabled,
 		},
 		"explicit compilation limits survive": {
 			inputArgs: []string{
@@ -935,6 +951,24 @@ network: sepolia
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedConfig, config)
+		})
+	}
+}
+
+func TestDisableSyncFalseAllowsSyncDependentFlags(t *testing.T) {
+	tests := map[string][]string{
+		"sequencer":       {"--disable-sync=false", "--seq-enable"},
+		"p2p":             {"--disable-sync=false", "--p2p"},
+		"pruning":         {"--disable-sync=false", "--prune-mode"},
+		"remote database": {"--disable-sync=false", "--remote-db", "localhost:6064"},
+	}
+
+	for name, args := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := juno.NewCmd(new(node.Config), func(*cobra.Command, []string) error { return nil })
+			cmd.SetArgs(args)
+
+			require.NoError(t, cmd.ExecuteContext(t.Context()))
 		})
 	}
 }

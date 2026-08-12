@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -25,6 +26,11 @@ import (
 )
 
 const timeout = time.Second
+
+func TestNoopSynchronizerPreConfirmedChain(t *testing.T) {
+	_, err := new(sync.NoopSynchronizer).PreConfirmedChain()
+	require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
+}
 
 func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

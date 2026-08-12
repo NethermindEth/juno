@@ -59,6 +59,7 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
+	disableSyncF                        = "disable-sync"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -131,6 +132,7 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
+	defaultDisableSync                        = false
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -211,6 +213,7 @@ const (
 	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
+	disableSyncUsage   = "Disables L2 synchronization."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -540,6 +543,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
 
 	// --- Sync & Polling ---
+	junoCmd.Flags().Bool(disableSyncF, defaultDisableSync, disableSyncUsage)
 	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
@@ -548,7 +552,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
+		disableSyncF, preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---

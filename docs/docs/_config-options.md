@@ -37,6 +37,7 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
+| `disable-sync` | `false` | Disables L2 synchronization |
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
