@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// gzipWriterPool holds gzip writers for reuse;
+// callers must Reset a writer onto their destination before writing to it.
 var gzipWriterPool = sync.Pool{
 	New: func() any { return gzip.NewWriter(io.Discard) },
 }
