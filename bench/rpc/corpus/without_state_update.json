@@ -1,0 +1,22 @@
+{
+  "blockHashAndNumber": "blockHashAndNumber",
+  "blockNumber": "blockNumber",
+  "chainId": "chainId",
+  "syncing": "syncing",
+
+  "getBlockTransactionCount": "getBlockTransactionCount",
+  "getBlockWithReceipts": "getBlockWithReceipts",
+  "getBlockWithTxHashes": "getBlockWithTxHashes",
+  "getBlockWithTxs": "getBlockWithTxs",
+  "getStateUpdate": "getStateUpdate",
+  "traceBlockTransactions": "traceBlockTransactions",
+
+  "getTransactionByBlockIdAndIndex": "getTransactionByBlockIdAndIndex",
+  "getTransactionByHash": "getTransactionByHash",
+  "getTransactionReceipt": "getTransactionReceipt",
+  "getTransactionStatus": "getTransactionStatus",
+  "traceTransaction": "traceTransaction",
+
+  "getCompiledCasm": "getCompiledCasm",
+  "getEvents": "getEvents"
+}
