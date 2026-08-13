@@ -103,12 +103,12 @@ func TestMigrateCancelledResumesWithoutGaps(t *testing.T) {
 	state, err := m.Migrate(ctx, interrupting, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 
-	// A nil state means the run finished before the cancel landed.
-	resumeFrom := uint64(blocks)
-	if state != nil {
-		resumeFrom = binary.BigEndian.Uint64(state)
-		require.LessOrEqual(t, resumeFrom, uint64(blocks), "checkpoint past the chain height")
-	}
+	// The cancel lands on the 1000th read and the migration spends two per block, so
+	// the run is always interrupted mid-range with a checkpoint to resume from.
+	require.NotNil(t, state, "an interrupted run must ask to re-run")
+	resumeFrom := binary.BigEndian.Uint64(state)
+	require.NotZero(t, resumeFrom, "the cancel must land after some blocks were committed")
+	require.LessOrEqual(t, resumeFrom, uint64(blocks), "checkpoint past the chain height")
 	t.Logf("cancelled with checkpoint at %d of %d", resumeFrom, blocks)
 
 	for blockNum := range resumeFrom {
@@ -118,10 +118,6 @@ func TestMigrateCancelledResumesWithoutGaps(t *testing.T) {
 	for blockNum := resumeFrom; blockNum < blocks; blockNum++ {
 		require.Zero(t, storedLength(t, database, blockNum),
 			"block %d at or above the checkpoint must be untouched", blockNum)
-	}
-
-	if state == nil {
-		return
 	}
 
 	resumed := &statedifflength.Migrator{}
