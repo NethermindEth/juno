@@ -73,10 +73,10 @@ Corpus must be redirected in (`<`), not piped. k6 prints its summary to stdout;
 
 ## Runner image
 
-`bench/rpc/Dockerfile` packages the scenarios into a non-root runner. It waits
-for RPC readiness, verifies the Juno source commit, target chain, and snapshot
-head, performs an unmeasured 200-request warmup, and runs all three measured
-scenarios in order.
+`bench/rpc/Dockerfile` packages the scenarios and a static Go entrypoint at
+`/bench/rpc/runner` into a non-root runner. It waits for RPC readiness, verifies
+the Juno source commit, target chain, and snapshot head, performs an unmeasured
+200-request warmup, and runs all three measured scenarios in order.
 It writes `manifest.json`, `single.json`, `concurrency.json`, and
 `throughput.json` to `RESULTS_DIR` (`/results` by default).
 The manifest records failed checks, failed RPC and HTTP requests, VU execution

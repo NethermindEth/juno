@@ -51,10 +51,7 @@ jobs:
           .
 
       - name: Test Go benchmark runner
-        run: sh bench/rpc/test-runner.sh "${TEST_IMAGE}" /bench/rpc/runner
-
-      - name: Test shell benchmark runner regression
-        run: sh bench/rpc/test-runner.sh "${TEST_IMAGE}" /bench/rpc/runner.sh
+        run: sh bench/rpc/test-runner.sh "${TEST_IMAGE}"
 
   publish:
     if: github.ref == 'refs/heads/main'

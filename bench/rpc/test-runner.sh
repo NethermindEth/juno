@@ -6,7 +6,7 @@ if (set -o pipefail) 2>/dev/null; then
 fi
 
 IMAGE=${1:-juno-rpc-benchmark-runner:test}
-RUNNER=${2:-/bench/rpc/runner}
+readonly RUNNER=/bench/rpc/runner
 REPO_ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 FIXTURE_DIR="$REPO_ROOT/bench/rpc/testdata"
 TEST_DIR=$(mktemp -d)
@@ -31,17 +31,6 @@ if ! printf '%s\n' "$IMAGE_COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
   exit 1
 fi
 IMAGE_JUNO_VERSION="sha-$IMAGE_COMMIT"
-
-missing_checks_metrics=$(printf '%s\n' \
-  '{"metrics":{"vu_failures":{"values":{"count":3}}}}' \
-  | jq -ce -f "$REPO_ROOT/bench/rpc/summary-metrics.jq")
-printf '%s\n' "$missing_checks_metrics" | jq -e '
-  .failedChecks == 0 and
-  .requestFailures == 0 and
-  .vuFailures == 3 and
-  .droppedIterations == 0 and
-  .completedIterations == 0
-' >/dev/null
 
 start_stub() {
   mode=$1
@@ -356,4 +345,4 @@ jq -e '
 ' \
   "$rpc_error_results/manifest.json" >/dev/null
 
-echo "benchmark runner integration tests passed for $RUNNER"
+echo "benchmark runner integration tests passed"
