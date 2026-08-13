@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "method": "starknet_getTransactionByHash",
+    "rpcVersion": "0.10.0",
+    "seed": 1,
+    "count": 4,
+    "batch": 0,
+    "generatedAt": "2026-01-01T00:00:00Z",
+    "sampling": {
+      "start": 0,
+      "end": 800001
+    }
+  },
+  "requests": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "starknet_getTransactionByHash",
+      "params": {"transaction_hash": "0x1"}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "starknet_getTransactionByHash",
+      "params": {"transaction_hash": "0x2"}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "starknet_getTransactionByHash",
+      "params": {"transaction_hash": "0x3"}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "starknet_getTransactionByHash",
+      "params": {"transaction_hash": "0x4"}
+    }
+  ]
+}

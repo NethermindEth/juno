@@ -22,6 +22,8 @@ LOCK
 
 # RPC benchmark harness: generated corpora and run results (keep the dir).
 bench/rpc/corpus/*
-!bench/rpc/corpus/.gitkeep
+!bench/rpc/corpus/v0_10/
+bench/rpc/corpus/v0_10/*
+!bench/rpc/corpus/v0_10/getTransactionByHash.json
+!bench/rpc/corpus/v0_10/getTransactionByHash.json.sha256
 bench/rpc/results/
-

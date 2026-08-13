@@ -4,6 +4,7 @@
 FROM golang:1.26-bookworm AS builder
 
 ARG RUST_VERSION=1.94.1
+ARG JUNO_VERSION
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -43,8 +44,16 @@ RUN go mod download
 # Copy the rest of the source
 COPY . .
 
-# Build with make juno
-RUN make juno
+# Dedicated benchmark images provide an exact source version. Existing image
+# builds retain the Makefile's git-describe version.
+RUN if [ -n "${JUNO_VERSION}" ]; then \
+        make rustdeps && \
+        mkdir -p build && \
+        CGO_LDFLAGS="-ldl -lm" go build -a \
+          -ldflags="-X main.Version=${JUNO_VERSION}" -o build/juno ./cmd/juno/; \
+    else \
+        make juno; \
+    fi
 
 # --- Final stage ---
 FROM debian:bookworm-slim AS final

@@ -1,0 +1,135 @@
+name: Build RPC Benchmark Images
+
+on:
+  pull_request:
+    paths:
+      - "bench/rpc/**"
+      - ".github/workflows/benchmark-image.yaml"
+      # The Juno image is built from this, which carries the version plumbing.
+      - "Dockerfile"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel on main: the two nightly tags are promoted in separate steps.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  DOCKER_REGISTRY: nethermind.jfrog.io
+  JUNO_IMAGE_REPOSITORY: nubia-oci-local-dev/juno-rpc-benchmark
+  RUNNER_IMAGE_REPOSITORY: nubia-oci-local-dev/juno-rpc-benchmark-runner
+  TEST_IMAGE: juno-rpc-benchmark-runner:test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Verify benchmark corpus
+        working-directory: bench/rpc/corpus/v0_10
+        run: sha256sum -c getTransactionByHash.json.sha256
+
+      - name: Build test image
+        run: >-
+          docker build
+          --platform linux/amd64
+          --file bench/rpc/Dockerfile
+          --build-arg "JUNO_COMMIT=${GITHUB_SHA}"
+          --tag "${TEST_IMAGE}"
+          .
+
+      - name: Test benchmark runner
+        run: sh bench/rpc/test-runner.sh "${TEST_IMAGE}"
+
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@deda456d982fc5e9a7a020b63eb0d2968aedd33e # v5.1.0
+        env:
+          JF_URL: https://${{ env.DOCKER_REGISTRY }}
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to registry with OIDC
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
+
+      - name: Publish immutable Juno image
+        id: publish_juno
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.0.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: JUNO_VERSION=sha-${{ github.sha }}
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.JUNO_IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+          cache-from: type=gha,scope=rpc-benchmark-juno
+          cache-to: type=gha,mode=max,scope=rpc-benchmark-juno
+
+      - name: Publish immutable runner image
+        id: publish_runner
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.0.0
+        with:
+          context: .
+          file: bench/rpc/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: JUNO_COMMIT=${{ github.sha }}
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.RUNNER_IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+          cache-from: type=gha,scope=rpc-benchmark-runner
+          cache-to: type=gha,mode=max,scope=rpc-benchmark-runner
+
+      - name: Promote paired images to nightly
+        env:
+          JUNO_DIGEST: ${{ steps.publish_juno.outputs.digest }}
+          RUNNER_DIGEST: ${{ steps.publish_runner.outputs.digest }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${DOCKER_REGISTRY}/${JUNO_IMAGE_REPOSITORY}:nightly" \
+            "${DOCKER_REGISTRY}/${JUNO_IMAGE_REPOSITORY}@${JUNO_DIGEST}"
+          docker buildx imagetools create \
+            --tag "${DOCKER_REGISTRY}/${RUNNER_IMAGE_REPOSITORY}:nightly" \
+            "${DOCKER_REGISTRY}/${RUNNER_IMAGE_REPOSITORY}@${RUNNER_DIGEST}"
+
+      - name: Report published image pair
+        env:
+          JUNO_DIGEST: ${{ steps.publish_juno.outputs.digest }}
+          RUNNER_DIGEST: ${{ steps.publish_runner.outputs.digest }}
+        run: |
+          {
+            echo "### RPC benchmark images"
+            echo '```'
+            echo "${DOCKER_REGISTRY}/${JUNO_IMAGE_REPOSITORY}:sha-${GITHUB_SHA}@${JUNO_DIGEST}"
+            echo "${DOCKER_REGISTRY}/${RUNNER_IMAGE_REPOSITORY}:sha-${GITHUB_SHA}@${RUNNER_DIGEST}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -2,6 +2,10 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
+import { Counter } from 'k6/metrics';
+
+const requestFailures = new Counter('rpc_request_failures');
+const vuFailures = new Counter('vu_failures');
 
 function requiredEnv(name) {
   const v = __ENV[name];
@@ -12,9 +16,12 @@ function requiredEnv(name) {
 }
 
 export function parseIntStrict(raw, label) {
-  const n = parseInt(raw, 10);
-  if (Number.isNaN(n)) {
+  if (!/^[0-9]+$/.test(raw)) {
     throw new Error(`${label} must be an integer (got "${raw}")`);
+  }
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n)) {
+    throw new Error(`${label} must be a safe integer (got "${raw}")`);
   }
   return n;
 }
@@ -40,9 +47,17 @@ function isSuccess(res) {
 }
 
 export default function measure() {
-  const entry = corpus[exec.scenario.iterationInTest % corpus.length];
-  const res = http.post(NODE_URL, JSON.stringify(entry), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  check(res, { 'rpc call ok': isSuccess });
+  try {
+    const entry = corpus[exec.scenario.iterationInTest % corpus.length];
+    const res = http.post(NODE_URL, JSON.stringify(entry), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const requestSucceeded = isSuccess(res);
+    requestFailures.add(requestSucceeded ? 0 : 1);
+    check(requestSucceeded, { 'rpc call ok': (success) => success });
+  } catch (error) {
+    vuFailures.add(1);
+    throw error;
+  }
+  vuFailures.add(0);
 }
