@@ -115,16 +115,16 @@ func (mr *MockL1StateProviderMockRecorder) LatestHeight(ctx any) *gomock.Call {
 }
 
 // WatchStateUpdate mocks base method.
-func (m *MockL1StateProvider) WatchStateUpdate(ctx context.Context, sink chan<- *l1.StateUpdate) (l1.Subscription, error) {
+func (m *MockL1StateProvider) WatchStateUpdate(ctx context.Context, updatesCh chan<- *l1.StateUpdate) (l1.Subscription, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchStateUpdate", ctx, sink)
+	ret := m.ctrl.Call(m, "WatchStateUpdate", ctx, updatesCh)
 	ret0, _ := ret[0].(l1.Subscription)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchStateUpdate indicates an expected call of WatchStateUpdate.
-func (mr *MockL1StateProviderMockRecorder) WatchStateUpdate(ctx, sink any) *gomock.Call {
+func (mr *MockL1StateProviderMockRecorder) WatchStateUpdate(ctx, updatesCh any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStateUpdate", reflect.TypeOf((*MockL1StateProvider)(nil).WatchStateUpdate), ctx, sink)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStateUpdate", reflect.TypeOf((*MockL1StateProvider)(nil).WatchStateUpdate), ctx, updatesCh)
 }
