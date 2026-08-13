@@ -324,7 +324,12 @@ func (r *runner) runReadiness() int {
 	started := time.Now()
 	for {
 		requestCtx, cancel := context.WithTimeout(r.context, readyRequestTimeout)
-		request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, r.config.readyURL, http.NoBody)
+		request, err := http.NewRequestWithContext(
+			requestCtx,
+			http.MethodGet,
+			r.config.readyURL,
+			http.NoBody,
+		)
 		if err == nil {
 			var response *http.Response
 			response, err = r.client.Do(request)
@@ -368,10 +373,20 @@ func (r *runner) runReadiness() int {
 }
 
 func (r *runner) rpcResult(method string) (json.RawMessage, error) {
-	payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "method": method, "params": []any{}, "id": 1})
+	payload, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"method":  method,
+		"params":  []any{},
+		"id":      1,
+	})
 	ctx, cancel := context.WithTimeout(r.context, rpcRequestTimeout)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, r.config.nodeURL, bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		r.config.nodeURL,
+		bytes.NewReader(payload),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +422,11 @@ func (r *runner) validateTarget() int {
 	}
 	expectedVersion := "sha-" + r.config.junoCommit
 	if r.actualJunoVersion != expectedVersion {
-		return r.fail(fmt.Sprintf("Juno image mismatch: expected %s, got %s", expectedVersion, r.actualJunoVersion))
+		return r.fail(fmt.Sprintf(
+			"Juno image mismatch: expected %s, got %s",
+			expectedVersion,
+			r.actualJunoVersion,
+		))
 	}
 
 	chainResult, err := r.rpcResult("starknet_chainId")
@@ -415,7 +434,11 @@ func (r *runner) validateTarget() int {
 		return r.fail("could not read chain ID")
 	}
 	if r.actualChainID != r.config.expectedChainID {
-		return r.fail(fmt.Sprintf("chain ID mismatch: expected %s, got %s", r.config.expectedChainID, r.actualChainID))
+		return r.fail(fmt.Sprintf(
+			"chain ID mismatch: expected %s, got %s",
+			r.config.expectedChainID,
+			r.actualChainID,
+		))
 	}
 
 	blockResult, err := r.rpcResult("starknet_blockNumber")

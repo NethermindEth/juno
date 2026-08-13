@@ -57,11 +57,26 @@ func TestConfigValidationFailures(t *testing.T) {
 		mutate func(*config)
 		want   string
 	}{
-		{name: "rates syntax", mutate: func(c *config) { c.ratesRaw = "1e3" }, want: "RATES must be a comma-separated list of integers"},
-		{name: "rates range", mutate: func(c *config) { c.ratesRaw = "0" }, want: "RATES must contain positive 32-bit integers"},
-		{name: "iterations", mutate: func(c *config) { c.iterationsRaw = "invalid" }, want: "ITERATIONS must be a positive integer"},
-		{name: "block", mutate: func(c *config) { c.expectedBlockNumber = "invalid" }, want: "EXPECTED_BLOCK_NUMBER must be a non-negative integer"},
-		{name: "timeout", mutate: func(c *config) { c.readyTimeoutRaw = "30x" }, want: "READY_TIMEOUT must be a positive duration using s, m, or h"},
+		{
+			name: "rates syntax", mutate: func(c *config) { c.ratesRaw = "1e3" },
+			want: "RATES must be a comma-separated list of integers",
+		},
+		{
+			name: "rates range", mutate: func(c *config) { c.ratesRaw = "0" },
+			want: "RATES must contain positive 32-bit integers",
+		},
+		{
+			name: "iterations", mutate: func(c *config) { c.iterationsRaw = "invalid" },
+			want: "ITERATIONS must be a positive integer",
+		},
+		{
+			name: "block", mutate: func(c *config) { c.expectedBlockNumber = "invalid" },
+			want: "EXPECTED_BLOCK_NUMBER must be a non-negative integer",
+		},
+		{
+			name: "timeout", mutate: func(c *config) { c.readyTimeoutRaw = "30x" },
+			want: "READY_TIMEOUT must be a positive duration using s, m, or h",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -114,7 +129,8 @@ func TestValidateCorpus(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(corpus)
-	if err := os.WriteFile(corpusPath+".sha256", []byte(hex.EncodeToString(digest[:])+"  corpus.json\n"), 0o644); err != nil {
+	checksum := hex.EncodeToString(digest[:]) + "  corpus.json\n"
+	if err := os.WriteFile(corpusPath+".sha256", []byte(checksum), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	r := newRunner(validConfig(), io.Discard, io.Discard)
@@ -122,11 +138,13 @@ func TestValidateCorpus(t *testing.T) {
 	if err := r.validateCorpus(); err != nil {
 		t.Fatalf("validate corpus: %v", err)
 	}
-	if r.actualCorpusSHA != hex.EncodeToString(digest[:]) || string(r.corpusMeta) != `{"method":"test"}` {
+	if r.actualCorpusSHA != hex.EncodeToString(digest[:]) ||
+		string(r.corpusMeta) != `{"method":"test"}` {
 		t.Fatalf("unexpected corpus state: sha=%q meta=%s", r.actualCorpusSHA, r.corpusMeta)
 	}
 
-	if err := os.WriteFile(corpusPath+".sha256", []byte(strings.Repeat("0", 64)+"  corpus.json\n"), 0o644); err != nil {
+	badChecksum := strings.Repeat("0", 64) + "  corpus.json\n"
+	if err := os.WriteFile(corpusPath+".sha256", []byte(badChecksum), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.validateCorpus(); err == nil || err.Error() != "corpus checksum mismatch" {
@@ -136,7 +154,7 @@ func TestValidateCorpus(t *testing.T) {
 
 func TestRPCResult(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	handler := func(writer http.ResponseWriter, request *http.Request) {
 		defer request.Body.Close()
 		var payload struct {
 			Method string `json:"method"`
@@ -146,7 +164,8 @@ func TestRPCResult(t *testing.T) {
 		}
 		writer.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(writer, `{"jsonrpc":"2.0","id":1,"result":"`+payload.Method+`"}`)
-	}))
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
 	config := validConfig()
@@ -211,7 +230,8 @@ func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	k6Path := filepath.Join(directory, "k6")
-	if err := os.WriteFile(k6Path, []byte("#!/bin/sh\ntrap 'exit 42' TERM\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+	k6 := "#!/bin/sh\ntrap 'exit 42' TERM\nwhile :; do sleep 1; done\n"
+	if err := os.WriteFile(k6Path, []byte(k6), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -272,7 +292,9 @@ func TestRunnerCompletesAllScenarios(t *testing.T) {
 	if result.Status != "passed" || result.Node.Readiness != "passed" {
 		t.Fatalf("unexpected manifest status: %#v", result)
 	}
-	if result.Scenarios.Single.Status != "passed" || result.Scenarios.Concurrency.Status != "passed" || result.Scenarios.Throughput.Status != "passed" {
+	if result.Scenarios.Single.Status != "passed" ||
+		result.Scenarios.Concurrency.Status != "passed" ||
+		result.Scenarios.Throughput.Status != "passed" {
 		t.Fatalf("scenarios did not pass: %#v", result.Scenarios)
 	}
 	for _, name := range []string{"single.json", "concurrency.json", "throughput.json"} {
@@ -323,7 +345,10 @@ func TestRunnerClassifiesConfigurationAndTargetFailures(t *testing.T) {
 			if err := json.Unmarshal(data, &result); err != nil {
 				t.Fatal(err)
 			}
-			if result.Status != "failed" || result.Failure == nil || result.Failure.Stage != test.wantStage || !strings.Contains(result.Failure.Reason, test.wantReason) {
+			if result.Status != "failed" ||
+				result.Failure == nil ||
+				result.Failure.Stage != test.wantStage ||
+				!strings.Contains(result.Failure.Reason, test.wantReason) {
 				t.Fatalf("unexpected failure manifest: %#v", result.Failure)
 			}
 		})
@@ -333,7 +358,7 @@ func TestRunnerClassifiesConfigurationAndTargetFailures(t *testing.T) {
 func runnableConfig(t *testing.T, directory string) (*config, *httptest.Server) {
 	t.Helper()
 	const commit = "0123456789abcdef0123456789abcdef01234567"
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	handler := func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		if request.Method == http.MethodGet {
 			_, _ = io.WriteString(writer, `{"ready":true}`)
@@ -358,7 +383,8 @@ func runnableConfig(t *testing.T, directory string) (*config, *httptest.Server) 
 			t.Errorf("unexpected RPC method %q", payload.Method)
 		}
 		_ = json.NewEncoder(writer).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": result})
-	}))
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
 
 	corpusPath := filepath.Join(directory, "corpus.json")
 	corpus := []byte(`{"meta":{"method":"test"},"requests":[{"id":1}]}`)
@@ -366,14 +392,16 @@ func runnableConfig(t *testing.T, directory string) (*config, *httptest.Server) 
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(corpus)
-	if err := os.WriteFile(corpusPath+".sha256", []byte(hex.EncodeToString(digest[:])+"  corpus.json\n"), 0o644); err != nil {
+	checksum := hex.EncodeToString(digest[:]) + "  corpus.json\n"
+	if err := os.WriteFile(corpusPath+".sha256", []byte(checksum), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	resultsDir := filepath.Join(directory, "results")
 	if err := os.Mkdir(resultsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(resultsDir, "unrelated.txt"), []byte("preserve\n"), 0o644); err != nil {
+	unrelatedPath := filepath.Join(resultsDir, "unrelated.txt")
+	if err := os.WriteFile(unrelatedPath, []byte("preserve\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -398,7 +426,14 @@ while [ "$#" -gt 0 ]; do
   fi
   shift
 done
-printf '%s\n' '{"metrics":{"checks":{"fails":0},"rpc_request_failures":{"count":0},"http_req_failed":{"passes":0},"vu_failures":{"count":0},"dropped_iterations":{"count":0},"iterations":{"count":2}}}' > "$summary"
+summary_json='{"metrics":{'\
+'"checks":{"fails":0},'\
+'"rpc_request_failures":{"count":0},'\
+'"http_req_failed":{"passes":0},'\
+'"vu_failures":{"count":0},'\
+'"dropped_iterations":{"count":0},'\
+'"iterations":{"count":2}}}'
+printf '%s\n' "$summary_json" > "$summary"
 `
 	if err := os.WriteFile(filepath.Join(directory, "k6"), []byte(k6), 0o755); err != nil {
 		t.Fatal(err)
@@ -426,6 +461,7 @@ func validConfig() *config {
 		junoCommit: "0123456789abcdef0123456789abcdef01234567", runID: "test-run",
 		resultsDir: "/results", corpusPath: "/corpus.json",
 		readyTimeoutRaw: "10s", readyPollIntervalRaw: "1s", iterationsRaw: "2", vusRaw: "1",
-		concurrencyDurationRaw: "1s", throughputDurationRaw: "1s", throughputVUsRaw: "3", ratesRaw: "10,20",
+		concurrencyDurationRaw: "1s", throughputDurationRaw: "1s",
+		throughputVUsRaw: "3", ratesRaw: "10,20",
 	}
 }

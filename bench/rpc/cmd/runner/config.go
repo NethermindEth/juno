@@ -61,7 +61,11 @@ type config struct {
 	expectedBlockParsed bool
 }
 
-func loadConfig(getenv lookupEnv, readFile func(string) ([]byte, error), now time.Time) (*config, error) {
+func loadConfig(
+	getenv lookupEnv,
+	readFile func(string) ([]byte, error),
+	now time.Time,
+) (*config, error) {
 	scriptDir := defaultScriptDir
 	commitBytes, err := readFile(scriptDir + "/juno-commit")
 	if err != nil {
