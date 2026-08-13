@@ -1,18 +1,17 @@
 package cborlite_test
 
 import (
-	"encoding/binary"
+	"bytes"
 	"encoding/json"
+	"math"
 	"reflect"
-	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/encoder/cborlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// One test per Go kind the engine handles, on the smallest type that exercises it.
 
 func TestUnmarshalScalars(t *testing.T) {
 	type scalars struct {
@@ -23,10 +22,10 @@ func TestUnmarshalScalars(t *testing.T) {
 	}
 
 	data := cborMap(
-		cborText("Number"), []byte{0x19, 0x01, 0x00}, // 256
-		cborText("Small"), []byte{0x07},
+		cborText("Number"), head(uintMajor, 256),
+		cborText("Small"), head(uintMajor, 7),
 		cborText("Text"), cborText("hi"),
-		cborText("Flag"), []byte{cborlite.SimpleTrue},
+		cborText("Flag"), []byte{simpleTrue},
 	)
 
 	var got scalars
@@ -34,7 +33,7 @@ func TestUnmarshalScalars(t *testing.T) {
 	assert.Equal(t, scalars{Number: 256, Small: 7, Text: "hi", Flag: true}, got)
 
 	t.Run("a uint that does not fit the field is rejected", func(t *testing.T) {
-		tooBig := cborMap(cborText("Small"), []byte{0x19, 0x01, 0x00}) // 256 into a uint8
+		tooBig := cborMap(cborText("Small"), head(uintMajor, 256)) // 256 into a uint8
 
 		var out scalars
 		assert.ErrorContains(t, cborlite.Unmarshal(tooBig, &out), "Small")
@@ -46,7 +45,7 @@ func TestUnmarshalPointer(t *testing.T) {
 	type holder struct{ Ptr *inner }
 
 	t.Run("allocates and fills", func(t *testing.T) {
-		data := cborMap(cborText("Ptr"), cborMap(cborText("Value"), []byte{0x07}))
+		data := cborMap(cborText("Ptr"), cborMap(cborText("Value"), head(uintMajor, 7)))
 
 		var got holder
 		require.NoError(t, cborlite.Unmarshal(data, &got))
@@ -55,7 +54,7 @@ func TestUnmarshalPointer(t *testing.T) {
 	})
 
 	t.Run("null reads as nil, and clears what was there", func(t *testing.T) {
-		data := cborMap(cborText("Ptr"), []byte{cborlite.Null})
+		data := cborMap(cborText("Ptr"), []byte{null})
 
 		got := holder{Ptr: &inner{Value: 9}}
 		require.NoError(t, cborlite.Unmarshal(data, &got))
@@ -72,10 +71,10 @@ func TestUnmarshalSlice(t *testing.T) {
 
 	data := cborMap(
 		cborText("Elements"), cborArray(
-			cborMap(cborText("Value"), []byte{0x01}),
-			cborMap(cborText("Value"), []byte{0x02}),
+			cborMap(cborText("Value"), head(uintMajor, 1)),
+			cborMap(cborText("Value"), head(uintMajor, 2)),
 		),
-		cborText("Numbers"), cborArray([]byte{0x03}, []byte{0x04}),
+		cborText("Numbers"), cborArray(head(uintMajor, 3), head(uintMajor, 4)),
 	)
 
 	var got holder
@@ -85,7 +84,7 @@ func TestUnmarshalSlice(t *testing.T) {
 
 	t.Run("null reads as nil, empty as empty", func(t *testing.T) {
 		data := cborMap(
-			cborText("Elements"), []byte{cborlite.Null},
+			cborText("Elements"), []byte{null},
 			cborText("Numbers"), cborArray(),
 		)
 
@@ -97,7 +96,7 @@ func TestUnmarshalSlice(t *testing.T) {
 	})
 
 	t.Run("an element that does not decode names its index", func(t *testing.T) {
-		data := cborMap(cborText("Numbers"), cborArray([]byte{0x03}, cborText("no")))
+		data := cborMap(cborText("Numbers"), cborArray(head(uintMajor, 3), cborText("no")))
 
 		var got holder
 		err := cborlite.Unmarshal(data, &got)
@@ -109,14 +108,17 @@ func TestUnmarshalSlice(t *testing.T) {
 func TestUnmarshalMap(t *testing.T) {
 	type holder struct{ Bounds map[uint32]uint64 }
 
-	data := cborMap(cborText("Bounds"), cborMap([]byte{0x01}, []byte{0x0a}, []byte{0x02}, []byte{0x14}))
+	data := cborMap(cborText("Bounds"), cborMap(
+		head(uintMajor, 1), head(uintMajor, 10),
+		head(uintMajor, 2), head(uintMajor, 20),
+	))
 
 	var got holder
 	require.NoError(t, cborlite.Unmarshal(data, &got))
 	assert.Equal(t, map[uint32]uint64{1: 10, 2: 20}, got.Bounds)
 
 	t.Run("null reads as nil", func(t *testing.T) {
-		data := cborMap(cborText("Bounds"), []byte{cborlite.Null})
+		data := cborMap(cborText("Bounds"), []byte{null})
 
 		var got holder
 		require.NoError(t, cborlite.Unmarshal(data, &got))
@@ -124,7 +126,7 @@ func TestUnmarshalMap(t *testing.T) {
 	})
 
 	t.Run("a key that does not decode is named", func(t *testing.T) {
-		data := cborMap(cborText("Bounds"), cborMap(cborText("no"), []byte{0x0a}))
+		data := cborMap(cborText("Bounds"), cborMap(cborText("no"), head(uintMajor, 10)))
 
 		var got holder
 		err := cborlite.Unmarshal(data, &got)
@@ -134,15 +136,13 @@ func TestUnmarshalMap(t *testing.T) {
 	// The header counts pairs, so a key twice leaves the map shorter than it claims.
 	t.Run("declines a key given twice", func(t *testing.T) {
 		data := cborMap(cborText("Bounds"),
-			cborMap([]byte{0x01}, []byte{0x0a}, []byte{0x01}, []byte{0x14}))
+			cborMap(head(uintMajor, 1), head(uintMajor, 10), head(uintMajor, 1), head(uintMajor, 20)))
 
 		var got holder
 		require.Error(t, cborlite.Unmarshal(data, &got))
 	})
 }
 
-// TestUnmarshalMapValueDoesNotInheritTheOneBefore covers the pair reader being reused
-// across entries: without a reset, a value leaving a field out keeps the last one's.
 func TestUnmarshalMapValueDoesNotInheritTheOneBefore(t *testing.T) {
 	type bounds struct {
 		Low  uint64
@@ -152,9 +152,12 @@ func TestUnmarshalMapValueDoesNotInheritTheOneBefore(t *testing.T) {
 
 	data := cborMap(cborText("Bounds"),
 		cborMap(
-			[]byte{0x01}, cborMap(cborText("Low"), []byte{0x0a}, cborText("High"), []byte{0x14}),
+			head(uintMajor, 1), cborMap(
+				cborText("Low"), head(uintMajor, 10),
+				cborText("High"), head(uintMajor, 20),
+			),
 			// The second entry has no High, so it must come out zero.
-			[]byte{0x02}, cborMap(cborText("Low"), []byte{0x0b}),
+			head(uintMajor, 2), cborMap(cborText("Low"), head(uintMajor, 11)),
 		))
 
 	var got holder
@@ -173,13 +176,22 @@ func TestUnmarshalArray(t *testing.T) {
 
 	data := cborMap(
 		cborText("Address"), cborBytes(0xaa, 0xbb, 0xcc),
-		cborText("Limbs"), cborArray([]byte{0x01}, []byte{0x02}),
+		cborText("Limbs"), cborArray(head(uintMajor, 1), head(uintMajor, 2)),
 	)
 
 	var got holder
 	require.NoError(t, cborlite.Unmarshal(data, &got))
 	assert.Equal(t, [3]byte{0xaa, 0xbb, 0xcc}, got.Address)
 	assert.Equal(t, [2]uint64{1, 2}, got.Limbs)
+
+	t.Run("null reads as the zero array", func(t *testing.T) {
+		data := cborMap(cborText("Address"), []byte{null}, cborText("Limbs"), []byte{null})
+
+		got := holder{Address: [3]byte{9, 9, 9}, Limbs: [2]uint64{9, 9}}
+		require.NoError(t, cborlite.Unmarshal(data, &got))
+		assert.Zero(t, got.Address)
+		assert.Zero(t, got.Limbs)
+	})
 
 	t.Run("a byte array of the wrong length is rejected", func(t *testing.T) {
 		data := cborMap(cborText("Address"), cborBytes(0xaa, 0xbb))
@@ -197,8 +209,8 @@ func TestUnmarshalArray(t *testing.T) {
 	// level only the total length is checked, and taking one item too many meets it.
 	t.Run("a fixed array whose count is not the Go length is rejected", func(t *testing.T) {
 		for name, data := range map[string][]byte{
-			"too few":  append(cborArray([]byte{0x01}), 0x02),
-			"too many": cborArray([]byte{0x01}, []byte{0x02}, []byte{0x03}),
+			"too few":  append(cborArray(head(uintMajor, 1)), head(uintMajor, 2)...),
+			"too many": cborArray(head(uintMajor, 1), head(uintMajor, 2), head(uintMajor, 3)),
 		} {
 			t.Run(name, func(t *testing.T) {
 				var got [2]uint64
@@ -215,8 +227,6 @@ func TestUnmarshalByteStrings(t *testing.T) {
 		Blob []byte
 	}
 
-	// A []byte and its named forms are a byte string on the wire, not an array of small
-	// ints, which is what their Go kind would suggest.
 	data := cborMap(
 		cborText("Raw"), cborBytes('{', '}'),
 		cborText("Blob"), cborBytes(0x01, 0x02),
@@ -228,14 +238,14 @@ func TestUnmarshalByteStrings(t *testing.T) {
 	assert.Equal(t, []byte{0x01, 0x02}, got.Blob)
 
 	t.Run("an array where a byte string belongs is rejected", func(t *testing.T) {
-		data := cborMap(cborText("Blob"), cborArray([]byte{0x01}))
+		data := cborMap(cborText("Blob"), cborArray(head(uintMajor, 1)))
 
 		var got holder
 		assert.ErrorContains(t, cborlite.Unmarshal(data, &got), "Blob")
 	})
 
-	// The generic encoder writes null for a nil slice, and no reader in the package reads
-	// null on its own, so this is the one place that can catch the prologue going missing.
+	// The generic encoder writes null for a nil slice, so the shape is on disk. Bytes does
+	// not read null, which is why readByteSlice opens with a prologue for it.
 	t.Run("null reads as nil", func(t *testing.T) {
 		data := cborMap(cborText("Blob"), []byte{null})
 
@@ -284,7 +294,7 @@ func TestUnmarshalInterface(t *testing.T) {
 	})
 
 	t.Run("null reads as nil", func(t *testing.T) {
-		data := cborMap(cborText("Shape"), []byte{cborlite.Null})
+		data := cborMap(cborText("Shape"), []byte{null})
 
 		var got holder
 		require.NoError(t, cborlite.Unmarshal(data, &got))
@@ -329,29 +339,29 @@ func TestUnmarshalSignedIntegers(t *testing.T) {
 		wide  int64
 		ok    bool
 	}{
-		{name: "zero", data: cborMap(cborText("Wide"), []byte{0x00}), ok: true},
-		{name: "positive", data: cborMap(cborText("Wide"), []byte{0x18, 0x2a}), wide: 42, ok: true},
+		{name: "zero", data: cborMap(cborText("Wide"), head(uintMajor, 0)), ok: true},
+		{name: "positive", data: cborMap(cborText("Wide"), head(uintMajor, 42)), wide: 42, ok: true},
 		// A negative integer's argument is the magnitude minus one, so 0x20 is -1.
-		{name: "minus one", data: cborMap(cborText("Wide"), []byte{0x20}), wide: -1, ok: true},
+		{name: "minus one", data: cborMap(cborText("Wide"), head(negIntMajor, 0)), wide: -1, ok: true},
 		{
 			name: "minus one hundred",
-			data: cborMap(cborText("Wide"), []byte{0x38, 0x63}), wide: -100, ok: true,
+			data: cborMap(cborText("Wide"), head(negIntMajor, 99)), wide: -100, ok: true,
 		},
 		{
 			name: "the most negative int64",
-			data: cborMap(cborText("Wide"), []byte{0x3b, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}),
+			data: cborMap(cborText("Wide"), head(negIntMajor, math.MaxInt64)),
 			wide: -1 << 63, ok: true,
 		},
 		{
 			name: "past int64 on the negative side",
-			data: cborMap(cborText("Wide"), []byte{0x3b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}),
+			data: cborMap(cborText("Wide"), head(negIntMajor, math.MaxUint64)),
 		},
 		{
 			name: "past int64 on the positive side",
-			data: cborMap(cborText("Wide"), []byte{0x1b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}),
+			data: cborMap(cborText("Wide"), head(uintMajor, math.MaxUint64)),
 		},
-		{name: "past int8", data: cborMap(cborText("Small"), []byte{0x18, 0xff})},
-		{name: "past int8 negative", data: cborMap(cborText("Small"), []byte{0x38, 0xff})},
+		{name: "past int8", data: cborMap(cborText("Small"), head(uintMajor, 255))},
+		{name: "past int8 negative", data: cborMap(cborText("Small"), head(negIntMajor, 255))},
 		{name: "not an integer", data: cborMap(cborText("Wide"), cborText("no"))},
 	}
 
@@ -371,12 +381,9 @@ func TestUnmarshalSignedIntegers(t *testing.T) {
 	}
 }
 
-// namedByte is a byte under another name, which the encoder still writes as a byte
-// string. reflect.Copy refuses to mix it with byte, so the array reader has to fill one
-// element at a time or it panics.
-type namedByte byte
-
 func TestUnmarshalNamedByteSliceAndArray(t *testing.T) {
+	type namedByte byte
+
 	type holder struct {
 		Slice []namedByte
 		Array [2]namedByte
@@ -393,45 +400,21 @@ func TestUnmarshalNamedByteSliceAndArray(t *testing.T) {
 	assert.Equal(t, [2]namedByte{0xcc, 0xdd}, got.Array)
 }
 
-// TestSliceDecodingDoesNotTrustTheCountForSizing pins the cap on pre-sizing. An
-// element can be one byte on the wire, so a header may claim as many elements as
-// there are bytes left; sizing the slice from that count alone let a 1 MiB buffer
-// allocate 54 MiB before a single element had been checked.
 func TestSliceDecodingDoesNotTrustTheCountForSizing(t *testing.T) {
-	const claimed = 1 << 20
+	type holder struct{ Items []uint64 }
 
-	// Wide enough to make the amplification obvious: the class structs are 24 to 56
-	// bytes, so a count trusted for sizing turns each input byte into a struct.
-	type wide struct{ A, B, C, D, E, F, G uint64 }
-	type holder struct{ Items []wide }
+	// More elements than the budget holds, every one of them valid and one byte wide.
+	const claimedSize = 200_000
+	items := slices.Concat(
+		head(arrayMajor, claimedSize),
+		bytes.Repeat(head(uintMajor, 0), claimedSize),
+	)
 
-	// {"Items": [<a million promised, one rejected near the front>]}
-	items := make([]byte, 0, claimed+8)
-	items = append(items, 0x80|26)
-	items = binary.BigEndian.AppendUint32(items, claimed)
-	// Three readable elements, then one every reader rejects.
-	items = append(items, 0xa0, 0xa0, 0xa0, 0x1f)
-	for len(items) < claimed+5 {
-		items = append(items, 0xa0)
-	}
+	var got holder
+	require.NoError(t, cborlite.Unmarshal(cborMap(cborText("Items"), items), &got))
+	require.Len(t, got.Items, claimedSize)
 
-	data := append([]byte{
-		byte(cborlite.MapMajor) | 1,
-		byte(cborlite.StringMajor) | 5, 'I', 't', 'e', 'm', 's',
-	}, items...)
-
-	var before, after runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&before)
-
-	var out holder
-	require.Error(t, cborlite.Unmarshal(data, &out), "the rejected element must fail the decode")
-
-	runtime.ReadMemStats(&after)
-	allocated := after.TotalAlloc - before.TotalAlloc
-
-	// Sizing from the count would be claimed * 56 bytes, about 56 MiB.
-	assert.Lessf(t, allocated, uint64(4<<20),
-		"allocated %d KiB from a %d KiB buffer, the count is being trusted for sizing",
-		allocated/1024, len(data)/1024)
+	// Decoder allocated from an internal budget, not from the claimedSize.
+	assert.Greater(t, cap(got.Items), len(got.Items),
+		"the slice was sized from the claimed count")
 }

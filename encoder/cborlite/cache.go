@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+const maxNestedPlans = 32
+
 type reader func(target reflect.Value, data []byte) (consumed int, err error)
 
 // builtReader is what a build produced, including an error.
@@ -25,12 +27,10 @@ var (
 
 	// buildMutex serialises building.
 	buildMutex sync.Mutex
+	buildDepth int
 
 	// Finished plans.
 	plans = map[cacheKey]*plan{}
-
-	// Holds plans still under construction.
-	buildingPlans = map[cacheKey]*plan{}
 )
 
 // cachedReader builds a reader and cache it so it only builds once.

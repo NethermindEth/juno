@@ -2,10 +2,18 @@ package felt
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 
+	"github.com/NethermindEth/juno/encoder/cborlite"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/fxamacker/cbor/v2"
+)
+
+var (
+	_ cborlite.PrefixUnmarshaler = (*Felt)(nil)
+	_ cbor.Marshaler             = (*Felt)(nil)
+	_ cbor.Unmarshaler           = (*Felt)(nil)
 )
 
 // Fast, felt-specialized CBOR marshaling.
@@ -22,6 +30,14 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 		return nil
 	}
 	return cbor.Unmarshal(data, (*fp.Element)(z))
+}
+
+func (z *Felt) UnmarshalCBORPrefix(data []byte) (int, error) {
+	consumed, ok := decodeLimbs(data, z)
+	if !ok {
+		return 0, errors.New("felt: not limb-encoded")
+	}
+	return consumed, nil
 }
 
 const (

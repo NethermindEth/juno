@@ -38,7 +38,7 @@ func specialTypeReader(valueType reflect.Type) (reader, bool) {
 func readPrefixUnmarshaler(target reflect.Value, data []byte) (consumed int, err error) {
 	unmarshaler, ok := target.Addr().Interface().(PrefixUnmarshaler)
 	if !ok {
-		return 0, errShape
+		return 0, ErrShape
 	}
 
 	consumed, err = unmarshaler.UnmarshalCBORPrefix(data)
@@ -56,12 +56,12 @@ func readPrefixUnmarshaler(target reflect.Value, data []byte) (consumed int, err
 func readBinaryUnmarshaler(target reflect.Value, data []byte) (consumed int, err error) {
 	bytes, consumed, ok := BytesNoCopy(data)
 	if !ok {
-		return 0, errShape
+		return 0, ErrShape
 	}
 
 	unmarshaler, ok := target.Addr().Interface().(encoding.BinaryUnmarshaler)
 	if !ok {
-		return 0, errShape
+		return 0, ErrShape
 	}
 	if err := unmarshaler.UnmarshalBinary(bytes); err != nil {
 		return 0, fmt.Errorf("%T: %w", unmarshaler, err)
@@ -77,7 +77,7 @@ func readBigInt(target reflect.Value, data []byte) (consumed int, err error) {
 
 	value, consumed, ok := BigInt(data)
 	if !ok {
-		return 0, errShape
+		return 0, ErrShape
 	}
 
 	target.Set(reflect.ValueOf(value))

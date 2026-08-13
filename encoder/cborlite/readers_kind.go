@@ -8,8 +8,6 @@ import (
 // maxPresizedBytes caps the allocation a count is trusted for up front.
 const maxPresizedBytes = 1 << 20
 
-var byteType = reflect.TypeFor[byte]()
-
 // kindReader maps a Go kind onto a reader, for what specialTypeReader did not claim.
 func kindReader(valueType reflect.Type, strict bool) (reader, error) {
 	if scalar := scalarReader(valueType.Kind()); scalar != nil {
@@ -18,11 +16,7 @@ func kindReader(valueType reflect.Type, strict bool) (reader, error) {
 
 	switch valueType.Kind() {
 	case reflect.Struct:
-		structPlan, err := planFor(valueType, strict)
-		if err != nil {
-			return nil, err
-		}
-		return structPlan.reader, nil
+		return planFor(valueType, strict)
 
 	case reflect.Pointer:
 		return pointerReader(valueType, strict)
@@ -40,7 +34,8 @@ func kindReader(valueType reflect.Type, strict bool) (reader, error) {
 		return interfaceReader(valueType, strict), nil
 
 	default:
-		return nil, fmt.Errorf("no reader for %s (kind %s)", valueType, valueType.Kind())
+		return nil, fmt.Errorf("no reader for %s (kind %s): %w",
+			valueType, valueType.Kind(), ErrUnsupportedType)
 	}
 }
 
@@ -52,7 +47,7 @@ func scalarReader(kind reflect.Kind) reader {
 		return func(target reflect.Value, data []byte) (int, error) {
 			value, consumed, ok := Int64(data)
 			if !ok || target.OverflowInt(value) {
-				return 0, errShape
+				return 0, ErrShape
 			}
 			target.SetInt(value)
 			return consumed, nil
@@ -62,7 +57,7 @@ func scalarReader(kind reflect.Kind) reader {
 		return func(target reflect.Value, data []byte) (int, error) {
 			value, consumed, ok := Uint64(data)
 			if !ok || target.OverflowUint(value) {
-				return 0, errShape
+				return 0, ErrShape
 			}
 			target.SetUint(value)
 			return consumed, nil
@@ -72,7 +67,7 @@ func scalarReader(kind reflect.Kind) reader {
 		return func(target reflect.Value, data []byte) (int, error) {
 			value, consumed, ok := String(data)
 			if !ok {
-				return 0, errShape
+				return 0, ErrShape
 			}
 			target.SetString(value)
 			return consumed, nil
@@ -82,7 +77,7 @@ func scalarReader(kind reflect.Kind) reader {
 		return func(target reflect.Value, data []byte) (int, error) {
 			value, consumed, ok := Bool(data)
 			if !ok {
-				return 0, errShape
+				return 0, ErrShape
 			}
 			target.SetBool(value)
 			return consumed, nil
@@ -131,7 +126,7 @@ func readByteSlice(target reflect.Value, data []byte) (consumed int, err error) 
 
 	value, consumed, ok := Bytes(data)
 	if !ok {
-		return 0, errShape
+		return 0, ErrShape
 	}
 
 	target.SetBytes(value)
@@ -142,24 +137,17 @@ func readByteSlice(target reflect.Value, data []byte) (consumed int, err error) 
 // The length has to match exactly, since an array cannot grow or shrink to fit.
 func readByteArray(arrayType reflect.Type) reader {
 	length := arrayType.Len()
-	elemIsByte := arrayType.Elem() == byteType
 
 	return func(target reflect.Value, data []byte) (int, error) {
 		value, consumed, ok := BytesNoCopy(data)
 		if !ok || len(value) != length {
-			return 0, errShape
+			if consumed, isNull := readNullInto(target, data); isNull {
+				return consumed, nil
+			}
+			return 0, ErrShape
 		}
 
-		if elemIsByte {
-			reflect.Copy(target, reflect.ValueOf(value))
-			return consumed, nil
-		}
-
-		// reflect.Copy needs the element types to be the same. Same kind is not enough.
-		// So setting one by one
-		for index, b := range value {
-			target.Index(index).SetUint(uint64(b))
-		}
+		copy(target.Bytes(), value)
 		return consumed, nil
 	}
 }
@@ -187,7 +175,7 @@ func sliceReader(sliceType reflect.Type, strict bool) (reader, error) {
 
 		length, consumed, ok := ArrayHeader(data)
 		if !ok {
-			return 0, errShape
+			return 0, ErrShape
 		}
 
 		presized := min(length, maxElements)
@@ -227,9 +215,13 @@ func arrayReader(arrayType reflect.Type, strict bool) (reader, error) {
 		count, consumed, ok := ArrayHeader(data)
 		// A fixed-size array has to match exactly
 		if !ok || count != length {
-			return 0, errShape
+			if consumed, isNull := readNullInto(target, data); isNull {
+				return consumed, nil
+			}
+			return 0, ErrShape
 		}
 
+		// Written in place for performance.
 		for index := range length {
 			used, err := elemReader(target.Index(index), data[consumed:])
 			if err != nil {
@@ -260,7 +252,7 @@ func mapReader(mapType reflect.Type, strict bool) (reader, error) {
 
 		pairs, consumed, ok := MapHeader(data)
 		if !ok {
-			return 0, errShape
+			return 0, ErrShape
 		}
 
 		out := reflect.MakeMapWithSize(mapType, min(pairs, maxEntries))
@@ -289,7 +281,7 @@ func mapReader(mapType reflect.Type, strict bool) (reader, error) {
 
 		// A repeated key means the map holds fewer entries than the header counted.
 		if out.Len() != pairs {
-			return 0, errShape
+			return 0, ErrShape
 		}
 
 		target.Set(out)
@@ -305,16 +297,16 @@ func interfaceReader(interfaceType reflect.Type, strict bool) reader {
 
 		tag, consumed, ok := Tag(data)
 		if !ok {
-			return 0, errShape
+			return 0, ErrShape
 		}
 
 		concrete, known := tagTypes.Load(tag)
 		if !known {
-			return 0, errShape
+			return 0, ErrShape
 		}
 		concreteType := concrete.(reflect.Type)
 		if !reflect.PointerTo(concreteType).Implements(interfaceType) {
-			return 0, errShape
+			return 0, ErrShape
 		}
 
 		read, err := cachedReader(concreteType, strict)

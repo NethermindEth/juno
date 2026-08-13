@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Eight types, so the goroutines below build eight plans at once rather than queueing on
-// one. Nothing else names them, so each is built for the first time inside the test.
 type (
 	raced1 struct{ Value uint64 }
 	raced2 struct{ Value uint64 }
@@ -25,9 +23,9 @@ type (
 // buildMutex rather than sync.Map. Run under -race, this reports a data race, or panics
 // with a concurrent map write, if a build path ever stops taking the lock.
 func TestConcurrentFirstBuildsAreSafe(t *testing.T) {
-	data := cborMap(cborText("Value"), []byte{0x07})
+	data := cborMap(cborText("Value"), head(uintMajor, 7))
 
-	// Half strict, so the strict caches are built concurrently too.
+	// Test both strict and not strict.
 	decodes := []func() error{
 		func() error { var v raced1; return cborlite.Unmarshal(data, &v) },
 		func() error { var v raced2; return cborlite.Unmarshal(data, &v) },

@@ -19,14 +19,24 @@ type plan struct {
 	name              string
 }
 
-func planFor(structType reflect.Type, strict bool) (*plan, error) {
-	key := cacheKey{valueType: structType, strict: strict}
+// planFor builds the reader for a struct.
+func planFor(structType reflect.Type, strict bool) (reader, error) {
+	buildDepth++
+	defer func() { buildDepth-- }()
+	surface := buildDepth == 1
 
-	if cached, ok := plans[key]; ok {
-		return cached, nil
+	key := cacheKey{valueType: structType, strict: strict}
+	if surface {
+		if cached, ok := plans[key]; ok {
+			return cached.reader, nil
+		}
 	}
-	if buildingPlan, ok := buildingPlans[key]; ok {
-		return buildingPlan, nil
+
+	if buildDepth > maxNestedPlans {
+		name := structType.String()
+		return func(reflect.Value, []byte) (int, error) {
+			return 0, fmt.Errorf("%s: nested past %d: %w", name, maxNestedPlans, ErrShape)
+		}, nil
 	}
 
 	built := &plan{
@@ -34,20 +44,18 @@ func planFor(structType reflect.Type, strict bool) (*plan, error) {
 		name:              structType.String(),
 		rejectUnknownKeys: strict,
 	}
-	buildingPlans[key] = built
-	defer delete(buildingPlans, key)
 
 	// A non-empty type without exported fields is not valid.
 	if structType.NumField() > 0 && !hasExportedField(structType) {
-		return nil, fmt.Errorf("%s: no exported fields to read", structType)
+		return nil, fmt.Errorf("%s: no exported fields to read: %w", structType, ErrUnsupportedType)
 	}
 
 	for index := range structType.NumField() {
 		field := structType.Field(index)
 
 		if field.Anonymous {
-			return nil, fmt.Errorf("%s.%s: embedded fields are not supported",
-				structType, field.Name)
+			return nil, fmt.Errorf("%s.%s: embedded fields are not supported: %w",
+				structType, field.Name, ErrUnsupportedType)
 		}
 
 		if !field.IsExported() {
@@ -57,8 +65,8 @@ func planFor(structType reflect.Type, strict bool) (*plan, error) {
 		// check for unsupported CBOR keys
 		name, supported := cborKey(&field)
 		if !supported {
-			return nil, fmt.Errorf("%s.%s: unsupported cbor tag %q",
-				structType, field.Name, field.Tag.Get("cbor"))
+			return nil, fmt.Errorf("%s.%s: unsupported cbor tag %q: %w",
+				structType, field.Name, field.Tag.Get("cbor"), ErrUnsupportedType)
 		}
 
 		reader, err := buildReader(field.Type, strict)
@@ -69,8 +77,10 @@ func planFor(structType reflect.Type, strict bool) (*plan, error) {
 		built.fields[name] = planField{index: index, reader: reader}
 	}
 
-	plans[key] = built
-	return built, nil
+	if surface {
+		plans[key] = built
+	}
+	return built.reader, nil
 }
 
 func hasExportedField(structType reflect.Type) bool {
@@ -115,26 +125,31 @@ func cborKey(field *reflect.StructField) (name string, supported bool) {
 func (p *plan) reader(target reflect.Value, data []byte) (consumed int, err error) {
 	pairsCount, offset, ok := MapHeader(data)
 	if !ok {
-		return 0, fmt.Errorf("%s: %w", p.name, errShape)
+		// Structs holding null are accepted and its bytes are zeroed.
+		// Compatibility with the generic decoder.
+		if consumed, isNull := readNullInto(target, data); isNull {
+			return consumed, nil
+		}
+		return 0, fmt.Errorf("%s: %w", p.name, ErrShape)
 	}
 
 	for range pairsCount {
 		key, keyLength, ok := StringNoCopy(data[offset:])
 		if !ok {
-			return 0, fmt.Errorf("%s: reading a key: %w", p.name, errShape)
+			return 0, fmt.Errorf("%s: reading a key: %w", p.name, ErrShape)
 		}
 		offset += keyLength
 
 		field, known := p.fields[string(key)]
 		if !known {
 			if p.rejectUnknownKeys {
-				return 0, fmt.Errorf("%s: unknown field %q: %w", p.name, key, errShape)
+				return 0, fmt.Errorf("%s: unknown field %q: %w", p.name, key, ErrShape)
 			}
 
 			skippedBytes, ok := Skip(data[offset:])
 			if !ok {
 				return 0, fmt.Errorf("%s: skipping unknown field %q: %w",
-					p.name, key, errShape)
+					p.name, key, ErrShape)
 			}
 			offset += skippedBytes
 			continue

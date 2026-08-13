@@ -8,19 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUnmarshalPrefix covers the entry point a self-reading type is built on: it stops at
-// the end of the value and reports where that was, instead of demanding the whole buffer.
 func TestUnmarshalPrefix(t *testing.T) {
 	type holder struct{ Value uint64 }
 
-	value := cborMap(cborText("Value"), []byte{0x07})
-	data := append(append([]byte{}, value...), 0xff, 0xff)
+	value := cborMap(cborText("Value"), head(uintMajor, 7))
+	data := trailByJunk(value)
 
-	var got holder
-	consumed, err := cborlite.UnmarshalPrefix(data, &got)
-	require.NoError(t, err)
-	assert.Equal(t, len(value), consumed)
-	assert.Equal(t, uint64(7), got.Value)
+	t.Run("extra fields don't fail", func(t *testing.T) {
+		var got holder
+		consumed, err := cborlite.UnmarshalPrefix(data, &got)
+		require.NoError(t, err)
+		assert.Equal(t, len(value), consumed)
+		assert.Equal(t, uint64(7), got.Value)
+	})
 
 	t.Run("the same bytes fail Unmarshal, which wants all of them", func(t *testing.T) {
 		var got holder
@@ -29,8 +29,6 @@ func TestUnmarshalPrefix(t *testing.T) {
 	})
 }
 
-// TestUnmarshalStrict covers the difference from [cborlite.Unmarshal]: a key no field
-// reads is an error rather than something to skip.
 func TestUnmarshalStrict(t *testing.T) {
 	type both struct {
 		First  uint64
@@ -38,11 +36,13 @@ func TestUnmarshalStrict(t *testing.T) {
 	}
 	type onlyFirst struct{ First uint64 }
 
-	data := cborMap(cborText("First"), []byte{0x01}, cborText("Second"), []byte{0x02})
+	data := cborMap(cborText("First"), head(uintMajor, 1), cborText("Second"), head(uintMajor, 2))
 
-	var complete both
-	require.NoError(t, cborlite.UnmarshalStrict(data, &complete))
-	assert.Equal(t, both{First: 1, Second: 2}, complete)
+	t.Run("a struct with all the fields must work", func(t *testing.T) {
+		var complete both
+		require.NoError(t, cborlite.UnmarshalStrict(data, &complete))
+		assert.Equal(t, both{First: 1, Second: 2}, complete)
+	})
 
 	t.Run("a struct that leaves a field out fails, and names the key", func(t *testing.T) {
 		var got onlyFirst

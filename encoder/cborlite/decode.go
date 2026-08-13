@@ -9,10 +9,9 @@
 // that can meet null calls [ReadNull] first.
 //
 // This unmarshaler is not exhaustive. It declines a shape it does not know.
+// It throws [ErrShape] and [ErrUnsupportedType], anything else is a defect.
 // A caller can fall back to the generic decoder. Add support when a shape needs it.
-//
-// It does not check that the bytes are well formed, so it is for bytes this node wrote
-// and read back. Do not use it for external inputs.
+// Do not use it for external inputs.
 //
 // To unmarshal a new type, implement [PrefixUnmarshaler].
 // Use the readers in headers.go and values.go to help.
@@ -30,7 +29,11 @@ type PrefixUnmarshaler interface {
 	UnmarshalCBORPrefix(data []byte) (consumed int, err error)
 }
 
-var errShape = errors.New("shape does not match")
+// ErrShape means these bytes are not wellformed.
+var ErrShape = errors.New("shape does not match")
+
+// ErrUnsupportedType means this Go type is not supported by cborlite.
+var ErrUnsupportedType = errors.New("unsupported type")
 
 // Unmarshal decodes data into target.
 func Unmarshal(data []byte, target any) error {

@@ -146,19 +146,25 @@ func TestUnmarshalBigIntForms(t *testing.T) {
 		want *big.Int
 		ok   bool
 	}{
-		{name: "small unsigned", data: []byte{0x07}, want: want("7"), ok: true},
-		{name: "negative", data: []byte{0x38, 0x63}, want: want("-100"), ok: true},
-		{name: "null", data: []byte{cborlite.Null}, ok: true},
+		{name: "small unsigned", data: head(uintMajor, 7), want: want("7"), ok: true},
+		{name: "negative", data: head(negIntMajor, 99), want: want("-100"), ok: true},
+		{name: "null", data: []byte{null}, ok: true},
 		{
 			name: "positive bignum",
-			data: append([]byte{0xc2, 0x49, 0x01}, 0, 0, 0, 0, 0, 0, 0, 0),
+			data: cborTagged(tagPositiveBignum, cborBytes(beyondUint64.Bytes()...)),
 			want: want("18446744073709551616"), ok: true,
 		},
-		{name: "negative bignum", data: []byte{0xc3, 0x41, 0x01}, want: want("-2"), ok: true},
+		{
+			name: "negative bignum", data: cborTagged(tagNegativeBignum, cborBytes(0x01)),
+			want: want("-2"), ok: true,
+		},
 		// The byte string is what makes this a test of the tag number. Anything else
 		// after the tag is refused for not being a byte string, whatever the number.
-		{name: "an unrelated tag", data: []byte{0xc4, 0x41, 0x01}},
-		{name: "a bignum tag without a byte string", data: []byte{0xc2, 0x01}},
+		{name: "an unrelated tag", data: cborTagged(4, cborBytes(0x01))},
+		{
+			name: "a bignum tag without a byte string",
+			data: cborTagged(tagPositiveBignum, head(uintMajor, 1)),
+		},
 		{name: "a text string", data: cborText("no")},
 	}
 
