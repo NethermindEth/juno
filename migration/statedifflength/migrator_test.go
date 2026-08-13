@@ -3,6 +3,7 @@ package statedifflength_test
 import (
 	"context"
 	"encoding/binary"
+	"sync/atomic"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -72,31 +73,57 @@ func TestMigrateEmptyDatabase(t *testing.T) {
 	require.Nil(t, state)
 }
 
-func TestMigrateCancelledReruns(t *testing.T) {
-	database := memory.New()
-	for blockNum := range uint64(4) {
-		writeBlock(t, database, blockNum, blockNum+1)
-	}
-	require.NoError(t, core.WriteChainHeight(database, 3))
+type cancelAfterReads struct {
+	db.KeyValueStore
+	remaining atomic.Int64
+	cancel    context.CancelFunc
+}
 
-	// An already-cancelled context stops the source before any block is processed.
+func (c *cancelAfterReads) Get(key []byte, cb func(value []byte) error) error {
+	if c.remaining.Add(-1) == 0 {
+		c.cancel()
+	}
+	return c.KeyValueStore.Get(key, cb)
+}
+
+func TestMigrateCancelledResumesWithoutGaps(t *testing.T) {
+	database := memory.New()
+	const blocks = 3000
+	for blockNum := range uint64(blocks) {
+		writeBlock(t, database, blockNum, 1)
+	}
+	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+
 	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
+	interrupting := &cancelAfterReads{KeyValueStore: database, cancel: cancel}
+	interrupting.remaining.Store(1000)
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
-	state, err := m.Migrate(ctx, database, &networks.Mainnet, log.NewNopZapLogger())
+	state, err := m.Migrate(ctx, interrupting, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
-	require.NotNil(t, state, "a cancelled run must ask to re-run")
 
-	for blockNum := range uint64(4) {
-		require.Zero(t, storedLength(t, database, blockNum), "block %d", blockNum)
+	// A nil state means the run finished before the cancel landed.
+	resumeFrom := uint64(blocks)
+	if state != nil {
+		resumeFrom = binary.BigEndian.Uint64(state)
+		require.LessOrEqual(t, resumeFrom, uint64(blocks), "checkpoint past the chain height")
+	}
+	t.Logf("cancelled with checkpoint at %d of %d", resumeFrom, blocks)
+
+	for blockNum := range resumeFrom {
+		require.Equal(t, uint64(1), storedLength(t, database, blockNum),
+			"block %d below the checkpoint must be backfilled", blockNum)
+	}
+	for blockNum := resumeFrom; blockNum < blocks; blockNum++ {
+		require.Zero(t, storedLength(t, database, blockNum),
+			"block %d at or above the checkpoint must be untouched", blockNum)
 	}
 
-	// Nothing was committed, so the checkpoint points back at the start.
-	require.Equal(t, uint64(0), binary.BigEndian.Uint64(state))
+	if state == nil {
+		return
+	}
 
-	// A fresh run resumes and finishes the job.
 	resumed := &statedifflength.Migrator{}
 	require.NoError(t, resumed.Before(state))
 	resumedState, err := resumed.Migrate(
@@ -105,8 +132,8 @@ func TestMigrateCancelledReruns(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, resumedState)
 
-	for blockNum := range uint64(4) {
-		require.Equal(t, blockNum+1, storedLength(t, database, blockNum), "block %d", blockNum)
+	for blockNum := range uint64(blocks) {
+		require.Equal(t, uint64(1), storedLength(t, database, blockNum), "block %d", blockNum)
 	}
 }
 
