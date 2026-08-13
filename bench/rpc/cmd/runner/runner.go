@@ -240,15 +240,15 @@ func (r *runner) cleanKnownOutputs() error {
 		filepath.Join(r.config.resultsDir, "throughput.json"),
 	}
 	patterns := []string{
-		".manifest.json.tmp.*",
-		".rpc.json.tmp.*",
-		".warmup.json.tmp.*",
-		".single.json.tmp.*",
-		".concurrency.json.tmp.*",
-		".throughput.json.tmp.*",
+		atomicTemporaryPattern(filepath.Join(r.config.resultsDir, "manifest.json")),
+		filepath.Join(r.config.resultsDir, ".rpc.json.tmp.*"),
+		filepath.Join(r.config.resultsDir, ".warmup.json.tmp.*"),
+		filepath.Join(r.config.resultsDir, ".single.json.tmp.*"),
+		filepath.Join(r.config.resultsDir, ".concurrency.json.tmp.*"),
+		filepath.Join(r.config.resultsDir, ".throughput.json.tmp.*"),
 	}
 	for _, pattern := range patterns {
-		matches, err := filepath.Glob(filepath.Join(r.config.resultsDir, pattern))
+		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			return err
 		}

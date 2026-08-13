@@ -188,6 +188,22 @@ func TestManifestUsesNullForInvalidConfiguration(t *testing.T) {
 	}
 }
 
+func TestAtomicTemporaryPathMatchesCleanupPattern(t *testing.T) {
+	t.Parallel()
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	temporaryPath := atomicTemporaryPath(manifestPath, 1234)
+	matched, err := filepath.Match(atomicTemporaryPattern(manifestPath), temporaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !matched {
+		t.Fatalf("temporary path %q does not match cleanup pattern", temporaryPath)
+	}
+	if filepath.Base(temporaryPath) != ".manifest.json.tmp.1234" {
+		t.Fatalf("unexpected temporary filename %q", filepath.Base(temporaryPath))
+	}
+}
+
 func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 	directory := t.TempDir()
 	corpusPath := filepath.Join(directory, "corpus.json")

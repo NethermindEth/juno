@@ -223,7 +223,7 @@ func (r *runner) writeManifest() error {
 }
 
 func writeAtomic(path string, data []byte) error {
-	temporary := fmt.Sprintf("%s.tmp.%d", path, os.Getpid())
+	temporary := atomicTemporaryPath(path, os.Getpid())
 	if err := os.WriteFile(temporary, data, resultFileMode); err != nil {
 		return err
 	}
@@ -232,4 +232,12 @@ func writeAtomic(path string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+func atomicTemporaryPath(path string, pid int) string {
+	return filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.tmp.%d", filepath.Base(path), pid))
+}
+
+func atomicTemporaryPattern(path string) string {
+	return filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp.*")
 }
