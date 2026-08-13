@@ -6,6 +6,7 @@ if (set -o pipefail) 2>/dev/null; then
 fi
 
 IMAGE=${1:-juno-rpc-benchmark-runner:test}
+RUNNER=${2:-/bench/rpc/runner}
 REPO_ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 FIXTURE_DIR="$REPO_ROOT/bench/rpc/testdata"
 TEST_DIR=$(mktemp -d)
@@ -92,6 +93,7 @@ run_runner() {
   done
 
   docker run --rm --network host --user 12345:12345 \
+    --entrypoint "$RUNNER" \
     -v "$runner_corpus_dir:/corpus:ro" \
     -v "$runner_results:/results" \
     -e NODE_URL="http://127.0.0.1:$runner_port/v0_10" \
@@ -288,6 +290,7 @@ signal_results=$(new_results_dir signal)
 signal_container="juno-rpc-benchmark-signal-$$"
 container_names="$container_names $signal_container"
 docker run -d --name "$signal_container" --network host --user 12345:12345 \
+  --entrypoint "$RUNNER" \
   -v "$FIXTURE_DIR:/corpus:ro" \
   -v "$signal_results:/results" \
   -e NODE_URL="http://127.0.0.1:$success_port/v0_10" \
@@ -353,4 +356,4 @@ jq -e '
 ' \
   "$rpc_error_results/manifest.json" >/dev/null
 
-echo "benchmark runner integration tests passed"
+echo "benchmark runner integration tests passed for $RUNNER"
