@@ -721,7 +721,7 @@ func newL1Client(
 		registerL1Metrics(provider)
 	}
 
-	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
+	return l1.NewClient(provider, chain, append(l1Opts, l1.WithLogger(logger))...), provider, nil
 }
 
 // newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
