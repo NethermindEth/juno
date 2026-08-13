@@ -190,7 +190,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		}
 		return &BlockWithTxHashes{
 			Status:      BlockPreConfirmed,
-			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header, nil, nil),
+			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header, nil),
 			TxnHashes:   transactionHashesOf(preConfirmed.Block.Transactions),
 		}, nil
 	}
@@ -220,7 +220,7 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: AdaptBlockHeader(header, commitments, stateDiff),
+		BlockHeader: AdaptBlockHeader(header, commitments),
 		TxnHashes:   transactionHashes,
 	}, nil
 }
@@ -320,7 +320,7 @@ func (h *Handler) BlockWithTxs(
 		}
 		return &BlockWithTxs{
 			Status:       BlockPreConfirmed,
-			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header, nil, nil),
+			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header, nil),
 			Transactions: adaptTransactions(preConfirmed.Block.Transactions, includeProofFacts),
 		}, nil
 	}
@@ -350,7 +350,7 @@ func (h *Handler) BlockWithTxs(
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  AdaptBlockHeader(header, commitments, stateDiff),
+		BlockHeader:  AdaptBlockHeader(header, commitments),
 		Transactions: adaptTransactions(blockTransactions, includeProofFacts),
 	}, nil
 }
