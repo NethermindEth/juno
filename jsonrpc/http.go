@@ -128,7 +128,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 			writer.Header().Set("Content-Encoding", "gzip")
-			gw, _ := gzipWriterPool.Get().(*gzip.Writer)
+			gw := gzipWriterPool.Get().(*gzip.Writer) //nolint:forcetypeassert // nothing else is ever put in the pool
 			gw.Reset(writer)
 			defer func() {
 				closeErr := gw.Close()
