@@ -45,12 +45,9 @@ RUN go mod download
 COPY . .
 
 # Dedicated benchmark images provide an exact source version. Existing image
-# builds retain the Makefile's git-describe version.
+# builds retain the Makefile's git-describe default.
 RUN if [ -n "${JUNO_VERSION}" ]; then \
-        make rustdeps && \
-        mkdir -p build && \
-        CGO_LDFLAGS="-ldl -lm" go build -a \
-          -ldflags="-X main.Version=${JUNO_VERSION}" -o build/juno ./cmd/juno/; \
+        make juno JUNO_VERSION="${JUNO_VERSION}"; \
     else \
         make juno; \
     fi

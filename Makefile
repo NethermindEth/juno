@@ -30,6 +30,7 @@ else
 endif
 
 PKG ?= ./...
+JUNO_VERSION ?= $(shell git describe --tags)
 
 MAKEFLAGS += -j$(NPROCS)
 
@@ -37,11 +38,11 @@ rustdeps: check-rust vm compiler
 
 juno: rustdeps ## Compile Juno
 	@mkdir -p build
-	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(JUNO_VERSION)" -o build/juno ./cmd/juno/
 
 juno-cached: ## Cached Juno compilation
 	@mkdir -p build
-	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build $(GO_TAGS) -ldflags="-X main.Version=$(JUNO_VERSION)" -o build/juno ./cmd/juno/
 
 corpus-gen: ## Build the corpus generator
 	@mkdir -p build

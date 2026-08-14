@@ -5,8 +5,9 @@ on:
     paths:
       - "bench/rpc/**"
       - ".github/workflows/benchmark-image.yaml"
-      # The Juno image is built from this, which carries the version plumbing.
+      # The Juno image is built from these, which carry the version plumbing.
       - "Dockerfile"
+      - "Makefile"
   push:
     branches:
       - main

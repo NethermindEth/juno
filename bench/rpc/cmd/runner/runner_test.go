@@ -278,11 +278,11 @@ func TestManifestUsesNullForInvalidConfiguration(t *testing.T) {
 	}
 }
 
-func TestAtomicTemporaryPathMatchesCleanupPattern(t *testing.T) {
+func TestTemporaryFilePathMatchesCleanupPattern(t *testing.T) {
 	t.Parallel()
 	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
-	temporaryPath := atomicTemporaryPath(manifestPath, 1234)
-	matched, err := filepath.Match(atomicTemporaryPattern(manifestPath), temporaryPath)
+	temporaryPath := temporaryFilePath(manifestPath, 1234)
+	matched, err := filepath.Match(temporaryFilePattern(manifestPath), temporaryPath)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -219,11 +219,11 @@ func (r *runner) writeManifest() error {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}
 	data = append(data, '\n')
-	return writeAtomic(filepath.Join(r.config.resultsDir, "manifest.json"), data)
+	return writeFileViaRename(filepath.Join(r.config.resultsDir, "manifest.json"), data)
 }
 
-func writeAtomic(path string, data []byte) error {
-	temporary := atomicTemporaryPath(path, os.Getpid())
+func writeFileViaRename(path string, data []byte) error {
+	temporary := temporaryFilePath(path, os.Getpid())
 	if err := os.WriteFile(temporary, data, resultFileMode); err != nil {
 		return err
 	}
@@ -234,10 +234,10 @@ func writeAtomic(path string, data []byte) error {
 	return nil
 }
 
-func atomicTemporaryPath(path string, pid int) string {
+func temporaryFilePath(path string, pid int) string {
 	return filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.tmp.%d", filepath.Base(path), pid))
 }
 
-func atomicTemporaryPattern(path string) string {
+func temporaryFilePattern(path string) string {
 	return filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp.*")
 }

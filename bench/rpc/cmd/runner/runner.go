@@ -105,7 +105,7 @@ func (r *runner) run() int {
 		return 2
 	}
 	if r.config.runIDFile != "" {
-		if err := writeAtomic(r.config.runIDFile, []byte(r.config.runID+"\n")); err != nil {
+		if err := writeFileViaRename(r.config.runIDFile, []byte(r.config.runID+"\n")); err != nil {
 			fmt.Fprintf(r.stderr, "write run ID: %v\n", err)
 			return 2
 		}
@@ -246,7 +246,7 @@ func (r *runner) cleanKnownOutputs() error {
 		filepath.Join(r.config.resultsDir, "throughput.json"),
 	}
 	patterns := []string{
-		atomicTemporaryPattern(filepath.Join(r.config.resultsDir, "manifest.json")),
+		temporaryFilePattern(filepath.Join(r.config.resultsDir, "manifest.json")),
 		filepath.Join(r.config.resultsDir, ".warmup.json.tmp.*"),
 		filepath.Join(r.config.resultsDir, ".single.json.tmp.*"),
 		filepath.Join(r.config.resultsDir, ".concurrency.json.tmp.*"),
