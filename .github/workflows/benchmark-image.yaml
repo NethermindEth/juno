@@ -42,6 +42,9 @@ jobs:
         working-directory: bench/rpc/corpus/v0_10
         run: sha256sum -c getTransactionByHash.json.sha256
 
+      - name: Verify version plumbing
+        run: make -n juno JUNO_VERSION=sha-test | grep -F -- '-X main.Version=sha-test'
+
       - name: Build test image
         run: >-
           docker build
