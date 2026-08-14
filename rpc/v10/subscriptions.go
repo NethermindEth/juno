@@ -235,13 +235,13 @@ func sendReorg(wsConn jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) erro
 	})
 }
 
-func sendResponse(method string, wsConn jsonrpc.Conn, id string, result any) error {
-	resp, err := json.Marshal(SubscriptionResponse{
+func sendResponse[T any](method string, wsConn jsonrpc.Conn, id string, result T) error {
+	resp, err := json.Marshal(SubscriptionResponse[T]{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams[T]{
+			Result:         result,
+			SubscriptionID: id,
 		},
 	})
 	if err != nil {

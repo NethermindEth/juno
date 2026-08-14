@@ -2259,12 +2259,12 @@ func sendWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, mess
 }
 
 func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
-	return json.Marshal(SubscriptionResponse{
+	return json.Marshal(SubscriptionResponse[any]{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams[any]{
+			Result:         result,
+			SubscriptionID: string(id),
 		},
 	})
 }
