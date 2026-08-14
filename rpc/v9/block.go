@@ -483,8 +483,8 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 
 // adaptTransactions sizes the result from the transactions themselves rather than the header's
 // count, so a header and a transaction list that disagree cannot index out of range.
-func adaptTransactions(transactions []core.Transaction) []*Transaction {
-	adapted := make([]*Transaction, len(transactions))
+func adaptTransactions(transactions []core.Transaction) []Transaction {
+	adapted := make([]Transaction, len(transactions))
 	for index, transaction := range transactions {
 		adapted[index] = AdaptTransaction(transaction)
 	}

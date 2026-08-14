@@ -354,11 +354,10 @@ func (h *Handler) BlockWithTxs(
 	}, nil
 }
 
-func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []*Transaction {
-	adapted := make([]*Transaction, len(transactions))
+func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []Transaction {
+	adapted := make([]Transaction, len(transactions))
 	for index, transaction := range transactions {
-		adaptedTransaction := AdaptTransaction(transaction, includeProofFacts)
-		adapted[index] = &adaptedTransaction
+		adapted[index] = AdaptTransaction(transaction, includeProofFacts)
 	}
 	return adapted
 }
