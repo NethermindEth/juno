@@ -85,7 +85,7 @@ type extractAllTransactionHashes struct{}
 // extract reads each transaction's own TransactionHash field, decoded without the rest of the
 // transaction.
 func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]felt.Felt, error) {
-	return indexed.AllMapped(
+	hashes, err := indexed.AllMapped(
 		b.transactionHashProjections(),
 		func(i int, p transactionHashProjection) (felt.Felt, error) {
 			if p.TransactionHash.IsZero() {
@@ -94,6 +94,10 @@ func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]
 			return p.TransactionHash, nil
 		},
 	)
+	if err != nil {
+		return nil, fmt.Errorf("extracting transaction hashes: %w", err)
+	}
+	return hashes, nil
 }
 
 type extractAllTransactions struct{}
@@ -114,7 +118,7 @@ func (extractAllTransactionEvents) extract(
 	b *BlockTransactions,
 	_ struct{},
 ) ([]TransactionEvents, error) {
-	return indexed.AllMapped(
+	events, err := indexed.AllMapped(
 		b.transactionEventsProjections(),
 		func(_ int, p receiptEventsProjection) (TransactionEvents, error) {
 			return TransactionEvents{
@@ -123,6 +127,10 @@ func (extractAllTransactionEvents) extract(
 			}, nil
 		},
 	)
+	if err != nil {
+		return nil, fmt.Errorf("extracting transaction events: %w", err)
+	}
+	return events, nil
 }
 
 type extractAll struct{}
