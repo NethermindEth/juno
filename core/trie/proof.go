@@ -67,6 +67,8 @@ func (e *Edge) String() string {
 // The result contains the proof nodes on the path from the root to the leaf.
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
+// Proof hashes are taken from stored node values, so the trie's hashes must be
+// current: call Hash after the last write and before Prove.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
@@ -76,27 +78,68 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	}
 
 	var parentKey *BitArray
+	// Parent-facing hash of the current node, computed by the previous
+	// iteration. Nil for the root, whose hash has no parent to come from.
+	var carriedHash *felt.Felt
 
+	// The proof nodes below alias felts of the nodes from nodesFromRoot, so these
+	// nodes must not go back to nodePool the way Put and Delete return theirs:
+	// reuse would overwrite hashes that the caller still holds.
 	for i, sNode := range nodesFromRoot {
-		sNodeEdge, sNodeBinary, err := storageNodeToProofNode(t, parentKey, sNode)
+		isLeaf := sNode.key.len == t.height
+
+		var sNodeEdge *Edge
+		if isEdge(parentKey, sNode) {
+			edgePath := path(sNode.key, parentKey)
+			sNodeEdge = &Edge{Path: &edgePath, Child: sNode.node.Value}
+		}
+
+		if isLeaf {
+			if sNodeEdge != nil { // Leaf Edge
+				proof.Put(edgeHash(sNodeEdge, carriedHash, t.hash), sNodeEdge)
+			}
+			break // sNode is a binary leaf otherwise; nothing to add
+		}
+
+		var onPathChild *StorageNode
+		if i+1 < len(nodesFromRoot) {
+			onPathChild = &nodesFromRoot[i+1]
+		}
+		sNodeBinary, err := binaryProofNode(t, sNode, onPathChild)
 		if err != nil {
 			return err
 		}
-		isLeaf := sNode.key.len == t.height
 
-		if sNodeEdge != nil && !isLeaf { // Internal Edge
-			proof.Put(sNodeEdge.Hash(t.hash), sNodeEdge)
-			proof.Put(sNodeBinary.Hash(t.hash), sNodeBinary)
-		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
-			proof.Put(sNodeBinary.Hash(t.hash), sNodeBinary)
-		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
-			proof.Put(sNodeEdge.Hash(t.hash), sNodeEdge)
-		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
-			break
+		if sNodeEdge != nil { // Internal Edge
+			proof.Put(edgeHash(sNodeEdge, carriedHash, t.hash), sNodeEdge)
 		}
-		parentKey = nodesFromRoot[i].key
+		// A hashed internal node stores hash(leftHash, rightHash) as its
+		// value, so the binary hash needs no recomputation.
+		proof.Put(*sNode.node.Value, sNodeBinary)
+
+		// The on-path child's parent-facing hash is one of the two the Binary
+		// already holds, so the next iteration reuses it instead of hashing
+		// again. A nil carry makes that iteration recompute, never misreport.
+		carriedHash = nil
+		switch {
+		case onPathChild == nil:
+		case onPathChild.key.Equal(sNode.node.Left):
+			carriedHash = sNodeBinary.LeftHash
+		case onPathChild.key.Equal(sNode.node.Right):
+			carriedHash = sNodeBinary.RightHash
+		}
+		parentKey = sNode.key
 	}
 	return nil
+}
+
+// edgeHash returns the parent-facing hash of an edge node, reusing the value
+// the parent iteration already computed when there is one.
+func edgeHash(edge *Edge, carried *felt.Felt, hash crypto.HashFn) felt.Felt {
+	if carried != nil {
+		return *carried
+	}
+	return edge.Hash(hash)
 }
 
 // GetRangeProof generates a range proof for the given range of keys.
@@ -346,56 +389,46 @@ func isEdge(parentKey *BitArray, sNode StorageNode) bool {
 	return sNodeLen-parentKey.len > 1
 }
 
-// storageNodeToProofNode converts a StorageNode to the ProofNode(s).
-// Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
-// We need to convert the former to the latter for proof generation.
-func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
-	var edge *Edge
-	if isEdge(parentKey, sNode) {
-		edgePath := path(sNode.key, parentKey)
-		edge = &Edge{
-			Path:  &edgePath,
-			Child: sNode.node.Value,
+// binaryProofNode builds the Binary proof node of an internal StorageNode.
+// Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires
+// nodes that are Binary XOR Edge. We need to convert the former to the latter for
+// proof generation. onPathChild is the next node the traversal already read, so
+// it is not read again; only the off-path sibling costs a database lookup.
+func binaryProofNode(
+	tri *Trie, sNode StorageNode, onPathChild *StorageNode,
+) (*Binary, error) {
+	childHash := func(childKey *BitArray) (*felt.Felt, error) {
+		var child *Node
+		if onPathChild != nil && childKey.Equal(onPathChild.key) {
+			child = onPathChild.node
+		} else {
+			var err error
+			if child, err = tri.GetNodeFromKey(childKey); err != nil {
+				return nil, err
+			}
 		}
-	}
-	if sNode.key.len == tri.height { // Leaf
-		return edge, nil, nil
-	}
-	lNode, err := tri.GetNodeFromKey(sNode.node.Left)
-	if err != nil {
-		return nil, nil, err
-	}
-	rNode, err := tri.GetNodeFromKey(sNode.node.Right)
-	if err != nil {
-		return nil, nil, err
+
+		// Node.HashFromParent would cover both branches, but it returns a value:
+		// taking its address costs an allocation per non-edge child, which this
+		// avoids.
+		if isEdge(sNode.key, StorageNode{key: childKey}) {
+			edgePath := path(childKey, sNode.key)
+			wrapped := child.Hash(&edgePath, tri.hash)
+			return &wrapped, nil
+		}
+		return child.Value, nil
 	}
 
-	rightHash := rNode.Value
-	if isEdge(sNode.key, StorageNode{node: rNode, key: sNode.node.Right}) {
-		edgePath := path(sNode.node.Right, sNode.key)
-		rEdge := &Edge{
-			Path:  &edgePath,
-			Child: rNode.Value,
-		}
-		hash := rEdge.Hash(tri.hash)
-		rightHash = &hash
+	leftHash, err := childHash(sNode.node.Left)
+	if err != nil {
+		return nil, err
 	}
-	leftHash := lNode.Value
-	if isEdge(sNode.key, StorageNode{node: lNode, key: sNode.node.Left}) {
-		edgePath := path(sNode.node.Left, sNode.key)
-		lEdge := &Edge{
-			Path:  &edgePath,
-			Child: lNode.Value,
-		}
-		hash := lEdge.Hash(tri.hash)
-		leftHash = &hash
-	}
-	binary := &Binary{
-		LeftHash:  leftHash,
-		RightHash: rightHash,
+	rightHash, err := childHash(sNode.node.Right)
+	if err != nil {
+		return nil, err
 	}
 
-	return edge, binary, nil
+	return &Binary{LeftHash: leftHash, RightHash: rightHash}, nil
 }
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
