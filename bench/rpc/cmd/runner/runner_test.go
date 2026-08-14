@@ -19,7 +19,7 @@ import (
 func TestLoadAndValidateConfig(t *testing.T) {
 	t.Parallel()
 	environment := validEnvironment()
-	config, err := loadConfig(
+	config := loadConfig(
 		func(name string) (string, bool) {
 			value, ok := environment[name]
 			return value, ok
@@ -29,9 +29,6 @@ func TestLoadAndValidateConfig(t *testing.T) {
 		},
 		time.Date(2026, time.August, 13, 3, 4, 5, 0, time.UTC),
 	)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
 	if err := config.validate(); err != nil {
 		t.Fatalf("validate config: %v", err)
 	}
@@ -77,6 +74,22 @@ func TestConfigValidationFailures(t *testing.T) {
 			name: "timeout", mutate: func(c *config) { c.readyTimeoutRaw = "30x" },
 			want: "READY_TIMEOUT must be a positive duration using s, m, or h",
 		},
+		{
+			name: "poll interval", mutate: func(c *config) { c.readyPollIntervalRaw = "30x" },
+			want: "READY_POLL_INTERVAL must be a positive duration using s, m, or h",
+		},
+		{
+			name: "duration", mutate: func(c *config) { c.concurrencyDurationRaw = "30x" },
+			want: "CONCURRENCY_DURATION must be a positive duration",
+		},
+		{
+			name: "missing variable", mutate: func(c *config) { c.snapshotID = "" },
+			want: "SNAPSHOT_ID is required",
+		},
+		{
+			name: "image digest", mutate: func(c *config) { c.junoImageDigest = "sha256:juno" },
+			want: "JUNO_IMAGE_DIGEST must be sha256:<64 hex>",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -88,6 +101,38 @@ func TestConfigValidationFailures(t *testing.T) {
 				t.Fatalf("got %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestLoadFailureProducesManifest(t *testing.T) {
+	environment := validEnvironment()
+	delete(environment, "SNAPSHOT_ID")
+	environment["RESULTS_DIR"] = t.TempDir()
+	config := loadConfig(
+		func(name string) (string, bool) {
+			value, ok := environment[name]
+			return value, ok
+		},
+		func(string) ([]byte, error) {
+			return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
+		},
+		time.Now(),
+	)
+	r := newRunner(config, io.Discard, io.Discard)
+	if status := r.run(); status != 2 {
+		t.Fatalf("runner exited %d, want 2", status)
+	}
+	data, err := os.ReadFile(filepath.Join(config.resultsDir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result manifest
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Failure == nil || result.Failure.Stage != stageConfiguration ||
+		result.Failure.Reason != "SNAPSHOT_ID is required" {
+		t.Fatalf("unexpected failure: %#v", result.Failure)
 	}
 }
 
@@ -117,6 +162,32 @@ func TestParseSummaryMetricsSupportsBothK6Shapes(t *testing.T) {
 	}
 	if !reflect.DeepEqual(metrics, want) {
 		t.Fatalf("got %#v, want %#v", metrics, want)
+	}
+
+	if err := os.WriteFile(path, []byte(`{"metrics":{}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = parseSummaryMetrics(path)
+	if err == nil || err.Error() != "missing metric checks.fails" {
+		t.Fatalf("unexpected missing metric error: %v", err)
+	}
+}
+
+func TestPromoteScenarioSummaryRemovesInvalidArtifact(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	temporary := filepath.Join(directory, ".single.json.tmp")
+	result := filepath.Join(directory, "single.json")
+	if err := os.WriteFile(temporary, []byte("not JSON"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := promoteScenarioSummary(temporary, result); err == nil {
+		t.Fatal("invalid summary was accepted")
+	}
+	for _, path := range []string{temporary, result} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("invalid artifact remains at %s", path)
+		}
 	}
 }
 
@@ -230,7 +301,11 @@ func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 		t.Fatal(err)
 	}
 	k6Path := filepath.Join(directory, "k6")
-	k6 := "#!/bin/sh\ntrap 'exit 42' TERM\nwhile :; do sleep 1; done\n"
+	k6 := `#!/bin/sh
+count=0
+trap 'count=$((count + 1)); [ $count -lt 2 ] || exit 42' TERM
+while :; do :; done
+`
 	if err := os.WriteFile(k6Path, []byte(k6), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -239,6 +314,8 @@ func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 	config := validConfig()
 	config.corpusPath = corpusPath
 	r := newRunner(config, io.Discard, io.Discard)
+	r.startSignalHandler()
+	defer r.stopSignalHandler()
 	result := make(chan int, 1)
 	go func() {
 		status, _ := r.runK6([]string{"run"}, io.Discard)
@@ -258,7 +335,9 @@ func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	r.receiveSignal(syscall.SIGTERM)
+	r.signals <- syscall.SIGTERM
+	time.Sleep(100 * time.Millisecond)
+	r.signals <- syscall.SIGTERM
 	select {
 	case status := <-result:
 		if status != 42 {
@@ -274,6 +353,7 @@ func TestRunnerCompletesAllScenarios(t *testing.T) {
 	installFakeK6(t, directory)
 	config, server := runnableConfig(t, directory)
 	defer server.Close()
+	config.expectedBlockNumber = "0800000"
 
 	var stderr strings.Builder
 	r := newRunner(config, io.Discard, &stderr)
@@ -304,6 +384,34 @@ func TestRunnerCompletesAllScenarios(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "completed successfully") {
 		t.Fatalf("missing completion log: %s", stderr.String())
+	}
+}
+
+func TestScenarioArgs(t *testing.T) {
+	config := validConfig()
+	if err := config.validate(); err != nil {
+		t.Fatal(err)
+	}
+	r := newRunner(config, io.Discard, io.Discard)
+	tests := []struct {
+		name, script string
+		flags        []string
+	}{
+		{stageSingle, "run.js", []string{"--vus", "1", "--iterations", "2"}},
+		{stageConcurrency, "run.js", []string{"--vus", "1", "--duration", "1s"}},
+		{stageThroughput, "throughput.js", []string{"RATES=10,20", "THROUGHPUT_VUS=3"}},
+	}
+	for _, test := range tests {
+		args, err := r.scenarioArgs(test.name, "/tmp/summary.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		joined := strings.Join(args, " ")
+		for _, value := range append(test.flags, test.script) {
+			if !strings.Contains(joined, value) {
+				t.Fatalf("%s args %q do not contain %q", test.name, joined, value)
+			}
+		}
 	}
 }
 
@@ -445,8 +553,10 @@ func validEnvironment() map[string]string {
 	return map[string]string{
 		"NODE_URL": "http://127.0.0.1:6060/v0_10", "READY_URL": "http://127.0.0.1:6060/ready/rpc",
 		"EXPECTED_CHAIN_ID": "0x1", "EXPECTED_BLOCK_NUMBER": "800000", "SNAPSHOT_ID": "snapshot",
-		"SNAPSHOT_SHA256": strings.Repeat("a", 64), "JUNO_IMAGE_DIGEST": "sha256:juno",
-		"RUNNER_IMAGE_DIGEST": "sha256:runner", "READY_TIMEOUT": "10s", "READY_POLL_INTERVAL": "1s",
+		"SNAPSHOT_SHA256":     strings.Repeat("a", 64),
+		"JUNO_IMAGE_DIGEST":   "sha256:" + strings.Repeat("b", 64),
+		"RUNNER_IMAGE_DIGEST": "sha256:" + strings.Repeat("c", 64),
+		"READY_TIMEOUT":       "10s", "READY_POLL_INTERVAL": "1s",
 		"ITERATIONS": "2", "VUS": "1", "CONCURRENCY_DURATION": "1s", "THROUGHPUT_DURATION": "1s",
 		"THROUGHPUT_VUS": "3", "RATES": " 10,20 ",
 	}
@@ -457,8 +567,9 @@ func validConfig() *config {
 		scriptDir: defaultScriptDir, nodeURL: "http://127.0.0.1:6060/v0_10",
 		readyURL: "http://127.0.0.1:6060/ready/rpc", expectedChainID: "0x1",
 		expectedBlockNumber: "800000", snapshotID: "snapshot", snapshotSHA256: strings.Repeat("a", 64),
-		junoImageDigest: "sha256:juno", runnerImageDigest: "sha256:runner",
-		junoCommit: "0123456789abcdef0123456789abcdef01234567", runID: "test-run",
+		junoImageDigest:   "sha256:" + strings.Repeat("b", 64),
+		runnerImageDigest: "sha256:" + strings.Repeat("c", 64),
+		junoCommit:        "0123456789abcdef0123456789abcdef01234567", runID: "test-run",
 		resultsDir: "/results", corpusPath: "/corpus.json",
 		readyTimeoutRaw: "10s", readyPollIntervalRaw: "1s", iterationsRaw: "2", vusRaw: "1",
 		concurrencyDurationRaw: "1s", throughputDurationRaw: "1s",

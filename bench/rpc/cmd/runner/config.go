@@ -16,14 +16,17 @@ const (
 )
 
 var (
-	commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	digitsPattern = regexp.MustCompile(`^\d+$`)
+	commitPattern      = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	digitsPattern      = regexp.MustCompile(`^\d+$`)
+	sha256Pattern      = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	imageDigestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
 
 type lookupEnv func(string) (string, bool)
 
 type config struct {
 	scriptDir string
+	loadError string
 
 	nodeURL             string
 	readyURL            string
@@ -65,15 +68,15 @@ func loadConfig(
 	getenv lookupEnv,
 	readFile func(string) ([]byte, error),
 	now time.Time,
-) (*config, error) {
+) *config {
 	scriptDir := defaultScriptDir
 	commitBytes, err := readFile(scriptDir + "/juno-commit")
-	if err != nil {
-		return nil, fmt.Errorf("embedded Juno commit is unavailable")
-	}
 	junoCommit := strings.TrimSpace(string(commitBytes))
-	if !commitPattern.MatchString(junoCommit) {
-		return nil, fmt.Errorf("embedded Juno commit is invalid")
+	loadError := ""
+	if err != nil {
+		loadError = "embedded Juno commit is unavailable"
+	} else if !commitPattern.MatchString(junoCommit) {
+		loadError = "embedded Juno commit is invalid"
 	}
 
 	required := []string{
@@ -89,9 +92,6 @@ func loadConfig(
 	values := make(map[string]string, len(required))
 	for _, name := range required {
 		value, _ := getenv(name)
-		if value == "" {
-			return nil, fmt.Errorf("%s is required", name)
-		}
 		values[name] = value
 	}
 
@@ -102,11 +102,16 @@ func loadConfig(
 		return fallback
 	}
 
-	runID := valueOr("RUN_ID", now.Format("20060102T150405Z")+"-"+junoCommit[:12])
+	commitID := "unknown"
+	if commitPattern.MatchString(junoCommit) {
+		commitID = junoCommit[:12]
+	}
+	runID := valueOr("RUN_ID", now.Format("20060102T150405Z")+"-"+commitID)
 	runIDFile, _ := getenv("RUN_ID_FILE")
 
 	return &config{
 		scriptDir: scriptDir,
+		loadError: loadError,
 
 		nodeURL:             values["NODE_URL"],
 		readyURL:            values["READY_URL"],
@@ -132,10 +137,14 @@ func loadConfig(
 		throughputDurationRaw:  valueOr("THROUGHPUT_DURATION", "5s"),
 		throughputVUsRaw:       valueOr("THROUGHPUT_VUS", "50"),
 		ratesRaw:               valueOr("RATES", "1000,2000,3000"),
-	}, nil
+	}
 }
 
 func (c *config) validate() error {
+	if err := c.validateProvenance(); err != nil {
+		return err
+	}
+
 	rates, err := parseRates(c.ratesRaw)
 	if err != nil {
 		c.rates = []uint64{}
@@ -157,6 +166,12 @@ func (c *config) validate() error {
 	if c.throughputVUs, err = parsePositiveInteger("THROUGHPUT_VUS", c.throughputVUsRaw); err != nil {
 		return err
 	}
+	if err := validateK6Duration("CONCURRENCY_DURATION", c.concurrencyDurationRaw); err != nil {
+		return err
+	}
+	if err := validateK6Duration("THROUGHPUT_DURATION", c.throughputDurationRaw); err != nil {
+		return err
+	}
 
 	if !digitsPattern.MatchString(c.expectedBlockNumber) {
 		return fmt.Errorf("EXPECTED_BLOCK_NUMBER must be a non-negative integer")
@@ -170,7 +185,47 @@ func (c *config) validate() error {
 	if c.readyTimeout, err = parseRunnerDuration(c.readyTimeoutRaw); err != nil {
 		return fmt.Errorf("READY_TIMEOUT must be a positive duration using s, m, or h")
 	}
-	c.readyPollInterval, _ = parseRunnerDuration(c.readyPollIntervalRaw)
+	if c.readyPollInterval, err = parseRunnerDuration(c.readyPollIntervalRaw); err != nil {
+		return fmt.Errorf("READY_POLL_INTERVAL must be a positive duration using s, m, or h")
+	}
+	return nil
+}
+
+func (c *config) validateProvenance() error {
+	if c.loadError != "" {
+		return fmt.Errorf("%s", c.loadError)
+	}
+	required := []struct{ name, value string }{
+		{name: "NODE_URL", value: c.nodeURL},
+		{name: "READY_URL", value: c.readyURL},
+		{name: "EXPECTED_CHAIN_ID", value: c.expectedChainID},
+		{name: "EXPECTED_BLOCK_NUMBER", value: c.expectedBlockNumber},
+		{name: "SNAPSHOT_ID", value: c.snapshotID},
+		{name: "SNAPSHOT_SHA256", value: c.snapshotSHA256},
+		{name: "JUNO_IMAGE_DIGEST", value: c.junoImageDigest},
+		{name: "RUNNER_IMAGE_DIGEST", value: c.runnerImageDigest},
+	}
+	for _, item := range required {
+		if item.value == "" {
+			return fmt.Errorf("%s is required", item.name)
+		}
+	}
+	if !sha256Pattern.MatchString(c.snapshotSHA256) {
+		return fmt.Errorf("SNAPSHOT_SHA256 must be a 64-character hex digest")
+	}
+	if !imageDigestPattern.MatchString(c.junoImageDigest) {
+		return fmt.Errorf("JUNO_IMAGE_DIGEST must be sha256:<64 hex>")
+	}
+	if !imageDigestPattern.MatchString(c.runnerImageDigest) {
+		return fmt.Errorf("RUNNER_IMAGE_DIGEST must be sha256:<64 hex>")
+	}
+	return nil
+}
+
+func validateK6Duration(name, raw string) error {
+	if duration, err := time.ParseDuration(raw); err != nil || duration <= 0 {
+		return fmt.Errorf("%s must be a positive duration", name)
+	}
 	return nil
 }
 

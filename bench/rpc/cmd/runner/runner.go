@@ -27,6 +27,7 @@ const (
 	rpcRequestTimeout   = 10 * time.Second
 
 	statusPending = "pending"
+	statusWaiting = "waiting"
 	statusRunning = "running"
 	statusPassed  = "passed"
 	statusFailed  = "failed"
@@ -115,13 +116,13 @@ func (r *runner) run() int {
 	r.startSignalHandler()
 	defer r.stopSignalHandler()
 
-	r.currentStage = "corpus-validation"
-	if err := r.validateCorpus(); err != nil {
+	r.currentStage = stageConfiguration
+	if err := r.config.validate(); err != nil {
 		return r.fail(err.Error())
 	}
 
-	r.currentStage = stageConfiguration
-	if err := r.config.validate(); err != nil {
+	r.currentStage = "corpus-validation"
+	if err := r.validateCorpus(); err != nil {
 		return r.fail(err.Error())
 	}
 	if err := r.writeManifest(); err != nil {
@@ -160,7 +161,9 @@ func (r *runner) run() int {
 func (r *runner) startSignalHandler() {
 	signal.Notify(r.signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		r.receiveSignal(<-r.signals)
+		for received := range r.signals {
+			r.receiveSignal(received)
+		}
 	}()
 }
 
@@ -177,6 +180,7 @@ func (r *runner) receiveSignal(received os.Signal) {
 
 func (r *runner) stopSignalHandler() {
 	signal.Stop(r.signals)
+	close(r.signals)
 	r.cancel()
 }
 
@@ -241,7 +245,6 @@ func (r *runner) cleanKnownOutputs() error {
 	}
 	patterns := []string{
 		atomicTemporaryPattern(filepath.Join(r.config.resultsDir, "manifest.json")),
-		filepath.Join(r.config.resultsDir, ".rpc.json.tmp.*"),
 		filepath.Join(r.config.resultsDir, ".warmup.json.tmp.*"),
 		filepath.Join(r.config.resultsDir, ".single.json.tmp.*"),
 		filepath.Join(r.config.resultsDir, ".concurrency.json.tmp.*"),
@@ -317,7 +320,7 @@ func isJSONObject(raw json.RawMessage) bool {
 
 func (r *runner) runReadiness() int {
 	r.currentStage = "readiness"
-	r.readyStatus = "waiting"
+	r.readyStatus = statusWaiting
 	if err := r.writeManifest(); err != nil {
 		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
 	}
@@ -352,9 +355,6 @@ func (r *runner) runReadiness() int {
 			return r.fail("RPC readiness timed out after " + r.config.readyTimeoutRaw)
 		}
 		fmt.Fprintf(r.stderr, "waiting for RPC readiness at %s\n", r.config.readyURL)
-		if r.config.readyPollInterval <= 0 {
-			return r.fail("READY_POLL_INTERVAL must be a positive duration using s, m, or h")
-		}
 		timer := time.NewTimer(r.config.readyPollInterval)
 		select {
 		case <-timer.C:
@@ -408,7 +408,10 @@ func (r *runner) rpcResult(method string) (json.RawMessage, error) {
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-	if result.Error != nil || len(result.Result) == 0 {
+	if result.Error != nil {
+		return nil, fmt.Errorf("JSON-RPC error: %s", result.Error.Message)
+	}
+	if len(result.Result) == 0 {
 		return nil, fmt.Errorf("JSON-RPC response has no result")
 	}
 	return result.Result, nil
@@ -417,8 +420,11 @@ func (r *runner) rpcResult(method string) (json.RawMessage, error) {
 func (r *runner) validateTarget() int {
 	r.currentStage = "target-validation"
 	versionResult, err := r.rpcResult("juno_version")
-	if err != nil || json.Unmarshal(versionResult, &r.actualJunoVersion) != nil {
-		return r.fail("could not read Juno version")
+	if err != nil {
+		return r.fail(fmt.Sprintf("could not read Juno version: %v", err))
+	}
+	if err := json.Unmarshal(versionResult, &r.actualJunoVersion); err != nil {
+		return r.fail(fmt.Sprintf("could not decode Juno version: %v", err))
 	}
 	expectedVersion := "sha-" + r.config.junoCommit
 	if r.actualJunoVersion != expectedVersion {
@@ -430,8 +436,11 @@ func (r *runner) validateTarget() int {
 	}
 
 	chainResult, err := r.rpcResult("starknet_chainId")
-	if err != nil || json.Unmarshal(chainResult, &r.actualChainID) != nil {
-		return r.fail("could not read chain ID")
+	if err != nil {
+		return r.fail(fmt.Sprintf("could not read chain ID: %v", err))
+	}
+	if err := json.Unmarshal(chainResult, &r.actualChainID); err != nil {
+		return r.fail(fmt.Sprintf("could not decode chain ID: %v", err))
 	}
 	if r.actualChainID != r.config.expectedChainID {
 		return r.fail(fmt.Sprintf(
@@ -443,13 +452,14 @@ func (r *runner) validateTarget() int {
 
 	blockResult, err := r.rpcResult("starknet_blockNumber")
 	if err != nil {
-		return r.fail("could not read block number")
+		return r.fail(fmt.Sprintf("could not read block number: %v", err))
 	}
 	r.actualBlockNumber = string(bytes.TrimSpace(blockResult))
-	if !digitsPattern.MatchString(r.actualBlockNumber) {
+	actualBlock, err := strconv.ParseUint(r.actualBlockNumber, 10, 64)
+	if err != nil {
 		return r.fail("node returned an invalid block number: " + r.actualBlockNumber)
 	}
-	if r.actualBlockNumber != r.config.expectedBlockNumber {
+	if actualBlock != r.config.expectedBlock {
 		return r.fail(fmt.Sprintf(
 			"block number mismatch: expected %s, got %s",
 			r.config.expectedBlockNumber,
@@ -482,14 +492,18 @@ func (r *runner) runWarmup() int {
 	_ = os.Remove(temporary)
 	if metricsErr != nil {
 		r.warmupMetrics = nil
-		return r.fail("warmup did not produce a valid summary")
+		reason := fmt.Sprintf("warmup did not produce a valid summary: %v", metricsErr)
+		return r.fail(commandReason(reason, commandErr))
 	}
 	r.warmupMetrics = metrics
 	if received := r.receivedSignal(); received != nil {
 		return r.terminate(received)
 	}
-	if commandErr != nil || exitCode != 0 ||
-		metrics.FailedChecks != 0 || metrics.RequestFailures != 0 || metrics.VUFailures != 0 {
+	if commandErr != nil || exitCode != 0 {
+		return r.fail(commandReason(fmt.Sprintf("warmup exited with status %d", exitCode), commandErr))
+	}
+	if metrics.FailedChecks != 0 || metrics.RequestFailures != 0 ||
+		metrics.HTTPRequestFailures != 0 || metrics.VUFailures != 0 {
 		return r.fail("warmup recorded check, request, or VU failures")
 	}
 	r.warmupStatus = statusPassed
@@ -515,16 +529,18 @@ func (r *runner) runScenario(name string) int {
 	exitCode, commandErr := r.runK6(args, r.stdout)
 	metrics, err := promoteScenarioSummary(temporary, result)
 	if err != nil {
-		return r.fail(name + " did not produce a valid summary")
+		reason := fmt.Sprintf("%s did not produce a valid summary: %v", name, err)
+		return r.fail(commandReason(reason, commandErr))
 	}
 	r.setScenarioMetrics(name, metrics)
 	if received := r.receivedSignal(); received != nil {
 		return r.terminate(received)
 	}
 	if commandErr != nil || exitCode != 0 {
-		return r.fail(fmt.Sprintf("%s exited with status %d", name, exitCode))
+		return r.fail(commandReason(fmt.Sprintf("%s exited with status %d", name, exitCode), commandErr))
 	}
-	if metrics.FailedChecks != 0 || metrics.RequestFailures != 0 || metrics.VUFailures != 0 {
+	if metrics.FailedChecks != 0 || metrics.RequestFailures != 0 ||
+		metrics.HTTPRequestFailures != 0 || metrics.VUFailures != 0 {
 		return r.fail(name + " recorded check, request, or VU failures")
 	}
 	if metrics.DroppedIterations != 0 {
@@ -540,6 +556,13 @@ func (r *runner) runScenario(name string) int {
 		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
 	}
 	return 0
+}
+
+func commandReason(reason string, err error) string {
+	if err != nil {
+		return fmt.Sprintf("%s: %v", reason, err)
+	}
+	return reason
 }
 
 func (r *runner) scenarioArgs(name, summaryPath string) ([]string, error) {
@@ -577,14 +600,11 @@ func (r *runner) scenarioArgs(name, summaryPath string) ([]string, error) {
 func promoteScenarioSummary(temporary, result string) (*summaryMetrics, error) {
 	metrics, err := parseSummaryMetrics(temporary)
 	if err != nil {
-		if info, statErr := os.Stat(temporary); statErr == nil && info.Size() > 0 {
-			_ = os.Rename(temporary, result)
-		} else {
-			_ = os.Remove(temporary)
-		}
+		_ = os.Remove(temporary)
 		return nil, err
 	}
 	if err := os.Rename(temporary, result); err != nil {
+		_ = os.Remove(temporary)
 		return nil, err
 	}
 	return metrics, nil
@@ -599,7 +619,8 @@ func (r *runner) runK6(args []string, stdout io.Writer) (int, error) {
 	command := exec.CommandContext(context.WithoutCancel(r.context), "k6", args...)
 	command.Stdin = input
 	command.Stdout = stdout
-	command.Stderr = r.stderr
+	var commandStderr bytes.Buffer
+	command.Stderr = io.MultiWriter(r.stderr, &commandStderr)
 
 	r.mu.Lock()
 	if r.signal != nil {
@@ -619,6 +640,9 @@ func (r *runner) runK6(args []string, stdout io.Writer) (int, error) {
 	r.mu.Unlock()
 	if err == nil {
 		return 0, nil
+	}
+	if detail := strings.TrimSpace(commandStderr.String()); detail != "" {
+		err = fmt.Errorf("%w: %s", err, detail)
 	}
 	var exitError *exec.ExitError
 	if errors.As(err, &exitError) {

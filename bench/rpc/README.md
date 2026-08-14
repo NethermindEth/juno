@@ -84,8 +84,6 @@ failures, and dropped and completed iterations for each scenario. Dropped
 throughput iterations are recorded as saturation measurements rather than
 harness failures: they indicate that the fixed worker pool could not sustain
 the offered load.
-At startup it removes only these known outputs from any prior run. On `TERM` or
-`INT`, it stops the active command and finalizes the manifest as failed.
 
 The runner requires `NODE_URL`, `READY_URL`, `EXPECTED_CHAIN_ID`,
 `EXPECTED_BLOCK_NUMBER`, `SNAPSHOT_ID`,
@@ -94,8 +92,7 @@ commit is embedded in the runner image and cannot be supplied by the
 deployment. `CORPUS_PATH` defaults to the standard corpus embedded at
 `/bench/rpc/corpus/v0_10/getTransactionByHash.json`; local callers may override
 it for experiments. The corpus checksum must be stored next to the selected
-corpus as `<CORPUS_PATH>.sha256`. `READY_TIMEOUT` defaults to `30m` and
-`READY_POLL_INTERVAL` defaults to `5s`.
+corpus as `<CORPUS_PATH>.sha256`.
 Any failed RPC check fails the run; the runner does not apply performance
 regression thresholds.
 

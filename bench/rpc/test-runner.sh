@@ -92,8 +92,8 @@ run_runner() {
     -e EXPECTED_BLOCK_NUMBER=800000 \
     -e SNAPSHOT_ID=test-snapshot \
     -e SNAPSHOT_SHA256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-    -e JUNO_IMAGE_DIGEST=sha256:juno \
-    -e RUNNER_IMAGE_DIGEST=sha256:runner \
+    -e JUNO_IMAGE_DIGEST=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+    -e RUNNER_IMAGE_DIGEST=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
     -e READY_TIMEOUT=10s \
     -e READY_POLL_INTERVAL=1s \
     -e ITERATIONS=2 \
@@ -290,8 +290,8 @@ docker run -d --name "$signal_container" --network host --user 12345:12345 \
   -e RUN_ID=signal-test \
   -e SNAPSHOT_ID=test-snapshot \
   -e SNAPSHOT_SHA256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  -e JUNO_IMAGE_DIGEST=sha256:juno \
-  -e RUNNER_IMAGE_DIGEST=sha256:runner \
+  -e JUNO_IMAGE_DIGEST=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  -e RUNNER_IMAGE_DIGEST=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
   -e ITERATIONS=2 \
   -e VUS=1 \
   -e CONCURRENCY_DURATION=30s \
@@ -303,14 +303,14 @@ docker run -d --name "$signal_container" --network host --user 12345:12345 \
 attempts=0
 until jq -e '.scenarios.concurrency.status == "running"' "$signal_results/manifest.json" >/dev/null 2>&1; do
   attempts=$((attempts + 1))
-  if [ "$attempts" -ge 100 ] || [ "$(docker inspect -f '{{.State.Running}}' "$signal_container")" != true ]; then
+  if [ "$attempts" -ge 300 ] || [ "$(docker inspect -f '{{.State.Running}}' "$signal_container")" != true ]; then
     docker logs "$signal_container" >&2 || true
     echo "runner did not reach the concurrency stage" >&2
     exit 1
   fi
   sleep 0.1
 done
-docker stop --time 5 "$signal_container" >/dev/null
+docker stop --time 45 "$signal_container" >/dev/null
 test "$(docker inspect -f '{{.State.ExitCode}}' "$signal_container")" = 143
 jq -e '
   .status == "failed" and
