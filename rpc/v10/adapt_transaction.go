@@ -203,8 +203,8 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceiptWithBlockInfo {
-	return &TransactionReceiptWithBlockInfo{
+) TransactionReceiptWithBlockInfo {
+	return TransactionReceiptWithBlockInfo{
 		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
 		BlockHash:          blockHash,
 		BlockNumber:        blockNumber,

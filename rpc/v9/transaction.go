@@ -625,20 +625,20 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
-) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
+) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	txn, err := chain.TransactionByHash(hash)
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	return AdaptReceiptWithBlockInfo(
@@ -656,7 +656,7 @@ func (h *Handler) getPendingTransactionReceipt(
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(
 	hash *felt.Felt,
-) (*TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
+) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
@@ -665,9 +665,9 @@ func (h *Handler) TransactionReceiptByHash(
 	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	txn, receipt, blockHash, err := h.bcReader.TransactionAndReceiptByBlockNumberAndIndex(
@@ -675,14 +675,14 @@ func (h *Handler) TransactionReceiptByHash(
 	)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
-		return nil, jsonErr
+		return TransactionReceiptWithBlockInfo{}, jsonErr
 	}
 
 	status := TxnAcceptedOnL2
@@ -1060,8 +1060,8 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceiptWithBlockInfo {
-	return &TransactionReceiptWithBlockInfo{
+) TransactionReceiptWithBlockInfo {
+	return TransactionReceiptWithBlockInfo{
 		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
 		BlockHash:          blockHash,
 		BlockNumber:        blockNumber,

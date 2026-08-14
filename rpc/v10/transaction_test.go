@@ -1138,9 +1138,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				// receipt belong to canonical block mock expectations
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
-				).Return(*expected.BlockNumber, uint64(transactionIndex), nil)
+				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
 				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
-					*expected.BlockNumber, uint64(transactionIndex),
+					expected.BlockNumber, uint64(transactionIndex),
 				).Return(
 					transaction,
 					*loadedBlock.Receipts[transactionIndex],

@@ -275,8 +275,7 @@ func (h *Handler) BlockWithReceipts(
 		adaptedTx.Hash = nil
 		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: adaptedTx,
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus),
+			Receipt:     AdaptReceipt(r, txn, finalityStatus),
 		}
 	}
 
