@@ -28,41 +28,61 @@ func NewLazySlice[T any](indexes []int, data []byte) LazySlice[T] {
 	}
 }
 
-func (l LazySlice[T]) get(index int) (T, error) {
+func (l LazySlice[T]) getInto(index int, value *T) error {
 	start := l.indexes[index]
 	end := len(l.data)
 	if index < len(l.indexes)-1 {
 		end = l.indexes[index+1]
 	}
-
-	var value T
-	err := encoder.Unmarshal(l.data[start:end], &value)
-	return value, err
+	return encoder.Unmarshal(l.data[start:end], value)
 }
 
 func (l LazySlice[T]) Get(index int) (T, error) {
 	if index < 0 || index >= len(l.indexes) {
 		return *new(T), db.ErrKeyNotFound
 	}
-	return l.get(index)
+	var value T
+	err := l.getInto(index, &value)
+	return value, err
 }
 
 func (l LazySlice[T]) All() ([]T, error) {
-	var err error
 	items := make([]T, len(l.indexes))
 	for i := range l.indexes {
-		if items[i], err = l.get(i); err != nil {
+		if err := l.getInto(i, &items[i]); err != nil {
 			return nil, err
 		}
 	}
 	return items, nil
 }
 
+func AllMapped[T, R any](
+	l LazySlice[T],
+	extract func(index int, value T) (R, error),
+) ([]R, error) {
+	results := make([]R, len(l.indexes))
+	var value T
+	for i := range l.indexes {
+		// Reset: decoding merges into the existing value, so stale data would leak across elements.
+		value = *new(T)
+		if err := l.getInto(i, &value); err != nil {
+			return nil, err
+		}
+		var err error
+		if results[i], err = extract(i, value); err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
+}
+
 func (l LazySlice[T]) Iter() iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
+		var value T
 		for i := range l.indexes {
-			item, err := l.get(i)
-			if !yield(item, err) {
+			value = *new(T)
+			err := l.getInto(i, &value)
+			if !yield(value, err) {
 				return
 			}
 		}
