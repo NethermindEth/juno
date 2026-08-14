@@ -612,3 +612,27 @@ func TestTransactionHashProjectionDecodesHash(t *testing.T) {
 		})
 	}
 }
+
+// BenchmarkTransactionHashProjection compares a full transaction decode against the hash-subset
+// decode for every transaction type.
+func BenchmarkTransactionHashProjection(b *testing.B) {
+	for _, transaction := range sampleTransactions() {
+		data := sampleTransactionBytes(b, transaction)
+		b.Run(fmt.Sprintf("%T", transaction), func(b *testing.B) {
+			b.Run("full_transaction", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					var decoded Transaction
+					_ = encoder.Unmarshal(data, &decoded)
+				}
+			})
+			b.Run("hash_projection", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					var projection transactionHashProjection
+					_ = encoder.Unmarshal(data, &projection)
+				}
+			})
+		})
+	}
+}
