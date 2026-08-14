@@ -180,4 +180,15 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 			)
 		}
 	})
+
+	t.Run("BlockTransactionsAllTransactionHashesPartialSerializer", func(t *testing.T) {
+		// The serializer reads each transaction's own hash from the transaction section.
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionHashesPartialSerializer,
+			struct{}{},
+			transactionHashesOf(transactions),
+			serialised,
+		)
+	})
 }

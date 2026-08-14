@@ -85,32 +85,51 @@ func NewBlockTransactions(
 	)
 }
 
-func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
-	end := len(b.Data)
+// transactionsSection is the data region holding transactions, ending where receipts begin.
+func (b *BlockTransactions) transactionsSection() []byte {
 	if len(b.Indexes.Receipts) > 0 {
-		end = b.Indexes.Receipts[0]
+		return b.Data[:b.Indexes.Receipts[0]]
 	}
+	return b.Data
+}
 
-	return indexed.NewLazySlice[Transaction](b.Indexes.Transactions, b.Data[:end])
+// receiptsSection is the data region holding receipts, which runs to the end of the data. It keeps
+// the leading transaction bytes because receipt indexes are absolute offsets into Data.
+func (b *BlockTransactions) receiptsSection() []byte {
+	return b.Data
+}
+
+func (b *BlockTransactions) Transactions() indexed.LazySlice[Transaction] {
+	return indexed.NewLazySlice[Transaction](b.Indexes.Transactions, b.transactionsSection())
 }
 
 func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
-	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.receiptsSection())
 }
 
-// executionStatusProjectionSlice is the lazily-decoded slice of execution-status projections.
-type executionStatusProjectionSlice = indexed.LazySlice[receiptExecutionStatusProjection]
+// The projection slices are aliased to keep each accessor's signature within the line limit.
+type (
+	executionStatusProjectionSlice   = indexed.LazySlice[receiptExecutionStatusProjection]
+	transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjection]
+	transactionHashProjectionSlice   = indexed.LazySlice[transactionHashProjection]
+)
 
 // executionStatusProjections decodes receipts into the execution-status subset, skipping the
 // heavier receipt fields.
 func (b *BlockTransactions) executionStatusProjections() executionStatusProjectionSlice {
-	return indexed.NewLazySlice[receiptExecutionStatusProjection](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[receiptExecutionStatusProjection](
+		b.Indexes.Receipts, b.receiptsSection(),
+	)
 }
-
-// transactionEventsProjectionSlice is the lazily-decoded slice of events projections.
-type transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjection]
 
 // transactionEventsProjections decodes receipts into the events subset only.
 func (b *BlockTransactions) transactionEventsProjections() transactionEventsProjectionSlice {
-	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.receiptsSection())
+}
+
+// transactionHashProjections decodes only the TransactionHash field of each transaction.
+func (b *BlockTransactions) transactionHashProjections() transactionHashProjectionSlice {
+	return indexed.NewLazySlice[transactionHashProjection](
+		b.Indexes.Transactions, b.transactionsSection(),
+	)
 }

@@ -1,6 +1,7 @@
 package indexed
 
 import (
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/db"
@@ -66,7 +67,7 @@ func AllMapped[T, R any](
 		// Reset: decoding merges into the existing value, so stale data would leak across elements.
 		value = *new(T)
 		if err := l.getInto(i, &value); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decoding element %d: %w", i, err)
 		}
 		var err error
 		if results[i], err = extract(i, value); err != nil {

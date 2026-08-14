@@ -72,7 +72,7 @@ type BlockWithTxs struct {
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes []*felt.Felt `json:"transactions"`
+	TxnHashes []felt.Felt `json:"transactions"`
 }
 
 // TransactionWithReceipt represents a transaction with its receipt
@@ -176,25 +176,36 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxHashes{
+			Status:      BlockPreConfirmed,
+			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header, nil),
+			TxnHashes:   transactionHashesOf(preConfirmed.Block.Transactions),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if id.IsPreConfirmed() {
-		numID = *id
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txnHashes := make([]*felt.Felt, header.TransactionCount)
-	for index, txn := range blockTxns {
-		txnHashes[index] = txn.Hash()
+	transactionHashes, err := h.bcReader.TransactionHashesByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(id, header.Number)
@@ -202,20 +213,26 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	var commitments *core.BlockCommitments
-	if header.Hash != nil {
-		var err error
-		commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
-		if err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
+	commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: AdaptBlockHeader(header, commitments),
-		TxnHashes:   txnHashes,
+		TxnHashes:   transactionHashes,
 	}, nil
+}
+
+// transactionHashesOf collects each transaction's hash, for blocks served from memory where the
+// transactions are already decoded.
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for index, transaction := range transactions {
+		hashes[index] = *transaction.Hash()
+	}
+	return hashes
 }
 
 // BlockWithReceipts returns the block information with transaction receipts given a block ID.
@@ -289,26 +306,36 @@ func (h *Handler) BlockWithTxs(
 ) (*BlockWithTxs, *jsonrpc.Error) {
 	includeProofFacts := responseFlags.IncludeProofFacts
 
+	if blockID.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxs{
+			Status:       BlockPreConfirmed,
+			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header, nil),
+			Transactions: adaptTransactions(preConfirmed.Block.Transactions, includeProofFacts),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if blockID.IsPreConfirmed() {
-		numID = *blockID
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txs := make([]*Transaction, len(blockTxns))
-	for index, txn := range blockTxns {
-		adaptedTx := AdaptTransaction(txn, includeProofFacts)
-		txs[index] = &adaptedTx
+	blockTransactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(blockID, header.Number)
@@ -316,20 +343,25 @@ func (h *Handler) BlockWithTxs(
 		return nil, rpcErr
 	}
 
-	var commitments *core.BlockCommitments
-	var err error
-	if header.Hash != nil {
-		commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
-		if err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
+	commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	return &BlockWithTxs{
 		Status:       status,
 		BlockHeader:  AdaptBlockHeader(header, commitments),
-		Transactions: txs,
+		Transactions: adaptTransactions(blockTransactions, includeProofFacts),
 	}, nil
+}
+
+func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []*Transaction {
+	adapted := make([]*Transaction, len(transactions))
+	for index, transaction := range transactions {
+		adaptedTransaction := AdaptTransaction(transaction, includeProofFacts)
+		adapted[index] = &adaptedTransaction
+	}
+	return adapted
 }
 
 func (h *Handler) blockStatus(
