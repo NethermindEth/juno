@@ -822,7 +822,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 		tx, rpcErr := handler.TransactionReceiptByHash(txHash)
-		assert.Nil(t, tx)
+		assert.Empty(t, tx)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
