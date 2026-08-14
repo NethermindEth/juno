@@ -171,7 +171,7 @@ func receiptsOf(
 
 func sendTransactionReceipt(
 	wsConn jsonrpc.Conn,
-	receipt TransactionReceiptWithBlockInfo,
+	receipt *TransactionReceiptWithBlockInfo,
 	id string,
 ) error {
 	return sendResponse("starknet_subscriptionNewTransactionReceipts", wsConn, id, receipt)
