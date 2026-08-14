@@ -72,11 +72,11 @@ func TestConfigValidationFailures(t *testing.T) {
 		},
 		{
 			name: "timeout", mutate: func(c *config) { c.readyTimeoutRaw = "30x" },
-			want: "READY_TIMEOUT must be a positive duration using s, m, or h",
+			want: "READY_TIMEOUT must be a positive duration",
 		},
 		{
 			name: "poll interval", mutate: func(c *config) { c.readyPollIntervalRaw = "30x" },
-			want: "READY_POLL_INTERVAL must be a positive duration using s, m, or h",
+			want: "READY_POLL_INTERVAL must be a positive duration",
 		},
 		{
 			name: "duration", mutate: func(c *config) { c.concurrencyDurationRaw = "30x" },
@@ -297,19 +297,29 @@ func TestAtomicTemporaryPathMatchesCleanupPattern(t *testing.T) {
 func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
 	directory := t.TempDir()
 	corpusPath := filepath.Join(directory, "corpus.json")
+	readyPath := filepath.Join(directory, "ready")
+	signalPath := filepath.Join(directory, "signal")
 	if err := os.WriteFile(corpusPath, []byte(`{"meta":{},"requests":[{}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	k6Path := filepath.Join(directory, "k6")
 	k6 := `#!/bin/sh
 count=0
-trap 'count=$((count + 1)); [ $count -lt 2 ] || exit 42' TERM
-while :; do :; done
+on_term() {
+  count=$((count + 1))
+  [ "$count" -lt 2 ] || exit 42
+  : > "$K6_SIGNAL_FILE"
+}
+trap on_term TERM
+: > "$K6_READY_FILE"
+while :; do sleep 1; done
 `
 	if err := os.WriteFile(k6Path, []byte(k6), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("K6_READY_FILE", readyPath)
+	t.Setenv("K6_SIGNAL_FILE", signalPath)
 
 	config := validConfig()
 	config.corpusPath = corpusPath
@@ -322,21 +332,9 @@ while :; do :; done
 		result <- status
 	}()
 
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		r.mu.Lock()
-		started := r.active != nil
-		r.mu.Unlock()
-		if started {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("fake k6 did not start")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitForFile(t, readyPath)
 	r.signals <- syscall.SIGTERM
-	time.Sleep(100 * time.Millisecond)
+	waitForFile(t, signalPath)
 	r.signals <- syscall.SIGTERM
 	select {
 	case status := <-result:
@@ -394,24 +392,48 @@ func TestScenarioArgs(t *testing.T) {
 	}
 	r := newRunner(config, io.Discard, io.Discard)
 	tests := []struct {
-		name, script string
-		flags        []string
+		name string
+		want []string
 	}{
-		{stageSingle, "run.js", []string{"--vus", "1", "--iterations", "2"}},
-		{stageConcurrency, "run.js", []string{"--vus", "1", "--duration", "1s"}},
-		{stageThroughput, "throughput.js", []string{"RATES=10,20", "THROUGHPUT_VUS=3"}},
+		{stageSingle, []string{
+			"run", "--quiet", "-e", "NODE_URL=http://127.0.0.1:6060/v0_10",
+			"--vus", "1", "--iterations", "2", k6SummaryExportFlag, "/tmp/summary.json",
+			"--summary-trend-stats", "avg,min,med,p(90),p(99),max", "/bench/rpc/run.js",
+		}},
+		{stageConcurrency, []string{
+			"run", "--quiet", "-e", "NODE_URL=http://127.0.0.1:6060/v0_10",
+			"--vus", "1", "--duration", "1s", k6SummaryExportFlag, "/tmp/summary.json",
+			"--summary-trend-stats", "avg,min,med,p(90),p(99),max", "/bench/rpc/run.js",
+		}},
+		{stageThroughput, []string{
+			"run", "--quiet", "-e", "NODE_URL=http://127.0.0.1:6060/v0_10",
+			"-e", "RATES=10,20", "-e", "DURATION=1s", "-e", "THROUGHPUT_VUS=3",
+			k6SummaryExportFlag, "/tmp/summary.json", "--summary-trend-stats",
+			"avg,min,med,p(90),p(99),max", "/bench/rpc/throughput.js",
+		}},
 	}
 	for _, test := range tests {
 		args, err := r.scenarioArgs(test.name, "/tmp/summary.json")
 		if err != nil {
 			t.Fatal(err)
 		}
-		joined := strings.Join(args, " ")
-		for _, value := range append(test.flags, test.script) {
-			if !strings.Contains(joined, value) {
-				t.Fatalf("%s args %q do not contain %q", test.name, joined, value)
-			}
+		if !reflect.DeepEqual(args, test.want) {
+			t.Fatalf("%s args = %#v, want %#v", test.name, args, test.want)
 		}
+	}
+}
+
+func TestTailWriter(t *testing.T) {
+	input := strings.Repeat("x", maxCapturedStderr) + "tail"
+	var writer tailWriter
+	for _, chunk := range []string{input[:maxCapturedStderr], input[maxCapturedStderr:]} {
+		written, err := writer.Write([]byte(chunk))
+		if err != nil || written != len(chunk) {
+			t.Fatalf("Write() = (%d, %v), want (%d, nil)", written, err, len(chunk))
+		}
+	}
+	if got, want := string(writer.data), input[len(input)-maxCapturedStderr:]; got != want {
+		t.Fatalf("captured stderr length %d, want tail length %d", len(got), len(want))
 	}
 }
 
@@ -574,5 +596,21 @@ func validConfig() *config {
 		readyTimeoutRaw: "10s", readyPollIntervalRaw: "1s", iterationsRaw: "2", vusRaw: "1",
 		concurrencyDurationRaw: "1s", throughputDurationRaw: "1s",
 		throughputVUsRaw: "3", ratesRaw: "10,20",
+	}
+}
+
+func waitForFile(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", path)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

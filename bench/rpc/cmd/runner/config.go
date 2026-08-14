@@ -166,10 +166,10 @@ func (c *config) validate() error {
 	if c.throughputVUs, err = parsePositiveInteger("THROUGHPUT_VUS", c.throughputVUsRaw); err != nil {
 		return err
 	}
-	if err := validateK6Duration("CONCURRENCY_DURATION", c.concurrencyDurationRaw); err != nil {
+	if _, err := parseDuration("CONCURRENCY_DURATION", c.concurrencyDurationRaw); err != nil {
 		return err
 	}
-	if err := validateK6Duration("THROUGHPUT_DURATION", c.throughputDurationRaw); err != nil {
+	if _, err := parseDuration("THROUGHPUT_DURATION", c.throughputDurationRaw); err != nil {
 		return err
 	}
 
@@ -182,11 +182,12 @@ func (c *config) validate() error {
 	}
 	c.expectedBlockParsed = true
 
-	if c.readyTimeout, err = parseRunnerDuration(c.readyTimeoutRaw); err != nil {
-		return fmt.Errorf("READY_TIMEOUT must be a positive duration using s, m, or h")
+	if c.readyTimeout, err = parseDuration("READY_TIMEOUT", c.readyTimeoutRaw); err != nil {
+		return err
 	}
-	if c.readyPollInterval, err = parseRunnerDuration(c.readyPollIntervalRaw); err != nil {
-		return fmt.Errorf("READY_POLL_INTERVAL must be a positive duration using s, m, or h")
+	c.readyPollInterval, err = parseDuration("READY_POLL_INTERVAL", c.readyPollIntervalRaw)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -222,11 +223,12 @@ func (c *config) validateProvenance() error {
 	return nil
 }
 
-func validateK6Duration(name, raw string) error {
-	if duration, err := time.ParseDuration(raw); err != nil || duration <= 0 {
-		return fmt.Errorf("%s must be a positive duration", name)
+func parseDuration(name, raw string) (time.Duration, error) {
+	duration, err := time.ParseDuration(raw)
+	if err != nil || duration <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration", name)
 	}
-	return nil
+	return duration, nil
 }
 
 func parseRates(raw string) ([]uint64, error) {
@@ -258,32 +260,6 @@ func parsePositiveInteger(name, raw string) (uint64, error) {
 		return 0, fmt.Errorf("%s must be a positive integer", name)
 	}
 	return value, nil
-}
-
-func parseRunnerDuration(raw string) (time.Duration, error) {
-	if raw == "" {
-		return 0, fmt.Errorf("empty duration")
-	}
-	multiplier := time.Second
-	number := raw
-	switch raw[len(raw)-1] {
-	case 's':
-		number = raw[:len(raw)-1]
-	case 'm':
-		number = raw[:len(raw)-1]
-		multiplier = time.Minute
-	case 'h':
-		number = raw[:len(raw)-1]
-		multiplier = time.Hour
-	}
-	if !digitsPattern.MatchString(number) {
-		return 0, fmt.Errorf("invalid duration")
-	}
-	value, err := strconv.ParseUint(number, 10, 63)
-	if err != nil || value == 0 || value > uint64((1<<63-1)/multiplier) {
-		return 0, fmt.Errorf("invalid duration")
-	}
-	return time.Duration(value) * multiplier, nil
 }
 
 func nowUTC() time.Time {

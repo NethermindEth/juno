@@ -25,6 +25,7 @@ const (
 	resultDirectoryMode = os.FileMode(0o755)
 	readyRequestTimeout = 5 * time.Second
 	rpcRequestTimeout   = 10 * time.Second
+	maxCapturedStderr   = 4 * 1024
 
 	statusPending = "pending"
 	statusWaiting = "waiting"
@@ -37,7 +38,8 @@ const (
 	stageConcurrency   = "concurrency"
 	stageThroughput    = "throughput"
 
-	k6QuietFlag = "--quiet"
+	k6QuietFlag         = "--quiet"
+	k6SummaryExportFlag = "--summary-export"
 )
 
 type runner struct {
@@ -484,7 +486,7 @@ func (r *runner) runWarmup() int {
 		"-e", "NODE_URL=" + r.config.nodeURL,
 		"--vus", "1",
 		"--iterations", strconv.FormatUint(defaultWarmupIterations, 10),
-		"--summary-export", temporary,
+		k6SummaryExportFlag, temporary,
 		filepath.Join(r.config.scriptDir, "run.js"),
 	}
 	exitCode, commandErr := r.runK6(args, io.Discard)
@@ -565,6 +567,24 @@ func commandReason(reason string, err error) string {
 	return reason
 }
 
+type tailWriter struct {
+	data []byte
+}
+
+func (w *tailWriter) Write(p []byte) (int, error) {
+	written := len(p)
+	if written >= maxCapturedStderr {
+		w.data = append(w.data[:0], p[written-maxCapturedStderr:]...)
+		return written, nil
+	}
+	if overflow := len(w.data) + written - maxCapturedStderr; overflow > 0 {
+		copy(w.data, w.data[overflow:])
+		w.data = w.data[:len(w.data)-overflow]
+	}
+	w.data = append(w.data, p...)
+	return written, nil
+}
+
 func (r *runner) scenarioArgs(name, summaryPath string) ([]string, error) {
 	args := []string{"run", k6QuietFlag, "-e", "NODE_URL=" + r.config.nodeURL}
 	switch name {
@@ -588,7 +608,7 @@ func (r *runner) scenarioArgs(name, summaryPath string) ([]string, error) {
 		return nil, fmt.Errorf("unknown scenario: %s", name)
 	}
 	args = append(args,
-		"--summary-export", summaryPath,
+		k6SummaryExportFlag, summaryPath,
 		"--summary-trend-stats", "avg,min,med,p(90),p(99),max",
 	)
 	if name == stageThroughput {
@@ -619,7 +639,7 @@ func (r *runner) runK6(args []string, stdout io.Writer) (int, error) {
 	command := exec.CommandContext(context.WithoutCancel(r.context), "k6", args...)
 	command.Stdin = input
 	command.Stdout = stdout
-	var commandStderr bytes.Buffer
+	var commandStderr tailWriter
 	command.Stderr = io.MultiWriter(r.stderr, &commandStderr)
 
 	r.mu.Lock()
@@ -641,7 +661,7 @@ func (r *runner) runK6(args []string, stdout io.Writer) (int, error) {
 	if err == nil {
 		return 0, nil
 	}
-	if detail := strings.TrimSpace(commandStderr.String()); detail != "" {
+	if detail := strings.TrimSpace(string(commandStderr.data)); detail != "" {
 		err = fmt.Errorf("%w: %s", err, detail)
 	}
 	var exitError *exec.ExitError
