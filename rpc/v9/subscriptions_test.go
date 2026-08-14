@@ -2343,8 +2343,8 @@ func assertNextReceipts(
 ) {
 	t.Helper()
 
-	for _, receipt := range receipts {
-		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", receipt)
+	for i := range receipts {
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", &receipts[i])
 	}
 }
 

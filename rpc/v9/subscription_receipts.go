@@ -107,7 +107,7 @@ func (s *receiptsSubscriberState) onNewHead(
 ) error {
 	// Canonical blocks are published exactly once, so they bypass the deduper.
 	for receipt := range receiptsOf(head, s.senders, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
-		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
+		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
 	}
@@ -134,7 +134,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 			continue
 		}
 
-		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
+		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
 	}
@@ -170,7 +170,7 @@ func receiptsOf(
 
 func sendTransactionReceipt(
 	wsConn jsonrpc.Conn,
-	receipt TransactionReceiptWithBlockInfo,
+	receipt *TransactionReceiptWithBlockInfo,
 	id string,
 ) error {
 	return sendResponse("starknet_subscriptionNewTransactionReceipts", wsConn, id, receipt)
