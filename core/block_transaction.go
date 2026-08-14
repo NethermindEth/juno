@@ -1,12 +1,9 @@
 package core
 
 import (
-	"fmt"
 	"iter"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/encoder"
 )
 
 type BlockTransactionsIndexes struct {
@@ -96,7 +93,8 @@ func (b *BlockTransactions) transactionsSection() []byte {
 	return b.Data
 }
 
-// receiptsSection is the data region holding receipts, which runs to the end of the data.
+// receiptsSection is the data region holding receipts, which runs to the end of the data. It keeps
+// the leading transaction bytes because receipt indexes are absolute offsets into Data.
 func (b *BlockTransactions) receiptsSection() []byte {
 	return b.Data
 }
@@ -109,8 +107,12 @@ func (b *BlockTransactions) Receipts() indexed.LazySlice[*TransactionReceipt] {
 	return indexed.NewLazySlice[*TransactionReceipt](b.Indexes.Receipts, b.receiptsSection())
 }
 
-// executionStatusProjectionSlice is the lazily-decoded slice of execution-status projections.
-type executionStatusProjectionSlice = indexed.LazySlice[receiptExecutionStatusProjection]
+// The projection slices are aliased to keep each accessor's signature within the line limit.
+type (
+	executionStatusProjectionSlice   = indexed.LazySlice[receiptExecutionStatusProjection]
+	transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjection]
+	transactionHashProjectionSlice   = indexed.LazySlice[transactionHashProjection]
+)
 
 // executionStatusProjections decodes receipts into the execution-status subset, skipping the
 // heavier receipt fields.
@@ -120,37 +122,14 @@ func (b *BlockTransactions) executionStatusProjections() executionStatusProjecti
 	)
 }
 
-// transactionEventsProjectionSlice is the lazily-decoded slice of events projections.
-type transactionEventsProjectionSlice = indexed.LazySlice[receiptEventsProjection]
-
 // transactionEventsProjections decodes receipts into the events subset only.
 func (b *BlockTransactions) transactionEventsProjections() transactionEventsProjectionSlice {
-	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.Data)
+	return indexed.NewLazySlice[receiptEventsProjection](b.Indexes.Receipts, b.receiptsSection())
 }
 
-// TransactionHashes decodes the transaction-hash field of each transaction into one contiguous
-// slice, skipping the heavier transaction fields.
-func (b *BlockTransactions) TransactionHashes() ([]felt.Felt, error) {
-	offsets := b.Indexes.Transactions
-	section := b.transactionsSection()
-
-	hashes := make([]felt.Felt, len(offsets))
-	var projection transactionHashProjection
-	for i := range offsets {
-		end := len(section)
-		if i < len(offsets)-1 {
-			end = offsets[i+1]
-		}
-		// Reset before decoding: CBOR null decodes into a value-typed felt as a no-op, so a
-		// transaction stored without a hash would otherwise yield the previous one's hash.
-		projection.TransactionHash = felt.Zero
-		if err := encoder.Unmarshal(section[offsets[i]:end], &projection); err != nil {
-			return nil, fmt.Errorf("decoding transact hash projection at index %d: %w", i, err)
-		}
-		if projection.TransactionHash.IsZero() {
-			return nil, fmt.Errorf("missing TransactionHash in transaction %d", i)
-		}
-		hashes[i] = projection.TransactionHash
-	}
-	return hashes, nil
+// transactionHashProjections decodes only the TransactionHash field of each transaction.
+func (b *BlockTransactions) transactionHashProjections() transactionHashProjectionSlice {
+	return indexed.NewLazySlice[transactionHashProjection](
+		b.Indexes.Transactions, b.transactionsSection(),
+	)
 }

@@ -97,6 +97,23 @@ func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
 	return hashes
 }
 
+// transactionHashesOfBlock reads the hashes through the public partial-serializer path, the same
+// route a DB read takes.
+func transactionHashesOfBlock(
+	t *testing.T,
+	blockTransactions core.BlockTransactions,
+) ([]felt.Felt, error) {
+	t.Helper()
+	data, err := core.BlockTransactionsSerializer{}.Marshal(&blockTransactions)
+	require.NoError(t, err)
+
+	var hashes []felt.Felt
+	err = core.BlockTransactionsAllTransactionHashesPartialSerializer.UnmarshalPartial(
+		struct{}{}, data, &hashes,
+	)
+	return hashes, err
+}
+
 // TestTransactionHashesAllTxTypes verifies that reading hashes from the transaction section returns
 // the correct hash for a block containing every transaction type. The sampled real blocks used
 // elsewhere are Deploy/Invoke-heavy; this closes the coverage gap for Declare, DeployAccount, and
@@ -109,7 +126,7 @@ func TestTransactionHashesAllTxTypes(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	hashes, err := blockTransactions.TransactionHashes()
+	hashes, err := transactionHashesOfBlock(t, blockTransactions)
 	require.NoError(t, err)
 	require.Equal(t, transactionHashesOf(transactions), hashes)
 }
@@ -127,7 +144,7 @@ func TestTransactionHashesMatchFullDecode(t *testing.T) {
 	decoded, err := blockTransactions.Transactions().All()
 	require.NoError(t, err)
 
-	hashes, err := blockTransactions.TransactionHashes()
+	hashes, err := transactionHashesOfBlock(t, blockTransactions)
 	require.NoError(t, err)
 	require.Equal(t, transactionHashesOf(decoded), hashes)
 }
@@ -148,7 +165,7 @@ func TestTransactionHashesRejectMissingHash(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	hashes, err := blockTransactions.TransactionHashes()
+	hashes, err := transactionHashesOfBlock(t, blockTransactions)
 	require.ErrorContains(t, err, "missing TransactionHash in transaction 1")
 	require.Nil(t, hashes)
 }
@@ -161,7 +178,7 @@ func TestTransactionHashesWithoutReceiptSection(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, blockTransactions.Indexes.Receipts)
 
-	hashes, err := blockTransactions.TransactionHashes()
+	hashes, err := transactionHashesOfBlock(t, blockTransactions)
 	require.NoError(t, err)
 	require.Equal(t, transactionHashesOf(transactions), hashes)
 }
