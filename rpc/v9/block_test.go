@@ -784,9 +784,9 @@ func TestBlockWithTxs(t *testing.T) {
 		baseHeader.EventCount = 0
 		baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
 
-		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+		// pre_confirmed handlers resolve the chain once each and never read the L1 head
 		mockSyncReader.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, &baseEntry, &tipEntry), nil).AnyTimes()
+			Return(mustNewChain(t, &baseEntry, &tipEntry), nil).Times(2)
 
 		expectedHashes := make([]*felt.Felt, len(latestBlock.Transactions))
 		for i, txn := range latestBlock.Transactions {

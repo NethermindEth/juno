@@ -462,36 +462,36 @@ func setupMockBlockTest(
 		// entry), not a base entry or an aggregate.
 		tipEntry := rpc.CreateTestPreConfirmed(t, block, int(block.TransactionCount))
 		entries := append(append([]*pending.PreConfirmed{}, preConfirmedBase...), &tipEntry)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).AnyTimes()
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).MaxTimes(1)
 	case blockID.IsLatest():
-		mockChain.EXPECT().Head().Return(block, nil).AnyTimes()
-		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().Head().Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			transactionHashes, nil).AnyTimes()
+			transactionHashes, nil).MaxTimes(1)
 	case blockID.IsHash():
-		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			transactionHashes, nil).AnyTimes()
+			transactionHashes, nil).MaxTimes(1)
 	case blockID.IsL1Accepted():
-		mockChain.EXPECT().Height().Return(block.Number, nil).AnyTimes()
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().Height().Return(block.Number, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			transactionHashes, nil).AnyTimes()
+			transactionHashes, nil).MaxTimes(1)
 	default:
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
-			transactionHashes, nil).AnyTimes()
+			transactionHashes, nil).MaxTimes(1)
 	}
 }
 
