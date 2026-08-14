@@ -21,6 +21,8 @@ type Client struct {
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
+	// CatchUpChunkSize is the L1 block range per backward eth_getLogs request
+	// during the startup catch-up scan.
 	catchUpChunkSize      uint64
 	nonFinalisedLogs      map[uint64]*StateUpdate
 	listener              EventListener
