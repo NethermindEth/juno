@@ -1152,7 +1152,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
 			require.Nil(t, rpcErr)
-			require.Equal(t, expected, receipt)
+			require.Equal(t, *expected, receipt)
 		})
 	}
 }
@@ -1172,7 +1172,7 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -1227,7 +1227,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptCoreTransaction(tx),
+			Transaction: rpc.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1386,7 +1386,7 @@ func TestAddTransaction(t *testing.T) {
 					felt.FromUint64[felt.Felt](200),
 				}
 				return rpc.BroadcastedTransaction{
-					Transaction: *rpc.AdaptCoreTransaction(&base),
+					Transaction: rpc.AdaptCoreTransaction(&base),
 					Proof:       "AAAAAQAAAAIAAAAD",
 				}
 			}(),
@@ -1844,7 +1844,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&txnToAdd),
+		Transaction: rpc.AdaptCoreTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -1988,7 +1988,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	base := createBaseInvokeTransactionV3()
 	correctBroadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&base),
+		Transaction: rpc.AdaptCoreTransaction(&base),
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {

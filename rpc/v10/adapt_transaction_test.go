@@ -40,7 +40,7 @@ func loadTx(t *testing.T, path string) (*rpc.BroadcastedTransaction, core.Transa
 	require.NoError(t, err)
 
 	return &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(coreTx),
+		Transaction: rpc.AdaptCoreTransaction(coreTx),
 	}, coreTx
 }
 

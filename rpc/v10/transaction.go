@@ -37,12 +37,12 @@ var (
 	}
 )
 
-// AdaptTransaction adapts a core.Transaction to a local *Transaction.
+// AdaptTransaction adapts a core.Transaction to a local Transaction.
 // It's a wrapper around AdaptCoreTransaction that allows to exclude proof facts
 // from the transaction. If includeProofFacts is false, the proof facts are set to nil,
 // otherwise they're returned as is.
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
-	tx := *AdaptCoreTransaction(coreTx)
+	tx := AdaptCoreTransaction(coreTx)
 
 	if _, ok := coreTx.(*core.InvokeTransaction); ok {
 		if !includeProofFacts {

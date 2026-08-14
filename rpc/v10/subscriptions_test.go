@@ -902,7 +902,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{
-			Transaction: *AdaptCoreTransaction(block.Transactions[0]),
+			Transaction: AdaptCoreTransaction(block.Transactions[0]),
 		}
 
 		var tempGatewayResponse struct {
