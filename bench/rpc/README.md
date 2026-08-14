@@ -5,7 +5,21 @@ Sample a Starknet node into a seeded JSON-RPC corpus, then replay it with
 
 ## Methods
 
-- `starknet_getTransactionByHash`
+Run `./build/corpus-gen --help` for the full list. One subcommand per method
+(`starknet_` prefix dropped), covering the read and trace APIs plus
+`starknet_getCompiledCasm`; the write and websocket APIs and the execution
+methods (`starknet_call`, `starknet_estimateFee`, `starknet_estimateMessageFee`,
+`starknet_simulateTransactions`, `starknet_getMessagesStatus`) are not
+generated.
+
+Method-specific flags:
+
+| Subcommand        | Flag                                        | Meaning                                            |
+| ----------------- | ------------------------------------------- | -------------------------------------------------- |
+| `getEvents`       | `--max-window`                              | max blocks per event filter                        |
+| `getEvents`       | `--chunk-size`                              | `chunk_size` per request                           |
+| `getEvents`       | `--address-prob`                            | probability of filtering by an emitting address    |
+| `getStorageProof` | `--num-classes`/`--num-contracts`/`--num-keys` | trie members per request (queried at `latest`)  |
 
 ## Use
 
@@ -54,8 +68,8 @@ Corpus must be redirected in (`<`), not piped. k6 prints its summary to stdout;
 | Flag            | Meaning                                        |
 | --------------- | ---------------------------------------------- |
 | `--count`       | corpus entries                                 |
-| `--block-start` | sample range low (inclusive)                   |
-| `--block-end`   | sample range high (exclusive)                  |
+| `--block-start` | sample range low (inclusive, default 0)        |
+| `--block-end`   | sample range high (inclusive, default latest)  |
 | `--seed`        | reproducible corpus                            |
 | `--batch N`     | N requests per entry                           |
 | `--concurrency` | concurrent sampling requests (`GOMAXPROCS`)    |
