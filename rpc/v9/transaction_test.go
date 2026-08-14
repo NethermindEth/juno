@@ -55,7 +55,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(txHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -84,7 +84,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(searchTxHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -598,7 +598,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	expected := rpc.AdaptTransaction(latestBlock.Transactions[index])
 	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index)
 	require.Nil(t, rpcErr)
-	require.Equal(t, &expected, got)
+	require.Equal(t, expected, got)
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
@@ -622,7 +622,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -631,7 +631,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -640,7 +640,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := blockIDNumber(t, rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -649,7 +649,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1)
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -658,7 +658,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, len(latestBlock.Transactions))
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -674,7 +674,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDLatest(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -690,7 +690,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDHash(t, latestBlock.Hash)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -705,7 +705,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDNumber(t, latestBlockNumber)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
@@ -729,7 +729,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDL1Accepted(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
@@ -753,7 +753,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := blockIDL1Accepted(t)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
@@ -768,7 +768,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, invalidIndex)
 			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
-			require.Nil(t, actualTxn)
+			require.Empty(t, actualTxn)
 		})
 
 		t.Run("valid index", func(t *testing.T) {
@@ -777,7 +777,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &expectedTxn, actualTxn)
+			require.Equal(t, expectedTxn, actualTxn)
 		})
 	})
 }

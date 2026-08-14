@@ -390,24 +390,23 @@ func newTransactionStatus(
 func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
-) (*Transaction, *jsonrpc.Error) {
+) (Transaction, *jsonrpc.Error) {
 	// Check pre-confirmed data
 	if preConfirmed, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if txn, err := preConfirmed.TransactionByHash(hash); err == nil {
-			adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
-			return &adaptedTxn, nil
+			return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
 		}
 	}
 
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return Transaction{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return Transaction{}, rpccore.ErrTxnHashNotFound
 	}
-	adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
-	return &adaptedTxn, nil
+
+	return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -419,11 +418,11 @@ func (h *Handler) TransactionByHash(
 
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int, responseFlags ResponseFlags,
-) (*Transaction, *jsonrpc.Error) {
+) (Transaction, *jsonrpc.Error) {
 	includeProofFacts := responseFlags.IncludeProofFacts
 
 	if txIndex < 0 {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
 
 	var blockNumber uint64
@@ -432,20 +431,19 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	case blockID.IsPreConfirmed():
 		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 
 		tipBlock := chain.Head().Block
 		if uint64(txIndex) >= tipBlock.TransactionCount {
-			return nil, rpccore.ErrInvalidTxIndex
+			return Transaction{}, rpccore.ErrInvalidTxIndex
 		}
 
-		adaptedTxn := AdaptTransaction(tipBlock.Transactions[txIndex], includeProofFacts)
-		return &adaptedTxn, nil
+		return AdaptTransaction(tipBlock.Transactions[txIndex], includeProofFacts), nil
 	case blockID.IsLatest():
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 		blockNumber = header.Number
 	case blockID.IsHash():
@@ -462,15 +460,15 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if err != nil {
-		return nil, rpccore.ErrBlockNotFound
+		return Transaction{}, rpccore.ErrBlockNotFound
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
 	if err != nil {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
-	adaptedTxn := AdaptTransaction(txn, includeProofFacts)
-	return &adaptedTxn, nil
+
+	return AdaptTransaction(txn, includeProofFacts), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.

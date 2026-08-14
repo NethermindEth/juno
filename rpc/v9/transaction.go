@@ -541,24 +541,23 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
-func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Error) {
 	// Check the pre-confirmed chain first.
 	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if txn, err := chain.TransactionByHash(hash); err == nil {
-			adaptedTxn := AdaptTransaction(txn)
-			return &adaptedTxn, nil
+			return AdaptTransaction(txn), nil
 		}
 	}
 
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return Transaction{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return Transaction{}, rpccore.ErrTxnHashNotFound
 	}
-	adaptedTxn := AdaptTransaction(txn)
-	return &adaptedTxn, nil
+
+	return AdaptTransaction(txn), nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -568,9 +567,9 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (*Transaction, *jsonrpc.Err
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int,
-) (*Transaction, *jsonrpc.Error) {
+) (Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
 
 	var blockNumber uint64
@@ -579,20 +578,19 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	case preConfirmed:
 		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 
 		tipBlock := chain.Head().Block
 		if uint64(txIndex) >= tipBlock.TransactionCount {
-			return nil, rpccore.ErrInvalidTxIndex
+			return Transaction{}, rpccore.ErrInvalidTxIndex
 		}
 
-		adaptedTxn := AdaptTransaction(tipBlock.Transactions[txIndex])
-		return &adaptedTxn, nil
+		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
 	case latest:
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 		blockNumber = header.Number
 	case hash:
@@ -609,16 +607,15 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if err != nil {
-		return nil, rpccore.ErrBlockNotFound
+		return Transaction{}, rpccore.ErrBlockNotFound
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
 	if err != nil {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
 
-	adaptedTxn := AdaptTransaction(txn)
-	return &adaptedTxn, nil
+	return AdaptTransaction(txn), nil
 }
 
 // getPendingTransactionReceipt searches for a transaction receipt in the pre-confirmed block.
@@ -1004,11 +1001,6 @@ func MakeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 
 // AdaptTransaction adapts a core.Transaction to a local Transaction.
 func AdaptTransaction(t core.Transaction) Transaction {
-	return AdaptCoreTransaction(t)
-}
-
-// AdaptCoreTransaction adapts a core.Transaction to a local Transaction.
-func AdaptCoreTransaction(t core.Transaction) Transaction {
 	var txn Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
