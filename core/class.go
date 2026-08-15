@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/encoder/cborlite"
 )
 
 var (
@@ -352,8 +353,17 @@ func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 		return errors.New("data too short to unmarshal DeclaredClass")
 	}
 
-	d.At = binary.BigEndian.Uint64(data[:8])
-	return encoder.Unmarshal(data[8:], &d.Class)
+	out := DeclaredClassDefinition{At: binary.BigEndian.Uint64(data[:minDeclaredClassSize])}
+	class := data[minDeclaredClassSize:]
+
+	if err := cborlite.Unmarshal(class, &out.Class); err != nil {
+		if err := encoder.Unmarshal(class, &out.Class); err != nil {
+			return err
+		}
+	}
+
+	*d = out
+	return nil
 }
 
 // ClassCasmHashMetadata tracks the CASM (Compiled Sierra) hash metadata for a class.
