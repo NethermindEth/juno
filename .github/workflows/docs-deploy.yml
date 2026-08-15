@@ -7,6 +7,7 @@ on:
     paths:
       - "docs/**"
       - "cmd/juno/juno.go"
+      - ".github/workflows/docs-deploy.yml"
   workflow_dispatch:
 
 permissions:
