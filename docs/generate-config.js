@@ -100,6 +100,11 @@ const extractConfigs = (codebase) => {
     description = description.replace(/\.$/, ""); // Remove any trailing dot
 
     // Additional descriptions based on specific configurations
+    // The registered default is computed from the process fd limit at
+    // startup, so show the formula rather than a machine-specific number.
+    if (configName === "db-max-handles") {
+      defaultValue = "half of process fd limit (min 1024, max 1048576)";
+    }
     if (configName === "max-vms") {
       defaultValue = "3 * CPU Cores";
     }

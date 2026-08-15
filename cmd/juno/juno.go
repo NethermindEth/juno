@@ -20,6 +20,7 @@ import (
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/mitchellh/mapstructure"
@@ -59,6 +60,7 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
+	disableSyncF                        = "disable-sync"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -131,6 +133,7 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
+	defaultDisableSync                        = false
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -144,7 +147,8 @@ const (
 	defaultRemoteDB                           = ""
 	defaultRPCMaxBlockScan                    = math.MaxUint
 	defaultCacheSizeMb                        = 1024
-	defaultMaxHandles                         = 1024
+	defaultDBMaxHandlesFloor                  = 1024
+	defaultDBMaxHandlesCeiling                = 1_048_576
 	defaultGwAPIKey                           = ""
 	defaultCNName                             = ""
 	defaultCNFeederURL                        = ""
@@ -211,6 +215,7 @@ const (
 	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
+	disableSyncUsage   = "Disables L2 synchronization."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -230,9 +235,11 @@ const (
 	remoteDBUsage        = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutsUsage      = "Timeouts for requests made to the gateway. Can be specified in three ways:\n" +
+	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB. " +
+		"When not set, defaults to half of the process fd limit (min 1024, max 1048576)"
+	//nolint: gosec // usage text, not a credential
+	gwAPIKeyUsage   = "API key for gateway endpoints to avoid throttling"
+	gwTimeoutsUsage = "Timeouts for requests made to the gateway. Can be specified in three ways:\n" +
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n" +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment."
@@ -540,6 +547,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
 
 	// --- Sync & Polling ---
+	junoCmd.Flags().Bool(disableSyncF, defaultDisableSync, disableSyncUsage)
 	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
@@ -548,7 +556,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
+		disableSyncF, preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---
@@ -585,7 +593,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// --- Database ---
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
-	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
+	junoCmd.Flags().Int(dbMaxHandlesF, defaultDBMaxHandles(), dbMaxHandlesUsage)
 	junoCmd.Flags().String(
 		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
 	)
@@ -706,6 +714,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
+}
+
+// defaultDBMaxHandles gives the DB half of the process fd limit, clamped to
+// [defaultDBMaxHandlesFloor, defaultDBMaxHandlesCeiling].
+func defaultDBMaxHandles() int {
+	fdLimit, err := utils.MaxFDLimit()
+	if err != nil {
+		return defaultDBMaxHandlesFloor
+	}
+	return dbMaxHandlesForFDLimit(fdLimit)
+}
+
+func dbMaxHandlesForFDLimit(fdLimit uint64) int {
+	return max(int(min(fdLimit/2, defaultDBMaxHandlesCeiling)), defaultDBMaxHandlesFloor)
 }
 
 func parseHTTPURL(rawURL string) (*url.URL, error) {

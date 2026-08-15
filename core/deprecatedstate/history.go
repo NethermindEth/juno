@@ -2,6 +2,7 @@ package deprecatedstate
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -60,15 +61,23 @@ func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	if err := s.checkDeployed(addr); err != nil {
-		return felt.Felt{}, err
-	}
-
 	val, err := s.state.ContractStorageAt(addr, key, s.blockNumber)
 	if err != nil {
-		if errors.Is(err, ErrCheckHeadState) {
-			return s.state.ContractStorage(addr, key)
+		if !errors.Is(err, ErrCheckHeadState) {
+			return felt.Felt{}, fmt.Errorf("reading storage history: %w", err)
 		}
+		if val, err = s.state.ContractStorage(addr, key); err != nil {
+			return felt.Felt{}, fmt.Errorf("reading head storage: %w", err)
+		}
+	}
+
+	// A non-zero value proves a write at or before blockNumber, and only
+	// deployed contracts are written to - skip the deployment probe.
+	if !val.IsZero() {
+		return val, nil
+	}
+
+	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
 	return val, nil

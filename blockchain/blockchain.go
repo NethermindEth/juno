@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -55,13 +56,19 @@ type Reader interface {
 		blockNumber, index uint64,
 	) (transaction core.Transaction, err error)
 	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
+	TransactionHashesByBlockNumber(blockNumber uint64) (hashes []felt.Felt, err error)
 
 	Receipt(
 		hash *felt.Felt,
 	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
-	ReceiptByBlockNumberAndIndex(
+	TransactionAndReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
-	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
+	) (
+		transaction core.Transaction,
+		receipt core.TransactionReceipt,
+		blockHash *felt.Felt,
+		err error,
+	)
 	TransactionExecutionStatusByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (status core.TransactionExecutionStatus, err error)
@@ -308,7 +315,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	txHash := (*felt.TransactionHash)(hash)
 	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("locating transaction %v: %w", hash, err)
 	}
 
 	receipt, err := core.GetReceiptByBlockAndIndex(
@@ -317,33 +324,51 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		bnIndex.Index,
 	)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf(
+			"reading receipt at block number %d and index %d: %w",
+			bnIndex.Number, bnIndex.Index, err,
+		)
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, bnIndex.Number)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("reading hash of block %d: %w", bnIndex.Number, err)
 	}
 
-	return receipt, header.Hash, header.Number, nil
+	return receipt, blockHash, bnIndex.Number, nil
 }
 
-func (b *Blockchain) ReceiptByBlockNumberAndIndex(
+// TransactionAndReceiptByBlockNumberAndIndex returns a transaction, its receipt and the hash of
+// the block holding them.
+func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
-) (core.TransactionReceipt, *felt.Felt, error) {
-	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
+) (core.Transaction, core.TransactionReceipt, *felt.Felt, error) {
+	b.listener.OnRead("TransactionAndReceiptByBlockNumberAndIndex")
 
-	receipt, err := core.GetReceiptByBlockAndIndex(b.database, blockNumber, index)
+	transaction, receipt, err := core.GetTransactionAndReceiptByBlockAndIndex(
+		b.database, blockNumber, index,
+	)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading transaction and receipt at block number %d and index %d: %w",
+			blockNumber, index, err,
+		)
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading hash of block %d: %w", blockNumber, err,
+		)
 	}
 
-	return *receipt, header.Hash, nil
+	return transaction, *receipt, blockHash, nil
+}
+
+// TransactionHashesByBlockNumber returns the transaction hashes of a given block.
+func (b *Blockchain) TransactionHashesByBlockNumber(number uint64) ([]felt.Felt, error) {
+	b.listener.OnRead("TransactionHashesByBlockNumber")
+	return core.GetTransactionHashesByBlockNumber(b.database, number)
 }
 
 // TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.

@@ -81,9 +81,9 @@ func (rb ResourceBounds) IsZero() bool {
 }
 
 type Event struct {
-	Data []felt.Felt
 	From *felt.Felt
 	Keys []felt.Felt
+	Data []felt.Felt
 }
 
 type L1ToL2Message struct {

@@ -211,6 +211,80 @@ func TestGetReceiptByBlockAndIndex(t *testing.T) {
 	})
 }
 
+// getCounter counts reads so a test can assert how many database lookups a call makes.
+type getCounter struct {
+	db.KeyValueReader
+	gets int
+}
+
+func (c *getCounter) Get(key []byte, cb func([]byte) error) error {
+	c.gets++
+	return c.KeyValueReader.Get(key, cb)
+}
+
+func TestGetTransactionAndReceiptByBlockAndIndex(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+
+	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
+		require.NotEmpty(t, block.Transactions)
+		for i := range block.Transactions {
+			counter := getCounter{KeyValueReader: memDB}
+
+			txn, receipt, err := core.GetTransactionAndReceiptByBlockAndIndex(
+				&counter, block.Number, uint64(i),
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, block.Transactions[i], txn)
+			assert.Equal(t, block.Receipts[i], receipt)
+			assert.Equal(t, 1, counter.gets)
+		}
+
+		// one past the last index should return ErrKeyNotFound
+		_, _, err := core.GetTransactionAndReceiptByBlockAndIndex(
+			memDB, block.Number, uint64(len(block.Transactions)),
+		)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := core.GetTransactionAndReceiptByBlockAndIndex(memDB, nonexistentBlockNumber, 0)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestGetTransactionEventsByBlockNumber(t *testing.T) {
+	t.Parallel()
+	memDB, block := setupForTxsAndReceiptsTests(t)
+
+	t.Run("valid block", func(t *testing.T) {
+		t.Parallel()
+		require.NotEmpty(t, block.Receipts)
+		events, err := core.GetTransactionEventsByBlockNumber(memDB, block.Number)
+		require.NoError(t, err)
+
+		// The partial decode must recover the same events the full receipts carry.
+		full, err := core.GetReceiptsByBlockNumber(memDB, block.Number)
+		require.NoError(t, err)
+		require.Len(t, events, len(full))
+		for i, receipt := range full {
+			assert.Equal(t, core.TransactionEvents{
+				Events:          receipt.Events,
+				TransactionHash: receipt.TransactionHash,
+			}, events[i])
+		}
+	})
+
+	t.Run("non-existent block", func(t *testing.T) {
+		t.Parallel()
+		_, err := core.GetTransactionEventsByBlockNumber(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
 func TestGetTransactionExecutionStatusByBlockAndIndex(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)

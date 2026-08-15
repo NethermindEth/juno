@@ -8,12 +8,19 @@ import (
 	"maps"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
+
+// gzipWriterPool holds gzip writers for reuse;
+// callers must Reset a writer onto their destination before writing to it.
+var gzipWriterPool = sync.Pool{
+	New: func() any { return gzip.NewWriter(io.Discard) },
+}
 
 type HTTP struct {
 	rpc    *Server
@@ -123,10 +130,14 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 			writer.Header().Set("Content-Encoding", "gzip")
-			gw := gzip.NewWriter(writer)
+			gw := gzipWriterPool.Get().(*gzip.Writer)
+			gw.Reset(writer)
 			defer func() {
-				if err := gw.Close(); err != nil {
+				closeErr := gw.Close()
+				gzipWriterPool.Put(gw)
+				if closeErr != nil {
 					http.Error(writer, "gzip close error", http.StatusInternalServerError)
+					return
 				}
 			}()
 			ioWriter = gw

@@ -189,17 +189,17 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 // PRE_CONFIRMED_BLOCK_HEADER
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L1636
 type BlockHeader struct {
-	Hash             *felt.Felt     `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt     `json:"parent_hash,omitempty"`
-	Number           *uint64        `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
-	Timestamp        uint64         `json:"timestamp"`
-	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
-	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
-	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
-	StarknetVersion  string         `json:"starknet_version"`
-	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
+	Hash             *felt.Felt    `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt    `json:"parent_hash,omitempty"`
+	Number           *uint64       `json:"block_number,omitempty"`
+	NewRoot          *felt.Felt    `json:"new_root,omitempty"`
+	Timestamp        uint64        `json:"timestamp"`
+	SequencerAddress *felt.Felt    `json:"sequencer_address,omitempty"`
+	L1GasPrice       ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   ResourcePrice `json:"l1_data_gas_price"`
+	L1DAMode         L1DAMode      `json:"l1_da_mode"`
+	StarknetVersion  string        `json:"starknet_version"`
+	L2GasPrice       ResourcePrice `json:"l2_gas_price"`
 }
 
 type ResourcePrice struct {
@@ -236,7 +236,7 @@ type BlockWithTxs struct {
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes []*felt.Felt `json:"transactions"`
+	TxnHashes []felt.Felt `json:"transactions"`
 }
 
 type TransactionWithReceipt struct {
@@ -332,25 +332,36 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxHashes{
+			Status:      BlockPreConfirmed,
+			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header),
+			TxnHashes:   transactionHashesOf(preConfirmed.Block.Transactions),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if id.IsPreConfirmed() {
-		numID = *id
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txnHashes := make([]*felt.Felt, header.TransactionCount)
-	for index, txn := range blockTxns {
-		txnHashes[index] = txn.Hash()
+	transactionHashes, err := h.bcReader.TransactionHashesByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(id, header.Number)
@@ -361,8 +372,18 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: AdaptBlockHeader(header),
-		TxnHashes:   txnHashes,
+		TxnHashes:   transactionHashes,
 	}, nil
+}
+
+// transactionHashesOf collects each transaction's hash, for blocks served from memory where the
+// transactions are already decoded.
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for index, transaction := range transactions {
+		hashes[index] = *transaction.Hash()
+	}
+	return hashes
 }
 
 // BlockWithReceipts returns the block information with transaction receipts given a block ID.
@@ -416,25 +437,36 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	if blockID.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxs{
+			Status:       BlockPreConfirmed,
+			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header),
+			Transactions: adaptTransactions(preConfirmed.Block.Transactions),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if blockID.IsPreConfirmed() {
-		numID = *blockID
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txs := make([]*Transaction, header.TransactionCount)
-	for index, txn := range blockTxns {
-		txs[index] = AdaptTransaction(txn)
+	blockTransactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(blockID, header.Number)
@@ -445,29 +477,38 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	return &BlockWithTxs{
 		Status:       status,
 		BlockHeader:  AdaptBlockHeader(header),
-		Transactions: txs,
+		Transactions: adaptTransactions(blockTransactions),
 	}, nil
 }
 
+// adaptTransactions sizes the result from the transactions themselves rather than the header's
+// count, so a header and a transaction list that disagree cannot index out of range.
+func adaptTransactions(transactions []core.Transaction) []*Transaction {
+	adapted := make([]*Transaction, len(transactions))
+	for index, transaction := range transactions {
+		adapted[index] = AdaptTransaction(transaction)
+	}
+	return adapted
+}
+
 func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		return BlockPreConfirmed, nil
+	}
+
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := BlockAcceptedL2
-	if id.IsPreConfirmed() {
-		status = BlockPreConfirmed
-	} else if isL1Verified(blockNumber, l1H) {
-		status = BlockAcceptedL1
+	if isL1Verified(blockNumber, l1H) {
+		return BlockAcceptedL1, nil
 	}
 
-	return status, nil
+	return BlockAcceptedL2, nil
 }
 
 func AdaptBlockHeader(header *core.Header) BlockHeader {
-	blockNumber := &header.Number
-
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
 		sequencerAddress = &felt.Zero
@@ -510,18 +551,18 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
+		Number:           &header.Number,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
-			InWei: header.L1GasPriceETH,
+		L1GasPrice: ResourcePrice{
+			InWei: nilToZero(header.L1GasPriceETH),
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
-		L1DataGasPrice:  &l1DataGasPrice,
-		L1DAMode:        &l1DAMode,
+		L1DataGasPrice:  l1DataGasPrice,
+		L1DAMode:        l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
-		L2GasPrice:      &l2GasPrice,
+		L2GasPrice:      l2GasPrice,
 	}
 }
 
