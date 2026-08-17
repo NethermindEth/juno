@@ -123,6 +123,12 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 		return maxCBORFeltLen, true
 	}
 
+	return decodeVariableLimbs(data, value)
+}
+
+// decodeVariableLimbs decodes the limbs at data[1:] one header byte at a time, covering the shapes
+// the fixed-shape fast path rejects; data[0] must already be a validated array header.
+func decodeVariableLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 	var limbs F
 	offset := 1
 
