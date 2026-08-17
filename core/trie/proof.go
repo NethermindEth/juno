@@ -70,6 +70,10 @@ func (e *Edge) String() string {
 // Proof hashes are taken from stored node values, so the trie's hashes must be
 // current: call Hash after the last write and before Prove.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
+	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
+		return errors.New("cannot prove a trie with unhashed writes")
+	}
+
 	k := t.FeltToKey(key)
 
 	nodesFromRoot, err := t.nodesFromRoot(&k)
@@ -79,12 +83,11 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 
 	var parentKey *BitArray
 	// Parent-facing hash of the current node, computed by the previous
-	// iteration. Nil for the root, whose hash has no parent to come from.
+	// iteration; nil for the root.
 	var carriedHash *felt.Felt
 
-	// The proof nodes below alias felts of the nodes from nodesFromRoot, so these
-	// nodes must not go back to nodePool the way Put and Delete return theirs:
-	// reuse would overwrite hashes that the caller still holds.
+	// Proof nodes alias felts of every node read below, so none of these nodes
+	// can go back to nodePool: reuse would overwrite hashes the caller holds.
 	for i, sNode := range nodesFromRoot {
 		isLeaf := sNode.key.len == t.height
 
@@ -113,13 +116,11 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		if sNodeEdge != nil { // Internal Edge
 			proof.Put(edgeHash(sNodeEdge, carriedHash, t.hash), sNodeEdge)
 		}
-		// A hashed internal node stores hash(leftHash, rightHash) as its
-		// value, so the binary hash needs no recomputation.
+		// A hashed internal node stores hash(leftHash, rightHash) as its value.
 		proof.Put(*sNode.node.Value, sNodeBinary)
 
-		// The on-path child's parent-facing hash is one of the two the Binary
-		// already holds, so the next iteration reuses it instead of hashing
-		// again. A nil carry makes that iteration recompute, never misreport.
+		// Carry the on-path child's parent-facing hash from the Binary; a nil
+		// carry only costs a recomputation, never a wrong hash.
 		carriedHash = nil
 		switch {
 		case onPathChild == nil:
@@ -408,9 +409,8 @@ func binaryProofNode(
 			}
 		}
 
-		// Node.HashFromParent would cover both branches, but it returns a value:
-		// taking its address costs an allocation per non-edge child, which this
-		// avoids.
+		// Not Node.HashFromParent: taking the address of its returned value
+		// costs an allocation per non-edge child.
 		if isEdge(sNode.key, StorageNode{key: childKey}) {
 			edgePath := path(childKey, sNode.key)
 			wrapped := child.Hash(&edgePath, tri.hash)
