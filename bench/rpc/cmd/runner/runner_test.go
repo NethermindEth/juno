@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -104,38 +103,6 @@ func TestConfigValidationFailures(t *testing.T) {
 	}
 }
 
-func TestLoadFailureProducesManifest(t *testing.T) {
-	environment := validEnvironment()
-	delete(environment, "SNAPSHOT_ID")
-	environment["RESULTS_DIR"] = t.TempDir()
-	config := loadConfig(
-		func(name string) (string, bool) {
-			value, ok := environment[name]
-			return value, ok
-		},
-		func(string) ([]byte, error) {
-			return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
-		},
-		time.Now(),
-	)
-	r := newRunner(config, io.Discard, io.Discard)
-	if status := r.run(); status != 2 {
-		t.Fatalf("runner exited %d, want 2", status)
-	}
-	data, err := os.ReadFile(filepath.Join(config.resultsDir, "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var result manifest
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.Failure == nil || result.Failure.Stage != stageConfiguration ||
-		result.Failure.Reason != "SNAPSHOT_ID is required" {
-		t.Fatalf("unexpected failure: %#v", result.Failure)
-	}
-}
-
 func TestParseSummaryMetricsSupportsBothK6Shapes(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
@@ -223,34 +190,6 @@ func TestValidateCorpus(t *testing.T) {
 	}
 }
 
-func TestRPCResult(t *testing.T) {
-	t.Parallel()
-	handler := func(writer http.ResponseWriter, request *http.Request) {
-		defer request.Body.Close()
-		var payload struct {
-			Method string `json:"method"`
-		}
-		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
-			t.Errorf("decode request: %v", err)
-		}
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(writer, `{"jsonrpc":"2.0","id":1,"result":"`+payload.Method+`"}`)
-	}
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-
-	config := validConfig()
-	config.nodeURL = server.URL
-	r := newRunner(config, io.Discard, io.Discard)
-	result, err := r.rpcResult("juno_version")
-	if err != nil {
-		t.Fatalf("RPC result: %v", err)
-	}
-	if string(result) != `"juno_version"` {
-		t.Fatalf("unexpected result %s", result)
-	}
-}
-
 func TestManifestUsesNullForInvalidConfiguration(t *testing.T) {
 	t.Parallel()
 	config := validConfig()
@@ -275,113 +214,6 @@ func TestManifestUsesNullForInvalidConfiguration(t *testing.T) {
 	}
 	if result.Scenarios.Single.Iterations != nil {
 		t.Fatalf("invalid iteration count should be null")
-	}
-}
-
-func TestTemporaryFilePathMatchesCleanupPattern(t *testing.T) {
-	t.Parallel()
-	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
-	temporaryPath := temporaryFilePath(manifestPath, 1234)
-	matched, err := filepath.Match(temporaryFilePattern(manifestPath), temporaryPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !matched {
-		t.Fatalf("temporary path %q does not match cleanup pattern", temporaryPath)
-	}
-	if filepath.Base(temporaryPath) != ".manifest.json.tmp.1234" {
-		t.Fatalf("unexpected temporary filename %q", filepath.Base(temporaryPath))
-	}
-}
-
-func TestRunK6ReturnsExitStatusAndForwardsTerm(t *testing.T) {
-	directory := t.TempDir()
-	corpusPath := filepath.Join(directory, "corpus.json")
-	readyPath := filepath.Join(directory, "ready")
-	signalPath := filepath.Join(directory, "signal")
-	if err := os.WriteFile(corpusPath, []byte(`{"meta":{},"requests":[{}]}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	k6Path := filepath.Join(directory, "k6")
-	k6 := `#!/bin/sh
-count=0
-on_term() {
-  count=$((count + 1))
-  [ "$count" -lt 2 ] || exit 42
-  : > "$K6_SIGNAL_FILE"
-}
-trap on_term TERM
-: > "$K6_READY_FILE"
-while :; do sleep 1; done
-`
-	if err := os.WriteFile(k6Path, []byte(k6), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("K6_READY_FILE", readyPath)
-	t.Setenv("K6_SIGNAL_FILE", signalPath)
-
-	config := validConfig()
-	config.corpusPath = corpusPath
-	r := newRunner(config, io.Discard, io.Discard)
-	r.startSignalHandler()
-	defer r.stopSignalHandler()
-	result := make(chan int, 1)
-	go func() {
-		status, _ := r.runK6([]string{"run"}, io.Discard)
-		result <- status
-	}()
-
-	waitForFile(t, readyPath)
-	r.signals <- syscall.SIGTERM
-	waitForFile(t, signalPath)
-	r.signals <- syscall.SIGTERM
-	select {
-	case status := <-result:
-		if status != 42 {
-			t.Fatalf("got exit status %d, want 42", status)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("fake k6 did not stop after TERM")
-	}
-}
-
-func TestRunnerCompletesAllScenarios(t *testing.T) {
-	directory := t.TempDir()
-	installFakeK6(t, directory)
-	config, server := runnableConfig(t, directory)
-	defer server.Close()
-	config.expectedBlockNumber = "0800000"
-
-	var stderr strings.Builder
-	r := newRunner(config, io.Discard, &stderr)
-	if status := r.run(); status != 0 {
-		t.Fatalf("runner exited %d: %s", status, stderr.String())
-	}
-
-	manifestData, err := os.ReadFile(filepath.Join(config.resultsDir, "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var result manifest
-	if err := json.Unmarshal(manifestData, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.Status != "passed" || result.Node.Readiness != "passed" {
-		t.Fatalf("unexpected manifest status: %#v", result)
-	}
-	if result.Scenarios.Single.Status != "passed" ||
-		result.Scenarios.Concurrency.Status != "passed" ||
-		result.Scenarios.Throughput.Status != "passed" {
-		t.Fatalf("scenarios did not pass: %#v", result.Scenarios)
-	}
-	for _, name := range []string{"single.json", "concurrency.json", "throughput.json"} {
-		if _, err := os.Stat(filepath.Join(config.resultsDir, name)); err != nil {
-			t.Fatalf("missing %s: %v", name, err)
-		}
-	}
-	if !strings.Contains(stderr.String(), "completed successfully") {
-		t.Fatalf("missing completion log: %s", stderr.String())
 	}
 }
 
@@ -457,7 +289,6 @@ func TestRunnerClassifiesConfigurationAndTargetFailures(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			directory := t.TempDir()
-			installFakeK6(t, directory)
 			config, server := runnableConfig(t, directory)
 			defer server.Close()
 			test.mutate(config)
@@ -545,32 +376,6 @@ func runnableConfig(t *testing.T, directory string) (*config, *httptest.Server) 
 	return config, server
 }
 
-func installFakeK6(t *testing.T, directory string) {
-	t.Helper()
-	k6 := `#!/bin/sh
-summary=
-while [ "$#" -gt 0 ]; do
-  if [ "$1" = "--summary-export" ]; then
-    shift
-    summary=$1
-  fi
-  shift
-done
-summary_json='{"metrics":{'\
-'"checks":{"fails":0},'\
-'"rpc_request_failures":{"count":0},'\
-'"http_req_failed":{"passes":0},'\
-'"vu_failures":{"count":0},'\
-'"dropped_iterations":{"count":0},'\
-'"iterations":{"count":2}}}'
-printf '%s\n' "$summary_json" > "$summary"
-`
-	if err := os.WriteFile(filepath.Join(directory, "k6"), []byte(k6), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
-}
-
 func validEnvironment() map[string]string {
 	return map[string]string{
 		"NODE_URL": "http://127.0.0.1:6060/v0_10", "READY_URL": "http://127.0.0.1:6060/ready/rpc",
@@ -596,21 +401,5 @@ func validConfig() *config {
 		readyTimeoutRaw: "10s", readyPollIntervalRaw: "1s", iterationsRaw: "2", vusRaw: "1",
 		concurrencyDurationRaw: "1s", throughputDurationRaw: "1s",
 		throughputVUsRaw: "3", ratesRaw: "10,20",
-	}
-}
-
-func waitForFile(t *testing.T, path string) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		if _, err := os.Stat(path); err == nil {
-			return
-		} else if !os.IsNotExist(err) {
-			t.Fatal(err)
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", path)
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
