@@ -383,11 +383,16 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 
 // isEdge checks if the storage node is an edge node.
 func isEdge(parentKey *BitArray, sNode StorageNode) bool {
-	sNodeLen := sNode.key.len
+	return isEdgeKey(parentKey, sNode.key)
+}
+
+// isEdgeKey reports whether childKey hangs off parentKey via an edge, i.e. the
+// path between them is longer than the single branching bit.
+func isEdgeKey(parentKey, childKey *BitArray) bool {
 	if parentKey == nil { // Root
-		return sNodeLen != 0
+		return childKey.len != 0
 	}
-	return sNodeLen-parentKey.len > 1
+	return childKey.len-parentKey.len > 1
 }
 
 // binaryProofNode builds the Binary proof node of an internal StorageNode.
@@ -411,7 +416,7 @@ func binaryProofNode(
 
 		// Not Node.HashFromParent: taking the address of its returned value
 		// costs an allocation per non-edge child.
-		if isEdge(sNode.key, StorageNode{key: childKey}) {
+		if isEdgeKey(sNode.key, childKey) {
 			edgePath := path(childKey, sNode.key)
 			wrapped := child.Hash(&edgePath, tri.hash)
 			return &wrapped, nil
