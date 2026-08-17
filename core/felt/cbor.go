@@ -100,6 +100,21 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 		return 0, false
 	}
 
+	// Felts are stored in Montgomery form, so in practice every limb exceeds MaxUint32 and
+	// encodes as a full uint64, giving one fixed 37-byte shape. Decode it without the
+	// per-limb header switch; anything else falls through to the general loop.
+	if len(data) >= maxCBORFeltLen &&
+		data[1] == cborUint64AdditionalInfo &&
+		data[10] == cborUint64AdditionalInfo &&
+		data[19] == cborUint64AdditionalInfo &&
+		data[28] == cborUint64AdditionalInfo {
+		(*value)[0] = binary.BigEndian.Uint64(data[2:])
+		(*value)[1] = binary.BigEndian.Uint64(data[11:])
+		(*value)[2] = binary.BigEndian.Uint64(data[20:])
+		(*value)[3] = binary.BigEndian.Uint64(data[29:])
+		return maxCBORFeltLen, true
+	}
+
 	var limbs F
 	offset := 1
 
