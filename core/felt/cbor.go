@@ -100,18 +100,26 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 		return 0, false
 	}
 
+	// Header-byte offset of each limb in the all-uint64 shape; the 8-byte payload follows.
+	const (
+		limb0Header = 1
+		limb1Header = limb0Header + maxCBORUintLen
+		limb2Header = limb1Header + maxCBORUintLen
+		limb3Header = limb2Header + maxCBORUintLen
+	)
+
 	// Felts are stored in Montgomery form, so in practice every limb exceeds MaxUint32 and
 	// encodes as a full uint64, giving one fixed 37-byte shape. Decode it without the
 	// per-limb header switch; anything else falls through to the general loop.
 	if len(data) >= maxCBORFeltLen &&
-		data[1] == cborUint64AdditionalInfo &&
-		data[10] == cborUint64AdditionalInfo &&
-		data[19] == cborUint64AdditionalInfo &&
-		data[28] == cborUint64AdditionalInfo {
-		(*value)[0] = binary.BigEndian.Uint64(data[2:])
-		(*value)[1] = binary.BigEndian.Uint64(data[11:])
-		(*value)[2] = binary.BigEndian.Uint64(data[20:])
-		(*value)[3] = binary.BigEndian.Uint64(data[29:])
+		data[limb0Header] == cborUint64AdditionalInfo &&
+		data[limb1Header] == cborUint64AdditionalInfo &&
+		data[limb2Header] == cborUint64AdditionalInfo &&
+		data[limb3Header] == cborUint64AdditionalInfo {
+		(*value)[0] = binary.BigEndian.Uint64(data[limb0Header+1 : limb1Header])
+		(*value)[1] = binary.BigEndian.Uint64(data[limb1Header+1 : limb2Header])
+		(*value)[2] = binary.BigEndian.Uint64(data[limb2Header+1 : limb3Header])
+		(*value)[3] = binary.BigEndian.Uint64(data[limb3Header+1 : maxCBORFeltLen])
 		return maxCBORFeltLen, true
 	}
 

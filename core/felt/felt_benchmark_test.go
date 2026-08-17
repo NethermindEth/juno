@@ -123,19 +123,17 @@ func BenchmarkUnmarshalCBOR(b *testing.B) {
 // near-universal in stored data.
 func BenchmarkUnmarshalCBORByWireSize(b *testing.B) {
 	cases := []struct {
-		name  string
-		limbs [4]uint64
+		name    string
+		limbs   [4]uint64
+		wantLen int
 	}{
-		{"zero (5B)", [4]uint64{0, 0, 0, 0}},
-		{"tiny limbs (5B)", [4]uint64{1, 2, 3, 4}},
-		{"uint8 limbs (9B)", [4]uint64{200, 201, 202, 203}},
-		{"uint16 limbs (13B)", [4]uint64{40_000, 40_001, 40_002, 40_003}},
-		{"uint32 limbs (21B)", [4]uint64{1 << 30, 1 << 30, 1 << 30, 1 << 30}},
-		{"uint64 limbs (37B, canonical)", [4]uint64{1 << 40, 1 << 41, 1 << 42, 1 << 43}},
-		// Worst case for the fixed-shape fast path: three markers match before the last one
-		// fails, so it pays all four compares and then the general loop from scratch.
-		{"near miss (3 uint64 + tiny limb)", [4]uint64{1 << 40, 1 << 41, 1 << 42, 7}},
-		{"mixed limbs (tiny first)", [4]uint64{7, 1 << 40, 40_000, 200}},
+		{"zero (5B)", [4]uint64{0, 0, 0, 0}, 5},
+		{"tiny limbs (5B)", [4]uint64{1, 2, 3, 4}, 5},
+		{"uint8 limbs (9B)", [4]uint64{200, 201, 202, 203}, 9},
+		{"uint16 limbs (13B)", [4]uint64{40_000, 40_001, 40_002, 40_003}, 13},
+		{"uint32 limbs (21B)", [4]uint64{1 << 30, 1 << 30, 1 << 30, 1 << 30}, 21},
+		{"uint64 limbs (37B, canonical)", [4]uint64{1 << 40, 1 << 41, 1 << 42, 1 << 43}, 37},
+		{"mixed limbs (16B)", [4]uint64{7, 1 << 40, 40_000, 200}, 16},
 	}
 	for _, tc := range cases {
 		value := fromLimbs[felt.Felt](tc.limbs[0], tc.limbs[1], tc.limbs[2], tc.limbs[3])
@@ -143,9 +141,15 @@ func BenchmarkUnmarshalCBORByWireSize(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
+		if len(input) != tc.wantLen {
+			b.Fatalf("%s: got %d bytes, want %d", tc.name, len(input), tc.wantLen)
+		}
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 			var out felt.Felt
+			if err := out.UnmarshalCBOR(input); err != nil {
+				b.Fatal(err)
+			}
 			for b.Loop() {
 				_ = out.UnmarshalCBOR(input)
 			}
