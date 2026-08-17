@@ -290,19 +290,19 @@ type ExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType     `json:"type"`
-	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
-	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
-	BlockNumber        *uint64             `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
-	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
-	RevertReason       string              `json:"revert_reason,omitempty"`
-	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
-	MessageHash        string              `json:"message_hash,omitempty"`
+	Type               TransactionType    `json:"type"`
+	Hash               *felt.Felt         `json:"transaction_hash"`
+	ActualFee          FeePayment         `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
+	BlockHash          *felt.Felt         `json:"block_hash,omitempty"`
+	BlockNumber        *uint64            `json:"block_number,omitempty"`
+	MessagesSent       []MsgToL1          `json:"messages_sent"`
+	Events             []*Event           `json:"events"`
+	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
+	RevertReason       string             `json:"revert_reason,omitempty"`
+	ExecutionResources ExecutionResources `json:"execution_resources"`
+	MessageHash        string             `json:"message_hash,omitempty"`
 }
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
@@ -378,12 +378,12 @@ func MakeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.E
 	})
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		return ExecutionResources{}
 	}
 
-	res := &ExecutionResources{}
+	res := ExecutionResources{}
 	if tgc := resources.TotalGasConsumed; tgc != nil {
 		res.L1Gas = tgc.L1Gas
 		res.L2Gas = tgc.L2Gas
@@ -420,7 +420,7 @@ type Transaction struct {
 }
 
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L3369
 type ContractClass struct {
 	SierraProgram        []felt.Felt              `json:"sierra_program" validate:"required"`
 	ContractClassVersion string                   `json:"contract_class_version" validate:"required"`

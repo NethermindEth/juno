@@ -87,29 +87,6 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
-	switch blockID.Type() {
-	case preConfirmed:
-		chain, err := h.syncReader.PreConfirmedChain()
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return chain.Head().Block.Transactions, nil
-	default:
-		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return txns, nil
-	}
-}
-
 func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
@@ -149,12 +126,12 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	return header, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		return ExecutionResources{}
 	}
 
-	res := &ExecutionResources{}
+	res := ExecutionResources{}
 	if tgc := resources.TotalGasConsumed; tgc != nil {
 		res.L1Gas = tgc.L1Gas
 		res.L2Gas = tgc.L2Gas

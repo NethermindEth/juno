@@ -21,8 +21,8 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Interacting with Juno",
-      collapsed: false,
+      label: "RPC and WebSockets",
+      collapsed: true,
       items: [
         "json-rpc",
         "websocket",

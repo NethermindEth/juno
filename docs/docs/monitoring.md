@@ -1,8 +1,8 @@
 ---
-title: Monitoring Juno
+title: Metrics Monitoring
 ---
 
-# Monitoring Juno :bar_chart:
+# Metrics Monitoring :bar_chart:
 
 Juno uses [Prometheus](https://prometheus.io/) to monitor and collect metrics data, which you can visualise with [Grafana](https://grafana.com/). You can use these insights to understand what is happening when Juno is running.
 
@@ -137,6 +137,11 @@ readinessProbe:
   periodSeconds: 5
   failureThreshold: 3
 ```
+
+### `/ready/rpc` endpoint
+
+The `/ready/rpc` endpoint returns `200 OK` once the database has a canonical head and RPC requests can be served.
+Use it as the readiness probe for tests or benchmarks started with `--disable-sync` and a preloaded database.
 
 ### Configuring readiness criteria
 

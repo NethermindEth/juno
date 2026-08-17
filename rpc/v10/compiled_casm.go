@@ -25,15 +25,15 @@ type EntryPointsByType struct {
 }
 
 // CompiledCasmResponse represents a compiled Cairo class. It follows this specification:
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_executables.json#L45
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_executables.json#L45
 type CompiledCasmResponse struct {
 	EntryPointsByType EntryPointsByType `json:"entry_points_by_type"`
 	// can't use felt.Felt here because prime is larger than felt
-	Prime                  string          `json:"prime"`
-	CompilerVersion        string          `json:"compiler_version"`
-	Bytecode               []felt.Felt     `json:"bytecode"`
-	Hints                  json.RawMessage `json:"hints"`
-	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
+	Prime                  string                `json:"prime"`
+	CompilerVersion        string                `json:"compiler_version"`
+	Bytecode               felt.Slice[felt.Felt] `json:"bytecode"`
+	Hints                  json.RawMessage       `json:"hints"`
+	BytecodeSegmentLengths []int                 `json:"bytecode_segment_lengths,omitempty"`
 }
 
 // CompiledCasm receives a class hash and returns the compiled cairo assembly (CASM)

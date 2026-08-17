@@ -15,6 +15,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,9 @@ func parseURL(t *testing.T, rawURL string) *url.URL {
 
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	fdLimit, err := utils.MaxFDLimit()
 	require.NoError(t, err)
 
 	// The purpose of these tests is to ensure the precedence of our config
@@ -70,7 +74,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxRequestQueue := uint(256000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
-	defaultMaxHandles := 1024
+	defaultMaxHandles := max(int(min(fdLimit/2, 1_048_576)), 1024)
 	defaultDBMemtableSize := uint(256)
 	defaultDBMemtableCount := uint(2)
 	defaultDBCompression := "zstd"
@@ -206,6 +210,9 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedNumericCompilationLimits.MaxCompilationQueue = 32
 	expectedNumericCompilationLimits.MaxCompilationQueueExplicit = true
 
+	expectedSyncDisabled := expectedConfig2
+	expectedSyncDisabled.DisableSync = true
+
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
@@ -245,6 +252,19 @@ cn-unverifiable-range: [0,10]
 		"default config with no flags": {
 			inputArgs:      []string{""},
 			expectedConfig: &expectedConfig2,
+		},
+		"sync disabled": {
+			inputArgs:      []string{"--disable-sync"},
+			expectedConfig: &expectedSyncDisabled,
+		},
+		"sync disabled in config file": {
+			cfgFile:         true,
+			cfgFileContents: "disable-sync: true\n",
+			expectedConfig:  &expectedSyncDisabled,
+		},
+		"sync disabled in environment": {
+			env:            []string{"JUNO_DISABLE_SYNC", "true"},
+			expectedConfig: &expectedSyncDisabled,
 		},
 		"explicit compilation limits survive": {
 			inputArgs: []string{
@@ -935,6 +955,24 @@ network: sepolia
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedConfig, config)
+		})
+	}
+}
+
+func TestDisableSyncFalseAllowsSyncDependentFlags(t *testing.T) {
+	tests := map[string][]string{
+		"sequencer":       {"--disable-sync=false", "--seq-enable"},
+		"p2p":             {"--disable-sync=false", "--p2p"},
+		"pruning":         {"--disable-sync=false", "--prune-mode"},
+		"remote database": {"--disable-sync=false", "--remote-db", "localhost:6064"},
+	}
+
+	for name, args := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := juno.NewCmd(new(node.Config), func(*cobra.Command, []string) error { return nil })
+			cmd.SetArgs(args)
+
+			require.NoError(t, cmd.ExecuteContext(t.Context()))
 		})
 	}
 }

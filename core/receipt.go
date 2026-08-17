@@ -26,12 +26,18 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
-// ExecutionStatus is the status subset of TransactionReceipt, decoded on its own to
-// skip the heavier fields. Field names must match TransactionReceipt so the CBOR
-// decoder can pick them out by key.
-type ExecutionStatus struct {
+// TransactionExecutionStatus is the execution-status subset of a TransactionReceipt:
+// whether the transaction reverted, and the revert reason if it did.
+type TransactionExecutionStatus struct {
 	Reverted     bool
 	RevertReason string
+}
+
+// TransactionEvents is the events subset of a TransactionReceipt: the events and the
+// hash of the transaction that emitted them.
+type TransactionEvents struct {
+	Events          []*Event
+	TransactionHash *felt.Felt
 }
 
 func (r *TransactionReceipt) hash() felt.Felt {

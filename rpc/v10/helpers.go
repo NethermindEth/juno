@@ -84,29 +84,6 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
-	switch {
-	case blockID.IsPreConfirmed():
-		reader, err := h.syncReader.PreConfirmedChain()
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return reader.Head().GetTransactions(), nil
-	default:
-		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return txns, nil
-	}
-}
-
 func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
@@ -222,23 +199,4 @@ func transactionTypeFrom(t core.Transaction) TransactionType {
 	default:
 		panic(fmt.Sprintf("unknown transaction type %T", t))
 	}
-}
-
-// getCommitmentsAndStateDiff retrieves commitments and stateDiff by block number.
-func (h *Handler) getCommitmentsAndStateDiff(
-	blockNumber uint64,
-) (*core.BlockCommitments, *core.StateDiff, error) {
-	// Get commitments
-	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get stateDiff from stateUpdate
-	stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return commitments, stateUpdate.StateDiff, nil
 }

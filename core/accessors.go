@@ -496,6 +496,23 @@ func GetReceiptsByBlockNumber(
 	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetTransactionEventsByBlockNumber returns the events subset of every receipt in the
+// block. It skips the heavier receipt fields.
+func GetTransactionEventsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]TransactionEvents, error) {
+	return BlockTransactionsAllTransactionEventsPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
+// GetTransactionHashesByBlockNumber returns transaction-hashes of given block.
+func GetTransactionHashesByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]felt.Felt, error) {
+	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,
@@ -505,13 +522,29 @@ func GetReceiptByBlockAndIndex(
 	return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
 }
 
-// GetExecutionStatusByBlockAndIndex returns only the status subset of a receipt,
-// skipping its heavier fields.
-func GetExecutionStatusByBlockAndIndex(
+// GetTransactionAndReceiptByBlockAndIndex returns a transaction and its receipt by block number
+// and transaction index. Both live under the same key, so this reads the block only once.
+func GetTransactionAndReceiptByBlockAndIndex(
 	r db.KeyValueReader,
 	blockNumber uint64,
 	index uint64,
-) (ExecutionStatus, error) {
+) (Transaction, *TransactionReceipt, error) {
+	pair, err := BlockTransactionsTransactionAndReceiptPartialBucket.Get(
+		r, blockNumber, int(index),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pair.Transaction, pair.Receipt, nil
+}
+
+// GetTransactionExecutionStatusByBlockAndIndex returns only the status subset of a
+// receipt, skipping its heavier fields.
+func GetTransactionExecutionStatusByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (TransactionExecutionStatus, error) {
 	return BlockTransactionsExecutionStatusPartialBucket.Get(r, blockNumber, int(index))
 }
 

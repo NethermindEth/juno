@@ -213,15 +213,6 @@ func (d *Database) Write(fn func(db.Batch) error) error {
 	return batch.Write()
 }
 
-func (d *Database) View(fn func(db.Snapshot) error) error {
-	if d.db == nil {
-		return errDBClosed
-	}
-
-	snap := d.NewSnapshot()
-	return fn(snap)
-}
-
 func (d *Database) WithListener(listener db.EventListener) db.KeyValueStore {
 	return d // no-op
 }

@@ -60,14 +60,14 @@ You must provide either `--eth-node <WS endpoint>` or `--disable-l1-verification
 :::
 
 :::tip
-You can use a snapshot to quickly synchronise your node with the network. Check out the [Database Snapshots](snapshots) guide to get started. Use an init container to download the snapshot before Juno starts:
+You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started. Use an init container to download the snapshot before Juno starts:
 
 ```yaml
 juno:
   initContainers:
     - name: download-snapshot
       image: alpine:latest
-      command: ["sh", "-c", "wget -O- <SNAPSHOT_URL> | tar xf - -C /data"]
+      command: ["sh", "-c", "apk add --no-cache zstd && wget -O- <SNAPSHOT_URL> | zstd -d | tar -xf - -C /data"]
       volumeMounts:
         - name: data-juno
           mountPath: /data
@@ -241,7 +241,7 @@ serviceMonitor:
     release: prometheus
 ```
 
-The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Monitoring Juno](monitoring) guide.
+The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Metrics Monitoring](monitoring) guide.
 
 ## Upgrading
 
