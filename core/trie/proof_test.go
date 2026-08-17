@@ -855,3 +855,51 @@ type keyValue struct {
 	key   *felt.Felt
 	value *felt.Felt
 }
+
+func TestProveErrsOnStaleHashes(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+
+	key := new(felt.Felt).SetUint64(1)
+	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	require.NoError(t, err)
+
+	err = tempTrie.Prove(key, trie.NewProofNodeSet())
+	require.EqualError(t, err, "cannot prove a trie with unhashed writes")
+
+	require.NoError(t, tempTrie.Commit())
+	require.NoError(t, tempTrie.Prove(key, trie.NewProofNodeSet()))
+}
+
+// TestProveSetInvariant checks every proof entry is keyed by its own hash.
+// Prove reuses stored and carried hashes instead of recomputing them, so a
+// drift between the reused values and the node contents would mis-key entries
+// and only surface at the verifier.
+func TestProveSetInvariant(t *testing.T) {
+	t.Parallel()
+
+	tempTrie, records := randomTrie(t, 100)
+
+	keys := make([]*felt.Felt, 0, len(records)+1)
+	for _, record := range records {
+		keys = append(keys, record.key)
+	}
+	// Non-membership proofs must hold the invariant too.
+	keys = append(keys, new(felt.Felt).SetUint64(0xdead))
+
+	for _, key := range keys {
+		proofSet := trie.NewProofNodeSet()
+		require.NoError(t, tempTrie.Prove(key, proofSet))
+
+		hashes := proofSet.Keys()
+		nodes := proofSet.List()
+		for i, node := range nodes {
+			hash := node.Hash(crypto.Pedersen)
+			require.True(t, hash.Equal(&hashes[i]), "entry %d for key %s", i, key)
+		}
+	}
+}
