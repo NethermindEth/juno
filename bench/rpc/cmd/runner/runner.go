@@ -235,29 +235,22 @@ func (r *runner) markCurrentStageFailed() {
 }
 
 func (r *runner) cleanKnownOutputs() error {
-	paths := []string{
-		filepath.Join(r.config.resultsDir, "manifest.json"),
-		filepath.Join(r.config.resultsDir, "single.json"),
-		filepath.Join(r.config.resultsDir, "concurrency.json"),
-		filepath.Join(r.config.resultsDir, "throughput.json"),
-	}
-	patterns := []string{
-		temporaryFilePattern(filepath.Join(r.config.resultsDir, "manifest.json")),
-		filepath.Join(r.config.resultsDir, ".warmup.json.tmp.*"),
-		filepath.Join(r.config.resultsDir, ".single.json.tmp.*"),
-		filepath.Join(r.config.resultsDir, ".concurrency.json.tmp.*"),
-		filepath.Join(r.config.resultsDir, ".throughput.json.tmp.*"),
-	}
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
+	outputs := []string{"manifest", "warmup", stageSingle, stageConcurrency, stageThroughput}
+	for _, name := range outputs {
+		if name != "warmup" {
+			path := filepath.Join(r.config.resultsDir, name+".json")
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+		matches, err := filepath.Glob(filepath.Join(r.config.resultsDir, "."+name+".json.tmp.*"))
 		if err != nil {
 			return err
 		}
-		paths = append(paths, matches...)
-	}
-	for _, path := range paths {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
+		for _, path := range matches {
+			if err := os.Remove(path); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -350,13 +343,9 @@ func (r *runner) runReadiness() int {
 			return r.fail("RPC readiness timed out after " + r.config.readyTimeoutRaw)
 		}
 		fmt.Fprintf(r.stderr, "waiting for RPC readiness at %s\n", r.config.readyURL)
-		timer := time.NewTimer(r.config.readyPollInterval)
 		select {
-		case <-timer.C:
+		case <-time.After(r.config.readyPollInterval):
 		case <-r.context.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
 			return r.terminate(r.receivedSignal())
 		}
 	}

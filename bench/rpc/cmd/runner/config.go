@@ -79,20 +79,9 @@ func loadConfig(
 		loadError = "embedded Juno commit is invalid"
 	}
 
-	required := []string{
-		"NODE_URL",
-		"READY_URL",
-		"EXPECTED_CHAIN_ID",
-		"EXPECTED_BLOCK_NUMBER",
-		"SNAPSHOT_ID",
-		"SNAPSHOT_SHA256",
-		"JUNO_IMAGE_DIGEST",
-		"RUNNER_IMAGE_DIGEST",
-	}
-	values := make(map[string]string, len(required))
-	for _, name := range required {
-		value, _ := getenv(name)
-		values[name] = value
+	value := func(name string) string {
+		result, _ := getenv(name)
+		return result
 	}
 
 	valueOr := func(name, fallback string) string {
@@ -113,14 +102,14 @@ func loadConfig(
 		scriptDir: scriptDir,
 		loadError: loadError,
 
-		nodeURL:             values["NODE_URL"],
-		readyURL:            values["READY_URL"],
-		expectedChainID:     values["EXPECTED_CHAIN_ID"],
-		expectedBlockNumber: values["EXPECTED_BLOCK_NUMBER"],
-		snapshotID:          values["SNAPSHOT_ID"],
-		snapshotSHA256:      values["SNAPSHOT_SHA256"],
-		junoImageDigest:     values["JUNO_IMAGE_DIGEST"],
-		runnerImageDigest:   values["RUNNER_IMAGE_DIGEST"],
+		nodeURL:             value("NODE_URL"),
+		readyURL:            value("READY_URL"),
+		expectedChainID:     value("EXPECTED_CHAIN_ID"),
+		expectedBlockNumber: value("EXPECTED_BLOCK_NUMBER"),
+		snapshotID:          value("SNAPSHOT_ID"),
+		snapshotSHA256:      value("SNAPSHOT_SHA256"),
+		junoImageDigest:     value("JUNO_IMAGE_DIGEST"),
+		runnerImageDigest:   value("RUNNER_IMAGE_DIGEST"),
 
 		junoCommit: junoCommit,
 		runID:      runID,

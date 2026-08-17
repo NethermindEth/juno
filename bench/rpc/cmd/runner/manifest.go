@@ -141,25 +141,15 @@ func (r *runner) currentManifest() manifest {
 		corpusSHA = &value
 	}
 
-	var expectedBlock, actualBlock, iterations, vus, throughputVUs *uint64
+	var expectedBlock *uint64
 	if r.config.expectedBlockParsed {
 		value := r.config.expectedBlock
 		expectedBlock = &value
 	}
-	if digitsPattern.MatchString(r.actualBlockNumber) {
-		if value, err := strconv.ParseUint(r.actualBlockNumber, 10, 64); err == nil {
-			actualBlock = &value
-		}
-	}
-	if value, err := strconv.ParseUint(r.config.iterationsRaw, 10, 64); err == nil {
-		iterations = &value
-	}
-	if value, err := strconv.ParseUint(r.config.vusRaw, 10, 64); err == nil {
-		vus = &value
-	}
-	if value, err := strconv.ParseUint(r.config.throughputVUsRaw, 10, 64); err == nil {
-		throughputVUs = &value
-	}
+	actualBlock := parseUintPointer(r.actualBlockNumber)
+	iterations := parseUintPointer(r.config.iterationsRaw)
+	vus := parseUintPointer(r.config.vusRaw)
+	throughputVUs := parseUintPointer(r.config.throughputVUsRaw)
 
 	meta := r.corpusMeta
 	if len(meta) == 0 {
@@ -217,6 +207,14 @@ func (r *runner) currentManifest() manifest {
 	}
 }
 
+func parseUintPointer(raw string) *uint64 {
+	value, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &value
+}
+
 func (r *runner) writeManifest() error {
 	data, err := json.MarshalIndent(r.currentManifest(), "", "  ")
 	if err != nil {
@@ -240,8 +238,4 @@ func writeFileViaRename(path string, data []byte) error {
 
 func temporaryFilePath(path string, pid int) string {
 	return filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.tmp.%d", filepath.Base(path), pid))
-}
-
-func temporaryFilePattern(path string) string {
-	return filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp.*")
 }
