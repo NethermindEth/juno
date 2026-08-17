@@ -83,7 +83,10 @@ The manifest records failed checks, failed RPC and HTTP requests, VU execution
 failures, and dropped and completed iterations for each scenario. Dropped
 throughput iterations are recorded as saturation measurements rather than
 harness failures: they indicate that the fixed worker pool could not sustain
-the offered load.
+the offered load. The runner writes the manifest when the run terminates; it is
+not a live progress file. Failures that prevent creating `RESULTS_DIR` or
+writing `RUN_ID_FILE` are reported only on stderr because no result location is
+available yet.
 
 The runner requires `NODE_URL`, `READY_URL`, `EXPECTED_CHAIN_ID`,
 `EXPECTED_BLOCK_NUMBER`, `SNAPSHOT_ID`,

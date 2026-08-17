@@ -112,6 +112,10 @@ type manifest struct {
 }
 
 func (r *runner) currentManifest() manifest {
+	warmup := r.scenarios["warmup"]
+	single := r.scenarios[stageSingle]
+	concurrency := r.scenarios[stageConcurrency]
+	throughput := r.scenarios[stageThroughput]
 	var finishedAt *string
 	if !r.finishedAt.IsZero() {
 		formatted := r.finishedAt.UTC().Format(time.RFC3339)
@@ -191,23 +195,23 @@ func (r *runner) currentManifest() manifest {
 		Runner: imageManifest{ImageDigest: r.config.runnerImageDigest},
 		Scenarios: scenariosManifest{
 			Warmup: warmupManifest{
-				Status: r.warmupStatus, Measured: false,
-				Iterations: defaultWarmupIterations, Metrics: r.warmupMetrics,
+				Status: warmup.status, Measured: false,
+				Iterations: defaultWarmupIterations, Metrics: warmup.metrics,
 			},
 			Single: singleManifest{
-				Status: r.singleStatus, Measured: true, Iterations: iterations,
-				Metrics: r.singleMetrics, Result: "single.json",
+				Status: single.status, Measured: true, Iterations: iterations,
+				Metrics: single.metrics, Result: "single.json",
 			},
 			Concurrency: concurrencyManifest{
-				Status: r.concurrencyStatus, Measured: true, VUs: vus,
+				Status: concurrency.status, Measured: true, VUs: vus,
 				Duration: r.config.concurrencyDurationRaw,
-				Metrics:  r.concurrencyMetrics, Result: "concurrency.json",
+				Metrics:  concurrency.metrics, Result: "concurrency.json",
 			},
 			Throughput: throughputManifest{
-				Status: r.throughputStatus, Measured: true,
+				Status: throughput.status, Measured: true,
 				PreAllocatedVUs: throughputVUs, MaxVUs: throughputVUs,
 				Rates: rates, Duration: r.config.throughputDurationRaw,
-				Metrics: r.throughputMetrics, Result: "throughput.json",
+				Metrics: throughput.metrics, Result: "throughput.json",
 			},
 		},
 	}

@@ -56,11 +56,8 @@ type runner struct {
 	failureReason string
 	failExitCode  int
 
-	readyStatus       string
-	warmupStatus      string
-	singleStatus      string
-	concurrencyStatus string
-	throughputStatus  string
+	readyStatus string
+	scenarios   map[string]*scenarioState
 
 	actualChainID     string
 	actualBlockNumber string
@@ -68,17 +65,17 @@ type runner struct {
 	actualCorpusSHA   string
 	corpusMeta        json.RawMessage
 
-	warmupMetrics      *summaryMetrics
-	singleMetrics      *summaryMetrics
-	concurrencyMetrics *summaryMetrics
-	throughputMetrics  *summaryMetrics
-
 	context context.Context
 	cancel  context.CancelFunc
 	signals chan os.Signal
 	mu      sync.Mutex
 	signal  os.Signal
 	active  *os.Process
+}
+
+type scenarioState struct {
+	status  string
+	metrics *summaryMetrics
 }
 
 func newRunner(config *config, stdout, stderr io.Writer) *runner {
@@ -93,8 +90,13 @@ func newRunner(config *config, stdout, stderr io.Writer) *runner {
 	return &runner{
 		config: config, stdout: stdout, stderr: stderr, client: client,
 		startedAt: nowUTC(), runStatus: statusRunning, currentStage: "preflight",
-		failExitCode: 2, readyStatus: statusPending, warmupStatus: statusPending,
-		singleStatus: statusPending, concurrencyStatus: statusPending, throughputStatus: statusPending,
+		failExitCode: 2, readyStatus: statusPending,
+		scenarios: map[string]*scenarioState{
+			"warmup":         {status: statusPending},
+			stageSingle:      {status: statusPending},
+			stageConcurrency: {status: statusPending},
+			stageThroughput:  {status: statusPending},
+		},
 		context: ctx, cancel: cancel, signals: make(chan os.Signal, 1),
 	}
 }
@@ -117,7 +119,17 @@ func (r *runner) run() int {
 
 	r.startSignalHandler()
 	defer r.stopSignalHandler()
+	code := r.execute()
+	if err := r.writeManifest(); err != nil {
+		fmt.Fprintf(r.stderr, "write terminal manifest: %v\n", err)
+		if code == 0 {
+			return 1
+		}
+	}
+	return code
+}
 
+func (r *runner) execute() int {
 	r.currentStage = stageConfiguration
 	if err := r.config.validate(); err != nil {
 		return r.fail(err.Error())
@@ -126,9 +138,6 @@ func (r *runner) run() int {
 	r.currentStage = "corpus-validation"
 	if err := r.validateCorpus(); err != nil {
 		return r.fail(err.Error())
-	}
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
 	}
 
 	r.failExitCode = 1
@@ -153,9 +162,6 @@ func (r *runner) run() int {
 	r.currentStage = "complete"
 	r.runStatus = statusPassed
 	r.finishedAt = nowUTC()
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	fmt.Fprintf(r.stderr, "benchmark run %s completed successfully\n", r.config.runID)
 	return 0
 }
@@ -201,9 +207,6 @@ func (r *runner) terminate(received os.Signal) int {
 	r.runStatus = statusFailed
 	r.failureReason = "runner terminated by " + name
 	r.finishedAt = nowUTC()
-	if err := r.writeManifest(); err != nil {
-		fmt.Fprintf(r.stderr, "write termination manifest: %v\n", err)
-	}
 	fmt.Fprintf(r.stderr, "benchmark runner terminated by %s during %s\n", name, r.currentStage)
 	return code
 }
@@ -217,9 +220,6 @@ func (r *runner) fail(reason string) int {
 	r.runStatus = statusFailed
 	r.finishedAt = nowUTC()
 	fmt.Fprintf(r.stderr, "benchmark runner failed during %s: %s\n", r.currentStage, reason)
-	if err := r.writeManifest(); err != nil {
-		fmt.Fprintf(r.stderr, "write failure manifest: %v\n", err)
-	}
 	return r.failExitCode
 }
 
@@ -227,14 +227,10 @@ func (r *runner) markCurrentStageFailed() {
 	switch r.currentStage {
 	case "readiness":
 		r.readyStatus = statusFailed
-	case "warmup":
-		r.warmupStatus = statusFailed
-	case stageSingle:
-		r.singleStatus = statusFailed
-	case stageConcurrency:
-		r.concurrencyStatus = statusFailed
-	case stageThroughput:
-		r.throughputStatus = statusFailed
+	default:
+		if scenario := r.scenarios[r.currentStage]; scenario != nil {
+			scenario.status = statusFailed
+		}
 	}
 }
 
@@ -323,9 +319,6 @@ func isJSONObject(raw json.RawMessage) bool {
 func (r *runner) runReadiness() int {
 	r.currentStage = "readiness"
 	r.readyStatus = statusWaiting
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	started := time.Now()
 	for {
 		requestCtx, cancel := context.WithTimeout(r.context, readyRequestTimeout)
@@ -368,9 +361,6 @@ func (r *runner) runReadiness() int {
 		}
 	}
 	r.readyStatus = statusPassed
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	return 0
 }
 
@@ -468,18 +458,10 @@ func (r *runner) validateTarget() int {
 			r.actualBlockNumber,
 		))
 	}
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	return 0
 }
 
 func (r *runner) runWarmup() int {
-	r.currentStage = "warmup"
-	r.warmupStatus = statusRunning
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	temporary := filepath.Join(r.config.resultsDir, fmt.Sprintf(".warmup.json.tmp.%d", os.Getpid()))
 	args := []string{
 		"run", k6QuietFlag,
@@ -489,52 +471,42 @@ func (r *runner) runWarmup() int {
 		k6SummaryExportFlag, temporary,
 		filepath.Join(r.config.scriptDir, "run.js"),
 	}
-	exitCode, commandErr := r.runK6(args, io.Discard)
-	metrics, metricsErr := parseSummaryMetrics(temporary)
-	_ = os.Remove(temporary)
-	if metricsErr != nil {
-		r.warmupMetrics = nil
-		reason := fmt.Sprintf("warmup did not produce a valid summary: %v", metricsErr)
-		return r.fail(commandReason(reason, commandErr))
-	}
-	r.warmupMetrics = metrics
-	if received := r.receivedSignal(); received != nil {
-		return r.terminate(received)
-	}
-	if commandErr != nil || exitCode != 0 {
-		return r.fail(commandReason(fmt.Sprintf("warmup exited with status %d", exitCode), commandErr))
-	}
-	if metrics.FailedChecks != 0 || metrics.RequestFailures != 0 ||
-		metrics.HTTPRequestFailures != 0 || metrics.VUFailures != 0 {
-		return r.fail("warmup recorded check, request, or VU failures")
-	}
-	r.warmupStatus = statusPassed
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
-	return 0
+	return r.executeScenario("warmup", temporary, "", args, io.Discard)
 }
 
 func (r *runner) runScenario(name string) int {
 	r.currentStage = name
-	r.setScenarioStatus(name, statusRunning)
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
 	temporary := filepath.Join(r.config.resultsDir, fmt.Sprintf(".%s.json.tmp.%d", name, os.Getpid()))
 	result := filepath.Join(r.config.resultsDir, name+".json")
 	args, err := r.scenarioArgs(name, temporary)
 	if err != nil {
 		return r.fail(err.Error())
 	}
+	return r.executeScenario(name, temporary, result, args, r.stdout)
+}
 
-	exitCode, commandErr := r.runK6(args, r.stdout)
-	metrics, err := promoteScenarioSummary(temporary, result)
+func (r *runner) executeScenario(
+	name, temporary, result string,
+	args []string,
+	stdout io.Writer,
+) int {
+	r.currentStage = name
+	scenario := r.scenarios[name]
+	scenario.status = statusRunning
+	exitCode, commandErr := r.runK6(args, stdout)
+	var metrics *summaryMetrics
+	var err error
+	if result == "" {
+		metrics, err = parseSummaryMetrics(temporary)
+		_ = os.Remove(temporary)
+	} else {
+		metrics, err = promoteScenarioSummary(temporary, result)
+	}
 	if err != nil {
 		reason := fmt.Sprintf("%s did not produce a valid summary: %v", name, err)
 		return r.fail(commandReason(reason, commandErr))
 	}
-	r.setScenarioMetrics(name, metrics)
+	scenario.metrics = metrics
 	if received := r.receivedSignal(); received != nil {
 		return r.terminate(received)
 	}
@@ -553,10 +525,7 @@ func (r *runner) runScenario(name string) int {
 			formatMetric(metrics.DroppedIterations),
 		)
 	}
-	r.setScenarioStatus(name, statusPassed)
-	if err := r.writeManifest(); err != nil {
-		return r.fail(fmt.Sprintf("could not write manifest: %v", err))
-	}
+	scenario.status = statusPassed
 	return 0
 }
 
@@ -669,28 +638,6 @@ func (r *runner) runK6(args []string, stdout io.Writer) (int, error) {
 		return exitError.ExitCode(), err
 	}
 	return -1, err
-}
-
-func (r *runner) setScenarioStatus(name, status string) {
-	switch name {
-	case stageSingle:
-		r.singleStatus = status
-	case stageConcurrency:
-		r.concurrencyStatus = status
-	case stageThroughput:
-		r.throughputStatus = status
-	}
-}
-
-func (r *runner) setScenarioMetrics(name string, metrics *summaryMetrics) {
-	switch name {
-	case stageSingle:
-		r.singleMetrics = metrics
-	case stageConcurrency:
-		r.concurrencyMetrics = metrics
-	case stageThroughput:
-		r.throughputMetrics = metrics
-	}
 }
 
 func formatMetric(value float64) string {
