@@ -55,9 +55,6 @@ type config struct {
 	throughputVUsRaw       string
 	ratesRaw               string
 
-	iterations          uint64
-	vus                 uint64
-	throughputVUs       uint64
 	rates               []uint64
 	normalizedRates     string
 	expectedBlock       uint64
@@ -146,13 +143,13 @@ func (c *config) validate() error {
 	}
 	c.normalizedRates = strings.Join(rateStrings, ",")
 
-	if c.iterations, err = parsePositiveInteger("ITERATIONS", c.iterationsRaw); err != nil {
+	if err := validatePositiveInteger("ITERATIONS", c.iterationsRaw); err != nil {
 		return err
 	}
-	if c.vus, err = parsePositiveInteger("VUS", c.vusRaw); err != nil {
+	if err := validatePositiveInteger("VUS", c.vusRaw); err != nil {
 		return err
 	}
-	if c.throughputVUs, err = parsePositiveInteger("THROUGHPUT_VUS", c.throughputVUsRaw); err != nil {
+	if err := validatePositiveInteger("THROUGHPUT_VUS", c.throughputVUsRaw); err != nil {
 		return err
 	}
 	if _, err := parseDuration("CONCURRENCY_DURATION", c.concurrencyDurationRaw); err != nil {
@@ -240,15 +237,15 @@ func parseRates(raw string) ([]uint64, error) {
 	return rates, nil
 }
 
-func parsePositiveInteger(name, raw string) (uint64, error) {
+func validatePositiveInteger(name, raw string) error {
 	if !digitsPattern.MatchString(raw) {
-		return 0, fmt.Errorf("%s must be a positive integer", name)
+		return fmt.Errorf("%s must be a positive integer", name)
 	}
 	value, err := strconv.ParseUint(raw, 10, 64)
 	if err != nil || value == 0 {
-		return 0, fmt.Errorf("%s must be a positive integer", name)
+		return fmt.Errorf("%s must be a positive integer", name)
 	}
-	return value, nil
+	return nil
 }
 
 func nowUTC() time.Time {
