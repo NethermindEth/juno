@@ -65,21 +65,12 @@ new_results_dir() {
   echo "$directory"
 }
 
-# run_runner <port> <results-dir> <corpus-dir> [KEY=VALUE ...]; trailing -e wins.
+# run_runner <port> <results-dir> <corpus-dir> [docker arguments...]
 run_runner() {
   runner_port=$1
   runner_results=$2
   runner_corpus_dir=$3
   shift 3
-
-  override_count=$#
-  appended=0
-  while [ "$appended" -lt "$override_count" ]; do
-    override=$1
-    shift
-    set -- "$@" -e "$override"
-    appended=$((appended + 1))
-  done
 
   if [ -n "${RUNNER_CONTAINER_NAME:-}" ]; then
     set -- -d --name "$RUNNER_CONTAINER_NAME" "$@"
@@ -115,7 +106,7 @@ run_runner() {
 start_stub ok 2
 success_port=$stub_port
 success_results=$(new_results_dir success)
-run_runner "$success_port" "$success_results" "$FIXTURE_DIR" RATES=" 10 "
+run_runner "$success_port" "$success_results" "$FIXTURE_DIR" -e RATES=" 10 "
 
 jq -e --arg juno_version "$IMAGE_JUNO_VERSION" --arg juno_commit "$IMAGE_COMMIT" '
   .status == "passed" and
@@ -147,7 +138,7 @@ signal_container="juno-rpc-benchmark-signal-$$"
 container_names="$container_names $signal_container"
 RUNNER_CONTAINER_NAME=$signal_container run_runner \
   "$success_port" "$signal_results" "$FIXTURE_DIR" \
-  RUN_ID=signal-test CONCURRENCY_DURATION=30s >/dev/null
+  -e RUN_ID=signal-test -e CONCURRENCY_DURATION=30s >/dev/null
 
 attempts=0
 until docker top "$signal_container" 2>/dev/null | grep -F -- '--duration 30s' >/dev/null; do

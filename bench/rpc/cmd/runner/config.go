@@ -93,7 +93,6 @@ func loadConfig(
 		commitID = junoCommit[:12]
 	}
 	runID := valueOr("RUN_ID", now.Format("20060102T150405Z")+"-"+commitID)
-	runIDFile, _ := getenv("RUN_ID_FILE")
 
 	return &config{
 		scriptDir: scriptDir,
@@ -110,7 +109,7 @@ func loadConfig(
 
 		junoCommit: junoCommit,
 		runID:      runID,
-		runIDFile:  runIDFile,
+		runIDFile:  value("RUN_ID_FILE"),
 		resultsDir: valueOr("RESULTS_DIR", defaultResultsDir),
 		corpusPath: valueOr("CORPUS_PATH", scriptDir+"/corpus/v0_10/getTransactionByHash.json"),
 

@@ -4,7 +4,6 @@ import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
 import { Counter } from 'k6/metrics';
 
-const requestFailures = new Counter('rpc_request_failures');
 const vuFailures = new Counter('vu_failures');
 
 function requiredEnv(name) {
@@ -53,11 +52,9 @@ export default function measure() {
       headers: { 'Content-Type': 'application/json' },
     });
     const requestSucceeded = isSuccess(res);
-    requestFailures.add(requestSucceeded ? 0 : 1);
     check(requestSucceeded, { 'rpc call ok': (success) => success });
   } catch (error) {
     vuFailures.add(1);
     throw error;
   }
-  vuFailures.add(0);
 }

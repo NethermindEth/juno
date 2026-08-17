@@ -110,7 +110,6 @@ func TestParseSummaryMetricsSupportsBothK6Shapes(t *testing.T) {
 	data := `{
   "metrics": {
     "checks": {"fails": 2},
-    "rpc_request_failures": {"values": {"count": 3}},
     "http_req_failed": {"passes": 4},
     "vu_failures": {"values": {"count": 5}},
     "iterations": {"count": 6}
@@ -124,7 +123,7 @@ func TestParseSummaryMetricsSupportsBothK6Shapes(t *testing.T) {
 		t.Fatalf("parse metrics: %v", err)
 	}
 	want := &summaryMetrics{
-		FailedChecks: 2, RequestFailures: 3, HTTPRequestFailures: 4,
+		FailedChecks: 2, RequestFailures: 2, HTTPRequestFailures: 4,
 		VUFailures: 5, DroppedIterations: 0, CompletedIterations: 6,
 	}
 	if !reflect.DeepEqual(metrics, want) {

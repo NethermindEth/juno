@@ -60,9 +60,8 @@ func parseSummaryMetrics(path string) (*summaryMetrics, error) {
 		value     *float64
 	}{
 		{name: "checks", key: "fails", value: &metrics.FailedChecks},
-		{name: "rpc_request_failures", key: metricCountKey, value: &metrics.RequestFailures},
+		// k6 records true values as passes; true means failure for http_req_failed.
 		{name: "http_req_failed", key: "passes", value: &metrics.HTTPRequestFailures},
-		{name: "vu_failures", key: metricCountKey, value: &metrics.VUFailures},
 		{name: "iterations", key: metricCountKey, value: &metrics.CompletedIterations},
 	}
 	for _, item := range required {
@@ -70,6 +69,11 @@ func parseSummaryMetrics(path string) (*summaryMetrics, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	metrics.RequestFailures = metrics.FailedChecks
+	metrics.VUFailures, err = metric("vu_failures", metricCountKey, false)
+	if err != nil {
+		return nil, err
 	}
 	metrics.DroppedIterations, err = metric("dropped_iterations", metricCountKey, false)
 	if err != nil {
