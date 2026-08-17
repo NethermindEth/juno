@@ -167,7 +167,7 @@ func transactionsOf(
 			}
 
 			response := &SubscriptionNewTransaction{
-				Transaction:    *AdaptTransaction(txn),
+				Transaction:    AdaptTransaction(txn),
 				FinalityStatus: finalityStatus,
 			}
 
@@ -189,7 +189,7 @@ func (s *transactionsSubscriberState) onReceivedTransaction(
 	}
 
 	response := SubscriptionNewTransaction{
-		Transaction:    *AdaptTransaction(txn),
+		Transaction:    AdaptTransaction(txn),
 		FinalityStatus: TxnStatusWithoutL1(TxnStatusReceived),
 	}
 

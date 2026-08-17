@@ -229,7 +229,7 @@ func (l L1DAMode) MarshalText() ([]byte, error) {
 type BlockWithTxs struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	Transactions []*Transaction `json:"transactions"`
+	Transactions []Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L43
@@ -240,8 +240,8 @@ type BlockWithTxHashes struct {
 }
 
 type TransactionWithReceipt struct {
-	Transaction *Transaction        `json:"transaction"`
-	Receipt     *TransactionReceipt `json:"receipt"`
+	Transaction Transaction        `json:"transaction"`
+	Receipt     TransactionReceipt `json:"receipt"`
 }
 
 type BlockWithReceipts struct {
@@ -483,8 +483,8 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 
 // adaptTransactions sizes the result from the transactions themselves rather than the header's
 // count, so a header and a transaction list that disagree cannot index out of range.
-func adaptTransactions(transactions []core.Transaction) []*Transaction {
-	adapted := make([]*Transaction, len(transactions))
+func adaptTransactions(transactions []core.Transaction) []Transaction {
+	adapted := make([]Transaction, len(transactions))
 	for index, transaction := range transactions {
 		adapted[index] = AdaptTransaction(transaction)
 	}

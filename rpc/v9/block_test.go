@@ -894,7 +894,7 @@ func TestBlockWithTxsV013(t *testing.T) {
 			},
 		},
 		Status: rpc.BlockAcceptedL2,
-		Transactions: []*rpc.Transaction{
+		Transactions: []rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
 				Type:               rpc.TxnInvoke,

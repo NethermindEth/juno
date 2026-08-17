@@ -67,7 +67,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(txHash, rpc.ResponseFlags{})
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -96,7 +96,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(searchTxHash, rpc.ResponseFlags{})
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -686,7 +686,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
-				require.Equal(t, wantBlock, *receipt.BlockNumber)
+				require.Equal(t, wantBlock, receipt.BlockNumber)
 			})
 		}
 	})
@@ -725,7 +725,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	expected := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
 	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index, rpc.ResponseFlags{})
 	require.Nil(t, rpcErr)
-	require.Equal(t, &expected, got)
+	require.Equal(t, expected, got)
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
@@ -749,7 +749,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := rpc.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -760,7 +760,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			felt.NewFromBytes[felt.Felt]([]byte("random")),
 		)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -769,7 +769,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := rpc.BlockIDFromNumber(rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -778,7 +778,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := rpc.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1, rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -791,7 +791,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			len(latestBlock.Transactions),
 			rpc.ResponseFlags{},
 		)
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -807,7 +807,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDLatest()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -823,7 +823,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDFromHash(latestBlock.Hash)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -838,7 +838,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDFromNumber(latestBlockNumber)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
@@ -862,7 +862,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDL1Accepted()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
@@ -886,7 +886,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDL1Accepted()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
@@ -905,7 +905,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{},
 			)
 			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
-			require.Nil(t, actualTxn)
+			require.Empty(t, actualTxn)
 		})
 
 		t.Run("valid index", func(t *testing.T) {
@@ -918,7 +918,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{},
 			)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &expectedTxn, actualTxn)
+			require.Equal(t, expectedTxn, actualTxn)
 		})
 	})
 
@@ -950,14 +950,14 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.NotNil(t, tx.ProofFacts)
 			require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
 		})
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID, 0, rpc.ResponseFlags{})
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.Nil(t, tx.ProofFacts)
 		})
 
@@ -971,7 +971,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.NotNil(t, tx.ProofFacts)
 			require.Empty(t, *tx.ProofFacts)
 		})
@@ -1004,7 +1004,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string
 		network        *networks.Network
-		expected       *rpc.TransactionReceipt
+		expected       *rpc.TransactionReceiptWithBlockInfo
 		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
 	}
@@ -1037,7 +1037,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l2",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
 			),
@@ -1047,7 +1047,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l1",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
 			),
@@ -1057,7 +1057,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre confirmed",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_pre_confirmed.json",
 			),
@@ -1067,7 +1067,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt reverted",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_reverted.json",
 			),
@@ -1077,7 +1077,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt invoke v3",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_invoke_v3.json",
 			),
@@ -1087,7 +1087,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt non empty da",
 			network:     &networks.SepoliaIntegration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_non_empty_da.json",
 			),
@@ -1097,7 +1097,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt deploy",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_deploy.json",
 			),
@@ -1109,7 +1109,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.description, func(t *testing.T) {
 			expected := test.expected
-			require.NotNil(t, expected.BlockNumber)
 
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
@@ -1119,7 +1118,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			loadedBlock := loadBlockFromFeederTestdata(t, test.network, *expected.BlockNumber)
+			loadedBlock := loadBlockFromFeederTestdata(t, test.network, expected.BlockNumber)
 			var transaction core.Transaction
 			var transactionIndex int
 			// find the transaction in the block
@@ -1139,9 +1138,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				// receipt belong to canonical block mock expectations
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
-				).Return(*expected.BlockNumber, uint64(transactionIndex), nil)
+				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
 				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
-					*expected.BlockNumber, uint64(transactionIndex),
+					expected.BlockNumber, uint64(transactionIndex),
 				).Return(
 					transaction,
 					*loadedBlock.Receipts[transactionIndex],
@@ -1153,7 +1152,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
 			require.Nil(t, rpcErr)
-			require.Equal(t, expected, receipt)
+			require.Equal(t, *expected, receipt)
 		})
 	}
 }
@@ -1173,7 +1172,7 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -1228,7 +1227,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptCoreTransaction(tx),
+			Transaction: rpc.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1387,7 +1386,7 @@ func TestAddTransaction(t *testing.T) {
 					felt.FromUint64[felt.Felt](200),
 				}
 				return rpc.BroadcastedTransaction{
-					Transaction: *rpc.AdaptCoreTransaction(&base),
+					Transaction: rpc.AdaptCoreTransaction(&base),
 					Proof:       "AAAAAQAAAAIAAAAD",
 				}
 			}(),
@@ -1845,7 +1844,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&txnToAdd),
+		Transaction: rpc.AdaptCoreTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -1989,7 +1988,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	base := createBaseInvokeTransactionV3()
 	correctBroadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&base),
+		Transaction: rpc.AdaptCoreTransaction(&base),
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {

@@ -28,12 +28,12 @@ type AddTxGatewayPayload struct {
 	Proof         core.Base64     `json:"proof,omitempty"`
 }
 
-// AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
-func AdaptCoreTransaction(t core.Transaction) *Transaction {
-	var txn *Transaction
+// AdaptCoreTransaction adapts a core.Transaction to a local Transaction.
+func AdaptCoreTransaction(t core.Transaction) Transaction {
+	var txn Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
-		txn = &Transaction{
+		txn = Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -52,7 +52,7 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 		if nonce == nil {
 			nonce = &felt.Zero
 		}
-		txn = &Transaction{
+		txn = Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version.AsFelt(),
@@ -139,13 +139,12 @@ func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet
 	}
 }
 
-// AdaptReceipt adapts a receipt and transaction into a local *TransactionReceipt.
-// todo(rdr): TransactionReceipt should be returned by value
+// AdaptReceipt adapts a receipt and transaction into a TransactionReceipt.
 func AdaptReceipt(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
-) *TransactionReceipt {
+) TransactionReceipt {
 	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = MsgToL1{
@@ -179,7 +178,7 @@ func AdaptReceipt(
 	if events == nil {
 		events = []*Event{}
 	}
-	return &TransactionReceipt{
+	return TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
 		Type:            transactionTypeFrom(txn),
@@ -204,13 +203,12 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceipt {
-	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
-
-	adaptedReceipt.BlockNumber = &blockNumber
-	adaptedReceipt.BlockHash = blockHash
-
-	return adaptedReceipt
+) TransactionReceiptWithBlockInfo {
+	return TransactionReceiptWithBlockInfo{
+		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
+		BlockHash:          blockHash,
+		BlockNumber:        blockNumber,
+	}
 }
 
 func AdaptTransactionStatus(
@@ -254,8 +252,8 @@ func AdaptTransactionStatus(
 	return status, nil
 }
 
-func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
-	tx := &Transaction{
+func adaptInvokeTransaction(t *core.InvokeTransaction) Transaction {
+	tx := Transaction{
 		Type:               TxnInvoke,
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
@@ -283,8 +281,8 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
-	tx := &Transaction{
+func adaptDeclareTransaction(t *core.DeclareTransaction) Transaction {
+	tx := Transaction{
 		Hash:              t.Hash(),
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
@@ -308,8 +306,8 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
-	tx := &Transaction{
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) Transaction {
+	tx := Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
