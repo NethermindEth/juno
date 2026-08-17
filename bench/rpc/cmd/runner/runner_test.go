@@ -190,33 +190,6 @@ func TestValidateCorpus(t *testing.T) {
 	}
 }
 
-func TestManifestUsesNullForInvalidConfiguration(t *testing.T) {
-	t.Parallel()
-	config := validConfig()
-	config.iterationsRaw = "invalid"
-	r := newRunner(config, io.Discard, io.Discard)
-	r.runStatus = "failed"
-	r.currentStage = "configuration"
-	r.failureReason = "ITERATIONS must be a positive integer"
-	data, err := json.Marshal(r.currentManifest())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var result struct {
-		Scenarios struct {
-			Single struct {
-				Iterations *uint64 `json:"iterations"`
-			} `json:"single"`
-		} `json:"scenarios"`
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.Scenarios.Single.Iterations != nil {
-		t.Fatalf("invalid iteration count should be null")
-	}
-}
-
 func TestScenarioArgs(t *testing.T) {
 	config := validConfig()
 	if err := config.validate(); err != nil {
@@ -311,6 +284,9 @@ func TestRunnerClassifiesConfigurationAndTargetFailures(t *testing.T) {
 				result.Failure.Stage != test.wantStage ||
 				!strings.Contains(result.Failure.Reason, test.wantReason) {
 				t.Fatalf("unexpected failure manifest: %#v", result.Failure)
+			}
+			if test.name == "configuration" && result.Scenarios.Single.Iterations != nil {
+				t.Fatal("invalid iteration count should be null")
 			}
 		})
 	}

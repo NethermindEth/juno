@@ -81,7 +81,13 @@ run_runner() {
     appended=$((appended + 1))
   done
 
-  docker run --rm --network host --user 12345:12345 \
+  if [ -n "${RUNNER_CONTAINER_NAME:-}" ]; then
+    set -- -d --name "$RUNNER_CONTAINER_NAME" "$@"
+  else
+    set -- --rm "$@"
+  fi
+
+  docker run --network host --user 12345:12345 \
     --entrypoint "$RUNNER" \
     -v "$runner_corpus_dir:/corpus:ro" \
     -v "$runner_results:/results" \
@@ -139,30 +145,12 @@ done
 signal_results=$(new_results_dir signal)
 signal_container="juno-rpc-benchmark-signal-$$"
 container_names="$container_names $signal_container"
-docker run -d --name "$signal_container" --network host --user 12345:12345 \
-  --entrypoint "$RUNNER" \
-  -v "$FIXTURE_DIR:/corpus:ro" \
-  -v "$signal_results:/results" \
-  -e NODE_URL="http://127.0.0.1:$success_port/v0_10" \
-  -e READY_URL="http://127.0.0.1:$success_port/ready/rpc" \
-  -e CORPUS_PATH=/corpus/corpus.json \
-  -e EXPECTED_CHAIN_ID=0x534e5f4d41494e \
-  -e EXPECTED_BLOCK_NUMBER=800000 \
-  -e RUN_ID=signal-test \
-  -e SNAPSHOT_ID=test-snapshot \
-  -e SNAPSHOT_SHA256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  -e JUNO_IMAGE_DIGEST=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
-  -e RUNNER_IMAGE_DIGEST=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
-  -e ITERATIONS=2 \
-  -e VUS=1 \
-  -e CONCURRENCY_DURATION=30s \
-  -e THROUGHPUT_DURATION=1s \
-  -e RATES=10 \
-  -e THROUGHPUT_VUS=3 \
-  "$IMAGE" >/dev/null
+RUNNER_CONTAINER_NAME=$signal_container run_runner \
+  "$success_port" "$signal_results" "$FIXTURE_DIR" \
+  RUN_ID=signal-test CONCURRENCY_DURATION=30s >/dev/null
 
 attempts=0
-until jq -e '.scenarios.concurrency.status == "running"' "$signal_results/manifest.json" >/dev/null 2>&1; do
+until docker top "$signal_container" 2>/dev/null | grep -F -- '--duration 30s' >/dev/null; do
   attempts=$((attempts + 1))
   if [ "$attempts" -ge 300 ] || [ "$(docker inspect -f '{{.State.Running}}' "$signal_container")" != true ]; then
     docker logs "$signal_container" >&2 || true
