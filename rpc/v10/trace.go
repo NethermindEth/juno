@@ -420,7 +420,7 @@ func (h *Handler) traceBlockWithVM(
 	returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	// Prepare execution state
-	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash) // todo(ege): using block number here would be better
+	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
