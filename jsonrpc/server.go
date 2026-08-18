@@ -70,8 +70,8 @@ type response struct {
 	ID      any    `json:"id"`
 }
 
-func errResponse(code int, data any) *response {
-	return &response{Version: "2.0", Error: Err(code, data)}
+func errResponse(code int, data any) response {
+	return response{Version: "2.0", Error: Err(code, data)}
 }
 
 type Error struct {
@@ -363,9 +363,9 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp = errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
-			resp = errResponse(InvalidRequest, handleErr.Error())
+			resp = new(errResponse(InvalidRequest, handleErr.Error()))
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
 			}
@@ -378,14 +378,14 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp = errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
 		} else if len(batchReq) == 0 {
-			resp = errResponse(InvalidRequest, "empty batch")
+			resp = new(errResponse(InvalidRequest, "empty batch"))
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
 	} else {
-		resp = errResponse(InvalidRequest, "batch requests are disabled")
+		resp = new(errResponse(InvalidRequest, "batch requests are disabled"))
 	}
 
 	if header == nil {
@@ -438,7 +438,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
-				resp = errResponse(InvalidRequest, err.Error())
+				resp = new(errResponse(InvalidRequest, err.Error()))
 				if !errors.Is(err, ErrInvalidID) {
 					resp.ID = req.ID
 				}
