@@ -404,27 +404,27 @@ func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResour
 //
 //nolint:lll // We can't break the json tags lines
 type Transaction struct {
-	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
-	Type                  TransactionType       `json:"type" validate:"required"`
-	Version               *felt.Felt            `json:"version,omitempty" validate:"required,version_0x3"`
-	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required"`
-	MaxFee                *felt.Felt            `json:"max_fee,omitempty"`
-	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]felt.Felt          `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
-	Signature             *[]felt.Felt          `json:"signature,omitempty" validate:"required"`
-	CallData              *[]felt.Felt          `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
-	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required"`
-	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
-	PaymasterData         *[]felt.Felt          `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]felt.Felt          `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
-	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
-	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
-	ProofFacts            *[]felt.Felt          `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	Hash                  *felt.Felt             `json:"transaction_hash,omitempty"`
+	Type                  TransactionType        `json:"type" validate:"required"`
+	Version               *felt.Felt             `json:"version,omitempty" validate:"required,version_0x3"`
+	Nonce                 *felt.Felt             `json:"nonce,omitempty" validate:"required"`
+	MaxFee                *felt.Felt             `json:"max_fee,omitempty"`
+	ContractAddress       *felt.Felt             `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt             `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt             `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *felt.Slice[felt.Felt] `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt             `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
+	Signature             *felt.Slice[felt.Felt] `json:"signature,omitempty" validate:"required"`
+	CallData              *felt.Slice[felt.Felt] `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt             `json:"entry_point_selector,omitempty"`
+	CompiledClassHash     *felt.Felt             `json:"compiled_class_hash,omitempty"`
+	ResourceBounds        *ResourceBoundsMap     `json:"resource_bounds,omitempty" validate:"required"`
+	Tip                   *felt.Felt             `json:"tip,omitempty" validate:"required"`
+	PaymasterData         *felt.Slice[felt.Felt] `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *felt.Slice[felt.Felt] `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	NonceDAMode           *DataAvailabilityMode  `json:"nonce_data_availability_mode,omitempty" validate:"required"`
+	FeeDAMode             *DataAvailabilityMode  `json:"fee_data_availability_mode,omitempty" validate:"required"`
+	ProofFacts            *[]felt.Felt           `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.

@@ -144,7 +144,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 			Version:            t.Version.AsFelt(),
 			Signature:          new(t.Signature()),
 			Nonce:              t.Nonce,
-			CallData:           &t.CallData,
+			CallData:           (*[]felt.Felt)(&t.CallData),
 			ContractAddress:    t.ContractAddress,
 			SenderAddress:      t.SenderAddress,
 			EntryPointSelector: t.EntryPointSelector,
@@ -167,7 +167,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 			ClassHash:           t.ClassHash,
 			Version:             t.Version.AsFelt(),
 			ContractAddressSalt: t.ContractAddressSalt,
-			ConstructorCallData: &t.ConstructorCallData,
+			ConstructorCallData: (*[]felt.Felt)(&t.ConstructorCallData),
 			ContractAddress:     t.ContractAddress,
 		}
 	case *core.L1HandlerTransaction:
@@ -176,7 +176,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 			Nonce:              t.Nonce,
 			ContractAddress:    t.ContractAddress,
 			EntryPointSelector: t.EntryPointSelector,
-			CallData:           &t.CallData,
+			CallData:           (*[]felt.Felt)(&t.CallData),
 		}
 	case *core.DeployAccountTransaction:
 		tx = &Transaction{
@@ -185,7 +185,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 			Signature:           new(t.Signature()),
 			Nonce:               t.Nonce,
 			ContractAddressSalt: t.ContractAddressSalt,
-			ConstructorCallData: &t.ConstructorCallData,
+			ConstructorCallData: (*[]felt.Felt)(&t.ConstructorCallData),
 			ClassHash:           t.ClassHash,
 		}
 

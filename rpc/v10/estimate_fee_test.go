@@ -132,7 +132,7 @@ func TestEstimateFee(t *testing.T) {
 				Nonce:         felt.NewUnsafeFromString[felt.Felt]("0x0"),
 				MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				Signature: &[]felt.Felt{
+				Signature: &felt.Slice[felt.Felt]{
 					felt.UnsafeFromString[felt.Felt]("0x123"),
 				},
 			},
