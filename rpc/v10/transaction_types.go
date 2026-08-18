@@ -260,9 +260,9 @@ type FeePayment struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt  `json:"from_address,omitempty"`
-	To      eth.Address `json:"to_address"`
-	Payload []felt.Felt `json:"payload"`
+	From    *felt.Felt            `json:"from_address,omitempty"`
+	To      eth.Address           `json:"to_address"`
+	Payload felt.Slice[felt.Felt] `json:"payload"`
 }
 
 type ComputationResources struct {

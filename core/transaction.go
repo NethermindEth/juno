@@ -98,7 +98,7 @@ type L1ToL2Message struct {
 
 type L2ToL1Message struct {
 	From    *felt.Felt
-	Payload []felt.Felt
+	Payload felt.Slice[felt.Felt]
 	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
 	//            here. We should change this to felt.Address
 	To eth.Address
