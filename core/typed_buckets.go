@@ -197,6 +197,11 @@ var BlockTransactionsAllReceiptsPartialBucket = partial.NewPartialBucket(
 	BlockTransactionsAllReceiptsPartialSerializer,
 )
 
+var BlockTransactionsAllTransactionsAndReceiptsPartialBucket = partial.NewPartialBucket(
+	BlockTransactionsBucket.Bucket,
+	BlockTransactionsAllTransactionsAndReceiptsPartialSerializer,
+)
+
 var BlockTransactionsAllTransactionEventsPartialBucket = partial.NewPartialBucket(
 	BlockTransactionsBucket.Bucket,
 	BlockTransactionsAllTransactionEventsPartialSerializer,

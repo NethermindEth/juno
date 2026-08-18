@@ -519,22 +519,20 @@ func GetTransactionsAndReceiptsByBlockNumber(
 	r db.KeyValueReader,
 	blockNumber uint64,
 ) ([]Transaction, []*TransactionReceipt, error) {
-	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
+	result, err := BlockTransactionsAllTransactionsAndReceiptsPartialBucket.Get(
+		r,
+		blockNumber,
+		struct{}{},
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("getting transactions of block %d: %w", blockNumber, err)
+		return nil, nil, fmt.Errorf(
+			"getting transactions and receipts of block %d: %w",
+			blockNumber,
+			err,
+		)
 	}
 
-	transactions, err := blockTransactions.Transactions().All()
-	if err != nil {
-		return nil, nil, fmt.Errorf("decoding transactions of block %d: %w", blockNumber, err)
-	}
-
-	receipts, err := blockTransactions.Receipts().All()
-	if err != nil {
-		return nil, nil, fmt.Errorf("decoding receipts of block %d: %w", blockNumber, err)
-	}
-
-	return transactions, receipts, nil
+	return result.Transactions, result.Receipts, nil
 }
 
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index

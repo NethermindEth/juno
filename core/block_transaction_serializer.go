@@ -112,6 +112,27 @@ func (extractAllReceipts) extract(b *BlockTransactions, _ struct{}) ([]*Transact
 	return b.Receipts().All()
 }
 
+type extractAllTransactionsAndReceipts struct{}
+
+// extract decodes both halves of the entry in one pass, so reading them together needs neither a
+// second lookup nor a copy of the whole block blob.
+func (extractAllTransactionsAndReceipts) extract(
+	b *BlockTransactions,
+	_ struct{},
+) (TransactionsAndReceipts, error) {
+	transactions, err := b.Transactions().All()
+	if err != nil {
+		return TransactionsAndReceipts{}, fmt.Errorf("extracting transactions: %w", err)
+	}
+
+	receipts, err := b.Receipts().All()
+	if err != nil {
+		return TransactionsAndReceipts{}, fmt.Errorf("extracting receipts: %w", err)
+	}
+
+	return TransactionsAndReceipts{Transactions: transactions, Receipts: receipts}, nil
+}
+
 type extractAllTransactionEvents struct{}
 
 func (extractAllTransactionEvents) extract(
@@ -190,6 +211,11 @@ var (
 		extractAllReceipts,
 		struct{},
 		[]*TransactionReceipt,
+	]{}
+	BlockTransactionsAllTransactionsAndReceiptsPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionsAndReceipts,
+		struct{},
+		TransactionsAndReceipts,
 	]{}
 	BlockTransactionsAllTransactionEventsPartialSerializer = blockTransactionsPartialSerializer[
 		extractAllTransactionEvents,
