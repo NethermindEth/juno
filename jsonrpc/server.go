@@ -70,6 +70,10 @@ type response struct {
 	ID      any    `json:"id"`
 }
 
+func errResponse(code int, data any) response {
+	return response{Version: "2.0", Error: Err(code, data)}
+}
+
 type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -349,11 +353,9 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	var errorRecoverBuffer windowBuffer
 	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &errorRecoverBuffer), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
-	resp := &response{
-		Version: "2.0",
-	}
 
-	header := http.Header{}
+	var resp *response
+	var header http.Header
 
 	dec := json.NewDecoder(bufferedReader)
 	dec.UseNumber()
@@ -361,12 +363,12 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
+			resp = new(errResponse(InvalidRequest, handleErr.Error()))
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
 			}
-			resp.Error = Err(InvalidRequest, handleErr.Error())
 			header = httpHeader
 		} else {
 			resp = resObject
@@ -376,14 +378,18 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
 		} else if len(batchReq) == 0 {
-			resp.Error = Err(InvalidRequest, "empty batch")
+			resp = new(errResponse(InvalidRequest, "empty batch"))
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
 	} else {
-		resp.Error = Err(InvalidRequest, "batch requests are disabled")
+		resp = new(errResponse(InvalidRequest, "batch requests are disabled"))
+	}
+
+	if header == nil {
+		header = http.Header{}
 	}
 
 	if resp == nil {
@@ -422,10 +428,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
-			addResponse(&response{
-				Version: "2.0",
-				Error:   Err(InvalidRequest, err.Error()),
-			}, http.Header{})
+			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
 			continue
 		}
 
@@ -435,10 +438,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
-				resp = &response{
-					Version: "2.0",
-					Error:   Err(InvalidRequest, err.Error()),
-				}
+				resp = new(errResponse(InvalidRequest, err.Error()))
 				if !errors.Is(err, ErrInvalidID) {
 					resp.ID = req.ID
 				}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -141,6 +142,8 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 				}
 			}()
 			ioWriter = gw
+		} else if err == nil {
+			writer.Header().Set("Content-Length", strconv.Itoa(len(resp)))
 		}
 		_, err = ioWriter.Write(resp)
 		if err != nil {
