@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -299,7 +300,10 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 
 	header, err := h.bcReader.BlockHeaderByNumber(blockNumber)
 	if err != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		}
+		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header)
@@ -320,7 +324,10 @@ func (h *Handler) findAndTraceInPreConfirmed(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		}
+		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	for entry := range chain.NewestFirst() {
@@ -414,7 +421,10 @@ func (h *Handler) traceBlockWithVM(
 	// Prepare execution state
 	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
 	if err != nil {
-		return nil, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		}
+		return nil, defaultExecutionHeader(), rpccore.ErrInternal.CloneWithData(err)
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
