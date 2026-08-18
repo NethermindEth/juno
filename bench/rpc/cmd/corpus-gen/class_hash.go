@@ -38,11 +38,11 @@ func sampleSierraClassHash[T any](input samplerInput[T], blockNumber uint64) (st
 	if err != nil {
 		return "", err
 	}
-	class, err := input.client.classAt(input.ctx, blockNumber, classHash)
+	isSierra, err := input.cache.isSierra(input.ctx, input.client, blockNumber, classHash)
 	if err != nil {
 		return "", err
 	}
-	if len(class.SierraProgram) == 0 {
+	if !isSierra {
 		return "", errResample
 	}
 	return classHash, nil

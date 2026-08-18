@@ -46,28 +46,36 @@ func storageProofSampler(input samplerInput[storageProofArgs]) (any, error) {
 	// sampled trie members persist, so historical diffs are still valid sources.
 	params := storageProofParams{BlockID: "latest"}
 	for range input.args.NumClasses {
-		classHash, err := sampleSierraClassHash(input, input.args.sampleBlockNumber(input.rng))
+		// Cairo 0 hashes are fine here: keys absent from the classes trie
+		// yield valid non-membership proofs with near-identical node work.
+		classHash, err := resample(func() (string, error) {
+			return sampleClassHash(input, input.args.sampleBlockNumber(input.rng))
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("sample class hash: %w", err)
 		}
 		params.ClassHashes = append(params.ClassHashes, classHash)
 	}
 	for range input.args.NumContracts {
-		address, err := sampleContractAddress(
-			input,
-			input.args.sampleBlockNumber(input.rng),
-			storageDiffAddresses,
-		)
+		address, err := resample(func() (string, error) {
+			return sampleContractAddress(
+				input,
+				input.args.sampleBlockNumber(input.rng),
+				storageDiffAddresses,
+			)
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("sample contract address: %w", err)
 		}
 		params.ContractAddresses = append(params.ContractAddresses, address)
 	}
 	keyIndex := make(map[string]int)
 	for range input.args.NumKeys {
-		entry, err := sampleStorageEntry(input, input.args.sampleBlockNumber(input.rng))
+		entry, err := resample(func() (storageEntry, error) {
+			return sampleStorageEntry(input, input.args.sampleBlockNumber(input.rng))
+		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("sample storage key: %w", err)
 		}
 		if i, ok := keyIndex[entry.Address]; ok {
 			params.ContractsStorageKeys[i].StorageKeys = append(

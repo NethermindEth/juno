@@ -8,6 +8,8 @@ import (
 	"math/rand/v2"
 	"os"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sourcegraph/conc/pool"
@@ -166,7 +168,9 @@ func runCorpus[T any](
 ) error {
 	generatedAt := time.Now().UTC().Format(time.RFC3339)
 
-	c, err := buildCorpus(cmd.Context(), cfg, client, method, meta, generatedAt, gen)
+	c, err := buildCorpus(
+		cmd.Context(), cfg, client, method, meta, generatedAt, gen, cmd.ErrOrStderr(),
+	)
 	if err != nil {
 		return err
 	}
@@ -187,11 +191,16 @@ func buildCorpus[T any](
 	meta T,
 	generatedAt string,
 	gen paramsGen,
+	progress io.Writer,
 ) (*corpus[T], error) {
 	version, err := client.specVersion(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetch spec version: %w", err)
 	}
+
+	var completed atomic.Int64
+	stopProgress := reportProgress(progress, &completed, cfg.count)
+	defer stopProgress()
 
 	requests := make([]any, cfg.count)
 	p := pool.New().
@@ -215,9 +224,10 @@ func buildCorpus[T any](
 			}
 			if cfg.batch == 0 {
 				requests[i] = entry[0]
-				return nil
+			} else {
+				requests[i] = entry
 			}
-			requests[i] = entry
+			completed.Add(1)
 			return nil
 		})
 	}
@@ -237,6 +247,31 @@ func buildCorpus[T any](
 		},
 		Requests: requests,
 	}, nil
+}
+
+const progressInterval = 2 * time.Second
+
+func reportProgress(w io.Writer, completed *atomic.Int64, total int) (stop func()) {
+	quit := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(progressInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-quit:
+				return
+			case <-ticker.C:
+				fmt.Fprintf(w, "progress: %d/%d entries\n", completed.Load(), total)
+			}
+		}
+	}()
+	return func() {
+		close(quit)
+		wg.Wait()
+	}
 }
 
 func newSeededRand(seed, stream uint64) *rand.Rand {

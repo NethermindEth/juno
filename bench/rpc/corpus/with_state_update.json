@@ -1,8 +1,0 @@
-{
-  "getClass": "getClass",
-  "getClassAt": "getClassAt",
-  "getClassHashAt": "getClassHashAt",
-  "getNonce": "getNonce",
-  "getStorageAt": "getStorageAt",
-  "getStorageProof": "getStorageProof"
-}

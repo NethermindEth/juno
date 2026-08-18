@@ -17,6 +17,7 @@ type samplerInput[T any] struct {
 	client *rpcClient
 	rng    *rand.Rand
 	args   *T
+	cache  *sierraCache
 }
 
 type sampler[T any] func(input samplerInput[T]) (any, error)
@@ -54,31 +55,43 @@ func newSampledCmd[T any](
 				return err
 			}
 		}
+		cache := newSierraCache()
 		gen := func(ctx context.Context, client *rpcClient, rng *rand.Rand) (any, error) {
 			input := samplerInput[T]{
 				ctx:    ctx,
 				client: client,
 				rng:    rng,
 				args:   args,
+				cache:  cache,
 			}
-			for range maxResampleAttempts {
-				result, err := sample(input)
-				if err == nil {
-					return result, nil
-				}
-				if !errors.Is(err, errResample) {
-					return nil, err
-				}
+			result, err := resample(func() (any, error) { return sample(input) })
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", method, err)
 			}
-			return nil, fmt.Errorf("%s: no candidate found after %d attempts", method, maxResampleAttempts)
+			return result, nil
 		}
 		return runCorpus(cmd, cfg, client, method, args, gen)
 	}
 	return cmd
 }
 
-// errResample tells newSampledCmd's loop to re-invoke the sampler.
+// errResample tells resample to retry fn with fresh draws.
 var errResample = errors.New("resample")
+
+// resample retries fn until it succeeds or fails with a non-errResample error.
+func resample[R any](fn func() (R, error)) (R, error) {
+	var zero R
+	for range maxResampleAttempts {
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+		if !errors.Is(err, errResample) {
+			return zero, err
+		}
+	}
+	return zero, fmt.Errorf("no candidate found after %d attempts", maxResampleAttempts)
+}
 
 func commandName(method string) string {
 	return strings.TrimPrefix(method, "starknet_")
