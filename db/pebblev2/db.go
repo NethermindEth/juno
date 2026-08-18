@@ -24,7 +24,10 @@ type DB struct {
 	closed    bool
 	writeOpt  *pebble.WriteOptions
 	listener  db.EventListener
-	closeLock *sync.RWMutex // Ensures that the database is closed correctly
+	closeLock *sync.RWMutex  // Ensures that the database is closed correctly
+	activeTxs sync.WaitGroup // In-flight Update/Write transactions, waited on by Close
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // New opens a new database at the given path with default options
@@ -62,23 +65,41 @@ func (d *DB) Path() string {
 }
 
 func (d *DB) Close() error {
-	d.closeLock.Lock()
-	defer d.closeLock.Unlock()
+	d.closeOnce.Do(func() {
+		d.closeLock.Lock()
+		d.closed = true
+		d.closeLock.Unlock()
 
-	if d.closed {
-		return nil
-	}
-	d.closed = true
+		d.activeTxs.Wait()
 
-	return d.db.Close()
+		d.closeLock.Lock()
+		defer d.closeLock.Unlock()
+		d.closeErr = d.db.Close()
+	})
+
+	return d.closeErr
 }
 
-func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
+func (d *DB) beginTx() error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
+	d.activeTxs.Add(1)
+	return nil
+}
+
+func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
+	if err := d.beginTx(); err != nil {
+		return err
+	}
+	defer d.activeTxs.Done()
+
 	batch := d.NewIndexedBatch()
+	defer batch.Close() //nolint:errcheck // on success Write has already closed it
 	if err := fn(batch); err != nil {
 		return err
 	}
@@ -87,11 +108,13 @@ func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
 }
 
 func (d *DB) Write(fn func(w db.Batch) error) error {
-	if d.closed {
-		return pebble.ErrClosed
+	if err := d.beginTx(); err != nil {
+		return err
 	}
+	defer d.activeTxs.Done()
 
 	batch := d.NewBatch()
+	defer batch.Close() //nolint:errcheck // on success Write has already closed it
 	if err := fn(batch); err != nil {
 		return err
 	}
