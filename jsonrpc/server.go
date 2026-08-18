@@ -428,10 +428,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
-			addResponse(&response{
-				Version: "2.0",
-				Error:   Err(InvalidRequest, err.Error()),
-			}, http.Header{})
+			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
 			continue
 		}
 
@@ -441,10 +438,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
-				resp = &response{
-					Version: "2.0",
-					Error:   Err(InvalidRequest, err.Error()),
-				}
+				resp = errResponse(InvalidRequest, err.Error())
 				if !errors.Is(err, ErrInvalidID) {
 					resp.ID = req.ID
 				}
