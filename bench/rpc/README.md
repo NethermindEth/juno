@@ -30,6 +30,25 @@ make install-k6
 make corpus-gen
 ```
 
+### Full flow
+
+```
+./bench/rpc/gen-all.sh bench/rpc/corpus/all.json juno
+./bench/rpc/run-all.sh bench/rpc/corpus/all.json juno --vus 500 --duration 30s
+```
+
+Both take `<corpus>` (config or its folder, `all.json` ↔ `all/`) and `<node>`
+(name in `nodes.json` or a literal URL); remaining args pass through.
+
+`gen-all.sh`: one corpus per config entry (`{"name": "subcommand [flags]"}`)
+into the config's folder, sampling `<node>` via `--source-url`; per-entry
+flags win.
+
+`run-all.sh`: `run.js` once per corpus against `<node>`. Writes
+`<corpus>/<node>/` (overwritten per re-run): `<method>.html` (dashboard, live
+at `:5665`), `<method>.json` (summary), `report.md`. Failures don't stop the
+sweep.
+
 ### corpus-gen
 
 ```
