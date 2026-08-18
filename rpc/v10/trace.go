@@ -345,7 +345,7 @@ func (h *Handler) traceFinalisedBlock(
 	// Check if it was already traced. If the caller requested initial reads but
 	// the cached entry was produced without them, fall through to re-trace so we
 	// can populate them (cache gets overwritten below).
-	cacheKey := rpccore.TraceCacheKey{BlockHash: *header.Hash}
+	cacheKey := *header.Hash
 	cachedResponse, hit := h.blockTraceCache.Get(cacheKey)
 	if hit && (!returnInitialReads || cachedResponse.InitialReads != nil) {
 		if returnInitialReads {

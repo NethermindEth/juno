@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/eth"
 )
@@ -33,10 +32,6 @@ type Gateway interface {
 //go:generate mockgen -destination=../../mocks/mock_l1_client.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore L1Client
 type L1Client interface {
 	TransactionReceipt(ctx context.Context, txHash eth.Hash) (eth.Receipt, error)
-}
-
-type TraceCacheKey struct {
-	BlockHash felt.Felt
 }
 
 var (

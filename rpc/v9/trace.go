@@ -370,7 +370,7 @@ func (h *Handler) traceFinalisedBlock(
 	ctx context.Context, header *core.Header,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	// Check if it was already traced
-	cacheKey := rpccore.TraceCacheKey{BlockHash: *header.Hash}
+	cacheKey := *header.Hash
 	if traces, hit := h.blockTraceCache.Get(cacheKey); hit {
 		return traces, defaultExecutionHeader(), nil
 	}
