@@ -390,7 +390,10 @@ func (h *Handler) traceFinalisedBlock(
 	} else {
 		transactions, txErr := h.bcReader.TransactionsByBlockNumber(header.Number)
 		if txErr != nil {
-			return nil, httpHeader, rpccore.ErrBlockNotFound
+			if errors.Is(txErr, db.ErrKeyNotFound) {
+				return nil, httpHeader, rpccore.ErrBlockNotFound
+			}
+			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(txErr)
 		}
 		traces, httpHeader, rpcErr = h.traceBlockWithVM(header, transactions)
 	}
@@ -463,7 +466,10 @@ func (h *Handler) fetchTracesFromFeederGateway(
 
 	transactions, receipts, err := h.bcReader.TransactionsAndReceiptsByBlockNumber(header.Number)
 	if err != nil {
-		return nil, rpccore.ErrBlockNotFound
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	traces, err := AdaptFeederBlockTrace(transactions, &blockTrace)
