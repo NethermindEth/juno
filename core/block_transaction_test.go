@@ -149,6 +149,16 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 		)
 	})
 
+	t.Run("BlockTransactionsAllTransactionsAndReceiptsPartialSerializer", func(t *testing.T) {
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionsAndReceiptsPartialSerializer,
+			struct{}{},
+			core.TransactionsAndReceipts{Transactions: transactions, Receipts: receipts},
+			serialised,
+		)
+	})
+
 	t.Run("BlockTransactionsAllTransactionEventsPartialSerializer", func(t *testing.T) {
 		expected := make([]core.TransactionEvents, len(receipts))
 		for i, receipt := range receipts {
