@@ -334,13 +334,13 @@ func TestTraceTransaction(t *testing.T) {
 
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
-			// Receipt() returns some other error
+			// The tx-hash index lookup fails for a non-missing-key reason
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), errors.New("database error"))
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
-			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
+			assert.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New("database error")), err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
 	})

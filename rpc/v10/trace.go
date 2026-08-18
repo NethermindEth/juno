@@ -280,7 +280,14 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, nil, rpcErr
 	}
 
+	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
+	// confirm the trace at that index really is the transaction that was asked for.
 	blockTraces := blockTracesResp.Traces
+	if txIndex >= uint64(len(blockTraces)) ||
+		!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 

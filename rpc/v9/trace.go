@@ -88,12 +88,16 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
+	trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash)
+	if err == nil {
 		return trace, header, nil
-	} else if err != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
-	trace, header, err := h.findAndTraceInPreConfirmed(hash)
+	if err != rpccore.ErrTxnHashNotFound {
+		return TransactionTrace{}, httpHeader, err
+	}
+
+	// Not in a finalised block, so try the pre_confirmed chain.
+	trace, header, err = h.findAndTraceInPreConfirmed(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
 	}
@@ -309,6 +313,13 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
+	}
+
+	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
+	// confirm the trace at that index really is the transaction that was asked for.
+	if txIndex >= uint64(len(blockTraces)) ||
+		!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
