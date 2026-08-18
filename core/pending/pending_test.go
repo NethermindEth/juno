@@ -10,11 +10,11 @@ import (
 )
 
 func TestPreConfirmedTransactionByHash(t *testing.T) {
-	preConfirmedTxHash := felt.FromUint64[felt.Felt](2)
-	nonExistingTxHash := felt.FromUint64[felt.Felt](4)
+	preConfirmedTxHash := felt.FromUint64[felt.TransactionHash](2)
+	nonExistingTxHash := felt.FromUint64[felt.TransactionHash](4)
 
 	preConfirmedTx := &core.InvokeTransaction{
-		TransactionHash: &preConfirmedTxHash,
+		TransactionHash: (*felt.Felt)(&preConfirmedTxHash),
 	}
 
 	preConfirmed := &pending.PreConfirmed{
@@ -41,11 +41,11 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 }
 
 func TestPreConfirmedReceiptByHash(t *testing.T) {
-	preConfirmedReceiptHash := felt.FromUint64[felt.Felt](2)
-	nonExistingReceiptHash := felt.FromUint64[felt.Felt](3)
+	preConfirmedReceiptHash := felt.FromUint64[felt.TransactionHash](2)
+	nonExistingReceiptHash := felt.FromUint64[felt.TransactionHash](3)
 
 	preConfirmedReceipt := core.TransactionReceipt{
-		TransactionHash: &preConfirmedReceiptHash,
+		TransactionHash: (*felt.Felt)(&preConfirmedReceiptHash),
 	}
 
 	preConfirmedBlockNumber := uint64(2)

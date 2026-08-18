@@ -1133,7 +1133,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			preConfirmed := test.preConfirmedFn(t, loadedBlock)
 			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
-			_, err := preConfirmed.ReceiptByHash(transaction.Hash())
+			_, err := preConfirmed.ReceiptByHash((*felt.TransactionHash)(transaction.Hash()))
 			if err != nil {
 				// receipt belong to canonical block mock expectations
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(

@@ -86,7 +86,9 @@ func TestThrottledVMError(t *testing.T) {
 			Transactions: []core.Transaction{l1Tx, declareTx},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
+			Return(block.Transactions, nil)
 		state := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)

@@ -513,6 +513,30 @@ func GetTransactionHashesByBlockNumber(
 	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetTransactionsAndReceiptsByBlockNumber returns all transactions and receipts in a given block.
+// Both live under the same key, so this reads the block only once.
+func GetTransactionsAndReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]Transaction, []*TransactionReceipt, error) {
+	blockTransactions, err := BlockTransactionsBucket.Get(r, blockNumber)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting transactions of block %d: %w", blockNumber, err)
+	}
+
+	transactions, err := blockTransactions.Transactions().All()
+	if err != nil {
+		return nil, nil, fmt.Errorf("decoding transactions of block %d: %w", blockNumber, err)
+	}
+
+	receipts, err := blockTransactions.Receipts().All()
+	if err != nil {
+		return nil, nil, fmt.Errorf("decoding receipts of block %d: %w", blockNumber, err)
+	}
+
+	return transactions, receipts, nil
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,
@@ -555,12 +579,7 @@ func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 		return nil, err
 	}
 
-	txs, err := GetTransactionsByBlockNumber(r, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	receipts, err := GetReceiptsByBlockNumber(r, blockNumber)
+	txs, receipts, err := GetTransactionsAndReceiptsByBlockNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
