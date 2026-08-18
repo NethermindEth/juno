@@ -65,7 +65,7 @@ type BlockHeader struct {
 type BlockWithTxs struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	Transactions []*Transaction `json:"transactions"`
+	Transactions []Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1769
@@ -77,8 +77,8 @@ type BlockWithTxHashes struct {
 
 // TransactionWithReceipt represents a transaction with its receipt
 type TransactionWithReceipt struct {
-	Transaction *Transaction        `json:"transaction"`
-	Receipt     *TransactionReceipt `json:"receipt"`
+	Transaction Transaction        `json:"transaction"`
+	Receipt     TransactionReceipt `json:"receipt"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1819
@@ -274,9 +274,8 @@ func (h *Handler) BlockWithReceipts(
 		adaptedTx := AdaptTransaction(txn, includeProofFacts)
 		adaptedTx.Hash = nil
 		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: &adaptedTx,
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus),
+			Transaction: adaptedTx,
+			Receipt:     AdaptReceipt(r, txn, finalityStatus),
 		}
 	}
 
@@ -355,11 +354,10 @@ func (h *Handler) BlockWithTxs(
 	}, nil
 }
 
-func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []*Transaction {
-	adapted := make([]*Transaction, len(transactions))
+func adaptTransactions(transactions []core.Transaction, includeProofFacts bool) []Transaction {
+	adapted := make([]Transaction, len(transactions))
 	for index, transaction := range transactions {
-		adaptedTransaction := AdaptTransaction(transaction, includeProofFacts)
-		adapted[index] = &adaptedTransaction
+		adapted[index] = AdaptTransaction(transaction, includeProofFacts)
 	}
 	return adapted
 }

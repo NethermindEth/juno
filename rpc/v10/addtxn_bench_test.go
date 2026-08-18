@@ -94,7 +94,7 @@ func loadBroadcastedTxn(tb testing.TB, path string) *BroadcastedTransaction {
 	}
 
 	tx := AdaptCoreTransaction(coreTx)
-	broadcastedTxn := BroadcastedTransaction{Transaction: *tx}
+	broadcastedTxn := BroadcastedTransaction{Transaction: tx}
 	return &broadcastedTxn
 }
 

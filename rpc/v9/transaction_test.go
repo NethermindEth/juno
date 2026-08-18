@@ -55,7 +55,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(txHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -84,7 +84,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(searchTxHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -560,7 +560,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
-				require.Equal(t, wantBlock, *receipt.BlockNumber)
+				require.Equal(t, wantBlock, receipt.BlockNumber)
 			})
 		}
 	})
@@ -622,7 +622,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -631,7 +631,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -640,7 +640,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := blockIDNumber(t, rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -649,7 +649,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1)
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -658,7 +658,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, len(latestBlock.Transactions))
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -768,7 +768,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, invalidIndex)
 			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
-			require.Nil(t, actualTxn)
+			require.Empty(t, actualTxn)
 		})
 
 		t.Run("valid index", func(t *testing.T) {
@@ -822,7 +822,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 		tx, rpcErr := handler.TransactionReceiptByHash(txHash)
-		assert.Nil(t, tx)
+		assert.Empty(t, tx)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
@@ -1277,7 +1277,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptTransaction(tx),
+			Transaction: rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1660,7 +1660,7 @@ func TestAddTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		broadcastedTxn := rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptTransaction(tx),
+			Transaction: rpc.AdaptTransaction(tx),
 		}
 
 		mockGateway := mocks.NewMockGateway(mockCtrl)
@@ -2422,7 +2422,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		CallData:      []felt.Felt{},
 	}
 
-	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
+	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: rpc.AdaptTransaction(txnToAdd)}
 
 	var gatewayResponse struct {
 		TransactionHash *felt.Felt `json:"transaction_hash"`

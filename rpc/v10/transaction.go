@@ -37,12 +37,12 @@ var (
 	}
 )
 
-// AdaptTransaction adapts a core.Transaction to a local *Transaction.
+// AdaptTransaction adapts a core.Transaction to a local Transaction.
 // It's a wrapper around AdaptCoreTransaction that allows to exclude proof facts
 // from the transaction. If includeProofFacts is false, the proof facts are set to nil,
 // otherwise they're returned as is.
 func AdaptTransaction(coreTx core.Transaction, includeProofFacts bool) Transaction {
-	tx := *AdaptCoreTransaction(coreTx)
+	tx := AdaptCoreTransaction(coreTx)
 
 	if _, ok := coreTx.(*core.InvokeTransaction); ok {
 		if !includeProofFacts {
@@ -390,24 +390,23 @@ func newTransactionStatus(
 func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
-) (*Transaction, *jsonrpc.Error) {
+) (Transaction, *jsonrpc.Error) {
 	// Check pre-confirmed data
 	if preConfirmed, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if txn, err := preConfirmed.TransactionByHash(hash); err == nil {
-			adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
-			return &adaptedTxn, nil
+			return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
 		}
 	}
 
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return Transaction{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return Transaction{}, rpccore.ErrTxnHashNotFound
 	}
-	adaptedTxn := AdaptTransaction(txn, responseFlags.IncludeProofFacts)
-	return &adaptedTxn, nil
+
+	return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -419,11 +418,11 @@ func (h *Handler) TransactionByHash(
 
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int, responseFlags ResponseFlags,
-) (*Transaction, *jsonrpc.Error) {
+) (Transaction, *jsonrpc.Error) {
 	includeProofFacts := responseFlags.IncludeProofFacts
 
 	if txIndex < 0 {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
 
 	var blockNumber uint64
@@ -432,20 +431,19 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	case blockID.IsPreConfirmed():
 		chain, err := h.syncReader.PreConfirmedChain()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 
 		tipBlock := chain.Head().Block
 		if uint64(txIndex) >= tipBlock.TransactionCount {
-			return nil, rpccore.ErrInvalidTxIndex
+			return Transaction{}, rpccore.ErrInvalidTxIndex
 		}
 
-		adaptedTxn := AdaptTransaction(tipBlock.Transactions[txIndex], includeProofFacts)
-		return &adaptedTxn, nil
+		return AdaptTransaction(tipBlock.Transactions[txIndex], includeProofFacts), nil
 	case blockID.IsLatest():
 		header, err := h.bcReader.HeadsHeader()
 		if err != nil {
-			return nil, rpccore.ErrBlockNotFound
+			return Transaction{}, rpccore.ErrBlockNotFound
 		}
 		blockNumber = header.Number
 	case blockID.IsHash():
@@ -462,15 +460,15 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if err != nil {
-		return nil, rpccore.ErrBlockNotFound
+		return Transaction{}, rpccore.ErrBlockNotFound
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(blockNumber, uint64(txIndex))
 	if err != nil {
-		return nil, rpccore.ErrInvalidTxIndex
+		return Transaction{}, rpccore.ErrInvalidTxIndex
 	}
-	adaptedTxn := AdaptTransaction(txn, includeProofFacts)
-	return &adaptedTxn, nil
+
+	return AdaptTransaction(txn, includeProofFacts), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -479,7 +477,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(
 	hash *felt.Felt,
-) (*TransactionReceipt, *jsonrpc.Error) {
+) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
@@ -488,9 +486,9 @@ func (h *Handler) TransactionReceiptByHash(
 	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	txn, receipt, blockHash, err := h.bcReader.TransactionAndReceiptByBlockNumberAndIndex(
@@ -498,14 +496,14 @@ func (h *Handler) TransactionReceiptByHash(
 	)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
+			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
-		return nil, jsonErr
+		return TransactionReceiptWithBlockInfo{}, jsonErr
 	}
 
 	status := TxnAcceptedOnL2
@@ -526,20 +524,20 @@ func (h *Handler) TransactionReceiptByHash(
 // Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
-) (*TransactionReceipt, *jsonrpc.Error) {
+) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	txn, err := chain.TransactionByHash(hash)
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
 
 	return AdaptReceiptWithBlockInfo(

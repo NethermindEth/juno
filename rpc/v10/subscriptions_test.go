@@ -902,7 +902,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{
-			Transaction: *AdaptCoreTransaction(block.Transactions[0]),
+			Transaction: AdaptCoreTransaction(block.Transactions[0]),
 		}
 
 		var tempGatewayResponse struct {
@@ -2050,7 +2050,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	type stepInfo struct {
 		description   string
 		notify        func()
-		expect        [][]*TransactionReceipt
+		expect        [][]TransactionReceiptWithBlockInfo
 		expectedReorg *ReorgEvent
 	}
 
@@ -2065,8 +2065,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		b *core.Block,
 		senderAddress []felt.Address,
 		finalityStatus TxnFinalityStatus,
-	) []*TransactionReceipt {
-		receipts := make([]*TransactionReceipt, 0)
+	) []TransactionReceiptWithBlockInfo {
+		receipts := make([]TransactionReceiptWithBlockInfo, 0)
 		for i, receipt := range b.Receipts {
 			txn := b.Transactions[i]
 			if filterTxBySender(txn, senderAddress) {
@@ -2103,7 +2103,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2112,14 +2112,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 			{
 				description: "on next head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						nil,
@@ -2141,14 +2141,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 			{
 				description: "on pre_confirmed",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2161,7 +2161,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
@@ -2174,7 +2174,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 		},
 	}
@@ -2191,7 +2191,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2200,7 +2200,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2213,7 +2213,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
@@ -2226,7 +2226,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2256,7 +2256,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					b2PreConfirmedPartialFilteredReceipts,
 				},
 			},
@@ -2265,7 +2265,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						senderFilter,
@@ -2278,7 +2278,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						senderFilter,
@@ -2301,7 +2301,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b1PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedPartial.Block,
 						nil,
@@ -2314,7 +2314,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b1PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedExtended.Block,
 						nil,
@@ -2327,7 +2327,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2340,7 +2340,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead1,
 						nil,
@@ -2353,7 +2353,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						nil,
@@ -2545,12 +2545,12 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
-	return json.Marshal(SubscriptionResponse{
+	return json.Marshal(SubscriptionResponse[any]{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams[any]{
+			Result:         result,
+			SubscriptionID: string(id),
 		},
 	})
 }
@@ -2638,12 +2638,12 @@ func assertNextReceipts(
 	t *testing.T,
 	conn net.Conn,
 	id SubscriptionID,
-	receipts []*TransactionReceipt,
+	receipts []TransactionReceiptWithBlockInfo,
 ) {
 	t.Helper()
 
-	for _, receipt := range receipts {
-		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", receipt)
+	for i := range receipts {
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", &receipts[i])
 	}
 }
 
