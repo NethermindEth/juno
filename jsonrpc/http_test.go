@@ -289,20 +289,25 @@ func TestContentLength(t *testing.T) {
 	// below that the header is set anyway and the test would prove nothing.
 	payload := strings.Repeat("a", 2500)
 	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
-	expected := int64(len(fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)))
+	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
 
 	plain := setHeaderAndProcessRequest(client, map[string]string{"Accept-Encoding": "identity"},
 		bytes.NewReader([]byte(msg)), t, srv)
 	defer plain.Body.Close()
 	require.Empty(t, plain.TransferEncoding)
-	require.Equal(t, expected, plain.ContentLength)
+	require.Equal(t, int64(len(expected)), plain.ContentLength)
+	plainBody, err := io.ReadAll(plain.Body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(plainBody))
 
 	// A small compressed body still gets a length of its own from net/http.
 	// What must never appear here is the uncompressed length.
 	gzipped := setHeaderAndProcessRequest(client, map[string]string{"Accept-Encoding": "gzip"},
 		bytes.NewReader([]byte(msg)), t, srv)
 	defer gzipped.Body.Close()
-	require.NotEqual(t, expected, gzipped.ContentLength)
+	compressed, err := io.ReadAll(gzipped.Body)
+	require.NoError(t, err)
+	require.Equal(t, int64(len(compressed)), gzipped.ContentLength)
 }
 
 func TestGzipResponseReusesWriter(t *testing.T) {
