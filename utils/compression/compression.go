@@ -4,86 +4,110 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 )
 
-// Inclusive range of levels gzip accepts: HuffmanOnly (-2) to BestCompression (9).
+// All gzip compression levels
 const (
 	minLevel   = gzip.HuffmanOnly
 	maxLevel   = gzip.BestCompression
 	levelCount = maxLevel - minLevel + 1
 )
 
-// Writer is a pooled gzip writer. It carries its compression level because
-// gzip.Writer does not expose it and PutGzipWriter needs it to refile the writer.
-type Writer struct {
-	*gzip.Writer
-	level int
-}
+var ErrWriterNotAcquired = errors.New("using writer after release")
 
-// gzipWriterPools holds one pool per compression level. Levels must not share a
-// pool: Reset preserves the level a writer was built with, so a caller asking for
-// one level could be handed another and silently compress at the wrong level.
-// The pointer keeps the pools from being copied.
-var gzipWriterPools = newGzipWriterPools()
+// gzipWriterPools holds one pool per compression level.
+var gzipWriterPools *[levelCount]sync.Pool = func() *[levelCount]sync.Pool {
+	pool := [levelCount]sync.Pool{}
 
-func newGzipWriterPools() *[levelCount]sync.Pool {
-	pools := new([levelCount]sync.Pool)
-	for i := range pools {
+	for i := range pool {
 		level := minLevel + i
-		pools[i].New = func() any {
+		pool[i].New = func() any {
 			// Only fails on an out-of-range level, and level comes from the index.
 			gzipWriter, err := gzip.NewWriterLevel(io.Discard, level)
 			if err != nil {
-				panic(fmt.Sprintf("compression: gzip writer at level %d: %v", level, err))
+				panic(fmt.Sprintf("creating new gzip writer for level %d: %v", level, err))
 			}
-			return &Writer{Writer: gzipWriter, level: level}
+			return &Writer{gz: gzipWriter}
 		}
 	}
-	return pools
+
+	return &pool
+}()
+
+// Writer is a pooled gzip writer. It references the pool it belongs to so it can
+// track its own state
+type Writer struct {
+	gz   *gzip.Writer
+	pool *sync.Pool
 }
 
-// poolIndex maps a level onto its pool. Callers pass constants, so a level gzip
-// would reject is a programming error rather than a runtime condition.
-func poolIndex(level int) int {
-	if level < minLevel || level > maxLevel {
-		panic(fmt.Sprintf("compression: gzip level %d outside [%d, %d]", level, minLevel, maxLevel))
+func (w *Writer) Write(p []byte) (int, error) {
+	if !w.isAcquired() {
+		return 0, ErrWriterNotAcquired
 	}
-	return level - minLevel
+	return w.gz.Write(p)
+}
+
+func (w *Writer) Close() error {
+	if !w.isAcquired() {
+		return ErrWriterNotAcquired
+	}
+	return w.gz.Close()
+}
+
+func (w *Writer) Flush() error {
+	if !w.isAcquired() {
+		return ErrWriterNotAcquired
+	}
+	return w.gz.Flush()
+}
+
+func (w *Writer) isAcquired() bool {
+	return w.pool != nil
+}
+
+// Release returns the writer to the pool
+func (w *Writer) Release() {
+	if w.pool == nil {
+		panic("re-releasing writer")
+	}
+	pool := w.pool
+	w.pool = nil
+	// Intentionally added to break all the references this writer is pointing too before
+	// putting it back to the pool.
+	w.gz.Reset(io.Discard)
+	pool.Put(w)
 }
 
 // GzipWriter returns a gzip writer reset onto `dst`, compressing at the default
-// level. Once used, it should be sent back to the pool via `PutGzipWriter`
+// level. Once used, it should be sent back to the pool via `Release`
 func GzipWriter(dst io.Writer) *Writer {
 	return GzipWriterLevel(dst, gzip.DefaultCompression)
 }
 
 // GzipWriterLevel returns a gzip writer reset onto `dst`, compressing at `level`.
-// Once used, it should be sent back to the pool via `PutGzipWriter`
+// Once used, it should be sent back to the pool via `Release`
 func GzipWriterLevel(dst io.Writer, level int) *Writer {
-	writer := gzipWriterPools[poolIndex(level)].Get().(*Writer)
-	writer.Reset(dst)
+	pool := &gzipWriterPools[level-minLevel]
+	writer := pool.Get().(*Writer)
+	writer.pool = pool
+	writer.gz.Reset(dst)
 	return writer
-}
-
-// PutGzipWriter returns `writer` to the pool for its level. The writer need not be
-// in a good state: Reset clears any sticky write error, so error paths should
-// return it rather than drop it.
-func PutGzipWriter(writer *Writer) {
-	gzipWriterPools[poolIndex(writer.level)].Put(writer)
 }
 
 func Gzip64Encode(data []byte) (string, error) {
 	var compressedBuffer bytes.Buffer
 	gzipWriter := GzipWriter(&compressedBuffer)
-	defer PutGzipWriter(gzipWriter)
+	defer gzipWriter.Release()
 	if _, err := gzipWriter.Write(data); err != nil {
-		return "", fmt.Errorf("gzip data: %v", err)
+		return "", fmt.Errorf("writing data with gzip: %w", err)
 	}
 	if err := gzipWriter.Close(); err != nil {
-		return "", fmt.Errorf("close gzip writer: %v", err)
+		return "", fmt.Errorf("closing gzip writer: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }

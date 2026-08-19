@@ -147,7 +147,7 @@ func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
 
 	var buf bytes.Buffer
 	gzWriter := compression.GzipWriter(&buf)
-	defer compression.PutGzipWriter(gzWriter)
+	defer gzWriter.Release()
 	if _, err := gzWriter.Write(jsonBody); err != nil {
 		return nil, false, fmt.Errorf("writing gzip content: %w", err)
 	}

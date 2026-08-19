@@ -237,7 +237,7 @@ func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 
 	b64 := base64.NewEncoder(base64.StdEncoding, sierraBuf)
 	gz := compression.GzipWriterLevel(b64, gzip.BestSpeed)
-	defer compression.PutGzipWriter(gz)
+	defer gz.Release()
 
 	enc := json.NewEncoder(gz)
 	enc.SetEscapeHTML(false)

@@ -127,7 +127,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 			gw := compression.GzipWriter(writer)
 			defer func() {
 				closeErr := gw.Close()
-				compression.PutGzipWriter(gw)
+				gw.Release()
 				if closeErr != nil {
 					http.Error(writer, "gzip close error", http.StatusInternalServerError)
 					return

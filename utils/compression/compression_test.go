@@ -3,7 +3,6 @@ package compression_test
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"errors"
 	"io"
 	"strconv"
@@ -20,7 +19,7 @@ func TestGzip64(t *testing.T) {
 	expectedComBytes := "H4sIAAAAAAAA/2IABAAA//+N7wLSAQAAAA=="
 	comBytes, err := compression.Gzip64Encode(bytes)
 	require.NoError(t, err)
-	assert.Equal(t, comBytes, expectedComBytes)
+	assert.Equal(t, expectedComBytes, comBytes)
 
 	decompBytes, err := compression.Gzip64Decode(comBytes)
 	require.NoError(t, err)
@@ -62,7 +61,9 @@ func (failingWriter) Write([]byte) (int, error) {
 }
 
 // A writer whose destination failed is still safe to hand back: the next caller
-// gets output identical to what an untouched writer produces.
+// gets output identical to what an untouched writer produces. The expected value
+// comes from gzipAtLevel rather than Gzip64Encode so the oracle cannot itself be
+// tainted by the pool under test.
 func TestGzipWriterAfterFailedDestination(t *testing.T) {
 	const repeats = 4096
 	payload := bytes.Repeat([]byte("compress me "), repeats)
@@ -71,18 +72,36 @@ func TestGzipWriterAfterFailedDestination(t *testing.T) {
 	_, writeErr := poisoned.Write(payload)
 	closeErr := poisoned.Close()
 	require.Error(t, errors.Join(writeErr, closeErr), "failing destination must fault the writer")
-	compression.PutGzipWriter(poisoned)
+	poisoned.Release()
 
 	var buf bytes.Buffer
 	reused := compression.GzipWriter(&buf)
 	_, err := reused.Write(payload)
 	require.NoError(t, err)
 	require.NoError(t, reused.Close())
-	compression.PutGzipWriter(reused)
+	reused.Release()
 
-	expected, err := compression.Gzip64Encode(payload)
-	require.NoError(t, err)
-	assert.Equal(t, expected, base64.StdEncoding.EncodeToString(buf.Bytes()))
+	assert.Equal(t, gzipAtLevel(t, payload, gzip.DefaultCompression), buf.Bytes())
+}
+
+// Releasing twice would hand the same writer to two callers at once, so the
+// second Release must fail loudly rather than corrupt a concurrent caller.
+func TestGzipWriterDoubleReleasePanics(t *testing.T) {
+	gzipWriter := compression.GzipWriter(io.Discard)
+	gzipWriter.Release()
+	assert.Panics(t, func() { gzipWriter.Release() })
+}
+
+// A released writer may already be owned by another goroutine, so using it must
+// be refused rather than silently corrupt the new owner's output.
+func TestGzipWriterUseAfterReleaseErrors(t *testing.T) {
+	gzipWriter := compression.GzipWriter(io.Discard)
+	gzipWriter.Release()
+
+	_, err := gzipWriter.Write([]byte("stale"))
+	assert.ErrorIs(t, err, compression.ErrWriterNotAcquired)
+	assert.ErrorIs(t, gzipWriter.Close(), compression.ErrWriterNotAcquired)
+	assert.ErrorIs(t, gzipWriter.Flush(), compression.ErrWriterNotAcquired)
 }
 
 // gzipAtLevel is the reference encoding: a writer built at `level` and used once,
@@ -106,13 +125,21 @@ func TestGzipWriterLevelsDoNotMix(t *testing.T) {
 	const repeats = 8192
 	payload := bytes.Repeat([]byte("mixed levels must not share writers "), repeats)
 
-	levels := []int{gzip.BestSpeed, gzip.DefaultCompression, gzip.BestCompression}
+	// HuffmanOnly and NoCompression are included because they take a different
+	// reset path inside flate than the levels that build a match chain.
+	levels := []int{
+		gzip.HuffmanOnly,
+		gzip.NoCompression,
+		gzip.BestSpeed,
+		gzip.DefaultCompression,
+		gzip.BestCompression,
+	}
 
 	// Cycle the levels so every pool has been drawn from and returned to before the
 	// assertions below, giving a misfiled writer the chance to surface.
 	for range 2 {
 		for _, level := range levels {
-			compression.PutGzipWriter(compression.GzipWriterLevel(io.Discard, level))
+			compression.GzipWriterLevel(io.Discard, level).Release()
 		}
 	}
 
@@ -123,7 +150,7 @@ func TestGzipWriterLevelsDoNotMix(t *testing.T) {
 			_, err := gzipWriter.Write(payload)
 			require.NoError(t, err)
 			require.NoError(t, gzipWriter.Close())
-			compression.PutGzipWriter(gzipWriter)
+			gzipWriter.Release()
 
 			assert.Equal(t, gzipAtLevel(t, payload, level), buf.Bytes())
 		})

@@ -8,18 +8,8 @@ import (
 	"github.com/NethermindEth/juno/utils/compression"
 )
 
-// Run with: go test -bench=. -benchmem -count=3 ./utils/compression/
-//
-// Sizes bracket the deprecated Cairo 0 and sierra programs these helpers run on,
-// which reach from tens of kilobytes to a few megabytes. The pooled writer removes
-// a fixed ~800 KB allocation per call, so the payoff shows up in B/op at every
-// size and in ns/op only at the small end, where that allocation is not yet
-// dominated by compression itself.
 var benchSizes = []int{16 << 10, 256 << 10, 2 << 20}
 
-// programLike builds a deterministic payload that compresses like the JSON class
-// programs these helpers see in production. A payload of random bytes would be
-// incompressible and would benchmark the wrong thing.
 func programLike(size int) []byte {
 	tokens := []string{
 		`{"prime":"0x800000000000011000000000000000000000000000000000000000000000001",`,
@@ -86,6 +76,6 @@ func BenchmarkGzipWriter(b *testing.B) {
 		if err := gzipWriter.Close(); err != nil {
 			b.Fatal(err)
 		}
-		compression.PutGzipWriter(gzipWriter)
+		gzipWriter.Release()
 	}
 }
