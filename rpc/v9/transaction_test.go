@@ -2266,16 +2266,16 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 			),
 		},
 		Nonce: felt.NewUnsafeFromString[felt.Felt]("0x1"),
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas: core.ResourceBounds{
 				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
 				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
-			core.ResourceL2Gas: {
+			L2Gas: core.ResourceBounds{
 				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
 				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
-			core.ResourceL1DataGas: {
+			L1DataGas: core.ResourceBounds{
 				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
 				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
@@ -2402,16 +2402,16 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
 		NonceDAMode: core.DAModeL1,
 		FeeDAMode:   core.DAModeL1,
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas: core.ResourceBounds{
 				MaxAmount:       0x1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
-			core.ResourceL1DataGas: {
+			L1DataGas: core.ResourceBounds{
 				MaxAmount:       0x1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
-			core.ResourceL2Gas: {
+			L2Gas: core.ResourceBounds{
 				MaxAmount:       0,
 				MaxPricePerUnit: &felt.Zero,
 			},

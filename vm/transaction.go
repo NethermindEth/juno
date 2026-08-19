@@ -202,15 +202,26 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 	return tx
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
-	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+func adaptResourceBounds(rb core.ResourceBoundsMap) map[Resource]ResourceBounds {
+	vmResourceBounds := map[Resource]ResourceBounds{
+		ResourceL1Gas: {
+			MaxAmount:       new(felt.Felt).SetUint64(rb.L1Gas.MaxAmount),
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+		},
+		ResourceL2Gas: {
+			MaxAmount:       new(felt.Felt).SetUint64(rb.L2Gas.MaxAmount),
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		},
+	}
+	// l1_data_gas was added in 0.13.4; only include it when present so the
+	// payload sent to the VM matches what the old map produced.
+	if rb.L1DataGas.MaxPricePerUnit != nil {
+		vmResourceBounds[ResourceL1DataGas] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb.L1DataGas.MaxAmount),
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
 		}
 	}
-	return rpcResourceBounds
+	return vmResourceBounds
 }
 
 func nilToZero(v []felt.Felt) *[]felt.Felt {

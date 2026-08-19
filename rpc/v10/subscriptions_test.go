@@ -1832,12 +1832,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas: core.ResourceBounds{
 				MaxAmount:       1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},
-			core.ResourceL2Gas: {
+			L2Gas: core.ResourceBounds{
 				MaxAmount:       1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},
@@ -1850,12 +1850,12 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
-		ResourceBounds: map[core.Resource]core.ResourceBounds{
-			core.ResourceL1Gas: {
+		ResourceBounds: core.ResourceBoundsMap{
+			L1Gas: core.ResourceBounds{
 				MaxAmount:       1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},
-			core.ResourceL2Gas: {
+			L2Gas: core.ResourceBounds{
 				MaxAmount:       1,
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 			},

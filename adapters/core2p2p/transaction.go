@@ -131,11 +131,11 @@ func adaptResourceLimits(bounds core.ResourceBounds) *transaction.ResourceLimits
 	}
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *transaction.ResourceBounds {
+func adaptResourceBounds(rb core.ResourceBoundsMap) *transaction.ResourceBounds {
 	return &transaction.ResourceBounds{
-		L1Gas:     adaptResourceLimits(rb[core.ResourceL1Gas]),
-		L1DataGas: adaptResourceLimits(rb[core.ResourceL1DataGas]),
-		L2Gas:     adaptResourceLimits(rb[core.ResourceL2Gas]),
+		L1Gas:     adaptResourceLimits(rb.L1Gas),
+		L1DataGas: adaptResourceLimits(rb.L1DataGas),
+		L2Gas:     adaptResourceLimits(rb.L2Gas),
 	}
 }
 

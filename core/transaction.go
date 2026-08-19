@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/fxamacker/cbor/v2"
@@ -58,6 +59,7 @@ const (
 )
 
 // From the RPC spec: The max amount and max price per unit of gas used in this transaction.
+// A zero value (nil MaxPricePerUnit) represents a resource that is absent from a transaction.
 type ResourceBounds struct {
 	MaxAmount uint64
 	// MaxPricePerUnit is technically a uint128
@@ -78,6 +80,80 @@ func (rb ResourceBounds) Bytes(resource Resource) []byte {
 
 func (rb ResourceBounds) IsZero() bool {
 	return rb.MaxAmount == 0 && (rb.MaxPricePerUnit == nil || rb.MaxPricePerUnit.IsZero())
+}
+
+// ResourceBoundsMap holds the per-resource bounds of a v3 transaction. It
+// replaces the historical map[Resource]ResourceBounds: the set of resources is
+// effectively fixed, so explicit fields are clearer and avoid a map allocation
+// per transaction.
+//
+// On the wire it is still encoded as the legacy map[Resource]ResourceBounds so
+// that transactions written to the DB before this type existed remain readable
+// without a migration — see MarshalCBOR/UnmarshalCBOR.
+//
+// A zero value represents a transaction with no resource bounds (v0-v2).
+type ResourceBoundsMap struct {
+	L1Gas     ResourceBounds
+	L2Gas     ResourceBounds
+	L1DataGas ResourceBounds
+}
+
+// EmptyResourceBounds returns a ResourceBounds with all fields set to zero values.
+func EmptyResourceBounds() ResourceBounds {
+	return ResourceBounds{
+		MaxAmount:       0,
+		MaxPricePerUnit: nil,
+	}
+}
+
+// EmptyResourceBoundsMap returns a ResourceBoundsMap with all resources set to zero values.
+func EmptyResourceBoundsMap() ResourceBoundsMap {
+	return ResourceBoundsMap{
+		L1Gas:     EmptyResourceBounds(),
+		L2Gas:     EmptyResourceBounds(),
+		L1DataGas: EmptyResourceBounds(),
+	}
+}
+
+// MarshalCBOR encodes the bounds using the legacy map[Resource]ResourceBounds
+// layout so the on-disk format is unchanged.
+func (rb ResourceBoundsMap) MarshalCBOR() ([]byte, error) {
+	return encoder.Marshal(rb.toMap())
+}
+
+// UnmarshalCBOR decodes the legacy map[Resource]ResourceBounds layout, including
+// the nil map that pre-v3 transactions were stored with.
+func (rb *ResourceBoundsMap) UnmarshalCBOR(data []byte) error {
+	var m map[Resource]ResourceBounds
+	if err := encoder.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	rb.L1Gas = m[ResourceL1Gas]
+	rb.L2Gas = m[ResourceL2Gas]
+	rb.L1DataGas = m[ResourceL1DataGas]
+	return nil
+}
+
+// toMap rebuilds the legacy map representation. A resource is only present when
+// it carries a value (non-nil MaxPricePerUnit), mirroring how transactions were
+// built before this type existed: pre-v3 transactions had a nil map, and v3
+// transactions before Starknet 0.13.4 omitted l1_data_gas. Preserving this
+// keeps both the stored bytes and the computed transaction hash unchanged.
+func (rb ResourceBoundsMap) toMap() map[Resource]ResourceBounds {
+	var m map[Resource]ResourceBounds
+	put := func(r Resource, b ResourceBounds) {
+		if b.MaxPricePerUnit == nil {
+			return
+		}
+		if m == nil {
+			m = make(map[Resource]ResourceBounds)
+		}
+		m[r] = b
+	}
+	put(ResourceL1Gas, rb.L1Gas)
+	put(ResourceL2Gas, rb.L2Gas)
+	put(ResourceL1DataGas, rb.L1DataGas)
+	return m
 }
 
 type Event struct {
@@ -246,7 +322,7 @@ type DeployAccountTransaction struct {
 
 	// Version 3 fields
 	// See InvokeTransaction for descriptions of the fields.
-	ResourceBounds map[Resource]ResourceBounds
+	ResourceBounds ResourceBoundsMap
 	Tip            uint64
 	PaymasterData  []felt.Felt
 	NonceDAMode    DataAvailabilityMode
@@ -288,7 +364,7 @@ type InvokeTransaction struct {
 	SenderAddress *felt.Felt
 
 	// Version 3 fields (there was no version 2)
-	ResourceBounds map[Resource]ResourceBounds
+	ResourceBounds ResourceBoundsMap
 	Tip            uint64
 	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
 	PaymasterData []felt.Felt
@@ -339,7 +415,7 @@ type DeclareTransaction struct {
 
 	// Version 3 fields
 	// See InvokeTransaction for descriptions of the fields.
-	ResourceBounds        map[Resource]ResourceBounds
+	ResourceBounds        ResourceBoundsMap
 	Tip                   uint64
 	PaymasterData         []felt.Felt
 	AccountDeploymentData []felt.Felt
@@ -511,17 +587,18 @@ func invokeTransactionHash(i *InvokeTransaction, n *networks.Network) (felt.Felt
 	}
 }
 
-func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds) felt.Felt {
-	l1Bounds := felt.FromBytes[felt.Felt](resourceBounds[ResourceL1Gas].Bytes(ResourceL1Gas))
-	l2Bounds := felt.FromBytes[felt.Felt](resourceBounds[ResourceL2Gas].Bytes(ResourceL2Gas))
+func tipAndResourcesHash(tip uint64, resourceBounds ResourceBoundsMap) felt.Felt {
+	l1Bounds := felt.FromBytes[felt.Felt](resourceBounds.L1Gas.Bytes(ResourceL1Gas))
+	l2Bounds := felt.FromBytes[felt.Felt](resourceBounds.L2Gas.Bytes(ResourceL2Gas))
 	tipFelt := felt.FromUint64[felt.Felt](tip)
 
 	var digest crypto.PoseidonDigest
 	digest.Update(&tipFelt, &l1Bounds, &l2Bounds)
 
-	// l1_data_gas resource bounds were added in 0.13.4
-	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok && bounds.MaxPricePerUnit != nil {
-		l1DataBounds := felt.FromBytes[felt.Felt](bounds.Bytes(ResourceL1DataGas))
+	// l1_data_gas resource bounds were added in 0.13.4. A non-nil MaxPricePerUnit
+	// marks the resource as present, matching the old map-key check.
+	if resourceBounds.L1DataGas.MaxPricePerUnit != nil {
+		l1DataBounds := felt.FromBytes[felt.Felt](resourceBounds.L1DataGas.Bytes(ResourceL1DataGas))
 		digest.Update(&l1DataBounds)
 	}
 
