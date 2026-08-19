@@ -115,7 +115,7 @@ func fetchL1HeadIfMissing(
 		return fmt.Errorf("creating L1 state provider: %w", err)
 	}
 
-	client := l1.NewClient(provider, chain, logger)
+	client := l1.NewClient(provider, chain, l1.WithLogger(logger))
 	if err := client.CatchUpL1Head(ctx); err != nil {
 		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}

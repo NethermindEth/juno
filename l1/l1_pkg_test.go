@@ -365,7 +365,7 @@ func TestClient(t *testing.T) {
 			client := NewClient(
 				nil,
 				chain,
-				nopLog,
+				l1.WithLogger(nopLog),
 				WithResubscribeDelay(0),
 				WithPollFinalisedInterval(time.Nanosecond),
 			)
@@ -447,7 +447,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	client := NewClient(
 		nil,
 		chain,
-		nopLog,
+		l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Nanosecond),
 	)
@@ -574,7 +574,7 @@ func TestCatchUpSetsL1HeadOnStart(t *testing.T) {
 		Times(1)
 
 	client := NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 		WithCatchUpChunkSize(10),
@@ -629,7 +629,7 @@ func TestCatchUpMultiChunk(t *testing.T) {
 		After(secondCall)
 
 	client := NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 		WithCatchUpChunkSize(10),
@@ -668,7 +668,7 @@ func TestCatchUpFilterError(t *testing.T) {
 	// Best-effort: catch-up error must NOT terminate Run. It logs and falls
 	// through to the live subscription, which we let idle until ctx expires.
 	client := NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -715,7 +715,7 @@ func TestCatchUpHeadAndCachePartition(t *testing.T) {
 		Times(1)
 
 	client := NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -781,7 +781,7 @@ func TestCatchUpPartialProgressPreserved(t *testing.T) {
 	// Poll interval is 1h so the live loop never ticks setL1Head — the only
 	// thing that could populate nonFinalisedLogs is the catch-up walk.
 	client := NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		WithResubscribeDelay(0),
 		WithPollFinalisedInterval(time.Hour),
 	)
@@ -825,7 +825,7 @@ func TestFinalisedHeightReturnsPromptlyOnCancel(t *testing.T) {
 			Return(uint64(0), errors.New("boom")).
 			MinTimes(1)
 
-		client := NewClient(provider, chain, nopLog, WithResubscribeDelay(time.Hour))
+		client := NewClient(provider, chain, l1.WithLogger(nopLog), WithResubscribeDelay(time.Hour))
 
 		ctx, cancel := context.WithCancel(t.Context())
 		type result struct {
@@ -873,7 +873,7 @@ func TestSubscribeToUpdatesReturnsPromptlyOnCancel(t *testing.T) {
 			Return(nil, errors.New("boom")).
 			MinTimes(1)
 
-		client := NewClient(provider, chain, nopLog, WithResubscribeDelay(time.Hour))
+		client := NewClient(provider, chain, l1.WithLogger(nopLog), WithResubscribeDelay(time.Hour))
 
 		ctx, cancel := context.WithCancel(t.Context())
 		done := make(chan Subscription, 1)

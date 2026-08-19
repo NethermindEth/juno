@@ -21,6 +21,8 @@ type Client struct {
 	network               *networks.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
+	// CatchUpChunkSize is the L1 block range per backward eth_getLogs request
+	// during the startup catch-up scan.
 	catchUpChunkSize      uint64
 	nonFinalisedLogs      map[uint64]*StateUpdate
 	listener              EventListener
@@ -36,9 +38,8 @@ type options struct {
 	EventListener         EventListener
 	ResubscribeDelay      time.Duration
 	PollFinalisedInterval time.Duration
-	// CatchUpChunkSize is the L1 block range per backward eth_getLogs request
-	// during the startup catch-up scan.
-	CatchUpChunkSize uint64
+	CatchUpChunkSize      uint64
+	Logger                log.StructuredLogger
 }
 
 // Option is a functional option for configuring l1 client options.
@@ -64,10 +65,14 @@ func WithCatchUpChunkSize(size uint64) Option {
 	return func(o *options) { o.CatchUpChunkSize = size }
 }
 
+// WithLogger sets the structured logger for the l1 client.
+func WithLogger(logger log.StructuredLogger) Option {
+	return func(o *options) { o.Logger = logger }
+}
+
 func NewClient(
 	provider L1StateProvider,
 	chain *blockchain.Blockchain,
-	logger log.StructuredLogger,
 	opts ...Option,
 ) *Client {
 	o := options{
@@ -75,6 +80,7 @@ func NewClient(
 		ResubscribeDelay:      10 * time.Second,
 		PollFinalisedInterval: time.Minute,
 		CatchUpChunkSize:      defaultCatchUpChunkSize,
+		Logger:                log.NewNopZapLogger(),
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -82,7 +88,7 @@ func NewClient(
 	return &Client{
 		provider:              provider,
 		l2Chain:               chain,
-		logger:                logger,
+		logger:                o.Logger,
 		network:               chain.Network(),
 		resubscribeDelay:      o.ResubscribeDelay,
 		pollFinalisedInterval: o.PollFinalisedInterval,

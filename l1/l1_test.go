@@ -65,7 +65,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	client := l1.NewClient(
 		provider,
 		chain,
-		nopLog,
+		l1.WithLogger(nopLog),
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 	)
@@ -101,7 +101,7 @@ func TestMismatchedChainID(t *testing.T) {
 	client := l1.NewClient(
 		provider,
 		chain,
-		nopLog,
+		l1.WithLogger(nopLog),
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 	)
@@ -139,7 +139,7 @@ func TestChainIDCheckTimeout(t *testing.T) {
 			}).
 			Times(1)
 
-		client := l1.NewClient(provider, chain, nopLog)
+		client := l1.NewClient(provider, chain, l1.WithLogger(nopLog))
 
 		err := client.CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_chainId did not respond within")
@@ -170,7 +170,7 @@ func TestChainIDFetchError(t *testing.T) {
 		Return(nil, rpcErr).
 		Times(1)
 
-	client := l1.NewClient(provider, chain, nopLog)
+	client := l1.NewClient(provider, chain, l1.WithLogger(nopLog))
 
 	err := client.CatchUpL1Head(t.Context())
 	require.ErrorContains(t, err, "retrieving Ethereum chain ID")
@@ -218,7 +218,7 @@ func TestTransientChainIDErrorDoesNotShutDownNode(t *testing.T) {
 	// entering catch-up or the watch loop, so no other L1StateProvider calls occur.
 
 	client := l1.NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 	)
@@ -258,7 +258,7 @@ func TestFinalisedHeightTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, l1.WithLogger(nopLog)).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, `eth_getBlockByNumber("finalized")`)
 		require.ErrorContains(t, err, "did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
@@ -291,7 +291,7 @@ func TestLatestHeightTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, l1.WithLogger(nopLog)).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_blockNumber did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
 	})
@@ -325,7 +325,7 @@ func TestFilterStateUpdateTimeoutDuringCatchUp(t *testing.T) {
 			}).
 			Times(1)
 
-		err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
+		err := l1.NewClient(provider, chain, l1.WithLogger(nopLog)).CatchUpL1Head(t.Context())
 		require.ErrorContains(t, err, "eth_getLogs did not respond within")
 		require.ErrorContains(t, err, "--eth-node")
 	})
@@ -400,7 +400,7 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 			Return([]*l1.StateUpdate{event}, nil).
 			Times(1)
 
-		client := l1.NewClient(provider, chain, nopLog, l1.WithResubscribeDelay(time.Second))
+		client := l1.NewClient(provider, chain, l1.WithLogger(nopLog), l1.WithResubscribeDelay(time.Second))
 		require.NoError(t, client.CatchUpL1Head(t.Context()))
 
 		got, err := chain.L1Head()
@@ -466,7 +466,7 @@ func TestEventListener(t *testing.T) {
 
 	var got *core.L1Head
 	client := l1.NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Nanosecond),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -533,7 +533,7 @@ func TestEventListenerCatchUp(t *testing.T) {
 
 	var got *core.L1Head
 	client := l1.NewClient(
-		provider, chain, nopLog,
+		provider, chain, l1.WithLogger(nopLog),
 		l1.WithResubscribeDelay(0),
 		l1.WithPollFinalisedInterval(time.Hour),
 		l1.WithEventListener(l1.SelectiveListener{
@@ -595,7 +595,7 @@ func TestCatchUpL1Head(t *testing.T) {
 		AnyTimes()
 	provider.EXPECT().Close().AnyTimes()
 
-	client := l1.NewClient(provider, chain, nopLog)
+	client := l1.NewClient(provider, chain, l1.WithLogger(nopLog))
 	require.NoError(t, client.CatchUpL1Head(t.Context()))
 
 	persisted, err := chain.L1Head()
@@ -623,7 +623,7 @@ func TestCatchUpL1Head_ChainIDMismatch(t *testing.T) {
 	provider.EXPECT().ChainID(gomock.Any()).Return(big.NewInt(999), nil)
 	provider.EXPECT().Close()
 
-	err := l1.NewClient(provider, chain, nopLog).CatchUpL1Head(t.Context())
+	err := l1.NewClient(provider, chain, l1.WithLogger(nopLog)).CatchUpL1Head(t.Context())
 	require.ErrorContains(t, err, "mismatched network id between L1 and L2")
 	require.ErrorContains(t, err, "--eth-node")
 }
