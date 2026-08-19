@@ -65,9 +65,9 @@ Note that this effectively improve syncing speed while behind the tip of the cha
 
 ## Database Cache Size
 
-Set by the `--db-cache-size` flag (default: 1024 MB), this determines the amount of memory allocated for caching frequently accessed data from the database.
+Set by the `--db-cache-size` flag (default: a quarter of total memory — host RAM or cgroup limit — between 1024 and 8192 MB), this determines the amount of memory allocated for caching frequently accessed data from the database.
 
-A larger cache reduces disk reads and improves query performance. On systems with ample memory, increasing this value (e.g., 2048 or 4096 MB) can significantly improve RPC response times and overall node performance.
+A larger cache reduces disk reads and improves query performance. The default already scales with memory; on machines with more than 32 GB of RAM, raising it past the 8192 MB cap holds more of the database in memory and can improve RPC response times.
 
 ## Sierra Compilation Limits
 
@@ -95,12 +95,12 @@ The CPU time limit counts seconds of CPU actually consumed by the compilation pr
 - `--max-concurrent-compilations`(default: unset): controls how many compilations run at once. Any non-negative integer is used directly (`0` disables compilations). Left unset (the default), Juno derives a safe value so concurrent compilations cannot exhaust RAM:
 
 ```
-limit = min((available_memory - node_memory_reserve) / max_compilation_memory, cpu_cores), at least 1.
+limit = min((available_memory - node_memory_reserve - db_cache_size) / max_compilation_memory, cpu_cores), at least 1.
 ```
  
 - `--max-compilation-queue` (default: unset): How many requests wait once the concurrency limit is reached before new ones are rejected. Unset uses twice the concurrency limit (`0` disables the queue).
 
-- `--node-memory-reserve` (default: 4096 MB): Memory kept for the rest of the node, excluded from the compilation budget.
+- `--node-memory-reserve` (default: 4096 MB): Memory kept for the rest of the node, excluded from the compilation budget. The DB cache size is excluded on top of this reserve, since the cache fills to its ceiling on a synced node.
 
 The available memory respects container limits (cgroups), so inside a memory-capped container the value reflects the container, not the host. On non-Linux, where the per-compilation memory limit does not apply, the limit is simply the CPU core count.
 

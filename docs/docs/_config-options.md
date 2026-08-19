@@ -83,7 +83,7 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `db-cache-size` | `1024` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
+| `db-cache-size` | `quarter of total memory (min 1024, max 8192)` | Determines the amount of memory (in megabytes) allocated for caching data in the database. When not set, defaults to a quarter of total memory (host RAM or cgroup limit), between 1024 and 8192 |
 | `db-compaction-concurrency` |  | DB compaction concurrency range. Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2 |
 | `db-compression` | `zstd` | Database compression profile. Options: zstd, snappy, minlz. Use zstd for low storage |
 | `db-max-handles` | `half of process fd limit (min 1024, max 1048576)` | A soft limit on the number of open files that can be used by the DB. When not set, defaults to half of the process fd limit (min 1024, max 1048576) |
@@ -105,7 +105,7 @@
 | `max-compilation-cpu-time` | `10` | Maximum CPU time (in seconds) each Sierra compilation process may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
 | `max-compilation-memory` | `4 * 1024` | Maximum memory (in MB) each Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
 | `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations before starting to reject incoming requests |
-| `max-concurrent-compilations` | `CPU Cores` | Maximum concurrent Sierra compilations |
+| `max-concurrent-compilations` | `auto (memory-aware)` | Maximum concurrent Sierra compilations. Default is set based on available hardware resources. Derived as `min(cpu_cores, (available_memory - node_memory_reserve - db_cache_size) / max_compilation_memory)`, at least 1 |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |

@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"runtime"
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -41,14 +40,24 @@ func (tc *ThrottledCompiler) Compile(
 
 // calculateCompilerConcurrencyBudget determines safe limits for concurrent compilations
 // if this were not explicitly set
-func calculateCompilerConcurrencyBudget(cfg *Config, logger log.StructuredLogger) (uint64, uint64) {
+func calculateCompilerConcurrencyBudget(
+	cfg *Config,
+	cores uint64,
+	availableMemoryMB uint64,
+	logger log.StructuredLogger,
+) (uint64, uint64) {
+	// A remote DB allocates no local pebble cache, so none of it is reserved.
+	dbCacheSizeMB := uint64(cfg.DBCacheSize)
+	if cfg.RemoteDB != "" {
+		dbCacheSizeMB = 0
+	}
+
 	maxConcurrency := cfg.MaxConcurrentCompilations
-	availableMemoryMB := compiler.AvailableMemoryMB()
 	if !cfg.MaxConcurrentCompilationsExplicit {
 		maxConcurrency = compiler.ConcurrencyLimit(
-			uint64(runtime.GOMAXPROCS(0)),
+			cores,
 			availableMemoryMB,
-			uint64(cfg.NodeMemoryReserve),
+			uint64(cfg.NodeMemoryReserve)+dbCacheSizeMB,
 			uint64(cfg.MaxCompilationMemory),
 		)
 	}
@@ -63,6 +72,7 @@ func calculateCompilerConcurrencyBudget(cfg *Config, logger log.StructuredLogger
 		zap.Uint64("queueSize", queueSize),
 		zap.Uint64("availableMemoryMB", availableMemoryMB),
 		zap.Uint("nodeMemoryReserveMB", cfg.NodeMemoryReserve),
+		zap.Uint64("dbCacheSizeMB", dbCacheSizeMB),
 		zap.Uint("maxCompilationMemoryMB", cfg.MaxCompilationMemory),
 	)
 	return maxConcurrency, queueSize

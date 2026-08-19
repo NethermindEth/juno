@@ -76,7 +76,3 @@ func TestConcurrencyLimit(t *testing.T) {
 		})
 	}
 }
-
-func TestAvailableMemoryMB(t *testing.T) {
-	assert.NotZero(t, compiler.AvailableMemoryMB())
-}

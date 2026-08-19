@@ -73,7 +73,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxConcurrentRequests := uint(256000)
 	defaultRPCMaxRequestQueue := uint(256000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
-	defaultMaxCacheSize := uint(1024)
+	defaultMaxCacheSize := min(max(uint(utils.AvailableMemoryMB()/4), 1024), 8192)
 	defaultMaxHandles := max(int(min(fdLimit/2, 1_048_576)), 1024)
 	defaultDBMemtableSize := uint(256)
 	defaultDBMemtableCount := uint(2)
@@ -224,7 +224,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"custom network all flags": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "1024",
+				"--db-path", "/home/.juno", "--pprof",
 				"--cn-name", "custom", "--cn-feeder-url", "http://awesome.feeder", "--cn-gateway-url", "http://awesome.gateway",
 				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
 				"--cn-unverifiable-range", "0,10",
@@ -416,7 +416,8 @@ http-port: 4576
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof", "--db-cache-size", "1024",
+				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof",
+				"--db-cache-size", "2222",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:                           "debug",
@@ -443,7 +444,7 @@ http-port: 4576
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
-				DBCacheSize:                        defaultMaxCacheSize,
+				DBCacheSize:                        2222,
 				DBMaxHandles:                       defaultMaxHandles,
 				DBMemtableSize:                     defaultDBMemtableSize,
 				DBMemtableCount:                    defaultDBMemtableCount,

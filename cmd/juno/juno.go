@@ -147,6 +147,8 @@ const (
 	defaultRemoteDB                           = ""
 	defaultRPCMaxBlockScan                    = math.MaxUint
 	defaultCacheSizeMb                        = 1024
+	maxAutoCacheSizeMb                        = 8192
+	cacheMemoryFraction                       = 4
 	defaultDBMaxHandlesFloor                  = 1024
 	defaultDBMaxHandlesCeiling                = 1_048_576
 	defaultGwAPIKey                           = ""
@@ -234,8 +236,10 @@ const (
 	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
 	remoteDBUsage        = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB. " +
+	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for " +
+		"caching data in the database. When not set, defaults to a quarter of total " +
+		"memory (host RAM or cgroup limit), between 1024 and 8192"
+	dbMaxHandlesUsage = "A soft limit on the number of open files that can be used by the DB. " +
 		"When not set, defaults to half of the process fd limit (min 1024, max 1048576)"
 	//nolint: gosec // usage text, not a credential
 	gwAPIKeyUsage   = "API key for gateway endpoints to avoid throttling"
@@ -281,7 +285,8 @@ const (
 		"may consume; a compilation exceeding it is aborted. Enforced on Linux only. " +
 		"0 disables the limit."
 	maxCompilationReserveMemory = "Memory (in MB) excluded from the compilations memory budget when " +
-		"calculating the default for `max-concurrent-compilations`"
+		"calculating the default for `max-concurrent-compilations`. The DB cache size is " +
+		"excluded on top of this reserve"
 	pruneModeUsage = "Enables block-data and state-history pruning. Pruning is " +
 		"disabled by default; passing this flag (with or without a value) turns " +
 		"it on. The value is the size of the retention window in blocks, counted " +
@@ -592,7 +597,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// --- Database ---
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
-	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
+	junoCmd.Flags().Uint(dbCacheSizeF, defaultDBCacheSize(), dbCacheSizeUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultDBMaxHandles(), dbMaxHandlesUsage)
 	junoCmd.Flags().String(
 		dbCompactionConcurrencyF, defaultDBCompactionConcurrency, dbCompactionConcurrencyUsage,
@@ -714,6 +719,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())
 
 	return junoCmd
+}
+
+// defaultDBCacheSize gives the DB block cache a quarter of the memory this
+// process can use, clamped to [defaultCacheSizeMb, maxAutoCacheSizeMb].
+func defaultDBCacheSize() uint {
+	return dbCacheSizeForMemoryMB(utils.AvailableMemoryMB())
+}
+
+func dbCacheSizeForMemoryMB(memMB uint64) uint {
+	return min(max(uint(memMB/cacheMemoryFraction), defaultCacheSizeMb), maxAutoCacheSizeMb)
 }
 
 // defaultDBMaxHandles gives the DB half of the process fd limit, clamped to

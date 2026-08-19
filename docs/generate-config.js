@@ -105,6 +105,10 @@ const extractConfigs = (codebase) => {
     if (configName === "db-max-handles") {
       defaultValue = "half of process fd limit (min 1024, max 1048576)";
     }
+    // Same for db-cache-size — computed from total memory at startup.
+    if (configName === "db-cache-size") {
+      defaultValue = "quarter of total memory (min 1024, max 8192)";
+    }
     if (configName === "max-vms") {
       defaultValue = "3 * CPU Cores";
     }
@@ -116,7 +120,7 @@ const extractConfigs = (codebase) => {
     if (configName === "max-concurrent-compilations") {
       defaultValue = "auto (memory-aware)";
       description +=
-        ". Derived as `min(cpu_cores, (available_memory - node_memory_reserve) / max_compilation_memory)`, at least 1";
+        ". Derived as `min(cpu_cores, (available_memory - node_memory_reserve - db_cache_size) / max_compilation_memory)`, at least 1";
     }
     if (configName === "max-compilation-queue") {
       defaultValue = "2 * max-concurrent-compilations";
