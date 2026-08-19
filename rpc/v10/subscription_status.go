@@ -94,21 +94,27 @@ func (s *txStatusSubscriberState) onReorg(
 }
 
 func (s *txStatusSubscriberState) onNewHead(
-	ctx context.Context,
+	_ context.Context,
 	id string,
 	sub *subscription,
-	_ *core.Block,
+	head *core.Block,
 ) error {
-	return s.checkTxStatusIfPending(ctx, id, sub)
+	if s.lastStatus >= TxnStatusAcceptedOnL2 {
+		return nil
+	}
+	return s.sendStatusFromBlock(head, TxnStatusAcceptedOnL2, id, sub)
 }
 
 func (s *txStatusSubscriberState) onPreConfirmed(
-	ctx context.Context,
+	_ context.Context,
 	id string,
 	sub *subscription,
-	_ *pending.PreConfirmed,
+	preConfirmed *pending.PreConfirmed,
 ) error {
-	return s.checkTxStatusIfPending(ctx, id, sub)
+	if s.lastStatus >= TxnStatusPreConfirmed {
+		return nil
+	}
+	return s.sendStatusFromBlock(preConfirmed.GetBlock(), TxnStatusPreConfirmed, id, sub)
 }
 
 func (s *txStatusSubscriberState) onL1Head(
@@ -153,17 +159,29 @@ func (s *txStatusSubscriberState) getInitialTxStatus(
 	}
 }
 
-// checkTxStatusIfPending checks the transaction status only if the last known status
-// is less than TxnStatusAcceptedOnL2 (i.e., the transaction is still pending).
-// If the transaction has already reached or surpassed TxnStatusAcceptedOnL2,
-// it returns the last known status without making an additional status check.
-func (s *txStatusSubscriberState) checkTxStatusIfPending(
-	ctx context.Context,
+// sendStatusFromBlock sends a status update if the subscribed transaction is
+// included in the given notification payload block, deriving its execution
+// result from the index-aligned receipt. Blocks that don't include the
+// transaction are ignored; no DB or feeder gateway lookups are performed.
+func (s *txStatusSubscriberState) sendStatusFromBlock(
+	block *core.Block,
+	finality TxnStatus,
 	id string,
 	sub *subscription,
 ) error {
-	if s.lastStatus < TxnStatusAcceptedOnL2 {
-		return s.checkTxStatus(ctx, id, sub)
+	for i, txn := range block.Transactions {
+		if txn.Hash().Equal(s.txHash) {
+			status := TransactionStatus{Finality: finality}
+			if i < len(block.Receipts) {
+				if receipt := block.Receipts[i]; receipt.Reverted {
+					status.Execution = TxnFailure
+					status.FailureReason = receipt.RevertReason
+				} else {
+					status.Execution = TxnSuccess
+				}
+			}
+			return s.sendStatus(status, id, sub)
+		}
 	}
 	return nil
 }
@@ -185,6 +203,16 @@ func (s *txStatusSubscriberState) checkTxStatus(
 		return errorTxnHashNotFound{*s.txHash}
 	}
 
+	return s.sendStatus(status, id, sub)
+}
+
+// sendStatus sends the status to the subscriber unless it matches the last
+// sent one, and closes the subscription once the transaction is accepted on L1.
+func (s *txStatusSubscriberState) sendStatus(
+	status TransactionStatus,
+	id string,
+	sub *subscription,
+) error {
 	if status.Finality == s.lastStatus {
 		return nil
 	}
