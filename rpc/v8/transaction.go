@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"go.uber.org/zap"
 )
@@ -711,7 +711,7 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransa
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
 
-		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
+		gwSierraProg, errIn := compression.Gzip64Encode(sierraProgBytes)
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}

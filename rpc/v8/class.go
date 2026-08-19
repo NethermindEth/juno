@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.8.1/api/starknet_api_openrpc.json#L3159
@@ -66,7 +67,7 @@ func adaptDeclaredClass(
 		}
 		base64Program := string(program[1 : len(program)-1])
 
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
+		feederClass.DeprecatedCairo.Program, err = compression.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err
 		}

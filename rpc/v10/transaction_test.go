@@ -29,7 +29,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2285,7 +2285,7 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 		require.Equal(t, class.EntryPoints, decoded.EntryPoints)
 		require.Equal(t, class.ABI, decoded.ABI)
 
-		sierraJSON, err := utils.Gzip64Decode(decoded.SierraProgram)
+		sierraJSON, err := compression.Gzip64Decode(decoded.SierraProgram)
 		require.NoError(t, err, "sierra_program must be gzip+base64 encoded")
 
 		var roundTripped []felt.Felt

@@ -1,9 +1,9 @@
-package utils_test
+package compression_test
 
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,20 +11,20 @@ import (
 func TestGzip64(t *testing.T) {
 	bytes := []byte{0}
 	expectedComBytes := "H4sIAAAAAAAA/2IABAAA//+N7wLSAQAAAA=="
-	comBytes, err := utils.Gzip64Encode(bytes)
+	comBytes, err := compression.Gzip64Encode(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, comBytes, expectedComBytes)
 
-	decompBytes, err := utils.Gzip64Decode(comBytes)
+	decompBytes, err := compression.Gzip64Decode(comBytes)
 	require.NoError(t, err)
 	assert.Equal(t, bytes, decompBytes)
 }
 
 func FuzzGzip64(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
-		compressed, err := utils.Gzip64Encode(data)
+		compressed, err := compression.Gzip64Encode(data)
 		require.NoError(t, err)
-		decompressed, err := utils.Gzip64Decode(compressed)
+		decompressed, err := compression.Gzip64Decode(compressed)
 		require.NoError(t, err)
 		assert.Equal(t, data, decompressed)
 	})
