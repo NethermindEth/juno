@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -21,21 +20,14 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"go.uber.org/zap"
 )
 
-var (
-	gzPool = sync.Pool{
-		New: func() any {
-			w, _ := gzip.NewWriterLevel(io.Discard, gzip.BestSpeed)
-			return w
-		},
-	}
-	bufPool = sync.Pool{
-		New: func() any { return new(bytes.Buffer) },
-	}
-)
+var bufPool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
 
 // AdaptTransaction adapts a core.Transaction to a local Transaction.
 // It's a wrapper around AdaptCoreTransaction that allows to exclude proof facts
@@ -244,9 +236,8 @@ func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 	defer bufPool.Put(sierraBuf)
 
 	b64 := base64.NewEncoder(base64.StdEncoding, sierraBuf)
-	gz := gzPool.Get().(*gzip.Writer)
-	gz.Reset(b64)
-	defer gzPool.Put(gz)
+	gz := compression.GzipWriterLevel(b64, gzip.BestSpeed)
+	defer compression.PutGzipWriter(gz)
 
 	enc := json.NewEncoder(gz)
 	enc.SetEscapeHTML(false)
