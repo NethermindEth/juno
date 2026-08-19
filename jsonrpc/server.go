@@ -547,7 +547,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	errorIndex := 1
 	if len(tuple) == 3 {
 		errorIndex = 2
-		header = (tuple[1].Interface()).(http.Header)
+		header = tuple[1].Interface().(http.Header)
 	}
 
 	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {
