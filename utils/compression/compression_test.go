@@ -5,9 +5,11 @@ import (
 	"compress/gzip"
 	"errors"
 	"io"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
+	"weak"
 
 	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/stretchr/testify/assert"
@@ -82,6 +84,26 @@ func TestGzipWriterAfterFailedDestination(t *testing.T) {
 	reused.Release()
 
 	assert.Equal(t, gzipAtLevel(t, payload, gzip.DefaultCompression), buf.Bytes())
+}
+
+// After Release the pooled writer must hold no reference to the caller's
+// destination: the destination has to be collectable while the writer lives on
+// in the pool. Holding gzipWriter across the GC is deliberate — it pins the
+// writer so the assertion is about the dst reference, not the writer itself
+// being collected.
+func TestGzipWriterReleaseDropsDestination(t *testing.T) {
+	dst := &bytes.Buffer{}
+	gzipWriter := compression.GzipWriter(dst)
+	_, err := gzipWriter.Write([]byte("payload"))
+	require.NoError(t, err)
+	require.NoError(t, gzipWriter.Close())
+
+	weakDst := weak.Make(dst)
+	gzipWriter.Release()
+	dst = nil //nolint:ineffassign // drop the last strong reference so GC can collect the buffer
+	runtime.GC()
+	assert.Nil(t, weakDst.Value(), "released writer still references its destination")
+	runtime.KeepAlive(gzipWriter)
 }
 
 // Releasing twice would hand the same writer to two callers at once, so the
@@ -177,17 +199,14 @@ func TestGzip64EncodeConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			payload := bytes.Repeat([]byte{byte('a' + i)}, chunk*(i+1))
 			encoded, err := compression.Gzip64Encode(payload)
 			assert.NoError(t, err)
 			decoded, err := compression.Gzip64Decode(encoded)
 			assert.NoError(t, err)
 			assert.Equal(t, payload, decoded)
-		}()
+		})
 	}
 	wg.Wait()
 }

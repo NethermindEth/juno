@@ -23,26 +23,52 @@ var ErrWriterNotAcquired = errors.New("using writer after release")
 var gzipWriterPools *[levelCount]sync.Pool = func() *[levelCount]sync.Pool {
 	pool := [levelCount]sync.Pool{}
 
-	for i := range pool {
-		level := minLevel + i
-		pool[i].New = func() any {
-			// Only fails on an out-of-range level, and level comes from the index.
-			gzipWriter, err := gzip.NewWriterLevel(io.Discard, level)
-			if err != nil {
-				panic(fmt.Sprintf("creating new gzip writer for level %d: %v", level, err))
-			}
-			return &Writer{gz: gzipWriter}
-		}
+	for i := range levelCount {
+		pool[i].New = func() any { return newWriter(minLevel + i) }
 	}
 
 	return &pool
 }()
 
-// Writer is a pooled gzip writer. It references the pool it belongs to so it can
-// track its own state
+// proxy exists to solve the problem of putting a [Writer] `w` back to the pool
+// (via [Writer.Release]) while `w` still references live data that is not going to be used
+// again. There is the option to drop reference with `w.gz.Reset(io.Discard)`
+// but it's expensive (cost in the micro-seconds).
+// With `proxy` we create a middle pointer to which `w.gz` will point.
+// `proxy` in turn will point to the actual data.
+// When releasing a [Writer] it is enough for the proxy to drop the reference.
+// When acquired: [Writer.gz] ---> [Writer.proxy] ---> data
+// After release: [Writer.gz] ---> [Writer.proxy] ---> nil
+type proxy struct {
+	dst io.Writer
+}
+
+func (d *proxy) Write(p []byte) (int, error) {
+	if d.dst == nil {
+		return 0, ErrWriterNotAcquired
+	}
+	return d.dst.Write(p)
+}
+
+// Writer is a pooled gzip writer. Its gzip writer is permanently wired to
+// proxy, which forwards writes to the caller's dst while the writer is
+// acquired. The indirection lets Release detach the caller's destination in
+// O(1) instead of paying a second flate reset just to re-point the gzip
+// writer at io.Discard.
 type Writer struct {
-	gz   *gzip.Writer
-	pool *sync.Pool
+	gz    *gzip.Writer
+	proxy proxy      // dst of gz
+	pool  *sync.Pool // pool this writer belongs to; nil once released
+}
+
+func newWriter(level int) *Writer {
+	writer := &Writer{}
+	gzipWriter, err := gzip.NewWriterLevel(&writer.proxy, level)
+	if err != nil {
+		panic(fmt.Sprintf("creating new gzip writer for level %d: %v", level, err))
+	}
+	writer.gz = gzipWriter
+	return writer
 }
 
 func (w *Writer) Write(p []byte) (int, error) {
@@ -66,21 +92,19 @@ func (w *Writer) Flush() error {
 	return w.gz.Flush()
 }
 
-func (w *Writer) isAcquired() bool {
-	return w.pool != nil
-}
-
 // Release returns the writer to the pool
 func (w *Writer) Release() {
-	if w.pool == nil {
+	if !w.isAcquired() {
 		panic("re-releasing writer")
 	}
 	pool := w.pool
 	w.pool = nil
-	// Intentionally added to break all the references this writer is pointing too before
-	// putting it back to the pool.
-	w.gz.Reset(io.Discard)
+	w.proxy.dst = nil
 	pool.Put(w)
+}
+
+func (w *Writer) isAcquired() bool {
+	return w.pool != nil
 }
 
 // GzipWriter returns a gzip writer reset onto `dst`, compressing at the default
@@ -95,7 +119,8 @@ func GzipWriterLevel(dst io.Writer, level int) *Writer {
 	pool := &gzipWriterPools[level-minLevel]
 	writer := pool.Get().(*Writer)
 	writer.pool = pool
-	writer.gz.Reset(dst)
+	writer.proxy.dst = dst
+	writer.gz.Reset(&writer.proxy)
 	return writer
 }
 
