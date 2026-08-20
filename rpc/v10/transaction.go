@@ -2,7 +2,6 @@ package rpcv10
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -236,7 +235,7 @@ func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 	defer bufPool.Put(sierraBuf)
 
 	b64 := base64.NewEncoder(base64.StdEncoding, sierraBuf)
-	gz := compression.GzipWriterLevel(b64, gzip.BestSpeed)
+	gz := compression.GzipWriterLevel(b64, compression.BestSpeed)
 	defer gz.Release()
 
 	enc := json.NewEncoder(gz)

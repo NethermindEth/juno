@@ -2,18 +2,28 @@ package compression
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/klauspost/compress/gzip"
+)
+
+// Gzip compression levels, re-exported so callers don't depend on the backing gzip implementation.
+const (
+	HuffmanOnly        = gzip.HuffmanOnly
+	NoCompression      = gzip.NoCompression
+	BestSpeed          = gzip.BestSpeed
+	BestCompression    = gzip.BestCompression
+	DefaultCompression = gzip.DefaultCompression
 )
 
 // All gzip compression levels
 const (
-	minLevel   = gzip.HuffmanOnly
-	maxLevel   = gzip.BestCompression
+	minLevel   = HuffmanOnly
+	maxLevel   = BestCompression
 	levelCount = maxLevel - minLevel + 1
 )
 
@@ -110,7 +120,7 @@ func (w *Writer) isAcquired() bool {
 // GzipWriter returns a gzip writer reset onto `dst`, compressing at the default
 // level. Once used, it should be sent back to the pool via `Release`
 func GzipWriter(dst io.Writer) *Writer {
-	return GzipWriterLevel(dst, gzip.DefaultCompression)
+	return GzipWriterLevel(dst, DefaultCompression)
 }
 
 // GzipWriterLevel returns a gzip writer reset onto `dst`, compressing at `level`.
