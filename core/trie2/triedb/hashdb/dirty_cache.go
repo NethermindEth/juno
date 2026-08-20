@@ -52,15 +52,14 @@ func (c *dirtyCache) getNode(
 	isClass bool,
 ) (trienode.TrieNode, bool) {
 	key := nodeKey(path, hash)
-	keyStr := string(key)
 
 	if isClass {
-		node, ok := c.classNodes[keyStr]
+		node, ok := c.classNodes[string(key)]
 		return node, ok
 	}
 
 	if felt.IsZero(owner) {
-		node, ok := c.contractNodes[keyStr]
+		node, ok := c.contractNodes[string(key)]
 		return node, ok
 	}
 
@@ -69,7 +68,7 @@ func (c *dirtyCache) getNode(
 		return trienode.NewLeaf(felt.Zero, nil), false
 	}
 
-	node, ok := ownerNodes[keyStr]
+	node, ok := ownerNodes[string(key)]
 	return node, ok
 }
 

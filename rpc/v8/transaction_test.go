@@ -1869,7 +1869,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		t.Context(), nil, &txnNonZeroL2Gas, &networks.Sepolia,
 	)
 	require.NoError(t, err)
-	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
+	resultTxn, ok := tx.(*core.DeployAccountTransaction)
 
 	require.True(t, ok)
 	require.Equal(t, expectedTxn, *resultTxn)

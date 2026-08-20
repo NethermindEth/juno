@@ -133,7 +133,7 @@ func (e *executor) processClassDeclaration(
 	txn *mempool.BroadcastedTransaction,
 	state *pending.StateWriter,
 ) error {
-	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
+	if t, ok := txn.Transaction.(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
 			e.logger.Error("failed to set contract class", zap.Error(err))
 			return err
