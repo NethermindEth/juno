@@ -2,12 +2,20 @@ package felt
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 
+	"github.com/NethermindEth/juno/encoder/cborlite"
 	"github.com/fxamacker/cbor/v2"
 )
 
 type Slice[F FeltLike] []F
+
+var (
+	_ cborlite.PrefixUnmarshaler = (*Slice[Felt])(nil)
+	_ cbor.Marshaler             = (*Slice[Felt])(nil)
+	_ cbor.Unmarshaler           = (*Slice[Felt])(nil)
+)
 
 const (
 	// maxCBORArrayHeaderLen: 1 major/info byte + 4 length bytes (uint32)
@@ -33,36 +41,55 @@ func (s Slice[F]) MarshalCBOR() ([]byte, error) {
 }
 
 func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
+	var out Slice[F]
+	consumed, ok := decodeSlicePrefix(data, &out)
+	if ok && consumed == len(data) {
+		*s = out
+		return nil
+	}
+	return s.unmarshalCBORGeneric(data)
+}
+
+func (s *Slice[F]) UnmarshalCBORPrefix(data []byte) (int, error) {
+	consumed, ok := decodeSlicePrefix(data, s)
+	if !ok {
+		return 0, errors.New("felt: not a limb-encoded array")
+	}
+	return consumed, nil
+}
+
+func decodeSlicePrefix[F FeltLike](data []byte, out *Slice[F]) (int, bool) {
+	if consumed, isNull := cborlite.ReadNull(data); isNull {
+		*out = nil
+		return consumed, true
+	}
+
 	size, offset, ok := decodeCBORArrayHeader(data)
 	if !ok {
-		return s.unmarshalGeneric(data)
+		return 0, false
 	}
 
 	// Checking if size was corrupted to avoid allocating a malicious amount of data
 	maxPossibleFelts := (len(data) - offset) / minCBORFeltLen
 	if size < 0 || size > maxPossibleFelts {
-		return s.unmarshalGeneric(data)
+		return 0, false
 	}
 
 	buffer := make([]F, size)
 	for i := range buffer {
 		consumed, ok := decodeLimbs(data[offset:], &buffer[i])
 		if !ok {
-			return s.unmarshalGeneric(data)
+			return 0, false
 		}
 		offset += consumed
 	}
 
-	if offset != len(data) {
-		return s.unmarshalGeneric(data)
-	}
-
-	*s = buffer
-	return nil
+	*out = buffer
+	return offset, true
 }
 
-// unmarshalGeneric handles any shape the fast path does not recognise.
-func (s *Slice[F]) unmarshalGeneric(data []byte) error {
+// unmarshalCBORGeneric handles any shape the fast path does not recognise.
+func (s *Slice[F]) unmarshalCBORGeneric(data []byte) error {
 	var buffer []F
 	if err := cbor.Unmarshal(data, &buffer); err != nil {
 		return err

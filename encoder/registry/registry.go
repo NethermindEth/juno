@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/encoder/cborlite"
 )
 
 var once sync.Once
@@ -39,10 +40,11 @@ func init() {
 		}
 
 		for _, t := range types {
-			err := encoder.RegisterType(t)
+			tag, err := encoder.RegisterType(t)
 			if err != nil {
 				panic(err)
 			}
+			cborlite.RegisterTag(tag, t)
 		}
 	})
 }
