@@ -135,6 +135,7 @@ func (extractAllTransactionEvents) extract(
 
 type extractAll struct{}
 
+//nolint:unparam // signature fixed by blockTransactionsExtractor interface
 func (extractAll) extract(b *BlockTransactions, _ struct{}) (BlockTransactions, error) {
 	return BlockTransactions{
 		Indexes: b.Indexes,

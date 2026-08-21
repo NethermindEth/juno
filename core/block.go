@@ -284,6 +284,7 @@ func post0134Hash(
 	)
 
 	return crypto.PoseidonElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			starknetBlockHash1,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -369,6 +370,7 @@ func Post0132Hash(
 	}
 
 	return crypto.PoseidonElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			starknetBlockHash0,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -449,6 +451,7 @@ func post07Hash(
 	// - number of events
 	// - event commitment
 	return crypto.PedersenElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			felt.NewFromUint64[felt.Felt](b.Number), // block number
 			b.GlobalStateRoot,                       // global state root
 			seqAddr,                                 // sequencer address

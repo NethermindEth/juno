@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -85,6 +85,7 @@ func (s *subprocessor) broadcastUnit(unit *Unit) {
 		peers[index] = peerCommittee.ID
 		index += 1
 	}
+	//nolint:gosec // G404: shuffling broadcast order, not security-sensitive
 	rand.Shuffle(len(peers), func(i, j int) {
 		peers[i], peers[j] = peers[j], peers[i]
 	})

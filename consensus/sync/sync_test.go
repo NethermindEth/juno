@@ -52,7 +52,7 @@ func TestMessageExtractor(t *testing.T) {
 	blockBody, expectedProposal, expectedPrecommits := getTestData(allNodes.Validators)
 	actualProposal, actualPrecommits := messageExtractor.Extract(&blockBody)
 
-	t.Run(("Verify stored build result"), func(t *testing.T) {
+	t.Run("Verify stored build result", func(t *testing.T) {
 		buildResult := proposalStore.Get(actualProposal.Value.Hash())
 		require.NotEmpty(t, buildResult)
 		require.Equal(t, buildResult.PreConfirmed.Block, blockBody.Block)
@@ -62,15 +62,15 @@ func TestMessageExtractor(t *testing.T) {
 		require.Equal(t, buildResult.L2GasConsumed, blockBody.Block.L2GasConsumed())
 	})
 
-	t.Run(("Verify proposal"), func(t *testing.T) {
+	t.Run("Verify proposal", func(t *testing.T) {
 		require.Equal(t, expectedProposal, actualProposal)
 	})
 
-	t.Run(("Verify precommits"), func(t *testing.T) {
+	t.Run("Verify precommits", func(t *testing.T) {
 		require.Equal(t, expectedPrecommits, actualPrecommits)
 	})
 
-	t.Run(("State machine should be able to commit"), func(t *testing.T) {
+	t.Run("State machine should be able to commit", func(t *testing.T) {
 		logger := log.NewNopZapLogger()
 		nodeAddr := felt.FromUint64[starknet.Address](uint64(nodeCount) + 1)
 
