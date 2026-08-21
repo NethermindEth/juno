@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -84,16 +84,20 @@ type OrderedL2toL1Message struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(
-	ctx context.Context, hash *felt.Felt,
+	ctx context.Context, hash *felt.TransactionHash,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
+	trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash)
+	if err == nil {
 		return trace, header, nil
-	} else if err != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
-	trace, header, err := h.findAndTraceInPreConfirmed(hash)
+	if err != rpccore.ErrTxnHashNotFound {
+		return TransactionTrace{}, httpHeader, err
+	}
+
+	// Not in a finalised block, so try the pre_confirmed chain.
+	trace, header, err = h.findAndTraceInPreConfirmed(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
 	}
@@ -111,12 +115,14 @@ func (h *Handler) TraceBlockTransactions(
 		return nil, defaultExecutionHeader(), rpccore.ErrCallOnPreConfirmed
 	}
 
-	block, rpcErr := h.blockByID(id)
+	// Resolve the block id once: the header pins the block number, so the reads that follow it
+	// go by number and a tag like `latest` cannot move between them.
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	return h.traceBlockTransactions(ctx, block)
+	return h.traceFinalisedBlock(ctx, header)
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579
@@ -286,9 +292,9 @@ func fetchDeclaredClassesAndL1Fees(
 // findAndTraceFinalisedTransaction searches for a transaction in
 // finalised blocks and returns its trace.
 func (h *Handler) findAndTraceFinalisedTransaction(
-	ctx context.Context, hash *felt.Felt,
+	ctx context.Context, hash *felt.TransactionHash,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(hash)
+	blockNumber, txIndex, err := h.bcReader.BlockNumberAndIndexByTxHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
@@ -296,19 +302,24 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	block, err := h.bcReader.BlockByHash(blockHash)
+	header, err := h.bcReader.BlockHeaderByNumber(blockNumber)
 	if err != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		}
+		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	txIndex, rpcErr := findTransactionInBlock(block, hash)
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
-	}
-
-	blockTraces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block)
+	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
+	}
+
+	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
+	// confirm the trace at that index really is the transaction that was asked for.
+	if txIndex >= uint64(len(blockTraces)) ||
+		!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
@@ -320,11 +331,14 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 // entry's diff from chain bottom up to entry's block, then the entry's own
 // transaction-level diffs up to (but not including) txIndex.
 func (h *Handler) findAndTraceInPreConfirmed(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	chain, err := h.syncReader.PreConfirmedChain()
 	if err != nil {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		}
+		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	for entry := range chain.NewestFirst() {
@@ -368,42 +382,60 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		Block Tracing Helpers
 *****************************************************/
 
-// traceBlockTransactions gets the trace for a block. The block will always be traced locally except
+// traceFinalisedBlock gets the trace for a block. The block will always be traced locally except
 // on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
-func (h *Handler) traceBlockTransactions(
-	ctx context.Context, block *core.Block,
+func (h *Handler) traceFinalisedBlock(
+	ctx context.Context, header *core.Header,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	// Check if it was already traced
-	traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
-	if hit {
+	cacheKey := *header.Hash
+	if traces, hit := h.blockTraceCache.Get(cacheKey); hit {
 		return traces, defaultExecutionHeader(), nil
 	}
 
-	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(block, h.bcReader.Network())
+	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
+	var (
+		traces     []TracedBlockTransaction
+		httpHeader = defaultExecutionHeader()
+		rpcErr     *jsonrpc.Error
+	)
 	if fetchFromFeederGW {
-		traces, err := h.fetchTracesFromFeederGateway(ctx, block)
-		if err != nil {
-			return nil, defaultExecutionHeader(), err
+		traces, rpcErr = h.fetchTracesFromFeederGateway(ctx, header)
+	} else {
+		transactions, txErr := h.bcReader.TransactionsByBlockNumber(header.Number)
+		if txErr != nil {
+			if errors.Is(txErr, db.ErrKeyNotFound) {
+				return nil, httpHeader, rpccore.ErrBlockNotFound
+			}
+			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(txErr)
 		}
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
-		return traces, defaultExecutionHeader(), nil
+		traces, httpHeader, rpcErr = h.traceBlockWithVM(header, transactions)
+	}
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
 	}
 
-	return h.traceBlockWithVM(block)
+	h.blockTraceCache.Add(cacheKey, traces)
+
+	return traces, httpHeader, nil
 }
 
-// traceBlockWithVM traces a block using the local VM and stores the result in the block cache.
-func (h *Handler) traceBlockWithVM(block *core.Block) (
-	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
-) {
+// traceBlockWithVM traces a block using the local VM. Caching is the caller's responsibility.
+func (h *Handler) traceBlockWithVM(
+	header *core.Header,
+	transactions []core.Transaction,
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	// Prepare execution state
-	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
+	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
 	if err != nil {
-		return nil, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		}
+		return nil, defaultExecutionHeader(), rpccore.ErrInternal.CloneWithData(err)
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
@@ -420,14 +452,14 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
 	// Create block info
-	blockInfo, rpcErr := h.buildBlockInfo(block.Header)
+	blockInfo, rpcErr := h.buildBlockInfo(header)
 	if rpcErr != nil {
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
 	traces, httpHeader, rpcErr := traceTransactionsWithState(
 		h.vm,
-		block.Transactions,
+		transactions,
 		state,
 		headState,
 		&blockInfo,
@@ -436,41 +468,37 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		return nil, httpHeader, rpcErr
 	}
 
-	h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
-
 	return traces, httpHeader, nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway
 // and fills in missing data.
 func (h *Handler) fetchTracesFromFeederGateway(
-	ctx context.Context, block *core.Block,
+	ctx context.Context, header *core.Header,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	// todo(rdr): this feels unnatural, why if I have the `core.Block` should I still
-	// try to go for the rpcBlock? Ideally we extract all the info directly from `core.Block`
-	blockID := BlockIDFromHash(block.Hash)
-	rpcBlock, rpcErr := h.BlockWithTxs(&blockID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
 	if h.feederClient == nil {
 		return nil, rpccore.ErrInternal.CloneWithData("no feeder client configured")
 	}
 
-	blockTrace, err := h.feederClient.BlockTrace(ctx, block.Hash.String())
+	blockTrace, err := h.feederClient.BlockTrace(ctx, header.Hash.String())
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, err := AdaptFeederBlockTrace(rpcBlock, &blockTrace)
+	transactions, receipts, err := h.bcReader.TransactionsAndReceiptsByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	traces, err := AdaptFeederBlockTrace(transactions, &blockTrace)
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces = fillFeederGatewayData(traces, block.Receipts)
-
-	return traces, nil
+	return fillFeederGatewayData(traces, receipts), nil
 }
 
 // buildBlockInfo builds block info for VM execution.
@@ -489,22 +517,22 @@ func (h *Handler) buildBlockInfo(header *core.Header) (vm.BlockInfo, *jsonrpc.Er
 // shouldFetchTracesFromFeederGateway determines if
 // traces for a block should be fetched from the feeder gateway.
 func shouldFetchTracesFromFeederGateway(
-	block *core.Block,
+	header *core.Header,
 	network *networks.Network,
 ) (bool, error) {
-	blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+	blockVer, err := core.ParseBlockVersion(header.ProtocolVersion)
 	if err != nil {
 		return false, err
 	}
 
 	// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
 	fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
-		block.ProtocolVersion != "0.13.1.1"
+		header.ProtocolVersion != "0.13.1.1"
 	// This specific block range caused a re-org, also related with Cairo 0 and we have to
 	// depend on the Sequencer to provide the correct traces
 	fetchFromFeederGW = fetchFromFeederGW ||
-		(block.Number >= 1943705 &&
-			block.Number <= 1952704 &&
+		(header.Number >= 1943705 &&
+			header.Number <= 1952704 &&
 			*network == networks.Mainnet)
 
 	return fetchFromFeederGW, nil
@@ -553,17 +581,4 @@ func defaultExecutionHeader() http.Header {
 	header := http.Header{}
 	header.Set(ExecutionStepsHeader, "0")
 	return header
-}
-
-// findTransactionInBlock locates the index of a transaction with the given hash in a block.
-//
-// Returns the index of the transaction and nil if found, or 0 and ErrTxnHashNotFound if not found.
-func findTransactionInBlock(block *core.Block, hash *felt.Felt) (uint, *jsonrpc.Error) {
-	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(hash)
-	})
-	if txIndex == -1 {
-		return 0, rpccore.ErrTxnHashNotFound
-	}
-	return uint(txIndex), nil
 }

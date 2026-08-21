@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	pendingpkg "github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -43,7 +44,7 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache            *lru.Cache[felt.Felt, []TracedBlockTransaction]
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -82,7 +83,7 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.New[
-			rpccore.TraceCacheKey,
+			felt.Felt,
 			[]TracedBlockTransaction,
 		](rpccore.TraceCacheSize),
 		filterLimit: math.MaxUint,

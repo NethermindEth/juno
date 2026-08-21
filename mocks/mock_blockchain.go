@@ -470,6 +470,22 @@ func (mr *MockReaderMockRecorder) TransactionHashesByBlockNumber(blockNumber any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionHashesByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionHashesByBlockNumber), blockNumber)
 }
 
+// TransactionsAndReceiptsByBlockNumber mocks base method.
+func (m *MockReader) TransactionsAndReceiptsByBlockNumber(blockNumber uint64) ([]core.Transaction, []*core.TransactionReceipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionsAndReceiptsByBlockNumber", blockNumber)
+	ret0, _ := ret[0].([]core.Transaction)
+	ret1, _ := ret[1].([]*core.TransactionReceipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TransactionsAndReceiptsByBlockNumber indicates an expected call of TransactionsAndReceiptsByBlockNumber.
+func (mr *MockReaderMockRecorder) TransactionsAndReceiptsByBlockNumber(blockNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsAndReceiptsByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionsAndReceiptsByBlockNumber), blockNumber)
+}
+
 // TransactionsByBlockNumber mocks base method.
 func (m *MockReader) TransactionsByBlockNumber(blockNumber uint64) ([]core.Transaction, error) {
 	m.ctrl.T.Helper()

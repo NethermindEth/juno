@@ -13,7 +13,7 @@ import (
 // Key shapes match real callsites:
 //   - int                   baseline
 //   - bloomKey {u64, u64}   blockchain.EventFiltersCacheKey
-//   - feltKey  [4]uint64    rpccore.TraceCacheKey (felt.Felt underlies as [4]uint64)
+//   - feltKey  [4]uint64    the trace cache's felt.Felt key (underlies as [4]uint64)
 //
 // Sizes mirror production:
 //   - 16   AggregatedBloomFilterCacheSize

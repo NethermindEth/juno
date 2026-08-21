@@ -116,9 +116,11 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*core.StateDiff {
 
 // TransactionByHash locates a transaction by hash in the block and returns
 // it together with its index. Returns ErrTransactionNotFound when missing.
-func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, uint, error) {
+func (p *PreConfirmed) TransactionByHash(
+	hash *felt.TransactionHash,
+) (core.Transaction, uint, error) {
 	for i, tx := range p.Block.Transactions {
-		if tx.Hash().Equal(hash) {
+		if tx.Hash().Equal((*felt.Felt)(hash)) {
 			return tx, uint(i), nil
 		}
 	}
@@ -126,10 +128,10 @@ func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (core.Transaction, uin
 }
 
 func (p *PreConfirmed) ReceiptByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (*core.TransactionReceipt, error) {
 	for _, receipt := range p.Block.Receipts {
-		if receipt.TransactionHash.Equal(hash) {
+		if receipt.TransactionHash.Equal((*felt.Felt)(hash)) {
 			return receipt, nil
 		}
 	}

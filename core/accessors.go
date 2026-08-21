@@ -513,6 +513,28 @@ func GetTransactionHashesByBlockNumber(
 	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetTransactionsAndReceiptsByBlockNumber returns all transactions and receipts in a given block.
+// Both live under the same key, so this reads the block only once.
+func GetTransactionsAndReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]Transaction, []*TransactionReceipt, error) {
+	result, err := BlockTransactionsAllTransactionsAndReceiptsPartialBucket.Get(
+		r,
+		blockNumber,
+		struct{}{},
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"getting transactions and receipts of block %d: %w",
+			blockNumber,
+			err,
+		)
+	}
+
+	return result.Transactions, result.Receipts, nil
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,
@@ -555,12 +577,7 @@ func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 		return nil, err
 	}
 
-	txs, err := GetTransactionsByBlockNumber(r, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	receipts, err := GetReceiptsByBlockNumber(r, blockNumber)
+	txs, receipts, err := GetTransactionsAndReceiptsByBlockNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -42,9 +43,7 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	// todo(rdr): why do we have the `TraceCacheKey` type and why it feels uncomfortable
-	// to use. It makes no sense, why not use `Felt` or `Hash` directly?
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, TraceBlockTransactionsResponse]
+	blockTraceCache *lru.Cache[felt.Felt, TraceBlockTransactionsResponse]
 	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
 	submittedTransactionsCache *rpccore.TransactionCache
 
@@ -86,7 +85,7 @@ func New(
 		l1Heads:          feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.New[
-			rpccore.TraceCacheKey,
+			felt.Felt,
 			TraceBlockTransactionsResponse,
 		](rpccore.TraceCacheSize),
 		filterLimit: math.MaxUint,

@@ -303,14 +303,14 @@ func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 *****************************************************/
 
 func AdaptFeederBlockTrace(
-	block *core.Block,
+	transactions []core.Transaction,
 	blockTrace *starknet.BlockTrace,
 ) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
 
-	if len(block.Transactions) != len(blockTrace.Traces) {
+	if len(transactions) != len(blockTrace.Traces) {
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
@@ -320,7 +320,7 @@ func AdaptFeederBlockTrace(
 		feederTrace := &blockTrace.Traces[index]
 
 		trace := TransactionTrace{
-			Type: transactionTypeFrom(block.Transactions[index]),
+			Type: transactionTypeFrom(transactions[index]),
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
