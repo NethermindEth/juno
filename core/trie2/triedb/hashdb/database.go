@@ -178,10 +178,8 @@ func (d *Database) Commit(_ *felt.StateRootHash) error {
 	d.dirtyCache.reset()
 
 	d.logger.Debug("Flushed dirty cache to disk",
-		zap.Int("nodes", nodes-d.dirtyCache.len()),
+		zap.Int("nodes", nodes),
 		zap.Duration("duration", time.Since(startTime)),
-		zap.Int("liveNodes", d.dirtyCache.len()),
-		zap.Int("liveSize", d.dirtyCache.size),
 	)
 	return nil
 }

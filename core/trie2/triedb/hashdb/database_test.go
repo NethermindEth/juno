@@ -12,8 +12,10 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var (
@@ -78,6 +80,22 @@ func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieI
 		id.Bucket() == db.ClassTrie,
 	)
 	assert.True(t, found)
+}
+
+// countEntriesWithPrefix returns the number of entries stored under the given bucket prefix.
+func countEntriesWithPrefix(t *testing.T, store db.KeyValueStore, bucket db.Bucket) int {
+	t.Helper()
+
+	it, err := store.NewIterator(bucket.Key(), true)
+	require.NoError(t, err)
+	defer it.Close()
+
+	count := 0
+	for valid := it.First(); valid; valid = it.Next() {
+		count++
+	}
+
+	return count
 }
 
 func createBinaryNodeBlob(leftHash, rightHash *felt.Felt) []byte {
@@ -282,6 +300,60 @@ func TestDatabase(t *testing.T) {
 			&storagePath,
 			storageNode,
 		)
+	})
+
+	t.Run("Commit writes class nodes only under the class trie bucket", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			createMergeNodeSet(basicClassNodes),
+			nil,
+			nil,
+		)
+		require.NoError(t, err)
+		require.NoError(t, database.Commit(&felt.StateRootHash{}))
+
+		assert.Equal(t, len(basicClassNodes), countEntriesWithPrefix(t, memDB, db.ClassTrie))
+		assert.Zero(t, countEntriesWithPrefix(t, memDB, db.ContractTrieContract))
+		assert.Zero(t, countEntriesWithPrefix(t, memDB, db.ContractTrieStorage))
+	})
+
+	t.Run("Commit writes and reports every storage node of every owner", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+
+		core, recorded := observer.New(log.DEBUG)
+		database.logger = log.NewZapLoggerWithCore(core)
+
+		owner1 := felt.FromUint64[felt.Address](11)
+		owner2 := felt.FromUint64[felt.Address](22)
+		storageNodes := map[felt.Address]map[trieutils.Path]trienode.TrieNode{
+			owner1: {leaf1Path: leaf1Node, leaf2Path: leaf2Node},
+			owner2: {leaf1Path: leaf1Node, leaf2Path: leaf2Node},
+		}
+
+		err := database.Update(
+			&felt.StateRootHash{},
+			&felt.StateRootHash{},
+			1,
+			nil,
+			createContractMergeNodeSet(storageNodes),
+			nil,
+		)
+		require.NoError(t, err)
+		require.NoError(t, database.Commit(&felt.StateRootHash{}))
+
+		assert.Equal(t, 4, countEntriesWithPrefix(t, memDB, db.ContractTrieStorage))
+		assert.Zero(t, countEntriesWithPrefix(t, memDB, db.ClassTrie))
+		assert.Zero(t, countEntriesWithPrefix(t, memDB, db.ContractTrieContract))
+
+		// The flush count must reflect the four storage nodes, not the two owners.
+		require.Equal(t, 1, recorded.Len())
+		assert.Equal(t, int64(4), recorded.All()[0].ContextMap()["nodes"])
 	})
 
 	t.Run("Update and Commit deep trie structure with edge nodes", func(t *testing.T) {
