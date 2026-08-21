@@ -69,7 +69,7 @@ func getGenesisSequencer(
 			Version:       new(felt.Felt).SetUint64(1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(0),
-			Signature: &[]felt.Felt{
+			Signature: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt](
 					"0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811",
 				),
@@ -77,7 +77,7 @@ func getGenesisSequencer(
 					"0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972",
 				),
 			},
-			CallData: &[]felt.Felt{
+			CallData: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt]("0x1"),
 				felt.UnsafeFromString[felt.Felt](
 					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
@@ -100,7 +100,7 @@ func getGenesisSequencer(
 			Version:       new(felt.Felt).SetUint64(1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(1),
-			Signature: &[]felt.Felt{
+			Signature: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt](
 					"0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083",
 				),
@@ -108,7 +108,7 @@ func getGenesisSequencer(
 					"0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5",
 				),
 			},
-			CallData: &[]felt.Felt{
+			CallData: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt]("0x1"),
 				felt.UnsafeFromString[felt.Felt](
 					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",

@@ -82,8 +82,8 @@ func (rb ResourceBounds) IsZero() bool {
 
 type Event struct {
 	From *felt.Felt
-	Keys []felt.Felt
-	Data []felt.Felt
+	Keys felt.Slice[felt.Felt]
+	Data felt.Slice[felt.Felt]
 }
 
 type L1ToL2Message struct {
@@ -91,14 +91,14 @@ type L1ToL2Message struct {
 	//            here. We should change this to felt.Address
 	From     eth.Address
 	Nonce    *felt.Felt
-	Payload  []felt.Felt
+	Payload  felt.Slice[felt.Felt]
 	Selector *felt.Felt
 	To       *felt.Felt
 }
 
 type L2ToL1Message struct {
 	From    *felt.Felt
-	Payload []felt.Felt
+	Payload felt.Slice[felt.Felt]
 	// todo(rdr): Starknet from 0.14.1 has dropped the assumption that we use an EthAddress
 	//            here. We should change this to felt.Address
 	To eth.Address
@@ -213,7 +213,7 @@ type DeployTransaction struct {
 	// The hash of the class which defines the contract’s functionality.
 	ClassHash *felt.Felt
 	// The arguments passed to the constructor during deployment.
-	ConstructorCallData []felt.Felt
+	ConstructorCallData felt.Slice[felt.Felt]
 	// The transaction’s version. Possible values are 1 or 0.
 	//
 	// When the fields that comprise a transaction change,
@@ -240,7 +240,7 @@ type DeployAccountTransaction struct {
 	// The maximum fee that the sender is willing to pay for the transaction.
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []felt.Felt
+	TransactionSignature felt.Slice[felt.Felt]
 	// The transaction nonce.
 	Nonce *felt.Felt
 
@@ -248,7 +248,7 @@ type DeployAccountTransaction struct {
 	// See InvokeTransaction for descriptions of the fields.
 	ResourceBounds map[Resource]ResourceBounds
 	Tip            uint64
-	PaymasterData  []felt.Felt
+	PaymasterData  felt.Slice[felt.Felt]
 	NonceDAMode    DataAvailabilityMode
 	FeeDAMode      DataAvailabilityMode
 }
@@ -264,9 +264,9 @@ func (d *DeployAccountTransaction) Signature() []felt.Felt {
 type InvokeTransaction struct {
 	TransactionHash *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
-	CallData []felt.Felt
+	CallData felt.Slice[felt.Felt]
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []felt.Felt
+	TransactionSignature felt.Slice[felt.Felt]
 	// The maximum fee that the sender is willing to pay for the transaction
 	// Available in version 1 only
 	MaxFee *felt.Felt
@@ -291,14 +291,16 @@ type InvokeTransaction struct {
 	ResourceBounds map[Resource]ResourceBounds
 	Tip            uint64
 	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
-	PaymasterData []felt.Felt
+	PaymasterData felt.Slice[felt.Felt]
 	// From RPC spec: data needed to deploy the account contract from which this tx will be initiated
-	AccountDeploymentData []felt.Felt
+	AccountDeploymentData felt.Slice[felt.Felt]
 	// From RPC spec: The storage domain of the account's nonce (an account has a nonce per DA mode)
 	NonceDAMode DataAvailabilityMode
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
 	FeeDAMode DataAvailabilityMode
 	// From RPC spec: optional field, proof facts for the transaction
+	// Stays []felt.Felt. omitempty is discarded on a type with its own MarshalCBOR,
+	// so felt.Slice would write null instead of omitting the field.
 	ProofFacts []felt.Felt `cbor:",omitempty"`
 }
 
@@ -324,7 +326,7 @@ type DeclareTransaction struct {
 	// Available in versions 1, 2
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
-	TransactionSignature []felt.Felt
+	TransactionSignature felt.Slice[felt.Felt]
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The transaction’s version. Possible values are 0, 1, 2, or 3.
@@ -341,8 +343,8 @@ type DeclareTransaction struct {
 	// See InvokeTransaction for descriptions of the fields.
 	ResourceBounds        map[Resource]ResourceBounds
 	Tip                   uint64
-	PaymasterData         []felt.Felt
-	AccountDeploymentData []felt.Felt
+	PaymasterData         felt.Slice[felt.Felt]
+	AccountDeploymentData felt.Slice[felt.Felt]
 	NonceDAMode           DataAvailabilityMode
 	FeeDAMode             DataAvailabilityMode
 }
@@ -368,7 +370,7 @@ type L1HandlerTransaction struct {
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The arguments that are passed to the validated and execute functions.
-	CallData []felt.Felt
+	CallData felt.Slice[felt.Felt]
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.

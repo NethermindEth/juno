@@ -68,7 +68,7 @@ func (h *Handler) EstimateFee(
 func (h *Handler) EstimateMessageFee(
 	ctx context.Context, msg *MsgFromL1, id *BlockID,
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
-	calldata := make([]felt.Felt, len(msg.Payload)+1)
+	calldata := make(felt.Slice[felt.Felt], len(msg.Payload)+1)
 	// msg.From needs to be the first element
 	calldata[0] = felt.FromBytes[felt.Felt](msg.From.Bytes())
 	for i := range msg.Payload {
