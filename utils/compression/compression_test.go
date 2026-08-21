@@ -2,7 +2,6 @@ package compression_test
 
 import (
 	"bytes"
-	"compress/gzip"
 	"errors"
 	"io"
 	"runtime"
@@ -12,13 +11,15 @@ import (
 	"weak"
 
 	"github.com/NethermindEth/juno/utils/compression"
+	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGzip64(t *testing.T) {
 	bytes := []byte{0}
-	expectedComBytes := "H4sIAAAAAAAA/2IABAAA//+N7wLSAQAAAA=="
+	// klauspost writes uint32(zero time.Time) as MTIME, a fixed constant rather than 0.
+	expectedComBytes := "H4sIAAAJbogA/wABAP7/AAMAje8C0gEAAAA="
 	comBytes, err := compression.Gzip64Encode(bytes)
 	require.NoError(t, err)
 	assert.Equal(t, expectedComBytes, comBytes)

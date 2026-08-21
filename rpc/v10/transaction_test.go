@@ -1332,7 +1332,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAE/wADAPz/W10KAQAA//9E0mhwAwAAAA==",
+					"sierra_program": "H4sIAAAJbogE/wADAPz/W10KAwBE0mhwAwAAAA==",
 					"contract_class_version": "0.1.0",
 					"entry_points_by_type": {
 						"CONSTRUCTOR": [],

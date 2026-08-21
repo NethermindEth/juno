@@ -124,7 +124,8 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 			writer.Header().Set("Content-Encoding", "gzip")
-			gw := compression.GzipWriter(writer)
+			// BestSpeed: ~10x faster than the default level for ~13% larger bodies.
+			gw := compression.GzipWriterLevel(writer, compression.BestSpeed)
 			defer func() {
 				closeErr := gw.Close()
 				gw.Release()
