@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/encoder/cborlite"
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -53,12 +54,16 @@ func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 }
 
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	var class *DeclaredClassDefinition
+	class := new(DeclaredClassDefinition)
 
 	err := r.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
+		return cborlite.Unmarshal(data, class)
 	})
-	return class, err
+	if err != nil {
+		return nil, err
+	}
+
+	return class, nil
 }
 
 func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
