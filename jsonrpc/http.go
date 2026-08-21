@@ -1,7 +1,6 @@
 package jsonrpc
 
 import (
-	"compress/gzip"
 	"context"
 	"errors"
 	"io"
@@ -9,19 +8,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
-
-// gzipWriterPool holds gzip writers for reuse;
-// callers must Reset a writer onto their destination before writing to it.
-var gzipWriterPool = sync.Pool{
-	New: func() any { return gzip.NewWriter(io.Discard) },
-}
 
 type HTTP struct {
 	rpc    *Server
@@ -131,11 +124,10 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 			writer.Header().Set("Content-Encoding", "gzip")
-			gw := gzipWriterPool.Get().(*gzip.Writer)
-			gw.Reset(writer)
+			gw := compression.GzipWriter(writer)
 			defer func() {
 				closeErr := gw.Close()
-				gzipWriterPool.Put(gw)
+				gw.Release()
 				if closeErr != nil {
 					http.Error(writer, "gzip close error", http.StatusInternalServerError)
 					return

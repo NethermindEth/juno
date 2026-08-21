@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 // ErrPreConfirmedIdentifierMismatch is returned by AdaptPreConfirmedWithDelta
@@ -430,7 +431,7 @@ func AdaptDeprecatedCairoClass(
 	}
 
 	var err error
-	class.Program, err = utils.Gzip64Encode(response.Program)
+	class.Program, err = compression.Gzip64Encode(response.Program)
 	if err != nil {
 		return nil, err
 	}

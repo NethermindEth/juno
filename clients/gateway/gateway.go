@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -146,7 +146,8 @@ func prepareRequestBody(jsonBody []byte) (io.Reader, bool, error) {
 	}
 
 	var buf bytes.Buffer
-	gzWriter := gzip.NewWriter(&buf)
+	gzWriter := compression.GzipWriter(&buf)
+	defer gzWriter.Release()
 	if _, err := gzWriter.Write(jsonBody); err != nil {
 		return nil, false, fmt.Errorf("writing gzip content: %w", err)
 	}

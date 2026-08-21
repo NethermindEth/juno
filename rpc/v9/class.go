@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
@@ -73,7 +73,7 @@ func AdaptDeclaredClass(
 		}
 		base64Program := string(program[1 : len(program)-1])
 
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
+		feederClass.DeprecatedCairo.Program, err = compression.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err
 		}
