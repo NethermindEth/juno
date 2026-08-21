@@ -299,6 +299,8 @@ type InvokeTransaction struct {
 	// From RPC spec: The storage domain of the account's balance from which fee will be charged
 	FeeDAMode DataAvailabilityMode
 	// From RPC spec: optional field, proof facts for the transaction
+	// Stays []felt.Felt. omitempty is discarded on a type with its own MarshalCBOR,
+	// so felt.Slice would write null instead of omitting the field.
 	ProofFacts []felt.Felt `cbor:",omitempty"`
 }
 
