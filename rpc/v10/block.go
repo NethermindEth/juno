@@ -116,11 +116,11 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L827
 func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
-	block, err := h.bcReader.Head()
+	header, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, rpccore.ErrNoBlock
 	}
-	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
+	return &BlockHashAndNumber{Number: header.Number, Hash: header.Hash}, nil
 }
 
 // BlockTransactionCount returns the number of transactions in a block

@@ -126,7 +126,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	handler := rpc.New(mockReader, nil, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
 		block, err := handler.BlockHashAndNumber()
 		assert.Nil(t, block)
@@ -145,7 +145,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 			Number: expectedBlock.Number,
 		}
 
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(expectedBlock.Header, nil)
 
 		hashAndNum, rpcErr := handler.BlockHashAndNumber()
 		require.Nil(t, rpcErr)
