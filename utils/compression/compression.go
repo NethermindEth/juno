@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -124,9 +125,14 @@ func GzipWriterLevel(dst io.Writer, level int) *Writer {
 	return writer
 }
 
+var bufferPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
 func Gzip64Encode(data []byte) (string, error) {
-	var compressedBuffer bytes.Buffer
-	gzipWriter := GzipWriter(&compressedBuffer)
+	compressed := bufferPool.Get().(*bytes.Buffer)
+	compressed.Reset()
+	defer bufferPool.Put(compressed)
+
+	gzipWriter := GzipWriter(compressed)
 	defer gzipWriter.Release()
 	if _, err := gzipWriter.Write(data); err != nil {
 		return "", fmt.Errorf("writing data with gzip: %w", err)
@@ -134,7 +140,21 @@ func Gzip64Encode(data []byte) (string, error) {
 	if err := gzipWriter.Close(); err != nil {
 		return "", fmt.Errorf("closing gzip writer: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
+
+	// Encode into a Builder pre-grown to the exact output size: the encoder's
+	// writes never reallocate, and Builder.String() hands over its backing
+	// array without copying — the returned string is the only allocation that
+	// scales with the payload.
+	var encoded strings.Builder
+	encoded.Grow(base64.StdEncoding.EncodedLen(compressed.Len()))
+	b64 := base64.NewEncoder(base64.StdEncoding, &encoded)
+	if _, err := b64.Write(compressed.Bytes()); err != nil {
+		return "", fmt.Errorf("base64-encoding compressed data: %w", err)
+	}
+	if err := b64.Close(); err != nil {
+		return "", fmt.Errorf("closing base64 encoder: %w", err)
+	}
+	return encoded.String(), nil
 }
 
 func Gzip64Decode(data string) ([]byte, error) {
