@@ -10,7 +10,6 @@ type dirtyCache struct {
 	classNodes           map[string]trienode.TrieNode
 	contractNodes        map[string]trienode.TrieNode
 	contractStorageNodes map[felt.Address]map[string]trienode.TrieNode
-	size                 int
 }
 
 func newDirtyCache() *dirtyCache {
@@ -33,6 +32,7 @@ func (c *dirtyCache) putNode(
 
 	if isClass {
 		c.classNodes[keyStr] = node
+		return
 	}
 
 	if felt.IsZero(owner) {
@@ -73,12 +73,15 @@ func (c *dirtyCache) getNode(
 }
 
 func (c *dirtyCache) len() int {
-	return len(c.classNodes) + len(c.contractNodes) + len(c.contractStorageNodes)
+	n := len(c.classNodes) + len(c.contractNodes)
+	for _, nodes := range c.contractStorageNodes {
+		n += len(nodes)
+	}
+	return n
 }
 
 func (c *dirtyCache) reset() {
 	c.classNodes = make(map[string]trienode.TrieNode)
 	c.contractNodes = make(map[string]trienode.TrieNode)
 	c.contractStorageNodes = make(map[felt.Address]map[string]trienode.TrieNode)
-	c.size = 0
 }
