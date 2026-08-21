@@ -1,0 +1,29 @@
+{
+  "blockHashAndNumber": "blockHashAndNumber --count=100000 --seed=1",
+  "blockNumber": "blockNumber --count=100000 --seed=1",
+  "chainId": "chainId --count=100000 --seed=1",
+  "syncing": "syncing --count=100000 --seed=1",
+
+  "getBlockTransactionCount": "getBlockTransactionCount --count=100000 --seed=1",
+  "getBlockWithReceipts": "getBlockWithReceipts --count=100000 --seed=1",
+  "getBlockWithTxHashes": "getBlockWithTxHashes --count=100000 --seed=1",
+  "getBlockWithTxs": "getBlockWithTxs --count=100000 --seed=1",
+  "getStateUpdate": "getStateUpdate --count=100000 --seed=1",
+  "traceBlockTransactions": "traceBlockTransactions --count=10000 --seed=1",
+
+  "getTransactionByBlockIdAndIndex": "getTransactionByBlockIdAndIndex --count=100000 --seed=1",
+  "getTransactionByHash": "getTransactionByHash --count=100000 --seed=1",
+  "getTransactionReceipt": "getTransactionReceipt --count=100000 --seed=1",
+  "getTransactionStatus": "getTransactionStatus --count=100000 --seed=1",
+  "traceTransaction": "traceTransaction --count=10000 --seed=1",
+
+  "getClass": "getClass --count=100000 --seed=1",
+  "getClassAt": "getClassAt --count=100000 --seed=1",
+  "getClassHashAt": "getClassHashAt --count=100000 --seed=1",
+  "getCompiledCasm": "getCompiledCasm --count=100000 --seed=1",
+  "getNonce": "getNonce --count=100000 --seed=1",
+  "getStorageAt": "getStorageAt --count=100000 --seed=1",
+
+  "getEvents": "getEvents --count=100000 --seed=1",
+  "getStorageProof": "getStorageProof --count=100000 --seed=1"
+}
