@@ -28,6 +28,7 @@ const (
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
+	ServerBusy = -32000
 )
 
 var (
@@ -97,6 +98,8 @@ func Err(code int, data any) *Error {
 		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
 	case InvalidParams:
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
+	case ServerBusy:
+		return &Error{Code: ServerBusy, Message: "Server busy", Data: data}
 	default:
 		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}
@@ -154,6 +157,7 @@ type Server struct {
 	logger               log.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
+	callGate *Gate
 }
 
 type Validator interface {
@@ -187,6 +191,14 @@ func (s *Server) WithListener(listener EventListener) *Server {
 // DisableBatchRequests disables batch JSON-RPC requests to the server
 func (s *Server) DisableBatchRequests(forbid bool) *Server {
 	s.disableBatchRequests = forbid
+	return s
+}
+
+// WithCallGate sets an admission-control gate whose unit is a single RPC call
+// rather than a transport request, so that a batch cannot admit more work than
+// the limit
+func (s *Server) WithCallGate(g *Gate) *Server {
+	s.callGate = g
 	return s
 }
 
@@ -364,14 +376,19 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
-		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
-			resp = new(errResponse(InvalidRequest, handleErr.Error()))
-			if !errors.Is(handleErr, ErrInvalidID) {
-				resp.ID = req.ID
-			}
-			header = httpHeader
+		} else if s.acquireCall(ctx) != nil {
+			resp = new(busyResponse(req.ID))
 		} else {
-			resp = resObject
+			resObject, httpHeader, handleErr := s.handleRequest(ctx, req)
+			s.releaseCall()
+			if handleErr != nil {
+				resp = new(errResponse(InvalidRequest, handleErr.Error()))
+				if !errors.Is(handleErr, ErrInvalidID) {
+					resp.ID = req.ID
+				}
+			} else {
+				resp = resObject
+			}
 			header = httpHeader
 		}
 	} else if !s.disableBatchRequests {
@@ -398,6 +415,25 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 	result, err := json.Marshal(resp)
 	return result, header, err
+}
+
+func (s *Server) acquireCall(ctx context.Context) error {
+	if s.callGate == nil {
+		return nil
+	}
+	return s.callGate.Acquire(ctx)
+}
+
+func (s *Server) releaseCall() {
+	if s.callGate != nil {
+		s.callGate.Release()
+	}
+}
+
+func busyResponse(id any) response {
+	resp := errResponse(ServerBusy, nil)
+	resp.ID = id
+	return resp
 }
 
 func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
@@ -432,9 +468,15 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 			continue
 		}
 
+		if s.acquireCall(ctx) != nil {
+			addResponse(busyResponse(req.ID), http.Header{})
+			continue
+		}
+
 		wg.Add(1)
 		s.pool.Go(func() {
 			defer wg.Done()
+			defer s.releaseCall()
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {

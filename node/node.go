@@ -533,9 +533,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	maxConcurrentCalls := uint(4 * runtime.GOMAXPROCS(0))
+	callGate := jsonrpc.NewGate(maxConcurrentCalls, uint64(16*maxConcurrentCalls))
+	if cfg.Metrics {
+		makeCallGateMetrics(callGate)
+	}
 
 	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv10.Validator()).
+		WithCallGate(callGate).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
 	if err = jsonrpcServerV10.RegisterMethods(methodsV10...); err != nil {
@@ -544,6 +550,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv9.Validator()).
+		WithCallGate(callGate).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
 	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
@@ -552,6 +559,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv8.Validator()).
+		WithCallGate(callGate).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
