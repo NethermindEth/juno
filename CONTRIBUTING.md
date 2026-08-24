@@ -18,8 +18,6 @@ If you spot something new, open an issue using a [template](https://github.com/N
 
 When you're done making changes and you'd like to propose them for review, use the pull request template to open your PR (pull request).
 
-If your PR is not ready for review and merge because you are still working on it, please convert it to draft and add the label `wip` (work in progress). This label makes it easy to filter out work-in-progress PRs.
-
 Please do not open more than one PR at a time as stated below.
 
 ### Do you intend to add a new feature or change an existing one?
