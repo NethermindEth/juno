@@ -20,7 +20,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpcv10.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.10.2", version)
+	require.Equal(t, "0.10.3", version)
 }
 
 func TestThrottledVMError(t *testing.T) {
@@ -77,7 +77,9 @@ func TestThrottledVMError(t *testing.T) {
 			Transactions: []core.Transaction{l1Tx, declareTx},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
+			Return(block.Transactions, nil)
 		state := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)

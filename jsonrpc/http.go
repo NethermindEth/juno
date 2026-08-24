@@ -1,16 +1,17 @@
 package jsonrpc
 
 import (
-	"compress/gzip"
 	"context"
 	"errors"
 	"io"
 	"maps"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -123,13 +124,19 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		var ioWriter io.Writer = writer
 		if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 			writer.Header().Set("Content-Encoding", "gzip")
-			gw := gzip.NewWriter(writer)
+			// BestSpeed: ~10x faster than the default level for ~13% larger bodies.
+			gw := compression.GzipWriterLevel(writer, compression.BestSpeed)
 			defer func() {
-				if err := gw.Close(); err != nil {
+				closeErr := gw.Close()
+				gw.Release()
+				if closeErr != nil {
 					http.Error(writer, "gzip close error", http.StatusInternalServerError)
+					return
 				}
 			}()
 			ioWriter = gw
+		} else if err == nil {
+			writer.Header().Set("Content-Length", strconv.Itoa(len(resp)))
 		}
 		_, err = ioWriter.Write(resp)
 		if err != nil {

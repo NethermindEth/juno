@@ -7,8 +7,11 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -186,17 +189,17 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 // PRE_CONFIRMED_BLOCK_HEADER
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L1636
 type BlockHeader struct {
-	Hash             *felt.Felt     `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt     `json:"parent_hash,omitempty"`
-	Number           *uint64        `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
-	Timestamp        uint64         `json:"timestamp"`
-	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
-	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
-	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
-	StarknetVersion  string         `json:"starknet_version"`
-	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
+	Hash             *felt.Felt    `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt    `json:"parent_hash,omitempty"`
+	Number           *uint64       `json:"block_number,omitempty"`
+	NewRoot          *felt.Felt    `json:"new_root,omitempty"`
+	Timestamp        uint64        `json:"timestamp"`
+	SequencerAddress *felt.Felt    `json:"sequencer_address,omitempty"`
+	L1GasPrice       ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   ResourcePrice `json:"l1_data_gas_price"`
+	L1DAMode         L1DAMode      `json:"l1_da_mode"`
+	StarknetVersion  string        `json:"starknet_version"`
+	L2GasPrice       ResourcePrice `json:"l2_gas_price"`
 }
 
 type ResourcePrice struct {
@@ -226,19 +229,19 @@ func (l L1DAMode) MarshalText() ([]byte, error) {
 type BlockWithTxs struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	Transactions []*Transaction `json:"transactions"`
+	Transactions []Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L43
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes []*felt.Felt `json:"transactions"`
+	TxnHashes []felt.Felt `json:"transactions"`
 }
 
 type TransactionWithReceipt struct {
-	Transaction *Transaction        `json:"transaction"`
-	Receipt     *TransactionReceipt `json:"receipt"`
+	Transaction Transaction        `json:"transaction"`
+	Receipt     TransactionReceipt `json:"receipt"`
 }
 
 type BlockWithReceipts struct {
@@ -269,11 +272,11 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/release/v0.9.0/api/starknet_api_openrpc.json#L738
 func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
-	block, err := h.bcReader.Head()
+	header, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, rpccore.ErrNoBlock
 	}
-	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
+	return &BlockHashAndNumber{Number: header.Number, Hash: header.Hash}, nil
 }
 
 // BlockTransactionCount returns the number of transactions in a block
@@ -282,11 +285,46 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L548
 func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return 0, rpcErr
+	var count uint64
+	var err error
+	switch id.Type() {
+	case preConfirmed:
+		var chain preconfirmed.ChainReader
+		chain, err = h.syncReader.PreConfirmedChain()
+		if err == nil {
+			count = chain.Head().Block.Header.TransactionCount
+		}
+	case latest:
+		var height uint64
+		height, err = h.bcReader.Height()
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(height)
+		}
+	case hash:
+		var blockNumber uint64
+		blockNumber, err = h.bcReader.BlockNumberByHash(id.Hash())
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(blockNumber)
+		}
+	case number:
+		count, err = h.bcReader.BlockTransactionCountByNumber(id.Number())
+	case l1Accepted:
+		var blockNumber uint64
+		blockNumber, err = h.l1AcceptedBlockNumber()
+		if err == nil {
+			count, err = h.bcReader.BlockTransactionCountByNumber(blockNumber)
+		}
+	default:
+		panic("unknown block type id")
 	}
-	return header.TransactionCount, nil
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return 0, rpccore.ErrBlockNotFound
+		}
+		return 0, rpccore.ErrInternal.CloneWithData(err)
+	}
+	return count, nil
 }
 
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
@@ -294,25 +332,36 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxHashes{
+			Status:      BlockPreConfirmed,
+			BlockHeader: AdaptBlockHeader(preConfirmed.Block.Header),
+			TxnHashes:   transactionHashesOf(preConfirmed.Block.Transactions),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if id.IsPreConfirmed() {
-		numID = *id
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txnHashes := make([]*felt.Felt, header.TransactionCount)
-	for index, txn := range blockTxns {
-		txnHashes[index] = txn.Hash()
+	transactionHashes, err := h.bcReader.TransactionHashesByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(id, header.Number)
@@ -323,8 +372,18 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: AdaptBlockHeader(header),
-		TxnHashes:   txnHashes,
+		TxnHashes:   transactionHashes,
 	}, nil
+}
+
+// transactionHashesOf collects each transaction's hash, for blocks served from memory where the
+// transactions are already decoded.
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for index, transaction := range transactions {
+		hashes[index] = *transaction.Hash()
+	}
+	return hashes
 }
 
 // BlockWithReceipts returns the block information with transaction receipts given a block ID.
@@ -378,25 +437,36 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	if blockID.IsPreConfirmed() {
+		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+				return nil, rpccore.ErrBlockNotFound
+			}
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+		preConfirmed := preConfirmedChain.Head()
+		if preConfirmed == nil {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return &BlockWithTxs{
+			Status:       BlockPreConfirmed,
+			BlockHeader:  AdaptBlockHeader(preConfirmed.Block.Header),
+			Transactions: adaptTransactions(preConfirmed.Block.Transactions),
+		}, nil
+	}
+
 	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var numID BlockID
-	if blockID.IsPreConfirmed() {
-		numID = *blockID
-	} else {
-		numID = BlockIDFromNumber(header.Number)
-	}
-	blockTxns, rpcErr := h.blockTxnsByNumber(&numID)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	txs := make([]*Transaction, header.TransactionCount)
-	for index, txn := range blockTxns {
-		txs[index] = AdaptTransaction(txn)
+	blockTransactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrBlockNotFound
+		}
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	status, rpcErr := h.blockStatus(blockID, header.Number)
@@ -407,29 +477,38 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	return &BlockWithTxs{
 		Status:       status,
 		BlockHeader:  AdaptBlockHeader(header),
-		Transactions: txs,
+		Transactions: adaptTransactions(blockTransactions),
 	}, nil
 }
 
+// adaptTransactions sizes the result from the transactions themselves rather than the header's
+// count, so a header and a transaction list that disagree cannot index out of range.
+func adaptTransactions(transactions []core.Transaction) []Transaction {
+	adapted := make([]Transaction, len(transactions))
+	for index, transaction := range transactions {
+		adapted[index] = AdaptTransaction(transaction)
+	}
+	return adapted
+}
+
 func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		return BlockPreConfirmed, nil
+	}
+
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := BlockAcceptedL2
-	if id.IsPreConfirmed() {
-		status = BlockPreConfirmed
-	} else if isL1Verified(blockNumber, l1H) {
-		status = BlockAcceptedL1
+	if isL1Verified(blockNumber, l1H) {
+		return BlockAcceptedL1, nil
 	}
 
-	return status, nil
+	return BlockAcceptedL2, nil
 }
 
 func AdaptBlockHeader(header *core.Header) BlockHeader {
-	blockNumber := &header.Number
-
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
 		sequencerAddress = &felt.Zero
@@ -472,18 +551,18 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
+		Number:           &header.Number,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
-			InWei: header.L1GasPriceETH,
+		L1GasPrice: ResourcePrice{
+			InWei: nilToZero(header.L1GasPriceETH),
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
-		L1DataGasPrice:  &l1DataGasPrice,
-		L1DAMode:        &l1DAMode,
+		L1DataGasPrice:  l1DataGasPrice,
+		L1DAMode:        l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
-		L2GasPrice:      &l2GasPrice,
+		L2GasPrice:      l2GasPrice,
 	}
 }
 

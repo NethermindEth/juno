@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	stdsync "sync"
 	"sync/atomic"
@@ -31,6 +32,13 @@ const (
 	OpVerify = "verify"
 	OpStore  = "store"
 	OpFetch  = "fetch"
+
+	// Reorg-check ops, one per exit level of isReverting: resolved from the
+	// local height alone, after fetching the remote head, or only after also
+	// reading the local header for a hash comparison.
+	OpReorgCheckFast   = "reorgCheckFast"
+	OpReorgCheckRemote = "reorgCheckRemote"
+	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
@@ -66,7 +74,7 @@ type ReorgBlockRange struct {
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
-	StartingBlockNumber() (uint64, error)
+	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
@@ -77,8 +85,8 @@ type Reader interface {
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
 type NoopSynchronizer struct{}
 
-func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
-	return 0, errors.New("StartingBlockNumber() not implemented")
+func (n *NoopSynchronizer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
@@ -98,7 +106,7 @@ func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription 
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	return preconfirmed.ChainReader{}, errors.New("PreConfirmedChain() is not implemented")
+	return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -107,7 +115,8 @@ type Synchronizer struct {
 	db                   db.KeyValueStore
 	readOnlyBlockchain   bool
 	dataSource           DataSource
-	startingBlockNumber  *uint64
+	startingBlockNumber  atomic.Pointer[uint64]
+	startingBlockHeader  atomic.Pointer[core.Header]
 	highestBlockHeader   atomic.Pointer[core.Header]
 	newHeads             *feed.Feed[*core.Block]
 	reorgFeed            *feed.Feed[*ReorgBlockRange]
@@ -202,27 +211,31 @@ func (s *Synchronizer) isReverting(
 	ctx context.Context,
 	nextHeight uint64,
 ) (lastPossiblyValidHeight uint64, isReorg bool) {
-	// If localHead is somehow not available, we precautionarily assume we're not reverting
-	localHead, err := s.blockchain.HeadsHeader()
+	checkTimer := time.Now()
+
+	// If localHeight is somehow not available, we precautionarily assume we're not reverting
+	localHeight, err := s.blockchain.Height()
 	if err != nil {
 		return 0, false
 	}
-	localHeight := localHead.Number
 
 	// Only check if we're waiting for the very next block
 	if localHeight+1 != nextHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckFast, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
 	// If unable to fetch remoteHead block, we precautionarily assume we're not reverting
 	remoteHead, err := s.dataSource.BlockHeaderLatest(ctx)
 	if err != nil {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 	remoteHeight := remoteHead.Number
 
 	// If a newer block is available, revert will be handled in storeTask
 	if remoteHeight > localHeight {
+		s.listener.OnSyncStepDone(OpReorgCheckRemote, nextHeight, time.Since(checkTimer))
 		return 0, false
 	}
 
@@ -230,10 +243,13 @@ func (s *Synchronizer) isReverting(
 	// If the latest block is older than the head, compare with the stored block at the same height
 	if remoteHeight < localHeight {
 		localHeight = remoteHeight
-		if localHead, err = s.blockchain.BlockHeaderByNumber(localHeight); err != nil {
-			return 0, false
-		}
 	}
+
+	localHead, err := s.blockchain.BlockHeaderByNumber(localHeight)
+	if err != nil {
+		return 0, false
+	}
+	s.listener.OnSyncStepDone(OpReorgCheckLocal, nextHeight, time.Since(checkTimer))
 
 	if *remoteHead.Hash == *localHead.Hash {
 		return 0, false
@@ -358,6 +374,11 @@ func (s *Synchronizer) storeTask(
 	}
 	committedBlock.Persisted <- nil
 
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber != nil && block.Number == *startingBlockNumber {
+		s.startingBlockHeader.Store(block.Header)
+	}
+
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
@@ -393,7 +414,9 @@ func (s *Synchronizer) storeTask(
 	}
 }
 
-func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc) {
+func (s *Synchronizer) revertTask(
+	ctx context.Context, lastPossiblyValidHeight uint64, resetStreams context.CancelFunc,
+) {
 	defer resetStreams()
 	shouldContinue := true
 	for shouldContinue {
@@ -430,22 +453,22 @@ func (s *Synchronizer) revertTask(ctx context.Context, lastPossiblyValidHeight u
 }
 
 func (s *Synchronizer) nextHeight() uint64 {
-	nextHeight := uint64(0)
-	if h, err := s.blockchain.Height(); err == nil {
-		nextHeight = h + 1
+	if height, err := s.blockchain.Height(); err == nil {
+		return height + 1
 	}
-	return nextHeight
+	return 0
 }
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
-		s.startingBlockNumber = nil
+		s.startingBlockNumber.Store(nil)
+		s.startingBlockHeader.Store(nil)
 		s.highestBlockHeader.Store(nil)
 	}()
 
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
-	s.startingBlockNumber = &startingHeight
+	s.startingBlockNumber.Store(&startingHeight)
 
 	if s.readOnlyBlockchain {
 		s.pollLatest(syncCtx)
@@ -532,11 +555,34 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 	s.listener.OnReorg(localHeader.Number)
 }
 
-func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
-	if s.startingBlockNumber == nil {
-		return 0, errors.New("not running")
+func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
+	header := s.startingBlockHeader.Load()
+	if header != nil {
+		return header, nil
 	}
-	return *s.startingBlockNumber, nil
+
+	startingBlockNumber := s.startingBlockNumber.Load()
+	if startingBlockNumber == nil {
+		return nil, errors.New("starting block number is not set")
+	}
+
+	header, err := core.GetBlockHeaderByNumber(s.db, *startingBlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("getting header for block %d: %w", *startingBlockNumber, err)
+	}
+	// The sync loop may stop or restart while the fallback DB read is in flight.
+	// Only cache the fallback header if it still belongs to the same sync run.
+	if s.startingBlockNumber.Load() != startingBlockNumber {
+		return nil, errors.New("starting block number changed")
+	}
+	// Avoid overwriting a full header cached by storeTask while this fallback was reading from DB.
+	if !s.startingBlockHeader.CompareAndSwap(nil, header) {
+		header = s.startingBlockHeader.Load()
+		if header == nil {
+			return nil, errors.New("starting block header changed")
+		}
+	}
+	return header, nil
 }
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {
@@ -577,27 +623,26 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	head, err := s.blockchain.HeadsHeader()
+	height, err := s.blockchain.Height()
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return preconfirmed.ChainReader{}, err
-		}
-		head = nil
+		return preconfirmed.ChainReader{}, err
 	}
 
-	snapshot := s.preConfirmed.SnapshotForHead(head)
+	snapshot := s.preConfirmed.SnapshotForBlock(height + 1)
 	if snapshot.Length() > 0 {
 		return snapshot, nil
 	}
 
-	// Fallback: no stored pre-confirmed, or stored data failed validation.
-	if head == nil {
-		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		return preconfirmed.ChainReader{}, err
 	}
+
 	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
 	if err != nil {
 		return preconfirmed.ChainReader{}, err
 	}
+
 	return preconfirmed.NewChain(&emptyPreConfirmed)
 }
 

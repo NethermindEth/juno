@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/eth"
 )
@@ -26,13 +25,13 @@ type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
 }
 
+// L1Client is the Ethereum receipt lookup the RPC layer needs for
+// starknet_getMessageStatus: it fetches an L1 transaction receipt so the
+// handler can match L1→L2 message logs.
+//
 //go:generate mockgen -destination=../../mocks/mock_l1_client.go -package=mocks github.com/NethermindEth/juno/rpc/rpccore L1Client
 type L1Client interface {
-	TransactionReceipt(ctx context.Context, txHash eth.Hash) (*eth.Receipt, error)
-}
-
-type TraceCacheKey struct {
-	BlockHash felt.Felt
+	TransactionReceipt(ctx context.Context, txHash eth.Hash) (eth.Receipt, error)
 }
 
 var (

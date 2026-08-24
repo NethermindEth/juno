@@ -260,9 +260,9 @@ type FeePayment struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt   `json:"from_address,omitempty"`
-	To      eth.Address  `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	From    *felt.Felt            `json:"from_address,omitempty"`
+	To      eth.Address           `json:"to_address"`
+	Payload felt.Slice[felt.Felt] `json:"payload"`
 }
 
 type ComputationResources struct {
@@ -290,19 +290,27 @@ type ExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType     `json:"type"`
-	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
-	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
-	BlockNumber        *uint64             `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
-	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
-	RevertReason       string              `json:"revert_reason,omitempty"`
-	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
-	MessageHash        string              `json:"message_hash,omitempty"`
+	Type               TransactionType    `json:"type"`
+	Hash               *felt.Felt         `json:"transaction_hash"`
+	ActualFee          FeePayment         `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
+	MessagesSent       []MsgToL1          `json:"messages_sent"`
+	Events             []*Event           `json:"events"`
+	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
+	RevertReason       string             `json:"revert_reason,omitempty"`
+	ExecutionResources ExecutionResources `json:"execution_resources"`
+	MessageHash        string             `json:"message_hash,omitempty"`
+}
+
+// TransactionReceiptWithBlockInfo is TXN_RECEIPT_WITH_BLOCK_INFO.
+//
+// BlockHash is a pointer because this type is shared with pre_confirmed transaction receipts,
+// which have no block hash yet.
+type TransactionReceiptWithBlockInfo struct {
+	TransactionReceipt
+	BlockHash   *felt.Felt `json:"block_hash,omitempty"`
+	BlockNumber uint64     `json:"block_number"`
 }
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
@@ -378,12 +386,12 @@ func MakeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.E
 	})
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		return ExecutionResources{}
 	}
 
-	res := &ExecutionResources{}
+	res := ExecutionResources{}
 	if tgc := resources.TotalGasConsumed; tgc != nil {
 		res.L1Gas = tgc.L1Gas
 		res.L2Gas = tgc.L2Gas
@@ -396,31 +404,31 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 //
 //nolint:lll // We can't break the json tags lines
 type Transaction struct {
-	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
-	Type                  TransactionType       `json:"type" validate:"required"`
-	Version               *felt.Felt            `json:"version,omitempty" validate:"required,version_0x3"`
-	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required"`
-	MaxFee                *felt.Felt            `json:"max_fee,omitempty"`
-	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
-	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
-	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required"`
-	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
-	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
-	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
-	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
-	ProofFacts            *[]felt.Felt          `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
+	Hash                  *felt.Felt             `json:"transaction_hash,omitempty"`
+	Type                  TransactionType        `json:"type" validate:"required"`
+	Version               *felt.Felt             `json:"version,omitempty" validate:"required,version_0x3"`
+	Nonce                 *felt.Felt             `json:"nonce,omitempty" validate:"required"`
+	MaxFee                *felt.Felt             `json:"max_fee,omitempty"`
+	ContractAddress       *felt.Felt             `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt             `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt             `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *felt.Slice[felt.Felt] `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt             `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
+	Signature             *felt.Slice[felt.Felt] `json:"signature,omitempty" validate:"required"`
+	CallData              *felt.Slice[felt.Felt] `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt             `json:"entry_point_selector,omitempty"`
+	CompiledClassHash     *felt.Felt             `json:"compiled_class_hash,omitempty"`
+	ResourceBounds        *ResourceBoundsMap     `json:"resource_bounds,omitempty" validate:"required"`
+	Tip                   *felt.Felt             `json:"tip,omitempty" validate:"required"`
+	PaymasterData         *felt.Slice[felt.Felt] `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *felt.Slice[felt.Felt] `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	NonceDAMode           *DataAvailabilityMode  `json:"nonce_data_availability_mode,omitempty" validate:"required"`
+	FeeDAMode             *DataAvailabilityMode  `json:"fee_data_availability_mode,omitempty" validate:"required"`
+	ProofFacts            *[]felt.Felt           `json:"proof_facts,omitempty" validate:"excluded_unless=Type INVOKE"`
 }
 
 // ContractClass represents a contract class to be declared in the DECLARE broadcast transaction.
-// https://github.com/starkware-libs/starknet-specs/blob/release/v0.10.2/api/starknet_api_openrpc.json#L3373
+// https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L3369
 type ContractClass struct {
 	SierraProgram        []felt.Felt              `json:"sierra_program" validate:"required"`
 	ContractClassVersion string                   `json:"contract_class_version" validate:"required"`
@@ -451,16 +459,4 @@ type BroadcastedTransaction struct {
 type TransactionExecutionErrorData struct {
 	TransactionIndex uint64          `json:"transaction_index"`
 	ExecutionError   json.RawMessage `json:"execution_error"`
-}
-
-// todo(rdr): This should be modified to receive a transaction version instead
-// and the if conditions can be simplified by just asking if version is 3 :)
-func feeUnit(txn core.Transaction) FeeUnit {
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
-	}
-
-	return feeUnit
 }

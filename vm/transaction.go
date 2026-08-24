@@ -55,11 +55,11 @@ type Transaction struct {
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
 	ClassHash             *felt.Felt                   `json:"class_hash,omitempty"`
-	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty"`
+	ConstructorCallData   *felt.Slice[felt.Felt]       `json:"constructor_calldata,omitempty"`
 	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty"`
 	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
-	Signature             *[]*felt.Felt                `json:"signature,omitempty"`
-	CallData              *[]*felt.Felt                `json:"calldata,omitempty"`
+	Signature             *felt.Slice[felt.Felt]       `json:"signature,omitempty"`
+	CallData              *felt.Slice[felt.Felt]       `json:"calldata,omitempty"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
 	Nonce                 *felt.Felt                   `json:"nonce,omitempty"`
 	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
@@ -67,8 +67,8 @@ type Transaction struct {
 	Tip                   *felt.Felt                   `json:"tip,omitempty"`
 	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty"`
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
+	AccountDeploymentData *felt.Slice[felt.Felt]       `json:"account_deployment_data,omitempty"`
+	PaymasterData         *felt.Slice[felt.Felt]       `json:"paymaster_data,omitempty"`
 	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
 }
 
@@ -123,7 +123,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		tx = &Transaction{
 			MaxFee:            t.MaxFee,
 			Version:           t.Version.AsFelt(),
-			Signature:         new(t.Signature()),
+			Signature:         &t.TransactionSignature,
 			Nonce:             t.Nonce,
 			ClassHash:         t.ClassHash,
 			SenderAddress:     t.SenderAddress,
@@ -142,7 +142,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		tx = &Transaction{
 			MaxFee:             t.MaxFee,
 			Version:            t.Version.AsFelt(),
-			Signature:          new(t.Signature()),
+			Signature:          &t.TransactionSignature,
 			Nonce:              t.Nonce,
 			CallData:           &t.CallData,
 			ContractAddress:    t.ContractAddress,
@@ -182,7 +182,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		tx = &Transaction{
 			MaxFee:              t.MaxFee,
 			Version:             t.Version.AsFelt(),
-			Signature:           new(t.Signature()),
+			Signature:           &t.TransactionSignature,
 			Nonce:               t.Nonce,
 			ContractAddressSalt: t.ContractAddressSalt,
 			ConstructorCallData: &t.ConstructorCallData,
@@ -213,9 +213,9 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	return rpcResourceBounds
 }
 
-func nilToZero(v []*felt.Felt) *[]*felt.Felt {
+func nilToZero(v felt.Slice[felt.Felt]) *felt.Slice[felt.Felt] {
 	if v == nil {
-		return &[]*felt.Felt{}
+		return &felt.Slice[felt.Felt]{}
 	}
 	return &v
 }

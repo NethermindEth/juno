@@ -26,9 +26,9 @@ type ResultPageRequest struct {
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address,omitempty"`
-	Keys []*felt.Felt `json:"keys"`
-	Data []*felt.Felt `json:"data"`
+	From *felt.Felt  `json:"from_address,omitempty"`
+	Keys []felt.Felt `json:"keys"`
+	Data []felt.Felt `json:"data"`
 }
 
 type EmittedEvent struct {
@@ -111,9 +111,11 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 
 	emittedEvents := make([]EmittedEvent, len(filteredEvents))
 	for i, fEvent := range filteredEvents {
+		// v8 omits both fields for a pending event. Point into the slice: &fEvent
+		// allocates a copy for each event.
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
-			blockNumber = fEvent.BlockNumber
+			blockNumber = &filteredEvents[i].BlockNumber
 		}
 		emittedEvents[i] = EmittedEvent{
 			BlockNumber:     blockNumber,

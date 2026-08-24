@@ -2,6 +2,7 @@ package rpcv10
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -83,29 +84,6 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockTxnsByNumber(blockID *BlockID) ([]core.Transaction, *jsonrpc.Error) {
-	switch {
-	case blockID.IsPreConfirmed():
-		reader, err := h.syncReader.PreConfirmedChain()
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return reader.Head().GetTransactions(), nil
-	default:
-		txns, err := h.bcReader.TransactionsByBlockNumber(blockID.Number())
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				return nil, rpccore.ErrBlockNotFound
-			}
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-		return txns, nil
-	}
-}
-
 func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
@@ -150,11 +128,7 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 		return nil, nil
 	}
 
-	header, err := h.bcReader.BlockHeaderByNumber(blockNumber - core.BlockHashLag)
-	if err != nil {
-		return nil, err
-	}
-	return header.Hash, nil
+	return h.bcReader.BlockHeaderHashByNumber(blockNumber - core.BlockHashLag)
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
@@ -202,7 +176,15 @@ func (h *Handler) stateByBlockID(
 	return reader, closer, nil
 }
 
-func getTransactionType(t core.Transaction) TransactionType {
+func feeUnitFromTransactionVersion(version *core.TransactionVersion) FeeUnit {
+	if version.Is(3) {
+		return FRI
+	}
+
+	return WEI
+}
+
+func transactionTypeFrom(t core.Transaction) TransactionType {
 	switch t.(type) {
 	case *core.DeployTransaction:
 		return TxnDeploy
@@ -215,25 +197,6 @@ func getTransactionType(t core.Transaction) TransactionType {
 	case *core.L1HandlerTransaction:
 		return TxnL1Handler
 	default:
-		panic("unknown transaction type")
+		panic(fmt.Sprintf("unknown transaction type %T", t))
 	}
-}
-
-// getCommitmentsAndStateDiff retrieves commitments and stateDiff by block number.
-func (h *Handler) getCommitmentsAndStateDiff(
-	blockNumber uint64,
-) (*core.BlockCommitments, *core.StateDiff, error) {
-	// Get commitments
-	commitments, err := h.bcReader.BlockCommitmentsByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get stateDiff from stateUpdate
-	stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return commitments, stateUpdate.StateDiff, nil
 }

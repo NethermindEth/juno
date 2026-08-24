@@ -100,23 +100,32 @@ const extractConfigs = (codebase) => {
     description = description.replace(/\.$/, ""); // Remove any trailing dot
 
     // Additional descriptions based on specific configurations
+    // The registered default is computed from the process fd limit at
+    // startup, so show the formula rather than a machine-specific number.
+    if (configName === "db-max-handles") {
+      defaultValue = "half of process fd limit (min 1024, max 1048576)";
+    }
     if (configName === "max-vms") {
       defaultValue = "3 * CPU Cores";
     }
     if (configName === "max-vm-queue") {
       defaultValue = "2 * max-vms";
     }
+    // The registered Cobra default is 0, but an absent flag derives the value at
+    // startup, so show the effective derived default rather than the raw 0.
     if (configName === "max-concurrent-compilations") {
-      defaultValue = "CPU Cores";
+      defaultValue = "auto (memory-aware)";
+      description +=
+        ". Derived as `min(cpu_cores, (available_memory - node_memory_reserve) / max_compilation_memory)`, at least 1";
+    }
+    if (configName === "max-compilation-queue") {
+      defaultValue = "2 * max-concurrent-compilations";
     }
     // The registered Cobra default is 0, but pruning is gated on the flag's
     // presence, not its value — a bare `--prune-mode` enables pruning with the
     // NoOptDefVal of 128. Show 128 as the effective default when enabled.
     if (configName === "prune-mode") {
       defaultValue = 128;
-    }
-    if (configName === "max-compilation-queue") {
-      defaultValue = "2 * max-concurrent-compilations";
     }
     if (configName === "gw-timeouts") {
       defaultValue = "5s";

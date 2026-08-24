@@ -29,17 +29,17 @@ func (h *Handler) SubscribeEvents(
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newEventSubscriber(h, w, fromAddr, keys, blockID, finalityStatus)
+	sub, rpcErr := newEventSubscriber(h, wsConn, fromAddr, keys, blockID, finalityStatus)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 type SubscriptionEmittedEvent struct {
@@ -81,7 +81,7 @@ func newEventSubscriber(
 		}
 	}
 
-	requestedHeader, headHeader, rpcErr := handler.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := handler.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return subscriber{}, rpcErr
 	}
@@ -107,8 +107,8 @@ func newEventSubscriber(
 	// Historical replay is bounded to the canonical tip even for pre_confirmed
 	// subscribers: the pre_confirmed window is owned exclusively by the realtime
 	// onPreConfirmed handler, which avoids duplicating the tip during handoff.
-	fromBlock := BlockIDFromNumber(requestedHeader.Number)
-	toBlock := BlockIDFromNumber(headHeader.Number)
+	fromBlock := BlockIDFromNumber(startBlock)
+	toBlock := BlockIDFromNumber(latestBlock)
 
 	s := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
@@ -119,11 +119,11 @@ func newEventSubscriber(
 				&toBlock,
 				fromAddr,
 				keys,
-				headHeader.Number,
+				latestBlock,
 			)
 		},
-		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
+		onReorg:   state.onReorg,
 	}
 
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
@@ -218,7 +218,7 @@ func matchingEvents(
 				}
 
 				filtered := &blockchain.FilteredEvent{
-					BlockNumber:      &block.Number,
+					BlockNumber:      block.Number,
 					BlockHash:        block.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
@@ -299,7 +299,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 	id string,
 	events []blockchain.FilteredEvent,
 ) error {
-	for _, event := range events {
+	for i := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -307,13 +307,13 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 			// Historical replay is bounded to the canonical tip, so every event
 			// here is canonical: L1-finalised at or below the L1 head, else L2.
 			finalityStatus := TxnAcceptedOnL2
-			if *event.BlockNumber <= s.l1HeadNumber {
+			if events[i].BlockNumber <= s.l1HeadNumber {
 				finalityStatus = TxnAcceptedOnL1
 			}
 
 			// Historical replay is a one-shot bootstrap with no internal
 			// duplicates, so it sends directly without the deduper.
-			if err := s.sendFilteredEvent(id, &event, finalityStatus); err != nil {
+			if err := s.sendFilteredEvent(id, &events[i], finalityStatus); err != nil {
 				return err
 			}
 		}
@@ -345,6 +345,6 @@ func (s *eventSubscriberState) sendFilteredEvent(
 	return sendEvent(s.conn, response, id)
 }
 
-func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
-	return sendResponse("starknet_subscriptionEvents", w, id, event)
+func sendEvent(wsConn jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
+	return sendResponse("starknet_subscriptionEvents", wsConn, id, event)
 }

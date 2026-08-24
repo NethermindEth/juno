@@ -20,3 +20,7 @@ OPTIONS-*
 CURRENT
 LOCK
 
+# RPC benchmark harness: generated corpora and run results (keep the configs).
+bench/rpc/corpus/*
+!bench/rpc/corpus/*.json
+

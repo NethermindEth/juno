@@ -148,4 +148,57 @@ func TestBlockTransactionsSerializer(t *testing.T) {
 			serialised,
 		)
 	})
+
+	t.Run("BlockTransactionsAllTransactionsAndReceiptsPartialSerializer", func(t *testing.T) {
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionsAndReceiptsPartialSerializer,
+			struct{}{},
+			core.TransactionsAndReceipts{Transactions: transactions, Receipts: receipts},
+			serialised,
+		)
+	})
+
+	t.Run("BlockTransactionsAllTransactionEventsPartialSerializer", func(t *testing.T) {
+		expected := make([]core.TransactionEvents, len(receipts))
+		for i, receipt := range receipts {
+			expected[i] = core.TransactionEvents{
+				Events:          receipt.Events,
+				TransactionHash: receipt.TransactionHash,
+			}
+		}
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionEventsPartialSerializer,
+			struct{}{},
+			expected,
+			serialised,
+		)
+	})
+
+	t.Run("BlockTransactionsExecutionStatusPartialSerializer", func(t *testing.T) {
+		for i := range transactionCount {
+			assertPartialSerializer(
+				t,
+				core.BlockTransactionsExecutionStatusPartialSerializer,
+				i,
+				core.TransactionExecutionStatus{
+					Reverted:     receipts[i].Reverted,
+					RevertReason: receipts[i].RevertReason,
+				},
+				serialised,
+			)
+		}
+	})
+
+	t.Run("BlockTransactionsAllTransactionHashesPartialSerializer", func(t *testing.T) {
+		// The serializer reads each transaction's own hash from the transaction section.
+		assertPartialSerializer(
+			t,
+			core.BlockTransactionsAllTransactionHashesPartialSerializer,
+			struct{}{},
+			transactionHashesOf(transactions),
+			serialised,
+		)
+	})
 }

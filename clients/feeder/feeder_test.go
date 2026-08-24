@@ -75,11 +75,11 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 				"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 			),
 			Version: felt.NewUnsafeFromString[felt.Felt]("0x3"),
-			Signature: &[]*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			Signature: &[]felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3",
 				),
 			},
@@ -101,7 +101,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:           new(felt.Felt),
-			PaymasterData: &[]*felt.Felt{},
+			PaymasterData: &[]felt.Felt{},
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
 				"0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
 			),
@@ -111,7 +111,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			CompiledClassHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
 			),
-			AccountDeploymentData: &[]*felt.Felt{},
+			AccountDeploymentData: &[]felt.Felt{},
 			Type:                  starknet.TxnDeclare,
 		}, status.Transaction)
 	})
@@ -169,11 +169,11 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			),
 			Version: new(felt.Felt).SetUint64(3),
-			Signature: &[]*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			Signature: &[]felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5",
 				),
 			},
@@ -195,44 +195,44 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:           new(felt.Felt),
-			PaymasterData: &[]*felt.Felt{},
+			PaymasterData: &[]felt.Felt{},
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
 				"0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41",
 			),
-			CallData: &[]*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				felt.NewUnsafeFromString[felt.Felt](
+			CallData: &[]felt.Felt{
+				felt.UnsafeFromString[felt.Felt]("0x2"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
-				felt.NewUnsafeFromString[felt.Felt]("0x4"),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt]("0x0"),
+				felt.UnsafeFromString[felt.Felt]("0x4"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x4c312760dfd17a954cdd09e76aa9f149f806d88ec3e402ffaf5c4926f568a42",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x4"),
-				felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				felt.NewUnsafeFromString[felt.Felt]("0x5"),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt]("0x4"),
+				felt.UnsafeFromString[felt.Felt]("0x1"),
+				felt.UnsafeFromString[felt.Felt]("0x5"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf",
 				),
-				felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt]("0x1"),
+				felt.UnsafeFromString[felt.Felt](
 					"0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587",
 				),
 			},
-			AccountDeploymentData: &[]*felt.Felt{},
+			AccountDeploymentData: &[]felt.Felt{},
 			Type:                  starknet.TxnInvoke,
 		}, status.Transaction)
 	})
@@ -373,11 +373,11 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			ClassHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
 			),
-			Signature: &[]*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			Signature: &[]felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec",
 				),
-				felt.NewUnsafeFromString[felt.Felt](
+				felt.UnsafeFromString[felt.Felt](
 					"0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3",
 				),
 			},
@@ -399,13 +399,13 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:           new(felt.Felt),
-			PaymasterData: &[]*felt.Felt{},
+			PaymasterData: &[]felt.Felt{},
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
 				"0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
 			),
 			ContractAddressSalt: new(felt.Felt),
-			ConstructorCallData: &[]*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt](
+			ConstructorCallData: &[]felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
 					"0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c",
 				),
 			},
@@ -848,11 +848,12 @@ func TestHttpError(t *testing.T) {
 	t.Cleanup(srv.Close)
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	client := feeder.
-		NewClient(feederURL).
-		WithBackoff(feeder.NopBackoff).
-		WithMaxRetries(maxRetries).
-		WithUserAgent(ua)
+	client := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(t.Context(), strconv.Itoa(0))
@@ -890,11 +891,12 @@ func TestBackoffFailure(t *testing.T) {
 
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	c := feeder.
-		NewClient(feederURL).
-		WithBackoff(feeder.NopBackoff).
-		WithMaxRetries(maxRetries).
-		WithUserAgent(ua)
+	c := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
 
 	_, err = c.Block(t.Context(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
@@ -1098,15 +1100,16 @@ func TestBlockTrace(t *testing.T) {
 
 func TestEventListener(t *testing.T) {
 	isCalled := false
-	client := feeder.
-		NewTestClient(t, &networks.Integration).
-		WithListener(&feeder.SelectiveListener{
+	client := feeder.NewTestClient(
+		t,
+		&networks.Integration,
+		feeder.WithListener(&feeder.SelectiveListener{
 			OnResponseCb: func(urlPath string, status int, _ time.Duration) {
 				isCalled = true
 				require.Equal(t, 200, status)
 				require.Equal(t, "/get_block", urlPath)
 			},
-		})
+		}))
 	_, err := client.Block(t.Context(), "0")
 	require.NoError(t, err)
 	require.True(t, isCalled)
@@ -1136,13 +1139,15 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts(
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts(
 				[]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second},
 				false,
-			).
-			WithMaxRetries(2).
-			WithBackoff(feeder.NopBackoff)
+			),
+			feeder.WithMaxRetries(2),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
@@ -1161,10 +1166,12 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
-			WithMaxRetries(2).
-			WithBackoff(feeder.NopBackoff)
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts([]time.Duration{250 * time.Millisecond}, false),
+			feeder.WithMaxRetries(2),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		_, err = client.Block(t.Context(), "1")
 		require.Error(t, err)
@@ -1189,10 +1196,12 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		feederURL, err := url.Parse(srv.URL)
 		require.NoError(t, err)
-		client := feeder.NewClient(feederURL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
-			WithMaxRetries(1).
-			WithBackoff(feeder.NopBackoff)
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false),
+			feeder.WithMaxRetries(1),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
 
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
@@ -1232,7 +1241,7 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 	t.Cleanup(srv.Close)
 	feederURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
-	return feeder.NewClient(feederURL).WithBackoff(feeder.NopBackoff).WithMaxRetries(0)
+	return feeder.NewClient(feederURL, feeder.WithBackoff(feeder.NopBackoff), feeder.WithMaxRetries(0))
 }
 
 // TestFeederValidation checks that the response

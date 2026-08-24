@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -269,6 +270,74 @@ func TestGzipResponse(t *testing.T) {
 		defer resp.Body.Close()
 		verifyResponse(resp, t, expected)
 	})
+}
+
+func TestContentLength(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger)
+	require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
+		Name:    "echo",
+		Params:  []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) { return msg, nil },
+	}))
+
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, logger))
+	t.Cleanup(srv.Close)
+	client := new(http.Client)
+
+	// Just over the 2 KB buffer net/http uses to infer a length on its own:
+	// below that the header is set anyway and the test would prove nothing.
+	payload := strings.Repeat("a", 2500)
+	msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
+	expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
+
+	plain := setHeaderAndProcessRequest(client, map[string]string{"Accept-Encoding": "identity"},
+		bytes.NewReader([]byte(msg)), t, srv)
+	defer plain.Body.Close()
+	require.Empty(t, plain.TransferEncoding)
+	require.Equal(t, int64(len(expected)), plain.ContentLength)
+	plainBody, err := io.ReadAll(plain.Body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(plainBody))
+
+	// A small compressed body still gets a length of its own from net/http.
+	// What must never appear here is the uncompressed length.
+	gzipped := setHeaderAndProcessRequest(client, map[string]string{"Accept-Encoding": "gzip"},
+		bytes.NewReader([]byte(msg)), t, srv)
+	defer gzipped.Body.Close()
+	compressed, err := io.ReadAll(gzipped.Body)
+	require.NoError(t, err)
+	require.Equal(t, int64(len(compressed)), gzipped.ContentLength)
+}
+
+func TestGzipResponseReusesWriter(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	rpc := jsonrpc.NewServer(1, logger)
+	require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
+		Name:    "echo",
+		Params:  []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) { return msg, nil },
+	}))
+
+	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, logger))
+	t.Cleanup(srv.Close)
+	client := new(http.Client)
+	headers := map[string]string{
+		"Accept-Encoding": "gzip, deflate, br",
+		"Content-Type":    "application/json",
+	}
+
+	for _, size := range []int{4096, 2048, 64, 8192, 1} {
+		payload := strings.Repeat("a", size)
+		msg := fmt.Sprintf(`{"jsonrpc":"2.0", "method":"echo", "params":[%q], "id":1}`, payload)
+		expected := fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":1}`, payload)
+
+		t.Run(fmt.Sprintf("payload %d", size), func(t *testing.T) {
+			resp := setHeaderAndProcessRequest(client, headers, bytes.NewReader([]byte(msg)), t, srv)
+			defer resp.Body.Close()
+			verifyResponse(resp, t, expected)
+		})
+	}
 }
 
 func setHeaderAndProcessRequest(

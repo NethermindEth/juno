@@ -44,12 +44,12 @@ func (h *Handler) SubscribeTransactionStatus(
 	ctx context.Context,
 	txHash *felt.Felt,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	return h.subscribe(ctx, w, newTxStatusSubscriber(h, w, txHash))
+	return h.subscribe(wsConn, newTxStatusSubscriber(h, wsConn, txHash))
 }
 
 type txStatusSubscriberState struct {
@@ -59,10 +59,10 @@ type txStatusSubscriberState struct {
 	lastStatus TxnStatus
 }
 
-func newTxStatusSubscriber(h *Handler, w jsonrpc.Conn, txHash *felt.Felt) subscriber {
+func newTxStatusSubscriber(h *Handler, wsConn jsonrpc.Conn, txHash *felt.Felt) subscriber {
 	state := &txStatusSubscriberState{
 		handler: h,
-		conn:    w,
+		conn:    wsConn,
 		txHash:  txHash,
 	}
 
@@ -209,6 +209,6 @@ func (s *txStatusSubscriberState) checkTxStatus(
 	return nil
 }
 
-func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id string) error {
-	return sendResponse("starknet_subscriptionTransactionStatus", w, id, status)
+func sendTxnStatus(wsConn jsonrpc.Conn, status SubscriptionTransactionStatus, id string) error {
+	return sendResponse("starknet_subscriptionTransactionStatus", wsConn, id, status)
 }

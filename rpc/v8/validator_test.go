@@ -12,7 +12,7 @@ func TestVersion0x3Validation(t *testing.T) {
 	t.Parallel()
 	v := rpcv8.Validator()
 
-	emptySlice := []*felt.Felt{}
+	emptySlice := felt.Slice[felt.Felt]{}
 
 	txVersions := []struct {
 		name    string

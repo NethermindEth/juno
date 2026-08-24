@@ -97,16 +97,10 @@ func TestGetMessageStatus(t *testing.T) {
 				},
 			}
 			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
-			l1handlerTxns := make([]core.Transaction, len(test.msgs))
-			for i := range len(test.msgs) {
-				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)
-				require.NoError(t, err)
-				l1handlerTxns[i] = txn
-			}
 
 			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(), gomock.Any(),
-			).Return(&test.l1TxnReceipt, nil)
+			).Return(test.l1TxnReceipt, nil)
 			for i, msg := range test.msgs {
 				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(
 					*msg.L1HandlerHash,
@@ -116,12 +110,12 @@ func TestGetMessageStatus(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(msg.L1HandlerHash),
 				).Return(block.Number, uint64(i), nil)
-				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+				mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 					block.Number, uint64(i),
-				).Return(l1handlerTxns[i], nil)
-				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-					block.Number, uint64(i),
-				).Return(*block.Receipts[i], block.Hash, nil)
+				).Return(core.TransactionExecutionStatus{
+					Reverted:     block.Receipts[i].Reverted,
+					RevertReason: block.Receipts[i].RevertReason,
+				}, nil)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: test.l1HeadBlockNum}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)

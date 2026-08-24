@@ -1,8 +1,6 @@
 package remote
 
 import (
-	"bytes"
-	"errors"
 	"net"
 	"testing"
 
@@ -48,63 +46,52 @@ func TestRemote(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Get", func(t *testing.T) {
-		assert.NoError(t, remoteDB.View(func(txn db.Snapshot) error {
-			for i := byte(0); i < 3; i++ {
-				err := txn.Get([]byte{i}, func(data []byte) error {
-					if !bytes.Equal(data, []byte{i}) {
-						return errors.New("wrong value")
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
+		snap := remoteDB.NewSnapshot()
+		defer snap.Close()
 
-				assert.Equal(t, db.ErrKeyNotFound, txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }))
-			}
-			return nil
-		}))
+		for i := byte(0); i < 3; i++ {
+			require.NoError(t, snap.Get([]byte{i}, func(data []byte) error {
+				assert.Equal(t, []byte{i}, data)
+				return nil
+			}))
+
+			missing := snap.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil })
+			assert.Equal(t, db.ErrKeyNotFound, missing)
+		}
 	})
 
 	t.Run("iterate", func(t *testing.T) {
-		err := remoteDB.View(func(txn db.Snapshot) error {
-			it, err := txn.NewIterator(nil, false)
-			if err != nil {
-				return err
-			}
-			defer it.Close()
+		snap := remoteDB.NewSnapshot()
+		defer snap.Close()
 
-			foundKeys := byte(0)
-			for valid := it.Next(); valid; valid = it.Next() {
-				assert.Equal(t, []byte{foundKeys}, it.Key())
-				v, err := it.Value()
-				require.NoError(t, err)
-				assert.Equal(t, v, []byte{foundKeys})
-				foundKeys++
-			}
-			assert.Equal(t, foundKeys, byte(3))
-			return nil
-		})
-		assert.NoError(t, err)
+		it, err := snap.NewIterator(nil, false)
+		require.NoError(t, err)
+		defer it.Close()
+
+		foundKeys := byte(0)
+		for valid := it.Next(); valid; valid = it.Next() {
+			assert.Equal(t, []byte{foundKeys}, it.Key())
+			v, err := it.Value()
+			require.NoError(t, err)
+			assert.Equal(t, v, []byte{foundKeys})
+			foundKeys++
+		}
+		assert.Equal(t, foundKeys, byte(3))
 	})
 
 	t.Run("seek", func(t *testing.T) {
-		err := remoteDB.View(func(txn db.Snapshot) error {
-			it, err := txn.NewIterator(nil, false)
-			if err != nil {
-				return err
-			}
-			defer it.Close()
+		snap := remoteDB.NewSnapshot()
+		defer snap.Close()
 
-			assert.True(t, it.Seek([]byte{1}))
-			assert.Equal(t, it.Key(), []byte{1})
-			v, err := it.Value()
-			require.NoError(t, err)
-			assert.Equal(t, v, []byte{1})
+		it, err := snap.NewIterator(nil, false)
+		require.NoError(t, err)
+		defer it.Close()
 
-			return nil
-		})
-		assert.NoError(t, err)
+		assert.True(t, it.Seek([]byte{1}))
+		assert.Equal(t, it.Key(), []byte{1})
+		v, err := it.Value()
+		require.NoError(t, err)
+		assert.Equal(t, v, []byte{1})
 	})
 
 	t.Run("write", func(t *testing.T) {

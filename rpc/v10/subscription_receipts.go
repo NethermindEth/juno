@@ -31,17 +31,17 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 	senderAddress []felt.Address,
 	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newReceiptsSubscriber(w, senderAddress, finalityStatuses)
+	sub, rpcErr := newReceiptsSubscriber(wsConn, senderAddress, finalityStatuses)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 // receiptsSubscriberState is touched only by its single subscription dispatch
@@ -108,7 +108,7 @@ func (s *receiptsSubscriberState) onNewHead(
 ) error {
 	// Canonical blocks are published exactly once, so they bypass the deduper.
 	for receipt := range receiptsOf(head, s.senders, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
-		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
+		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
 	}
@@ -135,7 +135,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 			continue
 		}
 
-		if err := sendTransactionReceipt(s.conn, receipt, id); err != nil {
+		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
 	}
@@ -147,8 +147,8 @@ func receiptsOf(
 	block *core.Block,
 	senders []felt.Address,
 	finalityStatus TxnFinalityStatusWithoutL1,
-) iter.Seq[*TransactionReceipt] {
-	return func(yield func(*TransactionReceipt) bool) {
+) iter.Seq[TransactionReceiptWithBlockInfo] {
+	return func(yield func(TransactionReceiptWithBlockInfo) bool) {
 		for i, txn := range block.Transactions {
 			if !filterTxBySender(txn, senders) {
 				continue
@@ -169,6 +169,10 @@ func receiptsOf(
 	}
 }
 
-func sendTransactionReceipt(w jsonrpc.Conn, receipt *TransactionReceipt, id string) error {
-	return sendResponse("starknet_subscriptionNewTransactionReceipts", w, id, receipt)
+func sendTransactionReceipt(
+	wsConn jsonrpc.Conn,
+	receipt *TransactionReceiptWithBlockInfo,
+	id string,
+) error {
+	return sendResponse("starknet_subscriptionNewTransactionReceipts", wsConn, id, receipt)
 }

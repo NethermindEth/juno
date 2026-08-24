@@ -46,6 +46,39 @@ func NewTrieReaderPoseidon(
 	return newTrieReader(r, prefix, height, crypto.Poseidon)
 }
 
+// maxKeyByHeight[h] is 2^h - 1, the largest key a trie of height h can hold.
+var maxKeyByHeight = func() [felt.Bits + 1]felt.Felt {
+	var table [felt.Bits + 1]felt.Felt
+	for h := range table {
+		x := felt.NewFromUint64[felt.Felt](2)
+		y := new(big.Int).SetUint64(uint64(h))
+		maxKey := x.Exp(x, y)
+		maxKey.Sub(maxKey, &felt.One)
+		table[h] = *maxKey
+	}
+	return table
+}()
+
+// GetLeafPedersen reads a single leaf value by key from the flat Pedersen trie at prefix
+func GetLeafPedersen(
+	r db.KeyValueReader,
+	prefix []byte,
+	height uint8,
+	key *felt.Felt,
+) (felt.Felt, error) {
+	if height > felt.Bits {
+		return felt.Felt{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
+	}
+	reader := TrieReader{
+		readStorage: NewReadStorage(r, prefix),
+		height:      height,
+		maxKey:      &maxKeyByHeight[height],
+		hash:        crypto.Pedersen,
+	}
+
+	return reader.Get(key)
+}
+
 func newTrieReader(
 	r db.KeyValueReader,
 	prefix []byte,
@@ -55,12 +88,6 @@ func newTrieReader(
 	if height > felt.Bits {
 		return TrieReader{}, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
-
-	// maxKey is 2^height - 1
-	x := felt.NewFromUint64[felt.Felt](2)
-	y := new(big.Int).SetUint64(uint64(height))
-	maxKey := x.Exp(x, y)
-	maxKey.Sub(maxKey, &felt.One)
 
 	readStorage := NewReadStorage(r, prefix)
 	rootKey, err := readStorage.RootKey()
@@ -72,7 +99,7 @@ func newTrieReader(
 		readStorage: readStorage,
 		height:      height,
 		rootKey:     rootKey,
-		maxKey:      maxKey,
+		maxKey:      &maxKeyByHeight[height],
 		hash:        hash,
 	}, nil
 }
@@ -458,7 +485,7 @@ func (t *Trie) insertOrUpdateValue(
 		}
 
 		if len(nodes) > 1 { // sibling has a parent
-			siblingParent := (nodes)[len(nodes)-2]
+			siblingParent := nodes[len(nodes)-2]
 
 			t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent)
 			if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
@@ -865,7 +892,8 @@ func (t *TrieReader) dump(level int, parentP *BitArray) {
 		rightHash = root.RightHash.String()
 	}
 
-	fmt.Printf("%skey : \"%s\" path: \"%s\" left: \"%s\" right: \"%s\" LH: \"%s\" RH: \"%s\" value: \"%s\" \n",
+	fmt.Printf(
+		"%skey : \"%s\" path: \"%s\" left: \"%s\" right: \"%s\" LH: \"%s\" RH: \"%s\" value: \"%s\" \n",
 		strings.Repeat("\t", level),
 		t.rootKey.String(),
 		path.String(),

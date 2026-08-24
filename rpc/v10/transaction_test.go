@@ -29,7 +29,7 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +67,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(txHash, rpc.ResponseFlags{})
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -96,7 +96,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(searchTxHash, rpc.ResponseFlags{})
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -629,18 +629,18 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	// Build a three-block preconfirmed chain (bottom=1 .. tip=3) where each
+	// Build a three-block preconfirmed chain (oldest=1 .. tip=3) where each
 	// block holds a single, uniquely-hashed transaction with a matching
 	// receipt. The chain is constructed in storage so the resulting reader
 	// reflects what the live poller would expose.
-	head := &core.Header{Number: 0}
+	oldestPreConf := uint64(1) // canonical head at 0
 	storage := preconfirmed.NewChainStorage()
 	hashes := make([]*felt.Felt, 3)
 	receiptBlockNumbers := []uint64{1, 2, 3}
 	for i, blockNumber := range receiptBlockNumbers {
 		hash := felt.NewFromUint64[felt.Felt](100 + uint64(i))
 		hashes[i] = hash
-		emptySlice := []*felt.Felt{}
+		emptySlice := []felt.Felt{}
 		block := starknet.PreConfirmedBlock{
 			BlockIdentifier:  fmt.Sprintf("round-%d", blockNumber),
 			Status:           "PRE_CONFIRMED",
@@ -661,10 +661,10 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Receipts:              []*starknet.TransactionReceipt{{TransactionHash: hash}},
 			TransactionStateDiffs: []*starknet.StateDiff{{}},
 		}
-		_, err := storage.ApplyUpdate(block, blockNumber, 0, head)
+		_, err := storage.ApplyUpdate(block, blockNumber, 0, oldestPreConf, nil)
 		require.NoError(t, err)
 	}
-	chain := storage.SnapshotForHead(head)
+	chain := storage.SnapshotForBlock(oldestPreConf)
 	require.Equal(t, 3, chain.Length())
 
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {
@@ -686,7 +686,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
-				require.Equal(t, wantBlock, *receipt.BlockNumber)
+				require.Equal(t, wantBlock, receipt.BlockNumber)
 			})
 		}
 	})
@@ -725,7 +725,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	expected := rpc.AdaptTransaction(latestBlock.Transactions[index], false)
 	got, rpcErr := handler.TransactionByBlockIDAndIndex(&preConfirmedID, index, rpc.ResponseFlags{})
 	require.Nil(t, rpcErr)
-	require.Equal(t, &expected, got)
+	require.Equal(t, expected, got)
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
@@ -749,7 +749,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := rpc.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -760,7 +760,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			felt.NewFromBytes[felt.Felt]([]byte("random")),
 		)
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -769,7 +769,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 		blockID := rpc.BlockIDFromNumber(rand.Uint64())
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int(), rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -778,7 +778,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		blockID := rpc.BlockIDLatest()
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1, rpc.ResponseFlags{})
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
@@ -791,7 +791,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			len(latestBlock.Transactions),
 			rpc.ResponseFlags{},
 		)
-		assert.Nil(t, txn)
+		assert.Empty(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
@@ -807,7 +807,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDLatest()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -823,7 +823,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDFromHash(latestBlock.Hash)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -838,7 +838,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDFromNumber(latestBlockNumber)
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted", func(t *testing.T) {
@@ -862,7 +862,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDL1Accepted()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
@@ -886,7 +886,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		blockID := rpc.BlockIDL1Accepted()
 		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &expectedTxn, actualTxn)
+		require.Equal(t, expectedTxn, actualTxn)
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
@@ -905,7 +905,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{},
 			)
 			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
-			require.Nil(t, actualTxn)
+			require.Empty(t, actualTxn)
 		})
 
 		t.Run("valid index", func(t *testing.T) {
@@ -918,7 +918,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{},
 			)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &expectedTxn, actualTxn)
+			require.Equal(t, expectedTxn, actualTxn)
 		})
 	})
 
@@ -950,14 +950,14 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.NotNil(t, tx.ProofFacts)
 			require.Equal(t, len(invokeTxCore.ProofFacts), len(*tx.ProofFacts))
 		})
 		t.Run("WithoutResponseFlag", func(t *testing.T) {
 			tx, rpcErr := h.TransactionByBlockIDAndIndex(&blockID, 0, rpc.ResponseFlags{})
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.Nil(t, tx.ProofFacts)
 		})
 
@@ -971,18 +971,40 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				rpc.ResponseFlags{IncludeProofFacts: true},
 			)
 			require.Nil(t, rpcErr)
-			require.NotNil(t, tx)
+			require.NotEmpty(t, tx)
 			require.NotNil(t, tx.ProofFacts)
 			require.Empty(t, *tx.ProofFacts)
 		})
 	})
 }
 
+// A receipt with no events must marshal "events" as an empty JSON array, not null.
+// AdaptReceipt reinterprets receipt.Events ([]*core.Event) as []*rpc.Event via unsafe
+// pointer aliasing, so a nil slice would marshal to `null` without the nil -> []*Event{}
+// guard. Fixtures built through adaptfeeder/sn2core always wrap events in a non-nil slice
+// (utils.NonNilSlice), so no other test exercises this branch.
+func TestAdaptReceiptNilEventsMarshalsAsEmptyArray(t *testing.T) {
+	txn := &core.InvokeTransaction{
+		TransactionHash: new(felt.Felt),
+		Version:         new(core.TransactionVersion).SetUint64(1),
+	}
+	receipt := &core.TransactionReceipt{
+		Fee:             new(felt.Felt),
+		Events:          nil,
+		TransactionHash: txn.TransactionHash,
+	}
+
+	got, err := json.Marshal(rpc.AdaptReceipt(receipt, txn, rpc.TxnAcceptedOnL2))
+	require.NoError(t, err)
+	assert.Contains(t, string(got), `"events":[]`)
+	assert.NotContains(t, string(got), `"events":null`)
+}
+
 func TestTransactionReceiptByHash(t *testing.T) {
 	type testCase struct {
 		description    string
 		network        *networks.Network
-		expected       *rpc.TransactionReceipt
+		expected       *rpc.TransactionReceiptWithBlockInfo
 		preConfirmedFn func(t *testing.T, block *core.Block) *pending.PreConfirmed
 		l1Head         core.L1Head
 	}
@@ -1015,7 +1037,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l2",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l2.json",
 			),
@@ -1025,7 +1047,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt accepted on l1",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_accepted_on_l1.json",
 			),
@@ -1035,7 +1057,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt pre confirmed",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_pre_confirmed.json",
 			),
@@ -1045,7 +1067,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt reverted",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_reverted.json",
 			),
@@ -1055,7 +1077,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt invoke v3",
 			network:     &networks.Integration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_invoke_v3.json",
 			),
@@ -1065,7 +1087,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt non empty da",
 			network:     &networks.SepoliaIntegration,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_non_empty_da.json",
 			),
@@ -1075,7 +1097,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		{
 			description: "receipt deploy",
 			network:     &networks.Mainnet,
-			expected: readTestData[*rpc.TransactionReceipt](
+			expected: readTestData[*rpc.TransactionReceiptWithBlockInfo](
 				t,
 				"transactions/receipt_deploy.json",
 			),
@@ -1087,7 +1109,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.description, func(t *testing.T) {
 			expected := test.expected
-			require.NotNil(t, expected.BlockNumber)
 
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
@@ -1097,7 +1118,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			loadedBlock := loadBlockFromFeederTestdata(t, test.network, *expected.BlockNumber)
+			loadedBlock := loadBlockFromFeederTestdata(t, test.network, expected.BlockNumber)
 			var transaction core.Transaction
 			var transactionIndex int
 			// find the transaction in the block
@@ -1112,24 +1133,26 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			preConfirmed := test.preConfirmedFn(t, loadedBlock)
 			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
-			_, err := preConfirmed.ReceiptByHash(transaction.Hash())
+			_, err := preConfirmed.ReceiptByHash((*felt.TransactionHash)(transaction.Hash()))
 			if err != nil {
 				// receipt belong to canonical block mock expectations
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
-				).Return(*expected.BlockNumber, uint64(transactionIndex), nil)
-				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
-					*expected.BlockNumber, uint64(transactionIndex),
-				).Return(transaction, nil)
-				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-					*expected.BlockNumber, uint64(transactionIndex),
-				).Return(*loadedBlock.Receipts[transactionIndex], expected.BlockHash, nil)
+				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
+				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
+					expected.BlockNumber, uint64(transactionIndex),
+				).Return(
+					transaction,
+					*loadedBlock.Receipts[transactionIndex],
+					expected.BlockHash,
+					nil,
+				)
 				mockReader.EXPECT().L1Head().Return(test.l1Head, nil)
 			}
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
 			require.Nil(t, rpcErr)
-			require.Equal(t, expected, receipt)
+			require.Equal(t, *expected, receipt)
 		})
 	}
 }
@@ -1149,7 +1172,7 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
-	assert.Nil(t, tx)
+	assert.Empty(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
@@ -1204,7 +1227,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptCoreTransaction(tx),
+			Transaction: rpc.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
@@ -1309,7 +1332,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAE/wADAPz/W10KAQAA//9E0mhwAwAAAA==",
+					"sierra_program": "H4sIAAAJbogE/wADAPz/W10KAwBE0mhwAwAAAA==",
 					"contract_class_version": "0.1.0",
 					"entry_points_by_type": {
 						"CONSTRUCTOR": [],
@@ -1363,7 +1386,7 @@ func TestAddTransaction(t *testing.T) {
 					felt.FromUint64[felt.Felt](200),
 				}
 				return rpc.BroadcastedTransaction{
-					Transaction: *rpc.AdaptCoreTransaction(&base),
+					Transaction: rpc.AdaptCoreTransaction(&base),
 					Proof:       "AAAAAQAAAAIAAAAD",
 				}
 			}(),
@@ -1608,12 +1631,12 @@ func TestTransactionStatus(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(tx.Hash()),
 		).Return(block.Number, uint64(0), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(tx, nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.TransactionExecutionStatus{
+			Reverted:     block.Receipts[0].Reverted,
+			RevertReason: block.Receipts[0].RevertReason,
+		}, nil)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 	}
 
@@ -1630,7 +1653,22 @@ func TestTransactionStatus(t *testing.T) {
 			Times(1)
 	}
 
-	// TODO(Ege): Add test with failure reason REVERTED
+	mockFoundInDBReverted := func(
+		mockReader *mocks.MockReader,
+		mockSyncReader *mocks.MockSyncReader,
+	) {
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(tx.Hash()),
+		).Return(block.Number, uint64(0), nil)
+		mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
+			block.Number, uint64(0),
+		).Return(core.TransactionExecutionStatus{
+			Reverted:     true,
+			RevertReason: "some revert reason",
+		}, nil)
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
+	}
+
 	testCases := []testCase{
 		{
 			description: "status ACCEPTED_ON_L2",
@@ -1642,6 +1680,20 @@ func TestTransactionStatus(t *testing.T) {
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
 				mockFoundInDB(mockReader, mockSyncReader)
+				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
+			},
+		},
+		{
+			description: "status ACCEPTED_ON_L2 REVERTED",
+			network:     &networks.Mainnet,
+			txHash:      targetTxnHash,
+			expectedStatus: rpc.TransactionStatus{
+				Finality:      rpc.TxnStatusAcceptedOnL2,
+				Execution:     rpc.TxnFailure,
+				FailureReason: "some revert reason",
+			},
+			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockFoundInDBReverted(mockReader, mockSyncReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},
@@ -1792,7 +1844,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := createBaseInvokeTransactionV3()
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&txnToAdd),
+		Transaction: rpc.AdaptCoreTransaction(&txnToAdd),
 	}
 
 	var gatewayResponse struct {
@@ -1895,8 +1947,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]*felt.Felt{
-					felt.NewFromUint64[felt.Felt](0x1),
+				Signature: &felt.Slice[felt.Felt]{
+					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
@@ -1917,8 +1969,8 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]*felt.Felt{
-					felt.NewFromUint64[felt.Felt](0x1),
+				Signature: &felt.Slice[felt.Felt]{
+					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
 				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
@@ -1936,7 +1988,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 	base := createBaseInvokeTransactionV3()
 	correctBroadcastedTxn := &rpc.BroadcastedTransaction{
-		Transaction: *rpc.AdaptCoreTransaction(&base),
+		Transaction: rpc.AdaptCoreTransaction(&base),
 	}
 
 	t.Run("RejectInvalidProofFormatOnInvoke", func(t *testing.T) {
@@ -1996,9 +2048,9 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewFromUint64[felt.Felt](0x1),
-			felt.NewFromUint64[felt.Felt](0x1),
+		TransactionSignature: []felt.Felt{
+			felt.FromUint64[felt.Felt](0x1),
+			felt.FromUint64[felt.Felt](0x1),
 		},
 		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
 		NonceDAMode: core.DAModeL1,
@@ -2018,10 +2070,10 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 			},
 		},
 		Tip:                   0,
-		PaymasterData:         []*felt.Felt{},
+		PaymasterData:         []felt.Felt{},
 		SenderAddress:         felt.NewFromUint64[felt.Felt](0x1),
-		CallData:              []*felt.Felt{},
-		AccountDeploymentData: []*felt.Felt{},
+		CallData:              []felt.Felt{},
+		AccountDeploymentData: []felt.Felt{},
 	}
 }
 
@@ -2233,7 +2285,7 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 		require.Equal(t, class.EntryPoints, decoded.EntryPoints)
 		require.Equal(t, class.ABI, decoded.ABI)
 
-		sierraJSON, err := utils.Gzip64Decode(decoded.SierraProgram)
+		sierraJSON, err := compression.Gzip64Decode(decoded.SierraProgram)
 		require.NoError(t, err, "sierra_program must be gzip+base64 encoded")
 
 		var roundTripped []felt.Felt

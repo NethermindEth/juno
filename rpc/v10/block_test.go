@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	junosync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
@@ -208,7 +209,7 @@ func assertCommittedBlockHeader(
 	case core.Calldata:
 		expectedl1DAMode = rpc.Calldata
 	}
-	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
+	assert.Equal(t, expectedl1DAMode, actual.L1DAMode)
 	assert.Equal(t, expectedBlock.ProtocolVersion, actual.StarknetVersion)
 	assert.Equal(
 		t,
@@ -261,7 +262,7 @@ func assertPreConfirmedBlockHeader(
 	case core.Calldata:
 		expectedl1DAMode = rpc.Calldata
 	}
-	assert.Equal(t, expectedl1DAMode, *actual.L1DAMode)
+	assert.Equal(t, expectedl1DAMode, actual.L1DAMode)
 
 	assert.Nil(t, actual.Hash)
 	assert.Nil(t, actual.ParentHash)
@@ -331,7 +332,7 @@ func assertBlockWithTxs(
 func assertTransactionsEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactions []*rpc.Transaction,
+	actualTransactions []rpc.Transaction,
 	includeProofFacts bool,
 ) {
 	t.Helper()
@@ -339,19 +340,19 @@ func assertTransactionsEq(
 	for i, expectedTransaction := range expectedTransactions {
 		require.Equal(t, expectedTransaction.Hash(), actualTransactions[i].Hash)
 		adaptedTransaction := rpc.AdaptTransaction(expectedTransaction, includeProofFacts)
-		require.Equal(t, adaptedTransaction, *actualTransactions[i])
+		require.Equal(t, adaptedTransaction, actualTransactions[i])
 	}
 }
 
 func assertTransactionHashesEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactionHashes []*felt.Felt,
+	actualTransactionHashes []felt.Felt,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactionHashes))
 	for i, expectedTransaction := range expectedTransactions {
-		require.Equal(t, expectedTransaction.Hash(), actualTransactionHashes[i])
+		require.Equal(t, *expectedTransaction.Hash(), actualTransactionHashes[i])
 	}
 }
 
@@ -377,7 +378,7 @@ func assertTransactionsWithReceiptsEq(
 			expectedTxnFinalityStatus,
 		)
 
-		actualTx := *actual[i].Transaction
+		actualTx := actual[i].Transaction
 		require.Equal(t, adaptedTransaction, actualTx)
 		require.Equal(t, adaptedReceipt, actual[i].Receipt)
 	}
@@ -430,23 +431,29 @@ func setupMockBlockTest(
 	mockSyncReader *mocks.MockSyncReader,
 	block *core.Block,
 	commitments *core.BlockCommitments,
-	stateUpdate *core.StateUpdate,
 	blockID *rpc.BlockID,
 	l1Head *core.L1Head,
 	preConfirmedBase ...*pending.PreConfirmed,
 ) {
-	// mock L1 head
-	if l1Head != nil {
-		mockChain.EXPECT().L1Head().Return(*l1Head, nil).AnyTimes()
-	} else {
-		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
+	switch {
+	case blockID.IsPreConfirmed():
+		// pre_confirmed status is derived without reading the L1 head
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, nil).Times(0)
+	case l1Head == nil:
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(1)
+	case blockID.IsL1Accepted():
+		// the l1_accepted tag resolves to a block number, then blockStatus reads again
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil).Times(2)
+	default:
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil).Times(1)
 	}
 
 	// if pre_confirmed do not mock commitments
 	if !blockID.IsPreConfirmed() {
 		mockChain.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil)
-		mockChain.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil)
 	}
+
+	transactionHashes := transactionHashesOf(block.Transactions)
 
 	switch {
 	case blockID.IsPreConfirmed():
@@ -455,29 +462,45 @@ func setupMockBlockTest(
 		// entry), not a base entry or an aggregate.
 		tipEntry := rpc.CreateTestPreConfirmed(t, block, int(block.TransactionCount))
 		entries := append(append([]*pending.PreConfirmed{}, preConfirmedBase...), &tipEntry)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).AnyTimes()
+		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).MaxTimes(1)
 	case blockID.IsLatest():
-		mockChain.EXPECT().Head().Return(block, nil).AnyTimes()
-		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().Head().Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashes, nil).MaxTimes(1)
 	case blockID.IsHash():
-		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().BlockByHash(block.Hash).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByHash(block.Hash).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashes, nil).MaxTimes(1)
 	case blockID.IsL1Accepted():
-		mockChain.EXPECT().Height().Return(block.Number, nil).AnyTimes()
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().Height().Return(block.Number, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashes, nil).MaxTimes(1)
 	default:
-		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).AnyTimes()
-		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).AnyTimes()
+		mockChain.EXPECT().BlockByNumber(block.Number).Return(block, nil).MaxTimes(1)
+		mockChain.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil).MaxTimes(1)
 		mockChain.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).AnyTimes()
+			block.Transactions, nil).MaxTimes(1)
+		mockChain.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashes, nil).MaxTimes(1)
 	}
+}
+
+func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
+	hashes := make([]felt.Felt, len(transactions))
+	for i, transaction := range transactions {
+		hashes[i] = *transaction.Hash()
+	}
+	return hashes
 }
 
 func TestBlockNumber(t *testing.T) {
@@ -515,7 +538,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	handler := rpc.New(mockReader, nil, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
 		block, err := handler.BlockHashAndNumber()
 		assert.Nil(t, block)
@@ -534,7 +557,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 			Number: expectedBlock.Number,
 		}
 
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(expectedBlock.Header, nil)
 
 		hashAndNum, rpcErr := handler.BlockHashAndNumber()
 		require.Nil(t, rpcErr)
@@ -562,7 +585,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	expectedCount := latestBlock.TransactionCount
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().Height().Return(uint64(0), db.ErrKeyNotFound)
 		latest := rpc.BlockIDLatest()
 		count, rpcErr := handler.BlockTransactionCount(&latest)
 		assert.Equal(t, uint64(0), count)
@@ -570,7 +593,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberByHash(gomock.Any()).Return(uint64(0), db.ErrKeyNotFound)
 		hash := rpc.BlockIDFromHash(felt.NewFromBytes[felt.Felt]([]byte("random")))
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		assert.Equal(t, uint64(0), count)
@@ -586,7 +609,10 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockTransactionCountByNumber(gomock.Any()).Return(
+			uint64(0),
+			db.ErrKeyNotFound,
+		)
 		number := rpc.BlockIDFromNumber(uint64(328476))
 		count, rpcErr := handler.BlockTransactionCount(&number)
 		assert.Equal(t, uint64(0), count)
@@ -594,7 +620,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().Height().Return(latestBlockNumber, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		latest := rpc.BlockIDLatest()
 		count, rpcErr := handler.BlockTransactionCount(&latest)
 		require.Nil(t, rpcErr)
@@ -602,7 +629,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockNumberByHash(latestBlockHash).Return(latestBlockNumber, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		hash := rpc.BlockIDFromHash(latestBlockHash)
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		require.Nil(t, rpcErr)
@@ -610,7 +638,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		number := rpc.BlockIDFromNumber(latestBlockNumber)
 		count, rpcErr := handler.BlockTransactionCount(&number)
 		require.Nil(t, rpcErr)
@@ -627,7 +655,7 @@ func TestBlockTransactionCount(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
 		require.Nil(t, rpcErr)
@@ -644,7 +672,7 @@ func TestBlockTransactionCount(t *testing.T) {
 			nil,
 		)
 		mockReader.EXPECT().Height().Return(latestBlock.Number, nil)
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().BlockTransactionCountByNumber(latestBlockNumber).Return(expectedCount, nil)
 		l1AcceptedID := rpc.BlockIDL1Accepted()
 		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
 		require.Nil(t, rpcErr)
@@ -719,6 +747,17 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 		})
 	}
 
+	t.Run("pre_confirmed with no-op synchronizer", func(t *testing.T) {
+		chain := blockchain.New(memory.New(), &networks.Mainnet)
+		handler := rpc.New(chain, new(junosync.NoopSynchronizer), nil, log.NewNopZapLogger())
+		id := rpc.BlockIDPreConfirmed()
+
+		block, rpcErr := handler.BlockWithTxHashes(&id)
+
+		assert.Nil(t, block)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+	})
+
 	t.Run("l1head failure", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -763,7 +802,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -795,7 +833,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 
 		id := rpc.BlockIDFromNumber(blockNumber)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(blockNumber).Return(nil, db.ErrKeyNotFound)
 
 		block, rpcErr := handler.BlockWithTxHashes(&id)
 		assert.Nil(t, block)
@@ -811,7 +849,7 @@ func TestBlockWithTxHashes_TxnsFetchError(t *testing.T) {
 		id := rpc.BlockIDFromNumber(blockNumber)
 		internalErr := errors.New("some internal error")
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(header, nil)
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(nil, internalErr)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(blockNumber).Return(nil, internalErr)
 
 		block, rpcErr := handler.BlockWithTxHashes(&id)
 		assert.Nil(t, block)
@@ -917,7 +955,6 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -1071,7 +1108,6 @@ func TestBlockWithReceipts(t *testing.T) {
 				mockSyncReader,
 				tc.block,
 				tc.commitments,
-				tc.stateUpdate,
 				tc.blockID,
 				tc.l1Head,
 				tc.preConfirmedBase...,
@@ -1104,7 +1140,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	latestBlockNumber := uint64(56378)
 
 	t.Run("default sequencer address", func(t *testing.T) {
-		block, commitments, stateUpdate := rpc.GetTestBlockWithCommitments(
+		block, commitments, _ := rpc.GetTestBlockWithCommitments(
 			t,
 			client,
 			latestBlockNumber,
@@ -1113,10 +1149,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		block.Header.SequencerAddress = nil
 		mockReader.EXPECT().HeadsHeader().Return(block.Header, nil).Times(2)
 		mockReader.EXPECT().TransactionsByBlockNumber(block.Number).Return(
-			block.Transactions, nil).Times(2)
+			block.Transactions, nil)
+		mockReader.EXPECT().TransactionHashesByBlockNumber(block.Number).Return(
+			transactionHashesOf(block.Transactions), nil)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 		mockReader.EXPECT().BlockCommitmentsByNumber(block.Number).Return(commitments, nil).Times(2)
-		mockReader.EXPECT().StateUpdateByNumber(block.Number).Return(stateUpdate, nil).Times(2)
 
 		blockID := rpc.BlockIDLatest()
 		actual, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
@@ -1129,7 +1166,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	})
 }
 
-func TestBlockWithTxHashesV013(t *testing.T) {
+func TestBlockWithTxsV013(t *testing.T) {
 	network := new(networks.SepoliaIntegration)
 	blockNumber := uint64(16350)
 	client := feeder.NewTestClient(t, network)
@@ -1143,7 +1180,6 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).Return(block.Transactions, nil)
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 	mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(commitments, nil)
-	mockReader.EXPECT().StateUpdateByNumber(blockNumber).Return(stateUpdate, nil)
 
 	handler := rpc.New(mockReader, nil, nil, nil)
 
@@ -1163,18 +1199,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         block.GlobalStateRoot,
 			Number:          &block.Number,
 			ParentHash:      block.ParentHash,
-			L1DAMode:        new(rpc.Blob),
-			L1GasPrice: &rpc.ResourcePrice{
+			L1DAMode:        rpc.Blob,
+			L1GasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x17882b6aa74"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpc.ResourcePrice{
+			L1DataGasPrice: rpc.ResourcePrice{
 				InFri: felt.NewUnsafeFromString[felt.Felt]("0x2cc6d7f596e1"),
 				InWei: felt.NewUnsafeFromString[felt.Felt]("0x716a8f6dd"),
 			},
 			SequencerAddress: block.SequencerAddress,
 			Timestamp:        block.Timestamp,
-			L2GasPrice: &rpc.ResourcePrice{
+			L2GasPrice: rpc.ResourcePrice{
 				InFri: &felt.One,
 				InWei: &felt.One,
 			},
@@ -1187,7 +1223,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			EventCount:            &block.EventCount,
 		},
 		Status: rpc.BlockAcceptedL2,
-		Transactions: []*rpc.Transaction{
+		Transactions: []rpc.Transaction{
 			{
 				Hash:               tx.Hash(),
 				Type:               rpc.TxnInvoke,
@@ -1295,9 +1331,6 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 		ReceiptCommitment:     &felt.Zero,
 		StateDiffCommitment:   &felt.Zero,
 	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
-	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
 
@@ -1390,9 +1423,6 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 		EventCommitment:       &felt.Zero,
 		ReceiptCommitment:     &felt.Zero,
 		StateDiffCommitment:   &felt.Zero,
-	}, nil).AnyTimes()
-	mockReader.EXPECT().StateUpdateByNumber(block.Header.Number).Return(&core.StateUpdate{
-		StateDiff: &core.StateDiff{},
 	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())

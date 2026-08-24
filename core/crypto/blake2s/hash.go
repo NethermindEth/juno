@@ -3,7 +3,6 @@ package blake2s
 import (
 	"hash"
 	"slices"
-	"unsafe"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,24 +12,16 @@ import (
 // Following the same implementation behind
 // https://github.com/starknet-io/types-rs/blob/main/crates/starknet-types-core/src/hash/blake2s.rs
 
-func Blake2s[F felt.FeltLike](x, y *F) felt.Hash {
-	return Blake2sArray(x, y)
-}
-
-func Blake2sArray[F felt.FeltLike](feltLikes ...*F) felt.Hash {
-	var felts []*felt.Felt
-	if len(feltLikes) > 0 {
-		// It is assumed that type F follows the exact same memory layout as felt.Felt
-		felts = unsafe.Slice((**felt.Felt)(unsafe.Pointer(&feltLikes[0])), len(feltLikes))
-	} else {
-		felts = []*felt.Felt{}
+func Blake2sArray(felts []felt.Felt) felt.Hash {
+	buf := make([]byte, len(felts)*maxWordsPerFelt*4)
+	offset := 0
+	for i := range felts {
+		offset += encodeFeltInto(buf[offset:], &felts[i])
 	}
-
-	encoding := encodeFeltsToBytes(felts...)
 
 	// Sum256 returns a fixed [32]byte value, avoiding the digest struct and result
 	// slice that New256/Write/Sum would heap-allocate.
-	result := blake2s.Sum256(encoding)
+	result := blake2s.Sum256(buf[:offset])
 
 	// Sum256 is big endian, reverse to little endian.
 	slices.Reverse(result[:])
@@ -52,7 +43,7 @@ func NewDigest() Blake2sDigest {
 }
 
 func (d *Blake2sDigest) Update(elems ...*felt.Felt) crypto.Digest {
-	encoding := encodeFeltsToBytes(elems...)
+	encoding := encodeFelts(elems...)
 	_, err := d.hasher.Write(encoding)
 	if err != nil {
 		panic(err)

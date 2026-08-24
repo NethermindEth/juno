@@ -109,7 +109,7 @@ func BenchmarkTimeCacheGet(b *testing.B) {
 				select {
 				case <-done:
 					return
-				case <-time.After(time.Duration((rand.IntN(10))+1) * time.Millisecond):
+				case <-time.After(time.Duration(rand.IntN(10)+1) * time.Millisecond):
 					tc.Add(&key)
 					key += 1
 					insertedKeys.Store(key)

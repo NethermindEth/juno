@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 /**
@@ -329,9 +330,7 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
 // callers opening state don't need heavier fields like EventsBloom.
 func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
-	var header struct {
-		GlobalStateRoot *felt.Felt
-	}
+	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -347,9 +346,7 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 // GetBlockHeaderHashByNumber only materialises Hash from the header,
 // skipping heavier unused fields.
 func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
-	var header struct {
-		Hash *felt.Felt
-	}
+	var header headerHashProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return encoder.Unmarshal(data, &header)
 	})
@@ -360,6 +357,70 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 		return nil, fmt.Errorf("missing Hash in block header %d", blockNum)
 	}
 	return header.Hash, nil
+}
+
+// GetBlockTransactionCountByNumber decodes TransactionCount from the stored
+// header, skipping allocation of the unused fields.
+func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
+	var header headerTransactionCountProjection
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return 0, err
+	}
+	return header.TransactionCount, nil
+}
+
+func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
+	var header headerTimestampProjection
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return 0, err
+	}
+	if header.Timestamp == nil {
+		return 0, fmt.Errorf("missing Timestamp in block header %d", blockNum)
+	}
+	return *header.Timestamp, nil
+}
+
+func GetBlockHeaderEventsBloomByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (*bloom.BloomFilter, error) {
+	var header headerEventsBloomProjection
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if header.EventsBloom == nil {
+		return nil, fmt.Errorf("missing EventsBloom in block header %d", blockNum)
+	}
+	return header.EventsBloom, nil
+}
+
+func GetBlockHeaderHashAndStateRootByNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (hash, stateRoot *felt.Felt, err error) {
+	var header headerHashAndStateRootProjection
+	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if header.Hash == nil {
+		return nil, nil, fmt.Errorf("missing Hash in block header %d", blockNum)
+	}
+	if header.GlobalStateRoot == nil {
+		return nil, nil, fmt.Errorf("missing GlobalStateRoot in block header %d", blockNum)
+	}
+	return header.Hash, header.GlobalStateRoot, nil
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
@@ -435,6 +496,45 @@ func GetReceiptsByBlockNumber(
 	return BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
+// GetTransactionEventsByBlockNumber returns the events subset of every receipt in the
+// block. It skips the heavier receipt fields.
+func GetTransactionEventsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]TransactionEvents, error) {
+	return BlockTransactionsAllTransactionEventsPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
+// GetTransactionHashesByBlockNumber returns transaction-hashes of given block.
+func GetTransactionHashesByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]felt.Felt, error) {
+	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
+}
+
+// GetTransactionsAndReceiptsByBlockNumber returns all transactions and receipts in a given block.
+// Both live under the same key, so this reads the block only once.
+func GetTransactionsAndReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNumber uint64,
+) ([]Transaction, []*TransactionReceipt, error) {
+	result, err := BlockTransactionsAllTransactionsAndReceiptsPartialBucket.Get(
+		r,
+		blockNumber,
+		struct{}{},
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"getting transactions and receipts of block %d: %w",
+			blockNumber,
+			err,
+		)
+	}
+
+	return result.Transactions, result.Receipts, nil
+}
+
 // GetReceiptByBlockAndIndex returns a receipt by block number and transaction index
 func GetReceiptByBlockAndIndex(
 	r db.KeyValueReader,
@@ -444,6 +544,32 @@ func GetReceiptByBlockAndIndex(
 	return BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
 }
 
+// GetTransactionAndReceiptByBlockAndIndex returns a transaction and its receipt by block number
+// and transaction index. Both live under the same key, so this reads the block only once.
+func GetTransactionAndReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (Transaction, *TransactionReceipt, error) {
+	pair, err := BlockTransactionsTransactionAndReceiptPartialBucket.Get(
+		r, blockNumber, int(index),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pair.Transaction, pair.Receipt, nil
+}
+
+// GetTransactionExecutionStatusByBlockAndIndex returns only the status subset of a
+// receipt, skipping its heavier fields.
+func GetTransactionExecutionStatusByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber uint64,
+	index uint64,
+) (TransactionExecutionStatus, error) {
+	return BlockTransactionsExecutionStatusPartialBucket.Get(r, blockNumber, int(index))
+}
+
 // GetBlockByNumber returns a full block by number
 func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 	header, err := GetBlockHeaderByNumber(r, blockNumber)
@@ -451,12 +577,7 @@ func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 		return nil, err
 	}
 
-	txs, err := GetTransactionsByBlockNumber(r, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	receipts, err := GetReceiptsByBlockNumber(r, blockNumber)
+	txs, receipts, err := GetTransactionsAndReceiptsByBlockNumber(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,12 @@ package rpcv10
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -49,16 +51,15 @@ func unsubscribeFeedSubscription[T any](sub *feed.Subscription[T]) {
 
 //nolint:gocyclo // select statement with multiple subscription cases
 func (h *Handler) subscribe(
-	ctx context.Context,
-	w jsonrpc.Conn,
+	wsConn jsonrpc.Conn,
 	subscriber subscriber,
 ) (SubscriptionID, *jsonrpc.Error) {
 	id := h.idgen()
 	//nolint:gosec // G118: cancel called in unsubscribe()
-	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(wsConn.Context())
 	sub := &subscription{
 		cancel: subscriptionCtxCancel,
-		conn:   w,
+		conn:   wsConn,
 	}
 	h.subscriptions.Store(id, sub)
 
@@ -166,35 +167,46 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	return false
 }
 
-// resolveBlockRange returns the start and latest headers based on the blockID.
+// resolveBlockRange returns the start and latest block numbers based on the blockID.
 func (h *Handler) resolveBlockRange(
 	blockID *SubscriptionBlockID,
-) (*core.Header, *core.Header, *jsonrpc.Error) {
-	latestHeader, err := h.bcReader.HeadsHeader()
+) (uint64, uint64, *jsonrpc.Error) {
+	latestBlock, err := h.bcReader.Height()
 	if err != nil {
-		return nil, nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		return 0, 0, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
 	if blockID == nil || blockID.IsLatest() {
-		return latestHeader, latestHeader, nil
+		return latestBlock, latestBlock, nil
 	}
 
-	startHeader, rpcErr := h.blockHeaderByID((*BlockID)(blockID))
-	if rpcErr != nil {
-		return nil, nil, rpcErr
+	var startBlock uint64
+	if blockID.IsHash() {
+		startBlock, err = h.bcReader.BlockNumberByHash(blockID.Hash())
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return 0, 0, rpccore.ErrBlockNotFound
+			}
+			return 0, 0, rpccore.ErrInternal.CloneWithData(err.Error())
+		}
+	} else {
+		startBlock = blockID.Number()
+		if startBlock > latestBlock {
+			return 0, 0, rpccore.ErrBlockNotFound
+		}
 	}
 
-	tooManyBlocks := latestHeader.Number >= rpccore.MaxBlocksBack &&
-		startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack
+	tooManyBlocks := latestBlock >= rpccore.MaxBlocksBack &&
+		startBlock <= latestBlock-rpccore.MaxBlocksBack
 	if tooManyBlocks {
-		return nil, nil, rpccore.ErrTooManyBlocksBack
+		return 0, 0, rpccore.ErrTooManyBlocksBack
 	}
 
-	return startHeader, latestHeader, nil
+	return startBlock, latestBlock, nil
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
@@ -204,7 +216,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 	}
 
 	subs := sub.(*subscription)
-	if !subs.conn.Equal(w) {
+	if !subs.conn.Equal(wsConn) {
 		return false, rpccore.ErrInvalidSubscriptionID
 	}
 
@@ -214,8 +226,8 @@ func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Er
 	return true, nil
 }
 
-func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
-	return sendResponse("starknet_subscriptionReorg", w, id, &ReorgEvent{
+func sendReorg(wsConn jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
+	return sendResponse("starknet_subscriptionReorg", wsConn, id, &ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
 		EndBlockHash:   reorg.EndBlockHash,
@@ -223,18 +235,18 @@ func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
 	})
 }
 
-func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
-	resp, err := json.Marshal(SubscriptionResponse{
+func sendResponse[T any](method string, wsConn jsonrpc.Conn, id string, result T) error {
+	resp, err := json.Marshal(SubscriptionResponse[T]{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams[T]{
+			Result:         result,
+			SubscriptionID: id,
 		},
 	})
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(resp)
+	_, err = wsConn.Write(resp)
 	return err
 }

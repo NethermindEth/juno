@@ -23,14 +23,20 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 			Events: []*Event{
 				{
 					From: felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-					Data: []*felt.Felt{
-						felt.NewUnsafeFromString[felt.Felt]("0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365"),
-						felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-						felt.NewUnsafeFromString[felt.Felt]("0xd07af45c84550"),
-						felt.NewUnsafeFromString[felt.Felt]("0x0"),
+					Data: []felt.Felt{
+						felt.UnsafeFromString[felt.Felt](
+							"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						),
+						felt.UnsafeFromString[felt.Felt](
+							"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						),
+						felt.UnsafeFromString[felt.Felt]("0xd07af45c84550"),
+						felt.UnsafeFromString[felt.Felt]("0x0"),
 					},
-					Keys: []*felt.Felt{
-						felt.NewUnsafeFromString[felt.Felt]("0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+					Keys: []felt.Felt{
+						felt.UnsafeFromString[felt.Felt](
+							"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+						),
 					},
 				},
 			},
@@ -58,14 +64,20 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 			Events: []*Event{
 				{
 					From: felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-					Data: []*felt.Felt{
-						felt.NewUnsafeFromString[felt.Felt]("0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365"),
-						felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-						felt.NewUnsafeFromString[felt.Felt]("0x471426f16c4330"),
-						felt.NewUnsafeFromString[felt.Felt]("0x0"),
+					Data: []felt.Felt{
+						felt.UnsafeFromString[felt.Felt](
+							"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						),
+						felt.UnsafeFromString[felt.Felt](
+							"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						),
+						felt.UnsafeFromString[felt.Felt]("0x471426f16c4330"),
+						felt.UnsafeFromString[felt.Felt]("0x0"),
 					},
-					Keys: []*felt.Felt{
-						felt.NewUnsafeFromString[felt.Felt]("0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+					Keys: []felt.Felt{
+						felt.UnsafeFromString[felt.Felt](
+							"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+						),
 					},
 				},
 			},

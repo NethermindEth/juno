@@ -73,8 +73,11 @@ func TestDHT(t *testing.T) {
 					require.NoError(t, host.Close())
 				})
 
-				_, err = dht.New(t.Context(), host, options...)
+				d, err := dht.New(host, options...)
 				require.NoError(t, err)
+				t.Cleanup(func() {
+					require.NoError(t, d.Close())
+				})
 
 				require.Contains(
 					t,

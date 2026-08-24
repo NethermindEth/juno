@@ -5,11 +5,11 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
-	decompressedProgram, err := utils.Gzip64Decode(class.Program)
+	decompressedProgram, err := compression.Gzip64Decode(class.Program)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -52,7 +52,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		return felt.Felt{}, hintedClassHashErr
 	}
 
-	hash := crypto.PedersenArray(
+	hash := crypto.PedersenElems(
 		&felt.Zero,
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,

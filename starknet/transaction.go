@@ -169,12 +169,12 @@ type Transaction struct {
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
 	ClassHash             *felt.Felt                   `json:"class_hash,omitempty"`
-	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty"`
+	ConstructorCallData   *[]felt.Felt                 `json:"constructor_calldata,omitempty"`
 	Type                  TransactionType              `json:"type,omitempty"`
 	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty"`
 	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
-	Signature             *[]*felt.Felt                `json:"signature,omitempty"`
-	CallData              *[]*felt.Felt                `json:"calldata,omitempty"`
+	Signature             *[]felt.Felt                 `json:"signature,omitempty"`
+	CallData              *[]felt.Felt                 `json:"calldata,omitempty"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
 	Nonce                 *felt.Felt                   `json:"nonce,omitempty"`
 	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
@@ -182,8 +182,8 @@ type Transaction struct {
 	Tip                   *felt.Felt                   `json:"tip,omitempty"`
 	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty"`
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
+	AccountDeploymentData *[]felt.Felt                 `json:"account_deployment_data,omitempty"`
+	PaymasterData         *[]felt.Felt                 `json:"paymaster_data,omitempty"`
 	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
 }
 
@@ -238,23 +238,23 @@ func (tf TransactionFailureReason) String() string {
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address"`
-	Data []*felt.Felt `json:"data"`
-	Keys []*felt.Felt `json:"keys"`
+	From *felt.Felt  `json:"from_address"`
+	Data []felt.Felt `json:"data"`
+	Keys []felt.Felt `json:"keys"`
 }
 
 type L1ToL2Message struct {
-	From     string       `json:"from_address"`
-	Payload  []*felt.Felt `json:"payload"`
-	Selector *felt.Felt   `json:"selector"`
-	To       *felt.Felt   `json:"to_address"`
-	Nonce    *felt.Felt   `json:"nonce"`
+	From     string      `json:"from_address"`
+	Payload  []felt.Felt `json:"payload"`
+	Selector *felt.Felt  `json:"selector"`
+	To       *felt.Felt  `json:"to_address"`
+	Nonce    *felt.Felt  `json:"nonce"`
 }
 
 type L2ToL1Message struct {
-	From    *felt.Felt   `json:"from_address"`
-	Payload []*felt.Felt `json:"payload"`
-	To      string       `json:"to_address"`
+	From    *felt.Felt  `json:"from_address"`
+	Payload []felt.Felt `json:"payload"`
+	To      string      `json:"to_address"`
 }
 
 type ExecutionResources struct {

@@ -19,17 +19,17 @@ func (h *Handler) SubscribeNewHeads(
 	ctx context.Context,
 	blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, newHeadsSubscriber(h, w, startHeader, latestHeader))
+	return h.subscribe(wsConn, newHeadsSubscriber(h, wsConn, startBlock, latestBlock))
 }
 
 type headsSubscriberState struct {
@@ -40,13 +40,14 @@ type headsSubscriberState struct {
 func newHeadsSubscriber(
 	h *Handler,
 	conn jsonrpc.Conn,
-	startHeader, latestHeader *core.Header,
+	startBlock,
+	latestBlock uint64,
 ) subscriber {
 	state := &headsSubscriberState{handler: h, conn: conn}
 
 	return subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return state.sendHistoricalHeaders(ctx, id, startHeader, latestHeader)
+			return state.sendHistoricalHeaders(ctx, id, startBlock, latestBlock)
 		},
 		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
@@ -68,49 +69,46 @@ func (s *headsSubscriberState) onNewHead(
 	_ *subscription,
 	head *core.Block,
 ) error {
-	commitments, stateDiff, err := s.handler.getCommitmentsAndStateDiff(head.Number)
+	commitments, err := s.handler.bcReader.BlockCommitmentsByNumber(head.Number)
 	if err != nil {
 		return err
 	}
 
-	adaptedHeader := AdaptBlockHeader(head.Header, commitments, stateDiff)
+	adaptedHeader := AdaptBlockHeader(head.Header, commitments)
 	return sendHeader(s.conn, &adaptedHeader, id)
 }
 
 func (s *headsSubscriberState) sendHistoricalHeaders(
 	ctx context.Context,
 	id string,
-	startHeader,
-	latestHeader *core.Header,
+	startBlock,
+	latestBlock uint64,
 ) error {
-	curHeader := startHeader
-	for {
+	for currentBlock := startBlock; currentBlock <= latestBlock; currentBlock++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			commitments, stateDiff, err := s.handler.getCommitmentsAndStateDiff(curHeader.Number)
-			if err != nil {
-				return err
-			}
+		}
 
-			adaptedHeader := AdaptBlockHeader(curHeader, commitments, stateDiff)
-			if err = sendHeader(s.conn, &adaptedHeader, id); err != nil {
-				return err
-			}
+		commitments, err := s.handler.bcReader.BlockCommitmentsByNumber(currentBlock)
+		if err != nil {
+			return err
+		}
 
-			if curHeader.Number == latestHeader.Number {
-				return nil
-			}
+		currentHeader, err := s.handler.bcReader.BlockHeaderByNumber(currentBlock)
+		if err != nil {
+			return err
+		}
 
-			curHeader, err = s.handler.bcReader.BlockHeaderByNumber(curHeader.Number + 1)
-			if err != nil {
-				return err
-			}
+		adaptedHeader := AdaptBlockHeader(currentHeader, commitments)
+		if err = sendHeader(s.conn, &adaptedHeader, id); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
-func sendHeader(w jsonrpc.Conn, header *BlockHeader, id string) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, header)
+func sendHeader(wsConn jsonrpc.Conn, header *BlockHeader, id string) error {
+	return sendResponse("starknet_subscriptionNewHeads", wsConn, id, header)
 }

@@ -105,6 +105,7 @@ type BlockCommitments struct {
 	EventCommitment       *felt.Felt
 	ReceiptCommitment     *felt.Felt
 	StateDiffCommitment   *felt.Felt
+	StateDiffLength       uint64
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
@@ -194,14 +195,15 @@ func BlockHash(
 
 	// following statements applied only if block.version < 0.13.2
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.L2ChainIDFelt(), backend)
+		return pre07Hash(b, stateDiff, network.L2ChainIDFelt(), backend)
 	}
-	return post07Hash(b, overrideSeqAddr, backend)
+	return post07Hash(b, stateDiff, overrideSeqAddr, backend)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(
 	b *Block,
+	stateDiff *StateDiff,
 	chain *felt.Felt,
 	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
@@ -213,7 +215,11 @@ func pre07Hash(
 	if err != nil {
 		return felt.Felt{}, nil, err
 	}
-	return crypto.PedersenArray(
+	var sdLength uint64
+	if stateDiff != nil {
+		sdLength = stateDiff.Length()
+	}
+	return crypto.PedersenElems(
 		new(felt.Felt).SetUint64(b.Number), // block number
 		b.GlobalStateRoot,                  // global state root
 		&felt.Zero,                         // reserved: sequencer address
@@ -226,7 +232,7 @@ func pre07Hash(
 		&felt.Zero,    // reserved: extra data
 		chain,         // extra data: chain id
 		b.ParentHash,  // parent hash
-	), &BlockCommitments{TransactionCommitment: &txCommitment}, nil
+	), &BlockCommitments{TransactionCommitment: &txCommitment, StateDiffLength: sdLength}, nil
 }
 
 func post0134Hash(
@@ -277,7 +283,8 @@ func post0134Hash(
 		*b.L2GasPrice,
 	)
 
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			starknetBlockHash1,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -297,6 +304,7 @@ func post0134Hash(
 			EventCommitment:       &eCommitment,
 			ReceiptCommitment:     &rCommitment,
 			StateDiffCommitment:   &sdCommitment,
+			StateDiffLength:       sdLength,
 		}, nil
 }
 
@@ -361,7 +369,8 @@ func Post0132Hash(
 		}
 	}
 
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			starknetBlockHash0,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
@@ -384,18 +393,24 @@ func Post0132Hash(
 			EventCommitment:       &eCommitment,
 			ReceiptCommitment:     &rCommitment,
 			StateDiffCommitment:   &sdCommitment,
+			StateDiffLength:       sdLength,
 		}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
 func post07Hash(
 	b *Block,
+	stateDiff *StateDiff,
 	overrideSeqAddr *felt.Felt,
 	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	if overrideSeqAddr != nil {
 		seqAddr = overrideSeqAddr
+	}
+	var sdLength uint64
+	if stateDiff != nil {
+		sdLength = stateDiff.Length()
 	}
 
 	wg := conc.NewWaitGroup()
@@ -435,7 +450,8 @@ func post07Hash(
 	// - block timestamp
 	// - number of events
 	// - event commitment
-	return crypto.PedersenArray(
+	return crypto.PedersenElems(
+			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 			felt.NewFromUint64[felt.Felt](b.Number), // block number
 			b.GlobalStateRoot,                       // global state root
 			seqAddr,                                 // sequencer address
@@ -451,6 +467,7 @@ func post07Hash(
 			TransactionCommitment: &txCommitment,
 			EventCommitment:       &eCommitment,
 			ReceiptCommitment:     &rCommitment,
+			StateDiffLength:       sdLength,
 		}, nil
 }
 
@@ -491,7 +508,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) fel
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) felt.Felt {
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
 		starknetGasPrices0,
 		// gas prices
 		gasPrices.PriceInWei,

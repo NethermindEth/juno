@@ -54,7 +54,6 @@ func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return inputLength, true
 	default:
-		// TODO(granza): when we add SONIC, the errors will be already pretty.
 		return 0, false
 	}
 }
@@ -199,7 +198,12 @@ func prettyParseError(c *windowBuffer, err error) string {
 	}
 
 	windowStart := c.consumedBytes - len(c.window)
-	markerPos := max(0, absOffset-windowStart)
+	if absOffset < windowStart {
+		// Do not show the caret if the error is no longer inside the message
+		return describeError(nil, 0, err)
+	}
+
+	markerPos := absOffset - windowStart
 	line, col := lineAndColumn(c, markerPos)
 	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
 

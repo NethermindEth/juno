@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
@@ -115,7 +116,7 @@ func AdaptDeprecatedEntryPoint(ep *core.DeprecatedEntryPoint) starknet.EntryPoin
 func AdaptDeprecatedCairoClass(
 	class *core.DeprecatedCairoClass,
 ) (starknet.DeprecatedCairoClass, error) {
-	decompressedProgram, err := utils.Gzip64Decode(class.Program)
+	decompressedProgram, err := compression.Gzip64Decode(class.Program)
 	if err != nil {
 		return starknet.DeprecatedCairoClass{}, err
 	}

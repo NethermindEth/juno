@@ -4,6 +4,7 @@ package rpcv8
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -37,7 +38,8 @@ import (
 var emptyCommitments = core.BlockCommitments{}
 
 type fakeConn struct {
-	w io.Writer
+	w   io.Writer
+	ctx context.Context
 }
 
 func (fc *fakeConn) Write(p []byte) (int, error) {
@@ -50,6 +52,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 		return false
 	}
 	return fc.w == fc2.w
+}
+
+func (fc *fakeConn) Context() context.Context {
+	return fc.ctx
 }
 
 func TestSubscribeEvents(t *testing.T) {
@@ -390,12 +396,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(
+			block.Transactions[0],
+			*block.Receipts[0], block.Hash,
+			nil,
+		)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
 			handler.preConfirmedFeed.Send(
@@ -412,12 +419,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(
+			block.Transactions[0],
+			*block.Receipts[0], block.Hash,
+			nil,
+		)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
@@ -450,8 +458,8 @@ func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription 
 	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
-func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
+func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
@@ -866,8 +874,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 				Transactions: []core.Transaction{
 					&core.InvokeTransaction{
 						TransactionHash:      new(felt.Felt).SetUint64(1),
-						CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
-						TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
+						CallData:             []felt.Felt{felt.FromUint64[felt.Felt](2)},
+						TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](3)},
 						MaxFee:               new(felt.Felt).SetUint64(4),
 						ContractAddress:      new(felt.Felt).SetUint64(5),
 						Version:              new(core.TransactionVersion).SetUint64(3),
@@ -889,8 +897,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 							},
 						},
 						Tip:                   9,
-						PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-						AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+						PaymasterData:         []felt.Felt{felt.FromUint64[felt.Felt](10)},
+						AccountDeploymentData: []felt.Felt{felt.FromUint64[felt.Felt](11)},
 					},
 				},
 			},
@@ -1183,7 +1191,7 @@ func createTestEvents(
 		for i, event := range receipt.Events {
 			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:           event,
-				BlockNumber:     &b.Number,
+				BlockNumber:     b.Number,
 				BlockHash:       b.Hash,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      uint(i),
@@ -1237,8 +1245,10 @@ func createTestWebsocket(t *testing.T, subscribe func(context.Context) (Subscrip
 	serverConn, clientConn := net.Pipe()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	reqCtx, reqCancel := context.WithCancel(ctx)
+	subCtx := context.WithValue(reqCtx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn, ctx: ctx})
 	id, rpcErr := subscribe(subCtx)
+	reqCancel()
 	require.Nil(t, rpcErr)
 
 	t.Cleanup(func() {

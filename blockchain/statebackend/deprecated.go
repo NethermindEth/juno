@@ -29,7 +29,8 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 func (b *deprecatedStateBackend) StateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	if err := pruner.RequireStateRetainedByBlockNumber(b.database, blockNumber); err != nil {
+	err := pruner.RequireStateRetainedByBlockNumber(b.database, b.retentionFloor, blockNumber)
+	if err != nil {
 		return nil, nil, err
 	}
 	//nolint:staticcheck,nolintlint // used by old state

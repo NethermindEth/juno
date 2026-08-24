@@ -8,18 +8,19 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/compression"
 )
 
 type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L268-L280
 type Class struct {
-	SierraProgram        []*felt.Felt           `json:"sierra_program,omitempty"`
+	SierraProgram        felt.Slice[felt.Felt]  `json:"sierra_program,omitempty"`
 	Program              string                 `json:"program,omitempty"`
 	ContractClassVersion string                 `json:"contract_class_version,omitempty"`
 	EntryPoints          ClassEntryPointsByType `json:"entry_points_by_type"`
@@ -72,7 +73,7 @@ func AdaptDeclaredClass(
 		}
 		base64Program := string(program[1 : len(program)-1])
 
-		feederClass.DeprecatedCairo.Program, err = utils.Gzip64Decode(base64Program)
+		feederClass.DeprecatedCairo.Program, err = compression.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +143,17 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 	if err != nil {
 		return nil, err
 	}
-	return h.Class(id, classHash)
+
+	class, err := h.Class(id, classHash)
+	if err != nil {
+		// getClassAt only returns CONTRACT_NOT_FOUND / BLOCK_NOT_FOUND per spec;
+		// a class-hash miss here means the contract is not properly deployed.
+		if err.Code == rpccore.ErrClassHashNotFound.Code {
+			return nil, rpccore.ErrContractNotFound
+		}
+		return nil, err
+	}
+	return class, nil
 }
 
 // ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
@@ -155,6 +166,11 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
+
+	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
+	if state.IsSystemContract(address) {
+		return nil, rpccore.ErrContractNotFound
+	}
 
 	classHash, err := stateReader.ContractClassHash(address)
 	if err != nil {

@@ -3,6 +3,7 @@ package rpcv10
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -44,7 +45,8 @@ func mustNewChain(t *testing.T, entries ...*pending.PreConfirmed) preconfirmed.C
 
 type fakeConn struct {
 	net.Conn
-	w io.Writer
+	w   io.Writer
+	ctx context.Context
 }
 
 func (fc *fakeConn) Write(p []byte) (int, error) {
@@ -57,6 +59,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 		return false
 	}
 	return fc.w == fc2.w
+}
+
+func (fc *fakeConn) Context() context.Context {
+	return fc.ctx
 }
 
 type fakeSyncer struct {
@@ -85,8 +91,8 @@ func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription 
 	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
-func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
+func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
+	return nil, errors.New("StartingBlockHeader() not implemented")
 }
 
 func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
@@ -105,7 +111,7 @@ func setupMockEventFilterer(
 	l1HeadNumber uint64,
 	filteredEvents []blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -122,7 +128,7 @@ func setupMockEventFiltererWithMultiple(
 	l1HeadNumber uint64,
 	filteredEvents ...[]blockchain.FilteredEvent,
 ) {
-	mockChain.EXPECT().HeadsHeader().Return(header, nil)
+	mockChain.EXPECT().Height().Return(header.Number, nil)
 	mockChain.EXPECT().L1Head().Return(
 		core.L1Head{BlockNumber: l1HeadNumber},
 		nil,
@@ -191,9 +197,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		// is more than the head, a block not found error will be returned. This behaviour has been
 		// tested in various other tests, and we don't need to test it here again.
 		t.Run("head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -201,9 +205,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, []felt.Address{fromAddr}, keys, &blockID, nil)
 			assert.Zero(t, id)
@@ -476,7 +478,6 @@ func TestSubscribeEvents(t *testing.T) {
 				b1Filtered,
 				b2Filtered,
 			)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -496,8 +497,7 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:        nil,
 		fromAddrs:   nil,
 		setupMocks: func() {
-			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
+			mockChain.EXPECT().Height().Return(b2.Number, nil)
 			mockChain.EXPECT().L1Head().Return(
 				core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
 				nil,
@@ -902,7 +902,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		txToBroadcast := BroadcastedTransaction{
-			Transaction: *AdaptCoreTransaction(block.Transactions[0]),
+			Transaction: AdaptCoreTransaction(block.Transactions[0]),
 		}
 
 		var tempGatewayResponse struct {
@@ -989,12 +989,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.TransactionExecutionStatus{
+			Reverted:     block.Receipts[0].Reverted,
+			RevertReason: block.Receipts[0].RevertReason,
+		}, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(block)
@@ -1014,12 +1014,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
-		mockChain.EXPECT().TransactionByBlockNumberAndIndex(
+		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
-		).Return(block.Transactions[0], nil)
-		mockChain.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(0),
-		).Return(*block.Receipts[0], block.Hash, nil)
+		).Return(core.TransactionExecutionStatus{
+			Reverted:     block.Receipts[0].Reverted,
+			RevertReason: block.Receipts[0].RevertReason,
+		}, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
 		handler.l1Heads.Send(&l1Head)
 		assertNextTxnStatus(
@@ -1115,9 +1115,7 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		t.Run("BlockID head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(1024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
@@ -1125,13 +1123,49 @@ func TestSubscribeNewHeadsErrorCases(t *testing.T) {
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
-				Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().Height().Return(uint64(2024), nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
+		})
+	})
+
+	t.Run("BlockID - Hash", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, logger)
+
+		blockHash := felt.NewFromUint64[felt.Felt](1)
+		blockID := SubscriptionBlockID(BlockIDFromHash(blockHash))
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		t.Run("block not found", func(t *testing.T) {
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), db.ErrKeyNotFound)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		})
+
+		t.Run("internal error", func(t *testing.T) {
+			internalErr := errors.New("some internal error")
+			mockChain.EXPECT().Height().Return(uint64(2), nil)
+			mockChain.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), internalErr)
+
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, rpccore.ErrInternal.CloneWithData(internalErr.Error()), rpcErr)
 		})
 	})
 }
@@ -1142,9 +1176,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
-	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, _ := GetTestBlockWithCommitments(t, client, blockNumber3)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1152,10 +1186,10 @@ func TestSubscribeNewHeads(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
+	mockChain.EXPECT().Height().Return(block1.Number, nil)
 
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
@@ -1164,21 +1198,19 @@ func TestSubscribeNewHeads(t *testing.T) {
 	)
 
 	// Receive one historical head
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
 	handler.newHeads.Send(block2)
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
 	handler.newHeads.Send(block3)
-	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
 
@@ -1188,9 +1220,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 	blockNumber3 := uint64(56379)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
-	block3, commitments3, stateUpdate3 := GetTestBlockWithCommitments(t, client, blockNumber3)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block3, commitments3, _ := GetTestBlockWithCommitments(t, client, blockNumber3)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1198,14 +1230,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block2.Header, nil)
+	mockChain.EXPECT().Height().Return(block2.Number, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil)
 
 	blockID := BlockIDFromNumber(block1.Number)
 	subID, conn := createTestNewHeadsWebsocket(
@@ -1215,26 +1245,27 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	)
 
 	// Receive two historical heads
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block3.Number).Return(stateUpdate3, nil)
 
 	// Receive new block
 	handler.newHeads.Send(block3)
-	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3, stateUpdate3.StateDiff)
+	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
 
-func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
+func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	blockNumber1 := uint64(56377)
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
+	blockNumber2 := uint64(56378)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1242,10 +1273,46 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil)
+	mockChain.EXPECT().Height().Return(block2.Number, nil)
+	mockChain.EXPECT().BlockNumberByHash(block1.Hash).Return(block1.Number, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
+	mockChain.EXPECT().BlockHeaderByNumber(block2.Number).Return(block2.Header, nil)
 
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
+
+	blockID := BlockIDFromHash(block1.Hash)
+	subID, conn := createTestNewHeadsWebsocket(
+		t,
+		handler,
+		(*SubscriptionBlockID)(&blockID),
+	)
+
+	// The hash resolves to block1's number, so the replay starts there and
+	// covers the range up to the latest block.
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+	assertNextHead(t, conn, subID, &adaptedHeader)
+
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
+	assertNextHead(t, conn, subID, &adaptedHeader2)
+}
+
+func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	blockNumber1 := uint64(56377)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, logger)
+
+	mockChain.EXPECT().Height().Return(block1.Number, nil)
+
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
 	blockIDLatest := BlockIDLatest()
 	subID, conn := createTestNewHeadsWebsocket(
 		t,
@@ -1254,7 +1321,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	)
 
 	// Receive one historical head
-	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader)
 
 	// Receive reorg event
@@ -1275,9 +1342,8 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 	// Keep receiving incoming heads
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil)
 	handler.newHeads.Send(block1)
-	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
 
@@ -1287,8 +1353,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	blockNumber1 := uint64(56377)
 	blockNumber2 := uint64(56378)
 
-	block1, commitments1, stateUpdate1 := GetTestBlockWithCommitments(t, client, blockNumber1)
-	block2, commitments2, stateUpdate2 := GetTestBlockWithCommitments(t, client, blockNumber2)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, blockNumber1)
+	block2, commitments2, _ := GetTestBlockWithCommitments(t, client, blockNumber2)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -1296,9 +1362,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	handler := New(mockChain, nil, nil, logger)
 
-	mockChain.EXPECT().HeadsHeader().Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(2)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
-	mockChain.EXPECT().StateUpdateByNumber(block1.Number).Return(stateUpdate1, nil).Times(2)
 
 	blockIDLatest := SubscriptionBlockID(BlockIDLatest())
 	// Create two subscriber
@@ -1306,16 +1372,15 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	subID2, conn2 := createTestNewHeadsWebsocket(t, handler, &blockIDLatest)
 
 	// Both subscribers receives one historical head
-	adaptedHeader1 := AdaptBlockHeader(block1.Header, commitments1, stateUpdate1.StateDiff)
+	adaptedHeader1 := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn1, subID1, &adaptedHeader1)
 	assertNextHead(t, conn2, subID2, &adaptedHeader1)
 
 	// Both subscribers receives new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil).Times(2)
-	mockChain.EXPECT().StateUpdateByNumber(block2.Number).Return(stateUpdate2, nil).Times(2)
 	handler.newHeads.Send(block2)
 
-	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2, stateUpdate2.StateDiff)
+	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn1, subID1, &adaptedHeader2)
 	assertNextHead(t, conn2, subID2, &adaptedHeader2)
 
@@ -1985,7 +2050,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	type stepInfo struct {
 		description   string
 		notify        func()
-		expect        [][]*TransactionReceipt
+		expect        [][]TransactionReceiptWithBlockInfo
 		expectedReorg *ReorgEvent
 	}
 
@@ -2000,8 +2065,8 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		b *core.Block,
 		senderAddress []felt.Address,
 		finalityStatus TxnFinalityStatus,
-	) []*TransactionReceipt {
-		receipts := make([]*TransactionReceipt, 0)
+	) []TransactionReceiptWithBlockInfo {
+		receipts := make([]TransactionReceiptWithBlockInfo, 0)
 		for i, receipt := range b.Receipts {
 			txn := b.Transactions[i]
 			if filterTxBySender(txn, senderAddress) {
@@ -2038,7 +2103,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2047,14 +2112,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 			{
 				description: "on next head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						nil,
@@ -2076,14 +2141,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 			{
 				description: "on pre_confirmed",
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2096,7 +2161,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
@@ -2109,7 +2174,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{},
+				expect: [][]TransactionReceiptWithBlockInfo{},
 			},
 		},
 	}
@@ -2126,7 +2191,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2135,7 +2200,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2148,7 +2213,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedExtended.Block,
 						nil,
@@ -2161,7 +2226,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
 				},
 			},
@@ -2191,7 +2256,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					b2PreConfirmedPartialFilteredReceipts,
 				},
 			},
@@ -2200,7 +2265,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						senderFilter,
@@ -2213,7 +2278,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead2,
 						senderFilter,
@@ -2236,7 +2301,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b1PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedPartial.Block,
 						nil,
@@ -2249,7 +2314,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b1PreConfirmedExtended)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b1PreConfirmedExtended.Block,
 						nil,
@@ -2262,7 +2327,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedPartial.Block,
 						nil,
@@ -2275,7 +2340,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.newHeads.Send(newHead1)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						newHead1,
 						nil,
@@ -2288,7 +2353,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				notify: func() {
 					syncer.preConfirmed.Send(&b2PreConfirmedFull)
 				},
-				expect: [][]*TransactionReceipt{
+				expect: [][]TransactionReceiptWithBlockInfo{
 					toAdaptedReceiptsWithFilter(
 						b2PreConfirmedFull.Block,
 						nil,
@@ -2480,12 +2545,12 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
-	return json.Marshal(SubscriptionResponse{
+	return json.Marshal(SubscriptionResponse[any]{
 		Version: "2.0",
 		Method:  method,
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
+		Params: SubscriptionParams[any]{
+			Result:         result,
+			SubscriptionID: string(id),
 		},
 	})
 }
@@ -2573,12 +2638,12 @@ func assertNextReceipts(
 	t *testing.T,
 	conn net.Conn,
 	id SubscriptionID,
-	receipts []*TransactionReceipt,
+	receipts []TransactionReceiptWithBlockInfo,
 ) {
 	t.Helper()
 
-	for _, receipt := range receipts {
-		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", receipt)
+	for i := range receipts {
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", &receipts[i])
 	}
 }
 
@@ -2659,7 +2724,6 @@ func createTestEvents(
 	finalityStatus TxnFinalityStatus,
 ) ([]blockchain.FilteredEvent, []SubscriptionEmittedEvent) {
 	t.Helper()
-	blockNumber := &b.Number
 	eventMatcher := blockchain.NewEventMatcher(fromAddresses, keys)
 	var filtered []blockchain.FilteredEvent
 	var responses []SubscriptionEmittedEvent
@@ -2676,7 +2740,7 @@ func createTestEvents(
 
 			filtered = append(filtered, blockchain.FilteredEvent{
 				Event:            event,
-				BlockNumber:      blockNumber,
+				BlockNumber:      b.Number,
 				BlockHash:        b.Hash,
 				TransactionHash:  receipt.TransactionHash,
 				TransactionIndex: uint(txIndex),
@@ -2689,7 +2753,7 @@ func createTestEvents(
 						Keys: event.Keys,
 						Data: event.Data,
 					},
-					BlockNumber:      blockNumber,
+					BlockNumber:      b.Number,
 					BlockHash:        b.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
@@ -2776,9 +2840,11 @@ func createTestWebsocket(
 
 	ctx, cancel := context.WithCancel(t.Context())
 	// Create fakeConn embedding clientConn for net.Conn methods, using serverConn for writing
-	fakeConn := &fakeConn{Conn: clientConn, w: serverConn}
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, fakeConn)
+	fakeConn := &fakeConn{Conn: clientConn, w: serverConn, ctx: ctx}
+	reqCtx, reqCancel := context.WithCancel(ctx)
+	subCtx := context.WithValue(reqCtx, jsonrpc.ConnKey{}, fakeConn)
 	id, rpcErr := subscribe(subCtx)
+	reqCancel()
 	require.Nil(t, rpcErr)
 
 	t.Cleanup(func() {
@@ -2813,6 +2879,7 @@ func GetTestBlockWithCommitments(
 		EventCommitment:       blockWithStateUpdate.Block.EventCommitment,
 		ReceiptCommitment:     blockWithStateUpdate.Block.ReceiptCommitment,
 		StateDiffCommitment:   blockWithStateUpdate.Block.StateDiffCommitment,
+		StateDiffLength:       adaptedState.StateDiff.Length(),
 	}
 
 	return adaptedBlock, commitments, adaptedState

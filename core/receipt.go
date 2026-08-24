@@ -26,6 +26,20 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
+// TransactionExecutionStatus is the execution-status subset of a TransactionReceipt:
+// whether the transaction reverted, and the revert reason if it did.
+type TransactionExecutionStatus struct {
+	Reverted     bool
+	RevertReason string
+}
+
+// TransactionEvents is the events subset of a TransactionReceipt: the events and the
+// hash of the transaction that emitted them.
+type TransactionEvents struct {
+	Events          []*Event
+	TransactionHash *felt.Felt
+}
+
 func (r *TransactionReceipt) hash() felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {
@@ -42,7 +56,7 @@ func (r *TransactionReceipt) hash() felt.Felt {
 	sentMessageHash := messagesSentHash(r.L2ToL1Message)
 	l1GasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1Gas)
 	l1DataGasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1DataGas)
-	return crypto.PoseidonArray(
+	return crypto.PoseidonElems(
 		r.TransactionHash,
 		r.Fee,
 		&sentMessageHash,
@@ -62,7 +76,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 		msgTo.SetBytes(msg.To.Bytes())
 		payloadSize.SetUint64(uint64(len(msg.Payload)))
 		digest.Update(msg.From, &msgTo, &payloadSize)
-		digest.Update(msg.Payload...)
+		digest.UpdateArray(msg.Payload)
 	}
 
 	return digest.Finish()

@@ -93,7 +93,7 @@ func TestGetMessageStatus(t *testing.T) {
 
 			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(), gomock.Any(),
-			).Return(&test.l1TxnReceipt, nil)
+			).Return(test.l1TxnReceipt, nil)
 			for i, msg := range test.msgs {
 				mockReader.EXPECT().L1HandlerTxnHash(&test.msgHashes[i]).Return(
 					*msg.L1HandlerHash,
@@ -103,12 +103,13 @@ func TestGetMessageStatus(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(msg.L1HandlerHash),
 				).Return(block.Number, uint64(0), nil)
-				mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 					block.Number, uint64(0),
-				).Return(l1handlerTxns[i], nil)
-				mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-					block.Number, uint64(0),
-				).Return(*block.Receipts[0], block.Hash, nil)
+				).Return(
+					l1handlerTxns[i],
+					*block.Receipts[0], block.Hash,
+					nil,
+				)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: uint64(test.l1HeadBlockNum)}, nil)
 			}
 			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)

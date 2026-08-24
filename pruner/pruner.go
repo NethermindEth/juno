@@ -84,7 +84,10 @@ type Pruner struct {
 	// latestSampledHeight is the lowest block with Timestamp >= now-minAge,
 	// re-derived each floorTickInterval tick.
 	latestSampledHeight uint64
-	database            db.KeyValueStore
+	// retentionFloor is shared with the state backend and raised before
+	// each prune.
+	retentionFloor *RetentionFloor
+	database       db.KeyValueStore
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
 	// drives the floor from this event's block number; otherwise the L1
 	// path drives the floor and this event acts only as a trigger.
@@ -146,15 +149,17 @@ func WithFloorTickInterval(duration time.Duration) Option {
 	}
 }
 
-// New constructs a Pruner. retainedBlocks is the number of blocks
-// retained below the retention pivot (= min(l1Head, l2Head); the pivot
-// itself is always retained), so the pruner keeps blocks in
-// [pivot - retainedBlocks, l2Head] and deletes everything below.
-// newHeadSub and l1HeadSub are the two trigger feeds (see [Pruner]).
-// Subscriptions are [feed.Subscription.Unsubscribe]'d when [Pruner.Run]
-// returns.
+// New constructs a Pruner. retentionFloor is raised after each prune and
+// must be the same instance the state backend reads (see [NewRetentionFloor]).
+// retainedBlocks is the number of blocks retained below the retention pivot
+// (= min(l1Head, l2Head); the pivot itself is always retained), so the
+// pruner keeps blocks in [pivot - retainedBlocks, l2Head] and deletes
+// everything below. newHeadSub and l1HeadSub are the two trigger feeds (see
+// [Pruner]). Subscriptions are [feed.Subscription.Unsubscribe]'d when
+// [Pruner.Run] returns.
 func New(
 	database db.KeyValueStore,
+	retentionFloor *RetentionFloor,
 	retainedBlocks uint64,
 	newHeadSub *feed.Subscription[*core.Block],
 	l1HeadSub *feed.Subscription[*core.L1Head],
@@ -171,6 +176,7 @@ func New(
 		opt(&o)
 	}
 	return &Pruner{
+		retentionFloor:      retentionFloor,
 		numRetainedBlocks:   retainedBlocks,
 		targetBatchByteSize: o.targetBatchByteSize,
 		l2HeadsPerPrune:     o.l2HeadsPerPrune,
@@ -218,7 +224,8 @@ func (p *Pruner) Run(ctx context.Context) error {
 		case block := <-p.newHeadSub.Recv():
 			if err := p.onNewBlock(ctx, block); err != nil {
 				p.listener.OnPruneError(err)
-				p.logger.Error("on new L2 block",
+				p.logger.Error(
+					"on new L2 block",
 					zap.Uint64("num", block.Number),
 					zap.Error(err),
 				)
@@ -227,7 +234,8 @@ func (p *Pruner) Run(ctx context.Context) error {
 		case l1Head := <-p.l1HeadSub.Recv():
 			if err := p.onNewL1Head(ctx, l1Head); err != nil {
 				p.listener.OnPruneError(err)
-				p.logger.Error("on new L1 Head",
+				p.logger.Error(
+					"on new L1 Head",
 					zap.Uint64("num", l1Head.BlockNumber),
 					zap.Error(err),
 				)
@@ -245,9 +253,10 @@ func (p *Pruner) Run(ctx context.Context) error {
 
 		case <-staleTicker.C:
 			p.listener.OnL1Stale()
-			p.logger.Warn("no L1 head received in more than 24 hours. " +
-				"Pruning is paused and disk usage will slowly grow until L1 head delivery resumes" +
-				". Verify that the L1 client connected is live and synced.",
+			p.logger.Warn(
+				"no L1 head received in more than 24 hours. " +
+					"Pruning is paused and disk usage will slowly grow until L1 head delivery resumes" +
+					". Verify that the L1 client connected is live and synced.",
 			)
 			staleTicker.Reset(periodicStalenessTick)
 		}
@@ -274,11 +283,11 @@ func FindOldestBlockAtOrAfter(
 	low, high := lower, upper+1
 	for low < high {
 		mid := low + (high-low)/2
-		header, err := core.GetBlockHeaderByNumber(database, mid)
+		timestamp, err := core.GetBlockHeaderTimestampByNumber(database, mid)
 		if err != nil {
-			return 0, fmt.Errorf("getting block header for block %d: %w", mid, err)
+			return 0, fmt.Errorf("getting block timestamp for block %d: %w", mid, err)
 		}
-		if header.Timestamp < cutoffUnix {
+		if timestamp < cutoffUnix {
 			low = mid + 1
 		} else {
 			high = mid
@@ -396,6 +405,10 @@ func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
 func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error {
 	start := time.Now()
 
+	if oldestBlockToKeep > 0 {
+		p.retentionFloor.raiseTo(oldestBlockToKeep - 1)
+	}
+
 	blocksPruned, oldestKept, err := PruneUpto(
 		ctx,
 		p.database,
@@ -412,7 +425,8 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 
 	elapsed := time.Since(start)
 	p.listener.OnPrune(oldestKept, blocksPruned, elapsed)
-	p.logger.Info("Pruned Blocks",
+	p.logger.Info(
+		"Pruned Blocks",
 		zap.Uint64("prunedBelow", oldestKept),
 		zap.Uint64("blocksPruned", blocksPruned),
 		zap.Duration("duration", elapsed),

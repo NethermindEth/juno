@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -115,43 +116,38 @@ func AssertTracedBlockTransactions(
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		block, err = gateway.BlockByNumber(t.Context(), number)
-
-		// Simulate gas consumption in block receipts
-		for _, receipt := range block.Receipts {
-			receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
-				L1Gas:     5,
-				L2Gas:     10,
-				L1DataGas: 15,
+	mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).DoAndReturn(
+		func(number uint64) (*core.Header, error) {
+			block, err := gateway.BlockByNumber(t.Context(), number)
+			if err != nil {
+				return nil, err
 			}
-		}
-		return block, err
-	}).AnyTimes()
+			return block.Header, nil
+		}).AnyTimes()
+
+	mockReader.EXPECT().TransactionsAndReceiptsByBlockNumber(gomock.Any()).DoAndReturn(
+		func(number uint64) ([]core.Transaction, []*core.TransactionReceipt, error) {
+			block, err := gateway.BlockByNumber(t.Context(), number)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// Simulate gas consumption in block receipts
+			for _, receipt := range block.Receipts {
+				receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
+					L1Gas:     5,
+					L2Gas:     10,
+					L1DataGas: 15,
+				}
+			}
+			return block.Transactions, block.Receipts, nil
+		}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			blockHash := felt.NewUnsafeFromString[felt.Felt](test.blockHash)
-			mockReader.EXPECT().BlockHeaderByHash(blockHash).DoAndReturn(
-				func(_ *felt.Felt) (*core.Header, error) {
-					block, err := mockReader.BlockByNumber(test.blockNumber)
-					if err != nil {
-						return nil, err
-					}
-					return block.Header, nil
-				})
-			mockReader.EXPECT().TransactionsByBlockNumber(test.blockNumber).DoAndReturn(
-				func(number uint64) ([]core.Transaction, error) {
-					block, err := mockReader.BlockByNumber(test.blockNumber)
-					if err != nil {
-						return nil, err
-					}
-					return block.Transactions, nil
-				})
-
 			handler := rpc.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
 			blockID := blockIDNumber(t, test.blockNumber)
@@ -181,27 +177,15 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 
 		blockNumber := uint64(40000)
 
-		mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(
-			func(number uint64) (block *core.Block, err error) {
-				return gateway.BlockByNumber(t.Context(), number)
-			})
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).DoAndReturn(
-			func(hash *felt.Felt) (*core.Header, error) {
-				block, err := gateway.BlockByNumber(t.Context(), blockNumber)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).DoAndReturn(
+			func(number uint64) (*core.Header, error) {
+				block, err := gateway.BlockByNumber(t.Context(), number)
 				if err != nil {
 					return nil, err
 				}
 				return block.Header, nil
 			})
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).DoAndReturn(
-			func(number uint64) ([]core.Transaction, error) {
-				block, err := gateway.BlockByNumber(t.Context(), blockNumber)
-				if err != nil {
-					return nil, err
-				}
-				return block.Transactions, nil
-			})
-		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 		mockReader.EXPECT().Network().Return(&network)
 
 		// No feeder client is set
@@ -335,9 +319,10 @@ func TestTraceTransaction(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
+			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
 			// Receipt() returns error related to db
-			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
+				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
 			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
@@ -348,20 +333,23 @@ func TestTraceTransaction(t *testing.T) {
 		})
 
 		t.Run("other error", func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
-			// Receipt() returns some other error
-			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
+			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
+			// The tx-hash index lookup fails for a non-missing-key reason
+			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
+				Return(uint64(0), uint64(0), errors.New("database error"))
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
-			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
+			assert.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New("database error")), err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
 	})
 	t.Run("ok", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		hash := felt.NewUnsafeFromString[felt.TransactionHash](
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
-			TransactionHash: hash,
+			TransactionHash: (*felt.Felt)(hash),
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
@@ -383,8 +371,10 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockReader.EXPECT().BlockByHash(header.Hash).Return(block, nil)
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).Return(header.Number, uint64(0), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
+			Return(block.Transactions, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
@@ -426,9 +416,11 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
+		hash := felt.NewUnsafeFromString[felt.TransactionHash](
+			"0xceb6a374aff2bbb3537cf35f50df8634b2354a21",
+		)
 		tx := &core.InvokeTransaction{
-			TransactionHash: hash,
+			TransactionHash: (*felt.Felt)(hash),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
 
@@ -447,7 +439,8 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
+			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := pending.PreConfirmed{
 			Block: block,
@@ -500,9 +493,9 @@ func TestTraceTransaction(t *testing.T) {
 	// the tip. findAndTraceInPreConfirmed must walk newest-first and
 	// reconstruct state at the matching entry.
 	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
+		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
 		tx := &core.InvokeTransaction{
-			TransactionHash: hash,
+			TransactionHash: (*felt.Felt)(hash),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
 
@@ -529,7 +522,8 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{StateDiff: &tipDiff},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
+			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
@@ -568,34 +562,25 @@ func TestTraceTransaction(t *testing.T) {
 		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
-		revertedTxHash := felt.NewUnsafeFromString[felt.Felt]("0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
+		revertedTxHash := felt.NewUnsafeFromString[felt.TransactionHash](
+			"0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1",
+		)
 
 		blockNumber := uint64(18)
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
 
-		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
-		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return gateway.BlockByNumber(t.Context(), blockNumber)
+		gatewayBlock, gatewayErr := gateway.BlockByNumber(t.Context(), blockNumber)
+		require.NoError(t, gatewayErr)
+		revertedTxIndex := slices.IndexFunc(gatewayBlock.Transactions, func(tx core.Transaction) bool {
+			return tx.Hash().Equal((*felt.Felt)(revertedTxHash))
 		})
-		mockReader.EXPECT().BlockHeaderByHash(blockHash).DoAndReturn(
-			func(_ *felt.Felt) (*core.Header, error) {
-				block, err := gateway.BlockByNumber(t.Context(), blockNumber)
-				if err != nil {
-					return nil, err
-				}
-				return block.Header, nil
-			})
-		mockReader.EXPECT().TransactionsByBlockNumber(blockNumber).DoAndReturn(
-			func(number uint64) ([]core.Transaction, error) {
-				block, err := gateway.BlockByNumber(t.Context(), blockNumber)
-				if err != nil {
-					return nil, err
-				}
-				return block.Transactions, nil
-			})
-		mockReader.EXPECT().L1Head().Return(core.L1Head{
-			BlockNumber: 19, // Doesn't really matter for this test
-		}, nil)
+		require.NotEqual(t, -1, revertedTxIndex)
+
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(revertedTxHash).
+			Return(blockNumber, uint64(revertedTxIndex), nil)
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
+			Return(gatewayBlock.Header, nil)
+		mockReader.EXPECT().TransactionsAndReceiptsByBlockNumber(blockNumber).
+			Return(gatewayBlock.Transactions, gatewayBlock.Receipts, nil)
 
 		expectedRevertedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
@@ -653,12 +638,18 @@ func TestTraceTransaction(t *testing.T) {
 						Events: []rpc.OrderedEvent{
 							{
 								Order: 0,
-								Keys:  []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
-								Data: []*felt.Felt{
-									felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-									felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-									felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-									felt.NewUnsafeFromString[felt.Felt]("0x0"),
+								Keys: []felt.Felt{felt.UnsafeFromString[felt.Felt](
+									"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+								)},
+								Data: []felt.Felt{
+									felt.UnsafeFromString[felt.Felt](
+										"0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+									),
+									felt.UnsafeFromString[felt.Felt](
+										"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+									),
+									felt.UnsafeFromString[felt.Felt]("0x2847291f968"),
+									felt.UnsafeFromString[felt.Felt]("0x0"),
 								},
 							},
 						},
@@ -769,7 +760,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(header, nil)
+		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
+			Return(block.Transactions, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
@@ -835,11 +828,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
 		)
 
-		payload0 := &felt.Zero
-		payload1 := felt.NewUnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2 := felt.NewFromUint64[felt.Felt](0x455448)
-		payload3 := felt.NewFromUint64[felt.Felt](0x31da07977d000)
-		payload4 := &felt.Zero
+		payload0 := felt.Zero
+		payload1 := felt.UnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2 := felt.FromUint64[felt.Felt](0x455448)
+		payload3 := felt.FromUint64[felt.Felt](0x31da07977d000)
+		payload4 := felt.Zero
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -849,7 +842,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						Order: 0,
 						From:  fromAddr,
 						To:    toAddr,
-						Payload: []*felt.Felt{
+						Payload: []felt.Felt{
 							payload0,
 							payload1,
 							payload2,
@@ -945,7 +938,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						// todo(rdr): we shouldn't need this conversion but the right fix is
 						//            refactor which is a whole stream of work on itself
 						To: (*felt.Felt)(toAddr),
-						Payload: []*felt.Felt{
+						Payload: []felt.Felt{
 							payload0,
 							payload1,
 							payload2,
@@ -1093,34 +1086,22 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 func TestAdaptFeederBlockTrace(t *testing.T) {
 	t.Run("nil block trace", func(t *testing.T) {
-		block := &rpc.BlockWithTxs{}
-
-		res, err := rpc.AdaptFeederBlockTrace(block, nil)
+		res, err := rpc.AdaptFeederBlockTrace(nil, nil)
 		require.Nil(t, res)
 		require.Nil(t, err)
 	})
 
 	t.Run("inconsistent blockWithTxs and blockTrace", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{},
-			},
-		}
+		transactions := []core.Transaction{&core.InvokeTransaction{}}
 		blockTrace := &starknet.BlockTrace{}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpc.AdaptFeederBlockTrace(transactions, blockTrace)
 		require.Nil(t, res)
 		require.Equal(t, errors.New("mismatched number of txs and traces"), err)
 	})
 
 	t.Run("L1_HANDLER tx gets successfully adapted", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{
-					Type: rpc.TxnL1Handler,
-				},
-			},
-		}
+		transactions := []core.Transaction{&core.L1HandlerTransaction{}}
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
@@ -1156,8 +1137,8 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 							Calls: []rpc.FunctionInvocation{},
 							Events: []rpc.OrderedEvent{{
 								Order: 1,
-								Keys:  []*felt.Felt{felt.NewFromUint64[felt.Felt](2)},
-								Data:  []*felt.Felt{felt.NewFromUint64[felt.Felt](3)},
+								Keys:  []felt.Felt{felt.FromUint64[felt.Felt](2)},
+								Data:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
 							}},
 							Messages: []rpc.OrderedL2toL1Message{},
 							ExecutionResources: &rpc.InnerExecutionResources{
@@ -1170,19 +1151,13 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			},
 		}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpc.AdaptFeederBlockTrace(transactions, blockTrace)
 		require.Nil(t, err)
 		require.Equal(t, expectedAdaptedTrace, res)
 	})
 
 	t.Run("INVOKE tx gets successfully adapted (with revert error)", func(t *testing.T) {
-		blockWithTxs := &rpc.BlockWithTxs{
-			Transactions: []*rpc.Transaction{
-				{
-					Type: rpc.TxnInvoke,
-				},
-			},
-		}
+		transactions := []core.Transaction{&core.InvokeTransaction{}}
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
@@ -1219,7 +1194,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			},
 		}
 
-		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		res, err := rpc.AdaptFeederBlockTrace(transactions, blockTrace)
 		require.Nil(t, err)
 		require.Equal(t, expectedAdaptedTrace, res)
 	})

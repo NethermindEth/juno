@@ -680,12 +680,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 				gomock.Any(),
 			).Return(block0.Number, uint64(test.index), nil)
-			mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+			mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 				block0.Number, uint64(test.index),
-			).Return(block0.Transactions[test.index], nil)
-			mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-				block0.Number, uint64(test.index),
-			).Return(*block0.Receipts[test.index], block0.Hash, nil)
+			).Return(
+				block0.Transactions[test.index],
+				*block0.Receipts[test.index], block0.Hash,
+				nil,
+			)
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 			checkTxReceipt(t, txHash, test.expected)
@@ -738,12 +739,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block0.Number, uint64(i), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block0.Number, uint64(i),
-		).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block0.Number, uint64(i),
-		).Return(*block0.Receipts[i], block0.Hash, nil)
+		).Return(
+			block0.Transactions[i],
+			*block0.Receipts[i], block0.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block0.Number,
 			BlockHash:   block0.Hash,
@@ -783,12 +785,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(revertedTxnHash),
 		).Return(blockWithRevertedTxn.Number, uint64(revertedTxnIdx), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			blockWithRevertedTxn.Number, uint64(revertedTxnIdx),
-		).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			blockWithRevertedTxn.Number, uint64(revertedTxnIdx),
-		).Return(*blockWithRevertedTxn.Receipts[revertedTxnIdx], blockWithRevertedTxn.Hash, nil)
+		).Return(
+			blockWithRevertedTxn.Transactions[revertedTxnIdx],
+			*blockWithRevertedTxn.Receipts[revertedTxnIdx], blockWithRevertedTxn.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, revertedTxnHash, expected)
@@ -853,12 +856,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txnHash),
 		).Return(block.Number, uint64(index), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
-		).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(index),
-		).Return(*block.Receipts[index], block.Hash, nil)
+		).Return(
+			block.Transactions[index],
+			*block.Receipts[index], block.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
@@ -909,12 +913,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txnHash),
 		).Return(block.Number, uint64(index), nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
-		).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-			block.Number, uint64(index),
-		).Return(*block.Receipts[index], block.Hash, nil)
+		).Return(
+			block.Transactions[index],
+			*block.Receipts[index], block.Hash,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
@@ -1115,7 +1120,7 @@ func TestAddTransaction(t *testing.T) {
 				"nonce": "0x11",
 				"class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAJbogA/wACAP3/e30DAEO/pqMCAAAA"
 				},
 				"compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724",
 				"sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
@@ -1160,7 +1165,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAJbogA/wACAP3/e30DAEO/pqMCAAAA"
 				}
 			  }`,
 		},
@@ -1399,12 +1404,13 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(tx.Hash()),
 					).Return(block.Number, uint64(0), nil)
-					mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 						block.Number, uint64(0),
-					).Return(tx, nil)
-					mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-						block.Number, uint64(0),
-					).Return(*block.Receipts[0], block.Hash, nil)
+					).Return(
+						tx,
+						*block.Receipts[0], block.Hash,
+						nil,
+					)
 					mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 					handler := rpc.New(mockReader, nil, nil, nil)
@@ -1422,12 +1428,13 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(tx.Hash()),
 					).Return(block.Number, uint64(0), nil)
-					mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 						block.Number, uint64(0),
-					).Return(tx, nil)
-					mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-						block.Number, uint64(0),
-					).Return(*block.Receipts[0], block.Hash, nil)
+					).Return(
+						tx,
+						*block.Receipts[0], block.Hash,
+						nil,
+					)
 					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
@@ -1447,12 +1454,13 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 						(*felt.TransactionHash)(tx.Hash()),
 					).Return(block.Number, uint64(0), nil)
-					mockReader.EXPECT().TransactionByBlockNumberAndIndex(
+					mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 						block.Number, uint64(0),
-					).Return(tx, nil)
-					mockReader.EXPECT().ReceiptByBlockNumberAndIndex(
-						block.Number, uint64(0),
-					).Return(*block.Receipts[0], block.Hash, nil)
+					).Return(
+						tx,
+						*block.Receipts[0], block.Hash,
+						nil,
+					)
 					mockReader.EXPECT().L1Head().Return(core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
@@ -1810,18 +1818,28 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt]("0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
 			ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
 			ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
-			ConstructorCallData: []*felt.Felt{
-				felt.NewUnsafeFromString[felt.Felt]("0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
-				felt.NewUnsafeFromString[felt.Felt]("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
-				felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				felt.NewUnsafeFromString[felt.Felt]("0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-				felt.NewUnsafeFromString[felt.Felt]("0x0"),
+			ConstructorCallData: []felt.Felt{
+				felt.UnsafeFromString[felt.Felt](
+					"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				),
+				felt.UnsafeFromString[felt.Felt](
+					"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x2"),
+				felt.UnsafeFromString[felt.Felt](
+					"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				),
+				felt.UnsafeFromString[felt.Felt]("0x0"),
 			},
 			Version: new(core.TransactionVersion).SetUint64(3),
 		},
-		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
-			felt.NewUnsafeFromString[felt.Felt]("0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+		TransactionSignature: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt](
+				"0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+			),
+			felt.UnsafeFromString[felt.Felt](
+				"0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e",
+			),
 		},
 		Nonce: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
@@ -1839,7 +1857,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 			},
 		},
 		Tip:           1, // 0x1
-		PaymasterData: []*felt.Felt{},
+		PaymasterData: []felt.Felt{},
 		NonceDAMode:   core.DAModeL1,
 		FeeDAMode:     core.DAModeL2,
 	}
@@ -1851,7 +1869,7 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		t.Context(), nil, &txnNonZeroL2Gas, &networks.Sepolia,
 	)
 	require.NoError(t, err)
-	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
+	resultTxn, ok := tx.(*core.DeployAccountTransaction)
 
 	require.True(t, ok)
 	require.Equal(t, expectedTxn, *resultTxn)
@@ -1953,9 +1971,9 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	txnToAdd := &core.InvokeTransaction{
 		TransactionHash: new(felt.Felt).SetUint64(12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		TransactionSignature: []felt.Felt{
+			felt.UnsafeFromString[felt.Felt]("0x1"),
+			felt.UnsafeFromString[felt.Felt]("0x1"),
 		},
 		Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		NonceDAMode: core.DAModeL1,
@@ -1975,9 +1993,9 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			},
 		},
 		Tip:           0,
-		PaymasterData: []*felt.Felt{},
+		PaymasterData: []felt.Felt{},
 		SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x1"),
-		CallData:      []*felt.Felt{},
+		CallData:      []felt.Felt{},
 	}
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}

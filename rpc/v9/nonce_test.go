@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -64,6 +65,18 @@ func TestNonce(t *testing.T) {
 		nonce, rpcErr := handler.Nonce(&latest, &targetAddress)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("system contracts return contract not found", func(t *testing.T) {
+		for i := range state.SystemContracts {
+			addr := state.SystemContracts[i]
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+			latest := blockIDLatest(t)
+			nonce, rpcErr := handler.Nonce(&latest, &addr)
+			require.Nil(t, nonce)
+			assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		}
 	})
 
 	expectedNonce := felt.NewFromUint64[felt.Felt](1)

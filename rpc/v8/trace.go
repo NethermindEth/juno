@@ -68,16 +68,16 @@ type FunctionCall struct {
 }
 
 type OrderedEvent struct {
-	Order uint64       `json:"order"`
-	Keys  []*felt.Felt `json:"keys"`
-	Data  []*felt.Felt `json:"data"`
+	Order uint64      `json:"order"`
+	Keys  []felt.Felt `json:"keys"`
+	Data  []felt.Felt `json:"data"`
 }
 
 type OrderedL2toL1Message struct {
-	Order   uint64       `json:"order"`
-	From    *felt.Felt   `json:"from_address"`
-	To      *felt.Felt   `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	Order   uint64      `json:"order"`
+	From    *felt.Felt  `json:"from_address"`
+	To      *felt.Felt  `json:"to_address"`
+	Payload []felt.Felt `json:"payload"`
 }
 
 /****************************************************
@@ -148,7 +148,7 @@ func (h *Handler) traceBlockTransactions(
 	isPending := block.Hash == nil
 	if !isPending {
 		// Check if it was already traced
-		traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
+		traces, hit := h.blockTraceCache.Get(*block.Hash)
 		if hit {
 			return traces, defaultExecutionHeader(), nil
 		}
@@ -175,7 +175,7 @@ func (h *Handler) traceBlockTransactions(
 			if err != nil {
 				return nil, defaultExecutionHeader(), err
 			}
-			h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
+			h.blockTraceCache.Add(*block.Hash, traces)
 			return traces, defaultExecutionHeader(), nil
 		}
 	}
@@ -268,7 +268,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	}
 
 	if !isPending {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, result)
+		h.blockTraceCache.Add(*block.Hash, result)
 	}
 
 	return result, httpHeader, nil

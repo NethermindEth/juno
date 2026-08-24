@@ -80,7 +80,7 @@ func TestCompiledCasm(t *testing.T) {
 			},
 			Constructor: []core.CasmEntryPoint{},
 			L1Handler:   []core.CasmEntryPoint{},
-			Bytecode:    []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x123")},
+			Bytecode:    []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x123")},
 		}
 
 		cairoClass := &core.SierraClass{
@@ -99,7 +99,7 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Equal(t, uint64(42), resp.EntryPointsByType.External[0].Offset)
 		assert.Equal(
 			t,
-			*felt.NewUnsafeFromString[felt.Felt]("0xabc"),
+			felt.UnsafeFromString[felt.Felt]("0xabc"),
 			resp.EntryPointsByType.External[0].Selector,
 		)
 		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)

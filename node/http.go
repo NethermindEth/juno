@@ -32,6 +32,7 @@ const (
 	defaultReadHeaderTimeout = 30 * time.Second
 	defaultWriteTimeout      = 30 * time.Second
 	defaultIdleTimeout       = 2 * time.Minute
+	rpcNotReadyMessage       = "RPC not ready: failed to read canonical head."
 )
 
 type httpService struct {
@@ -147,8 +148,14 @@ func makeRPCOverHTTP(
 	return svc
 }
 
-func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	logger log.StructuredLogger, metricsEnabled bool, corsEnabled bool,
+func makeRPCOverWebsocket(
+	host string,
+	port uint16,
+	servers map[string]*jsonrpc.Server,
+	logger log.StructuredLogger,
+	metricsEnabled bool,
+	corsEnabled bool,
+	rpcRequestTimeout time.Duration,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -159,7 +166,8 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 
 	mux := http.NewServeMux()
 	for path, server := range servers {
-		wsHandler := jsonrpc.NewWebsocket(server, shutdown, logger)
+		wsHandler := jsonrpc.NewWebsocket(server, shutdown, logger).
+			WithRequestTimeout(rpcRequestTimeout)
 		if listener != nil {
 			wsHandler = wsHandler.WithListener(listener)
 		}
@@ -302,5 +310,15 @@ func (h *readinessHandlers) isSynced() bool {
 }
 
 func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *readinessHandlers) HandleReadyRPC(w http.ResponseWriter, r *http.Request) {
+	if _, err := h.bcReader.HeadsHeader(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(rpcNotReadyMessage)) //nolint:errcheck // best-effort body
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }

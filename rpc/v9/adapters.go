@@ -3,9 +3,9 @@ package rpcv9
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -158,12 +158,15 @@ func AdaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 		Feeder Adapters
 *****************************************************/
 
-func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(
+	transactions []core.Transaction,
+	blockTrace *starknet.BlockTrace,
+) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
 
-	if len(block.Transactions) != len(blockTrace.Traces) {
+	if len(transactions) != len(blockTrace.Traces) {
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
@@ -173,7 +176,7 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		feederTrace := &blockTrace.Traces[index]
 
 		trace := TransactionTrace{
-			Type: block.Transactions[index].Type,
+			Type: transactionTypeFrom(transactions[index]),
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
@@ -234,8 +237,8 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 
 		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.ToPtrSlice(snEvent.Keys),
-			Data:  utils.ToPtrSlice(snEvent.Data),
+			Keys:  snEvent.Keys,
+			Data:  snEvent.Data,
 		}
 	}
 
@@ -250,7 +253,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      &toAddr,
-			Payload: utils.ToPtrSlice(snMessage.Payload),
+			Payload: snMessage.Payload,
 		}
 	}
 

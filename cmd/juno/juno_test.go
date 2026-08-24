@@ -15,6 +15,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,9 @@ func parseURL(t *testing.T, rawURL string) *url.URL {
 
 func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	fdLimit, err := utils.MaxFDLimit()
 	require.NoError(t, err)
 
 	// The purpose of these tests is to ensure the precedence of our config
@@ -70,7 +74,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxRequestQueue := uint(256000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
-	defaultMaxHandles := 1024
+	defaultMaxHandles := max(int(min(fdLimit/2, 1_048_576)), 1024)
 	defaultDBMemtableSize := uint(256)
 	defaultDBMemtableCount := uint(2)
 	defaultDBCompression := "zstd"
@@ -81,9 +85,10 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 	defaultRPCRequestTimeout := 1 * time.Minute
-	defaultMaxConcurrentCompilations := uint(runtime.GOMAXPROCS(0))
-	defaultMaxCompilationQueue := 2 * defaultMaxConcurrentCompilations
+	defaultMaxConcurrentCompilations := uint64(0) // unset derives from memory and CPUs
+	defaultMaxCompilationQueue := uint64(0)       // unset derives from concurrency
 	defaultMaxCompilationMemory := uint(4 * 1024)
+	defaultNodeMemoryReserve := uint(4 * 1024)
 	defaultMaxCompilationCPUTime := uint(10)
 	if runtime.GOOS != "linux" {
 		// Limits are enforced on Linux only; PreRunE zeroes the unset
@@ -138,6 +143,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
 		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		NodeMemoryReserve:                  defaultNodeMemoryReserve,
 		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
@@ -187,6 +193,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
 		MaxCompilationMemory:               defaultMaxCompilationMemory,
+		NodeMemoryReserve:                  defaultNodeMemoryReserve,
 		MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 		PruneMinAge:                        defaultPruneMinAge,
 	}
@@ -196,6 +203,15 @@ func TestConfigPrecedence(t *testing.T) {
 	expectedExplicitCompilationLimits := expectedConfig2
 	expectedExplicitCompilationLimits.MaxCompilationMemory = 2048
 	expectedExplicitCompilationLimits.MaxCompilationCPUTime = 5
+
+	expectedNumericCompilationLimits := expectedConfig2
+	expectedNumericCompilationLimits.MaxConcurrentCompilations = 8
+	expectedNumericCompilationLimits.MaxConcurrentCompilationsExplicit = true
+	expectedNumericCompilationLimits.MaxCompilationQueue = 32
+	expectedNumericCompilationLimits.MaxCompilationQueueExplicit = true
+
+	expectedSyncDisabled := expectedConfig2
+	expectedSyncDisabled.DisableSync = true
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -237,11 +253,37 @@ cn-unverifiable-range: [0,10]
 			inputArgs:      []string{""},
 			expectedConfig: &expectedConfig2,
 		},
+		"sync disabled": {
+			inputArgs:      []string{"--disable-sync"},
+			expectedConfig: &expectedSyncDisabled,
+		},
+		"sync disabled in config file": {
+			cfgFile:         true,
+			cfgFileContents: "disable-sync: true\n",
+			expectedConfig:  &expectedSyncDisabled,
+		},
+		"sync disabled in environment": {
+			env:            []string{"JUNO_DISABLE_SYNC", "true"},
+			expectedConfig: &expectedSyncDisabled,
+		},
 		"explicit compilation limits survive": {
 			inputArgs: []string{
 				"--max-compilation-memory", "2048", "--max-compilation-cpu-time", "5",
 			},
 			expectedConfig: &expectedExplicitCompilationLimits,
+		},
+		"numeric compilation limits in config file": {
+			cfgFile: true,
+			cfgFileContents: `max-concurrent-compilations: 8
+max-compilation-queue: 32
+`,
+			expectedConfig: &expectedNumericCompilationLimits,
+		},
+		"numeric compilation limits via CLI": {
+			inputArgs: []string{
+				"--max-concurrent-compilations", "8", "--max-compilation-queue", "32",
+			},
+			expectedConfig: &expectedNumericCompilationLimits,
 		},
 		"config file path is empty string": {
 			inputArgs:      []string{"--config", ""},
@@ -310,6 +352,7 @@ pprof: true
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -365,6 +408,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -419,6 +463,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -473,6 +518,7 @@ http-port: 4576
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -551,6 +597,7 @@ db-cache-size: 1024
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -608,6 +655,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -661,6 +709,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -712,6 +761,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -764,6 +814,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -815,6 +866,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -868,6 +920,7 @@ network: sepolia
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
 				MaxCompilationMemory:               defaultMaxCompilationMemory,
+				NodeMemoryReserve:                  defaultNodeMemoryReserve,
 				MaxCompilationCPUTime:              defaultMaxCompilationCPUTime,
 				PruneMinAge:                        defaultPruneMinAge,
 			},
@@ -902,6 +955,24 @@ network: sepolia
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedConfig, config)
+		})
+	}
+}
+
+func TestDisableSyncFalseAllowsSyncDependentFlags(t *testing.T) {
+	tests := map[string][]string{
+		"sequencer":       {"--disable-sync=false", "--seq-enable"},
+		"p2p":             {"--disable-sync=false", "--p2p"},
+		"pruning":         {"--disable-sync=false", "--prune-mode"},
+		"remote database": {"--disable-sync=false", "--remote-db", "localhost:6064"},
+	}
+
+	for name, args := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := juno.NewCmd(new(node.Config), func(*cobra.Command, []string) error { return nil })
+			cmd.SetArgs(args)
+
+			require.NoError(t, cmd.ExecuteContext(t.Context()))
 		})
 	}
 }
@@ -974,6 +1045,64 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
 			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
+		})
+	}
+}
+
+// TestCompilationLimitExplicitDetection guarantees that the *Explicit flags
+// reflect whether each compilation-sizing flag was actually provided: absent
+// means false (derive), present means true (use as-is), independently per flag.
+func TestCompilationLimitExplicitDetection(t *testing.T) {
+	tests := map[string]struct {
+		args                  []string
+		expectedConcExplicit  bool
+		expectedQueueExplicit bool
+	}{
+		"neither provided": {
+			args:                  []string{},
+			expectedConcExplicit:  false,
+			expectedQueueExplicit: false,
+		},
+		"concurrency provided": {
+			args:                  []string{"--max-concurrent-compilations", "4"},
+			expectedConcExplicit:  true,
+			expectedQueueExplicit: false,
+		},
+		"queue provided": {
+			args:                  []string{"--max-compilation-queue", "8"},
+			expectedConcExplicit:  false,
+			expectedQueueExplicit: true,
+		},
+		"both provided": {
+			args: []string{
+				"--max-concurrent-compilations",
+				"4", "--max-compilation-queue",
+				"8",
+			},
+			expectedConcExplicit:  true,
+			expectedQueueExplicit: true,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(
+				config,
+				func(_ *cobra.Command, _ []string) error { return nil },
+			)
+			cmd.SetArgs(tc.args)
+
+			require.NoError(t, cmd.ExecuteContext(t.Context()))
+			assert.Equal(
+				t,
+				tc.expectedConcExplicit,
+				config.MaxConcurrentCompilationsExplicit,
+			)
+			assert.Equal(
+				t,
+				tc.expectedQueueExplicit,
+				config.MaxCompilationQueueExplicit,
+			)
 		})
 	}
 }

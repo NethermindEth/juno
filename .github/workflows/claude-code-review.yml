@@ -19,18 +19,20 @@ concurrency:
   cancel-in-progress: true
 jobs:
   review:
-    # Skip drafts and bot PRs (dependabot, etc.)
+    # Skip drafts, forks, and bots not on the allowlist.
+    # Keep the list in sync with allowed_bots below.
     if: |
       github.event.pull_request.draft == false &&
-      github.event.pull_request.user.type != 'Bot' &&
+      (github.event.pull_request.user.type != 'Bot' ||
+       contains(fromJSON('["infrmtcs-agent[bot]"]'), github.event.pull_request.user.login)) &&
       github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
         with:
           go-version-file: go.mod
           cache: false
@@ -43,6 +45,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: "infrmtcs-agent[bot]"
           model: claude-opus-4-7
           timeout_minutes: "20"
           track_progress: true

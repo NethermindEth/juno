@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -312,8 +311,8 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 
 		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.ToPtrSlice(snEvent.Keys),
-			Data:  utils.ToPtrSlice(snEvent.Data),
+			Keys:  snEvent.Keys,
+			Data:  snEvent.Data,
 		}
 	}
 
@@ -328,7 +327,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,
-			Payload: utils.ToPtrSlice(snMessage.Payload),
+			Payload: snMessage.Payload,
 		}
 	}
 

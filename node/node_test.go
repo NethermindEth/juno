@@ -11,6 +11,7 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
@@ -43,6 +44,7 @@ func TestNewNode(t *testing.T) {
 		P2PAddr:                            "",
 		P2PPeers:                           "",
 		SubmittedTransactionsCacheEntryTTL: time.Second,
+		// MaxConcurrentCompilations left unset (not Explicit) to exercise the auto-derive path.
 	}
 
 	logLevel := log.NewLevel(log.INFO)
@@ -52,6 +54,80 @@ func TestNewNode(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	n.Run(ctx)
+}
+
+func TestNewNodeWithSyncDisabled(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		HTTPPort:                           0,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		DisableSync:                        true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+	}
+
+	n, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	n.Run(ctx)
+}
+
+func TestNewNodeRunsOneAtATimeOnLowMemory(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		// MaxConcurrentCompilations left unset: derive, then floor to 1.
+		MaxCompilationMemory: 4096,
+		// Reserve more than the machine has, so nothing fits.
+		NodeMemoryReserve: uint(compiler.AvailableMemoryMB() + 4096),
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
+}
+
+func TestNewNodeSkipsDerivedConcurrency(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		MaxConcurrentCompilations:          2,
+		MaxConcurrentCompilationsExplicit:  true,
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
+}
+
+func TestNewNodeSkipsDerivedQueue(t *testing.T) {
+	config := &node.Config{
+		LogLevel:                           "info",
+		HTTP:                               true,
+		DatabasePath:                       t.TempDir(),
+		DBCompression:                      "zstd",
+		Network:                            networks.Sepolia,
+		DisableL1Verification:              true,
+		SubmittedTransactionsCacheEntryTTL: time.Second,
+		MaxCompilationQueue:                8,
+		MaxCompilationQueueExplicit:        true,
+	}
+
+	_, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+	require.NoError(t, err)
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
@@ -118,4 +194,36 @@ func TestNew_RejectsPruneWithoutL1Verification(t *testing.T) {
 		DisableL1Verification: true,
 	}, "test", log.NewLevel(log.INFO))
 	require.ErrorContains(t, err, "prune-mode requires L1 verification")
+}
+
+func TestNewRejectsModesThatRequireSynchronization(t *testing.T) {
+	tests := map[string]struct {
+		config    node.Config
+		errString string
+	}{
+		"sequencer": {
+			config:    node.Config{Sequencer: true},
+			errString: "disable-sync has no effect in sequencer mode",
+		},
+		"p2p": {
+			config:    node.Config{P2P: true},
+			errString: "p2p requires synchronization",
+		},
+		"pruning": {
+			config:    node.Config{Prune: true},
+			errString: "prune-mode requires synchronization",
+		},
+		"remote database": {
+			config:    node.Config{RemoteDB: "localhost:6064"},
+			errString: "remote-db cannot be combined with --disable-sync",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			test.config.DisableSync = true
+			_, err := node.New(&test.config, "test", log.NewLevel(log.INFO))
+			require.ErrorContains(t, err, test.errString)
+		})
+	}
 }

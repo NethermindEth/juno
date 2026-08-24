@@ -84,59 +84,6 @@ type Reader interface {
 
 var _ Reader = (*Client)(nil)
 
-func (c *Client) WithListener(l EventListener) *Client {
-	c.listener = l
-	return c
-}
-
-func (c *Client) WithBackoff(b Backoff) *Client {
-	c.backoff = b
-	return c
-}
-
-func (c *Client) WithMaxRetries(num int) *Client {
-	c.maxRetries = num
-	return c
-}
-
-func (c *Client) WithMaxWait(d time.Duration) *Client {
-	c.maxWait = d
-	return c
-}
-
-func (c *Client) WithMinWait(d time.Duration) *Client {
-	c.minWait = d
-	return c
-}
-
-func (c *Client) WithLogger(logger log.StructuredLogger) *Client {
-	c.logger = logger
-	return c
-}
-
-func (c *Client) WithUserAgent(ua string) *Client {
-	c.userAgent = ua
-	return c
-}
-
-func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
-	var newTimeouts *Timeouts
-	if len(timeouts) > 1 || fixed {
-		t := getFixedTimeouts(timeouts)
-		newTimeouts = &t
-	} else {
-		t := getDynamicTimeouts(timeouts[0])
-		newTimeouts = &t
-	}
-	c.timeouts.Store(newTimeouts)
-	return c
-}
-
-func (c *Client) WithAPIKey(key string) *Client {
-	c.apiKey = key
-	return c
-}
-
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
@@ -145,21 +92,42 @@ func NopBackoff(d time.Duration) time.Duration {
 	return 0
 }
 
-func NewClient(clientURL *url.URL) *Client {
+func NewClient(clientURL *url.URL, opts ...Option) *Client {
 	defaultTimeouts := getDefaultFixedTimeouts()
-
-	client := &Client{
-		url:        clientURL,
-		client:     http.DefaultClient,
+	o := options{
+		httpClient: http.DefaultClient,
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
 		minWait:    500 * time.Millisecond,
 		logger:     log.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
+		timeouts:   &defaultTimeouts,
 	}
-	client.timeouts.Store(&defaultTimeouts)
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	client := &Client{
+		url:        clientURL,
+		client:     o.httpClient,
+		backoff:    o.backoff,
+		maxRetries: o.maxRetries,
+		maxWait:    o.maxWait,
+		minWait:    o.minWait,
+		logger:     o.logger,
+		userAgent:  o.userAgent,
+		apiKey:     o.apiKey,
+		listener:   o.listener,
+	}
+	client.timeouts.Store(o.timeouts)
 	return client
+}
+
+// SetTimeouts atomically replaces the timeouts of a live client.
+// It is used by the PUT /feeder/timeouts endpoint.
+func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
+	c.timeouts.Store(makeTimeouts(timeouts, fixed))
 }
 
 // get performs a "GET" http request with the given URL and returns the response body

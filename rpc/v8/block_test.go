@@ -126,7 +126,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	handler := rpc.New(mockReader, nil, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
+		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
 
 		block, err := handler.BlockHashAndNumber()
 		assert.Nil(t, block)
@@ -145,7 +145,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 			Number: expectedBlock.Number,
 		}
 
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
+		mockReader.EXPECT().HeadsHeader().Return(expectedBlock.Header, nil)
 
 		hashAndNum, rpcErr := handler.BlockHashAndNumber()
 		require.Nil(t, rpcErr)
@@ -237,8 +237,8 @@ func TestBlockTransactionCount(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		expectedCount := uint64(0)
 		count, rpcErr := handler.BlockTransactionCount(blockIDPending(t))
@@ -377,8 +377,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil).Times(2)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
@@ -596,8 +596,8 @@ func TestBlockWithTxs(t *testing.T) {
 			Hash:   felt.NewUnsafeFromString[felt.Felt]("0xFFFF"),
 			Number: latestBlock.Number + 1 - 10,
 		}
-		mockReader.EXPECT().BlockHeaderByNumber(blockToRegisterHash.Number).
-			Return(&blockToRegisterHash, nil).Times(2)
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockToRegisterHash.Number).
+			Return(blockToRegisterHash.Hash, nil).Times(2)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
@@ -659,7 +659,7 @@ func TestBlockWithTxs_TxnsFetchError(t *testing.T) {
 	})
 }
 
-func TestBlockWithTxHashesV013(t *testing.T) {
+func TestBlockWithTxsV013(t *testing.T) {
 	n := new(networks.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

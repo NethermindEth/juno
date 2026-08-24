@@ -647,7 +647,7 @@ func BenchmarkHandle(b *testing.B) {
 		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
 	}))
 
-	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	const request = `{"jsonrpc":"2.0","id":1,"method":"bench"}`
 	var header http.Header
 	var err error
 
@@ -707,7 +707,9 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 	require.NotNil(t, header)
 }
 
-type fakeConn struct{}
+type fakeConn struct {
+	ctx context.Context
+}
 
 func (fc *fakeConn) Write(p []byte) (int, error) {
 	return 0, nil
@@ -715,6 +717,10 @@ func (fc *fakeConn) Write(p []byte) (int, error) {
 
 func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 	return false
+}
+
+func (fc *fakeConn) Context() context.Context {
+	return fc.ctx
 }
 
 func TestWriteToConnInHandler(t *testing.T) {
@@ -745,7 +751,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, serverConn)
 		require.NoError(t, err)
 	})
 
@@ -782,7 +788,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, serverConn)
 		require.ErrorIs(t, err, io.ErrClosedPipe)
 	})
 

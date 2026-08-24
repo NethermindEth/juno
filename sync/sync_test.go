@@ -12,7 +12,9 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -24,6 +26,11 @@ import (
 )
 
 const timeout = time.Second
+
+func TestNoopSynchronizerPreConfirmedChain(t *testing.T) {
+	_, err := new(sync.NoopSynchronizer).PreConfirmedChain()
+	require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
+}
 
 func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -181,6 +188,165 @@ func TestSyncBlocks(t *testing.T) {
 	})
 }
 
+func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+
+	startingHeader := &core.Header{Number: 1, Hash: felt.NewFromUint64[felt.Felt](1)}
+	require.NoError(t, core.WriteChainHeight(testDB, 0))
+	require.NoError(t, core.WriteBlockHeaderByNumber(testDB, startingHeader))
+
+	dataSource := newTestBlockDataSource()
+	dataSource.setBlocks([]sync.CommittedBlock{
+		{Block: &core.Block{Header: &core.Header{Number: 0}}},
+		{Block: &core.Block{Header: startingHeader}},
+		{Block: &core.Block{Header: &core.Header{Number: 2, Hash: felt.NewFromUint64[felt.Felt](2)}}},
+	})
+
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		header, err := synchronizer.StartingBlockHeader()
+		assert.NoError(c, err)
+		assert.Equal(c, startingHeader, header)
+	}, timeout, 10*time.Millisecond)
+
+	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, startingHeader.Number))
+	header, err := synchronizer.StartingBlockHeader()
+	require.NoError(t, err)
+	require.Equal(t, startingHeader, header)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
+func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
+
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		false,
+		testDB,
+	)
+
+	storedStartingBlock := make(chan struct{}, 1)
+	synchronizer.WithListener(&sync.SelectiveListener{
+		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
+			if op == sync.OpStore && blockNum == 0 {
+				storedStartingBlock <- struct{}{}
+			}
+		},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	select {
+	case <-storedStartingBlock:
+	case <-time.After(timeout):
+		t.Fatal("starting block was not stored")
+	}
+
+	// Delete before canceling because sync shutdown clears the cached starting header.
+	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, block0.Number))
+	header, err := synchronizer.StartingBlockHeader()
+	require.NoError(t, err)
+	require.Equal(t, block0.Header, header)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
+func TestStartingBlockHeaderNotRunning(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	synchronizer := sync.New(
+		bc,
+		newTestBlockDataSource(),
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+
+	header, err := synchronizer.StartingBlockHeader()
+	require.Error(t, err)
+	require.Nil(t, header)
+}
+
+func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(
+		testDB,
+		&networks.Mainnet,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	dataSource := newTestBlockDataSource()
+	dataSource.setBlocks([]sync.CommittedBlock{
+		{Block: &core.Block{Header: &core.Header{Number: 0, Hash: felt.NewFromUint64[felt.Felt](0)}}},
+	})
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		time.Duration(0),
+		true,
+		testDB,
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		done <- synchronizer.Run(ctx)
+	}()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.NotNil(c, synchronizer.HighestBlockHeader())
+	}, timeout, 10*time.Millisecond)
+
+	header, err := synchronizer.StartingBlockHeader()
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+	require.Nil(t, header)
+
+	cancel()
+	require.NoError(t, <-done)
+}
+
 func TestReorg(t *testing.T) {
 	mainClient := feeder.NewTestClient(t, &networks.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
@@ -293,9 +459,9 @@ func TestPreConfirmed(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	// Store→Read round-trip coverage lives in TestPreConfirmedStorage_RoundTrip
-	// (sync/pending_polling_test.go), where it can exercise the public storage
-	// methods directly without a Synchronizer shim.
+	// The stored-snapshot fast path is covered by
+	// TestPreConfirmedChainReturnsStoredSnapshot (preconfirmed_chain_test.go),
+	// which fills the storage through Run's pre-confirmed poller.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()

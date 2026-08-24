@@ -70,6 +70,10 @@ type response struct {
 	ID      any    `json:"id"`
 }
 
+func errResponse(code int, data any) response {
+	return response{Version: "2.0", Error: Err(code, data)}
+}
+
 type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -248,11 +252,13 @@ func (s *Server) registerMethod(method Method) error {
 type Conn interface {
 	io.Writer
 	Equal(Conn) bool
+	Context() context.Context
 }
 
 type connection struct {
 	w         io.Writer
 	activated <-chan struct{}
+	ctx       context.Context
 
 	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
 	initialErr error
@@ -276,6 +282,10 @@ func (c *connection) Equal(other Conn) bool {
 	return c.w == c2.w
 }
 
+func (c *connection) Context() context.Context {
+	return c.ctx
+}
+
 // ConnKey the key used to retrieve the connection from the context passed to a handler.
 // It is exported to allow transports to set it manually if they decide not to use HandleReadWriter, which sets it automatically.
 // Manually setting the connection can be especially useful when testing handlers.
@@ -296,14 +306,31 @@ func ConnFromContext(ctx context.Context) (Conn, bool) {
 // HandleReadWriter permits methods to send messages on the connection after the server sends the initial response.
 // rw must permit concurrent writes.
 // A non-nil error indicates the initial response could not be sent, and that no method will be able to write the connection.
-func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
+func (s *Server) HandleReadWriter(
+	connCtx context.Context,
+	requestTimeout time.Duration,
+	rw io.ReadWriter,
+) error {
 	activated := make(chan struct{})
 	defer close(activated)
 	conn := &connection{
 		w:         rw.(io.Writer),
 		activated: activated,
+		ctx:       connCtx,
 	}
-	msgCtx := context.WithValue(ctx, ConnKey{}, conn)
+
+	var (
+		requestCtx context.Context
+		cancel     context.CancelFunc
+	)
+	if requestTimeout > 0 {
+		requestCtx, cancel = context.WithTimeout(connCtx, requestTimeout)
+	} else {
+		requestCtx, cancel = context.WithCancel(connCtx)
+	}
+	defer cancel()
+
+	msgCtx := context.WithValue(requestCtx, ConnKey{}, conn)
 	// header is unnecessary for read-writer(websocket)
 	resp, _, err := s.HandleReader(msgCtx, rw)
 	if err != nil {
@@ -326,11 +353,9 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	var errorRecoverBuffer windowBuffer
 	bufferedReader := bufio.NewReaderSize(io.TeeReader(reader, &errorRecoverBuffer), bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
-	resp := &response{
-		Version: "2.0",
-	}
 
-	header := http.Header{}
+	var resp *response
+	var header http.Header
 
 	dec := json.NewDecoder(bufferedReader)
 	dec.UseNumber()
@@ -338,12 +363,12 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
+			resp = new(errResponse(InvalidRequest, handleErr.Error()))
 			if !errors.Is(handleErr, ErrInvalidID) {
 				resp.ID = req.ID
 			}
-			resp.Error = Err(InvalidRequest, handleErr.Error())
 			header = httpHeader
 		} else {
 			resp = resObject
@@ -353,14 +378,18 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp.Error = Err(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr))
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
 		} else if len(batchReq) == 0 {
-			resp.Error = Err(InvalidRequest, "empty batch")
+			resp = new(errResponse(InvalidRequest, "empty batch"))
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
 	} else {
-		resp.Error = Err(InvalidRequest, "batch requests are disabled")
+		resp = new(errResponse(InvalidRequest, "batch requests are disabled"))
+	}
+
+	if header == nil {
+		header = http.Header{}
 	}
 
 	if resp == nil {
@@ -399,10 +428,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
-			addResponse(&response{
-				Version: "2.0",
-				Error:   Err(InvalidRequest, err.Error()),
-			}, http.Header{})
+			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
 			continue
 		}
 
@@ -412,10 +438,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
-				resp = &response{
-					Version: "2.0",
-					Error:   Err(InvalidRequest, err.Error()),
-				}
+				resp = new(errResponse(InvalidRequest, err.Error()))
 				if !errors.Is(err, ErrInvalidID) {
 					resp.ID = req.ID
 				}
@@ -524,7 +547,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	errorIndex := 1
 	if len(tuple) == 3 {
 		errorIndex = 2
-		header = (tuple[1].Interface()).(http.Header)
+		header = tuple[1].Interface().(http.Header)
 	}
 
 	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {

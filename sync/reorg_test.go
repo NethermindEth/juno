@@ -79,6 +79,13 @@ func (t *testBlockDataSource) PreConfirmedBlockLatest(
 	return nil, 0, errors.New("not implemented")
 }
 
+func (t *testBlockDataSource) Class(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (core.ClassDefinition, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (t *testBlockDataSource) setBlocks(blocks []sync.CommittedBlock) {
 	(*atomic.Value)(t).Store(blocks)
 }

@@ -1,6 +1,7 @@
 package deprecatedstate_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -194,6 +195,13 @@ func TestStateHistory(t *testing.T) {
 		})
 	})
 
+	t.Run("unset slot on deployed contract returns zero", func(t *testing.T) {
+		unsetKey := felt.NewFromUint64[felt.Felt](999)
+		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, unsetKey)
+		require.NoError(t, err)
+		require.Equal(t, felt.Zero, storage)
+	})
+
 	t.Run(
 		"deprecated state history trie methods return ErrHistoricalTrieNotSupported",
 		func(t *testing.T) {
@@ -205,5 +213,125 @@ func TestStateHistory(t *testing.T) {
 
 			_, err = snapshotAtDeployment.ContractStorageTrie(&addrFelt)
 			require.ErrorIs(t, err, deprecatedstate.ErrHistoricalTrieNotSupported)
+		},
+	)
+}
+
+func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
+	state := deprecatedstate.New(txn)
+
+	addr := felt.NewFromUint64[felt.Felt](1)
+	storageKey := felt.NewFromUint64[felt.Felt](2)
+	classHash := felt.NewFromUint64[felt.Felt](10)
+	initialValue := felt.NewFromUint64[felt.Felt](100)
+	updatedValue := felt.NewFromUint64[felt.Felt](200)
+
+	deployedHeight := uint64(3)
+	changeHeight := uint64(10)
+
+	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {*storageKey: initialValue},
+			},
+		},
+	}, nil, true))
+
+	root, err := state.Commitment("")
+	require.NoError(t, err)
+
+	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
+		OldRoot: &root,
+		NewRoot: &felt.Zero,
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {*storageKey: updatedValue},
+			},
+		},
+	}, nil, true))
+
+	require.NoError(t, txn.Delete(db.ContractDeploymentHeightKey(addr)))
+
+	t.Run("value from history entry", func(t *testing.T) {
+		snapshot := deprecatedstate.NewHistory(state, deployedHeight)
+		storage, err := snapshot.ContractStorage(addr, storageKey)
+		require.NoError(t, err)
+		require.Equal(t, *initialValue, storage)
+	})
+
+	t.Run("value from head fallback", func(t *testing.T) {
+		snapshot := deprecatedstate.NewHistory(state, changeHeight)
+		storage, err := snapshot.ContractStorage(addr, storageKey)
+		require.NoError(t, err)
+		require.Equal(t, *updatedValue, storage)
+	})
+
+	// The zero branch must still probe, otherwise the two sub-tests above would
+	// pass with the probe removed altogether rather than skipped for non-zero values.
+	t.Run("zero value still probes deployment", func(t *testing.T) {
+		unsetKey := felt.NewFromUint64[felt.Felt](999)
+		snapshot := deprecatedstate.NewHistory(state, changeHeight)
+		_, err := snapshot.ContractStorage(addr, unsetKey)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+// errInjected is the failure the batch wrappers below inject.
+var errInjected = errors.New("injected db failure")
+
+// iterFailBatch fails the storage history lookup, which reads through an iterator.
+type iterFailBatch struct {
+	db.IndexedBatch
+}
+
+func (iterFailBatch) NewIterator([]byte, bool) (db.Iterator, error) {
+	return nil, errInjected
+}
+
+// getFailBatch fails the head state read, which reads trie nodes through Get.
+type getFailBatch struct {
+	db.IndexedBatch
+}
+
+func (getFailBatch) Get([]byte, func([]byte) error) error {
+	return errInjected
+}
+
+func TestContractStorageWrapsDBFailures(t *testing.T) {
+	testDB := memory.New()
+
+	addr := felt.NewFromUint64[felt.Felt](1)
+	storageKey := felt.NewFromUint64[felt.Felt](2)
+
+	tests := []struct {
+		name    string
+		state   *deprecatedstate.State
+		wantMsg string
+	}{
+		{
+			name:    "history lookup",
+			state:   deprecatedstate.New(iterFailBatch{testDB.NewIndexedBatch()}),
+			wantMsg: "reading storage history",
+		},
+		{
+			// An empty state holds no history entry, so the lookup falls back to the
+			// head state and reaches the failing Get.
+			name:    "head state fallback",
+			state:   deprecatedstate.New(getFailBatch{testDB.NewIndexedBatch()}),
+			wantMsg: "reading head storage",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := deprecatedstate.NewHistory(test.state, 1).ContractStorage(addr, storageKey)
+			require.ErrorIs(t, err, errInjected)
+			require.ErrorContains(t, err, test.wantMsg)
 		})
+	}
 }

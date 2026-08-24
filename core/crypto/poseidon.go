@@ -72,14 +72,10 @@ func Poseidon(x, y *felt.Felt) felt.Felt {
 	return state[0]
 }
 
-// PoseidonArray calculates Poseidon hash over elems
-// If len(elems) is odd, pads with [1]
-// If len(elems) is even, pads with [1, 0]
-//
-// PoseidonArray implements [Poseidon array hashing].
-//
-// [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
-func PoseidonArray(elems ...*felt.Felt) felt.Felt {
+// PoseidonElems is the pointer-element variant of [PoseidonArray], for
+// callers that already hold a []*felt.Felt (e.g. transaction hashing) and would
+// otherwise pay a copy to convert into a value slice.
+func PoseidonElems(elems ...*felt.Felt) felt.Felt {
 	state := [3]felt.Felt{}
 
 	for i := range len(elems) / 2 {
@@ -91,6 +87,32 @@ func PoseidonArray(elems ...*felt.Felt) felt.Felt {
 	rem := len(elems) % 2
 	if rem == 1 {
 		state[0].Add(&state[0], elems[len(elems)-1])
+	}
+	state[rem].Add(&state[rem], &felt.One)
+	HadesPermutation(&state)
+
+	return state[0]
+}
+
+// PoseidonArray calculates Poseidon hash over elems
+// If len(elems) is odd, pads with [1]
+// If len(elems) is even, pads with [1, 0]
+//
+// PoseidonArray implements [Poseidon array hashing].
+//
+// [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
+func PoseidonArray(elems []felt.Felt) felt.Felt {
+	state := [3]felt.Felt{}
+
+	for i := range len(elems) / 2 {
+		state[0].Add(&state[0], &elems[2*i])
+		state[1].Add(&state[1], &elems[2*i+1])
+		HadesPermutation(&state)
+	}
+
+	rem := len(elems) % 2
+	if rem == 1 {
+		state[0].Add(&state[0], &elems[len(elems)-1])
 	}
 	state[rem].Add(&state[rem], &felt.One)
 	HadesPermutation(&state)
@@ -131,6 +153,21 @@ type PoseidonDigest struct {
 	state    [3]felt.Felt
 	lastElem felt.Felt
 	hasLast  bool
+}
+
+func (d *PoseidonDigest) UpdateArray(elems []felt.Felt) Digest {
+	for idx := range elems {
+		if !d.hasLast {
+			d.lastElem = elems[idx]
+			d.hasLast = true
+		} else {
+			d.state[0].Add(&d.state[0], &d.lastElem)
+			d.state[1].Add(&d.state[1], &elems[idx])
+			HadesPermutation(&d.state)
+			d.hasLast = false
+		}
+	}
+	return d
 }
 
 func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {

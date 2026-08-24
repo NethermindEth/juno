@@ -14,8 +14,12 @@ func (h *Hash) UnmarshalJSON(data []byte) error {
 	return (*Felt)(h).UnmarshalJSON(data)
 }
 
-func (h Hash) MarshalJSON() ([]byte, error) {
-	return Felt(h).MarshalJSON()
+func (h Hash) MarshalText() ([]byte, error) {
+	return Felt(h).MarshalText()
+}
+
+func (h Hash) AppendText(data []byte) ([]byte, error) {
+	return Felt(h).AppendText(data)
 }
 
 func (h *Hash) Marshal() []byte {
@@ -40,8 +44,12 @@ func (h *ClassHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h ClassHash) MarshalJSON() ([]byte, error) {
-	return Hash(h).MarshalJSON()
+func (h ClassHash) MarshalText() ([]byte, error) {
+	return Hash(h).MarshalText()
+}
+
+func (h ClassHash) AppendText(data []byte) ([]byte, error) {
+	return Hash(h).AppendText(data)
 }
 
 func (h *ClassHash) Marshal() []byte {
@@ -66,8 +74,12 @@ func (h *SierraClassHash) UnmarshalJSON(data []byte) error {
 	return (*ClassHash)(h).UnmarshalJSON(data)
 }
 
-func (h SierraClassHash) MarshalJSON() ([]byte, error) {
-	return ClassHash(h).MarshalJSON()
+func (h SierraClassHash) MarshalText() ([]byte, error) {
+	return ClassHash(h).MarshalText()
+}
+
+func (h SierraClassHash) AppendText(data []byte) ([]byte, error) {
+	return ClassHash(h).AppendText(data)
 }
 
 func (h *SierraClassHash) Marshal() []byte {
@@ -92,8 +104,12 @@ func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
 	return (*ClassHash)(h).UnmarshalJSON(data)
 }
 
-func (h CasmClassHash) MarshalJSON() ([]byte, error) {
-	return ClassHash(h).MarshalJSON()
+func (h CasmClassHash) MarshalText() ([]byte, error) {
+	return ClassHash(h).MarshalText()
+}
+
+func (h CasmClassHash) AppendText(data []byte) ([]byte, error) {
+	return ClassHash(h).AppendText(data)
 }
 
 func (h *CasmClassHash) Marshal() []byte {
@@ -118,8 +134,12 @@ func (h *TransactionHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h TransactionHash) MarshalJSON() ([]byte, error) {
-	return Hash(h).MarshalJSON()
+func (h TransactionHash) MarshalText() ([]byte, error) {
+	return Hash(h).MarshalText()
+}
+
+func (h TransactionHash) AppendText(data []byte) ([]byte, error) {
+	return Hash(h).AppendText(data)
 }
 
 func (h *TransactionHash) Marshal() []byte {
@@ -144,8 +164,12 @@ func (h *StateRootHash) UnmarshalJSON(data []byte) error {
 	return (*Hash)(h).UnmarshalJSON(data)
 }
 
-func (h StateRootHash) MarshalJSON() ([]byte, error) {
-	return Hash(h).MarshalJSON()
+func (h StateRootHash) MarshalText() ([]byte, error) {
+	return Hash(h).MarshalText()
+}
+
+func (h StateRootHash) AppendText(data []byte) ([]byte, error) {
+	return Hash(h).AppendText(data)
 }
 
 func (h *StateRootHash) Marshal() []byte {

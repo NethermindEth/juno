@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -27,12 +28,12 @@ type AddTxGatewayPayload struct {
 	Proof         core.Base64     `json:"proof,omitempty"`
 }
 
-// AdaptCoreTransaction adapts a core.Transaction to a local *Transaction.
-func AdaptCoreTransaction(t core.Transaction) *Transaction {
-	var txn *Transaction
+// AdaptCoreTransaction adapts a core.Transaction to a local Transaction.
+func AdaptCoreTransaction(t core.Transaction) Transaction {
+	var txn Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
-		txn = &Transaction{
+		txn = Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -51,7 +52,7 @@ func AdaptCoreTransaction(t core.Transaction) *Transaction {
 		if nonce == nil {
 			nonce = &felt.Zero
 		}
-		txn = &Transaction{
+		txn = Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version.AsFelt(),
@@ -119,12 +120,12 @@ func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet
 		ContractAddress:       rpcTx.ContractAddress,
 		ContractAddressSalt:   rpcTx.ContractAddressSalt,
 		ClassHash:             rpcTx.ClassHash,
-		ConstructorCallData:   rpcTx.ConstructorCallData,
+		ConstructorCallData:   (*[]felt.Felt)(rpcTx.ConstructorCallData),
 		Type:                  starknet.TransactionType(rpcTx.Type),
 		SenderAddress:         rpcTx.SenderAddress,
 		MaxFee:                rpcTx.MaxFee,
-		Signature:             rpcTx.Signature,
-		CallData:              rpcTx.CallData,
+		Signature:             (*[]felt.Felt)(rpcTx.Signature),
+		CallData:              (*[]felt.Felt)(rpcTx.CallData),
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
@@ -132,34 +133,24 @@ func AdaptBroadcastedTransactionToFeeder(rpcTx *BroadcastedTransaction) starknet
 		Tip:                   rpcTx.Tip,
 		NonceDAMode:           (*starknet.DataAvailabilityMode)(rpcTx.NonceDAMode),
 		FeeDAMode:             (*starknet.DataAvailabilityMode)(rpcTx.FeeDAMode),
-		AccountDeploymentData: rpcTx.AccountDeploymentData,
-		PaymasterData:         rpcTx.PaymasterData,
+		AccountDeploymentData: (*[]felt.Felt)(rpcTx.AccountDeploymentData),
+		PaymasterData:         (*[]felt.Felt)(rpcTx.PaymasterData),
 		ProofFacts:            rpcTx.ProofFacts,
 	}
 }
 
-// AdaptReceipt adapts a receipt and transaction into a local *TransactionReceipt.
-// todo(rdr): TransactionReceipt should be returned by value
+// AdaptReceipt adapts a receipt and transaction into a TransactionReceipt.
 func AdaptReceipt(
 	receipt *core.TransactionReceipt,
 	txn core.Transaction,
 	finalityStatus TxnFinalityStatus,
-) *TransactionReceipt {
-	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+) TransactionReceipt {
+	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
-		messages[idx] = &MsgToL1{
+		messages[idx] = MsgToL1{
 			To:      msg.To,
 			Payload: msg.Payload,
 			From:    msg.From,
-		}
-	}
-
-	events := make([]*Event, len(receipt.Events))
-	for idx, event := range receipt.Events {
-		events[idx] = &Event{
-			From: event.From,
-			Keys: event.Keys,
-			Data: event.Data,
 		}
 	}
 
@@ -181,14 +172,20 @@ func AdaptReceipt(
 		es = TxnSuccess
 	}
 
-	return &TransactionReceipt{
+	// Zero-copy: rpc.Event is field-identical to core.Event (guarded in events.go), so the decoded
+	// []*core.Event is reinterpreted as []*Event reusing the same backing array (no copy).
+	events := *(*[]*Event)(unsafe.Pointer(&receipt.Events))
+	if events == nil {
+		events = []*Event{}
+	}
+	return TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            AdaptCoreTransaction(txn).Type,
+		Type:            transactionTypeFrom(txn),
 		Hash:            txn.Hash(),
-		ActualFee: &FeePayment{
+		ActualFee: FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
+			Unit:   feeUnitFromTransactionVersion(txn.TxVersion()),
 		},
 		MessagesSent:       messages,
 		Events:             events,
@@ -206,13 +203,12 @@ func AdaptReceiptWithBlockInfo(
 	finalityStatus TxnFinalityStatus,
 	blockHash *felt.Felt,
 	blockNumber uint64,
-) *TransactionReceipt {
-	adaptedReceipt := AdaptReceipt(receipt, txn, finalityStatus)
-
-	adaptedReceipt.BlockNumber = &blockNumber
-	adaptedReceipt.BlockHash = blockHash
-
-	return adaptedReceipt
+) TransactionReceiptWithBlockInfo {
+	return TransactionReceiptWithBlockInfo{
+		TransactionReceipt: AdaptReceipt(receipt, txn, finalityStatus),
+		BlockHash:          blockHash,
+		BlockNumber:        blockNumber,
+	}
 }
 
 func AdaptTransactionStatus(
@@ -256,13 +252,13 @@ func AdaptTransactionStatus(
 	return status, nil
 }
 
-func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
-	tx := &Transaction{
+func adaptInvokeTransaction(t *core.InvokeTransaction) Transaction {
+	tx := Transaction{
 		Type:               TxnInvoke,
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
 		Version:            t.Version.AsFelt(),
-		Signature:          new(t.Signature()),
+		Signature:          &t.TransactionSignature,
 		Nonce:              t.Nonce,
 		CallData:           &t.CallData,
 		ContractAddress:    t.ContractAddress,
@@ -285,13 +281,13 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
-	tx := &Transaction{
+func adaptDeclareTransaction(t *core.DeclareTransaction) Transaction {
+	tx := Transaction{
 		Hash:              t.Hash(),
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
 		Version:           t.Version.AsFelt(),
-		Signature:         new(t.Signature()),
+		Signature:         &t.TransactionSignature,
 		Nonce:             t.Nonce,
 		ClassHash:         t.ClassHash,
 		SenderAddress:     t.SenderAddress,
@@ -310,12 +306,12 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
-	tx := &Transaction{
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) Transaction {
+	tx := Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
-		Signature:           new(t.Signature()),
+		Signature:           &t.TransactionSignature,
 		Nonce:               t.Nonce,
 		Type:                TxnDeployAccount,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -351,7 +347,7 @@ func adaptContractClassToStarknet(class *ContractClass) starknet.SierraClass {
 	return starknet.SierraClass{
 		Abi:     class.ABI,
 		Version: class.ContractClassVersion,
-		Program: utils.ToPtrSlice(class.SierraProgram),
+		Program: class.SierraProgram,
 		EntryPoints: starknet.SierraEntryPoints{
 			Constructor: handleEntryPoints(class.EntryPoints.Constructor),
 			External:    handleEntryPoints(class.EntryPoints.External),

@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -12,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/pruner"
 )
 
 type L1HeadSubscription struct {
@@ -40,7 +42,9 @@ type Reader interface {
 
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
+	BlockHeaderHashByNumber(number uint64) (blockHash *felt.Felt, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
+	BlockTransactionCountByNumber(number uint64) (count uint64, err error)
 
 	BlockNumberByHash(hash *felt.Felt) (uint64, error)
 	BlockNumberAndIndexByTxHash(
@@ -52,13 +56,27 @@ type Reader interface {
 		blockNumber, index uint64,
 	) (transaction core.Transaction, err error)
 	TransactionsByBlockNumber(blockNumber uint64) (transactions []core.Transaction, err error)
+	TransactionsAndReceiptsByBlockNumber(blockNumber uint64) (
+		transactions []core.Transaction,
+		receipts []*core.TransactionReceipt,
+		err error,
+	)
+	TransactionHashesByBlockNumber(blockNumber uint64) (hashes []felt.Felt, err error)
 
 	Receipt(
 		hash *felt.Felt,
 	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
-	ReceiptByBlockNumberAndIndex(
+	TransactionAndReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
-	) (receipt core.TransactionReceipt, blockHash *felt.Felt, err error)
+	) (
+		transaction core.Transaction,
+		receipt core.TransactionReceipt,
+		blockHash *felt.Felt,
+		err error,
+	)
+	TransactionExecutionStatusByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (status core.TransactionExecutionStatus, err error)
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -105,6 +123,7 @@ type options struct {
 	listener                EventListener
 	stateVersion            bool
 	runningFilterInitialize core.RunningEventFilterInitializer
+	retentionFloor          *pruner.RetentionFloor
 }
 
 // Option is a functional option for configuring Blockchain options.
@@ -132,11 +151,21 @@ func WithRunningEventFilterInitializer(initialize core.RunningEventFilterInitial
 	}
 }
 
+// WithRetentionFloor shares a seeded retention floor (see
+// [pruner.NewRetentionFloor]) with the state backend, so retention checks
+// skip the database. The default unseeded floor probes the database instead.
+func WithRetentionFloor(floor *pruner.RetentionFloor) Option {
+	return func(o *options) {
+		o.retentionFloor = floor
+	}
+}
+
 func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *Blockchain {
 	o := options{
 		listener:                &SelectiveListener{},
 		stateVersion:            false,
 		runningFilterInitialize: core.InitializeRunningEventFilter,
+		retentionFloor:          &pruner.RetentionFloor{},
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -161,6 +190,7 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 			database,
 			runningFilter,
 			network,
+			o.retentionFloor,
 			o.stateVersion,
 		),
 	}
@@ -204,6 +234,21 @@ func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 	b.listener.OnRead("BlockHeaderByNumber")
 	return core.GetBlockHeaderByNumber(b.database, number)
+}
+
+func (b *Blockchain) BlockTransactionCountByNumber(number uint64) (uint64, error) {
+	b.listener.OnRead("BlockTransactionCountByNumber")
+	return core.GetBlockTransactionCountByNumber(b.database, number)
+}
+
+func (b *Blockchain) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockHeaderHashByNumber")
+	return core.GetBlockHeaderHashByNumber(b.database, number)
+}
+
+func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("GlobalStateRootByBlockNumber")
+	return core.GetGlobalStateRootByBlockNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
@@ -259,6 +304,14 @@ func (b *Blockchain) TransactionsByBlockNumber(number uint64) ([]core.Transactio
 	return core.GetTransactionsByBlockNumber(b.database, number)
 }
 
+// TransactionsAndReceiptsByBlockNumber gets all transactions and receipts for a given block number
+func (b *Blockchain) TransactionsAndReceiptsByBlockNumber(
+	number uint64,
+) ([]core.Transaction, []*core.TransactionReceipt, error) {
+	b.listener.OnRead("TransactionsAndReceiptsByBlockNumber")
+	return core.GetTransactionsAndReceiptsByBlockNumber(b.database, number)
+}
+
 // BlockNumberAndIndexByTxHash gets transaction block number and index by Tx hash
 func (b *Blockchain) BlockNumberAndIndexByTxHash(
 	hash *felt.TransactionHash,
@@ -275,7 +328,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	txHash := (*felt.TransactionHash)(hash)
 	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("locating transaction %v: %w", hash, err)
 	}
 
 	receipt, err := core.GetReceiptByBlockAndIndex(
@@ -284,33 +337,59 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		bnIndex.Index,
 	)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf(
+			"reading receipt at block number %d and index %d: %w",
+			bnIndex.Number, bnIndex.Index, err,
+		)
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, bnIndex.Number)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, 0, fmt.Errorf("reading hash of block %d: %w", bnIndex.Number, err)
 	}
 
-	return receipt, header.Hash, header.Number, nil
+	return receipt, blockHash, bnIndex.Number, nil
 }
 
-func (b *Blockchain) ReceiptByBlockNumberAndIndex(
+// TransactionAndReceiptByBlockNumberAndIndex returns a transaction, its receipt and the hash of
+// the block holding them.
+func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
 	blockNumber, index uint64,
-) (core.TransactionReceipt, *felt.Felt, error) {
-	b.listener.OnRead("ReceiptByBlockNumberAndIndex")
+) (core.Transaction, core.TransactionReceipt, *felt.Felt, error) {
+	b.listener.OnRead("TransactionAndReceiptByBlockNumberAndIndex")
 
-	receipt, err := core.GetReceiptByBlockAndIndex(b.database, blockNumber, index)
+	transaction, receipt, err := core.GetTransactionAndReceiptByBlockAndIndex(
+		b.database, blockNumber, index,
+	)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading transaction and receipt at block number %d and index %d: %w",
+			blockNumber, index, err,
+		)
 	}
 
-	header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(b.database, blockNumber)
 	if err != nil {
-		return core.TransactionReceipt{}, nil, err
+		return nil, core.TransactionReceipt{}, nil, fmt.Errorf(
+			"reading hash of block %d: %w", blockNumber, err,
+		)
 	}
 
-	return *receipt, header.Hash, nil
+	return transaction, *receipt, blockHash, nil
+}
+
+// TransactionHashesByBlockNumber returns the transaction hashes of a given block.
+func (b *Blockchain) TransactionHashesByBlockNumber(number uint64) ([]felt.Felt, error) {
+	b.listener.OnRead("TransactionHashesByBlockNumber")
+	return core.GetTransactionHashesByBlockNumber(b.database, number)
+}
+
+// TransactionExecutionStatusByBlockNumberAndIndex returns only the status subset of a receipt.
+func (b *Blockchain) TransactionExecutionStatusByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.TransactionExecutionStatus, error) {
+	b.listener.OnRead("TransactionExecutionStatusByBlockNumberAndIndex")
+	return core.GetTransactionExecutionStatusByBlockAndIndex(b.database, blockNumber, index)
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {

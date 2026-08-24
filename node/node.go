@@ -131,15 +131,23 @@ type Config struct {
 	ForbidRPCBatchRequests bool `mapstructure:"disable-rpc-batch-requests"`
 
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
+	DisableSync              bool `mapstructure:"disable-sync"`
 
-	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
-	MaxConcurrentCompilations uint          `mapstructure:"max-concurrent-compilations"`
-	MaxCompilationQueue       uint          `mapstructure:"max-compilation-queue"`
-	MaxCompilationMemory      uint          `mapstructure:"max-compilation-memory"`   // megabytes
-	MaxCompilationCPUTime     uint          `mapstructure:"max-compilation-cpu-time"` // CPU seconds
-	NewState                  bool          `mapstructure:"new-state"`
+	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+
+	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
+	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
+	MaxConcurrentCompilations         uint64 `mapstructure:"max-concurrent-compilations"`
+	MaxConcurrentCompilationsExplicit bool
+	MaxCompilationQueue               uint64 `mapstructure:"max-compilation-queue"`
+	MaxCompilationQueueExplicit       bool
+
+	MaxCompilationMemory  uint `mapstructure:"max-compilation-memory"`   // megabytes
+	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
+	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
+	NewState              bool `mapstructure:"new-state"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
@@ -153,6 +161,9 @@ type Node struct {
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 	compiler   compiler.Compiler
+	// retentionFloor is shared with the blockchain and pruner; seeded in
+	// Run after migrations.
+	retentionFloor *pruner.RetentionFloor
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -174,6 +185,27 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.DisableSync {
+		if cfg.Sequencer {
+			return nil, errors.New("--disable-sync has no effect in sequencer mode; " +
+				"remove --seq-enable or --disable-sync")
+		}
+		if cfg.P2P {
+			return nil, errors.New("--p2p requires synchronization; remove --p2p or --disable-sync")
+		}
+		if cfg.Prune {
+			return nil, errors.New("--prune-mode requires synchronization; " +
+				"remove --prune-mode or --disable-sync")
+		}
+		if cfg.RemoteDB != "" {
+			return nil, errors.New("--remote-db cannot be combined with --disable-sync; " +
+				"remove --remote-db or --disable-sync")
+		}
+
+		logger.Warn("L2 synchronization and plugin block events are disabled. " +
+			"Use /ready/rpc for readiness (/ready and /ready/sync will report 503).")
 	}
 
 	// History pruning needs an L1-finalised cutoff to know which blocks are
@@ -226,13 +258,19 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	opts := make([]blockchain.Option, 0, 3)
+	// Unseeded until Run: the historyprunner migration prunes blocks before
+	// services start, and a floor seeded now would go stale.
+	retentionFloor := &pruner.RetentionFloor{}
+
+	opts := make([]blockchain.Option, 0, 4)
 	if cfg.Metrics {
 		opts = append(opts, blockchain.WithListener(makeBlockchainMetrics()))
 	}
-	opts = append(opts, blockchain.WithNewState(
-		cfg.NewState,
-	))
+	opts = append(
+		opts,
+		blockchain.WithNewState(cfg.NewState),
+		blockchain.WithRetentionFloor(retentionFloor),
+	)
 	if cfg.Prune {
 		opts = append(
 			opts,
@@ -279,6 +317,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var client *feeder.Client
 	var gatewayClient *gateway.Client
 	var p2pService *p2p.Service
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 
 	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
@@ -292,21 +331,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var nodeVM vm.VM
 	var throttledVM *ThrottledVM
 
-	throttledCompiler := NewThrottledCompiler(
-		compiler.New(
-			&compiler.Config{
-				MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
-				MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
-			},
-			"",
-			logger,
-		),
-		cfg.MaxConcurrentCompilations,
-		uint64(cfg.MaxCompilationQueue),
+	maxConcurrentComp, maxQueuedComp := calculateCompilerConcurrencyBudget(cfg, logger)
+	compiler := compiler.New(
+		&compiler.Config{
+			MaxMemory:  uint64(cfg.MaxCompilationMemory) * 1024 * 1024,
+			MaxCPUTime: uint64(cfg.MaxCompilationCPUTime),
+		},
+		"",
+		logger,
 	)
+	throttledCompiler := NewThrottledCompiler(compiler, uint(maxConcurrentComp), maxQueuedComp)
 
 	if cfg.Sequencer {
-		logger.Warn("Sequencer features enabled. Please note the sequencer is in experimental stage")
+		logger.Warn(
+			"Sequencer features enabled. Please note the sequencer is in experimental stage",
+		)
 
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
@@ -345,6 +384,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
+				retentionFloor,
 				cfg.RetainedBlocks,
 				seq.SubscribeNewHeads().Subscription,
 				chain.SubscribeL1Head().Subscription,
@@ -369,11 +409,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("network %q has no gateway URL configured", cfg.Network.Name)
 		}
 
-		client = feeder.NewClient(cfg.Network.FeederURL).
-			WithUserAgent(ua).
-			WithLogger(logger).
-			WithTimeouts(timeouts, fixed).
-			WithAPIKey(cfg.GatewayAPIKey)
+		feederClientOpts := []feeder.Option{
+			feeder.WithUserAgent(ua),
+			feeder.WithLogger(logger),
+			feeder.WithTimeouts(timeouts, fixed),
+			feeder.WithAPIKey(cfg.GatewayAPIKey),
+		}
+		if cfg.Metrics {
+			feederClientOpts = append(feederClientOpts, feeder.WithListener(makeFeederMetrics()))
+		}
+		client = feeder.NewClient(cfg.Network.FeederURL, feederClientOpts...)
 
 		// Handle fee tokens for custom networks
 		feeTokens := networks.DefaultFeeTokenAddresses
@@ -393,16 +438,18 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			logger,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
-		synchronizer.WithPlugin(junoPlugin)
+		if !cfg.DisableSync {
+			feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+			synchronizer = sync.New(
+				chain,
+				feederGatewayDataSource,
+				logger,
+				cfg.PreConfirmedPollInterval,
+				dbIsRemote,
+				database,
+			)
+			synchronizer.WithPlugin(junoPlugin)
+		}
 
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, logger).
 			WithUserAgent(ua).
@@ -437,8 +484,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 			services = append(services, p2pService)
 		}
-
-		var syncReader sync.Reader = &sync.NoopSynchronizer{}
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
@@ -472,6 +517,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
+					retentionFloor,
 					cfg.RetainedBlocks,
 					synchronizer.SubscribeNewHeads().Subscription,
 					chain.SubscribeL1Head().Subscription,
@@ -532,10 +578,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		"/rpc" + pathV08: jsonrpcServerV08,
 	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
+		readinessHandlers := NewReadinessHandlers(chain, syncReader, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/live":       readinessHandlers.HandleLive,
 			"/ready":      readinessHandlers.HandleReadySync,
+			"/ready/rpc":  readinessHandlers.HandleReadyRPC,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
 		services = append(
@@ -555,7 +602,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.Websocket {
-		services = append(services,
+		services = append(
+			services,
 			makeRPCOverWebsocket(
 				cfg.WebsocketHost,
 				cfg.WebsocketPort,
@@ -563,12 +611,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				logger,
 				cfg.Metrics,
 				cfg.RPCCorsEnable,
+				cfg.RPCRequestTimeout,
 			),
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
-			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		logger.Info(
+			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
+				"/log/level and /feeder/timeouts",
 		)
 		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
@@ -584,7 +635,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		jsonrpcServerV09.WithListener(rpcMetrics[1])
 		jsonrpcServerV08.WithListener(rpcMetrics[2])
 		if !cfg.Sequencer {
-			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
 			if synchronizer != nil {
 				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
@@ -603,14 +653,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	n := &Node{
-		cfg:           cfg,
-		logger:        logger,
-		version:       version,
-		db:            database,
-		blockchain:    chain,
-		compiler:      throttledCompiler,
-		services:      services,
-		earlyServices: earlyServices,
+		cfg:            cfg,
+		logger:         logger,
+		version:        version,
+		db:             database,
+		blockchain:     chain,
+		compiler:       throttledCompiler,
+		services:       services,
+		earlyServices:  earlyServices,
+		retentionFloor: retentionFloor,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -619,13 +670,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.logger)
+		l1Client, provider, err := newL1Client(
+			context.Background(), cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("initializing L1 client: %w", err)
 		}
+
 		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(&rpccore.EthReceiptAdapter{Sub: l1Client.L1()})
+		rpcHandler.WithL1Client(provider)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
@@ -634,7 +687,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 		n.services = append(n.services, ug)
 	} else {
-		logger.Warn("Failed to parse Juno version, will not warn about new releases",
+		logger.Warn(
+			"Failed to parse Juno version, will not warn about new releases",
 			zap.String("version", version),
 		)
 	}
@@ -643,8 +697,43 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 }
 
 func newL1Client(
-	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log log.StructuredLogger,
-) (*l1.Client, error) {
+	ctx context.Context,
+	ethNode string,
+	includeMetrics bool,
+	chain *blockchain.Blockchain,
+	logger log.StructuredLogger,
+) (*l1.Client, *l1.GethL1StateProvider, error) {
+	// One EventListener, shared by the L1 client (OnNewL1Head) and
+	// the provider (OnL1Call), wired only under --metrics.
+	l1Opts := []l1.Option{}
+	providerOpts := []l1.GethL1StateProviderOption{}
+	if includeMetrics {
+		listener := makeL1Metrics(chain)
+		l1Opts = append(l1Opts, l1.WithEventListener(listener))
+		providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
+	}
+
+	provider, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("creating L1 state provider: %w", err)
+	}
+	if includeMetrics {
+		registerL1Metrics(provider)
+	}
+
+	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
+}
+
+// newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
+// client. ws/wss is enforced at the URL level because subscribe-based
+// log delivery (eth_subscribe) requires a long-lived connection that
+// HTTP doesn't provide.
+func newGethL1StateProvider(
+	ctx context.Context,
+	ethNode string,
+	chain *blockchain.Blockchain,
+	opts ...l1.GethL1StateProviderOption,
+) (*l1.GethL1StateProvider, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
@@ -655,19 +744,18 @@ func newL1Client(
 		)
 	}
 
-	network := chain.Network()
+	// One-minute timeout layered on the caller's ctx so a slow dial
+	// can't outlive node startup or the migration that triggered it.
+	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
+	provider, err := l1.NewGethL1StateProvider(
+		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("subscribing to L1: %w", err)
+		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
 	}
-
-	opts := make([]l1.Option, 0, 1)
-	if includeMetrics {
-		opts = append(opts, l1.WithEventListener(makeL1Metrics(chain, ethSubscriber)))
-	}
-	return l1.NewClient(ethSubscriber, chain, log, opts...), nil
+	return provider, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
@@ -709,6 +797,13 @@ func (n *Node) Run(ctx context.Context) {
 			return
 		}
 		n.logger.Error("Error while running migrations", zap.Error(err))
+		return
+	}
+
+	// Seed only after migrations: the historyprunner migration prunes
+	// blocks without going through the pruner service.
+	if err := n.retentionFloor.Seed(n.db); err != nil {
+		n.logger.Error("Error while seeding retention floor", zap.Error(err))
 		return
 	}
 

@@ -29,17 +29,17 @@ func (h *Handler) SubscribeEvents(
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
+	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	sub, rpcErr := newEventSubscriber(h, w, fromAddrs, keys, blockID, finalityStatus)
+	sub, rpcErr := newEventSubscriber(h, wsConn, fromAddrs, keys, blockID, finalityStatus)
 	if rpcErr != nil {
 		return "", rpcErr
 	}
 
-	return h.subscribe(ctx, w, sub)
+	return h.subscribe(wsConn, sub)
 }
 
 type SubscriptionEmittedEvent struct {
@@ -77,7 +77,7 @@ func newEventSubscriber(
 		}
 	}
 
-	requestedHeader, headHeader, rpcErr := handler.resolveBlockRange(blockID)
+	startBlock, latestBlock, rpcErr := handler.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return subscriber{}, rpcErr
 	}
@@ -103,14 +103,14 @@ func newEventSubscriber(
 			return state.processHistoricalEvents(
 				ctx,
 				id,
-				requestedHeader.Number,
-				headHeader.Number,
+				startBlock,
+				latestBlock,
 				fromAddrs,
 				keys,
 			)
 		},
-		onReorg:   state.onReorg,
 		onNewHead: state.onNewHead,
+		onReorg:   state.onReorg,
 	}
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 		s.onPreConfirmed = state.onPreConfirmed
@@ -202,7 +202,7 @@ func matchingEvents(
 				}
 
 				filtered := &blockchain.FilteredEvent{
-					BlockNumber:      &block.Number,
+					BlockNumber:      block.Number,
 					BlockHash:        block.Hash,
 					TransactionHash:  receipt.TransactionHash,
 					TransactionIndex: uint(txIndex),
@@ -278,7 +278,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 	id string,
 	events []blockchain.FilteredEvent,
 ) error {
-	for _, event := range events {
+	for i := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -288,13 +288,13 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 		// Historical replay is bounded to the canonical tip, so every event
 		// here is canonical: L1-finalised at or below the L1 head, else L2.
 		finalityStatus := TxnAcceptedOnL2
-		if *event.BlockNumber <= s.l1HeadNumber {
+		if events[i].BlockNumber <= s.l1HeadNumber {
 			finalityStatus = TxnAcceptedOnL1
 		}
 
 		// Historical replay is a one-shot bootstrap with no internal
 		// duplicates, so it sends directly without the deduper.
-		if err := s.sendFilteredEvent(id, &event, finalityStatus); err != nil {
+		if err := s.sendFilteredEvent(id, &events[i], finalityStatus); err != nil {
 			return err
 		}
 	}
@@ -327,6 +327,6 @@ func (s *eventSubscriberState) sendFilteredEvent(
 	return sendEvent(s.conn, response, id)
 }
 
-func sendEvent(w jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
-	return sendResponse("starknet_subscriptionEvents", w, id, event)
+func sendEvent(wsConn jsonrpc.Conn, event *SubscriptionEmittedEvent, id string) error {
+	return sendResponse("starknet_subscriptionEvents", wsConn, id, event)
 }

@@ -1,6 +1,7 @@
 package felt_test
 
 import (
+	"encoding"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -10,29 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestUnmarshalJson(t *testing.T) {
-	t.Run("with prefix 0x", func(t *testing.T) {
-		var f felt.Felt
-		assert.NoError(t, f.UnmarshalJSON([]byte(`"0x4437ab"`)))
-	})
-
-	var failF felt.Felt
-
-	fails := []string{
-		"4437ab",
-		"123456",
-		"0x2000000000000000000000000000000000000000000000000000000000000000000",
-		"0x800000000000011000000000000000000000000000000000000000000000001",
-		"0xfb01012100000000000000000000000000000000000000000000000000000000",
-	}
-
-	for _, hex := range fails {
-		t.Run(hex+" fails", func(t *testing.T) {
-			assert.Error(t, failF.UnmarshalJSON([]byte(hex)))
-		})
-	}
-}
 
 func TestFeltCbor(t *testing.T) {
 	val := felt.NewRandom[felt.Felt]()
@@ -61,11 +39,11 @@ func TestShortString(t *testing.T) {
 	})
 }
 
-// TestMarshalJSON_ValueInInterface reproduces a bug where felt types serialised
-// as [4]uint64 limbs instead of hex strings. This happens because MarshalJSON
-// uses a pointer receiver, but encoding/json cannot call pointer-receiver methods
-// on non-addressable values (e.g. struct fields inside a value stored in `any`).
-func TestMarshalJSON_ValueInInterface(t *testing.T) {
+// TestJSONMarshal_ValueInInterface guards against a bug where felt types serialise
+// as [4]uint64 limbs instead of hex strings. This would happen if MarshalText
+// used a pointer receiver, which encoding/json cannot call on non-addressable
+// values (e.g. struct fields inside a value stored in `any`).
+func TestJSONMarshal_ValueInInterface(t *testing.T) {
 	f := felt.UnsafeFromString[felt.Felt]("0xdeadbeef")
 
 	// Simulates how jsonrpc server stores handler results:
@@ -109,6 +87,24 @@ func TestMarshalJSON_ValueInInterface(t *testing.T) {
 			}{V: felt.ClassHash(f)},
 		},
 		{
+			name: "SierraClassHash value field in struct value",
+			input: struct {
+				V felt.SierraClassHash `json:"v"`
+			}{V: felt.SierraClassHash(f)},
+		},
+		{
+			name: "CasmClassHash value field in struct value",
+			input: struct {
+				V felt.CasmClassHash `json:"v"`
+			}{V: felt.CasmClassHash(f)},
+		},
+		{
+			name: "StateRootHash value field in struct value",
+			input: struct {
+				V felt.StateRootHash `json:"v"`
+			}{V: felt.StateRootHash(f)},
+		},
+		{
 			name: "pointer field works (control)",
 			input: struct {
 				V *felt.Felt `json:"v"`
@@ -127,7 +123,7 @@ func TestMarshalJSON_ValueInInterface(t *testing.T) {
 
 			// Must contain "0xdeadbeef" as a hex string, not uint64 limbs
 			assert.Contains(t, s, "0xdeadbeef",
-				"expected hex string, got limbs — pointer-receiver MarshalJSON"+
+				"expected hex string, got limbs — pointer-receiver MarshalText"+
 					" not called on non-addressable value")
 			assert.False(t, strings.Contains(s, "[") && strings.Contains(s, ","),
 				"got JSON array (raw [4]uint64 limbs) instead of hex string")
@@ -146,7 +142,7 @@ func TestFeltMarshalAndUnmarshal(t *testing.T) {
 	assert.True(t, f2.Equal(f))
 }
 
-func TestMarshalJSON(t *testing.T) {
+func TestJSONMarshal(t *testing.T) {
 	tests := []struct {
 		name   string
 		hex    string
@@ -174,14 +170,25 @@ func TestMarshalJSON(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			f := felt.UnsafeFromString[felt.Felt](tc.hex)
-			got, err := f.MarshalJSON()
+			got, err := json.Marshal(f)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expect, string(got))
 		})
 	}
 }
 
-func TestUnmarshalJSON(t *testing.T) {
+func TestJSONMarshalMatchesString(t *testing.T) {
+	for range 1000 {
+		f := felt.Random[felt.Felt]()
+
+		jsonBytes, err := json.Marshal(f)
+		require.NoError(t, err)
+
+		assert.Equal(t, `"`+f.String()+`"`, string(jsonBytes))
+	}
+}
+
+func TestJSONUnmarshal(t *testing.T) {
 	t.Run("valid values", func(t *testing.T) {
 		tests := []struct {
 			name  string
@@ -212,7 +219,7 @@ func TestUnmarshalJSON(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				var f felt.Felt
-				err := f.UnmarshalJSON([]byte(tc.input))
+				err := json.Unmarshal([]byte(tc.input), &f)
 				require.NoError(t, err)
 				assert.Equal(t, tc.hex, f.String())
 			})
@@ -249,7 +256,7 @@ func TestUnmarshalJSON(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				var f felt.Felt
-				assert.Error(t, f.UnmarshalJSON([]byte(tc.input)))
+				assert.Error(t, json.Unmarshal([]byte(tc.input), &f))
 			})
 		}
 	})
@@ -298,4 +305,98 @@ func TestJSONRoundTripRandom(t *testing.T) {
 		assert.True(t, original.Equal(&decoded),
 			"round-trip failed for random felt: marshalled=%s", string(marshalled))
 	}
+}
+
+func TestFeltsWrappers(t *testing.T) {
+	type textCodec interface {
+		encoding.TextMarshaler
+		encoding.TextAppender
+		json.Unmarshaler
+	}
+
+	wrappers := map[string]textCodec{
+		"Felt":            new(felt.Felt),
+		"Address":         new(felt.Address),
+		"Hash":            new(felt.Hash),
+		"ClassHash":       new(felt.ClassHash),
+		"SierraClassHash": new(felt.SierraClassHash),
+		"CasmClassHash":   new(felt.CasmClassHash),
+		"TransactionHash": new(felt.TransactionHash),
+		"StateRootHash":   new(felt.StateRootHash),
+	}
+
+	for name, w := range wrappers {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, w.UnmarshalJSON([]byte(`"0xDEADc0de"`)))
+
+			// MarshalText path (via json/v1).
+			got, err := w.MarshalText()
+			require.NoError(t, err)
+			assert.Equal(t, `0xdeadc0de`, string(got))
+
+			// AppendText path (via json/v2).
+			appended, err := w.AppendText([]byte("prefix:"))
+			require.NoError(t, err)
+			assert.Equal(t, "prefix:0xdeadc0de", string(appended))
+
+			require.Error(t, w.UnmarshalJSON([]byte(`"0xerror"`)))
+		})
+	}
+}
+
+func FuzzFeltMarshal(f *testing.F) {
+	f.Add([]byte{0x0})
+	f.Add([]byte{0x1})
+	f.Add([]byte{0xff})
+	f.Add([]byte{0xde, 0xad, 0xbe, 0xef})
+
+	f.Fuzz(func(t *testing.T, b []byte) {
+		original := new(felt.Felt).SetBytes(b)
+
+		text, err := original.MarshalText()
+		require.NoError(t, err)
+		assert.Equal(t, original.String(), string(text))
+
+		marshalled, err := json.Marshal(original)
+		require.NoError(t, err)
+		assert.Equal(t, `"`+string(text)+`"`, string(marshalled))
+
+		var decoded felt.Felt
+		require.NoError(t, json.Unmarshal(marshalled, &decoded))
+		assert.True(t, original.Equal(&decoded),
+			"round-trip failed: marshalled=%s", string(marshalled))
+	})
+}
+
+func FuzzFeltUnmarshal(f *testing.F) {
+	f.Add([]byte(`"0x0"`))
+	f.Add([]byte(`"0xdeadbeef"`))
+	f.Add([]byte(`"0Xabc"`))
+	f.Add([]byte(`"0x800000000000011000000000000000000000000000000000000000000000000"`))
+	f.Add([]byte(`"0x1` + strings.Repeat("0", 64) + `"`)) // 65 digits, over the limit
+	f.Add([]byte(`"0x"`))
+	f.Add([]byte(`""`))
+	f.Add([]byte(`"`))
+	f.Add([]byte(`5`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded felt.Felt
+		if err := decoded.UnmarshalJSON(data); err != nil {
+			return // rejecting is fine
+		}
+
+		reference, err := new(felt.Felt).SetString(string(data[1 : len(data)-1]))
+		require.NoError(t, err, "accepted %q that SetString rejects", data)
+		assert.True(t, decoded.Equal(reference), "input %q: got %s want %s",
+			data, decoded.String(), reference.String(),
+		)
+
+		marshalled, err := json.Marshal(decoded)
+		require.NoError(t, err)
+
+		var roundTrip felt.Felt
+		require.NoError(t, json.Unmarshal(marshalled, &roundTrip))
+		assert.True(t, decoded.Equal(&roundTrip))
+	})
 }

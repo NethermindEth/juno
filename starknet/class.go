@@ -25,8 +25,12 @@ func (o *EntryPointOffset) UnmarshalJSON(data []byte) error {
 	return err
 }
 
-func (o EntryPointOffset) MarshalJSON() ([]byte, error) {
-	return (*felt.Felt)(&o).MarshalJSON()
+func (o EntryPointOffset) MarshalText() ([]byte, error) {
+	return felt.Felt(o).MarshalText()
+}
+
+func (o EntryPointOffset) AppendText(data []byte) ([]byte, error) {
+	return felt.Felt(o).AppendText(data)
 }
 
 func (o EntryPointOffset) String() string {
@@ -47,7 +51,7 @@ type SierraEntryPoints struct {
 type SierraClass struct {
 	Abi         string            `json:"abi,omitempty"`
 	EntryPoints SierraEntryPoints `json:"entry_points_by_type"`
-	Program     []*felt.Felt      `json:"sierra_program"`
+	Program     []felt.Felt       `json:"sierra_program"`
 	Version     string            `json:"contract_class_version"`
 }
 
@@ -116,7 +120,7 @@ func (n SegmentLengths) MarshalJSON() ([]byte, error) {
 
 type CasmClass struct {
 	Prime                  string          `json:"prime"`
-	Bytecode               []*felt.Felt    `json:"bytecode"`
+	Bytecode               []felt.Felt     `json:"bytecode"`
 	Hints                  json.RawMessage `json:"hints"`
 	PythonicHints          json.RawMessage `json:"pythonic_hints"`
 	CompilerVersion        string          `json:"compiler_version"`

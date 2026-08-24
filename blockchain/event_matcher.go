@@ -42,7 +42,7 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	return filterKeysMaps
 }
 
-func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
+func (e *EventMatcher) MatchesEventKeys(eventKeys []felt.Felt) bool {
 	// short circuit if event doest have enough keys
 	if len(eventKeys) < len(e.keysMap) {
 		return false
@@ -64,7 +64,7 @@ func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 			continue
 		}
 		// check if event key is in filter keys
-		if _, found := e.keysMap[index][*eventKey]; !found {
+		if _, found := e.keysMap[index][eventKey]; !found {
 			return false
 		}
 	}
@@ -150,16 +150,29 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
-func (e *EventMatcher) AppendBlockEvents(
+// AppendBlockEventsFromTransactionEvents appends the events of one block that match
+// the filter to matchedEventsSofar. blockEvents holds the events-only projection of
+// the block's receipts. blockHashFn gets the block hash on the first match, so a
+// block with no match reads no header.
+//
+// AppendBlockEventsFromReceipts holds the same loop for full receipts. Change both
+// together: a shared loop needs a per-transaction call the compiler cannot inline.
+func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 	matchedEventsSofar []FilteredEvent,
-	header *core.Header,
-	receipts []*core.TransactionReceipt,
+	blockNum uint64,
+	blockHashFn func() (*felt.Felt, error),
+	blockEvents []core.TransactionEvents,
 	skippedEvents uint64,
 	chunkSize uint64,
 ) ([]FilteredEvent, uint64, error) {
+	var (
+		blockHash    *felt.Felt
+		hashResolved bool
+	)
 	processedEvents := uint64(0)
-	for txIndex, receipt := range receipts {
-		for i, event := range receipt.Events {
+	for txIndex, txEvents := range blockEvents {
+		txHash, events := txEvents.TransactionHash, txEvents.Events
+		for i, event := range events {
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
 			if processedEvents < skippedEvents {
@@ -182,10 +195,71 @@ func (e *EventMatcher) AppendBlockEvents(
 			}
 
 			if uint64(len(matchedEventsSofar)) < chunkSize {
+				if !hashResolved {
+					var err error
+					if blockHash, err = blockHashFn(); err != nil {
+						return nil, 0, err
+					}
+					hashResolved = true
+				}
 				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
-					BlockNumber:      &header.Number,
-					BlockHash:        header.Hash,
-					TransactionHash:  receipt.TransactionHash,
+					BlockNumber:      blockNum,
+					BlockHash:        blockHash,
+					TransactionHash:  txHash,
+					TransactionIndex: uint(txIndex),
+					EventIndex:       uint(i),
+					Event:            event,
+				})
+			} else {
+				// we are at the capacity, return what we have accumulated so far and a continuation token
+				return matchedEventsSofar, processedEvents, errChunkSizeReached
+			}
+			// count the events we processed for this block to include in the continuation token
+			processedEvents++
+		}
+	}
+	return matchedEventsSofar, processedEvents, nil
+}
+
+// AppendBlockEventsFromReceipts appends the events of one block that match the filter
+// to matchedEventsSofar, read from full receipts of any source. The caller holds the
+// block hash, which is nil for a source that has none, so this loop takes it directly.
+// See AppendBlockEventsFromTransactionEvents for why the loops stay separate.
+func (e *EventMatcher) AppendBlockEventsFromReceipts(
+	matchedEventsSofar []FilteredEvent,
+	blockNum uint64,
+	blockHash *felt.Felt,
+	receipts []*core.TransactionReceipt,
+	skippedEvents uint64,
+	chunkSize uint64,
+) ([]FilteredEvent, uint64, error) {
+	processedEvents := uint64(0)
+	for txIndex, receipt := range receipts {
+		txHash, events := receipt.TransactionHash, receipt.Events
+		for i, event := range events {
+			if processedEvents < skippedEvents {
+				processedEvents++
+				continue
+			}
+
+			if len(e.contractAddresses) > 0 {
+				contains := slices.Contains(e.contractAddresses, felt.Address(*event.From))
+				if !contains {
+					processedEvents++
+					continue
+				}
+			}
+
+			if !e.MatchesEventKeys(event.Keys) {
+				processedEvents++
+				continue
+			}
+
+			if uint64(len(matchedEventsSofar)) < chunkSize {
+				matchedEventsSofar = append(matchedEventsSofar, FilteredEvent{
+					BlockNumber:      blockNum,
+					BlockHash:        blockHash,
+					TransactionHash:  txHash,
 					TransactionIndex: uint(txIndex),
 					EventIndex:       uint(i),
 					Event:            event,

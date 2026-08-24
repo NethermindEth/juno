@@ -62,16 +62,6 @@ func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	return &transaction{client: txClient, logger: d.logger}, nil
 }
 
-func (d *DB) View(fn func(txn db.Snapshot) error) error {
-	txn, err := d.NewTransaction(false)
-	if err != nil {
-		return err
-	}
-
-	defer discardTxnOnPanic(txn)
-	return errors.Join(fn(txn), txn.Discard())
-}
-
 func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 	defer d.listener.OnCommit(time.Now())
 

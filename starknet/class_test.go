@@ -47,6 +47,35 @@ func TestEntryPointOffset(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, `"0xa1"`, string(b))
 	})
+
+	t.Run("append text", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`"0xa1"`), &o))
+
+		appended, err := o.AppendText([]byte("prefix:"))
+		require.NoError(t, err)
+		assert.Equal(t, "prefix:0xa1", string(appended))
+
+		text, err := o.MarshalText()
+		require.NoError(t, err)
+		assert.Equal(t, "prefix:"+string(text), string(appended))
+	})
+
+	// MarshalText has to keep a value receiver: encoding/json cannot call a
+	// pointer-receiver method on a non-addressable value, and would silently fall
+	// back to encoding the underlying [4]uint64 limbs as a JSON array.
+	t.Run("value field in struct value", func(t *testing.T) {
+		var o EntryPointOffset
+		require.NoError(t, json.Unmarshal([]byte(`"0xa1"`), &o))
+
+		var result any = struct {
+			V EntryPointOffset `json:"v"`
+		}{V: o}
+
+		got, err := json.Marshal(result)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"v":"0xa1"}`, string(got))
+	})
 }
 
 func TestSegmentLengthsUnmarshal(t *testing.T) {

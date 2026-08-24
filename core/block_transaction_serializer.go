@@ -2,8 +2,11 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"slices"
 
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/NethermindEth/juno/encoder"
 )
 
@@ -42,6 +45,61 @@ func (extractReceipt) extract(b *BlockTransactions, subKey int) (*TransactionRec
 	return b.Receipts().Get(subKey)
 }
 
+type extractTransactionAndReceipt struct{}
+
+func (extractTransactionAndReceipt) extract(
+	b *BlockTransactions,
+	subKey int,
+) (TransactionAndReceipt, error) {
+	transaction, err := b.Transactions().Get(subKey)
+	if err != nil {
+		return TransactionAndReceipt{}, fmt.Errorf("extracting transaction %d: %w", subKey, err)
+	}
+
+	receipt, err := b.Receipts().Get(subKey)
+	if err != nil {
+		return TransactionAndReceipt{}, fmt.Errorf("extracting receipt %d: %w", subKey, err)
+	}
+
+	return TransactionAndReceipt{Transaction: transaction, Receipt: receipt}, nil
+}
+
+type extractExecutionStatus struct{}
+
+func (extractExecutionStatus) extract(
+	b *BlockTransactions,
+	subKey int,
+) (TransactionExecutionStatus, error) {
+	projection, err := b.executionStatusProjections().Get(subKey)
+	if err != nil {
+		return TransactionExecutionStatus{}, err
+	}
+	return TransactionExecutionStatus{
+		Reverted:     projection.Reverted,
+		RevertReason: projection.RevertReason,
+	}, nil
+}
+
+type extractAllTransactionHashes struct{}
+
+// extract reads each transaction's own TransactionHash field, decoded without the rest of the
+// transaction.
+func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]felt.Felt, error) {
+	hashes, err := indexed.AllMapped(
+		b.transactionHashProjections(),
+		func(i int, p transactionHashProjection) (felt.Felt, error) {
+			if p.TransactionHash.IsZero() {
+				return felt.Felt{}, fmt.Errorf("missing TransactionHash in transaction %d", i)
+			}
+			return p.TransactionHash, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("extracting transaction hashes: %w", err)
+	}
+	return hashes, nil
+}
+
 type extractAllTransactions struct{}
 
 func (extractAllTransactions) extract(b *BlockTransactions, _ struct{}) ([]Transaction, error) {
@@ -54,8 +112,51 @@ func (extractAllReceipts) extract(b *BlockTransactions, _ struct{}) ([]*Transact
 	return b.Receipts().All()
 }
 
+type extractAllTransactionsAndReceipts struct{}
+
+// extract decodes both halves of the entry in one pass, so reading them together needs neither a
+// second lookup nor a copy of the whole block blob.
+func (extractAllTransactionsAndReceipts) extract(
+	b *BlockTransactions,
+	_ struct{},
+) (TransactionsAndReceipts, error) {
+	transactions, err := b.Transactions().All()
+	if err != nil {
+		return TransactionsAndReceipts{}, fmt.Errorf("extracting transactions: %w", err)
+	}
+
+	receipts, err := b.Receipts().All()
+	if err != nil {
+		return TransactionsAndReceipts{}, fmt.Errorf("extracting receipts: %w", err)
+	}
+
+	return TransactionsAndReceipts{Transactions: transactions, Receipts: receipts}, nil
+}
+
+type extractAllTransactionEvents struct{}
+
+func (extractAllTransactionEvents) extract(
+	b *BlockTransactions,
+	_ struct{},
+) ([]TransactionEvents, error) {
+	events, err := indexed.AllMapped(
+		b.transactionEventsProjections(),
+		func(_ int, p receiptEventsProjection) (TransactionEvents, error) {
+			return TransactionEvents{
+				Events:          p.Events,
+				TransactionHash: p.TransactionHash,
+			}, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("extracting transaction events: %w", err)
+	}
+	return events, nil
+}
+
 type extractAll struct{}
 
+//nolint:unparam // signature fixed by blockTransactionsExtractor interface
 func (extractAll) extract(b *BlockTransactions, _ struct{}) (BlockTransactions, error) {
 	return BlockTransactions{
 		Indexes: b.Indexes,
@@ -91,6 +192,16 @@ var (
 		int,
 		*TransactionReceipt,
 	]{}
+	BlockTransactionsTransactionAndReceiptPartialSerializer = blockTransactionsPartialSerializer[
+		extractTransactionAndReceipt,
+		int,
+		TransactionAndReceipt,
+	]{}
+	BlockTransactionsExecutionStatusPartialSerializer = blockTransactionsPartialSerializer[
+		extractExecutionStatus,
+		int,
+		TransactionExecutionStatus,
+	]{}
 	BlockTransactionsAllTransactionsPartialSerializer = blockTransactionsPartialSerializer[
 		extractAllTransactions,
 		struct{},
@@ -100,5 +211,20 @@ var (
 		extractAllReceipts,
 		struct{},
 		[]*TransactionReceipt,
+	]{}
+	BlockTransactionsAllTransactionsAndReceiptsPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionsAndReceipts,
+		struct{},
+		TransactionsAndReceipts,
+	]{}
+	BlockTransactionsAllTransactionEventsPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionEvents,
+		struct{},
+		[]TransactionEvents,
+	]{}
+	BlockTransactionsAllTransactionHashesPartialSerializer = blockTransactionsPartialSerializer[
+		extractAllTransactionHashes,
+		struct{},
+		[]felt.Felt,
 	]{}
 )

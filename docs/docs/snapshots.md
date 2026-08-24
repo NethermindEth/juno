@@ -1,19 +1,24 @@
 ---
-title: Database Snapshots
+title: Sync from a Snapshot
 ---
 
-# Database Snapshots :camera_flash:
+# Sync from a Snapshot :camera_flash:
 
-You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node. Fresh snapshots are automatically uploaded once a week and are available under the links below.
+It is possible to avoid syncing from the beginning and waiting weeks to catch up by downloading a Juno snapshot. You're downloading a pre-synced Juno database that you can point your node to. This will reduce the syncing time to just a few hours.
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
+
+Additionally, _pruned_ snapshots are offered — they contain only the latest data, greatly reducing storage size.
+
+
+## Network Snapshots
 
 | Network             | Download Link                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Mainnet             | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
-| Mainnet-Pruned      | [**juno_mainnet_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest)           |
+| Mainnet (Pruned)    | [**juno_mainnet_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest)           |
 | Sepolia             | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
-| Sepolia-Pruned      | [**juno_sepolia_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest)           |
+| Sepolia (Pruned)    | [**juno_sepolia_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest)           |
 | Sepolia-Integration | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ```mdx-code-block
@@ -27,22 +32,22 @@ Select your network in any tab below and the rest of the page follows — the ch
 
 ## Getting snapshot sizes
 
-Snapshot sizes are refreshed weekly. As of `Tue Jun 23 2026`:
+Snapshot sizes as of `Fri Jul 31 2026`:
 
 <Tabs groupId="network">
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 433.68 GB
+# 453.93 GB
 ```
 
 </TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 76.75 GB
+# 85.63 GB
 ```
 
 </TabItem>
@@ -50,7 +55,15 @@ curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest |
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 72.88 GB
+# 77.14 GB
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 23.56 GB
 ```
 
 </TabItem>
@@ -58,7 +71,7 @@ curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -
 
 ```bash
 curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-# 35.12 GB
+# 38.64 GB
 ```
 
 </TabItem>
@@ -124,7 +137,7 @@ curl -L -C - -o $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.neth
 ```
 
 </TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
 wget --continue -O "$HOME/snapshots/juno_mainnet_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
@@ -147,6 +160,19 @@ Or using `curl`:
 
 ```bash
 curl -L -C - -o $HOME/snapshots/juno_sepolia.tar.zst https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+wget --continue -O "$HOME/snapshots/juno_sepolia_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+```
+
+Or using `curl`:
+
+```bash
+curl -L -C - -o $HOME/snapshots/juno_sepolia_pruned.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
 ```
 
 </TabItem>
@@ -182,7 +208,7 @@ zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
 ```
 
 </TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
 mkdir $HOME/snapshots/mainnet-pruned/
@@ -203,6 +229,18 @@ mkdir $HOME/snapshots/sepolia/
 ```bash
 # Extract to your snapshots directory
 zstd -d juno_sepolia.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+mkdir $HOME/snapshots/sepolia-pruned/
+```
+
+```bash
+# Extract to your snapshots directory
+zstd -d juno_sepolia_pruned.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia-pruned
 ```
 
 </TabItem>
@@ -241,7 +279,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 ```
 
 </TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
 mkdir $HOME/snapshots/mainnet-pruned/
@@ -262,6 +300,18 @@ mkdir $HOME/snapshots/sepolia/
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
 | zstd -d | tar -xvf - -C $HOME/snapshots/sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+mkdir $HOME/snapshots/sepolia-pruned/
+```
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia-pruned
 ```
 
 </TabItem>
@@ -306,7 +356,7 @@ docker run -d \
 ```
 
 </TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet-Pruned">
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
 docker run -d \
@@ -344,6 +394,28 @@ docker run -d \
   --ws-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --network sepolia \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $HOME/snapshots/sepolia-pruned:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia \
+  --prune-mode \
   --eth-node <YOUR-ETH-NODE>
 ```
 

@@ -17,19 +17,21 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-const (
-	systemContract1Addr = 1
-	systemContract2Addr = 2
+var (
+	stateVersion0 = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
+	leafVersion0  = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
 )
 
+// System contracts are protocol-level contracts (0x1, 0x2) that hold storage
+// but have no Cairo class; their class hash is always zero. They are not part
+// of StateDiff.DeployedContracts and are auto-created during state commit so
+// their storage trie can exist.
 var (
-	stateVersion0             = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
-	leafVersion0              = felt.NewFromBytes[felt.Felt]([]byte(`CONTRACT_CLASS_LEAF_V0`))
-	noClassContractsClassHash = felt.Zero
-	noClassContracts          = map[felt.Felt]struct{}{
-		felt.FromUint64[felt.Felt](systemContract1Addr): {},
-		felt.FromUint64[felt.Felt](systemContract2Addr): {},
-	}
+	SystemContract1Address = felt.One // block-hash storage contract
+	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
+	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
+	SystemContractsClassHash = felt.Zero
+	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
 )
 
 var (
@@ -62,6 +64,12 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 		stateObjects: make(map[felt.Felt]*stateObject),
 		batch:        batch,
 	}, nil
+}
+
+// IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
+// that has no Cairo class.
+func IsSystemContract(addr *felt.Felt) bool {
+	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
@@ -287,24 +295,26 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 			return felt.Zero, emptyStateUpdate, err
 		}
 
-		// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
-		// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
-		// we can use the lack of key's existence as reason for purging noClassContracts.
-		for nAddr := range noClassContracts {
-			if addr.Equal(&nAddr) {
-				obj := s.stateObjects[addr]
-				root, err := obj.getStorageRoot()
-				if err != nil {
+		// As system contracts are not in StateDiff.DeployedContracts we can only purge them if
+		// their storage no longer exists. Updating contracts with reverse diff will eventually
+		// lead to the deletion of the system contract's storage key from db. Thus,
+		// we can use the lack of key's existence as reason for purging system contracts.
+		if IsSystemContract(&addr) {
+			obj := s.stateObjects[addr]
+			if obj == nil {
+				continue
+			}
+			root, err := obj.getStorageRoot()
+			if err != nil {
+				return felt.Zero, emptyStateUpdate, err
+			}
+
+			if root.IsZero() {
+				if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
 					return felt.Zero, emptyStateUpdate, err
 				}
 
-				if root.IsZero() {
-					if err := s.contractTrie.Update(&nAddr, &felt.Zero); err != nil {
-						return felt.Zero, emptyStateUpdate, err
-					}
-
-					s.stateObjects[nAddr] = nil // mark for deletion
-				}
+				s.stateObjects[addr] = nil // mark for deletion
 			}
 		}
 	}
@@ -486,8 +496,8 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
-			if _, ok := noClassContracts[addr]; ok && errors.Is(err, db.ErrKeyNotFound) {
-				contract := newContractDeployed(noClassContractsClassHash, blockNum)
+			if IsSystemContract(&addr) && errors.Is(err, db.ErrKeyNotFound) {
+				contract := newContractDeployed(SystemContractsClassHash, blockNum)
 				newObj := newStateObject(s, &addr, &contract)
 				obj = &newObj
 				s.stateObjects[addr] = obj

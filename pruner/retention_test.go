@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/encoder/registry"
@@ -85,53 +85,19 @@ func TestRequireRetained(t *testing.T) {
 	})
 }
 
-func TestHeaderByNumberIfStateRetained(t *testing.T) {
-	t.Run("fully retained block returns the header", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
-		blocks := make([]*testutils.StoredBlock, 5)
-		for i := range uint64(5) {
-			blocks[i] = testutils.StoreBlock(t, database, i)
-		}
-		header, err := pruner.HeaderByNumberIfStateRetained(database, 3)
-		require.NoError(t, err)
-		assert.Equal(t, blocks[3].Header.Hash, header.Hash)
-	})
-
-	t.Run("block with header but no hash→number is treated as state-pruned", func(t *testing.T) {
-		// This mirrors the lag-window state of pruned blocks: header kept,
-		// hash→number swept. State accessors must NOT serve these.
-		database := testutils.NewPebbleTestDB(t)
-		blocks := make([]*testutils.StoredBlock, 5)
-		for i := range uint64(5) {
-			blocks[i] = testutils.StoreBlock(t, database, i)
-		}
-		testutils.WithBatch(t, database, func(batch db.Batch) error {
-			return batch.Delete(db.BlockHeaderNumbersByHashKey(blocks[1].Header.Hash))
-		})
-
-		_, err := pruner.HeaderByNumberIfStateRetained(database, 1)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
-
-	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
-		_, err := pruner.HeaderByNumberIfStateRetained(database, 0)
-		require.ErrorIs(t, err, db.ErrKeyNotFound)
-	})
-}
-
 func TestRequireStateRetainedByBlockNumber(t *testing.T) {
-	t.Run("allows retained state", func(t *testing.T) {
+	t.Run("unseeded floor allows retained state", func(t *testing.T) {
 		const blockNumber = uint64(3)
 
 		database := memory.New()
 		for i := range uint64(5) {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, blockNumber))
+		floor := &pruner.RetentionFloor{}
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, blockNumber))
 	})
 
-	t.Run("rejects pruned state when header remains", func(t *testing.T) {
+	t.Run("unseeded floor rejects pruned state when header remains", func(t *testing.T) {
 		const blockNumber = uint64(1)
 
 		database := memory.New()
@@ -142,40 +108,183 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		prunedHash := blocks[blockNumber].Header.Hash
 		require.NoError(t, database.Delete(db.BlockHeaderNumbersByHashKey(prunedHash)))
 
-		err := pruner.RequireStateRetainedByBlockNumber(database, blockNumber)
+		floor := &pruner.RetentionFloor{}
+		err := pruner.RequireStateRetainedByBlockNumber(database, floor, blockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("seeded floor skips the header probe", func(t *testing.T) {
+		const blockNumber = uint64(1)
+
+		database := memory.New()
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 4))
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		require.NoError(t,
+			database.Delete(db.BlockHeaderNumbersByHashKey(blocks[blockNumber].Header.Hash)))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, blockNumber))
+	})
+
+	t.Run("seeded floor rejects blocks below the floor", func(t *testing.T) {
+		database := memory.New()
+		for i := uint64(5); i <= 7; i++ {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 7))
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 3)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 4))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 5))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 7))
+	})
+
+	t.Run("seeded floor rejects blocks above the chain height", func(t *testing.T) {
+		database := memory.New()
+		for i := range uint64(5) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 4))
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 5)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
 
-func TestHeaderByHashIfStateRetained(t *testing.T) {
-	t.Run("fully retained block returns the header", func(t *testing.T) {
+func TestRetentionFloorSeed(t *testing.T) {
+	t.Run("reseeding after out-of-band pruning raises the floor", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
+		for i := range uint64(10) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 9))
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		batch := database.NewBatch()
+		require.NoError(t, pruner.PruneBlockDataUpto(batch, 5))
+		require.NoError(t, batch.Write())
+
+		require.NoError(t, floor.Seed(database))
+
+		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 3)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 4))
+	})
+
+	t.Run("seeding an empty database leaves nothing rejected", func(t *testing.T) {
+		database := testutils.NewPebbleTestDB(t)
+		floor := &pruner.RetentionFloor{}
+		require.NoError(t, floor.Seed(database))
+
+		for i := range uint64(3) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 2))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 0))
+	})
+}
+
+func TestNewRetentionFloor(t *testing.T) {
+	t.Run("empty database retains every block stored later", func(t *testing.T) {
+		database := memory.New()
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		for i := range uint64(3) {
+			testutils.StoreBlock(t, database, i)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 2))
+
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 0))
+		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 2))
+		err = pruner.RequireStateRetainedByBlockNumber(database, floor, 3)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+}
+
+func TestStateRootIfStateRetainedByBlockNumber(t *testing.T) {
+	t.Run("returns the state root for retained state", func(t *testing.T) {
+		const blockNumber = uint64(3)
+
+		database := memory.New()
 		blocks := make([]*testutils.StoredBlock, 5)
 		for i := range uint64(5) {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		header, err := pruner.HeaderByHashIfStateRetained(database, blocks[2].Header.Hash)
+
+		floor := &pruner.RetentionFloor{}
+		stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(database, floor, blockNumber)
 		require.NoError(t, err)
-		assert.Equal(t, uint64(2), header.Number)
+		assert.Equal(t, blocks[blockNumber].Header.GlobalStateRoot, stateRoot)
 	})
 
-	t.Run("missing hash returns ErrKeyNotFound", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
-		unknownHash := felt.NewRandom[felt.Felt]()
-		_, err := pruner.HeaderByHashIfStateRetained(database, unknownHash)
+	t.Run("unseeded floor rejects pruned state when header remains", func(t *testing.T) {
+		const blockNumber = uint64(1)
+
+		database := memory.New()
+		blocks := make([]*testutils.StoredBlock, 5)
+		for i := range uint64(5) {
+			blocks[i] = testutils.StoreBlock(t, database, i)
+		}
+		prunedHash := blocks[blockNumber].Header.Hash
+		require.NoError(t, database.Delete(db.BlockHeaderNumbersByHashKey(prunedHash)))
+
+		floor := &pruner.RetentionFloor{}
+		_, err := pruner.StateRootIfStateRetainedByBlockNumber(database, floor, blockNumber)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
-	t.Run("block whose hash→number was deleted is unreachable by hash", func(t *testing.T) {
-		database := testutils.NewPebbleTestDB(t)
+	t.Run("seeded floor skips the hash probe", func(t *testing.T) {
+		const blockNumber = uint64(1)
+
+		database := memory.New()
 		blocks := make([]*testutils.StoredBlock, 5)
 		for i := range uint64(5) {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		testutils.WithBatch(t, database, func(batch db.Batch) error {
-			return batch.Delete(db.BlockHeaderNumbersByHashKey(blocks[1].Header.Hash))
-		})
-		_, err := pruner.HeaderByHashIfStateRetained(database, blocks[1].Header.Hash)
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		require.NoError(t,
+			database.Delete(db.BlockHeaderNumbersByHashKey(blocks[blockNumber].Header.Hash)))
+		stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(database, floor, blockNumber)
+		require.NoError(t, err)
+		assert.Equal(t, blocks[blockNumber].Header.GlobalStateRoot, stateRoot)
+	})
+
+	t.Run("seeded floor rejects blocks below the floor", func(t *testing.T) {
+		database := memory.New()
+		for i := uint64(5); i <= 7; i++ {
+			testutils.StoreBlock(t, database, i)
+		}
+
+		floor, err := pruner.NewRetentionFloor(database)
+		require.NoError(t, err)
+
+		_, err = pruner.StateRootIfStateRetainedByBlockNumber(database, floor, 3)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
+
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		database := memory.New()
+		floor := &pruner.RetentionFloor{}
+		_, err := pruner.StateRootIfStateRetainedByBlockNumber(database, floor, 0)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 }
