@@ -39,10 +39,15 @@ function isSuccess(res) {
   return Array.isArray(body) ? body.every(hasResult) : hasResult(body);
 }
 
+// k6 sends no Accept-Encoding by default, so gzip must be opted into (-e GZIP=1).
+// k6 transparently decompresses the response before isSuccess parses it.
+const headers = { 'Content-Type': 'application/json' };
+if (__ENV.GZIP === '1') {
+  headers['Accept-Encoding'] = 'gzip';
+}
+
 export default function measure() {
   const entry = corpus[exec.scenario.iterationInTest % corpus.length];
-  const res = http.post(NODE_URL, JSON.stringify(entry), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const res = http.post(NODE_URL, JSON.stringify(entry), { headers });
   check(res, { 'rpc call ok': isSuccess });
 }
