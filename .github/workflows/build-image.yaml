@@ -62,6 +62,6 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG  }}
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}${{ github.ref == 'refs/heads/main' && format(',{0}/{1}/juno:main', env.DOCKER_REGISTRY, env.REPO_DEV) || '' }}
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,mode=max,scope=${{ github.workflow }}
