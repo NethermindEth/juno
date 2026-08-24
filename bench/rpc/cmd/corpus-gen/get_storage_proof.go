@@ -13,81 +13,88 @@ type storageProofArgs struct {
 	NumKeys      int `json:"numKeys"`
 }
 
-func storageProofExtraArgs(cmd *cobra.Command, args *storageProofArgs) {
-	addBlockRangeFlags(cmd, &args.blockRangeFlags)
+func (a *storageProofArgs) bind(cmd *cobra.Command, client *rpcClient) {
 	cmd.Flags().IntVar(
-		&args.NumClasses,
+		&a.NumClasses,
 		"num-classes",
 		1,
 		"Number of class hashes per request.",
 	)
 	cmd.Flags().IntVar(
-		&args.NumContracts,
+		&a.NumContracts,
 		"num-contracts",
 		1,
 		"Number of contract addresses per request.",
 	)
 	cmd.Flags().IntVar(
-		&args.NumKeys,
+		&a.NumKeys,
 		"num-keys",
 		1,
 		"Number of contract storage keys per request.",
 	)
 	chainPreRunE(cmd, func() error {
-		if args.NumClasses < 0 || args.NumContracts < 0 || args.NumKeys < 0 {
+		if a.NumClasses < 0 || a.NumContracts < 0 || a.NumKeys < 0 {
 			return fmt.Errorf("--num-classes, --num-contracts and --num-keys must be >= 0")
 		}
 		return nil
 	})
+	a.blockRangeFlags.bind(cmd, client)
 }
 
-func storageProofSampler(input samplerInput[storageProofArgs]) (any, error) {
+func storageProofSampler(input samplerInput[storageProofArgs]) (storageProofParams, error) {
 	// Proofs are only served near the chain head, so query "latest";
 	// sampled trie members persist, so historical diffs are still valid sources.
 	params := storageProofParams{BlockID: "latest"}
+	blockInput := samplerInput[blockRangeFlags]{
+		ctx:    input.ctx,
+		client: input.client,
+		rng:    input.rng,
+		args:   &input.args.blockRangeFlags,
+		cache:  input.cache,
+	}
 	for range input.args.NumClasses {
 		// Cairo 0 hashes are fine here: keys absent from the classes trie
 		// yield valid non-membership proofs with near-identical node work.
-		classHash, err := resample(func() (string, error) {
-			return sampleClassHash(input, input.args.sampleBlockNumber(input.rng))
+		class, err := resample(func() (classAtBlockParams, error) {
+			return classAtBlockSampler(blockInput)
 		})
 		if err != nil {
-			return nil, fmt.Errorf("sample class hash: %w", err)
+			return storageProofParams{}, fmt.Errorf("sample class hash: %w", err)
 		}
-		params.ClassHashes = append(params.ClassHashes, classHash)
+		params.ClassHashes = append(params.ClassHashes, class.ClassHash)
 	}
+	sampleContract := contractAddressSampler(storageDiffAddresses)
 	for range input.args.NumContracts {
-		address, err := resample(func() (string, error) {
-			return sampleContractAddress(
-				input,
-				input.args.sampleBlockNumber(input.rng),
-				storageDiffAddresses,
-			)
+		contract, err := resample(func() (contractAtBlockParams, error) {
+			return sampleContract(blockInput)
 		})
 		if err != nil {
-			return nil, fmt.Errorf("sample contract address: %w", err)
+			return storageProofParams{}, fmt.Errorf("sample contract address: %w", err)
 		}
-		params.ContractAddresses = append(params.ContractAddresses, address)
+		params.ContractAddresses = append(params.ContractAddresses, contract.ContractAddress)
 	}
 	keyIndex := make(map[string]int)
 	for range input.args.NumKeys {
-		entry, err := resample(func() (storageEntry, error) {
-			return sampleStorageEntry(input, input.args.sampleBlockNumber(input.rng))
+		entry, err := resample(func() (storageAtParams, error) {
+			return storageAtSampler(blockInput)
 		})
 		if err != nil {
-			return nil, fmt.Errorf("sample storage key: %w", err)
+			return storageProofParams{}, fmt.Errorf("sample storage key: %w", err)
 		}
-		if i, ok := keyIndex[entry.Address]; ok {
+		if i, ok := keyIndex[entry.ContractAddress]; ok {
 			params.ContractsStorageKeys[i].StorageKeys = append(
 				params.ContractsStorageKeys[i].StorageKeys,
 				entry.Key,
 			)
 			continue
 		}
-		keyIndex[entry.Address] = len(params.ContractsStorageKeys)
+		keyIndex[entry.ContractAddress] = len(params.ContractsStorageKeys)
 		params.ContractsStorageKeys = append(
 			params.ContractsStorageKeys,
-			contractStorageKeys{ContractAddress: entry.Address, StorageKeys: []string{entry.Key}},
+			contractStorageKeys{
+				ContractAddress: entry.ContractAddress,
+				StorageKeys:     []string{entry.Key},
+			},
 		)
 	}
 	return params, nil

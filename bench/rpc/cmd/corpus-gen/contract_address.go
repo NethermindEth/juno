@@ -6,30 +6,24 @@ import (
 	"strings"
 )
 
-func contractAddressSampler(listAddresses func(stateDiff) []string) sampler[blockRangeFlags] {
-	return func(input samplerInput[blockRangeFlags]) (any, error) {
+func contractAddressSampler(
+	listAddresses func(stateDiff) []string,
+) sampler[blockRangeFlags, contractAtBlockParams] {
+	return func(input samplerInput[blockRangeFlags]) (contractAtBlockParams, error) {
 		blockNumber := input.args.sampleBlockNumber(input.rng)
-		address, err := sampleContractAddress(input, blockNumber, listAddresses)
+		update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 		if err != nil {
-			return nil, err
+			return contractAtBlockParams{}, err
+		}
+		address, err := pickRandom(input.rng, listAddresses(update.StateDiff))
+		if err != nil {
+			return contractAtBlockParams{}, err
 		}
 		return contractAtBlockParams{
 			BlockID:         blockNumberID{blockNumber},
 			ContractAddress: address,
 		}, nil
 	}
-}
-
-func sampleContractAddress[T any](
-	input samplerInput[T],
-	blockNumber uint64,
-	listAddresses func(stateDiff) []string,
-) (string, error) {
-	update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
-	if err != nil {
-		return "", err
-	}
-	return pickRandom(input.rng, listAddresses(update.StateDiff))
 }
 
 func storageDiffAddresses(diff stateDiff) []string {

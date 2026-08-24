@@ -21,7 +21,7 @@ func newNoParamCmd(cfg *rootConfig, method string) *cobra.Command {
 		Aliases: []string{method},
 		GroupID: methodsGroupID,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			gen := func(context.Context, *rpcClient, *rand.Rand) (any, error) { return nil, nil }
+			gen := func(context.Context, *rand.Rand) (any, error) { return nil, nil }
 			client := newRPCClient(cfg.sourceURL, cfg.concurrency)
 			return runCorpus(cmd, cfg, client, method, struct{}{}, gen)
 		},

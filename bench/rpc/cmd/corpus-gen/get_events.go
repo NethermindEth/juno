@@ -20,41 +20,41 @@ type eventsArgs struct {
 	AddressProb float64 `json:"addressProb"`
 }
 
-func eventsExtraArgs(cmd *cobra.Command, args *eventsArgs) {
-	addBlockRangeFlags(cmd, &args.blockRangeFlags)
+func (a *eventsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 	cmd.Flags().Uint64Var(
-		&args.MaxWindow,
+		&a.MaxWindow,
 		"max-window",
 		defaultMaxWindow,
 		"Maximum number of blocks per event filter.",
 	)
 	cmd.Flags().IntVar(
-		&args.ChunkSize,
+		&a.ChunkSize,
 		"chunk-size",
 		defaultChunkSize,
 		"chunk_size value for each request.",
 	)
 	cmd.Flags().Float64Var(
-		&args.AddressProb,
+		&a.AddressProb,
 		"address-prob",
 		defaultAddressProb,
 		"Probability that a request filters by an emitting contract address.",
 	)
 	chainPreRunE(cmd, func() error {
-		if args.MaxWindow < 1 {
-			return fmt.Errorf("--max-window must be >= 1 (got %d)", args.MaxWindow)
+		if a.MaxWindow < 1 {
+			return fmt.Errorf("--max-window must be >= 1 (got %d)", a.MaxWindow)
 		}
-		if args.ChunkSize < 1 {
-			return fmt.Errorf("--chunk-size must be >= 1 (got %d)", args.ChunkSize)
+		if a.ChunkSize < 1 {
+			return fmt.Errorf("--chunk-size must be >= 1 (got %d)", a.ChunkSize)
 		}
-		if args.AddressProb < 0 || args.AddressProb > 1 {
-			return fmt.Errorf("--address-prob must be in [0, 1] (got %g)", args.AddressProb)
+		if a.AddressProb < 0 || a.AddressProb > 1 {
+			return fmt.Errorf("--address-prob must be in [0, 1] (got %g)", a.AddressProb)
 		}
 		return nil
 	})
+	a.blockRangeFlags.bind(cmd, client)
 }
 
-func eventsSampler(input samplerInput[eventsArgs]) (any, error) {
+func eventsSampler(input samplerInput[eventsArgs]) (eventsParams, error) {
 	from := input.args.sampleBlockNumber(input.rng)
 	to := from + input.rng.Uint64N(min(input.args.MaxWindow, input.args.End-from+1))
 	filter := eventFilter{
@@ -63,31 +63,26 @@ func eventsSampler(input samplerInput[eventsArgs]) (any, error) {
 		ChunkSize: input.args.ChunkSize,
 	}
 	if input.rng.Float64() < input.args.AddressProb {
-		address, err := sampleEmitter(input, from, to)
+		// Pick an emitter from [from, to], weighted by event count; errResample
+		// when none found (an empty address would silently become an unfiltered query).
+		span := to - from + 1
+		var emitters []string
+		for range min(span, maxEmitterAttempts) {
+			block, err := input.client.blockWithReceipts(input.ctx, from+input.rng.Uint64N(span))
+			if err != nil {
+				return eventsParams{}, err
+			}
+			if emitters = eventEmitters(block); len(emitters) > 0 {
+				break
+			}
+		}
+		address, err := pickRandom(input.rng, emitters)
 		if err != nil {
-			return nil, err
+			return eventsParams{}, err
 		}
 		filter.Address = address
 	}
 	return eventsParams{Filter: filter}, nil
-}
-
-// sampleEmitter returns the address of a contract that emitted an event in
-// [from, to], weighted by event count, or errResample when no sampled block
-// has events (an empty address would silently become an unfiltered query).
-func sampleEmitter(input samplerInput[eventsArgs], from, to uint64) (string, error) {
-	span := to - from + 1
-	for range min(span, maxEmitterAttempts) {
-		block, err := input.client.blockWithReceipts(input.ctx, from+input.rng.Uint64N(span))
-		if err != nil {
-			return "", err
-		}
-		emitters := eventEmitters(block)
-		if len(emitters) > 0 {
-			return emitters[input.rng.Uint64N(uint64(len(emitters)))], nil
-		}
-	}
-	return "", errResample
 }
 
 func eventEmitters(block receiptsBlock) []string {
