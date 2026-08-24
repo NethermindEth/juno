@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	"github.com/klauspost/compress/gzip"
@@ -147,7 +148,7 @@ func Gzip64Encode(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }
 
-func Gzip64Decode(data string) ([]byte, error) {
+func Gzip64Decode(data string, maxDecompressedSize int64) ([]byte, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
 		return nil, err
@@ -156,13 +157,30 @@ func Gzip64Decode(data string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	decompressedBytes, err := io.ReadAll(gzipReader)
+
+	// We want to be able to read one more byte than the actual limit. This allows diferentiat-
+	// ing if the decompressed size fits (<= maxDecompressedSize) or if it overflows
+	// (> maxDecompressedSize)
+	readLimit := maxDecompressedSize
+	if readLimit < math.MaxInt64 {
+		readLimit++
+	}
+
+	limited := io.LimitReader(gzipReader, readLimit)
+	decompressedBytes, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
 	}
+	if int64(len(decompressedBytes)) > maxDecompressedSize {
+		return nil, fmt.Errorf(
+			"decompressed data exceeded the maximum byte size: %d", maxDecompressedSize,
+		)
+	}
+
 	err = gzipReader.Close()
 	if err != nil {
 		return nil, err
 	}
+
 	return decompressedBytes, nil
 }

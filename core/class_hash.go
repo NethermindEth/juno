@@ -9,7 +9,9 @@ import (
 )
 
 func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
-	decompressedProgram, err := compression.Gzip64Decode(class.Program)
+	decompressedProgram, err := compression.Gzip64Decode(
+		class.Program, MaxDeprecatedClassProgramSize,
+	)
 	if err != nil {
 		return felt.Felt{}, err
 	}

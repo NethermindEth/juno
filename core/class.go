@@ -22,6 +22,10 @@ var (
 
 const minDeclaredClassSize = 8
 
+// MaxDeprecatedClassProgramSize bounds the decompressed size of a deprecated
+// Cairo 0 class program. Sequencer caps classes just below this limit.
+const MaxDeprecatedClassProgramSize = 4 * db.Megabyte
+
 // Single felt identifying the number "0.1.0" as a short string
 var SierraVersion010 felt.Felt = felt.Felt(
 	[4]uint64{

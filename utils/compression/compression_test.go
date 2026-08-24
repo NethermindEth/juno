@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"runtime"
 	"strconv"
 	"sync"
@@ -24,16 +25,78 @@ func TestGzip64(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedComBytes, comBytes)
 
-	decompBytes, err := compression.Gzip64Decode(comBytes)
+	decompBytes, err := compression.Gzip64Decode(comBytes, math.MaxInt64)
 	require.NoError(t, err)
 	assert.Equal(t, bytes, decompBytes)
+}
+
+func TestGzip64Decode(t *testing.T) {
+	const limit = 1024
+	tests := []struct {
+		name            string
+		payload         []byte
+		limit           int64
+		wantErrContains string // empty means the payload is expected to round-trip
+	}{
+		{
+			name:    "within limit",
+			payload: bytes.Repeat([]byte("a"), limit/2),
+			limit:   limit,
+		},
+		{
+			name:    "unbounded limit",
+			payload: []byte{0},
+			limit:   math.MaxInt64,
+		},
+		{
+			name:    "empty payload",
+			payload: []byte{},
+			limit:   limit,
+		},
+		{
+			// The budget is inclusive: a payload that exactly fills it is valid.
+			name:    "exactly at limit",
+			payload: bytes.Repeat([]byte("a"), limit),
+			limit:   limit,
+		},
+		{
+			// One byte over is the smallest overflow the +1 read must catch.
+			name:            "one byte over limit",
+			payload:         bytes.Repeat([]byte("a"), limit+1),
+			limit:           limit,
+			wantErrContains: "decompressed data exceeded the maximum byte size:",
+		},
+		{
+			name:            "zero limit rejects any content",
+			payload:         []byte("x"),
+			limit:           0,
+			wantErrContains: "decompressed data exceeded the maximum byte size:",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := compression.Gzip64Encode(test.payload)
+			require.NoError(t, err)
+
+			decoded, err := compression.Gzip64Decode(encoded, test.limit)
+			if test.wantErrContains != "" {
+				assert.ErrorContains(t, err, test.wantErrContains)
+				assert.Nil(t, decoded)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, test.payload, decoded)
+		})
+	}
 }
 
 func FuzzGzip64(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		compressed, err := compression.Gzip64Encode(data)
 		require.NoError(t, err)
-		decompressed, err := compression.Gzip64Decode(compressed)
+		decompressed, err := compression.Gzip64Decode(compressed, math.MaxInt64)
 		require.NoError(t, err)
 		assert.Equal(t, data, decompressed)
 	})
@@ -50,7 +113,7 @@ func TestGzip64EncodeAcrossSuccessiveCalls(t *testing.T) {
 
 			encoded, err := compression.Gzip64Encode(payload)
 			require.NoError(t, err)
-			decoded, err := compression.Gzip64Decode(encoded)
+			decoded, err := compression.Gzip64Decode(encoded, math.MaxInt64)
 			require.NoError(t, err)
 			assert.Equal(t, payload, decoded)
 		})
@@ -204,7 +267,7 @@ func TestGzip64EncodeConcurrent(t *testing.T) {
 			payload := bytes.Repeat([]byte{byte('a' + i)}, chunk*(i+1))
 			encoded, err := compression.Gzip64Encode(payload)
 			assert.NoError(t, err)
-			decoded, err := compression.Gzip64Decode(encoded)
+			decoded, err := compression.Gzip64Decode(encoded, math.MaxInt64)
 			assert.NoError(t, err)
 			assert.Equal(t, payload, decoded)
 		})
