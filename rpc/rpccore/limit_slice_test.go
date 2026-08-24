@@ -164,10 +164,10 @@ func jsonArrayString(element string, length int) string {
 	return `[` + strings.Join(slices.Repeat([]string{element}, length), ",") + `]`
 }
 
-func randomFeltSlice(t *testing.T) *[]felt.Felt {
+func randomFeltSlice(t *testing.T) *felt.Slice[felt.Felt] {
 	t.Helper()
 	length := rand.IntN(maxFeltSliceSize)
-	randomFeltSlice := make([]felt.Felt, length)
+	randomFeltSlice := make(felt.Slice[felt.Felt], length)
 	for i := range length {
 		randomFeltSlice[i] = felt.Random[felt.Felt]()
 	}

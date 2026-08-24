@@ -41,9 +41,9 @@ type EmittedEvent struct {
 // json tags differ), which lets AdaptReceipt reinterpret a receipt's []*core.Event as []*Event with
 // zero copies. The conversion guard below makes any divergence a compile error.
 type Event struct {
-	From *felt.Felt  `json:"from_address,omitempty"`
-	Keys []felt.Felt `json:"keys"`
-	Data []felt.Felt `json:"data"`
+	From *felt.Felt            `json:"from_address,omitempty"`
+	Keys felt.Slice[felt.Felt] `json:"keys"`
+	Data felt.Slice[felt.Felt] `json:"data"`
 }
 
 var _ = Event(core.Event{})

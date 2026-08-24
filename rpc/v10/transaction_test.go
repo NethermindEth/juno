@@ -1947,7 +1947,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]felt.Felt{
+				Signature: &felt.Slice[felt.Felt]{
 					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
@@ -1969,7 +1969,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 			Transaction: rpc.Transaction{
 				Type:    rpc.TxnDeclare,
 				Version: felt.NewFromUint64[felt.Felt](3),
-				Signature: &[]felt.Felt{
+				Signature: &felt.Slice[felt.Felt]{
 					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),

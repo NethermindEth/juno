@@ -316,7 +316,7 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, responseTx.SenderAddress, invokeTx.SenderAddress)
 		assert.Equal(t, responseTx.EntryPointSelector, invokeTx.EntryPointSelector)
 		assert.Equal(t, responseTx.Nonce, invokeTx.Nonce)
-		assert.Equal(t, *responseTx.CallData, invokeTx.CallData)
+		assert.Equal(t, felt.Slice[felt.Felt](*responseTx.CallData), invokeTx.CallData)
 		assert.Equal(t, *responseTx.Signature, invokeTx.Signature())
 		assert.Equal(t, responseTx.MaxFee, invokeTx.MaxFee)
 		assert.Equal(t, responseTx.Version, invokeTx.Version.AsFelt())
@@ -338,7 +338,11 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, responseTx.ContractAddressSalt, deployTx.ContractAddressSalt)
 		assert.Equal(t, responseTx.ContractAddress, deployTx.ContractAddress)
 		assert.Equal(t, responseTx.ClassHash, deployTx.ClassHash)
-		assert.Equal(t, *responseTx.ConstructorCallData, deployTx.ConstructorCallData)
+		assert.Equal(
+			t,
+			felt.Slice[felt.Felt](*responseTx.ConstructorCallData),
+			deployTx.ConstructorCallData,
+		)
 		assert.Equal(t, responseTx.Version, deployTx.Version.AsFelt())
 	})
 
@@ -358,7 +362,11 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, responseTx.ContractAddressSalt, deployAccountTx.ContractAddressSalt)
 		assert.Equal(t, responseTx.ContractAddress, deployAccountTx.ContractAddress)
 		assert.Equal(t, responseTx.ClassHash, deployAccountTx.ClassHash)
-		assert.Equal(t, *responseTx.ConstructorCallData, deployAccountTx.ConstructorCallData)
+		assert.Equal(
+			t,
+			felt.Slice[felt.Felt](*responseTx.ConstructorCallData),
+			deployAccountTx.ConstructorCallData,
+		)
 		assert.Equal(t, responseTx.Version, deployAccountTx.Version.AsFelt())
 		assert.Equal(t, responseTx.MaxFee, deployAccountTx.MaxFee)
 		assert.Equal(t, *responseTx.Signature, deployAccountTx.Signature())
@@ -402,7 +410,7 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, responseTx.ContractAddress, l1HandlerTx.ContractAddress)
 		assert.Equal(t, responseTx.EntryPointSelector, l1HandlerTx.EntryPointSelector)
 		assert.Equal(t, responseTx.Nonce, l1HandlerTx.Nonce)
-		assert.Equal(t, *responseTx.CallData, l1HandlerTx.CallData)
+		assert.Equal(t, felt.Slice[felt.Felt](*responseTx.CallData), l1HandlerTx.CallData)
 		assert.Equal(t, responseTx.Version, l1HandlerTx.Version.AsFelt())
 	})
 }
