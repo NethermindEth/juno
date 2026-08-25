@@ -472,6 +472,8 @@ func (s *Server) logRejected(err error) {
 }
 
 // handleBatchRequest walks a batch one element at a time
+//
+//nolint:gocyclo // one loop handling every step for each request in the batch
 func (s *Server) handleBatchRequest(
 	ctx context.Context,
 	dec *json.Decoder,
