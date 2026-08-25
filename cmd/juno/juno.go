@@ -177,8 +177,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
-	defaultRPCMaxConcurrentRequests           = 256000
-	defaultRPCMaxQueuedRequests               = 256000
+	defaultRPCMaxConcurrentRequests           = 10_000
+	defaultRPCMaxQueuedRequests               = 10_000
 	defaultMaxConcurrentCompilations          = uint64(0)
 	defaultMaxCompilationQueue                = uint64(0)
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
@@ -268,9 +268,9 @@ const (
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
-	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
-	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
-		"reaching rpc-max-concurrent-requests limit."
+	rpcMaxConcurrentRequestsUsage = "Maximum RPC calls executing concurrently. 0 disables the limit."
+	rpcMaxRequestQueueUsage = "Maximum number of RPC calls to queue after reaching " +
+		"rpc-max-concurrent-requests before rejecting."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
 		"Default is set based on available hardware resources."
 	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +

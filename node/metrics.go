@@ -26,6 +26,7 @@ const (
 	namespaceSync   = "sync"
 	namespacePruner = "pruner"
 	subsystemHTTP   = "http"
+	subsystemCalls  = "calls"
 )
 
 func makeDBMetrics() db.EventListener {
@@ -107,28 +108,28 @@ func makeHTTPMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeHTTPGateMetrics(gate *jsonrpc.Gate) {
+func makeCallGateMetrics(gate *jsonrpc.Gate) {
 	active := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "rpc",
-		Subsystem: subsystemHTTP,
-		Name:      "active_requests",
-		Help:      "Number of HTTP RPC requests currently being processed",
+		Subsystem: subsystemCalls,
+		Name:      "active",
+		Help:      "Number of RPC calls currently executing, across HTTP and WebSocket",
 	}, func() float64 {
 		return float64(gate.Running())
 	})
 	queued := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "rpc",
-		Subsystem: subsystemHTTP,
-		Name:      "queued_requests",
-		Help:      "Number of HTTP RPC requests waiting for a processing slot",
+		Subsystem: subsystemCalls,
+		Name:      "queued",
+		Help:      "Number of RPC calls waiting for an execution slot",
 	}, func() float64 {
 		return float64(gate.Queued())
 	})
 	rejected := prometheus.NewCounterFunc(prometheus.CounterOpts{
 		Namespace: "rpc",
-		Subsystem: subsystemHTTP,
-		Name:      "rejected_requests",
-		Help:      "Total number of HTTP RPC requests rejected because the server was busy",
+		Subsystem: subsystemCalls,
+		Name:      "rejected",
+		Help:      "Total number of RPC calls rejected because the server was busy",
 	}, func() float64 {
 		return float64(gate.Rejected())
 	})

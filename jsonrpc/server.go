@@ -28,7 +28,7 @@ const (
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
-	ServerBusy = -32000
+	ServerBusy     = -32000
 )
 
 var (
@@ -157,7 +157,7 @@ type Server struct {
 	logger               log.StructuredLogger
 	listener             EventListener
 	disableBatchRequests bool
-	callGate *Gate
+	callGate             *Gate
 }
 
 type Validator interface {
@@ -173,6 +173,15 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 		listener: &SelectiveListener{},
 	}
 
+	return s
+}
+
+// WithPool replaces the executor used to run batch elements. Passing one pool
+// to every Server bounds goroutines process-wide rather than per RPC version.
+func (s *Server) WithPool(p *pool.Pool) *Server {
+	if p != nil {
+		s.pool = p
+	}
 	return s
 }
 
@@ -392,15 +401,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 			header = httpHeader
 		}
 	} else if !s.disableBatchRequests {
-		var batchReq []json.RawMessage
-
-		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
-		} else if len(batchReq) == 0 {
-			resp = new(errResponse(InvalidRequest, "empty batch"))
-		} else {
-			return s.handleBatchRequest(ctx, batchReq)
-		}
+		return s.handleBatchRequest(ctx, dec, &errorRecoverBuffer)
 	} else {
 		resp = new(errResponse(InvalidRequest, "batch requests are disabled"))
 	}
@@ -436,7 +437,22 @@ func busyResponse(id any) response {
 	return resp
 }
 
-func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
+// handleBatchRequest walks a batch one element at a time
+func (s *Server) handleBatchRequest(
+	ctx context.Context,
+	dec *json.Decoder,
+	errorRecoverBuffer *windowBuffer,
+) ([]byte, http.Header, error) {
+	parseErr := func(err error) ([]byte, http.Header, error) {
+		resp := errResponse(InvalidJSON, prettyParseError(errorRecoverBuffer, err))
+		result, marshalErr := json.Marshal(&resp)
+		return result, http.Header{}, marshalErr
+	}
+
+	if _, err := dec.Token(); err != nil { // consumes '['
+		return parseErr(err)
+	}
+
 	var (
 		mutex     sync.Mutex
 		responses []json.RawMessage
@@ -458,7 +474,16 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	defer cancel()
 
 	var wg sync.WaitGroup
-	for _, rawReq := range batchReq {
+	empty := true
+	for dec.More() {
+		empty = false
+
+		var rawReq json.RawMessage
+		if err := dec.Decode(&rawReq); err != nil {
+			wg.Wait()
+			return parseErr(err)
+		}
+
 		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
 		reqDec.UseNumber()
 
@@ -494,6 +519,12 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	wg.Wait()
 
+	if empty {
+		resp := errResponse(InvalidRequest, "empty batch")
+		result, err := json.Marshal(&resp)
+		return result, http.Header{}, err
+	}
+
 	// merge headers
 	finalHeaders := http.Header{}
 	for _, header := range headers {
@@ -503,7 +534,6 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 			}
 		}
 	}
-
 	// according to the spec if there are no response objects server must not return empty array
 	if len(responses) == 0 {
 		return nil, finalHeaders, nil

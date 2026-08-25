@@ -1,12 +1,17 @@
 package jsonrpc_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
@@ -868,4 +873,194 @@ func read(t *testing.T, c io.Reader, length int) string {
 func write(t *testing.T, c io.Writer, data string) {
 	_, err := c.Write([]byte(data))
 	require.NoError(t, err)
+}
+
+// bufReadWriter adapts a request body and a response buffer to io.ReadWriter so
+// that HandleReadWriter, the websocket entry point, can be driven from a test.
+type bufReadWriter struct {
+	r io.Reader
+	w bytes.Buffer
+}
+
+func (rw *bufReadWriter) Read(p []byte) (int, error)  { return rw.r.Read(p) }
+func (rw *bufReadWriter) Write(p []byte) (int, error) { return rw.w.Write(p) }
+
+func TestCallGate(t *testing.T) {
+	const one = `{"jsonrpc":"2.0","id":1,"method":"block"}`
+
+	// newBlockingServer returns a server whose "block" method reports that it
+	// was entered and then waits, so that the caller can hold a gate slot open.
+	newBlockingServer := func(t *testing.T, gate *jsonrpc.Gate) (*jsonrpc.Server, chan struct{}, chan struct{}) {
+		entered := make(chan struct{})
+		release := make(chan struct{})
+		server := jsonrpc.NewServer(4, log.NewNopZapLogger()).WithCallGate(gate)
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name: "block",
+			Handler: func() (int, *jsonrpc.Error) {
+				entered <- struct{}{}
+				<-release
+				return 1, nil
+			},
+		}))
+		return server, entered, release
+	}
+
+	t.Run("http single request is rejected when the gate is full", func(t *testing.T) {
+		server, entered, release := newBlockingServer(t, jsonrpc.NewGate(1, 0))
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _, err := server.HandleReader(context.Background(), strings.NewReader(one))
+			assert.NoError(t, err)
+		}()
+		<-entered
+
+		res, _, err := server.HandleReader(t.Context(), strings.NewReader(one))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"jsonrpc":"2.0","error":{"code":-32000,`+
+			`"message":"Server busy"},"id":1}`, string(res))
+
+		close(release)
+		<-done
+	})
+
+	t.Run("websocket single request is rejected too", func(t *testing.T) {
+		server, entered, release := newBlockingServer(t, jsonrpc.NewGate(1, 0))
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _, err := server.HandleReader(context.Background(), strings.NewReader(one))
+			assert.NoError(t, err)
+		}()
+		<-entered
+
+		rw := &bufReadWriter{r: strings.NewReader(one)}
+		require.NoError(t, server.HandleReadWriter(t.Context(), time.Minute, rw))
+		assert.Contains(t, rw.w.String(), `"code":-32000`)
+
+		close(release)
+		<-done
+	})
+
+	t.Run("nil gate admits concurrent calls", func(t *testing.T) {
+		const concurrent = 4
+		const meet = `{"jsonrpc":"2.0","id":1,"method":"meet"}`
+		var wg sync.WaitGroup
+		barrier := make(chan struct{})
+		var arrived atomic.Int64
+
+		server := jsonrpc.NewServer(8, log.NewNopZapLogger()).WithCallGate(nil)
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name: "meet",
+			Handler: func() (int, *jsonrpc.Error) {
+				if arrived.Add(1) == concurrent {
+					close(barrier) 
+				}
+				<-barrier
+				return 1, nil
+			},
+		}))
+
+		for range concurrent {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				res, _, err := server.HandleReader(context.Background(), strings.NewReader(meet))
+				assert.NoError(t, err)
+				assert.Contains(t, string(res), `"result":1`)
+			}()
+		}
+		wg.Wait()
+	})
+
+	t.Run("a malformed request does not consume a slot", func(t *testing.T) {
+		gate := jsonrpc.NewGate(1, 0)
+		server := jsonrpc.NewServer(4, log.NewNopZapLogger()).WithCallGate(gate)
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name:    "ping",
+			Handler: func() (int, *jsonrpc.Error) { return 1, nil },
+		}))
+
+		res, _, err := server.HandleReader(t.Context(), strings.NewReader(`{bad}`))
+		require.NoError(t, err)
+		require.Contains(t, string(res), `"code":-32700`)
+
+		// The slot must be free, so a well-formed request still succeeds.
+		res, _, err = server.HandleReader(t.Context(),
+			strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+		require.NoError(t, err)
+		assert.Contains(t, string(res), `"result":1`)
+		assert.Zero(t, gate.Running())
+	})
+}
+
+func TestBatchCallGate(t *testing.T) {
+	t.Run("elements beyond the gate get a busy error, the rest succeed", func(t *testing.T) {
+		release := make(chan struct{})
+		var entered atomic.Int64
+		server := jsonrpc.NewServer(8, log.NewNopZapLogger()).
+			WithCallGate(jsonrpc.NewGate(1, 0))
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name: "block",
+			Handler: func() (int, *jsonrpc.Error) {
+				entered.Add(1)
+				<-release
+				return 1, nil
+			},
+		}))
+
+		const three = `[{"jsonrpc":"2.0","id":1,"method":"block"},` +
+			`{"jsonrpc":"2.0","id":2,"method":"block"},` +
+			`{"jsonrpc":"2.0","id":3,"method":"block"}]`
+
+		done := make(chan []byte, 1)
+		go func() {
+			res, _, err := server.HandleReader(context.Background(), strings.NewReader(three))
+			assert.NoError(t, err)
+			done <- res
+		}()
+		
+		require.Eventually(t, func() bool { return entered.Load() == 1 },
+			5*time.Second, time.Millisecond)
+		close(release)
+
+		var out []json.RawMessage
+		require.NoError(t, json.Unmarshal(<-done, &out))
+		require.Len(t, out, 3)
+		busy := 0
+		for _, e := range out {
+			if strings.Contains(string(e), `"code":-32000`) {
+				busy++
+			}
+		}
+		assert.Equal(t, 2, busy)
+		assert.EqualValues(t, 1, entered.Load(), "only one element may have run")
+	})
+
+	t.Run("batch elements run concurrently", func(t *testing.T) {
+		const n = 4
+		var arrived atomic.Int64
+		barrier := make(chan struct{})
+		server := jsonrpc.NewServer(16, log.NewNopZapLogger()).
+			WithCallGate(jsonrpc.NewGate(64, 64))
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name: "meet",
+			Handler: func() (int, *jsonrpc.Error) {
+				if arrived.Add(1) == n {
+					close(barrier)
+				}
+				<-barrier
+				return 1, nil
+			},
+		}))
+
+		elems := make([]string, n)
+		for i := range elems {
+			elems[i] = `{"jsonrpc":"2.0","id":1,"method":"meet"}`
+		}
+		// Deadlocks on the test timeout if the elements do not run concurrently.
+		_, _, err := server.HandleReader(t.Context(),
+			strings.NewReader("["+strings.Join(elems, ",")+"]"))
+		require.NoError(t, err)
+	})
 }
