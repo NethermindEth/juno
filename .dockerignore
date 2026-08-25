@@ -11,6 +11,9 @@ coverage/
 **/target/debug
 **/target/release
 
+bench/rpc/corpus/*
+!bench/rpc/corpus/*.json
+
 # GitHub metadata 
 .github/
 

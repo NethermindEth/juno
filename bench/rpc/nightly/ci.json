@@ -1,0 +1,9 @@
+{
+  "vus": 50,
+  "duration": "30s",
+  "summaryTrendStats": ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],
+  "thresholds": {
+    "checks": ["rate==1"],
+    "http_req_failed": ["rate==0"]
+  }
+}
