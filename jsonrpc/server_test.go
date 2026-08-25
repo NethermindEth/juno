@@ -954,7 +954,7 @@ func TestCallGate(t *testing.T) {
 			Name: "meet",
 			Handler: func() (int, *jsonrpc.Error) {
 				if arrived.Add(1) == concurrent {
-					close(barrier) 
+					close(barrier)
 				}
 				<-barrier
 				return 1, nil
@@ -1019,7 +1019,7 @@ func TestBatchCallGate(t *testing.T) {
 			assert.NoError(t, err)
 			done <- res
 		}()
-		
+
 		require.Eventually(t, func() bool { return entered.Load() == 1 },
 			5*time.Second, time.Millisecond)
 		close(release)

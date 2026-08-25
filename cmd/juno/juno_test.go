@@ -70,8 +70,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultColour := true
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
-	defaultRPCMaxConcurrentRequests := uint(10_000)
-	defaultRPCMaxRequestQueue := uint(10_000)
+	defaultRPCMaxConcurrentRequests := uint(20_000)
+	defaultRPCMaxRequestQueue := uint(20_000)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := max(int(min(fdLimit/2, 1_048_576)), 1024)
