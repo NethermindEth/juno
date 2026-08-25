@@ -27,6 +27,16 @@ type argsBinder interface {
 	bind(cmd *cobra.Command, client *rpcClient)
 }
 
+func rebindArgs[T, U any](input samplerInput[T], args *U) samplerInput[U] {
+	return samplerInput[U]{
+		ctx:    input.ctx,
+		client: input.client,
+		rng:    input.rng,
+		args:   args,
+		cache:  input.cache,
+	}
+}
+
 // newSampledCmd builds a subcommand whose params come from one successful call
 // of sample (errResample re-invokes); T's bind fills *T, the corpus sampling meta.
 func newSampledCmd[T any, PT interface {

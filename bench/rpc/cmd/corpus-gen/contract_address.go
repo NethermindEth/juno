@@ -8,8 +8,8 @@ import (
 
 func contractAddressSampler(
 	listAddresses func(stateDiff) []string,
-) sampler[blockRangeFlags, contractAtBlockParams] {
-	return func(input samplerInput[blockRangeFlags]) (contractAtBlockParams, error) {
+) sampler[blockIDArgs, contractAtBlockParams] {
+	return func(input samplerInput[blockIDArgs]) (contractAtBlockParams, error) {
 		blockNumber := input.args.sampleBlockNumber(input.rng)
 		update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 		if err != nil {
@@ -19,10 +19,11 @@ func contractAddressSampler(
 		if err != nil {
 			return contractAtBlockParams{}, err
 		}
-		return contractAtBlockParams{
-			BlockID:         blockNumberID{blockNumber},
-			ContractAddress: address,
-		}, nil
+		id, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, blockNumber)
+		if err != nil {
+			return contractAtBlockParams{}, err
+		}
+		return contractAtBlockParams{BlockID: id, ContractAddress: address}, nil
 	}
 }
 

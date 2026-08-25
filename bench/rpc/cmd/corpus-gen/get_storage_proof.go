@@ -45,13 +45,12 @@ func storageProofSampler(input samplerInput[storageProofArgs]) (storageProofPara
 	// Proofs are only served near the chain head, so query "latest";
 	// sampled trie members persist, so historical diffs are still valid sources.
 	params := storageProofParams{BlockID: "latest"}
-	blockInput := samplerInput[blockRangeFlags]{
-		ctx:    input.ctx,
-		client: input.client,
-		rng:    input.rng,
-		args:   &input.args.blockRangeFlags,
-		cache:  input.cache,
+	blockArgs := blockIDArgs{
+		blockRangeFlags: input.args.blockRangeFlags,
+		BlockIDKind:     blockIDNumber,
 	}
+	blockInput := rebindArgs(input, &blockArgs)
+	storageInput := rebindArgs(input, &storageAtArgs{blockIDArgs: blockArgs})
 	for range input.args.NumClasses {
 		// Cairo 0 hashes are fine here: keys absent from the classes trie
 		// yield valid non-membership proofs with near-identical node work.
@@ -76,7 +75,7 @@ func storageProofSampler(input samplerInput[storageProofArgs]) (storageProofPara
 	keyIndex := make(map[string]int)
 	for range input.args.NumKeys {
 		entry, err := resample(func() (storageAtParams, error) {
-			return storageAtSampler(blockInput)
+			return storageAtSampler(storageInput)
 		})
 		if err != nil {
 			return storageProofParams{}, fmt.Errorf("sample storage key: %w", err)

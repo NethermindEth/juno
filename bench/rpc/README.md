@@ -16,6 +16,10 @@ Method-specific flags:
 
 | Subcommand        | Flag                                        | Meaning                                            |
 | ----------------- | ------------------------------------------- | -------------------------------------------------- |
+| block-id subcommands | `--block-id`                             | `block_id` encoding: `number` (default), `hash` or `latest` |
+| `getBlockWithTxs`/`getBlockWithReceipts`/`getTransactionByHash`/`getTransactionByBlockIdAndIndex` | `--include-proof-facts` | add `INCLUDE_PROOF_FACTS` to `response_flags` |
+| `getStorageAt`    | `--include-last-update-block`               | add `INCLUDE_LAST_UPDATE_BLOCK` to `response_flags` |
+| `traceBlockTransactions` | `--return-initial-reads`             | add `RETURN_INITIAL_READS` to `trace_flags`        |
 | `getEvents`       | `--max-window`                              | max blocks per event filter                        |
 | `getEvents`       | `--chunk-size`                              | `chunk_size` per request                           |
 | `getEvents`       | `--address-prob`                            | probability of filtering by an emitting address    |

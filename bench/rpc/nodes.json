@@ -1,4 +1,4 @@
 {
   "juno": "http://localhost:6060/rpc/v0_10",
-  "pathfinder": "http://localhost:9545/rpc/v0_10"
+  "trailseeker": "http://localhost:9545/rpc/v0_10"
 }

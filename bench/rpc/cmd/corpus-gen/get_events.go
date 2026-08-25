@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ const (
 )
 
 type eventsArgs struct {
-	blockRangeFlags
+	blockIDArgs
 	MaxWindow   uint64  `json:"maxWindow"`
 	ChunkSize   int     `json:"chunkSize"`
 	AddressProb float64 `json:"addressProb"`
@@ -40,6 +41,9 @@ func (a *eventsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 		"Probability that a request filters by an emitting contract address.",
 	)
 	chainPreRunE(cmd, func() error {
+		if a.BlockIDKind == blockIDLatest {
+			return errors.New("--block-id latest is not supported")
+		}
 		if a.MaxWindow < 1 {
 			return fmt.Errorf("--max-window must be >= 1 (got %d)", a.MaxWindow)
 		}
@@ -51,15 +55,23 @@ func (a *eventsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 		}
 		return nil
 	})
-	a.blockRangeFlags.bind(cmd, client)
+	a.blockIDArgs.bind(cmd, client)
 }
 
 func eventsSampler(input samplerInput[eventsArgs]) (eventsParams, error) {
 	from := input.args.sampleBlockNumber(input.rng)
 	to := from + input.rng.Uint64N(min(input.args.MaxWindow, input.args.End-from+1))
+	fromID, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, from)
+	if err != nil {
+		return eventsParams{}, err
+	}
+	toID, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, to)
+	if err != nil {
+		return eventsParams{}, err
+	}
 	filter := eventFilter{
-		FromBlock: blockNumberID{from},
-		ToBlock:   blockNumberID{to},
+		FromBlock: fromID,
+		ToBlock:   toID,
 		ChunkSize: input.args.ChunkSize,
 	}
 	if input.rng.Float64() < input.args.AddressProb {
