@@ -10,8 +10,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -466,7 +466,7 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 			t.Run("missing field returns error", func(t *testing.T) {
 				t.Parallel()
 				partialHeaderDB := memory.New()
-				data, err := encoder.Marshal(tt.headerWithoutField)
+				data, err := cbor.Marshal(tt.headerWithoutField)
 				require.NoError(t, err)
 				require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
 
@@ -503,7 +503,7 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	t.Run("header without transaction count returns zero", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct {
+		data, err := cbor.Marshal(struct {
 			Hash *felt.Felt
 		}{Hash: block.Hash})
 		require.NoError(t, err)
@@ -537,7 +537,7 @@ func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 	t.Run("missing field returns error", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		data, err := cbor.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
 		require.NoError(t, err)
 		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
 
@@ -568,7 +568,7 @@ func TestGetBlockHeaderEventsBloomByNumber(t *testing.T) {
 	t.Run("missing field returns error", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		data, err := cbor.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
 		require.NoError(t, err)
 		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
 
@@ -599,7 +599,7 @@ func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 	t.Run("missing hash returns error", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(
+		data, err := cbor.Marshal(
 			struct{ GlobalStateRoot *felt.Felt }{GlobalStateRoot: block.GlobalStateRoot},
 		)
 		require.NoError(t, err)
@@ -612,7 +612,7 @@ func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 	t.Run("missing state root returns error", func(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
-		data, err := encoder.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
+		data, err := cbor.Marshal(struct{ Hash *felt.Felt }{Hash: block.Hash})
 		require.NoError(t, err)
 		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
 

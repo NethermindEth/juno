@@ -7,14 +7,20 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFeltCbor(t *testing.T) {
 	val := felt.NewRandom[felt.Felt]()
-	encoder.TestSymmetry(t, val)
+
+	data, err := cbor.Marshal(val)
+	require.NoError(t, err)
+
+	var back *felt.Felt
+	require.NoError(t, cbor.Unmarshal(data, &back))
+	assert.Equal(t, val, back)
 }
 
 func TestShortString(t *testing.T) {

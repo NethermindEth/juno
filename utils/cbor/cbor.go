@@ -31,7 +31,7 @@ func NewEncoder(w io.Writer) Encoder {
 }
 
 // RegisterType gives a unique CBOR tag to a type.
-// It must be called only from init in encoder/registry.
+// It must be called only from init in utils/cbor/registry.
 func RegisterType(rType reflect.Type) error {
 	return codec.registerType(rType)
 }

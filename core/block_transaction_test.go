@@ -8,9 +8,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/NethermindEth/juno/db/typed/partial"
-	"github.com/NethermindEth/juno/encoder"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/utils/cbor"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,13 +18,13 @@ const transactionCount = 100
 func toCborSeq[T any](items []T) iter.Seq2[cbor.RawMessage, error] {
 	return func(yield func(cbor.RawMessage, error) bool) {
 		for _, item := range items {
-			cbor, err := encoder.Marshal(item)
+			encoded, err := cbor.Marshal(item)
 			if err != nil {
 				yield(nil, err)
 				return
 			}
 
-			if !yield(cbor, nil) {
+			if !yield(encoded, nil) {
 				return
 			}
 		}

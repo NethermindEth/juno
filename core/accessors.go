@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -56,13 +56,13 @@ func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefiniti
 	var class *DeclaredClassDefinition
 
 	err := r.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
+		return cbor.Unmarshal(data, &class)
 	})
 	return class, err
 }
 
 func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
-	data, err := encoder.Marshal(class)
+	data, err := cbor.Marshal(class)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt) error 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdate, error) {
 	var stateUpdate *StateUpdate
 	err := r.Get(db.StateUpdateByBlockNumKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &stateUpdate)
+		return cbor.Unmarshal(data, &stateUpdate)
 	})
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdat
 }
 
 func WriteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64, stateUpdate *StateUpdate) error {
-	data, err := encoder.Marshal(stateUpdate)
+	data, err := cbor.Marshal(stateUpdate)
 	if err != nil {
 		return err
 	}
@@ -206,13 +206,13 @@ func DeleteDeprecatedContractClassHashHistory(
 func GetL1Head(r db.KeyValueReader) (L1Head, error) {
 	var l1Head L1Head
 	err := r.Get(db.L1Height.Key(), func(data []byte) error {
-		return encoder.Unmarshal(data, &l1Head)
+		return cbor.Unmarshal(data, &l1Head)
 	})
 	return l1Head, err
 }
 
 func WriteL1Head(w db.KeyValueWriter, l1Head *L1Head) error {
-	data, err := encoder.Marshal(l1Head)
+	data, err := cbor.Marshal(l1Head)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func DeleteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 }
 
 func WriteBlockHeaderByNumber(w db.KeyValueWriter, header *Header) error {
-	data, err := encoder.Marshal(header)
+	data, err := cbor.Marshal(header)
 	if err != nil {
 		return err
 	}
@@ -252,13 +252,13 @@ func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
 func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*BlockCommitments, error) {
 	var commitment *BlockCommitments
 	err := r.Get(db.BlockCommitmentsKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &commitment)
+		return cbor.Unmarshal(data, &commitment)
 	})
 	return commitment, err
 }
 
 func WriteBlockCommitment(w db.KeyValueWriter, blockNum uint64, commitment *BlockCommitments) error {
-	data, err := encoder.Marshal(commitment)
+	data, err := cbor.Marshal(commitment)
 	if err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func DeleteChainHeight(w db.KeyValueWriter) error {
 func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, error) {
 	var header *Header
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	return header, err
 }
@@ -332,7 +332,7 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, erro
 func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -348,7 +348,7 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header headerHashProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTransactionCountProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -375,7 +375,7 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTimestampProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -392,7 +392,7 @@ func GetBlockHeaderEventsBloomByNumber(
 ) (*bloom.BloomFilter, error) {
 	var header headerEventsBloomProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func GetBlockHeaderHashAndStateRootByNumber(
 ) (hash, stateRoot *felt.Felt, err error) {
 	var header headerHashAndStateRootProjection
 	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return encoder.Unmarshal(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, nil, err
@@ -646,7 +646,7 @@ func DeleteTransactionsAndReceipts(
 func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
 	var filter AggregatedBloomFilter
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
-		err := encoder.Unmarshal(data, &filter)
+		err := cbor.Unmarshal(data, &filter)
 		return err
 	})
 	if err != nil {
@@ -657,7 +657,7 @@ func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (A
 }
 
 func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
-	enc, err := encoder.Marshal(filter)
+	enc, err := cbor.Marshal(filter)
 	if err != nil {
 		return err
 	}
@@ -671,7 +671,7 @@ func DeleteAggregatedBloomFilter(w db.KeyValueWriter, fromBlock, toBlock uint64)
 func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
 	var filter RunningEventFilter
 	err := r.Get(db.RunningEventFilter.Key(), func(data []byte) error {
-		err := encoder.Unmarshal(data, &filter)
+		err := cbor.Unmarshal(data, &filter)
 		return err
 	})
 	if err != nil {
@@ -682,7 +682,7 @@ func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
 }
 
 func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) error {
-	enc, err := encoder.Marshal(filter)
+	enc, err := cbor.Marshal(filter)
 	if err != nil {
 		return err
 	}

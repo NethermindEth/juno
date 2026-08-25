@@ -1,4 +1,4 @@
-package encoder_test
+package cbor_test
 
 import (
 	"encoding/hex"
@@ -10,10 +10,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/encoder"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/cbor"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -200,7 +199,7 @@ var golden = map[string]string{
 func TestGoldenBytes(t *testing.T) {
 	for _, c := range goldenCases() {
 		t.Run(c.name, func(t *testing.T) {
-			b, err := encoder.Marshal(c.value)
+			b, err := cbor.Marshal(c.value)
 			require.NoError(t, err)
 
 			want, ok := golden[c.name]
@@ -211,7 +210,7 @@ func TestGoldenBytes(t *testing.T) {
 			require.NoError(t, err)
 
 			back := reflect.New(reflect.TypeOf(c.value))
-			require.NoError(t, encoder.Unmarshal(stored, back.Interface()))
+			require.NoError(t, cbor.Unmarshal(stored, back.Interface()))
 			require.Equal(t, c.value, back.Elem().Interface())
 		})
 	}

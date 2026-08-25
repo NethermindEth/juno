@@ -25,7 +25,6 @@ import (
 	"github.com/NethermindEth/juno/db/typed"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/value"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/migration/deprecated/casmhashmetadata"
 	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
@@ -482,7 +481,7 @@ func (m *changeTrieNodeEncoding) Migrate(
 				return err
 			}
 
-			if err = encoder.Unmarshal(v, &n); err != nil {
+			if err = cbor.Unmarshal(v, &n); err != nil {
 				return err
 			}
 
@@ -716,7 +715,7 @@ type oldStateUpdate struct {
 
 func changeStateDiffStruct2(txn db.KeyValueWriter, key, value []byte, _ *networks.Network) error {
 	old := new(oldStateUpdate)
-	if err := encoder.Unmarshal(value, old); err != nil {
+	if err := cbor.Unmarshal(value, old); err != nil {
 		return fmt.Errorf("unmarshal: %v", err)
 	}
 
@@ -747,7 +746,7 @@ func changeStateDiffStruct2(txn db.KeyValueWriter, key, value []byte, _ *network
 		replacedClasses[*replacedClass.Address] = replacedClass.ClassHash
 	}
 
-	newValue, err := encoder.Marshal(&core.StateUpdate{
+	newValue, err := cbor.Marshal(&core.StateUpdate{
 		BlockHash: old.BlockHash,
 		NewRoot:   old.NewRoot,
 		OldRoot:   old.OldRoot,
@@ -800,7 +799,7 @@ func migrateCairo1CompiledClass2(
 	_ *networks.Network,
 ) error {
 	var class declaredClass
-	err := encoder.Unmarshal(value, &class)
+	err := cbor.Unmarshal(value, &class)
 	if err != nil {
 		// assumption that only Cairo0 class causes this error
 		// TODO(granza): discriminate the record by its own shape, not by the error.
@@ -838,7 +837,7 @@ func migrateCairo1CompiledClass2(
 		},
 	}
 
-	value, err = encoder.Marshal(declaredClass)
+	value, err = cbor.Marshal(declaredClass)
 	if err != nil {
 		return err
 	}
@@ -967,7 +966,7 @@ func calculateCasmClassHashesV2(txn db.IndexedBatch, network *networks.Network) 
 		workerPool.Go(
 			func() error {
 				var declaredClass core.DeclaredClassDefinition
-				if err := encoder.Unmarshal(value, &declaredClass); err != nil {
+				if err := cbor.Unmarshal(value, &declaredClass); err != nil {
 					return err
 				}
 

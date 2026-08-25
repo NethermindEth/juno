@@ -1,26 +1,22 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 type BlockTransactionsSerializer struct{}
 
 func (BlockTransactionsSerializer) Marshal(value *BlockTransactions) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := encoder.NewEncoder(&buf).Encode(value.Indexes); err != nil {
+	indexes, err := cbor.Marshal(value.Indexes)
+	if err != nil {
 		return nil, err
 	}
-	if _, err := buf.Write(value.Data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return append(indexes, value.Data...), nil
 }
 
 func (BlockTransactionsSerializer) Unmarshal(data []byte, value *BlockTransactions) error {
@@ -172,7 +168,7 @@ func (blockTransactionsPartialSerializer[E, S, T]) UnmarshalPartial(
 	value *T,
 ) error {
 	var blockTransactions BlockTransactions
-	remaining, err := encoder.UnmarshalFirst(data, &blockTransactions.Indexes)
+	remaining, err := cbor.UnmarshalFirst(data, &blockTransactions.Indexes)
 	if err != nil {
 		return err
 	}

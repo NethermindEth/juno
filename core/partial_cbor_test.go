@@ -7,14 +7,13 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils/cbor"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
 // cborKeys returns a struct's CBOR map keys from tag names (blind to options like keyasint). Embed
-// flattening assumes untagged by-value embeds (as these types use), matching the encoder.
+// flattening assumes untagged by-value embeds (as these types use), matching the codec.
 func cborKeys(t reflect.Type) map[string]struct{} {
 	keys := map[string]struct{}{}
 	for field := range t.Fields() {
@@ -162,7 +161,7 @@ func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 		"cborKeys cannot see the keyasint option — this is its documented blind spot")
 
 	// Ground truth: encode with the integer key, then strict-decode.
-	data, err := encoder.Marshal(&driftSourceKeyAsInt{A: new(felt.Felt).SetUint64(7)})
+	data, err := cbor.Marshal(&driftSourceKeyAsInt{A: new(felt.Felt).SetUint64(7)})
 	require.NoError(t, err)
 	// The string-key projection does not match the integer wire key → strict decode errors.
 	require.Error(t, cbor.UnmarshalStrict(data, &driftProjectionStringKey{}),
@@ -183,31 +182,31 @@ func headerProjectionCases() []headerProjectionCase {
 	return []headerProjectionCase{
 		{
 			"hash",
-			func(d []byte) { var h struct{ Hash *felt.Felt }; _ = encoder.Unmarshal(d, &h) },
-			func(d []byte) { var h headerHashProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h struct{ Hash *felt.Felt }; _ = cbor.Unmarshal(d, &h) },
+			func(d []byte) { var h headerHashProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 		{
 			"global_state_root",
-			func(d []byte) { var h struct{ GlobalStateRoot *felt.Felt }; _ = encoder.Unmarshal(d, &h) },
-			func(d []byte) { var h headerGlobalStateRootProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h struct{ GlobalStateRoot *felt.Felt }; _ = cbor.Unmarshal(d, &h) },
+			func(d []byte) { var h headerGlobalStateRootProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 		{
 			"transaction_count",
-			func(d []byte) { var h struct{ TransactionCount uint64 }; _ = encoder.Unmarshal(d, &h) },
-			func(d []byte) { var h headerTransactionCountProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h struct{ TransactionCount uint64 }; _ = cbor.Unmarshal(d, &h) },
+			func(d []byte) { var h headerTransactionCountProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 		{
 			"timestamp",
-			func(d []byte) { var h struct{ Timestamp *uint64 }; _ = encoder.Unmarshal(d, &h) },
-			func(d []byte) { var h headerTimestampProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h struct{ Timestamp *uint64 }; _ = cbor.Unmarshal(d, &h) },
+			func(d []byte) { var h headerTimestampProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 		{
 			"events_bloom",
 			func(d []byte) {
 				var h struct{ EventsBloom *bloom.BloomFilter }
-				_ = encoder.Unmarshal(d, &h)
+				_ = cbor.Unmarshal(d, &h)
 			},
-			func(d []byte) { var h headerEventsBloomProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h headerEventsBloomProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 		{
 			"hash_and_state_root",
@@ -216,9 +215,9 @@ func headerProjectionCases() []headerProjectionCase {
 					Hash            *felt.Felt
 					GlobalStateRoot *felt.Felt
 				}
-				_ = encoder.Unmarshal(d, &h)
+				_ = cbor.Unmarshal(d, &h)
 			},
-			func(d []byte) { var h headerHashAndStateRootProjection; _ = encoder.Unmarshal(d, &h) },
+			func(d []byte) { var h headerHashAndStateRootProjection; _ = cbor.Unmarshal(d, &h) },
 		},
 	}
 }
@@ -274,7 +273,7 @@ func sampleHeader() *Header {
 // appears here automatically.
 func sampleHeaderBytes(tb testing.TB) []byte {
 	tb.Helper()
-	data, err := encoder.Marshal(sampleHeader())
+	data, err := cbor.Marshal(sampleHeader())
 	require.NoError(tb, err)
 	return data
 }
@@ -288,30 +287,30 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 	const shadowMsg = "shadowing field must receive the wire value, not discardedCBOR"
 
 	var hash headerHashProjection
-	require.NoError(t, encoder.Unmarshal(data, &hash))
+	require.NoError(t, cbor.Unmarshal(data, &hash))
 	require.Equal(t, header.Hash, hash.Hash, shadowMsg)
 
 	var stateRoot headerGlobalStateRootProjection
-	require.NoError(t, encoder.Unmarshal(data, &stateRoot))
+	require.NoError(t, cbor.Unmarshal(data, &stateRoot))
 	require.Equal(t, header.GlobalStateRoot, stateRoot.GlobalStateRoot, shadowMsg)
 
 	var txCount headerTransactionCountProjection
-	require.NoError(t, encoder.Unmarshal(data, &txCount))
+	require.NoError(t, cbor.Unmarshal(data, &txCount))
 	require.Equal(t, header.TransactionCount, txCount.TransactionCount, shadowMsg)
 
 	var timestamp headerTimestampProjection
-	require.NoError(t, encoder.Unmarshal(data, &timestamp))
+	require.NoError(t, cbor.Unmarshal(data, &timestamp))
 	require.NotNil(t, timestamp.Timestamp, shadowMsg)
 	require.Equal(t, header.Timestamp, *timestamp.Timestamp, shadowMsg)
 
 	var eventsBloom headerEventsBloomProjection
-	require.NoError(t, encoder.Unmarshal(data, &eventsBloom))
+	require.NoError(t, cbor.Unmarshal(data, &eventsBloom))
 	require.NotNil(t, eventsBloom.EventsBloom, shadowMsg)
 	require.True(t, eventsBloom.EventsBloom.Test([]byte("sample-event")),
 		"decoded bloom must carry the added element, not be a fresh empty filter")
 
 	var hashAndRoot headerHashAndStateRootProjection
-	require.NoError(t, encoder.Unmarshal(data, &hashAndRoot))
+	require.NoError(t, cbor.Unmarshal(data, &hashAndRoot))
 	require.Equal(t, header.Hash, hashAndRoot.Hash, shadowMsg)
 	require.Equal(t, header.GlobalStateRoot, hashAndRoot.GlobalStateRoot, shadowMsg)
 }
@@ -319,7 +318,7 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 // TestProjectionsAreDecodeOnly proves marshaling a projection fails loudly rather than emitting a
 // corrupt record from its discarded fields.
 func TestProjectionsAreDecodeOnly(t *testing.T) {
-	_, err := encoder.Marshal(&headerHashProjection{Hash: felt.NewFromUint64[felt.Felt](1)})
+	_, err := cbor.Marshal(&headerHashProjection{Hash: felt.NewFromUint64[felt.Felt](1)})
 	require.ErrorIs(t, err, errDiscardedCBORMarshal)
 }
 
@@ -355,7 +354,7 @@ func sampleReceipt() *TransactionReceipt {
 // sampleReceiptBytes marshals a live TransactionReceipt, so the wire key set tracks the struct.
 func sampleReceiptBytes(tb testing.TB) []byte {
 	tb.Helper()
-	data, err := encoder.Marshal(sampleReceipt())
+	data, err := cbor.Marshal(sampleReceipt())
 	require.NoError(tb, err)
 	return data
 }
@@ -393,7 +392,7 @@ func TestReceiptProjectionCoversEveryWireKey(t *testing.T) {
 func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
 	receipt := sampleReceipt()
 	var projection receiptExecutionStatusProjection
-	require.NoError(t, encoder.Unmarshal(sampleReceiptBytes(t), &projection))
+	require.NoError(t, cbor.Unmarshal(sampleReceiptBytes(t), &projection))
 	require.Equal(t, receipt.Reverted, projection.Reverted,
 		"Reverted must receive the wire value, not discardedCBOR")
 	require.Equal(t, receipt.RevertReason, projection.RevertReason,
@@ -405,7 +404,7 @@ func TestExecutionStatusProjectionDecodesShadowedFields(t *testing.T) {
 func TestEventsProjectionDecodesShadowedFields(t *testing.T) {
 	receipt := sampleReceipt()
 	var projection receiptEventsProjection
-	require.NoError(t, encoder.Unmarshal(sampleReceiptBytes(t), &projection))
+	require.NoError(t, cbor.Unmarshal(sampleReceiptBytes(t), &projection))
 	require.Equal(t, receipt.Events, projection.Events,
 		"Events must receive the wire value, not discardedCBOR")
 	require.Equal(t, receipt.TransactionHash, projection.TransactionHash,
@@ -441,14 +440,14 @@ func BenchmarkTransactionEventsProjection(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			var r TransactionReceipt
-			_ = encoder.Unmarshal(data, &r)
+			_ = cbor.Unmarshal(data, &r)
 		}
 	})
 	b.Run("events_projection", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			var r receiptEventsProjection
-			_ = encoder.Unmarshal(data, &r)
+			_ = cbor.Unmarshal(data, &r)
 		}
 	})
 }
@@ -465,14 +464,14 @@ func BenchmarkExecutionStatusProjection(b *testing.B) {
 				Reverted     bool
 				RevertReason string
 			}
-			_ = encoder.Unmarshal(data, &r)
+			_ = cbor.Unmarshal(data, &r)
 		}
 	})
 	b.Run("discard", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			var r receiptExecutionStatusProjection
-			_ = encoder.Unmarshal(data, &r)
+			_ = cbor.Unmarshal(data, &r)
 		}
 	})
 }
@@ -575,10 +574,10 @@ const cborMajorTypeTag = 6
 // arrived untagged here would silently stop covering the case the production reader hits.
 func sampleTransactionBytes(tb testing.TB, transaction Transaction) []byte {
 	tb.Helper()
-	data, err := encoder.Marshal(transaction)
+	data, err := cbor.Marshal(transaction)
 	require.NoError(tb, err)
 	require.EqualValues(tb, cborMajorTypeTag, data[0]>>5,
-		"transaction records must be tag-wrapped (needs encoder/registry linked into this binary)")
+		"transaction records must be tag-wrapped (needs utils/cbor/registry linked into this binary)")
 	return data
 }
 
@@ -601,7 +600,7 @@ func TestTransactionHashProjectionDecodesHash(t *testing.T) {
 	for _, transaction := range sampleTransactions() {
 		t.Run(fmt.Sprintf("%T", transaction), func(t *testing.T) {
 			var projection transactionHashProjection
-			require.NoError(t, encoder.Unmarshal(sampleTransactionBytes(t, transaction), &projection))
+			require.NoError(t, cbor.Unmarshal(sampleTransactionBytes(t, transaction), &projection))
 			require.Equal(t, *transaction.Hash(), projection.TransactionHash,
 				"TransactionHash must receive the wire value, not discardedCBOR")
 		})
@@ -618,14 +617,14 @@ func BenchmarkTransactionHashProjection(b *testing.B) {
 				b.ReportAllocs()
 				for b.Loop() {
 					var decoded Transaction
-					_ = encoder.Unmarshal(data, &decoded)
+					_ = cbor.Unmarshal(data, &decoded)
 				}
 			})
 			b.Run("hash_projection", func(b *testing.B) {
 				b.ReportAllocs()
 				for b.Loop() {
 					var projection transactionHashProjection
-					_ = encoder.Unmarshal(data, &projection)
+					_ = cbor.Unmarshal(data, &projection)
 				}
 			})
 		})
