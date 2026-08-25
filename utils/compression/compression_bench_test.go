@@ -2,7 +2,6 @@ package compression_test
 
 import (
 	"bytes"
-	"math"
 	"strconv"
 	"testing"
 
@@ -52,7 +51,7 @@ func BenchmarkGzip64Decode(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(size))
 			for b.Loop() {
-				if _, err := compression.Gzip64Decode(encoded, math.MaxInt64); err != nil {
+				if _, err := compression.Gzip64Decode(encoded, compression.NoLimit); err != nil {
 					b.Fatal(err)
 				}
 			}

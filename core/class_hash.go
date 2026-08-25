@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -13,12 +14,12 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		class.Program, MaxDeprecatedClassProgramSize,
 	)
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.Felt{}, fmt.Errorf("compressing Cairo Zero class: %w", err)
 	}
 
 	program, err := unmarshalDeprecatedCairoProgram(decompressedProgram)
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.Felt{}, fmt.Errorf("unmarshalling Cairo Zero class: %w", err)
 	}
 
 	var (

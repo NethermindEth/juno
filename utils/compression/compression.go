@@ -148,6 +148,9 @@ func Gzip64Encode(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }
 
+// NoLimit disables the decompressed-size bound in Gzip64Decode.
+const NoLimit int64 = math.MaxInt64
+
 func Gzip64Decode(data string, maxDecompressedSize int64) ([]byte, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
@@ -158,11 +161,11 @@ func Gzip64Decode(data string, maxDecompressedSize int64) ([]byte, error) {
 		return nil, err
 	}
 
-	// We want to be able to read one more byte than the actual limit. This allows diferentiat-
-	// ing if the decompressed size fits (<= maxDecompressedSize) or if it overflows
-	// (> maxDecompressedSize)
+	// Read one byte more than the limit to differentiate between the decompressed
+	// size fitting (<= maxDecompressedSize) and overflowing (> maxDecompressedSize).
+	// The guard keeps NoLimit from overflowing.
 	readLimit := maxDecompressedSize
-	if readLimit < math.MaxInt64 {
+	if readLimit < NoLimit {
 		readLimit++
 	}
 

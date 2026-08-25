@@ -2285,7 +2285,7 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 		require.Equal(t, class.EntryPoints, decoded.EntryPoints)
 		require.Equal(t, class.ABI, decoded.ABI)
 
-		sierraJSON, err := compression.Gzip64Decode(decoded.SierraProgram, math.MaxInt64)
+		sierraJSON, err := compression.Gzip64Decode(decoded.SierraProgram, compression.NoLimit)
 		require.NoError(t, err, "sierra_program must be gzip+base64 encoded")
 
 		var roundTripped []felt.Felt
