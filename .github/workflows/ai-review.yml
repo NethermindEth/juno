@@ -30,6 +30,7 @@ jobs:
       github.event.pull_request.head.repo.fork == false
     uses: NethermindEth/github-workflows/.github/workflows/ai-review.yaml@v2.2.0
     with:
+      secret_path: /apps/litellm/juno-ai-reviewer
       # To change the gateway model (e.g. Qwen3), set:
       #   model: "openai/<gateway-model-slug>"
       # Keep the openai/ prefix -- it routes the call through the org gateway.
