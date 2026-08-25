@@ -1,10 +1,9 @@
 package p2p
 
 import (
-	"bytes"
 	"fmt"
 
-	"github.com/fxamacker/cbor/v2"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -15,18 +14,18 @@ func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
 		multiAddrBytes[i] = addr.Bytes()
 	}
 
-	var buf bytes.Buffer
-	if err := cbor.NewEncoder(&buf).Encode(multiAddrBytes); err != nil {
+	encoded, err := cbor.Marshal(multiAddrBytes)
+	if err != nil {
 		return nil, fmt.Errorf("encode addresses: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	return encoded, nil
 }
 
 // decodeAddrs decodes a byte slice into a slice of multiaddrs
 func decodeAddrs(b []byte) ([]multiaddr.Multiaddr, error) {
 	var multiAddrBytes [][]byte
-	if err := cbor.NewDecoder(bytes.NewReader(b)).Decode(&multiAddrBytes); err != nil {
+	if err := cbor.Unmarshal(b, &multiAddrBytes); err != nil {
 		return nil, fmt.Errorf("decode addresses: %w", err)
 	}
 

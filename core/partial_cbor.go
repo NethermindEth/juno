@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/cbor"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -19,6 +20,11 @@ type discardedCBOR struct{}
 // errDiscardedCBORMarshal is returned when a decode-only projection is marshaled.
 var errDiscardedCBORMarshal = errors.New(
 	"core: partial CBOR projection is decode-only and must not be marshaled",
+)
+
+var (
+	_ cbor.SelfEncoder = discardedCBOR{}
+	_ cbor.SelfDecoder = discardedCBOR{}
 )
 
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }

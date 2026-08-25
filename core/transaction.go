@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -196,12 +196,17 @@ func (v *TransactionVersion) AsFelt() *felt.Felt {
 	return (*felt.Felt)(v)
 }
 
+var (
+	_ cbor.SelfEncoder = (*TransactionVersion)(nil)
+	_ cbor.SelfDecoder = (*TransactionVersion)(nil)
+)
+
 func (v *TransactionVersion) MarshalCBOR() ([]byte, error) {
-	return cbor.Marshal(v.AsFelt())
+	return v.AsFelt().MarshalCBOR()
 }
 
 func (v *TransactionVersion) UnmarshalCBOR(data []byte) error {
-	return cbor.Unmarshal(data, v.AsFelt())
+	return v.AsFelt().UnmarshalCBOR(data)
 }
 
 type DeployTransaction struct {

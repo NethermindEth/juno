@@ -30,9 +30,9 @@ import (
 	"github.com/NethermindEth/juno/migration/deprecated/casmhashmetadata"
 	"github.com/NethermindEth/juno/migration/deprecated/l1handlermapping"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 )
@@ -803,8 +803,8 @@ func migrateCairo1CompiledClass2(
 	err := encoder.Unmarshal(value, &class)
 	if err != nil {
 		// assumption that only Cairo0 class causes this error
-		targetErr := new(cbor.UnmarshalTypeError)
-		if errors.As(err, &targetErr) {
+		// TODO(granza): discriminate the record by its own shape, not by the error.
+		if cbor.IsTypeMismatch(err) {
 			return nil
 		}
 

@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 

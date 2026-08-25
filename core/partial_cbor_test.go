@@ -8,8 +8,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	bloom "github.com/bits-and-blooms/bloom/v3"
-	cbor "github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,10 +68,8 @@ func assertProjectionsCoverSource(t *testing.T, source reflect.Type, projections
 // Non-vacuous: see TestStrictGuardCatchesKeyAsIntDrift.
 func assertProjectionsCoverEveryWireKey(t *testing.T, data []byte, projections ...any) {
 	t.Helper()
-	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
-	require.NoError(t, err)
 	for _, projection := range projections {
-		require.NoErrorf(t, strict.Unmarshal(data, projection),
+		require.NoErrorf(t, cbor.UnmarshalStrict(data, projection),
 			"%T leaves a wire key unmatched (field added, or a tag name/option changed)", projection)
 	}
 }
@@ -166,14 +164,11 @@ func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 	// Ground truth: encode with the integer key, then strict-decode.
 	data, err := encoder.Marshal(&driftSourceKeyAsInt{A: new(felt.Felt).SetUint64(7)})
 	require.NoError(t, err)
-	strict, err := cbor.DecOptions{ExtraReturnErrors: cbor.ExtraDecErrorUnknownField}.DecMode()
-	require.NoError(t, err)
-
 	// The string-key projection does not match the integer wire key → strict decode errors.
-	require.Error(t, strict.Unmarshal(data, &driftProjectionStringKey{}),
+	require.Error(t, cbor.UnmarshalStrict(data, &driftProjectionStringKey{}),
 		"strict decode must reject an integer wire key that the projection expects as a string")
 	// The matching keyasint projection decodes cleanly.
-	require.NoError(t, strict.Unmarshal(data, &driftProjectionIntKey{}),
+	require.NoError(t, cbor.UnmarshalStrict(data, &driftProjectionIntKey{}),
 		"a projection whose keyasint matches the source must decode without error")
 }
 
