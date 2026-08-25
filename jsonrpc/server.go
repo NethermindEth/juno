@@ -34,6 +34,8 @@ const (
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
+	rejectionLogInterval = time.Second
+
 	bufferSize       = 128
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
@@ -105,6 +107,17 @@ func Err(code int, data any) *Error {
 	}
 }
 
+func validID(id any) bool {
+	idType := reflect.TypeOf(id)
+	if idType.Kind() != reflect.String && idType.Name() != "Number" {
+		return false
+	}
+	if idType.Name() == "Number" {
+		return !strings.Contains(id.(json.Number).String(), ".")
+	}
+	return true
+}
+
 func (r *Request) isSane() error {
 	if r.Version != "2.0" {
 		return errors.New("unsupported RPC request version")
@@ -120,12 +133,8 @@ func (r *Request) isSane() error {
 		}
 	}
 
-	if r.ID != nil {
-		idType := reflect.TypeOf(r.ID)
-		floating := idType.Name() == "Number" && strings.Contains(r.ID.(json.Number).String(), ".")
-		if (idType.Kind() != reflect.String && idType.Name() != "Number") || floating {
-			return ErrInvalidID
-		}
+	if r.ID != nil && !validID(r.ID) {
+		return ErrInvalidID
 	}
 
 	return nil
@@ -158,6 +167,8 @@ type Server struct {
 	listener             EventListener
 	disableBatchRequests bool
 	callGate             *Gate
+	// For logging rejected warnings without flooding
+	sampledLogger log.StructuredLogger
 }
 
 type Validator interface {
@@ -167,10 +178,11 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	s := &Server{
-		logger:   logger,
-		methods:  make(map[string]Method),
-		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener: &SelectiveListener{},
+		logger:        logger,
+		methods:       make(map[string]Method),
+		pool:          pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener:      &SelectiveListener{},
+		sampledLogger: log.Sampled(logger, rejectionLogInterval, 1, 0),
 	}
 
 	return s
@@ -385,11 +397,11 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
-		} else if s.acquireCall(ctx) != nil {
-			resp = new(busyResponse(req.ID))
+		} else if gateErr := s.acquireCall(ctx); gateErr != nil {
+			resp = s.rejectCall(req, gateErr)
 		} else {
+			defer s.releaseCall()
 			resObject, httpHeader, handleErr := s.handleRequest(ctx, req)
-			s.releaseCall()
 			if handleErr != nil {
 				resp = new(errResponse(InvalidRequest, handleErr.Error()))
 				if !errors.Is(handleErr, ErrInvalidID) {
@@ -431,10 +443,32 @@ func (s *Server) releaseCall() {
 	}
 }
 
-func busyResponse(id any) response {
+// rejectCall builds the reply for a call the gate turned away, and returns nil
+// when there is nobody to reply to
+func (s *Server) rejectCall(req *Request, err error) *response {
+	s.logRejected(err)
+
+	if errors.Is(err, context.Canceled) || req.ID == nil {
+		return nil
+	}
+
 	resp := errResponse(ServerBusy, nil)
-	resp.ID = id
-	return resp
+	if validID(req.ID) {
+		resp.ID = req.ID
+	}
+	return &resp
+}
+
+func (s *Server) logRejected(err error) {
+	if s.callGate == nil {
+		return
+	}
+	s.sampledLogger.Warn("Rejected RPC call: server is busy",
+		zap.String("cause", err.Error()),
+		zap.Int("running", s.callGate.Running()),
+		zap.Int("queued", s.callGate.Queued()),
+		zap.Uint64("rejected", s.callGate.Rejected()),
+	)
 }
 
 // handleBatchRequest walks a batch one element at a time
@@ -493,8 +527,10 @@ func (s *Server) handleBatchRequest(
 			continue
 		}
 
-		if s.acquireCall(ctx) != nil {
-			addResponse(busyResponse(req.ID), http.Header{})
+		if gateErr := s.acquireCall(ctx); gateErr != nil {
+			if rejected := s.rejectCall(req, gateErr); rejected != nil {
+				addResponse(rejected, http.Header{})
+			}
 			continue
 		}
 

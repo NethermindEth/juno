@@ -268,8 +268,10 @@ const (
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
-	rpcMaxConcurrentRequestsUsage = "Maximum RPC calls executing concurrently. 0 disables the limit."
-	rpcMaxRequestQueueUsage       = "Maximum number of RPC calls to queue after reaching " +
+	rpcMaxConcurrentRequestsUsage = "Maximum RPC calls admitted at once, counted per call " +
+		"rather than per request so a batch cannot exceed it. Applies to HTTP and WebSocket. " +
+		"0 disables the limit."
+	rpcMaxRequestQueueUsage = "Maximum number of RPC calls to queue after reaching " +
 		"rpc-max-concurrent-requests before rejecting."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
 		"Default is set based on available hardware resources."

@@ -533,9 +533,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	services = append(services, rpcHandler)
 
 	// One pool shared by every RPC server, so the goroutine bound is process-wide
-	// rather than 2*GOMAXPROCS per RPC version. To improve RPC throughput we
-	// double GOMAXPROCS
-	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	// rather than per RPC version.
+	maxGoroutines := 6 * runtime.GOMAXPROCS(0)
 	rpcPool := pool.New().WithMaxGoroutines(maxGoroutines)
 
 	// One call gate shared by every RPC server and both transports. Its unit is a

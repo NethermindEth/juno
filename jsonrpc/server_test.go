@@ -890,9 +890,14 @@ func TestCallGate(t *testing.T) {
 
 	// newBlockingServer returns a server whose "block" method reports that it
 	// was entered and then waits, so that the caller can hold a gate slot open.
-	newBlockingServer := func(t *testing.T, gate *jsonrpc.Gate) (*jsonrpc.Server, chan struct{}, chan struct{}) {
+	newBlockingServer := func(t *testing.T, gate *jsonrpc.Gate) (*jsonrpc.Server, chan struct{}, func()) {
 		entered := make(chan struct{})
 		release := make(chan struct{})
+
+		var once sync.Once
+		unblock := func() { once.Do(func() { close(release) }) }
+		t.Cleanup(unblock)
+
 		server := jsonrpc.NewServer(4, log.NewNopZapLogger()).WithCallGate(gate)
 		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 			Name: "block",
@@ -902,11 +907,11 @@ func TestCallGate(t *testing.T) {
 				return 1, nil
 			},
 		}))
-		return server, entered, release
+		return server, entered, unblock
 	}
 
 	t.Run("http single request is rejected when the gate is full", func(t *testing.T) {
-		server, entered, release := newBlockingServer(t, jsonrpc.NewGate(1, 0))
+		server, entered, unblock := newBlockingServer(t, jsonrpc.NewGate(1, 0))
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -920,12 +925,12 @@ func TestCallGate(t *testing.T) {
 		assert.JSONEq(t, `{"jsonrpc":"2.0","error":{"code":-32000,`+
 			`"message":"Server busy"},"id":1}`, string(res))
 
-		close(release)
+		unblock()
 		<-done
 	})
 
 	t.Run("websocket single request is rejected too", func(t *testing.T) {
-		server, entered, release := newBlockingServer(t, jsonrpc.NewGate(1, 0))
+		server, entered, unblock := newBlockingServer(t, jsonrpc.NewGate(1, 0))
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -938,7 +943,7 @@ func TestCallGate(t *testing.T) {
 		require.NoError(t, server.HandleReadWriter(t.Context(), time.Minute, rw))
 		assert.Contains(t, rw.w.String(), `"code":-32000`)
 
-		close(release)
+		unblock()
 		<-done
 	})
 
@@ -997,6 +1002,10 @@ func TestCallGate(t *testing.T) {
 func TestBatchCallGate(t *testing.T) {
 	t.Run("elements beyond the gate get a busy error, the rest succeed", func(t *testing.T) {
 		release := make(chan struct{})
+		var once sync.Once
+		unblock := func() { once.Do(func() { close(release) }) }
+		t.Cleanup(unblock)
+
 		var entered atomic.Int64
 		server := jsonrpc.NewServer(8, log.NewNopZapLogger()).
 			WithCallGate(jsonrpc.NewGate(1, 0))
@@ -1022,7 +1031,7 @@ func TestBatchCallGate(t *testing.T) {
 
 		require.Eventually(t, func() bool { return entered.Load() == 1 },
 			5*time.Second, time.Millisecond)
-		close(release)
+		unblock()
 
 		var out []json.RawMessage
 		require.NoError(t, json.Unmarshal(<-done, &out))
@@ -1063,4 +1072,23 @@ func TestBatchCallGate(t *testing.T) {
 			strings.NewReader("["+strings.Join(elems, ",")+"]"))
 		require.NoError(t, err)
 	})
+}
+
+func TestCallGateReleasesOnPanic(t *testing.T) {
+	gate := jsonrpc.NewGate(1, 0)
+	server := jsonrpc.NewServer(4, log.NewNopZapLogger()).WithCallGate(gate)
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "boom",
+		Handler: func() (int, *jsonrpc.Error) { panic("handler exploded") },
+	}))
+
+	// net/http recovers per connection; mirror that so the panic does not take
+	// the test binary with it.
+	func() {
+		defer func() { require.NotNil(t, recover(), "handler was expected to panic") }()
+		_, _, _ = server.HandleReader(t.Context(),
+			strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"boom"}`))
+	}()
+
+	assert.Zero(t, gate.Running(), "slot must be released even when the handler panics")
 }
