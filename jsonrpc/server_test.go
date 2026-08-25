@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -1091,4 +1092,64 @@ func TestCallGateReleasesOnPanic(t *testing.T) {
 	}()
 
 	assert.Zero(t, gate.Running(), "slot must be released even when the handler panics")
+}
+
+func TestBatchResponseSizeLimit(t *testing.T) {
+	const payload = 512
+
+	newServer := func(t *testing.T, limit int) *jsonrpc.Server {
+		server := jsonrpc.NewServer(8, log.NewNopZapLogger()).
+			WithMaxBatchResponseBytes(limit)
+		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+			Name: "big",
+			Handler: func() (string, *jsonrpc.Error) {
+				return strings.Repeat("a", payload), nil
+			},
+		}))
+		return server
+	}
+
+	batchOf := func(n int) string {
+		elems := make([]string, n)
+		for i := range elems {
+			elems[i] = fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"method":"big"}`, i+1)
+		}
+		return "[" + strings.Join(elems, ",") + "]"
+	}
+
+	t.Run("under the cap returns every response", func(t *testing.T) {
+		res, _, err := newServer(t, 64*1024).HandleReader(t.Context(), strings.NewReader(batchOf(4)))
+		require.NoError(t, err)
+
+		var out []json.RawMessage
+		require.NoError(t, json.Unmarshal(res, &out))
+		assert.Len(t, out, 4)
+	})
+
+	t.Run("crossing the cap truncates instead of growing", func(t *testing.T) {
+		const limit = 2 * (payload + 64)
+		res, _, err := newServer(t, limit).HandleReader(t.Context(), strings.NewReader(batchOf(8)))
+		require.NoError(t, err)
+
+		var out []json.RawMessage
+		require.NoError(t, json.Unmarshal(res, &out))
+		assert.NotEmpty(t, out, "the responses that fit are still returned")
+		assert.Less(t, len(out), 8, "the batch must not be returned whole")
+		assert.LessOrEqual(t, len(res), limit+64, "the payload must stay within the cap")
+	})
+
+	t.Run("zero disables the cap", func(t *testing.T) {
+		res, _, err := newServer(t, 0).HandleReader(t.Context(), strings.NewReader(batchOf(8)))
+		require.NoError(t, err)
+
+		var out []json.RawMessage
+		require.NoError(t, json.Unmarshal(res, &out))
+		assert.Len(t, out, 8)
+	})
+
+	t.Run("a single oversized response yields an empty batch, not a broken one", func(t *testing.T) {
+		res, _, err := newServer(t, 8).HandleReader(t.Context(), strings.NewReader(batchOf(3)))
+		require.NoError(t, err)
+		assert.Nil(t, res)
+	})
 }

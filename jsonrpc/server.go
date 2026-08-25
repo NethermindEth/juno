@@ -31,6 +31,10 @@ const (
 	ServerBusy     = -32000
 )
 
+// DefaultMaxBatchResponseBytes caps the summed size of the responses in one
+// batch
+const DefaultMaxBatchResponseBytes = 64 * 1024 * 1024
+
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
@@ -169,6 +173,9 @@ type Server struct {
 	callGate             *Gate
 	// For logging rejected warnings without flooding
 	sampledLogger log.StructuredLogger
+	// maxBatchResponseBytes caps the summed size of a batch's responses.
+	// Zero or less disables the cap.
+	maxBatchResponseBytes int
 }
 
 type Validator interface {
@@ -178,11 +185,12 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	s := &Server{
-		logger:        logger,
-		methods:       make(map[string]Method),
-		pool:          pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener:      &SelectiveListener{},
-		sampledLogger: log.Sampled(logger, rejectionLogInterval, 1, 0),
+		logger:                logger,
+		methods:               make(map[string]Method),
+		pool:                  pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener:              &SelectiveListener{},
+		sampledLogger:         log.Sampled(logger, rejectionLogInterval, 1, 0),
+		maxBatchResponseBytes: DefaultMaxBatchResponseBytes,
 	}
 
 	return s
@@ -194,6 +202,12 @@ func (s *Server) WithPool(p *pool.Pool) *Server {
 	if p != nil {
 		s.pool = p
 	}
+	return s
+}
+
+// WithMaxBatchResponseBytes caps the summed size of a batch's responses.
+func (s *Server) WithMaxBatchResponseBytes(n int) *Server {
+	s.maxBatchResponseBytes = n
 	return s
 }
 
@@ -490,28 +504,53 @@ func (s *Server) handleBatchRequest(
 	}
 
 	var (
-		mutex     sync.Mutex
-		responses []json.RawMessage
-		headers   []http.Header
+		mutex      sync.Mutex
+		responses  []json.RawMessage
+		headers    []http.Header
+		totalBytes int
+		truncated  bool
 	)
-
-	addResponse := func(response any, header http.Header) {
-		if responseJSON, err := json.Marshal(response); err != nil {
-			s.logger.Error("failed to marshal response", zap.Error(err))
-		} else {
-			mutex.Lock()
-			responses = append(responses, responseJSON)
-			headers = append(headers, header)
-			mutex.Unlock()
-		}
-	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// addResponse accumulates a response unless the batch has already reached
+	// maxBatchResponseBytes
+	addResponse := func(response any, header http.Header) {
+		responseJSON, err := json.Marshal(response)
+		if err != nil {
+			s.logger.Error("failed to marshal response", zap.Error(err))
+			return
+		}
+
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		if truncated {
+			return
+		}
+		if s.maxBatchResponseBytes > 0 && totalBytes+len(responseJSON) > s.maxBatchResponseBytes {
+			truncated = true
+			cancel()
+			return
+		}
+		totalBytes += len(responseJSON)
+		responses = append(responses, responseJSON)
+		headers = append(headers, header)
+	}
+
+	stopped := func() bool {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return truncated
+	}
+
 	var wg sync.WaitGroup
 	empty := true
 	for dec.More() {
+		if stopped() {
+			break
+		}
 		empty = false
 
 		var rawReq json.RawMessage
@@ -557,6 +596,13 @@ func (s *Server) handleBatchRequest(
 
 	wg.Wait()
 
+	if truncated {
+		s.logger.Warn("Batch response truncated: size limit reached",
+			zap.Int("limit", s.maxBatchResponseBytes),
+			zap.Int("returned", len(responses)),
+		)
+	}
+
 	if empty {
 		resp := errResponse(InvalidRequest, "empty batch")
 		result, err := json.Marshal(&resp)
@@ -577,9 +623,28 @@ func (s *Server) handleBatchRequest(
 		return nil, finalHeaders, nil
 	}
 
-	result, err := json.Marshal(responses)
+	return concatBatchResponses(responses), finalHeaders, nil // todo: fix batch request aggregate header
+}
 
-	return result, finalHeaders, err // todo: fix batch request aggregate header
+// concatBatchResponses builds the response array directly. json.Marshal on a
+// []json.RawMessage sends every response through compact(), re-scanning and
+// copying bytes that are already valid JSON
+func concatBatchResponses(responses []json.RawMessage) []byte {
+	size := len(responses) + 1
+	for _, response := range responses {
+		size += len(response)
+	}
+
+	result := make([]byte, 0, size)
+	result = append(result, '[')
+	for i, response := range responses {
+		if i > 0 {
+			result = append(result, ',')
+		}
+		result = append(result, response...)
+	}
+
+	return append(result, ']')
 }
 
 func isBatch(reader *bufio.Reader) bool {
