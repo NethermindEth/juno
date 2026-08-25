@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"math/rand/v2"
 	"os"
@@ -202,6 +203,7 @@ func buildCorpus[T any](
 	stopProgress := reportProgress(progress, &completed, cfg.count)
 	defer stopProgress()
 
+	seed := methodSeed(cfg.seed, method)
 	requests := make([]any, cfg.count)
 	p := pool.New().
 		WithContext(ctx).
@@ -210,7 +212,7 @@ func buildCorpus[T any](
 		WithFirstError()
 	for i := range requests {
 		p.Go(func(ctx context.Context) error {
-			rng := newSeededRand(cfg.seed, uint64(i))
+			rng := newSeededRand(seed, uint64(i))
 			batchSize := max(1, cfg.batch)
 			entry := make([]jsonRPCRequest, batchSize)
 			for j := range entry {
@@ -277,4 +279,11 @@ func reportProgress(w io.Writer, completed *atomic.Int64, total int) (stop func(
 func newSeededRand(seed, stream uint64) *rand.Rand {
 	//nolint:gosec // G404: deterministic corpus needs a seeded PRNG, not crypto randomness
 	return rand.New(rand.NewPCG(seed, stream))
+}
+
+// methodSeed decorrelates draws across methods; flag variants of one method stay aligned.
+func methodSeed(seed uint64, method string) uint64 {
+	h := fnv.New64a()
+	h.Write([]byte(method))
+	return seed ^ h.Sum64()
 }
