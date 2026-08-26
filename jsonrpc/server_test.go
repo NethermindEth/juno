@@ -1126,16 +1126,27 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 		assert.Len(t, out, 4)
 	})
 
-	t.Run("crossing the cap truncates instead of growing", func(t *testing.T) {
-		const limit = 2 * (payload + 64)
-		res, _, err := newServer(t, limit).HandleReader(t.Context(), strings.NewReader(batchOf(8)))
+	t.Run("crossing the cap stops the batch early", func(t *testing.T) {
+		const (
+			limit = 2 * (payload + 64)
+			batch = 64
+		)
+		res, _, err := newServer(t, limit).HandleReader(t.Context(), strings.NewReader(batchOf(batch)))
 		require.NoError(t, err)
 
-		var out []json.RawMessage
-		require.NoError(t, json.Unmarshal(res, &out))
-		assert.NotEmpty(t, out, "the responses that fit are still returned")
-		assert.Less(t, len(out), 8, "the batch must not be returned whole")
-		assert.LessOrEqual(t, len(res), limit+64, "the payload must stay within the cap")
+		// How many get through depends on how many calls were in flight when the
+		// limit was crossed, so only the bounds are pinned here
+		out := decodeBatch(t, res)
+		assert.NotEmpty(t, out, "the responses collected so far are still returned")
+		assert.Less(t, len(out), batch, "the rest of the batch must not be decoded")
+
+		seen := make(map[int]bool, len(out))
+		for _, elem := range out {
+			assert.Nil(t, elem.Error, "a call that ran keeps its result")
+			assert.False(t, seen[elem.ID], "duplicate id %d", elem.ID)
+			assert.True(t, elem.ID >= 1 && elem.ID <= batch, "unknown id %d", elem.ID)
+			seen[elem.ID] = true
+		}
 	})
 
 	t.Run("zero disables the cap", func(t *testing.T) {
@@ -1147,11 +1158,24 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 		assert.Len(t, out, 8)
 	})
 
-	t.Run("a single oversized response yields an empty batch, not a broken one", func(t *testing.T) {
+	t.Run("a cap the first response already exceeds still returns a body", func(t *testing.T) {
 		res, _, err := newServer(t, 8).HandleReader(t.Context(), strings.NewReader(batchOf(3)))
 		require.NoError(t, err)
-		assert.Nil(t, res)
+		assert.NotEmpty(t, decodeBatch(t, res))
 	})
+}
+
+type batchElement struct {
+	Result string         `json:"result"`
+	Error  *jsonrpc.Error `json:"error"`
+	ID     int            `json:"id"`
+}
+
+func decodeBatch(t *testing.T, res []byte) []batchElement {
+	t.Helper()
+	var out []batchElement
+	require.NoError(t, json.Unmarshal(res, &out))
+	return out
 }
 
 func TestBatchResponseEncoding(t *testing.T) {

@@ -31,8 +31,8 @@ const (
 	ServerBusy     = -32000
 )
 
-// DefaultMaxBatchResponseBytes caps the summed size of the responses in one
-// batch
+// DefaultMaxBatchResponseBytes is the size at which a batch stops taking on
+// more work
 const DefaultMaxBatchResponseBytes = 64 * 1024 * 1024
 
 var (
@@ -205,7 +205,8 @@ func (s *Server) WithPool(p *pool.Pool) *Server {
 	return s
 }
 
-// WithMaxBatchResponseBytes caps the summed size of a batch's responses.
+// WithMaxBatchResponseBytes sets the size at which a batch stops taking on more
+// work
 func (s *Server) WithMaxBatchResponseBytes(n int) *Server {
 	s.maxBatchResponseBytes = n
 	return s
@@ -485,9 +486,77 @@ func (s *Server) logRejected(err error) {
 	)
 }
 
+// batchAccumulator collects the responses of one batch
+type batchAccumulator struct {
+	// maxBytes caps the payload. Zero or less disables the cap
+	maxBytes int
+
+	mutex     sync.Mutex
+	responses []json.RawMessage
+	headers   []http.Header
+	bytes     int
+	truncated bool
+}
+
+func newBatchAccumulator(maxBytes int) *batchAccumulator {
+	return &batchAccumulator{maxBytes: maxBytes, bytes: 1}
+}
+
+func (b *batchAccumulator) add(resp *response, header http.Header) error {
+	responseJSON, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.bytes += len(responseJSON) + 1
+	b.responses = append(b.responses, responseJSON)
+	b.headers = append(b.headers, header)
+
+	if b.maxBytes > 0 && b.bytes >= b.maxBytes {
+		b.truncated = true
+	}
+	return nil
+}
+
+func (b *batchAccumulator) full() bool {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	return b.truncated
+}
+
+// todo: fix batch request aggregate header
+func (b *batchAccumulator) mergedHeaders() http.Header {
+	merged := http.Header{}
+	for _, header := range b.headers {
+		for key, values := range header {
+			for _, value := range values {
+				merged.Add(key, value)
+			}
+		}
+	}
+	return merged
+}
+
+func (s *Server) runBatchElement(ctx context.Context, req *Request, batch *batchAccumulator) {
+	resp, header, err := s.handleRequest(ctx, req)
+	if err != nil {
+		resp = new(errResponse(InvalidRequest, err.Error()))
+		if !errors.Is(err, ErrInvalidID) {
+			resp.ID = req.ID
+		}
+	}
+	if resp == nil {
+		return
+	}
+	if addErr := batch.add(resp, header); addErr != nil {
+		s.logger.Error("failed to marshal response", zap.Error(addErr))
+	}
+}
+
 // handleBatchRequest walks a batch one element at a time
-//
-//nolint:gocyclo // one loop handling every step for each request in the batch
 func (s *Server) handleBatchRequest(
 	ctx context.Context,
 	dec *json.Decoder,
@@ -503,52 +572,20 @@ func (s *Server) handleBatchRequest(
 		return parseErr(err)
 	}
 
-	var (
-		mutex      sync.Mutex
-		responses  []json.RawMessage
-		headers    []http.Header
-		totalBytes int
-		truncated  bool
-	)
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// addResponse accumulates a response unless the batch has already reached
-	// maxBatchResponseBytes
-	addResponse := func(response any, header http.Header) {
-		responseJSON, err := json.Marshal(response)
-		if err != nil {
+	batch := newBatchAccumulator(s.maxBatchResponseBytes)
+	addResponse := func(resp *response, header http.Header) {
+		if err := batch.add(resp, header); err != nil {
 			s.logger.Error("failed to marshal response", zap.Error(err))
-			return
 		}
-
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		if truncated {
-			return
-		}
-		if s.maxBatchResponseBytes > 0 && totalBytes+len(responseJSON) > s.maxBatchResponseBytes {
-			truncated = true
-			cancel()
-			return
-		}
-		totalBytes += len(responseJSON)
-		responses = append(responses, responseJSON)
-		headers = append(headers, header)
-	}
-
-	stopped := func() bool {
-		mutex.Lock()
-		defer mutex.Unlock()
-		return truncated
 	}
 
 	var wg sync.WaitGroup
 	empty := true
 	for dec.More() {
-		if stopped() {
+		if batch.full() {
 			break
 		}
 		empty = false
@@ -564,7 +601,7 @@ func (s *Server) handleBatchRequest(
 
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
-			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
+			addResponse(new(errResponse(InvalidRequest, err.Error())), http.Header{})
 			continue
 		}
 
@@ -579,27 +616,16 @@ func (s *Server) handleBatchRequest(
 		s.pool.Go(func() {
 			defer wg.Done()
 			defer s.releaseCall()
-
-			resp, header, err := s.handleRequest(ctx, req)
-			if err != nil {
-				resp = new(errResponse(InvalidRequest, err.Error()))
-				if !errors.Is(err, ErrInvalidID) {
-					resp.ID = req.ID
-				}
-			}
-			// for notification request response is nil and header is irrelevant for now
-			if resp != nil {
-				addResponse(resp, header)
-			}
+			s.runBatchElement(ctx, req, batch)
 		})
 	}
 
 	wg.Wait()
 
-	if truncated {
-		s.logger.Warn("Batch response truncated: size limit reached",
-			zap.Int("limit", s.maxBatchResponseBytes),
-			zap.Int("returned", len(responses)),
+	if batch.truncated {
+		s.logger.Warn("Batch stopped at the response size limit: the rest was not processed",
+			zap.Int("limit", batch.maxBytes),
+			zap.Int("returned", len(batch.responses)),
 		)
 	}
 
@@ -609,22 +635,13 @@ func (s *Server) handleBatchRequest(
 		return result, http.Header{}, err
 	}
 
-	// merge headers
-	finalHeaders := http.Header{}
-	for _, header := range headers {
-		for k, v := range header {
-			for _, e := range v {
-				finalHeaders.Add(k, e)
-			}
-		}
-	}
+	finalHeaders := batch.mergedHeaders()
 	// according to the spec if there are no response objects server must not return empty array
-	if len(responses) == 0 {
+	if len(batch.responses) == 0 {
 		return nil, finalHeaders, nil
 	}
 
-	// todo: fix batch request aggregate header
-	return concatBatchResponses(responses), finalHeaders, nil
+	return concatBatchResponses(batch.responses), finalHeaders, nil
 }
 
 // concatBatchResponses builds the response array directly. json.Marshal on a
