@@ -116,7 +116,9 @@ func AdaptDeprecatedEntryPoint(ep *core.DeprecatedEntryPoint) starknet.EntryPoin
 func AdaptDeprecatedCairoClass(
 	class *core.DeprecatedCairoClass,
 ) (starknet.DeprecatedCairoClass, error) {
-	decompressedProgram, err := compression.Gzip64Decode(class.Program)
+	decompressedProgram, err := compression.Gzip64Decode(
+		class.Program, core.MaxDeprecatedClassProgramSize,
+	)
 	if err != nil {
 		return starknet.DeprecatedCairoClass{}, err
 	}

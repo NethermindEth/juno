@@ -2,6 +2,7 @@ package compression_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
 	"runtime"
@@ -24,16 +25,135 @@ func TestGzip64(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedComBytes, comBytes)
 
-	decompBytes, err := compression.Gzip64Decode(comBytes)
+	decompBytes, err := compression.Gzip64Decode(comBytes, compression.NoLimit)
 	require.NoError(t, err)
 	assert.Equal(t, bytes, decompBytes)
+}
+
+func TestGzip64Decode(t *testing.T) {
+	const limit = 1024
+	tests := []struct {
+		name            string
+		payload         []byte
+		limit           int64
+		wantErrContains string // empty means the payload is expected to round-trip
+	}{
+		{
+			name:    "within limit",
+			payload: bytes.Repeat([]byte("a"), limit/2),
+			limit:   limit,
+		},
+		{
+			name:    "unbounded limit",
+			payload: []byte{0},
+			limit:   compression.NoLimit,
+		},
+		{
+			name:    "empty payload",
+			payload: []byte{},
+			limit:   limit,
+		},
+		{
+			// The budget is inclusive: a payload that exactly fills it is valid.
+			name:    "exactly at limit",
+			payload: bytes.Repeat([]byte("a"), limit),
+			limit:   limit,
+		},
+		{
+			// One byte over is the smallest overflow the +1 read must catch.
+			name:            "one byte over limit",
+			payload:         bytes.Repeat([]byte("a"), limit+1),
+			limit:           limit,
+			wantErrContains: "decompressed data exceeded the maximum byte size:",
+		},
+		{
+			name:            "zero limit rejects any content",
+			payload:         []byte("x"),
+			limit:           0,
+			wantErrContains: "decompressed data exceeded the maximum byte size:",
+		},
+		{
+			name:    "zero limit accepts empty payload",
+			payload: []byte{},
+			limit:   0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := compression.Gzip64Encode(test.payload)
+			require.NoError(t, err)
+
+			decoded, err := compression.Gzip64Decode(encoded, test.limit)
+			if test.wantErrContains != "" {
+				assert.ErrorContains(t, err, test.wantErrContains)
+				assert.Nil(t, decoded)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, test.payload, decoded)
+		})
+	}
+}
+
+// A compression bomb — a few KiB of input inflating to 64 MiB — must be rejected
+// cheaply.
+func TestGzip64DecodeCompressionBomb(t *testing.T) {
+	const limit = 1024
+	bomb := make([]byte, 64*1024*1024) // zeros compress ~1000:1
+	encoded, err := compression.Gzip64Encode(bomb)
+	require.NoError(t, err)
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	decoded, err := compression.Gzip64Decode(encoded, limit)
+	runtime.ReadMemStats(&after)
+
+	assert.ErrorContains(t, err, "decompressed data exceeded the maximum byte size:")
+	assert.Nil(t, decoded)
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(8*1024*1024),
+		"rejecting an over-limit stream must not materialise the decompressed payload")
+}
+
+// Check stream corruption is properly shown.
+func TestGzip64DecodeCorruptStream(t *testing.T) {
+	const limit = 1024
+	payload := bytes.Repeat([]byte("a"), limit)
+	encoded, err := compression.Gzip64Encode(payload)
+	require.NoError(t, err)
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+
+	// Corrupt the gzip footer
+	t.Run("corrupt checksum at exactly the limit", func(t *testing.T) {
+		corrupted := bytes.Clone(raw)
+		corrupted[len(corrupted)-1] ^= 0xff // corrupt the footer
+
+		decoded, err := compression.Gzip64Decode(
+			base64.StdEncoding.EncodeToString(corrupted), limit,
+		)
+		assert.ErrorIs(t, err, gzip.ErrChecksum)
+		assert.Nil(t, decoded)
+	})
+
+	t.Run("truncated stream", func(t *testing.T) {
+		decoded, err := compression.Gzip64Decode(
+			// remove the footer and part of the data.
+			base64.StdEncoding.EncodeToString(raw[:len(raw)/2]),
+			limit,
+		)
+
+		assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
+		assert.Nil(t, decoded)
+	})
 }
 
 func FuzzGzip64(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		compressed, err := compression.Gzip64Encode(data)
 		require.NoError(t, err)
-		decompressed, err := compression.Gzip64Decode(compressed)
+		decompressed, err := compression.Gzip64Decode(compressed, compression.NoLimit)
 		require.NoError(t, err)
 		assert.Equal(t, data, decompressed)
 	})
@@ -50,7 +170,7 @@ func TestGzip64EncodeAcrossSuccessiveCalls(t *testing.T) {
 
 			encoded, err := compression.Gzip64Encode(payload)
 			require.NoError(t, err)
-			decoded, err := compression.Gzip64Decode(encoded)
+			decoded, err := compression.Gzip64Decode(encoded, compression.NoLimit)
 			require.NoError(t, err)
 			assert.Equal(t, payload, decoded)
 		})
@@ -204,7 +324,7 @@ func TestGzip64EncodeConcurrent(t *testing.T) {
 			payload := bytes.Repeat([]byte{byte('a' + i)}, chunk*(i+1))
 			encoded, err := compression.Gzip64Encode(payload)
 			assert.NoError(t, err)
-			decoded, err := compression.Gzip64Decode(encoded)
+			decoded, err := compression.Gzip64Decode(encoded, compression.NoLimit)
 			assert.NoError(t, err)
 			assert.Equal(t, payload, decoded)
 		})

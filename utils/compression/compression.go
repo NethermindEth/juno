@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	"github.com/klauspost/compress/gzip"
@@ -26,6 +27,9 @@ const (
 	maxLevel   = BestCompression
 	levelCount = maxLevel - minLevel + 1
 )
+
+// NoLimit disables the decompressed-size bound in Gzip64Decode.
+const NoLimit int64 = math.MaxInt64
 
 var ErrWriterNotAcquired = errors.New("using writer after release")
 
@@ -134,6 +138,7 @@ func GzipWriterLevel(dst io.Writer, level int) *Writer {
 	return writer
 }
 
+// Gzip64Encode encodes data with default compression
 func Gzip64Encode(data []byte) (string, error) {
 	var compressedBuffer bytes.Buffer
 	gzipWriter := GzipWriter(&compressedBuffer)
@@ -147,7 +152,10 @@ func Gzip64Encode(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }
 
-func Gzip64Decode(data string) ([]byte, error) {
+// Gzip64Decode decompress data with a size limit of `maxDecompressedSize`.
+// If decoded data turns out to be bigger an error is retured. Use
+// [NoLimit] for unbounded decompression.
+func Gzip64Decode(data string, maxDecompressedSize int64) ([]byte, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
 		return nil, err
@@ -156,13 +164,30 @@ func Gzip64Decode(data string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	decompressedBytes, err := io.ReadAll(gzipReader)
+
+	// Read one byte more than the limit to differentiate between the decompressed
+	// size fitting (<= maxDecompressedSize) and overflowing (> maxDecompressedSize).
+	// The guard keeps NoLimit from overflowing.
+	readLimit := maxDecompressedSize
+	if readLimit < NoLimit {
+		readLimit++
+	}
+
+	limited := io.LimitReader(gzipReader, readLimit)
+	decompressedBytes, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
 	}
+	if int64(len(decompressedBytes)) > maxDecompressedSize {
+		return nil, fmt.Errorf(
+			"decompressed data exceeded the maximum byte size: %d", maxDecompressedSize,
+		)
+	}
+
 	err = gzipReader.Close()
 	if err != nil {
 		return nil, err
 	}
+
 	return decompressedBytes, nil
 }

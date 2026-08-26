@@ -73,7 +73,10 @@ func AdaptDeclaredClass(
 		}
 		base64Program := string(program[1 : len(program)-1])
 
-		feederClass.DeprecatedCairo.Program, err = compression.Gzip64Decode(base64Program)
+		feederClass.DeprecatedCairo.Program, err = compression.Gzip64Decode(
+			base64Program,
+			core.MaxDeprecatedClassProgramSize,
+		)
 		if err != nil {
 			return nil, err
 		}

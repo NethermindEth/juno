@@ -51,7 +51,7 @@ func BenchmarkGzip64Decode(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(size))
 			for b.Loop() {
-				if _, err := compression.Gzip64Decode(encoded); err != nil {
+				if _, err := compression.Gzip64Decode(encoded, compression.NoLimit); err != nil {
 					b.Fatal(err)
 				}
 			}
