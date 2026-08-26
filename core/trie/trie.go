@@ -814,6 +814,7 @@ func (t *Trie) Hash() (felt.Felt, error) {
 	}
 
 	if t.rootKey == nil {
+		t.dirtyNodes = nil
 		return felt.Zero, nil
 	}
 
