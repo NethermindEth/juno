@@ -623,7 +623,8 @@ func (s *Server) handleBatchRequest(
 		return nil, finalHeaders, nil
 	}
 
-	return concatBatchResponses(responses), finalHeaders, nil // todo: fix batch request aggregate header
+	// todo: fix batch request aggregate header
+	return concatBatchResponses(responses), finalHeaders, nil
 }
 
 // concatBatchResponses builds the response array directly. json.Marshal on a

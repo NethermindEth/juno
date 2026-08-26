@@ -1153,3 +1153,50 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 		assert.Nil(t, res)
 	})
 }
+
+func TestBatchResponseEncoding(t *testing.T) {
+	// A single pool goroutine, so elements finish in dispatch order and the
+	// expected arrays below are stable
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:   "echo",
+		Params: []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) {
+			return msg, nil
+		},
+	}))
+
+	tests := map[string]struct {
+		req  string
+		want string
+	}{
+		"single element": {
+			req:  `[{"jsonrpc":"2.0","id":1,"method":"echo","params":["a"]}]`,
+			want: `[{"jsonrpc":"2.0","result":"a","id":1}]`,
+		},
+		"elements are comma separated": {
+			req: `[{"jsonrpc":"2.0","id":1,"method":"echo","params":["a"]},` +
+				`{"jsonrpc":"2.0","id":2,"method":"echo","params":["b"]}]`,
+			want: `[{"jsonrpc":"2.0","result":"a","id":1},{"jsonrpc":"2.0","result":"b","id":2}]`,
+		},
+		"html significant characters stay escaped": {
+			req:  `[{"jsonrpc":"2.0","id":1,"method":"echo","params":["<a>&</a>"]}]`,
+			want: `[{"jsonrpc":"2.0","result":"\u003ca\u003e\u0026\u003c/a\u003e","id":1}]`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			res, _, err := server.HandleReader(t.Context(), strings.NewReader(tc.req))
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(res))
+
+			var elems []json.RawMessage
+			require.NoError(t, json.Unmarshal(res, &elems))
+			viaMarshal, err := json.Marshal(elems)
+			require.NoError(t, err)
+			assert.Equal(t, string(viaMarshal), string(res),
+				"hand-built array differs from json.Marshal")
+		})
+	}
+}
