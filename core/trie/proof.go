@@ -67,8 +67,7 @@ func (e *Edge) String() string {
 // The result contains the proof nodes on the path from the root to the leaf.
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
-// Proof hashes are taken from stored node values, so the trie's hashes must be
-// current: call Hash after the last write and before Prove.
+// Proof hashes come from stored node values: call Hash after the last write.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
 		return errors.New("cannot prove a trie with unhashed writes")
@@ -82,17 +81,15 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	}
 
 	var parentKey *BitArray
-	// Parent-facing hash of the current node, computed by the previous
-	// iteration; nil for the root.
+	// Hash of the current node as seen by its parent; nil for the root.
 	var carriedHash *felt.Felt
 
-	// Proof nodes alias felts of every node read below, so none of these nodes
-	// can go back to nodePool: reuse would overwrite hashes the caller holds.
+	// Proof entries alias node felts, so the nodes cannot go back to nodePool.
 	for i, sNode := range nodesFromRoot {
 		isLeaf := sNode.key.len == t.height
 
 		var sNodeEdge *Edge
-		if isEdge(parentKey, sNode) {
+		if isEdge(parentKey, sNode.key) {
 			edgePath := path(sNode.key, parentKey)
 			sNodeEdge = &Edge{Path: &edgePath, Child: sNode.node.Value}
 		}
@@ -101,7 +98,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 			if sNodeEdge != nil { // Leaf Edge
 				proof.Put(edgeHash(sNodeEdge, carriedHash, t.hash), sNodeEdge)
 			}
-			break // sNode is a binary leaf otherwise; nothing to add
+			break // binary leaf; nothing to add
 		}
 
 		var onPathChild *StorageNode
@@ -119,8 +116,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		// A hashed internal node stores hash(leftHash, rightHash) as its value.
 		proof.Put(*sNode.node.Value, sNodeBinary)
 
-		// Carry the on-path child's parent-facing hash from the Binary; a nil
-		// carry only costs a recomputation, never a wrong hash.
+		// Carry the on-path child's hash; a nil carry only costs a recomputation.
 		carriedHash = nil
 		switch {
 		case onPathChild == nil:
@@ -134,8 +130,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	return nil
 }
 
-// edgeHash returns the parent-facing hash of an edge node, reusing the value
-// the parent iteration already computed when there is one.
+// edgeHash returns the parent-facing hash of an edge node, from carried when set.
 func edgeHash(edge *Edge, carried *felt.Felt, hash crypto.HashFn) felt.Felt {
 	if carried != nil {
 		return *carried
@@ -381,14 +376,9 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	return hasRightElement(rootKey, lastKey, nodes), nil
 }
 
-// isEdge checks if the storage node is an edge node.
-func isEdge(parentKey *BitArray, sNode StorageNode) bool {
-	return isEdgeKey(parentKey, sNode.key)
-}
-
-// isEdgeKey reports whether childKey hangs off parentKey via an edge, i.e. the
-// path between them is longer than the single branching bit.
-func isEdgeKey(parentKey, childKey *BitArray) bool {
+// isEdge reports whether the path between parentKey and childKey is longer
+// than one bit, which makes childKey an edge node.
+func isEdge(parentKey, childKey *BitArray) bool {
 	if parentKey == nil { // Root
 		return childKey.len != 0
 	}
@@ -396,10 +386,9 @@ func isEdgeKey(parentKey, childKey *BitArray) bool {
 }
 
 // binaryProofNode builds the Binary proof node of an internal StorageNode.
-// Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires
-// nodes that are Binary XOR Edge. We need to convert the former to the latter for
-// proof generation. onPathChild is the next node the traversal already read, so
-// it is not read again; only the off-path sibling costs a database lookup.
+// Juno trie nodes are Binary AND Edge; the protocol requires Binary XOR Edge.
+// onPathChild was already read by the traversal, so only the off-path sibling
+// costs a database lookup.
 func binaryProofNode(
 	tri *Trie, sNode StorageNode, onPathChild *StorageNode,
 ) (*Binary, error) {
@@ -414,9 +403,8 @@ func binaryProofNode(
 			}
 		}
 
-		// Not Node.HashFromParent: taking the address of its returned value
-		// costs an allocation per non-edge child.
-		if isEdgeKey(sNode.key, childKey) {
+		// Node.HashFromParent would cost an allocation per non-edge child.
+		if isEdge(sNode.key, childKey) {
 			edgePath := path(childKey, sNode.key)
 			wrapped := child.Hash(&edgePath, tri.hash)
 			return &wrapped, nil

@@ -876,9 +876,8 @@ func TestProveErrsOnStaleHashes(t *testing.T) {
 }
 
 // TestProveSetInvariant checks every proof entry is keyed by its own hash.
-// Prove reuses stored and carried hashes instead of recomputing them, so a
-// drift between the reused values and the node contents would mis-key entries
-// and only surface at the verifier.
+// Prove reuses stored and carried hashes; a drift between them and the node
+// contents would only surface at the verifier.
 func TestProveSetInvariant(t *testing.T) {
 	t.Parallel()
 
