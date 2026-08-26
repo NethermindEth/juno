@@ -125,7 +125,7 @@ func TestGzip64DecodeCorruptStream(t *testing.T) {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	require.NoError(t, err)
 
-	// The limit doesn't allow to gzip reader to reach the expected footer
+	// Corrupt the gzip footer
 	t.Run("corrupt checksum at exactly the limit", func(t *testing.T) {
 		corrupted := bytes.Clone(raw)
 		corrupted[len(corrupted)-1] ^= 0xff // corrupt the footer
@@ -139,7 +139,7 @@ func TestGzip64DecodeCorruptStream(t *testing.T) {
 
 	t.Run("truncated stream", func(t *testing.T) {
 		decoded, err := compression.Gzip64Decode(
-			// missing footer and half of the data
+			// remove the footer and part of the data.
 			base64.StdEncoding.EncodeToString(raw[:len(raw)/2]),
 			limit,
 		)

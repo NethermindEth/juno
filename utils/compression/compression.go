@@ -28,6 +28,9 @@ const (
 	levelCount = maxLevel - minLevel + 1
 )
 
+// NoLimit disables the decompressed-size bound in Gzip64Decode.
+const NoLimit int64 = math.MaxInt64
+
 var ErrWriterNotAcquired = errors.New("using writer after release")
 
 // gzipWriterPools holds one pool per compression level.
@@ -135,6 +138,7 @@ func GzipWriterLevel(dst io.Writer, level int) *Writer {
 	return writer
 }
 
+// Gzip64Encode encodes data with default compression
 func Gzip64Encode(data []byte) (string, error) {
 	var compressedBuffer bytes.Buffer
 	gzipWriter := GzipWriter(&compressedBuffer)
@@ -148,9 +152,9 @@ func Gzip64Encode(data []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }
 
-// NoLimit disables the decompressed-size bound in Gzip64Decode.
-const NoLimit int64 = math.MaxInt64
-
+// Gzip64Decode decompress data with a size limit of `maxDecompressedSize`.
+// If decoded data turns out to be bigger an error is retured. Use
+// [NoLimit] for unbounded decompression.
 func Gzip64Decode(data string, maxDecompressedSize int64) ([]byte, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {

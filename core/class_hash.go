@@ -14,7 +14,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		class.Program, MaxDeprecatedClassProgramSize,
 	)
 	if err != nil {
-		return felt.Felt{}, fmt.Errorf("compressing Cairo Zero class: %w", err)
+		return felt.Felt{}, fmt.Errorf("decompressing Cairo Zero class: %w", err)
 	}
 
 	program, err := unmarshalDeprecatedCairoProgram(decompressedProgram)
