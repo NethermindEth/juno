@@ -290,10 +290,6 @@ zstd -dc juno_sepolia_integration.tar.zst | tar -xf - -b 2048 -C sepolia-integra
 </TabItem>
 </Tabs>
 
-:::tip Extraction performance
-Decompressing a `.tar.zst` archive is single-threaded by design, so low CPU usage during extraction is normal. To speed it up, `bsdtar -xf juno_mainnet.tar.zst -C mainnet` (package `libarchive-tools` on Ubuntu/Debian) decompresses and extracts in a single process with large buffers and is often faster. Note that the `tar` bundled with macOS may lack zstd support.
-:::
-
 </TabItem>
 <TabItem value="streaming" label="Stream">
 
