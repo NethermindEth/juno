@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	DefaultMaxBatchElements      = 100
+	DefaultMaxBatchElements      = 1000
 	DefaultMaxBatchResponseBytes = 64 * 1024 * 1024
 )
 

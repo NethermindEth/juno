@@ -72,7 +72,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxConcurrentRequests := uint(256000)
 	defaultRPCMaxRequestQueue := uint(256000)
-	defaultRPCMaxBatchSize := uint(100)
+	defaultRPCMaxBatchSize := uint(1000)
 	defaultRPCMaxBatchResponseSize := uint(64)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)

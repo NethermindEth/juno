@@ -182,7 +182,7 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
-	defaultRPCMaxBatchSize                    = 100
+	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
 	defaultMaxConcurrentCompilations          = uint64(0)

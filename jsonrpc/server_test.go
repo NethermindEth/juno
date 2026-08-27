@@ -923,21 +923,22 @@ func TestBatchElementLimit(t *testing.T) {
 	})
 
 	t.Run("zero disables the limit", func(t *testing.T) {
+		const n = jsonrpc.DefaultMaxBatchElements + 50
 		server, _ := newServer(t, 0)
-		res, _, err := server.HandleReader(t.Context(), strings.NewReader(batchOf(50)))
+		res, _, err := server.HandleReader(t.Context(), strings.NewReader(batchOf(n)))
 		require.NoError(t, err)
 
 		var out []json.RawMessage
 		require.NoError(t, json.Unmarshal(res, &out))
-		assert.Len(t, out, 50)
+		assert.Len(t, out, n)
 	})
 }
 
 func TestBatchResponseSizeLimit(t *testing.T) {
 	const payload = 512
 
-	newServer := func(t *testing.T, limit int) *jsonrpc.Server {
-		server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
+	newServer := func(t *testing.T, workers, limit int) *jsonrpc.Server {
+		server := jsonrpc.NewServer(workers, log.NewNopZapLogger()).
 			WithMaxBatchElements(0).
 			WithMaxBatchResponseBytes(limit)
 		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -958,7 +959,8 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 	}
 
 	t.Run("under the cap returns every response", func(t *testing.T) {
-		res, _, err := newServer(t, 64*1024).HandleReader(t.Context(), strings.NewReader(batchOf(4)))
+		res, _, err := newServer(t, 1, 64*1024).
+			HandleReader(t.Context(), strings.NewReader(batchOf(4)))
 		require.NoError(t, err)
 
 		var out []json.RawMessage
@@ -968,7 +970,7 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 
 	t.Run("crossing the cap stops the batch but answers every id", func(t *testing.T) {
 		const batch = 64
-		res, _, err := newServer(t, 2*(payload+64)).
+		res, _, err := newServer(t, 1, 2*(payload+64)).
 			HandleReader(t.Context(), strings.NewReader(batchOf(batch)))
 		require.NoError(t, err)
 
@@ -1000,12 +1002,52 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 		assert.ElementsMatch(t, want, ids, "every id answered exactly once")
 	})
 
-	t.Run("zero disables the cap", func(t *testing.T) {
-		res, _, err := newServer(t, 0).HandleReader(t.Context(), strings.NewReader(batchOf(8)))
+	t.Run("crossing the cap concurrently still answers every id once", func(t *testing.T) {
+		const batch = 64
+		res, _, err := newServer(t, 16, 2*(payload+64)).
+			HandleReader(t.Context(), strings.NewReader(batchOf(batch)))
 		require.NoError(t, err)
 
-		var out []json.RawMessage
+		var out []struct {
+			Error *jsonrpc.Error `json:"error"`
+			ID    int            `json:"id"`
+		}
 		require.NoError(t, json.Unmarshal(res, &out))
-		assert.Len(t, out, 8)
+		require.Len(t, out, batch, "no id may be left silent")
+
+		ids := make([]int, 0, len(out))
+		ran := 0
+		for _, elem := range out {
+			ids = append(ids, elem.ID)
+			if elem.Error == nil {
+				ran++
+				continue
+			}
+			assert.Equal(t, jsonrpc.ResponseTooLarge, elem.Error.Code)
+		}
+		assert.NotZero(t, ran, "the calls that ran keep their results")
+		assert.Less(t, ran, batch, "the rest of the batch must not run")
+
+		want := make([]int, batch)
+		for i := range want {
+			want[i] = i + 1
+		}
+		assert.ElementsMatch(t, want, ids, "every id answered exactly once")
+	})
+
+	t.Run("zero disables the cap", func(t *testing.T) {
+		const batch = 64
+		res, _, err := newServer(t, 1, 0).
+			HandleReader(t.Context(), strings.NewReader(batchOf(batch)))
+		require.NoError(t, err)
+
+		var out []struct {
+			Error *jsonrpc.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(res, &out))
+		require.Len(t, out, batch)
+		for _, elem := range out {
+			assert.Nil(t, elem.Error)
+		}
 	})
 }
