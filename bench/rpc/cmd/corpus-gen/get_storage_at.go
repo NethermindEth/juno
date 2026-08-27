@@ -5,11 +5,15 @@ import (
 	"slices"
 )
 
-func storageAtSampler(input samplerInput[blockRangeFlags]) (any, error) {
+func storageAtSampler(input samplerInput[blockRangeFlags]) (storageAtParams, error) {
 	blockNumber := input.args.sampleBlockNumber(input.rng)
-	entry, err := sampleStorageEntry(input, blockNumber)
+	update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 	if err != nil {
-		return nil, err
+		return storageAtParams{}, err
+	}
+	entry, err := pickRandom(input.rng, storageEntries(update.StateDiff))
+	if err != nil {
+		return storageAtParams{}, err
 	}
 	return storageAtParams{
 		ContractAddress: entry.Address,
@@ -21,14 +25,6 @@ func storageAtSampler(input samplerInput[blockRangeFlags]) (any, error) {
 type storageEntry struct {
 	Address string
 	Key     string
-}
-
-func sampleStorageEntry[T any](input samplerInput[T], blockNumber uint64) (storageEntry, error) {
-	update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
-	if err != nil {
-		return storageEntry{}, err
-	}
-	return pickRandom(input.rng, storageEntries(update.StateDiff))
 }
 
 func storageEntries(diff stateDiff) []storageEntry {

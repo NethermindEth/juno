@@ -20,26 +20,22 @@ type samplerInput[T any] struct {
 	cache  *sierraCache
 }
 
-type sampler[T any] func(input samplerInput[T]) (any, error)
+type sampler[T, R any] func(input samplerInput[T]) (R, error)
 
-func newSampledCmds(
-	cfg *rootConfig,
-	samplers map[string]sampler[blockRangeFlags],
-) []*cobra.Command {
-	cmds := make([]*cobra.Command, 0, len(samplers))
-	for method, sample := range samplers {
-		cmds = append(cmds, newSampledCmd(cfg, method, sample, addBlockRangeFlags))
-	}
-	return cmds
+// argsBinder registers an args type's flags and PreRunE checks on a command.
+type argsBinder interface {
+	bind(cmd *cobra.Command, client *rpcClient)
 }
 
 // newSampledCmd builds a subcommand whose params come from one successful call
-// of sample (errResample re-invokes); extraArgs fills *T, the corpus sampling meta.
-func newSampledCmd[T any](
+// of sample (errResample re-invokes); T's bind fills *T, the corpus sampling meta.
+func newSampledCmd[T any, PT interface {
+	*T
+	argsBinder
+}, R any](
 	cfg *rootConfig,
 	method string,
-	sample sampler[T],
-	extraArgs func(cmd *cobra.Command, args *T),
+	sample sampler[T, R],
 ) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     commandName(method),
@@ -47,16 +43,15 @@ func newSampledCmd[T any](
 		GroupID: methodsGroupID,
 	}
 	args := new(T)
-	extraArgs(cmd, args)
+	client := &rpcClient{}
+	chainPreRunE(cmd, func() error {
+		*client = *newRPCClient(cfg.sourceURL, cfg.concurrency)
+		return nil
+	})
+	PT(args).bind(cmd, client)
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		client := newRPCClient(cfg.sourceURL, cfg.concurrency)
-		if resolver, ok := any(args).(blockRangeResolver); ok {
-			if err := resolver.resolveBlockRange(cmd.Context(), client); err != nil {
-				return err
-			}
-		}
 		cache := newSierraCache()
-		gen := func(ctx context.Context, client *rpcClient, rng *rand.Rand) (any, error) {
+		gen := func(ctx context.Context, rng *rand.Rand) (any, error) {
 			input := samplerInput[T]{
 				ctx:    ctx,
 				client: client,
@@ -64,7 +59,7 @@ func newSampledCmd[T any](
 				args:   args,
 				cache:  cache,
 			}
-			result, err := resample(func() (any, error) { return sample(input) })
+			result, err := resample(func() (R, error) { return sample(input) })
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", method, err)
 			}

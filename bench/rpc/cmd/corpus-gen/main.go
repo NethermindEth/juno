@@ -74,28 +74,27 @@ func newRootCmd() *cobra.Command {
 	)
 
 	cmd.AddGroup(&cobra.Group{ID: methodsGroupID, Title: "RPC Methods:"})
-	cmd.AddCommand(newSampledCmds(
-		cfg,
-		map[string]sampler[blockRangeFlags]{
-			"starknet_getBlockWithTxHashes":            blockIDSampler,
-			"starknet_getBlockWithTxs":                 blockIDSampler,
-			"starknet_getBlockWithReceipts":            blockIDSampler,
-			"starknet_getStateUpdate":                  blockIDSampler,
-			"starknet_getBlockTransactionCount":        blockIDSampler,
-			"starknet_traceBlockTransactions":          blockIDSampler,
-			"starknet_getTransactionByHash":            txHashSampler,
-			"starknet_getTransactionStatus":            txHashSampler,
-			"starknet_getTransactionReceipt":           txHashSampler,
-			"starknet_traceTransaction":                txHashSampler,
-			"starknet_getTransactionByBlockIdAndIndex": txByBlockIDAndIndexSampler,
-			"starknet_getClassHashAt":                  contractAddressSampler(storageDiffAddresses),
-			"starknet_getClassAt":                      contractAddressSampler(storageDiffAddresses),
-			"starknet_getNonce":                        contractAddressSampler(nonceAddresses),
-			"starknet_getClass":                        classAtBlockSampler,
-			"starknet_getCompiledCasm":                 sierraClassHashSampler,
-			"starknet_getStorageAt":                    storageAtSampler,
-		},
-	)...)
+	cmd.AddCommand(
+		newSampledCmd(cfg, "starknet_getBlockWithTxHashes", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getBlockWithTxs", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getBlockWithReceipts", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getStateUpdate", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getBlockTransactionCount", blockIDSampler),
+		newSampledCmd(cfg, "starknet_traceBlockTransactions", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getTransactionByHash", txHashSampler),
+		newSampledCmd(cfg, "starknet_getTransactionStatus", txHashSampler),
+		newSampledCmd(cfg, "starknet_getTransactionReceipt", txHashSampler),
+		newSampledCmd(cfg, "starknet_traceTransaction", txHashSampler),
+		newSampledCmd(cfg, "starknet_getTransactionByBlockIdAndIndex", txByBlockIDAndIndexSampler),
+		newSampledCmd(cfg, "starknet_getClassHashAt", contractAddressSampler(storageDiffAddresses)),
+		newSampledCmd(cfg, "starknet_getClassAt", contractAddressSampler(storageDiffAddresses)),
+		newSampledCmd(cfg, "starknet_getNonce", contractAddressSampler(nonceAddresses)),
+		newSampledCmd(cfg, "starknet_getClass", classAtBlockSampler),
+		newSampledCmd(cfg, "starknet_getCompiledCasm", sierraClassHashSampler),
+		newSampledCmd(cfg, "starknet_getStorageAt", storageAtSampler),
+		newSampledCmd(cfg, "starknet_getEvents", eventsSampler),
+		newSampledCmd(cfg, "starknet_getStorageProof", storageProofSampler),
+	)
 	cmd.AddCommand(newNoParamCmds(
 		cfg,
 		"starknet_blockNumber",
@@ -103,15 +102,6 @@ func newRootCmd() *cobra.Command {
 		"starknet_chainId",
 		"starknet_syncing",
 	)...)
-	cmd.AddCommand(
-		newSampledCmd(cfg, "starknet_getEvents", eventsSampler, eventsExtraArgs),
-		newSampledCmd(
-			cfg,
-			"starknet_getStorageProof",
-			storageProofSampler,
-			storageProofExtraArgs,
-		),
-	)
 	return cmd
 }
 
@@ -156,7 +146,7 @@ func writeCorpus[T any](w io.Writer, c *corpus[T]) error {
 	return err
 }
 
-type paramsGen func(ctx context.Context, client *rpcClient, rng *rand.Rand) (any, error)
+type paramsGen func(ctx context.Context, rng *rand.Rand) (any, error)
 
 func runCorpus[T any](
 	cmd *cobra.Command,
@@ -214,7 +204,7 @@ func buildCorpus[T any](
 			batchSize := max(1, cfg.batch)
 			entry := make([]jsonRPCRequest, batchSize)
 			for j := range entry {
-				params, genErr := gen(ctx, client, rng)
+				params, genErr := gen(ctx, rng)
 				if genErr != nil {
 					return genErr
 				}
