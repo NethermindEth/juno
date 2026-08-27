@@ -855,3 +855,143 @@ type keyValue struct {
 	key   *felt.Felt
 	value *felt.Felt
 }
+
+func TestProveErrsOnStaleHashes(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+
+	key := new(felt.Felt).SetUint64(1)
+	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	require.NoError(t, err)
+
+	err = tempTrie.Prove(key, trie.NewProofNodeSet())
+	require.EqualError(t, err, "cannot prove a trie with unhashed writes")
+
+	require.NoError(t, tempTrie.Commit())
+	require.NoError(t, tempTrie.Prove(key, trie.NewProofNodeSet()))
+}
+
+func TestProveErrsOnUnhashedLeafUpdate(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+
+	key := new(felt.Felt).SetUint64(1)
+	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	require.NoError(t, err)
+	require.NoError(t, tempTrie.Commit())
+
+	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(3))
+	require.NoError(t, err)
+
+	err = tempTrie.Prove(key, trie.NewProofNodeSet())
+	require.EqualError(t, err, "cannot prove a trie with unhashed writes")
+
+	require.NoError(t, tempTrie.Commit())
+	require.NoError(t, tempTrie.Prove(key, trie.NewProofNodeSet()))
+}
+
+func TestProveAfterDelete(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+
+	records := make([]*keyValue, 4)
+	for i := range records {
+		records[i] = &keyValue{
+			key:   new(felt.Felt).SetUint64(uint64(i)),
+			value: new(felt.Felt).SetUint64(uint64(i + 10)),
+		}
+		_, err := tempTrie.Put(records[i].key, records[i].value)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tempTrie.Commit())
+
+	deleted, kept := records[0], records[3]
+	_, err = tempTrie.Put(deleted.key, new(felt.Felt))
+	require.NoError(t, err)
+
+	err = tempTrie.Prove(kept.key, trie.NewProofNodeSet())
+	require.EqualError(t, err, "cannot prove a trie with unhashed writes")
+
+	require.NoError(t, tempTrie.Commit())
+	root, err := tempTrie.Hash()
+	require.NoError(t, err)
+
+	proofSet := trie.NewProofNodeSet()
+	require.NoError(t, tempTrie.Prove(kept.key, proofSet))
+	val, err := trie.VerifyProof(&root, kept.key, proofSet, crypto.Pedersen)
+	require.NoError(t, err)
+	require.Equal(t, *kept.value, val)
+
+	proofSet = trie.NewProofNodeSet()
+	require.NoError(t, tempTrie.Prove(deleted.key, proofSet))
+	val, err = trie.VerifyProof(&root, deleted.key, proofSet, crypto.Pedersen)
+	require.NoError(t, err)
+	require.Equal(t, felt.Zero, val)
+}
+
+func TestProveAfterDeleteToEmpty(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
+	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+
+	keys := make([]*felt.Felt, 4)
+	for i := range keys {
+		keys[i] = new(felt.Felt).SetUint64(uint64(i))
+		_, err := tempTrie.Put(keys[i], new(felt.Felt).SetUint64(1))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tempTrie.Commit())
+
+	for _, key := range keys {
+		_, err := tempTrie.Put(key, new(felt.Felt))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tempTrie.Commit())
+
+	proofSet := trie.NewProofNodeSet()
+	require.NoError(t, tempTrie.Prove(keys[0], proofSet))
+	require.Zero(t, proofSet.Size())
+}
+
+// TestProveSetInvariant checks every proof entry is keyed by its own hash.
+// Prove reuses stored and carried hashes; a drift between them and the node
+// contents would only surface at the verifier.
+func TestProveSetInvariant(t *testing.T) {
+	t.Parallel()
+
+	tempTrie, records := randomTrie(t, 100)
+
+	keys := make([]*felt.Felt, 0, len(records)+1)
+	for _, record := range records {
+		keys = append(keys, record.key)
+	}
+	// Non-membership proofs must hold the invariant too.
+	keys = append(keys, new(felt.Felt).SetUint64(0xdead))
+
+	for _, key := range keys {
+		proofSet := trie.NewProofNodeSet()
+		require.NoError(t, tempTrie.Prove(key, proofSet))
+
+		hashes := proofSet.Keys()
+		nodes := proofSet.List()
+		for i, node := range nodes {
+			hash := node.Hash(crypto.Pedersen)
+			require.True(t, hash.Equal(&hashes[i]), "entry %d for key %s", i, key)
+		}
+	}
+}
