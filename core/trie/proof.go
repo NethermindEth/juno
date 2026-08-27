@@ -377,7 +377,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 }
 
 // isEdge reports whether the path between parentKey and childKey is longer
-// than one bit, which makes childKey an edge node.
+// than the branching bit, which the root does not have.
 func isEdge(parentKey, childKey *BitArray) bool {
 	if parentKey == nil { // Root
 		return childKey.len != 0

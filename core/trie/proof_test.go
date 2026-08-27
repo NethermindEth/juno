@@ -963,7 +963,9 @@ func TestProveAfterDeleteToEmpty(t *testing.T) {
 	}
 	require.NoError(t, tempTrie.Commit())
 
-	require.NoError(t, tempTrie.Prove(keys[0], trie.NewProofNodeSet()))
+	proofSet := trie.NewProofNodeSet()
+	require.NoError(t, tempTrie.Prove(keys[0], proofSet))
+	require.Zero(t, proofSet.Size())
 }
 
 // TestProveSetInvariant checks every proof entry is keyed by its own hash.
