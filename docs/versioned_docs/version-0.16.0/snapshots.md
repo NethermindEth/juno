@@ -231,60 +231,60 @@ Create a subfolder in your current directory where to unzip the downloaded snaps
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-mkdir mainnet
+mkdir juno_mainnet
 ```
 
 ```bash
 # Extract the snapshot
-zstd -dc juno_mainnet.tar.zst | tar -xf - -b 2048 -C mainnet
+zstd -dc juno_mainnet.tar.zst | tar -xf - -b 2048 -C juno_mainnet
 ```
 
 </TabItem>
 <TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
-mkdir mainnet-pruned
+mkdir juno_mainnet_pruned
 ```
 
 ```bash
 # Extract the snapshot
-zstd -dc juno_mainnet_pruned.tar.zst | tar -xf - -b 2048 -C mainnet-pruned
+zstd -dc juno_mainnet_pruned.tar.zst | tar -xf - -b 2048 -C juno_mainnet_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
-mkdir sepolia
+mkdir juno_sepolia
 ```
 
 ```bash
 # Extract the snapshot
-zstd -dc juno_sepolia.tar.zst | tar -xf - -b 2048 -C sepolia
+zstd -dc juno_sepolia.tar.zst | tar -xf - -b 2048 -C juno_sepolia
 ```
 
 </TabItem>
 <TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
 
 ```bash
-mkdir sepolia-pruned
+mkdir juno_sepolia_pruned
 ```
 
 ```bash
 # Extract the snapshot
-zstd -dc juno_sepolia_pruned.tar.zst | tar -xf - -b 2048 -C sepolia-pruned
+zstd -dc juno_sepolia_pruned.tar.zst | tar -xf - -b 2048 -C juno_sepolia_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia-integration" label="Sepolia-Integration">
 
 ```bash
-mkdir sepolia-integration
+mkdir juno_sepolia_integration
 ```
 
 ```bash
 # Extract the snapshot
-zstd -dc juno_sepolia_integration.tar.zst | tar -xf - -b 2048 -C sepolia-integration
+zstd -dc juno_sepolia_integration.tar.zst | tar -xf - -b 2048 -C juno_sepolia_integration
 ```
 
 </TabItem>
@@ -378,35 +378,35 @@ Create a subfolder in your current directory where to stream the download, then 
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-mkdir -p mainnet
+mkdir -p juno_mainnet
 ```
 
 </TabItem>
 <TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
-mkdir -p mainnet-pruned
+mkdir -p juno_mainnet_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
-mkdir -p sepolia
+mkdir -p juno_sepolia
 ```
 
 </TabItem>
 <TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
 
 ```bash
-mkdir -p sepolia-pruned
+mkdir -p juno_sepolia_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia-integration" label="Sepolia-Integration">
 
 ```bash
-mkdir -p sepolia-integration
+mkdir -p juno_sepolia_integration
 ```
 
 </TabItem>
@@ -430,7 +430,7 @@ JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet/latest
 JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
 lftp -c "cat $JUNO_SNAPSHOT_URL" \
   | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
-  | zstd -d | tar -xf - -C mainnet
+  | zstd -d | tar -xf - -C juno_mainnet
 ```
 
 </TabItem>
@@ -441,7 +441,7 @@ JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet-pruned/late
 JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
 lftp -c "cat $JUNO_SNAPSHOT_URL" \
   | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
-  | zstd -d | tar -xf - -C mainnet-pruned
+  | zstd -d | tar -xf - -C juno_mainnet_pruned
 ```
 
 </TabItem>
@@ -452,7 +452,7 @@ JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia/latest
 JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
 lftp -c "cat $JUNO_SNAPSHOT_URL" \
   | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
-  | zstd -d | tar -xf - -C sepolia
+  | zstd -d | tar -xf - -C juno_sepolia
 ```
 
 </TabItem>
@@ -463,7 +463,7 @@ JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-pruned/late
 JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
 lftp -c "cat $JUNO_SNAPSHOT_URL" \
   | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
-  | zstd -d | tar -xf - -C sepolia-pruned
+  | zstd -d | tar -xf - -C juno_sepolia_pruned
 ```
 
 </TabItem>
@@ -474,7 +474,7 @@ JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-integration
 JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
 lftp -c "cat $JUNO_SNAPSHOT_URL" \
   | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
-  | zstd -d | tar -xf - -C sepolia-integration
+  | zstd -d | tar -xf - -C juno_sepolia_integration
 ```
 
 </TabItem>
@@ -488,7 +488,7 @@ lftp -c "cat $JUNO_SNAPSHOT_URL" \
 
 ```bash
 lftp -c "cat https://juno-snapshots.nethermind.io/files/mainnet/latest" \
-  | zstd -d | tar -xf - -C mainnet
+  | zstd -d | tar -xf - -C juno_mainnet
 ```
 
 </TabItem>
@@ -496,7 +496,7 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/mainnet/latest" \
 
 ```bash
 lftp -c "cat https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest" \
-  | zstd -d | tar -xf - -C mainnet-pruned
+  | zstd -d | tar -xf - -C juno_mainnet_pruned
 ```
 
 </TabItem>
@@ -504,7 +504,7 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest" \
 
 ```bash
 lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia/latest" \
-  | zstd -d | tar -xf - -C sepolia
+  | zstd -d | tar -xf - -C juno_sepolia
 ```
 
 </TabItem>
@@ -512,7 +512,7 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia/latest" \
 
 ```bash
 lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest" \
-  | zstd -d | tar -xf - -C sepolia-pruned
+  | zstd -d | tar -xf - -C juno_sepolia_pruned
 ```
 
 </TabItem>
@@ -520,7 +520,7 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest" \
 
 ```bash
 lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia-integration/latest" \
-  | zstd -d | tar -xf - -C sepolia-integration
+  | zstd -d | tar -xf - -C juno_sepolia_integration
 ```
 
 </TabItem>
@@ -535,7 +535,7 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia-integration/late
 
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
-| zstd -d | tar -xf - -C mainnet
+| zstd -d | tar -xf - -C juno_mainnet
 ```
 
 </TabItem>
@@ -543,7 +543,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
-| zstd -d | tar -xf - -C mainnet-pruned
+| zstd -d | tar -xf - -C juno_mainnet_pruned
 ```
 
 </TabItem>
@@ -551,7 +551,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
 
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
-| zstd -d | tar -xf - -C sepolia
+| zstd -d | tar -xf - -C juno_sepolia
 ```
 
 </TabItem>
@@ -559,7 +559,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
 
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
-| zstd -d | tar -xf - -C sepolia-pruned
+| zstd -d | tar -xf - -C juno_sepolia_pruned
 ```
 
 </TabItem>
@@ -567,7 +567,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
 
 ```bash
 curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
-| zstd -d | tar -xf - -C sepolia-integration
+| zstd -d | tar -xf - -C juno_sepolia_integration
 ```
 
 </TabItem>
@@ -599,7 +599,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $(pwd)/mainnet:/var/lib/juno \
+  -v $(pwd)/juno_mainnet:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -619,7 +619,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $(pwd)/mainnet-pruned:/var/lib/juno \
+  -v $(pwd)/juno_mainnet_pruned:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -640,7 +640,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $(pwd)/sepolia:/var/lib/juno \
+  -v $(pwd)/juno_sepolia:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -661,7 +661,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $(pwd)/sepolia-pruned:/var/lib/juno \
+  -v $(pwd)/juno_sepolia_pruned:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -683,7 +683,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $(pwd)/sepolia-integration:/var/lib/juno \
+  -v $(pwd)/juno_sepolia_integration:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
