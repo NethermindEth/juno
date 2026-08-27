@@ -111,10 +111,10 @@ sudo dnf install zstd
 
 ### 2. Get the snapshot
 
-<Tabs groupId="snapshot-method">
-<TabItem value="download-extract" label="Download and then extract" default>
+<Tabs groupId="snapshot-method" block className="method-tabs">
+<TabItem value="download-extract" label="Download" default>
 
-Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough, use the **Streaming** tab instead.
+Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough, use the **Stream** tab instead.
 
 ##### 1. Download the snapshot
 
@@ -295,9 +295,9 @@ Decompressing a `.tar.zst` archive is single-threaded by design, so low CPU usag
 :::
 
 </TabItem>
-<TabItem value="streaming" label="Streaming">
+<TabItem value="streaming" label="Stream">
 
-Streaming downloads and extracts the snapshot in a single step, reducing required disk space to just the size of the extracted database, contrary to **Download and then extract**, which additionally needs space for the compressed archive.
+Streaming downloads and extracts the snapshot in a single step, reducing required disk space to just the size of the extracted database, contrary to **Download**, which additionally needs space for the compressed archive.
 
 
 ##### 1. Install streaming dependencies
