@@ -151,6 +151,14 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	fromAligned := windowStart - (windowStart % core.NumBlocksPerFilter)
 	toAligned := fromAligned + core.NumBlocksPerFilter - 1
 
+	// A matcher with no addresses and no keys matches every block, so skip the
+	// bloom lookup entirely instead of fetching a filter to compute all-ones.
+	if it.matcher.matchesAllBlocks() {
+		it.currentBits.SetAll()
+		it.currentWindowStart = fromAligned
+		return nil
+	}
+
 	// Falls into range of running filter
 	runningFrom, err := it.runningFilter.FromBlock()
 	if err != nil {
