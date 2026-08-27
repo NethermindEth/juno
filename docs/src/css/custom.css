@@ -28,3 +28,29 @@ h1 {
 [data-theme="dark"] {
     --ifm-color-primary: #ff4a04;
 }
+
+/* Prominent button-style tabs (used for the snapshot download method) */
+.method-tabs {
+    gap: 0.75rem;
+}
+
+.method-tabs .tabs__item {
+    flex: 1 1 0;
+    border: 1px solid var(--ifm-color-emphasis-300);
+    border-radius: 0.5rem;
+    padding: 0.9rem 1rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.method-tabs .tabs__item:hover {
+    background-color: var(--ifm-hover-overlay);
+    border-bottom-color: var(--ifm-color-emphasis-300);
+}
+
+.method-tabs .tabs__item--active {
+    background-color: rgba(255, 74, 4, 0.08);
+    border-color: var(--ifm-color-primary);
+    border-bottom-color: var(--ifm-color-primary);
+    color: var(--ifm-color-primary);
+}
