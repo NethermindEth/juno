@@ -298,7 +298,7 @@ Streaming downloads and extracts the snapshot in a single step, reducing require
 
 ##### 1. Install streaming dependencies
 
-The commands below use `lftp`, which allows the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
+The commands below use `lftp` or `wget`, which allow the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
 
 `pv` is optional but recommended, since it makes it possible to show a progress bar while streaming.
 
@@ -361,6 +361,37 @@ sudo dnf install lftp
 ---
 
 </TabItem>
+<TabItem value="wget" label="wget">
+
+`wget` is usually preinstalled on Linux distributions. If missing:
+
+<Tabs groupId="os">
+<TabItem value="ubuntu" label="Ubuntu/Debian" default>
+
+```bash
+sudo apt-get install wget
+```
+
+</TabItem>
+<TabItem value="macos" label="macOS">
+
+```bash
+brew install wget
+```
+
+</TabItem>
+<TabItem value="rhel" label="RHEL/CentOS/Fedora">
+
+```bash
+sudo dnf install wget
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+</TabItem>
 <TabItem value="curl" label="curl">
 
 Nothing to install — `curl` is preinstalled on most systems.
@@ -415,9 +446,10 @@ mkdir -p juno_sepolia_integration
 
 Stream the data to your computer: 
 
-1. `lftp + pv` variant asks the server for the archive size (`JUNO_SNAPSHOT_SIZE`), so `pv` can render a full progress bar with percentage and ETA alongside the bytes downloaded and the current transfer rate; if the lookup fails, `pv` falls back to a plain byte counter.
-2. With `lftp` you get the exact same as before, except for no progress bar.
-3. With `curl` you get no guarantees. Use it only as a last resort.
+1. `lftp + pv` streams the data reliably and speedily, while `pv` renders a full progress bar.
+2. `lftp` behaves the exact same as the previous one, except for no progress bar.
+3. `wget` is just as reliable as `lftp`, though it may take a bit longer to recover from network errors.
+4. `curl` gives no guarantees. Use it only as a last resort.
 
 <Tabs groupId="streaming-tools">
 <TabItem value="lftp-pv" label="lftp + pv" default>
@@ -527,6 +559,57 @@ lftp -c "cat https://juno-snapshots.nethermind.io/files/sepolia-integration/late
 </Tabs>
 
 </TabItem>
+<TabItem value="wget" label="wget">
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xf - -C juno_mainnet
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xf - -C juno_sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
 <TabItem value="curl" label="curl">
 
 
@@ -575,7 +658,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
 
 
 :::warning
-Streaming with `curl` is unreliable: any network interruption forces a restart from scratch. Use it only if you cannot install lftp.
+Streaming with `curl` is unreliable: any network interruption forces a restart from scratch. Use it only if you cannot use lftp or wget.
 :::
 
 </TabItem>
