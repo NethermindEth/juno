@@ -28,6 +28,14 @@ const (
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
+	// ResponseTooLarge marks a call that was not executed because the batch had
+	// already reached its response size limit.
+	ResponseTooLarge = -32003
+)
+
+const (
+	DefaultMaxBatchElements      = 100
+	DefaultMaxBatchResponseBytes = 64 * 1024 * 1024
 )
 
 var (
@@ -97,6 +105,8 @@ func Err(code int, data any) *Error {
 		return &Error{Code: MethodNotFound, Message: "Method Not Found", Data: data}
 	case InvalidParams:
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
+	case ResponseTooLarge:
+		return &Error{Code: ResponseTooLarge, Message: "Response too large", Data: data}
 	default:
 		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}
@@ -117,15 +127,23 @@ func (r *Request) isSane() error {
 		}
 	}
 
-	if r.ID != nil {
-		idType := reflect.TypeOf(r.ID)
-		floating := idType.Name() == "Number" && strings.Contains(r.ID.(json.Number).String(), ".")
-		if (idType.Kind() != reflect.String && idType.Name() != "Number") || floating {
-			return ErrInvalidID
-		}
+	if r.ID != nil && !validID(r.ID) {
+		return ErrInvalidID
 	}
 
 	return nil
+}
+
+// validID reports whether id may be echoed back in a response
+func validID(id any) bool {
+	idType := reflect.TypeOf(id)
+	if idType.Kind() != reflect.String && idType.Name() != "Number" {
+		return false
+	}
+	if idType.Name() == "Number" {
+		return !strings.Contains(id.(json.Number).String(), ".")
+	}
+	return true
 }
 
 type Parameter struct {
@@ -148,12 +166,14 @@ type Method struct {
 }
 
 type Server struct {
-	methods              map[string]Method
-	validator            Validator
-	pool                 *pool.Pool
-	logger               log.StructuredLogger
-	listener             EventListener
-	disableBatchRequests bool
+	methods               map[string]Method
+	validator             Validator
+	pool                  *pool.Pool
+	logger                log.StructuredLogger
+	listener              EventListener
+	disableBatchRequests  bool
+	maxBatchElements      int
+	maxBatchResponseBytes int
 }
 
 type Validator interface {
@@ -163,10 +183,12 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	s := &Server{
-		logger:   logger,
-		methods:  make(map[string]Method),
-		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener: &SelectiveListener{},
+		logger:                logger,
+		methods:               make(map[string]Method),
+		pool:                  pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener:              &SelectiveListener{},
+		maxBatchElements:      DefaultMaxBatchElements,
+		maxBatchResponseBytes: DefaultMaxBatchResponseBytes,
 	}
 
 	return s
@@ -187,6 +209,21 @@ func (s *Server) WithListener(listener EventListener) *Server {
 // DisableBatchRequests disables batch JSON-RPC requests to the server
 func (s *Server) DisableBatchRequests(forbid bool) *Server {
 	s.disableBatchRequests = forbid
+	return s
+}
+
+// WithMaxBatchElements sets the largest batch the server will accept. Zero or
+// less disables the limit.
+func (s *Server) WithMaxBatchElements(n int) *Server {
+	s.maxBatchElements = n
+	return s
+}
+
+// WithMaxBatchResponseBytes sets the size at which a batch stops taking on more
+// work. It is a threshold rather than a hard ceiling, calls already running are
+// still allowed to finish. Zero or less disables it.
+func (s *Server) WithMaxBatchResponseBytes(n int) *Server {
+	s.maxBatchResponseBytes = n
 	return s
 }
 
@@ -381,6 +418,10 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
 		} else if len(batchReq) == 0 {
 			resp = new(errResponse(InvalidRequest, "empty batch"))
+		} else if s.maxBatchElements > 0 && len(batchReq) > s.maxBatchElements {
+			resp = new(errResponse(InvalidRequest, fmt.Sprintf(
+				"batch too large: %d elements, the limit is %d",
+				len(batchReq), s.maxBatchElements)))
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
@@ -400,28 +441,47 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	return result, header, err
 }
 
+//nolint:gocyclo // one loop handling every step for each request in the batch
 func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
 	var (
 		mutex     sync.Mutex
-		responses []json.RawMessage
-		headers   []http.Header
+		responses = make([]json.RawMessage, 0, len(batchReq))
+		headers   = make([]http.Header, 0, len(batchReq))
+		// totalBytes mirrors what json.Marshal will emit: one byte for the closing
+		// bracket plus, per element, its own length and the leading '[' or ','
+		totalBytes = 1
+		full       bool
 	)
 
 	addResponse := func(response any, header http.Header) {
-		if responseJSON, err := json.Marshal(response); err != nil {
+		responseJSON, err := json.Marshal(response)
+		if err != nil {
 			s.logger.Error("failed to marshal response", zap.Error(err))
-		} else {
-			mutex.Lock()
-			responses = append(responses, responseJSON)
-			headers = append(headers, header)
-			mutex.Unlock()
+			return
 		}
+
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		totalBytes += len(responseJSON) + 1
+		responses = append(responses, responseJSON)
+		headers = append(headers, header)
+		if s.maxBatchResponseBytes > 0 && totalBytes >= s.maxBatchResponseBytes {
+			full = true
+		}
+	}
+
+	batchFull := func() bool {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return full
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var wg sync.WaitGroup
+	skipped := 0
 	for _, rawReq := range batchReq {
 		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
 		reqDec.UseNumber()
@@ -429,6 +489,16 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
 			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
+			continue
+		}
+
+		if batchFull() {
+			skipped++
+			if req.ID != nil && validID(req.ID) {
+				resp := errResponse(ResponseTooLarge, nil)
+				resp.ID = req.ID
+				addResponse(resp, http.Header{})
+			}
 			continue
 		}
 
@@ -451,6 +521,14 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	}
 
 	wg.Wait()
+
+	if full {
+		s.logger.Warn("Batch stopped at the response size limit: the rest was not processed",
+			zap.Int("limit", s.maxBatchResponseBytes),
+			zap.Int("skipped", skipped),
+			zap.Int("elements", len(batchReq)),
+		)
+	}
 
 	// merge headers
 	finalHeaders := http.Header{}
