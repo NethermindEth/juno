@@ -10,10 +10,7 @@
         "running-juno",
         "configuring",
         "updating",
-        "tuning",
-        "running-on-kubernetes",
-        "running-on-gcp",
-        "plugins"
+        "snapshots"
       ]
     },
     {
@@ -33,9 +30,19 @@
         }
       ]
     },
-    "snapshots",
+    {
+      "type": "category",
+      "label": "Deploys",
+      "collapsed": true,
+      "items": [
+        "running-on-kubernetes",
+        "running-on-gcp"
+      ]
+    },
     "staking-validator",
     "monitoring",
+    "tuning",
+    "plugins",
     "faq"
   ]
 }
