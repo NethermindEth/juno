@@ -45,15 +45,15 @@ docker build -t nethermind/juno:latest .
 **2. Run the Docker container**
 
 ```bash
-# Prepare the snapshots directory
-mkdir -p $HOME/snapshots
+# Prepare the database directory
+mkdir -p juno_mainnet
 
 # Run the container
 docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -81,8 +81,8 @@ Download the standalone binary from [Juno's GitHub Releases](https://github.com/
 **2. Run the binary**
 
 ```bash
-# Prepare the snapshots directory
-mkdir -p $HOME/snapshots
+# Prepare the database directory
+mkdir -p juno_mainnet
 
 # Run the binary
 ./juno \
@@ -93,7 +93,7 @@ mkdir -p $HOME/snapshots
   --ws-port 6061 \
   --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
-  --db-path $HOME/snapshots/juno_mainnet
+  --db-path ./juno_mainnet
 ```
 
 Replace `<YOUR-ETH-NODE>` with your actual Ethereum node address. If you're using Infura, it might look something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Make sure you use the WebSockets URL (`ws`/`wss`) and not the HTTP URL (`http`/`https`).
@@ -109,7 +109,7 @@ You can view logs from the standalone binary by redirecting the output to a file
   --ws-port 6061 \
   --ws-host 0.0.0.0 \
   --eth-node <YOUR-ETH-NODE> \
-  --db-path $HOME/snapshots/juno_mainnet \
+  --db-path ./juno_mainnet \
   > juno.log 2>&1
 ```
 
@@ -149,15 +149,15 @@ docker build -t nethermind/juno:latest .
 **3. Run the Docker container**
 
 ```bash
-# Prepare the snapshots directory
-mkdir -p $HOME/snapshots
+# Prepare the database directory
+mkdir -p juno_mainnet
 
 # Run the container
 docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -222,8 +222,8 @@ make juno
 Locate the standalone binary in the `./build/` directory:
 
 ```bash
-# Prepare the snapshots directory
-mkdir -p $HOME/snapshots
+# Prepare the database directory
+mkdir -p juno_mainnet
 
 # Run the binary
 ./build/juno \
@@ -233,7 +233,7 @@ mkdir -p $HOME/snapshots
   --ws \
   --ws-port 6061 \
   --ws-host 0.0.0.0 \
-  --db-path $HOME/snapshots/juno_mainnet \
+  --db-path ./juno_mainnet \
   --eth-node <YOUR-ETH-NODE>
 ```
 
