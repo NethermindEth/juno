@@ -1,5 +1,5 @@
 ---
-title: Deploy on Kubernetes
+title: Kubernetes
 ---
 
 # Running Juno on Kubernetes :wheel_of_dharma:
@@ -125,7 +125,7 @@ juno:
     - --readiness-block-tolerance=10
 ```
 
-See the [Configuring Juno](configuring) guide for the full list of options.
+See the [Configuration](configuring) guide for the full list of options.
 
 ### Persistent storage
 
@@ -246,7 +246,7 @@ serviceMonitor:
     release: prometheus
 ```
 
-The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Metrics Monitoring](monitoring) guide.
+The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Monitoring](monitoring) guide.
 
 ## Upgrading
 

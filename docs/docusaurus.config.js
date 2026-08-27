@@ -107,15 +107,15 @@ const config = {
             title: "Docs",
             items: [
               {
-                label: "Running Juno",
+                label: "Installation",
                 to: "running-juno",
               },
               {
-                label: "Configuring Juno",
+                label: "Configuration",
                 to: "configuring",
               },
               {
-                label: "Interacting with Juno",
+                label: "JSON-RPC",
                 to: "json-rpc",
               },
             ],

@@ -1,3 +1,7 @@
+---
+title: Starknet Staking
+---
+
 # Staking with Juno
 
 Staking on Starknet provides an opportunity to contribute to network security and earn rewards by becoming a validator. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide to learn more about the validator process.
@@ -11,7 +15,7 @@ Staking on Starknet provides an opportunity to contribute to network security an
 
 ## 1. Set up Juno
 
-Juno is a reliable choice for running a Starknet node. Follow the [Running Juno](running-juno) guide to configure Juno using Docker, binaries, source builds, [Kubernetes with Helm](running-on-kubernetes), or Google Cloud Platform (GCP).
+Juno is a reliable choice for running a Starknet node. Follow the [Installation](running-juno) guide to configure Juno using Docker, binaries, source builds, [Kubernetes with Helm](running-on-kubernetes), or Google Cloud Platform (GCP).
 
 ## 2. Stake STRK tokens
 

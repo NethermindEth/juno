@@ -37,7 +37,7 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Deploys",
+      label: "Deployments",
       collapsed: true,
       items: ["running-on-kubernetes", "running-on-gcp"],
     },

@@ -1,5 +1,5 @@
 ---
-title: Configuring Juno
+title: Configuration
 ---
 
 # Configuring Juno :gear:
