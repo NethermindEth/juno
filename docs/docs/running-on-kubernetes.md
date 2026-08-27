@@ -67,7 +67,12 @@ juno:
   initContainers:
     - name: download-snapshot
       image: alpine:latest
-      command: ["sh", "-c", "apk add --no-cache zstd && wget -O- <SNAPSHOT_URL> | zstd -d | tar -xf - -C /data"]
+      command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache lftp zstd
+          lftp -c "cat <SNAPSHOT_URL>" | zstd -d | tar -xf - -C /data
       volumeMounts:
         - name: data-juno
           mountPath: /data
