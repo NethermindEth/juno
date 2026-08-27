@@ -1,5 +1,5 @@
 ---
-title: Metrics Monitoring
+title: Monitoring
 ---
 
 # Metrics Monitoring :bar_chart:

@@ -1,5 +1,5 @@
 ---
-title: Updating Juno
+title: Updating
 ---
 
 # Updating Juno :arrows_counterclockwise:
@@ -112,5 +112,5 @@ See [Building from source](running-juno#building-from-source) for the full prere
 </Tabs>
 
 :::tip
-To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
 :::

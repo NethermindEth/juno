@@ -1,5 +1,5 @@
 ---
-title: JSON-RPC Interface
+title: JSON-RPC
 ---
 
 # JSON-RPC Interface :globe_with_meridians:

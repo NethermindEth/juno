@@ -1,5 +1,5 @@
 ---
-title: WebSocket Interface
+title: WebSockets
 ---
 
 # WebSocket Interface :globe_with_meridians:

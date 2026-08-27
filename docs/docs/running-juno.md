@@ -1,5 +1,5 @@
 ---
-title: Running Juno
+title: Installation
 ---
 
 # Running Juno :rocket:
@@ -117,7 +117,7 @@ You can view logs from the standalone binary by redirecting the output to a file
 </Tabs>
 
 :::tip
-The `--ws`, `--ws-port`, and `--ws-host` options enable the WebSocket RPC server, which is required for subscriptions like `starknet_subscribeNewHeads`. Check out the [WebSocket Interface](websocket) guide to learn more.
+The `--ws`, `--ws-port`, and `--ws-host` options enable the WebSocket RPC server, which is required for subscriptions like `starknet_subscribeNewHeads`. Check out the [WebSockets](websocket) guide to learn more.
 :::
 
 ## Building from source
@@ -241,5 +241,5 @@ mkdir -p $HOME/snapshots
 </Tabs>
 
 :::tip
-To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
 :::

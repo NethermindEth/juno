@@ -1,5 +1,5 @@
 ---
-title: Deploy on GCP
+title: GCP
 ---
 
 # Running Juno on GCP :cloud:
@@ -36,7 +36,7 @@ Choose the configuration settings for the Juno client and click the **"DEPLOY"**
 
 ## 5. Interact with the Juno node
 
-You can interact with Juno using its [JSON-RPC Interface](json-rpc). Here's an example to check the availability of Juno:
+You can interact with Juno using its [JSON-RPC](json-rpc) interface. Here's an example to check the availability of Juno:
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";
@@ -72,5 +72,5 @@ curl --location 'http://localhost:6060' \
 </Tabs>
 
 :::tip
-To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
 :::
