@@ -4,7 +4,7 @@ title: Plugins
 
 Juno supports plugins that satisfy the `JunoPlugin` interface, enabling developers to extend and customize Juno's behaviour and functionality by dynamically loading external plugins during runtime.
 
-The `JunoPlugin` interface provides a structured way for plugins to interact with the blockchain by sending notifications when new blocks are added or reverted. This ensures state consistency, especially during blockchain reorganizations, while abstracting away the complexity of implementing block syncing and revert logic.
+The `JunoPlugin` interface provides a structured way for plugins to interact with the blockchain by sending notifications when new blocks are added or reverted. This abstracts away the complexity of implementing block syncing and revert logic, especially during blockchain reorganizations.
 
 ## JunoPlugin Interface
 
@@ -14,18 +14,29 @@ Your plugin must implement the `JunoPlugin` interface, which includes methods fo
 type JunoPlugin interface {
 	Init() error
 	Shutdown() error
-	NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error
+	NewBlock(
+		block *core.Block,
+		stateUpdate *core.StateUpdate,
+		newClasses map[felt.Felt]core.ClassDefinition,
+	) error
+	// The state is reverted by applying a write operation with the reverseStateDiff's StorageDiffs, Nonces, and ReplacedClasses,
+	// and a delete option with its DeclaredV0Classes, DeclaredV1Classes, and ReplacedClasses.
 	RevertBlock(from, to *BlockAndStateUpdate, reverseStateDiff *core.StateDiff) error
+}
+
+type BlockAndStateUpdate struct {
+	Block       *core.Block
+	StateUpdate *core.StateUpdate
 }
 ```
 
-**Init**: Called when the plugin is initialized. This can be used to set up database connections or any other necessary resources.
+**Init**: Called once at node startup, when Juno loads the plugin (before syncing begins). This can be used to set up database connections or any other necessary resources. If `Init` returns an error, Juno fails to start.
 
 **Shutdown**: Called when the Juno node is shut down. This can be used to clean up resources like database connections.
 
-**NewBlock**: Triggered when a new block is synced by the Juno client. Juno will send the block, the corresponding state update, and any new classes. Importantly, Juno waits for the plugin to finish processing this function call before continuing. This ensures that the plugin completes its task before Juno proceeds with the blockchain sync.
+**NewBlock**: Called by the synchronizer each time a new block is stored. Juno sends the block, the corresponding state update, and any new classes (as `core.ClassDefinition` values), and waits for the call to return before continuing the sync. Note that a returned error is logged but does not stop the sync — the plugin is responsible for handling its own failures.
 
-**RevertBlock**: Called during a blockchain reorganization (reorg). Juno will invoke this method for each block that needs to be reverted. Similar to NewBlock, the client will wait for the plugin to finish handling the revert before moving on to the next block.
+**RevertBlock**: Called during a blockchain reorganization (reorg), once for each block that needs to be reverted. `reverseStateDiff` describes how to undo the block's state changes: apply its `StorageDiffs`, `Nonces`, and `ReplacedClasses` as writes, and its `DeclaredV0Classes`, `DeclaredV1Classes`, and `ReplacedClasses` as deletions. As with `NewBlock`, Juno waits for the call to return, and errors are logged without stopping the sync.
 
 ## Example plugin
 
@@ -50,7 +61,7 @@ func (p *examplePlugin) Shutdown() error {
 	return nil
 }
 
-func (p *examplePlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (p *examplePlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition) error {
 	fmt.Println("ExamplePlugin NewBlock called")
 	return nil
 }
@@ -75,8 +86,21 @@ Once you have written your plugin, you can compile it into a shared object file 
 go build -buildmode=plugin -o ./plugin.so /path/to/your/plugin.go
 ```
 
-This command compiles the plugin into a shared object file (`plugin.so`), which can then be loaded by the Juno client using the `--plugin-path` flag.
+This command compiles the plugin into a shared object file (`plugin.so`), which can then be loaded by the Juno client.
+
+Go plugins impose strict compatibility requirements — if any of them are not met, Juno will fail to load the plugin at runtime:
+
+- The plugin must be built with the **same Go toolchain version** used to build the Juno binary.
+- The plugin must depend on the **same version of the `github.com/NethermindEth/juno` module** (and identical versions of any shared dependencies) as the running node.
+- The plugin must be built with **CGO enabled** (`CGO_ENABLED=1`).
+- Go plugins are only supported on **Linux and macOS**.
 
 ## Running Juno with the plugin
 
-Once your plugin has been compiled into a `.so` file, you can run Juno with your plugin by providing the `--plugin-path` flag. This flag tells Juno where to find and load your plugin at runtime.
+Once your plugin has been compiled into a `.so` file, run Juno with the `--plugin-path` flag pointing at the file:
+
+```shell
+./build/juno --plugin-path ./plugin.so
+```
+
+The plugin path can also be set via the `JUNO_PLUGIN_PATH` environment variable or the `plugin-path` key in a YAML configuration file.
