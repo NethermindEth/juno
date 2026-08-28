@@ -172,3 +172,14 @@ func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
 }
+
+// storageReader returns a read-only view of the storage trie of the contract.
+func storageReader(addr *felt.Felt, r db.KeyValueReader) (*trie.TrieReader, error) {
+	tr, err := trie.NewTrieReaderPedersen(
+		r, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &tr, nil
+}
