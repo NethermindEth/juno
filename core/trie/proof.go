@@ -67,12 +67,10 @@ func (e *Edge) String() string {
 // The result contains the proof nodes on the path from the root to the leaf.
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
-// Proof hashes come from stored node values: call Hash after the last write.
-func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
-	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
-		return errors.New("cannot prove a trie with unhashed writes")
-	}
-
+// Proof hashes come from stored node values, which a [TrieReader] never
+// mutates. To prove a [Trie], use its Prove wrapper, which rejects unhashed
+// writes.
+func (t *TrieReader) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
 	nodesFromRoot, err := t.nodesFromRoot(&k)
@@ -130,6 +128,31 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	return nil
 }
 
+// Prove generates a Merkle proof for a given key in the trie.
+// Proof hashes come from stored node values: call Hash after the last write.
+func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
+	if err := t.checkUnhashedWrites(); err != nil {
+		return err
+	}
+	return t.TrieReader.Prove(key, proof)
+}
+
+// GetRangeProof generates a range proof for the given range of keys.
+// Proof hashes come from stored node values: call Hash after the last write.
+func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
+	if err := t.checkUnhashedWrites(); err != nil {
+		return err
+	}
+	return t.TrieReader.GetRangeProof(leftKey, rightKey, proofSet)
+}
+
+func (t *Trie) checkUnhashedWrites() error {
+	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
+		return errors.New("cannot prove a trie with unhashed writes")
+	}
+	return nil
+}
+
 // edgeHash returns the parent-facing hash of an edge node, from carried when set.
 func edgeHash(edge *Edge, carried *felt.Felt, hash crypto.HashFn) felt.Felt {
 	if carried != nil {
@@ -140,7 +163,7 @@ func edgeHash(edge *Edge, carried *felt.Felt, hash crypto.HashFn) felt.Felt {
 
 // GetRangeProof generates a range proof for the given range of keys.
 // The proof contains the proof nodes on the path from the root to the closest ancestor of the left and right keys.
-func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
+func (t *TrieReader) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
 	err := t.Prove(leftKey, proofSet)
 	if err != nil {
 		return err
@@ -390,7 +413,7 @@ func isEdge(parentKey, childKey *BitArray) bool {
 // onPathChild was already read by the traversal, so only the off-path sibling
 // costs a database lookup.
 func binaryProofNode(
-	tri *Trie, sNode StorageNode, onPathChild *StorageNode,
+	tri *TrieReader, sNode StorageNode, onPathChild *StorageNode,
 ) (*Binary, error) {
 	childHash := func(childKey *BitArray) (*felt.Felt, error) {
 		var child *Node
