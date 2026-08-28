@@ -77,10 +77,20 @@ type eventsParams struct {
 }
 
 type eventFilter struct {
-	FromBlock blockID `json:"from_block"`
-	ToBlock   blockID `json:"to_block"`
-	Address   string  `json:"address,omitempty"`
-	ChunkSize int     `json:"chunk_size"`
+	FromBlock blockID     `json:"from_block,omitempty"`
+	ToBlock   blockID     `json:"to_block,omitempty"`
+	Address   addressList `json:"address,omitempty"`
+	Keys      [][]string  `json:"keys,omitempty"`
+	ChunkSize uint64      `json:"chunk_size"`
+}
+
+type addressList []string
+
+func (a addressList) MarshalJSON() ([]byte, error) {
+	if len(a) == 1 {
+		return json.Marshal(a[0])
+	}
+	return json.Marshal([]string(a))
 }
 
 type storageProofParams struct {
@@ -120,12 +130,15 @@ type contractClass struct {
 	SierraProgram []json.RawMessage `json:"sierra_program"`
 }
 
+type receiptEvent struct {
+	FromAddress string   `json:"from_address"`
+	Keys        []string `json:"keys"`
+}
+
 type receiptsBlock struct {
 	Transactions []struct {
 		Receipt struct {
-			Events []struct {
-				FromAddress string `json:"from_address"`
-			} `json:"events"`
+			Events []receiptEvent `json:"events"`
 		} `json:"receipt"`
 	} `json:"transactions"`
 }

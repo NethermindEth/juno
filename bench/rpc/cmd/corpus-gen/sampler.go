@@ -114,6 +114,10 @@ func chainPreRunE(cmd *cobra.Command, check func() error) {
 	}
 }
 
+func uniformRange(rng *rand.Rand, minValue, maxValue uint64) uint64 {
+	return minValue + rng.Uint64N(maxValue-minValue+1)
+}
+
 // pickRandom returns a random element of items, or errResample when empty.
 func pickRandom[T any](rng *rand.Rand, items []T) (T, error) {
 	var zero T

@@ -20,9 +20,10 @@ Method-specific flags:
 | `getBlockWithTxs`/`getBlockWithReceipts`/`getTransactionByHash`/`getTransactionByBlockIdAndIndex` | `--include-proof-facts` | add `INCLUDE_PROOF_FACTS` to `response_flags` |
 | `getStorageAt`    | `--include-last-update-block`               | add `INCLUDE_LAST_UPDATE_BLOCK` to `response_flags` |
 | `traceBlockTransactions` | `--return-initial-reads`             | add `RETURN_INITIAL_READS` to `trace_flags`        |
-| `getEvents`       | `--max-window`                              | max blocks per event filter                        |
-| `getEvents`       | `--chunk-size`                              | `chunk_size` per request                           |
-| `getEvents`       | `--address-prob`                            | probability of filtering by an emitting address    |
+| `getEvents`       | `--window`                                  | blocks per event filter, one value or `min,max` uniform draw (default 100); a single `0` omits `from_block`/`to_block` |
+| `getEvents`       | `--chunk-size`                              | `chunk_size` per request, one value or `min,max` uniform draw (default 1000) |
+| `getEvents`       | `--addresses`                               | emitter addresses in the filter (0 = no address filter) |
+| `getEvents`       | `--keys`                                    | key counts per position, e.g. `1,0,2` (0 = wildcard; omit for no keys filter) |
 | `getStorageProof` | `--num-classes`/`--num-contracts`/`--num-keys` | trie members per request (queried at `latest`)  |
 
 ## Use
