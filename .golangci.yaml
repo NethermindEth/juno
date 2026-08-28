@@ -44,6 +44,21 @@ linters:
           deny:
             - pkg: github.com/sirupsen/logrus
               desc: use github.com/NethermindEth/juno/utils for logging
+        encoder-engine:
+          files:
+            - "!**/encoder/*.go"
+            # we need to test against fxamacker, the library that wrote every record on disk
+            - "!**/encoder/cbor/*_test.go"
+          deny:
+            - pkg: github.com/fxamacker/cbor/v2
+              desc: use github.com/NethermindEth/juno/encoder, do not use any external CBOR encoder directly
+        cbor-leaf:
+          files:
+            - "**/encoder/cbor/*.go"
+            - "!**/encoder/cbor/*_test.go"
+          deny:
+            - pkg: github.com/NethermindEth/juno
+              desc: encoder/cbor is a leaf, it must not import anything from the node
     funlen:
       lines: 120
       statements: 50
