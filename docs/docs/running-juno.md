@@ -174,7 +174,7 @@ docker run -d \
 
 **Prerequisites**
 
-- [Golang 1.26](https://go.dev/doc/install) or later
+- [Golang 1.27](https://go.dev/doc/install) or later
 - [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)

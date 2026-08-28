@@ -3,6 +3,9 @@ package felt_test
 import (
 	"encoding/binary"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
+	"errors"
+	"io"
 	"math"
 	"math/rand"
 	"slices"
@@ -253,6 +256,7 @@ func TestSliceJSON(t *testing.T) {
 			require.Equal(t, tc.in, roundTrip)
 
 			requireSliceDecodeJSONEquivalent(t, encoded)
+			requireSliceDecodeJSONv2Equivalent(t, encoded)
 		})
 	}
 }
@@ -273,6 +277,7 @@ func TestSliceJSONAccepts(t *testing.T) {
 			require.Len(t, decoded, 2)
 
 			requireSliceDecodeJSONEquivalent(t, []byte(input))
+			requireSliceDecodeJSONv2Equivalent(t, []byte(input))
 		})
 	}
 }
@@ -337,6 +342,161 @@ func requireSliceDecodeJSONEquivalent(t *testing.T, data []byte) {
 	}
 }
 
+// requireSliceDecodeJSONv2Equivalent decodes data through the pure json/v2 API
+// with both the fast and generic paths and asserts they agree on acceptance,
+// on the decoded felts, and on whether the failure was a truncation.
+func requireSliceDecodeJSONv2Equivalent(t *testing.T, data []byte) {
+	t.Helper()
+
+	var fast felt.Slice[felt.Felt]
+	errFast := jsonv2.Unmarshal(data, &fast)
+
+	var generic []felt.Felt
+	errGeneric := jsonv2.Unmarshal(data, &generic)
+
+	if errGeneric != nil {
+		require.Error(
+			t,
+			errFast,
+			"fast v2 decoder accepted input the generic decoder rejected (%v): %s",
+			errGeneric,
+			data,
+		)
+		// One-directional on purpose: when the generic decoder reports a
+		// truncation the fast path must too, instead of fabricating a type
+		// error. The reverse does not hold - on input that is both truncated
+		// and has an invalid element (e.g. `[""`), the fast path validates the
+		// array syntax first (EOF) while the generic one streams and fails on
+		// the element first.
+		if errors.Is(errGeneric, io.ErrUnexpectedEOF) {
+			require.ErrorIs(
+				t,
+				errFast,
+				io.ErrUnexpectedEOF,
+				"generic decoder reported truncation for %s but the fast one masked it: %v",
+				data,
+				errFast,
+			)
+		}
+
+		return
+	}
+
+	require.NoError(
+		t,
+		errFast,
+		"fast v2 decoder rejected input the generic decoder accepted: %s",
+		data,
+	)
+
+	require.Equal(t, len(generic), len(fast), "length mismatch for %s", data)
+	for idx := range generic {
+		require.True(
+			t,
+			felt.Equal(&generic[idx], &fast[idx]),
+			"element %d mismatch for %s: generic=%v fast=%v",
+			idx,
+			data,
+			generic[idx],
+			fast[idx],
+		)
+	}
+}
+
+// Under the pure json/v2 API the nil-slice representation is governed by the
+// FormatNilSliceAsNull option ([] by default, null under v1-compat options),
+// and the fast path must stay byte-for-byte equivalent to the generic encoder.
+func TestSliceJSONv2Marshal(t *testing.T) {
+	options := map[string][]jsonv2.Options{
+		"default":           nil,
+		"nil slice as null": {jsonv2.FormatNilSliceAsNull(true)},
+	}
+
+	cases := []struct {
+		name string
+		in   felt.Slice[felt.Felt]
+	}{
+		{"nil", nil},
+		{"empty", felt.Slice[felt.Felt]{}},
+		{"one", felt.Slice[felt.Felt]{felt.UnsafeFromString[felt.Felt]("0xdeadbeef")}},
+		{"many", randomSlice[felt.Felt](3)},
+	}
+
+	for optName, opts := range options {
+		for _, tc := range cases {
+			t.Run(optName+"/"+tc.name, func(t *testing.T) {
+				fast, err := jsonv2.Marshal(tc.in, opts...)
+				require.NoError(t, err)
+				generic, err := jsonv2.Marshal([]felt.Felt(tc.in), opts...)
+				require.NoError(t, err)
+				require.Equal(t, string(generic), string(fast))
+			})
+		}
+	}
+
+	var nilSlice felt.Slice[felt.Felt]
+	asArray, err := jsonv2.Marshal(nilSlice)
+	require.NoError(t, err)
+	require.Equal(t, `[]`, string(asArray))
+
+	asNull, err := jsonv2.Marshal(nilSlice, jsonv2.FormatNilSliceAsNull(true))
+	require.NoError(t, err)
+	require.Equal(t, `null`, string(asNull))
+}
+
+func TestSliceJSONv2DecodeErrors(t *testing.T) {
+	t.Run("truncated input surfaces the real decoder error", func(t *testing.T) {
+		for _, input := range []string{``, `[`, `["0x1"`, `["0x1",`, `nul`, `[tru`} {
+			t.Run(input, func(t *testing.T) {
+				var out felt.Slice[felt.Felt]
+				err := jsonv2.Unmarshal([]byte(input), &out)
+				require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+
+				requireSliceDecodeJSONv2Equivalent(t, []byte(input))
+			})
+		}
+	})
+
+	t.Run("truncated field value", func(t *testing.T) {
+		var out struct {
+			Keys felt.Slice[felt.Felt] `json:"keys"`
+		}
+		err := jsonv2.Unmarshal([]byte(`{"keys":`), &out)
+		require.ErrorIs(t, err, io.ErrUnexpectedEOF)
+	})
+
+	t.Run("wrong kind reports a type error", func(t *testing.T) {
+		for _, input := range []string{`{}`, `"0x1"`, `5`, `true`} {
+			t.Run(input, func(t *testing.T) {
+				var out felt.Slice[felt.Felt]
+				err := jsonv2.Unmarshal([]byte(input), &out)
+				require.ErrorContains(t, err, "cannot unmarshal slice: unexpected json kind")
+
+				requireSliceDecodeJSONv2Equivalent(t, []byte(input))
+			})
+		}
+	})
+}
+
+// The wrong-kind error text can only come from UnmarshalJSONFrom (the generic
+// reflection decoder never emits it), so this proves at runtime that the fast
+// path is wired in under both JSON APIs, complementing the compile-time
+// interface assertions in slice.go.
+func TestSliceJSONFastPathWiredIn(t *testing.T) {
+	unmarshalers := map[string]func([]byte, any) error{
+		"v1": json.Unmarshal,
+		"v2": func(data []byte, out any) error { return jsonv2.Unmarshal(data, out) },
+	}
+
+	for name, unmarshal := range unmarshalers {
+		t.Run(name, func(t *testing.T) {
+			var out felt.Slice[felt.Felt]
+			err := unmarshal([]byte(`[1]`), &out)
+			require.ErrorContains(t, err, "cannot unmarshal slice: unexpected json kind: number")
+		})
+	}
+}
+
 func TestSliceJSONRejects(t *testing.T) {
 	for _, input := range []string{
 		`{}`, `[1]`, `[null]`, `[true]`, `[[]]`,
@@ -348,6 +508,7 @@ func TestSliceJSONRejects(t *testing.T) {
 			require.Error(t, json.Unmarshal([]byte(input), &out))
 
 			requireSliceDecodeJSONEquivalent(t, []byte(input))
+			requireSliceDecodeJSONv2Equivalent(t, []byte(input))
 		})
 	}
 }
@@ -362,11 +523,13 @@ func FuzzSliceDecodeJSONEquivalence(fz *testing.F) {
 	for _, seed := range []string{
 		`null`, `[]`, `[ ]`, `["0x0"]`, `[ "0x1" , "0x2" ]`, `["0X1"]`,
 		`["0xa\"b"]`, `[1]`, `[null]`, `{}`, `[`, `["0x1"`, ``,
+		`{`, `nul`, `[tru`, `"0x`, `5`, `["0x1",`, `[""`,
 	} {
 		fz.Add([]byte(seed))
 	}
 
 	fz.Fuzz(func(t *testing.T, data []byte) {
 		requireSliceDecodeJSONEquivalent(t, data)
+		requireSliceDecodeJSONv2Equivalent(t, data)
 	})
 }

@@ -1,13 +1,26 @@
 package felt
 
 import (
+	"bytes"
 	"encoding/binary"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"errors"
+	"fmt"
 	"math"
+	"slices"
 
 	"github.com/fxamacker/cbor/v2"
 )
 
 type Slice[F FeltLike] []F
+
+var (
+	_ json.MarshalerTo     = Slice[Felt]{}
+	_ json.UnmarshalerFrom = (*Slice[Felt])(nil)
+	_ cbor.Marshaler       = Slice[Felt]{}
+	_ cbor.Unmarshaler     = (*Slice[Felt])(nil)
+)
 
 const (
 	// maxCBORArrayHeaderLen: 1 major/info byte + 4 length bytes (uint32)
@@ -15,6 +28,9 @@ const (
 
 	// cborNull is the CBOR encoding of null, which the generic encoder emits for a nil slice.
 	cborNull = 0xf6
+
+	// minJSONFeltLen: shortest element setHex accepts, plus its separator.
+	minJSONFeltLen = len(`"0x0",`)
 )
 
 func (s Slice[F]) MarshalCBOR() ([]byte, error) {
@@ -127,4 +143,103 @@ func decodeCBORArrayHeader(data []byte) (size, offset int, ok bool) {
 		// A size bigger than an uint32 is not allowed in the fast-path
 		return 0, 0, false
 	}
+}
+
+func (s Slice[F]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	// json/v2's default for a nil slice is [], same as an empty one.
+	if s == nil {
+		if asNull, _ := json.GetOption(enc.Options(), json.FormatNilSliceAsNull); asNull {
+			return enc.WriteToken(jsontext.Null)
+		}
+	}
+	if len(s) == 0 {
+		return enc.WriteValue(jsontext.Value("[]"))
+	}
+
+	// account for quotes and commas per felt + '[' and ']' at the ends - the last comma.
+	// An exact upper bound, since len(s) >= 1 here.
+	maxSize := len(s)*(MaxFeltAsHexSize+len(`"",`)) + len("[]") - len(",")
+	data := make([]byte, 1, maxSize)
+
+	var err error
+	data[0] = '['
+	for index := range s {
+		if index > 0 {
+			data = append(data, ',')
+		}
+		data = append(data, '"')
+		if data, err = Felt(s[index]).AppendText(data); err != nil {
+			return err
+		}
+		data = append(data, '"')
+	}
+	data = append(data, ']')
+
+	return enc.WriteValue(jsontext.Value(data))
+}
+
+// UnmarshalJSONFrom reads a JSON array of 0x-hex strings into the slice.
+func (s *Slice[F]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	// Anything but an array goes through ReadToken to mirror the generic
+	// decoder exactly: null becomes a nil slice, a failed token read surfaces
+	// the real decoder error (truncation, syntax, I/O) and a wrong-kind value
+	// is reported as a type error (for composite kinds only the opening
+	// delimiter is consumed, which is fine — a non-nil error aborts
+	// unmarshaling).
+	if dec.PeekKind() != '[' {
+		token, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if token.Kind() == 'n' { // null -> nil slice
+			*s = nil
+			return nil
+		}
+		return fmt.Errorf("cannot unmarshal slice: unexpected json kind: %s", token.Kind())
+	}
+
+	val, valErr := dec.ReadValue()
+	if valErr != nil {
+		return valErr
+	}
+
+	newSlice := (*s)[:0]
+	if newSlice == nil {
+		newSlice = Slice[F]{}
+	}
+	maxPossibleFelts := len(val) / minJSONFeltLen
+	// Each element contributes two quotes; escaped quotes never survive setHex,
+	// so a wrong hint only ever costs capacity, never correctness.
+	expectedNumberOfFelts := bytes.Count(val, []byte{'"'}) / 2
+	newSlice = slices.Grow(newSlice, min(expectedNumberOfFelts, maxPossibleFelts))
+
+	for index := 1; index < len(val)-1; {
+		switch val[index] {
+		case ' ', '\t', '\n', '\r', ',':
+			index++
+			continue
+		case '"':
+		default:
+			return fmt.Errorf("cannot unmarshal slice: unexpected json kind: %s", val[index:].Kind())
+		}
+
+		relativeEnd := bytes.IndexByte(val[index+1:], '"')
+		if relativeEnd < 0 {
+			return errors.New("cannot unmarshal slice: unterminated string")
+		}
+		end := index + 1 + relativeEnd
+
+		var newFelt F
+		hexErr := asFeltPtr(&newFelt).setHex(val[index+1 : end])
+		if hexErr != nil {
+			return hexErr
+		}
+
+		newSlice = append(newSlice, newFelt)
+
+		index = end + 1
+	}
+
+	*s = newSlice
+	return nil
 }
