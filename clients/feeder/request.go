@@ -19,13 +19,12 @@ type Validatable[T any] interface {
 	Validate() error
 }
 
-func doRequest[T any, V Validatable[T]](
+func (c *Client) doRequest[T any, V Validatable[T]](
 	ctx context.Context,
-	client *Client,
 	fullURL *url.URL,
 ) (T, error) {
 	var result T
-	body, err := client.get(ctx, fullURL)
+	body, err := c.get(ctx, fullURL)
 	if err != nil {
 		return result, err
 	}

@@ -1245,7 +1245,7 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 }
 
 // TestFeederValidation checks that the response
-// validation wired into [doRequest] works as expected.
+// validation wired into [Client.doRequest] works as expected.
 func TestFeederValidation(t *testing.T) {
 	t.Run("valid response is returned", func(t *testing.T) {
 		body := `{
