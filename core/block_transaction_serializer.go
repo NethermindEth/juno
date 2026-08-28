@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 
@@ -13,14 +12,11 @@ import (
 type BlockTransactionsSerializer struct{}
 
 func (BlockTransactionsSerializer) Marshal(value *BlockTransactions) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := encoder.NewEncoder(&buf).Encode(value.Indexes); err != nil {
+	indexes, err := encoder.Marshal(value.Indexes)
+	if err != nil {
 		return nil, err
 	}
-	if _, err := buf.Write(value.Data); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return slices.Concat(indexes, value.Data), nil
 }
 
 func (BlockTransactionsSerializer) Unmarshal(data []byte, value *BlockTransactions) error {

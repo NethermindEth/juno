@@ -51,9 +51,9 @@ func testData[T any](expected T) testCase {
 	return testCaseData[T]{expected: expected}
 }
 
-func (c testCaseData[T]) encode(t *testing.T, encoder encoder.Encoder) {
+func (c testCaseData[T]) encode(t *testing.T, enc encoder.Encoder) {
 	t.Helper()
-	require.NoError(t, encoder.Encode(c.expected))
+	require.NoError(t, enc.Encode(c.expected))
 }
 
 func (c testCaseData[T]) assert(t *testing.T, data []byte) []byte {
@@ -67,7 +67,7 @@ func (c testCaseData[T]) assert(t *testing.T, data []byte) []byte {
 
 func TestUnmarshalFirst(t *testing.T) {
 	var buf bytes.Buffer
-	encoder := encoder.NewEncoder(&buf)
+	enc := encoder.NewEncoder(&buf)
 
 	testCases := []testCase{
 		testData(felt.Random[felt.Felt]()),
@@ -78,7 +78,7 @@ func TestUnmarshalFirst(t *testing.T) {
 	expectedExtraData := []byte(cryptorand.Text())
 
 	for _, testCase := range testCases {
-		testCase.encode(t, encoder)
+		testCase.encode(t, enc)
 	}
 	_, err := buf.Write(expectedExtraData)
 	require.NoError(t, err)

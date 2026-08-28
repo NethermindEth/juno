@@ -10,14 +10,13 @@ import (
 	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 
 const transactionCount = 100
 
-func toCborSeq[T any](items []T) iter.Seq2[cbor.RawMessage, error] {
-	return func(yield func(cbor.RawMessage, error) bool) {
+func toCborSeq[T any](items []T) iter.Seq2[encoder.RawMessage, error] {
+	return func(yield func(encoder.RawMessage, error) bool) {
 		for _, item := range items {
 			cbor, err := encoder.Marshal(item)
 			if err != nil {

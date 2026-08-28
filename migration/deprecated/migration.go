@@ -32,7 +32,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bitset"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 )
@@ -206,7 +205,7 @@ func SchemaMetadata(log log.StructuredLogger, targetDB db.KeyValueStore) (schema
 	}
 
 	err = txn.Get(db.DeprecatedSchemaIntermediateState.Key(), func(data []byte) error {
-		err := cbor.Unmarshal(data, &metadata.IntermediateState)
+		err := encoder.Unmarshal(data, &metadata.IntermediateState)
 		if err != nil {
 			// TODO: Instead of returning nil, we log the error for now to debug the issue
 			log.Error(
@@ -233,7 +232,7 @@ func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 		err     error
 	)
 	binary.BigEndian.PutUint64(version[:], schema.Version)
-	state, err = cbor.Marshal(schema.IntermediateState)
+	state, err = encoder.Marshal(schema.IntermediateState)
 	if err != nil {
 		return err
 	}
@@ -803,8 +802,8 @@ func migrateCairo1CompiledClass2(
 	err := encoder.Unmarshal(value, &class)
 	if err != nil {
 		// assumption that only Cairo0 class causes this error
-		targetErr := new(cbor.UnmarshalTypeError)
-		if errors.As(err, &targetErr) {
+		// TODO(granza): discriminate the record by its own shape, not by the error.
+		if encoder.IsTypeMismatch(err) {
 			return nil
 		}
 
