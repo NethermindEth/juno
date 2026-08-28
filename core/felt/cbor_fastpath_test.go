@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -236,4 +237,67 @@ func FuzzCBORFastPathMarshalEquivalence(f *testing.F) {
 		value := fromLimbs[felt.Felt](l0, l1, l2, l3)
 		requireMarshalEquivalent(t, &value)
 	})
+}
+
+func TestFeltUnmarshalCBORPrefix(t *testing.T) {
+	want := felt.FromUint64[felt.Felt](0xdeadbeef)
+	encoded, err := want.MarshalCBOR()
+	require.NoError(t, err)
+
+	t.Run("reads the felt and reports the count", func(t *testing.T) {
+		var got felt.Felt
+		consumed, err := got.UnmarshalCBORPrefix(encoded)
+
+		require.NoError(t, err)
+		assert.Equal(t, len(encoded), consumed)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("trailing bytes are allowed, and not counted", func(t *testing.T) {
+		var got felt.Felt
+		consumed, err := got.UnmarshalCBORPrefix(append(append([]byte{}, encoded...), 0xff, 0xff))
+
+		require.NoError(t, err)
+		assert.Equal(t, len(encoded), consumed, "counting the trailer would misread the next field")
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("rejects what is not a limb-encoded felt", func(t *testing.T) {
+		for name, data := range map[string][]byte{
+			"empty":                  {},
+			"truncated":              encoded[:len(encoded)-1],
+			"not an array":           {0x18, 0x2a},
+			"array of the wrong len": {0x83, 0x01, 0x02, 0x03},
+			"null":                   {0xf6},
+			"a limb that is signed":  {0x84, 0x20, 0x01, 0x02, 0x03},
+		} {
+			t.Run(name, func(t *testing.T) {
+				got := felt.FromUint64[felt.Felt](7)
+				consumed, err := got.UnmarshalCBORPrefix(data)
+
+				assert.Error(t, err)
+				assert.Zero(t, consumed)
+				assert.Equal(t, felt.FromUint64[felt.Felt](7), got,
+					"a rejected input must not touch the destination")
+			})
+		}
+	})
+}
+
+// TestTrailingBytesLeaveTheReceiverAlone covers what the fastpath table cannot: its
+// fixtures decode to the zero felt, so a receiver written by a rejected parse looks
+// exactly like one that was never touched.
+func TestTrailingBytesLeaveTheReceiverAlone(t *testing.T) {
+	var value felt.Felt
+	value.SetUint64(0xdeadbeef)
+
+	encoded, err := value.MarshalCBOR()
+	require.NoError(t, err)
+
+	withTrailing := append(append([]byte{}, encoded...), 0x00)
+
+	var got felt.Felt
+	err = got.UnmarshalCBOR(withTrailing)
+	require.Error(t, err, "trailing bytes must not decode")
+	require.True(t, got.IsZero(), "a failed decode must not write the receiver")
 }

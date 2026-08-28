@@ -37,17 +37,18 @@ func initEncAndDecModes() {
 	}
 }
 
-func RegisterType(rType reflect.Type) error {
+func RegisterType(rType reflect.Type) (tag uint64, err error) {
+	tag = tagNum
 	if err := ts.Add(
 		cbor.TagOptions{EncTag: cbor.EncTagRequired, DecTag: cbor.DecTagRequired},
 		rType,
-		tagNum,
+		tag,
 	); err != nil {
-		return err
+		return 0, err
 	}
 	initEncAndDecModes()
 	tagNum++
-	return nil
+	return tag, nil
 }
 
 // Marshal returns encoding of param v

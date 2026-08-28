@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -368,5 +369,75 @@ func FuzzSliceDecodeJSONEquivalence(fz *testing.F) {
 
 	fz.Fuzz(func(t *testing.T, data []byte) {
 		requireSliceDecodeJSONEquivalent(t, data)
+	})
+}
+
+func TestFeltSliceUnmarshalCBORPrefix(t *testing.T) {
+	want := felt.Slice[felt.Felt]{
+		felt.FromUint64[felt.Felt](1),
+		felt.FromUint64[felt.Felt](0xffffffffffffffff),
+	}
+	encoded, err := want.MarshalCBOR()
+	require.NoError(t, err)
+
+	t.Run("reads the slice and reports the count", func(t *testing.T) {
+		var got felt.Slice[felt.Felt]
+		consumed, err := got.UnmarshalCBORPrefix(encoded)
+
+		require.NoError(t, err)
+		assert.Equal(t, len(encoded), consumed)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("trailing bytes are allowed, and not counted", func(t *testing.T) {
+		var got felt.Slice[felt.Felt]
+		consumed, err := got.UnmarshalCBORPrefix(append(append([]byte{}, encoded...), 0xff))
+
+		require.NoError(t, err)
+		assert.Equal(t, len(encoded), consumed)
+	})
+
+	t.Run("an empty slice is empty, not nil", func(t *testing.T) {
+		empty, err := felt.Slice[felt.Felt]{}.MarshalCBOR()
+		require.NoError(t, err)
+
+		var got felt.Slice[felt.Felt]
+		consumed, err := got.UnmarshalCBORPrefix(empty)
+
+		require.NoError(t, err)
+		assert.Equal(t, len(empty), consumed)
+		assert.NotNil(t, got)
+		assert.Empty(t, got)
+	})
+
+	// A nil slice goes on the wire as null, so declining it would send every value
+	// holding one back to the generic decoder over an empty field.
+	t.Run("null reads as a nil slice", func(t *testing.T) {
+		got := felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](7)}
+		consumed, err := got.UnmarshalCBORPrefix([]byte{0xf6})
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, consumed)
+		assert.Nil(t, got)
+	})
+
+	t.Run("rejects what is not a felt array", func(t *testing.T) {
+		for name, data := range map[string][]byte{
+			"empty":                         {},
+			"truncated":                     encoded[:len(encoded)-1],
+			"not an array":                  {0x18, 0x2a},
+			"an element that is not a felt": {0x82, 0x01, 0x02},
+			// A count far past the buffer would size an allocation if it were trusted.
+			"count past the buffer": {0x98, 0xff, 0x01},
+		} {
+			t.Run(name, func(t *testing.T) {
+				var got felt.Slice[felt.Felt]
+				consumed, err := got.UnmarshalCBORPrefix(data)
+
+				assert.Error(t, err)
+				assert.Zero(t, consumed)
+				assert.Nil(t, got)
+			})
+		}
 	})
 }

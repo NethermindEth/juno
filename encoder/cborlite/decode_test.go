@@ -1,0 +1,59 @@
+package cborlite_test
+
+import (
+	"testing"
+
+	"github.com/NethermindEth/juno/encoder/cborlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestUnmarshalPrefix(t *testing.T) {
+	type holder struct{ Value uint64 }
+
+	value := cborMap(cborText("Value"), head(uintMajor, 7))
+	data := trailByJunk(value)
+
+	t.Run("extra fields don't fail", func(t *testing.T) {
+		var got holder
+		consumed, err := cborlite.UnmarshalPrefix(data, &got)
+		require.NoError(t, err)
+		assert.Equal(t, len(value), consumed)
+		assert.Equal(t, uint64(7), got.Value)
+	})
+
+	t.Run("the same bytes fail Unmarshal, which wants all of them", func(t *testing.T) {
+		var got holder
+		err := cborlite.Unmarshal(data, &got)
+		assert.ErrorContains(t, err, "left over")
+	})
+}
+
+func TestUnmarshalStrict(t *testing.T) {
+	type both struct {
+		First  uint64
+		Second uint64
+	}
+	type onlyFirst struct{ First uint64 }
+
+	data := cborMap(cborText("First"), head(uintMajor, 1), cborText("Second"), head(uintMajor, 2))
+
+	t.Run("a struct with all the fields must work", func(t *testing.T) {
+		var complete both
+		require.NoError(t, cborlite.UnmarshalStrict(data, &complete))
+		assert.Equal(t, both{First: 1, Second: 2}, complete)
+	})
+
+	t.Run("a struct that leaves a field out fails, and names the key", func(t *testing.T) {
+		var got onlyFirst
+		err := cborlite.UnmarshalStrict(data, &got)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "Second")
+	})
+
+	t.Run("the same struct passes without strict", func(t *testing.T) {
+		var got onlyFirst
+		require.NoError(t, cborlite.Unmarshal(data, &got))
+		assert.Equal(t, uint64(1), got.First)
+	})
+}
