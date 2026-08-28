@@ -16,6 +16,12 @@ func NewProofNodeSet() *ProofNodeSet {
 	return utils.NewOrderedSet[felt.Felt, ProofNode]()
 }
 
+// Prover generates Merkle proofs. Implemented by [*Trie] (rejects unhashed
+// writes) and [*TrieReader].
+type Prover interface {
+	Prove(key *felt.Felt, proof *ProofNodeSet) error
+}
+
 type ProofNode interface {
 	Hash(hash crypto.HashFn) felt.Felt
 	Len() uint8

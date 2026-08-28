@@ -641,8 +641,8 @@ func TestStorageProof(t *testing.T) {
 		_, _ = tempTrie.Put(key2, value2)
 		_ = tempTrie.Commit()
 		trieRoot, _ = tempTrie.Hash()
-		classTrie = &tempTrie.TrieReader
-		contractTrie = &tempTrie.TrieReader
+		classTrie = tempTrie
+		contractTrie = tempTrie
 	} else {
 		newComm := felt.FromUint64[felt.StateRootHash](1)
 		createTrie := func(
@@ -940,7 +940,7 @@ func TestStorageProof(t *testing.T) {
 			mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
 			classHash := felt.NewFromUint64[felt.Felt](5678)
 			mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil).Times(1)
-			mockState.EXPECT().ContractStorageTrie(key).Return(&contractStorageTrie.TrieReader, nil).Times(1)
+			mockState.EXPECT().ContractStorageTrie(key).Return(contractStorageTrie, nil).Times(1)
 
 			proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
 			require.Nil(t, rpcErr)
@@ -1652,8 +1652,7 @@ func emptyTrie(t *testing.T) core.TrieReader {
 		require.NoError(t, err)
 		return tempTrie
 	}
-	tempTrie := emptyDeprecatedTrie(t)
-	return &tempTrie.TrieReader
+	return emptyDeprecatedTrie(t)
 }
 
 func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot *felt.Felt) {

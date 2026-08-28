@@ -327,7 +327,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 
 func getClassProof(tr core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
-	case *trie.TrieReader:
+	case trie.Prover:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
 			if err := t.Prove(&class, classProof); err != nil {
@@ -354,7 +354,7 @@ func getContractProof(
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	switch t := tr.(type) {
-	case *trie.TrieReader:
+	case trie.Prover:
 		return getContractProofWithDeprecatedTrie(t, state, contracts)
 	case *trie2.Trie:
 		return getContractProofWithTrie(t, state, contracts)
@@ -364,7 +364,7 @@ func getContractProof(
 }
 
 func getContractProofWithDeprecatedTrie(
-	tr *trie.TrieReader,
+	tr trie.Prover,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
@@ -465,7 +465,7 @@ func getContractStorageProof(
 		}
 
 		switch t := contractStorageTrie.(type) {
-		case *trie.TrieReader:
+		case trie.Prover:
 			contractStorageProof := trie.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
 				if err := t.Prove(&key, contractStorageProof); err != nil {
