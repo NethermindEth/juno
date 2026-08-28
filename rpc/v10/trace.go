@@ -174,6 +174,24 @@ func traceTransactionsWithState(
 	blockInfo *vm.BlockInfo,
 	returnInitialReads bool,
 ) ([]TracedBlockTransaction, *vm.InitialReads, http.Header, *jsonrpc.Error) {
+	return traceTransactionsWithStateOptions(
+		runner,
+		transactions,
+		executionState,
+		classLookupState,
+		blockInfo,
+		vm.TraceOptions{ReturnInitialReads: returnInitialReads},
+	)
+}
+
+func traceTransactionsWithStateOptions(
+	runner vm.VM,
+	transactions []core.Transaction,
+	executionState core.StateReader,
+	classLookupState core.StateReader,
+	blockInfo *vm.BlockInfo,
+	opts vm.TraceOptions,
+) ([]TracedBlockTransaction, *vm.InitialReads, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
 	declaredClasses, paidFeesOnL1, err := fetchDeclaredClassesAndL1Fees(
@@ -190,7 +208,7 @@ func traceTransactionsWithState(
 		paidFeesOnL1,
 		blockInfo,
 		executionState,
-		vm.TraceOptions{ReturnInitialReads: returnInitialReads},
+		opts,
 	)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
@@ -205,6 +223,10 @@ func traceTransactionsWithState(
 	// Adapt traces
 	traces := make([]TracedBlockTransaction, len(executionResult.Traces))
 	for index := range executionResult.Traces {
+		transactionIndex := index
+		if opts.TraceIndex != nil {
+			transactionIndex = int(*opts.TraceIndex)
+		}
 		// Adapt vm transaction trace to rpc v10 trace and add root level execution resources
 		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
 
@@ -217,9 +239,8 @@ func traceTransactionsWithState(
 		}
 
 		traces[index] = TracedBlockTransaction{
-			TraceRoot: &trace,
-			//nolint:gosec // G602: index bounded by len(Traces) which matches len(transactions)
-			TransactionHash: transactions[index].Hash(),
+			TraceRoot:       &trace,
+			TransactionHash: transactions[transactionIndex].Hash(),
 		}
 	}
 
@@ -275,20 +296,36 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	blockTracesResp, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header, false)
+	blockTracesResp, transactions, rpcErr := h.traceFinalisedBlockSource(ctx, header, false)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
 	}
 
 	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
 	// confirm the trace at that index really is the transaction that was asked for.
-	blockTraces := blockTracesResp.Traces
-	if txIndex >= uint64(len(blockTraces)) ||
-		!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+	if blockTracesResp != nil {
+		blockTraces := blockTracesResp.Traces
+		if txIndex >= uint64(len(blockTraces)) ||
+			!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+		}
+		return *blockTraces[txIndex].TraceRoot, defaultExecutionHeader(), nil
+	}
+	if txIndex >= uint64(len(transactions)) ||
+		!transactions[txIndex].Hash().Equal((*felt.Felt)(hash)) {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
-
-	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
+	response, httpHeader, rpcErr := h.traceBlockWithVM(
+		header, transactions[:txIndex+1], false, &txIndex,
+	)
+	if rpcErr != nil {
+		return TransactionTrace{}, httpHeader, rpcErr
+	}
+	if len(response.Traces) != 1 {
+		return TransactionTrace{}, httpHeader,
+			rpccore.ErrUnexpectedError.CloneWithData("missing transaction trace")
+	}
+	return *response.Traces[0].TraceRoot, httpHeader, nil
 }
 
 // findAndTraceInPreConfirmed traces a transaction located in any block of the
@@ -356,6 +393,32 @@ func (h *Handler) traceFinalisedBlock(
 	header *core.Header,
 	returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
+	response, transactions, rpcErr := h.traceFinalisedBlockSource(ctx, header, returnInitialReads)
+	if rpcErr != nil {
+		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
+	}
+	if response != nil {
+		return *response, defaultExecutionHeader(), nil
+	}
+
+	traced, httpHeader, rpcErr := h.traceBlockWithVM(
+		header, transactions, returnInitialReads, nil,
+	)
+	if rpcErr != nil {
+		return TraceBlockTransactionsResponse{}, httpHeader, rpcErr
+	}
+	h.blockTraceCache.Add(*header.Hash, traced)
+
+	return traced, httpHeader, nil
+}
+
+// traceFinalisedBlockSource returns either a materialized cached/remote response or
+// the transactions needed for a local replay.
+func (h *Handler) traceFinalisedBlockSource(
+	ctx context.Context,
+	header *core.Header,
+	returnInitialReads bool,
+) (*TraceBlockTransactionsResponse, []core.Transaction, *jsonrpc.Error) {
 	// Check if it was already traced. If the caller requested initial reads but
 	// the cached entry was produced without them, fall through to re-trace so we
 	// can populate them (cache gets overwritten below).
@@ -363,25 +426,24 @@ func (h *Handler) traceFinalisedBlock(
 	cachedResponse, hit := h.blockTraceCache.Get(cacheKey)
 	if hit && (!returnInitialReads || cachedResponse.InitialReads != nil) {
 		if returnInitialReads {
-			return cachedResponse, defaultExecutionHeader(), nil
+			return &cachedResponse, nil, nil
 		}
-		return TraceBlockTransactionsResponse{
+		response := TraceBlockTransactionsResponse{
 			Traces:       cachedResponse.Traces,
 			InitialReads: nil,
-		}, defaultExecutionHeader(), nil
+		}
+		return &response, nil, nil
 	}
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
 	if err != nil {
-		return TraceBlockTransactionsResponse{},
-			defaultExecutionHeader(),
-			rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	if fetchFromFeederGW {
 		traces, rpcErr := h.fetchTracesFromFeederGateway(ctx, header)
 		if rpcErr != nil {
-			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
+			return nil, nil, rpcErr
 		}
 
 		// The gateway never supplies initial reads, so an empty set is the final answer for these
@@ -397,27 +459,17 @@ func (h *Handler) traceFinalisedBlock(
 			response.InitialReads = nil
 		}
 
-		return response, defaultExecutionHeader(), nil
+		return &response, nil, nil
 	}
 
 	transactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+			return nil, nil, rpccore.ErrBlockNotFound
 		}
-
-		return TraceBlockTransactionsResponse{},
-			defaultExecutionHeader(),
-			rpccore.ErrInternal.CloneWithData(err)
+		return nil, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
-
-	response, httpHeader, rpcErr := h.traceBlockWithVM(header, transactions, returnInitialReads)
-	if rpcErr != nil {
-		return TraceBlockTransactionsResponse{}, httpHeader, rpcErr
-	}
-	h.blockTraceCache.Add(cacheKey, response)
-
-	return response, httpHeader, nil
+	return nil, transactions, nil
 }
 
 // traceBlockWithVM traces a block using the local VM.
@@ -425,6 +477,7 @@ func (h *Handler) traceBlockWithVM(
 	header *core.Header,
 	transactions []core.Transaction,
 	returnInitialReads bool,
+	traceIndex *uint64,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	// Prepare execution state
 	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
@@ -459,13 +512,13 @@ func (h *Handler) traceBlockWithVM(
 		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
 	}
 
-	traces, vmInitialReads, httpHeader, rpcErr := traceTransactionsWithState(
+	traces, vmInitialReads, httpHeader, rpcErr := traceTransactionsWithStateOptions(
 		h.vm,
 		transactions,
 		state,
 		headState,
 		&blockInfo,
-		returnInitialReads,
+		vm.TraceOptions{ReturnInitialReads: returnInitialReads, TraceIndex: traceIndex},
 	)
 	if rpcErr != nil {
 		return TraceBlockTransactionsResponse{}, httpHeader, rpcErr

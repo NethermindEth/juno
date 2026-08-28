@@ -155,15 +155,6 @@ pub fn append_gas_and_fee(tx_execution_info: &TransactionExecutionInfo, reader_h
     let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
     let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
     let da_gas_l1_data_gas = tx_execution_info.receipt.da_gas.l1_data_gas.into();
-    let execution_steps = tx_execution_info
-        .receipt
-        .resources
-        .computation
-        .total_extended_vm_resources()
-        .vm_resources
-        .n_steps
-        .try_into()
-        .unwrap_or(u64::MAX);
     let l1_gas_consumed = tx_execution_info.receipt.gas.l1_gas.into();
     let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
     let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
@@ -181,8 +172,21 @@ pub fn append_gas_and_fee(tx_execution_info: &TransactionExecutionInfo, reader_h
             felt_to_byte_array(&l1_data_gas_consumed).as_ptr(),
             felt_to_byte_array(&l2_gas_consumed).as_ptr(),
         );
-        JunoAddExecutionSteps(reader_handle, execution_steps)
     }
+}
+
+pub fn append_execution_steps(tx_execution_info: &TransactionExecutionInfo, reader_handle: usize) {
+    let execution_steps = tx_execution_info
+        .receipt
+        .resources
+        .computation
+        .total_extended_vm_resources()
+        .vm_resources
+        .n_steps
+        .try_into()
+        .unwrap_or(u64::MAX);
+
+    unsafe { JunoAddExecutionSteps(reader_handle, execution_steps) }
 }
 
 pub fn append_trace(

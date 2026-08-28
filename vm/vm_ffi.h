@@ -63,11 +63,11 @@ extern void cairoVMExecute(
 	unsigned char err_stack,
 	unsigned char allow_binary_search,
 	unsigned char is_estimate_fee,
-	unsigned char return_initial_reads
+	unsigned char return_initial_reads,
+	long long trace_index
 );
 
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
 
 #endif // VM_FFI_H
-
