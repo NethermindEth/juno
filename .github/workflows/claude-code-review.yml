@@ -40,8 +40,7 @@ jobs:
       - name: Install Jemalloc
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2
 
-      # Exports the LiteLLM gateway virtual key into the job env.
-      # The shared path names it LITELLM_API_KEY; LLM_API_KEY is the org default name.
+      # Exports the LiteLLM gateway virtual key into the job env as LITELLM_API_KEY.
       - name: Load gateway key from Infisical
         uses: NethermindEth/github-workflows/get_infisical_secrets@ca96f54d1f0d4b09a2c266b4619402d48d376103
         with:
@@ -58,7 +57,7 @@ jobs:
         with:
           # The gateway key doubles as the Anthropic key: the action requires
           # ANTHROPIC_API_KEY, and LiteLLM accepts it as the x-api-key header.
-          anthropic_api_key: ${{ env.LITELLM_API_KEY || env.LLM_API_KEY }}
+          anthropic_api_key: ${{ env.LITELLM_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "infrmtcs-agent[bot]"
           track_progress: true
