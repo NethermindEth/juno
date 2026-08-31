@@ -312,6 +312,100 @@ code {
   vertical-align: middle;
 }
 
+/* ── Admonitions ───────────────────────────────────────────────────────
+   Infima ships saturated primary colours for these (a tip is pure green,
+   #009400 on #003100), which fight a navy-and-orange palette and read as
+   default template styling. Restyled as quiet callouts: a muted semantic
+   rail, a tinted panel, and a monospace label. Semantic hue is kept —
+   it carries meaning — but desaturated to sit inside the theme. */
+:root {
+  --juno-note: #5c5c7a;
+  --juno-tip: #0f7a5a;
+  --juno-info: #2b5f9e;
+  --juno-warn: #8a5a00;
+  --juno-danger: #a3342a;
+}
+
+:root[data-theme="dark"] {
+  --juno-note: #8a8aa8;
+  --juno-tip: #4ec49a;
+  --juno-info: #7aa8e6;
+  --juno-warn: #d9a441;
+  --juno-danger: #e88a7e;
+}
+
+.theme-admonition {
+  border: 1px solid var(--juno-rule);
+  border-left: 2px solid var(--juno-note);
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+  box-shadow: none;
+  padding: 0.9rem 1.1rem;
+}
+
+.theme-admonition .admonitionHeading_Gvgb,
+.theme-admonition div[class*="admonitionHeading"] {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--juno-note);
+  margin-bottom: 0.4rem;
+}
+
+/* Infima's icons are filled glyphs sized for the loud original treatment. */
+.theme-admonition span[class*="admonitionIcon"] svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  opacity: 0.75;
+}
+
+.theme-admonition-tip { border-left-color: var(--juno-tip); }
+.theme-admonition-tip div[class*="admonitionHeading"] { color: var(--juno-tip); }
+.theme-admonition-info,
+.theme-admonition-note { border-left-color: var(--juno-info); }
+.theme-admonition-info div[class*="admonitionHeading"],
+.theme-admonition-note div[class*="admonitionHeading"] { color: var(--juno-info); }
+.theme-admonition-caution,
+.theme-admonition-warning { border-left-color: var(--juno-warn); }
+.theme-admonition-caution div[class*="admonitionHeading"],
+.theme-admonition-warning div[class*="admonitionHeading"] { color: var(--juno-warn); }
+.theme-admonition-danger { border-left-color: var(--juno-danger); }
+.theme-admonition-danger div[class*="admonitionHeading"] { color: var(--juno-danger); }
+
+/* ── Code blocks ───────────────────────────────────────────────────────
+   One Light/Dark carry their own background (#282c34 on dark), a neutral
+   grey that sits visibly apart from the navy panels around it. Pointing
+   the block at the theme's own surface keeps the page one material; the
+   syntax colours are untouched. */
+:root {
+  --prism-background-color: var(--ifm-background-surface-color);
+}
+
+:root[data-theme="dark"] {
+  --prism-background-color: var(--ifm-background-surface-color);
+}
+
+/* Docusaurus writes the prism theme's background as an INLINE style on the
+   <pre> (background-color: rgb(40,44,52) for One Dark), so a selector cannot
+   reach it — !important is the only lever. Measured before overriding: every
+   One Dark token gains contrast on the navy panel rather than losing it
+   (plain text 6.57:1 -> 8.66:1, keywords 4.75:1 -> 6.27:1). */
+.theme-code-block pre.prism-code {
+  background-color: var(--ifm-background-surface-color) !important;
+}
+
+div[class*="codeBlockTitle"] {
+  background: var(--juno-panel-2);
+}
+
+/* Long commands are common here; make the overflow edge legible. */
+div[class*="codeBlockContent"] {
+  scrollbar-width: thin;
+}
+
 /* ── Tables: rules, not gridlines ──────────────────────────────────── */
 .markdown table {
   display: table;
