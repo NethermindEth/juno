@@ -1,6 +1,7 @@
 package rpcv10
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -136,37 +137,48 @@ func (b *BlockID) Number() uint64 {
 	return b.data[0]
 }
 
+type blockIDObject struct {
+	BlockHash   *felt.Felt `json:"block_hash"`
+	BlockNumber *uint64    `json:"block_number"`
+}
+
 func (b *BlockID) UnmarshalJSON(data []byte) error {
-	var blockTag string
-	if err := json.Unmarshal(data, &blockTag); err == nil {
-		switch blockTag {
-		case "latest":
-			b.typeID = latest
-		case "pre_confirmed":
-			b.typeID = preConfirmed
-		case "l1_accepted":
-			b.typeID = l1Accepted
-		default:
-			return fmt.Errorf("unknown block tag '%s'", blockTag)
-		}
-	} else {
-		jsonObject := make(map[string]json.RawMessage)
-		if err := json.Unmarshal(data, &jsonObject); err != nil {
+	trimmed := bytes.TrimLeft(data, " \t\r\n")
+	if len(trimmed) == 0 {
+		return errors.New("cannot unmarshal block id")
+	}
+
+	if trimmed[0] != '"' {
+		var object blockIDObject
+		if err := json.Unmarshal(trimmed, &object); err != nil {
 			return err
 		}
-		blockHash, ok := jsonObject["block_hash"]
-		if ok {
+		switch {
+		case object.BlockHash != nil:
 			b.typeID = hash
-			return json.Unmarshal(blockHash, &b.data)
-		}
-
-		blockNumber, ok := jsonObject["block_number"]
-		if ok {
+			b.data = *object.BlockHash
+		case object.BlockNumber != nil:
 			b.typeID = number
-			return json.Unmarshal(blockNumber, &b.data[0])
+			b.data = felt.Felt([4]uint64{*object.BlockNumber, 0, 0, 0})
+		default:
+			return errors.New("cannot unmarshal block id")
 		}
+		return nil
+	}
 
-		return errors.New("cannot unmarshal block id")
+	var blockTag string
+	if err := json.Unmarshal(trimmed, &blockTag); err != nil {
+		return err
+	}
+	switch blockTag {
+	case "latest":
+		b.typeID = latest
+	case "pre_confirmed":
+		b.typeID = preConfirmed
+	case "l1_accepted":
+		b.typeID = l1Accepted
+	default:
+		return fmt.Errorf("unknown block tag '%s'", blockTag)
 	}
 	return nil
 }
