@@ -1,61 +1,424 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * Juno documentation — "Operator" theme.
+ *
+ * Dark-first, monospace-forward, dense. Written for node operators who want
+ * numbers above the fold, not adjectives.
+ *
+ * Structure follows Docusaurus: the complete light palette lives on :root, and
+ * :root[data-theme="dark"] redefines the same token names. The :root prefix is
+ * REQUIRED, not decoration — Docusaurus ships html[data-theme='dark'] at
+ * specificity (0,1,1); a bare [data-theme="dark"] is (0,1,0) and silently
+ * loses every --ifm-* token no matter how late it is declared. :root[...] is
+ * (0,2,0) and wins. Every rule below styles
+ * through those tokens, so neither theme can end up with one theme's text on
+ * the other's ground.
+ *
+ * Muted text (--juno-ink-3) carries descriptions, breadcrumbs, TOC links and
+ * table headers — all small text. It is tuned against the PANEL colour rather
+ * than the page ground, because the panel is the tighter constraint and the
+ * same token is used on both. Do not lighten it back for looks.
+ *
+ * Colour note: the brand orange #ff4a04 is 3.37:1 on white, under WCAG AA for
+ * body text. Light mode therefore uses a hue-matched darker orange for anything
+ * rendered as text; #ff4a04 stays as the non-text brand accent and as the top
+ * step of the light ramp. Dark mode keeps #ff4a04, which clears AA at 5.10:1.
  */
 
-/* You can override the default Infima variables here. */
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;1,400;1,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap");
 
+/* ── Tokens: light ─────────────────────────────────────────────────── */
 :root {
-    --ifm-color-primary: #ff4a04;
-    --ifm-code-font-size: 95%;
+  --juno-orange: #ff4a04;
+  --juno-navy: #1b1b50;
+
+  /* Primary ramp, hue and saturation of the brand orange, darkened until the
+     base clears 4.5:1 on white. Declaring the whole ramp is what stops Infima
+     falling back to its default blue on hover and active states. */
+  --ifm-color-primary-darkest: #9d2c00;
+  --ifm-color-primary-darker: #ac3000;
+  --ifm-color-primary-dark: #be3500;
+  --ifm-color-primary: #cb3900;
+  --ifm-color-primary-light: #e23f00;
+  --ifm-color-primary-lighter: #f44400;
+  --ifm-color-primary-lightest: #ff4a04;
+
+  --ifm-background-color: #f6f6f8;
+  --ifm-background-surface-color: #eeeef3;
+  --juno-panel-2: #ececf4;
+  --juno-rule: #e0e0ec;
+  --juno-rule-soft: #ebebf3;
+  --ifm-font-color-base: #4a4a68;
+  --juno-ink: #12123a;
+  --juno-ink-2: #595974;
+  --juno-ink-3: #6b6b8b;
+  --juno-ok: #0f7a4a;
+
+  --ifm-font-family-base: "DM Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ifm-font-family-monospace: "DM Mono", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+  --ifm-heading-color: var(--juno-navy);
+  --ifm-heading-font-weight: 600;
+  --ifm-line-height-base: 1.75;
+  --ifm-font-size-base: 16px;
+  --ifm-code-font-size: 88%;
+
+  --ifm-global-radius: 3px;
+  --ifm-code-border-radius: 2px;
+  --doc-sidebar-width: 248px;
+
+  --ifm-navbar-height: 52px;
+  --ifm-navbar-shadow: none;
+  --ifm-toc-border-color: var(--juno-rule);
+  --ifm-hr-border-color: var(--juno-rule-soft);
+  --ifm-table-border-color: var(--juno-rule-soft);
 }
 
-* {
-    font-family: "DM Sans", sans-serif;
+/* ── Tokens: dark ──────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --ifm-color-primary-darkest: #d03a00;
+  --ifm-color-primary-darker: #df3e00;
+  --ifm-color-primary-dark: #f14300;
+  --ifm-color-primary: #ff7a45;
+  --ifm-color-primary-light: #ff8a5c;
+  --ifm-color-primary-lighter: #ff9a73;
+  --ifm-color-primary-lightest: #ffab8a;
+
+  --ifm-background-color: #0b0b1c;
+  --ifm-background-surface-color: #11112a;
+  --juno-panel-2: #161636;
+  --juno-rule: #23234d;
+  --juno-rule-soft: #1b1b3d;
+  --ifm-font-color-base: #a5a5c4;
+  --juno-ink: #e8e8f4;
+  --juno-ink-2: #9595af;
+  --juno-ink-3: #7b7b9b;
+  --juno-ok: #3ddc97;
+
+  /* Navy is unreadable on this ground; headings take the base ink. */
+  --ifm-heading-color: var(--juno-ink);
+  --ifm-toc-border-color: var(--juno-rule);
 }
 
-h1 {
-    font-weight: 600;
+/* ── Chrome: navbar ────────────────────────────────────────────────── */
+html {
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+/* Identifiers, versions and figures line up in columns. */
+.markdown table,
+.theme-doc-version-badge,
+.breadcrumbs {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Links carry the accent, not an underline, until you approach them. */
+.markdown a:not(.card):not(.button) {
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+.markdown a:not(.card):not(.button):hover {
+  text-decoration: underline;
+}
+
+.navbar {
+  background-color: color-mix(
+    in srgb,
+    var(--ifm-background-color) 86%,
+    transparent
+  );
+  backdrop-filter: saturate(160%) blur(10px);
+  border-bottom: 1px solid var(--juno-rule);
+  padding: 0 1.25rem;
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--juno-ink);
+}
+
+.navbar__link {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--juno-ink);
+}
+
+/* The version dropdown reads as a status pill rather than a nav link. */
+.navbar__items--right .dropdown > .navbar__link {
+  border: 1px solid var(--juno-rule);
+  background: var(--ifm-background-surface-color);
+  border-radius: 2px;
+  padding: 0.2rem 0.55rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* ── Chrome: sidebar ───────────────────────────────────────────────── */
+.theme-doc-sidebar-container {
+  border-right: 1px solid var(--juno-rule-soft) !important;
+}
+
+.menu {
+  padding: 1.25rem 0.75rem !important;
+  font-size: 0.875rem;
+}
+
+/* Category headings read as section labels, not clickable rows. */
+.menu__list-item-collapsible > .menu__link,
+.theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  font-weight: 400;
+}
+
+.menu__link {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  padding: 0.3rem 0.6rem;
+  color: var(--ifm-font-color-base);
+}
+
+.menu__link:hover {
+  background: var(--ifm-background-surface-color);
+  color: var(--juno-ink);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  color: var(--juno-ink);
+  border-left-color: var(--juno-orange);
+  background: none;
+  font-weight: 600;
+}
+
+/* ── Chrome: breadcrumbs and TOC ───────────────────────────────────── */
+.theme-doc-breadcrumbs {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.breadcrumbs__link {
+  background: none;
+  color: var(--juno-ink-3);
+  padding: 0;
+}
+
+.breadcrumbs__item--active .breadcrumbs__link {
+  background: none;
+  color: var(--juno-ink-3);
+}
+
+.table-of-contents {
+  font-size: 0.8rem;
+  border-left: 1px solid var(--juno-rule);
+}
+
+.table-of-contents__link {
+  color: var(--juno-ink-3);
+}
+
+.table-of-contents__link--active,
+.table-of-contents__link:hover {
+  color: var(--juno-ink);
+}
+
+/* ── Content ───────────────────────────────────────────────────────── */
+.markdown h1:first-child {
+  font-size: 2.45rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+  margin-bottom: 1.5rem;
+}
+
+.markdown > p:first-of-type {
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--juno-ink-2);
+}
+
+.markdown > h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  margin-top: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown > h3 {
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  margin-top: 2.5rem;
+  margin-bottom: 0.6rem;
+}
+
+/* A wider measure than the usual 65ch: reference prose carries long
+   identifiers and flag names that a narrow column breaks badly. */
+.theme-doc-markdown {
+  max-width: 52rem;
+}
+
+/* ── Code ──────────────────────────────────────────────────────────── */
+.theme-code-block {
+  box-shadow: none !important;
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+}
+
+/* Native ```lang title="…" header, styled as a command-block label. */
+div[class^="codeBlockTitle"] {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  background: var(--juno-panel-2);
+  border-bottom: 1px solid var(--juno-rule-soft);
+}
+
+code {
+  border-color: var(--juno-rule);
+}
+
+/* Docusaurus' version badge ships as a light chip, which glares on the dark
+   ground. Restyle it as a quiet monospace tag in both modes. */
+.theme-doc-version-badge {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--juno-rule);
+  border-radius: 2px;
+  padding: 0.16rem 0.5rem;
+  vertical-align: middle;
+}
+
+/* ── Tables: rules, not gridlines ──────────────────────────────────── */
+.markdown table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.markdown table thead tr {
+  border-bottom: 2px solid var(--juno-rule);
+  background: none;
+}
+
+.markdown table th {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  font-weight: 500;
+}
+
+.markdown table th,
+.markdown table td {
+  border: none;
+  border-bottom: 1px solid var(--juno-rule-soft);
+  padding: 0.55rem 1.25rem 0.55rem 0;
+  vertical-align: top;
+}
+
+.markdown table td code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ifm-color-primary);
+}
+
+.markdown table tr:nth-child(2n) {
+  background: none;
+}
+
+/* ── Footer and pagination ─────────────────────────────────────────── */
+.footer {
+  background: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--juno-rule);
+}
+
+.footer__title {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+}
+
+.pagination-nav__link {
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+}
+
+.pagination-nav__sublabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .external-link {
-    margin-top: 0.25rem;
+  margin-top: 0.25rem;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
-    --ifm-color-primary: #ff4a04;
-}
-
-/* Prominent button-style tabs (used for the snapshot download method) */
+/* ── Prominent button-style tabs (snapshot download method) ────────── */
 .method-tabs {
-    gap: 0.75rem;
+  gap: 0.75rem;
 }
 
 .method-tabs .tabs__item {
-    flex: 1 1 0;
-    border: 1px solid var(--ifm-color-emphasis-300);
-    border-radius: 0.5rem;
-    padding: 0.9rem 1rem;
-    font-weight: 600;
-    text-align: center;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  flex: 1 1 0;
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+  padding: 0.9rem 1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .method-tabs .tabs__item:not(.tabs__item--active):hover {
-    background-color: var(--ifm-hover-overlay);
-    border-color: var(--ifm-color-emphasis-400);
+  background-color: var(--ifm-background-surface-color);
+  border-color: var(--juno-rule);
 }
 
 .method-tabs .tabs__item--active {
-    background-color: rgba(255, 74, 4, 0.08);
-    border-color: var(--ifm-color-primary);
-    color: var(--ifm-color-primary);
+  background-color: color-mix(in srgb, var(--juno-orange) 8%, transparent);
+  border-color: var(--juno-orange);
+  color: var(--ifm-color-primary);
 }
 
 .method-tabs .tabs__item--active:hover {
-    background-color: rgba(255, 74, 4, 0.16);
-    border-color: var(--ifm-color-primary);
+  background-color: color-mix(in srgb, var(--juno-orange) 16%, transparent);
+  border-color: var(--juno-orange);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
