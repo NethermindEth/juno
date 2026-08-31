@@ -28,7 +28,7 @@ jobs:
       (github.event.pull_request.user.type != 'Bot' ||
        contains(fromJSON('["infrmtcs-agent[bot]"]'), github.event.pull_request.user.login)) &&
       github.event.pull_request.head.repo.fork == false
-    uses: NethermindEth/github-workflows/.github/workflows/ai-review.yaml@ca81e8c4ab98dead155ca486464b9774f13af861 # v2.2.1
+    uses: NethermindEth/github-workflows/.github/workflows/ai-review.yaml@4fba7597607cbac9de0c448403ead6bfcda72273 # v2.2.1
     with:
       secret_path: /apps/litellm/juno-ai-reviewer
       # To change the gateway model (e.g. Qwen3), set:
