@@ -1,10 +1,7 @@
 package cbor_test
 
-// TODO(granza): Build a pull of slices to test.
-// core/felt/slice_test.go should test them fast vs generic,
-// here should test current engine vs canonical encoder (fxmacker).
-
 import (
+	"math"
 	"testing"
 
 	"github.com/NethermindEth/juno/encoder/cbor"
@@ -12,45 +9,72 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func feltSlice(size int) []limbs {
+// fxamacker wrote all initial slices on disk, so we always compare against it.
+func requireSliceAgreesWithLibrary(t *testing.T, data []byte) (decoded []limbs, ok bool) {
+	t.Helper()
+
+	var fast []limbs
+	if !cbor.UnmarshalFeltSlice(data, &fast) {
+		return nil, false
+	}
+
+	var canonical []limbs
+	require.NoError(t, fxcbor.Unmarshal(data, &canonical),
+		"took a payload the library refuses: % x", data)
+	require.Equal(t, canonical, fast)
+
+	return fast, true
+}
+
+func TestFeltSliceAccepted(t *testing.T) {
+	for _, accepted := range cbor.FeltSliceAccepted {
+		t.Run(accepted.Name, func(t *testing.T) {
+			slice := sliceOf(accepted.Size)
+
+			canonical, err := fxcbor.Marshal(slice)
+			require.NoError(t, err)
+			require.Equal(t, canonical, cbor.MarshalFeltSlice(slice), "framed it differently")
+
+			decoded, ok := requireSliceAgreesWithLibrary(t, canonical)
+			require.True(t, ok, "refused the library's own bytes")
+			require.Equal(t, slice, decoded, "round trip changed the slice")
+		})
+	}
+}
+
+func TestFeltSliceRejected(t *testing.T) {
+	for _, rejected := range cbor.FeltSliceRejected {
+		t.Run(rejected.Name, func(t *testing.T) {
+			_, ok := requireSliceAgreesWithLibrary(t, rejected.Data)
+			require.False(t, ok, "took a payload it has to refuse")
+		})
+	}
+}
+
+// A nil slice writes null, not an empty array.
+// It is neither accepted nor rejected, it is its own case.
+func TestFeltSliceNil(t *testing.T) {
+	canonical, err := fxcbor.Marshal([]limbs(nil))
+	require.NoError(t, err)
+	require.Equal(t, canonical, cbor.MarshalFeltSlice[limbs](nil))
+}
+
+func FuzzFeltSlice(f *testing.F) {
+	for _, accepted := range cbor.FeltSliceAccepted {
+		f.Add(cbor.MarshalFeltSlice(sliceOf(accepted.Size)))
+	}
+	for _, rejected := range cbor.FeltSliceRejected {
+		f.Add(rejected.Data)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		requireSliceAgreesWithLibrary(t, data)
+	})
+}
+
+func sliceOf(size int) []limbs {
 	slice := make([]limbs, size)
 	for i := range slice {
-		slice[i] = limbs{uint64(i), 1, 2, 3}
+		slice[i] = limbs{uint64(i), math.MaxUint64 - uint64(i), uint64(i) << 32, math.MaxUint32}
 	}
 	return slice
-}
-
-// 24 crosses into a uint8 length header, 256 into a uint16 one.
-var marshalFeltSliceSizes = []int{0, 1, 23, 24, 255, 256}
-
-// fxamacker is the source of truth. It wrote every slice on disk, so engines must agree with it.
-// core/slice should not care about this assertion.
-func TestMarshalFeltSliceMatchesFxamacker(t *testing.T) {
-	for _, size := range marshalFeltSliceSizes {
-		slice := feltSlice(size)
-
-		generic, err := fxcbor.Marshal(slice)
-		require.NoError(t, err)
-		require.Equal(t, generic, cbor.MarshalFeltSlice(slice), "len=%d", size)
-	}
-}
-
-func TestUnmarshalFeltSliceMatchesFxamacker(t *testing.T) {
-	for _, size := range marshalFeltSliceSizes {
-		slice := feltSlice(size)
-
-		written, err := fxcbor.Marshal(slice)
-		require.NoError(t, err)
-
-		var back []limbs
-		require.True(t, cbor.UnmarshalFeltSlice(written, &back), "len=%d", size)
-		require.Equal(t, slice, back, "len=%d", size)
-	}
-}
-
-// A nil slice marshals as null, not as an empty array, matching the library.
-func TestMarshalFeltSliceNil(t *testing.T) {
-	generic, err := fxcbor.Marshal([]limbs(nil))
-	require.NoError(t, err)
-	require.Equal(t, generic, cbor.MarshalFeltSlice[limbs](nil))
 }

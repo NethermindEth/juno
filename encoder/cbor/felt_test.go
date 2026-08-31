@@ -1,9 +1,5 @@
 package cbor_test
 
-// TODO(granza): Build a pull of felts to test.
-// core/felt/cbor_fastpath_test.go should test them fast vs generic,
-// here should test current engine vs canonical encoder (fxmacker).
-
 import (
 	"testing"
 
@@ -14,39 +10,48 @@ import (
 
 type limbs = [cbor.Limbs]uint64
 
-var marshalFeltCases = []struct {
-	name  string
-	value limbs
-}{
-	{"zero", limbs{}},
-	{"one byte limbs", limbs{1, 2, 3, 4}},
-	{"mixed widths", limbs{24, 256, 65536, 4294967296}},
-	{"montgomery shaped", limbs{
-		18446744073709551585, 18446744073709551615, 18446744073709551615, 576460752303422960,
-	}},
+// fxamacker wrote all initial felts on disk, so we always compare against it.
+func requireAgreesWithLibrary(t *testing.T, data []byte) (decoded limbs, ok bool) {
+	t.Helper()
+
+	var fast limbs
+	if !cbor.UnmarshalFelt(data, &fast) {
+		return limbs{}, false
+	}
+
+	var canonical limbs
+	require.NoError(t, fxcbor.Unmarshal(data, &canonical),
+		"took a payload the library refuses: % x", data)
+	require.Equal(t, canonical, fast)
+
+	return fast, true
 }
 
-// fxamacker is the source of truth. It wrote every felt on disk, so engines must agree with it.
-// core/felt should not care about this assertion.
-func TestMarshalFeltMatchesFxamacker(t *testing.T) {
-	for _, test := range marshalFeltCases {
-		t.Run(test.name, func(t *testing.T) {
-			generic, err := fxcbor.Marshal(test.value)
-			require.NoError(t, err)
-			require.Equal(t, generic, cbor.MarshalFelt(&test.value))
+func TestFeltAccepted(t *testing.T) {
+	for _, shape := range cbor.FeltAccepted {
+		t.Run(shape.Name, func(t *testing.T) {
+			decoded, ok := requireAgreesWithLibrary(t, shape.Data)
+			require.True(t, ok, "refused a payload it has to take")
+			require.Equal(t, shape.Data, cbor.MarshalFelt(&decoded), "wrote it back differently")
 		})
 	}
 }
 
-func TestUnmarshalFeltMatchesFxamacker(t *testing.T) {
-	for _, test := range marshalFeltCases {
-		t.Run(test.name, func(t *testing.T) {
-			written, err := fxcbor.Marshal(test.value)
-			require.NoError(t, err)
-
-			var back limbs
-			require.True(t, cbor.UnmarshalFelt(written, &back))
-			require.Equal(t, test.value, back)
+func TestFeltRejected(t *testing.T) {
+	for _, shape := range cbor.FeltRejected {
+		t.Run(shape.Name, func(t *testing.T) {
+			_, ok := requireAgreesWithLibrary(t, shape.Data)
+			require.False(t, ok, "took a payload it has to refuse")
 		})
 	}
+}
+
+func FuzzFelt(f *testing.F) {
+	for _, shape := range append(cbor.FeltAccepted, cbor.FeltRejected...) {
+		f.Add(shape.Data)
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		requireAgreesWithLibrary(t, data)
+	})
 }

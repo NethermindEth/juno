@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -113,4 +114,12 @@ func TestRandomCtor(t *testing.T) {
 	assert.NotPanics(t, func() {
 		felt.NewRandom[feltoid]()
 	})
+}
+
+// fromLimbs bypasses SetBigInt's Montgomery conversion, so a small
+// argument here actually lands in a limb. SetBigInt() does not.
+func fromLimbs[F felt.FeltLike](limbs ...uint64) F {
+	var l [4]uint64
+	copy(l[:], limbs)
+	return F(fp.Element(l))
 }

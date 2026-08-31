@@ -8,15 +8,12 @@ import (
 const (
 	// maxCBORArrayHeaderLen: 1 major/info byte + 4 length bytes (uint32)
 	maxCBORArrayHeaderLen = 1 + 4
-
-	// cborNull is the CBOR encoding of null, which the generic encoder emits for a nil slice.
-	cborNull = 0xf6
 )
 
 // MarshalFeltSlice is the body of felt.Slice's MarshalCBOR.
 func MarshalFeltSlice[F FeltLike](slice []F) []byte {
 	if slice == nil {
-		return []byte{cborNull}
+		return []byte{null}
 	}
 
 	data := make([]byte, maxCBORArrayHeaderLen+len(slice)*maxCBORFeltLen)
@@ -65,20 +62,20 @@ func UnmarshalFeltSlice[F FeltLike](data []byte, slice *[]F) bool {
 func encodeCBORArrayHeader(data []byte, arraySize uint32) int {
 	// Starting with the most common path, which is a small array in this case
 	switch {
-	case arraySize < cborUint8AdditionalInfo:
-		data[0] = cborArrayMajor | byte(arraySize)
+	case arraySize < info1Byte:
+		data[0] = arrayMajor | byte(arraySize)
 		return 1
 	case arraySize <= math.MaxUint8:
-		data[0] = cborArrayMajor | cborUint8AdditionalInfo
+		data[0] = arrayMajor | info1Byte
 		data[1] = byte(arraySize)
 		return 2
 	case arraySize <= math.MaxUint16:
-		data[0] = cborArrayMajor | cborUint16AdditionalInfo
+		data[0] = arrayMajor | info2Byte
 		binary.BigEndian.PutUint16(data[1:], uint16(arraySize))
 		return 3
 	default:
 		// The larger size should fit into an uint32, bigger arrays do not fit the memory
-		data[0] = cborArrayMajor | cborUint32AdditionalInfo
+		data[0] = arrayMajor | info4Byte
 		binary.BigEndian.PutUint32(data[1:], arraySize)
 		return maxCBORArrayHeaderLen
 	}
@@ -93,23 +90,23 @@ func decodeCBORArrayHeader(data []byte) (size, offset int, ok bool) {
 	}
 
 	// majorType (first 3 bits) encodes the object type
-	majorType := data[0] & 0b1110_0000
-	if majorType != cborArrayMajor {
+	majorType := data[0] & majorMask
+	if majorType != arrayMajor {
 		return 0, 0, false
 	}
 
 	// additionalInfo (last 5 bits) encodes the array length or how it follows
-	additionalInfo := data[0] & 0b0001_1111
+	additionalInfo := data[0] & infoMask
 
 	// Starting with the most common path, which is a small array
 	switch {
-	case additionalInfo < cborUint8AdditionalInfo:
+	case additionalInfo < info1Byte:
 		return int(additionalInfo), 1, true
-	case additionalInfo == cborUint8AdditionalInfo && len(data) >= 2:
+	case additionalInfo == info1Byte && len(data) >= 2:
 		return int(data[1]), 2, true
-	case additionalInfo == cborUint16AdditionalInfo && len(data) >= 3:
+	case additionalInfo == info2Byte && len(data) >= 3:
 		return int(binary.BigEndian.Uint16(data[1:])), 3, true
-	case additionalInfo == cborUint32AdditionalInfo && len(data) >= 5:
+	case additionalInfo == info4Byte && len(data) >= 5:
 		return int(binary.BigEndian.Uint32(data[1:])), maxCBORArrayHeaderLen, true
 	default:
 		// A size bigger than an uint32 is not allowed in the fast-path

@@ -26,22 +26,9 @@ func UnmarshalFelt[F FeltLike](data []byte, value *F) bool {
 }
 
 const (
-	// These derive from the CBOR spec
-	// Limb types are always unsigned int
-	// The following numbers represent the unsigned integer size
-	// See: https://www.rfc-editor.org/rfc/rfc8949.html#section-3
-	cborUint8AdditionalInfo  = 24 // 1 byte follows
-	cborUint16AdditionalInfo = 25 // 2 bytes follow
-	cborUint32AdditionalInfo = 26 // 4 bytes follow
-	cborUint64AdditionalInfo = 27 // 8 bytes follow
-
-	// cborArrayMajor the major type that represents an Array
-	// Top 3 bits are the major type (4 = array), low 5 bits are the length.
-	cborArrayMajor = 4 << 5
-
-	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
+	// arrayHeader4 is the first byte of a CBOR array of Limbs items.
 	// 0b100_00100: an array with Limbs (4) elements.
-	cborArrayHeader4 = cborArrayMajor | Limbs
+	arrayHeader4 = arrayMajor | Limbs
 
 	// Header + 8 bytes following
 	maxCBORUintLen = 1 + 8
@@ -53,8 +40,8 @@ const (
 
 // encodeLimbs puts one CBOR felt to data, returning the number of bytes written.
 func encodeLimbs[F FeltLike](data []byte, value *F) int {
-	// The format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3].
-	data[0] = cborArrayHeader4
+	// The format is: [arrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3].
+	data[0] = arrayHeader4
 
 	offset := 1
 	for limbIndex := range Limbs {
@@ -63,22 +50,22 @@ func encodeLimbs[F FeltLike](data []byte, value *F) int {
 		// Starting with the most common path, which is a large limb
 		switch {
 		case limb > math.MaxUint32:
-			data[offset] = cborUint64AdditionalInfo
+			data[offset] = info8Byte
 			binary.BigEndian.PutUint64(data[offset+1:], limb)
 			offset += 1 + 8
 
 		case limb > math.MaxUint16:
-			data[offset] = cborUint32AdditionalInfo
+			data[offset] = info4Byte
 			binary.BigEndian.PutUint32(data[offset+1:], uint32(limb))
 			offset += 1 + 4
 
 		case limb > math.MaxUint8:
-			data[offset] = cborUint16AdditionalInfo
+			data[offset] = info2Byte
 			binary.BigEndian.PutUint16(data[offset+1:], uint16(limb))
 			offset += 1 + 2
 
-		case limb >= cborUint8AdditionalInfo:
-			data[offset] = cborUint8AdditionalInfo
+		case limb >= info1Byte:
+			data[offset] = info1Byte
 			data[offset+1] = byte(limb)
 			offset += 2
 
@@ -96,8 +83,8 @@ func encodeLimbs[F FeltLike](data []byte, value *F) int {
 // It writes value only on success, so a rejected input can't partially
 // corrupt it before falling back to the generic decoder.
 func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
-	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
-	if len(data) == 0 || data[0] != cborArrayHeader4 {
+	// The data format is: [arrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
+	if len(data) == 0 || data[0] != arrayHeader4 {
 		return 0, false
 	}
 
@@ -113,10 +100,10 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 	// encodes as a full uint64, giving one fixed 37-byte shape. Decode it without the
 	// per-limb header switch; anything else falls through to the general loop.
 	if len(data) >= maxCBORFeltLen &&
-		data[limb0Header] == cborUint64AdditionalInfo &&
-		data[limb1Header] == cborUint64AdditionalInfo &&
-		data[limb2Header] == cborUint64AdditionalInfo &&
-		data[limb3Header] == cborUint64AdditionalInfo {
+		data[limb0Header] == info8Byte &&
+		data[limb1Header] == info8Byte &&
+		data[limb2Header] == info8Byte &&
+		data[limb3Header] == info8Byte {
 		(*value)[0] = binary.BigEndian.Uint64(data[limb0Header+1 : limb1Header])
 		(*value)[1] = binary.BigEndian.Uint64(data[limb1Header+1 : limb2Header])
 		(*value)[2] = binary.BigEndian.Uint64(data[limb2Header+1 : limb3Header])
@@ -143,38 +130,38 @@ func decodeVariableLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 
 		var limb uint64
 		switch {
-		case headerByte > cborUint64AdditionalInfo: // invalid header byte for uint64
+		case headerByte > info8Byte: // invalid header byte for uint64
 			return 0, false
 
-		case headerByte == cborUint64AdditionalInfo:
+		case headerByte == info8Byte:
 			if offset+8 > len(data) {
 				return 0, false
 			}
 			limb = binary.BigEndian.Uint64(data[offset:])
 			offset += 8
 
-		case headerByte == cborUint32AdditionalInfo:
+		case headerByte == info4Byte:
 			if offset+4 > len(data) {
 				return 0, false
 			}
 			limb = uint64(binary.BigEndian.Uint32(data[offset:]))
 			offset += 4
 
-		case headerByte == cborUint16AdditionalInfo:
+		case headerByte == info2Byte:
 			if offset+2 > len(data) {
 				return 0, false
 			}
 			limb = uint64(binary.BigEndian.Uint16(data[offset:]))
 			offset += 2
 
-		case headerByte == cborUint8AdditionalInfo:
+		case headerByte == info1Byte:
 			if offset+1 > len(data) {
 				return 0, false
 			}
 			limb = uint64(data[offset])
 			offset++
 
-		default: // headerByte < cborUint8AdditionalInfo
+		default: // headerByte < info1Byte
 			limb = uint64(headerByte)
 		}
 
