@@ -28,7 +28,7 @@ func txHashSampler(input samplerInput[blockRangeFlags]) (txHashParams, error) {
 func txHashWithProofFactsSampler(
 	input samplerInput[txHashWithProofFactsArgs],
 ) (txHashParams, error) {
-	params, err := txHashSampler(rebindArgs(input, &input.args.blockRangeFlags))
+	params, err := txHashSampler(input.rebindArgs(&input.args.blockRangeFlags))
 	if err != nil {
 		return txHashParams{}, err
 	}

@@ -44,7 +44,7 @@ type rpcEnvelope[T any] struct {
 	Error  *rpcError `json:"error"`
 }
 
-func rpcCall[T any](ctx context.Context, c *rpcClient, method string, params any) (T, error) {
+func (c *rpcClient) rpcCall[T any](ctx context.Context, method string, params any) (T, error) {
 	var zero T
 	reqBody, err := json.Marshal(jsonRPCRequest{JSONRPC: "2.0", ID: 1, Method: method, Params: params})
 	if err != nil {
@@ -106,38 +106,35 @@ func post(ctx context.Context, c *rpcClient, method string, body []byte, env any
 }
 
 func (c *rpcClient) specVersion(ctx context.Context) (string, error) {
-	return rpcCall[string](ctx, c, "starknet_specVersion", nil)
+	return c.rpcCall[string](ctx, "starknet_specVersion", nil)
 }
 
 func (c *rpcClient) blockNumber(ctx context.Context) (uint64, error) {
-	return rpcCall[uint64](ctx, c, "starknet_blockNumber", nil)
+	return c.rpcCall[uint64](ctx, "starknet_blockNumber", nil)
 }
 
 func (c *rpcClient) blockWithTxHashes(
 	ctx context.Context,
 	blockNumber uint64,
 ) (txHashesBlock, error) {
-	return rpcCall[txHashesBlock](
+	return c.rpcCall[txHashesBlock](
 		ctx,
-		c,
 		"starknet_getBlockWithTxHashes",
 		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
 
 func (c *rpcClient) txCountInBlock(ctx context.Context, blockNumber uint64) (uint64, error) {
-	return rpcCall[uint64](
+	return c.rpcCall[uint64](
 		ctx,
-		c,
 		"starknet_getBlockTransactionCount",
 		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
 
 func (c *rpcClient) stateUpdateAt(ctx context.Context, blockNumber uint64) (stateUpdate, error) {
-	return rpcCall[stateUpdate](
+	return c.rpcCall[stateUpdate](
 		ctx,
-		c,
 		"starknet_getStateUpdate",
 		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
@@ -148,9 +145,8 @@ func (c *rpcClient) classHashAt(
 	blockNumber uint64,
 	address string,
 ) (string, error) {
-	return rpcCall[string](
+	return c.rpcCall[string](
 		ctx,
-		c,
 		"starknet_getClassHashAt",
 		contractAtBlockParams{BlockID: blockNumberID{blockNumber}, ContractAddress: address},
 	)
@@ -161,9 +157,8 @@ func (c *rpcClient) classAt(
 	blockNumber uint64,
 	classHash string,
 ) (contractClass, error) {
-	return rpcCall[contractClass](
+	return c.rpcCall[contractClass](
 		ctx,
-		c,
 		"starknet_getClass",
 		classAtBlockParams{BlockID: blockNumberID{blockNumber}, ClassHash: classHash},
 	)
@@ -173,9 +168,8 @@ func (c *rpcClient) blockWithReceipts(
 	ctx context.Context,
 	blockNumber uint64,
 ) (receiptsBlock, error) {
-	return rpcCall[receiptsBlock](
+	return c.rpcCall[receiptsBlock](
 		ctx,
-		c,
 		"starknet_getBlockWithReceipts",
 		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
