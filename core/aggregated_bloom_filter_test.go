@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
@@ -25,6 +27,40 @@ func mustMarshal(tb testing.TB, filter *core.AggregatedBloomFilter) []byte {
 	data, err := filter.MarshalBinary()
 	require.NoError(tb, err)
 	return data
+}
+
+type queryFilter interface {
+	UnmarshalBinary(data []byte) error
+	BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error
+	FromBlock() uint64
+	ToBlock() uint64
+}
+
+var filterVariants = []struct {
+	name     string
+	lazyRows bool
+	new      func() queryFilter
+}{
+	{name: "filter", new: func() queryFilter { return &core.AggregatedBloomFilter{} }},
+	{
+		name:     "view",
+		lazyRows: true,
+		new:      func() queryFilter { return &core.AggregatedBloomFilterView{} },
+	},
+}
+
+func mustUnmarshal(t *testing.T, newFilter func() queryFilter, data []byte) queryFilter {
+	t.Helper()
+	decoded := newFilter()
+	require.NoError(t, decoded.UnmarshalBinary(data))
+	return decoded
+}
+
+func blocksForKeys(t *testing.T, f queryFilter, keys [][]byte) *bitset.BitSet {
+	t.Helper()
+	out := bitset.New(uint(core.NumBlocksPerFilter))
+	require.NoError(t, f.BlocksForKeysInto(keys, out))
+	return out
 }
 
 func TestAggregatedBloomFilter_Insert(t *testing.T) {
@@ -99,38 +135,46 @@ func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
 	key := []byte{0xab}
 	insertKey(t, &filter, key, 0)
-	matchesBuf := bitset.New(uint(core.NumBlocksPerFilter))
-	t.Run("No keys: all bits set", func(t *testing.T) {
-		require.NoError(t, filter.BlocksForKeysInto(nil, matchesBuf))
-		require.True(t, matchesBuf.All())
-	})
+	data := mustMarshal(t, &filter)
 
-	t.Run("Unmatched key: returns none", func(t *testing.T) {
-		require.NoError(t, filter.BlocksForKeysInto([][]byte{{0xff}}, matchesBuf))
-		require.False(t, matchesBuf.Any())
-	})
+	for _, variant := range filterVariants {
+		t.Run(variant.name, func(t *testing.T) {
+			decoded := mustUnmarshal(t, variant.new, data)
+			matchesBuf := bitset.New(uint(core.NumBlocksPerFilter))
 
-	t.Run("Known key: block 0 is set", func(t *testing.T) {
-		require.NoError(t, filter.BlocksForKeysInto([][]byte{key}, matchesBuf))
-		require.True(t, matchesBuf.Test(0))
-	})
+			t.Run("No keys: all bits set", func(t *testing.T) {
+				require.NoError(t, decoded.BlocksForKeysInto(nil, matchesBuf))
+				require.True(t, matchesBuf.All())
+			})
 
-	t.Run("Buffer size mismatch", func(t *testing.T) {
-		differentSizeBuf := bitset.New(uint(core.NumBlocksPerFilter - 1))
-		require.ErrorIs(
-			t,
-			filter.BlocksForKeysInto([][]byte{key}, differentSizeBuf),
-			core.ErrMatchesBufferSizeMismatch,
-		)
-	})
+			t.Run("Unmatched key: returns none", func(t *testing.T) {
+				require.NoError(t, decoded.BlocksForKeysInto([][]byte{{0xff}}, matchesBuf))
+				require.False(t, matchesBuf.Any())
+			})
 
-	t.Run("Buffer is nil", func(t *testing.T) {
-		require.ErrorIs(
-			t,
-			filter.BlocksForKeysInto([][]byte{key}, nil),
-			core.ErrMatchesBufferNil,
-		)
-	})
+			t.Run("Known key: block 0 is set", func(t *testing.T) {
+				require.NoError(t, decoded.BlocksForKeysInto([][]byte{key}, matchesBuf))
+				require.True(t, matchesBuf.Test(0))
+			})
+
+			t.Run("Buffer size mismatch", func(t *testing.T) {
+				differentSizeBuf := bitset.New(uint(core.NumBlocksPerFilter - 1))
+				require.ErrorIs(
+					t,
+					decoded.BlocksForKeysInto([][]byte{key}, differentSizeBuf),
+					core.ErrMatchesBufferSizeMismatch,
+				)
+			})
+
+			t.Run("Buffer is nil", func(t *testing.T) {
+				require.ErrorIs(
+					t,
+					decoded.BlocksForKeysInto([][]byte{key}, nil),
+					core.ErrMatchesBufferNil,
+				)
+			})
+		})
+	}
 }
 
 func TestAggregatedBloomFilter_Clone(t *testing.T) {
@@ -167,19 +211,19 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Compat(t *testing.T) {
 
 	data := mustMarshal(t, &filter)
 
-	// Round-trips into an equal value.
-	var decoded core.AggregatedBloomFilter
-	require.NoError(t, decoded.UnmarshalBinary(data))
-	require.Equal(t, filter, decoded)
+	for _, variant := range filterVariants {
+		t.Run(variant.name, func(t *testing.T) {
+			// Matching behavior is preserved after decode.
+			decoded := mustUnmarshal(t, variant.new, data)
+			require.True(t, blocksForKeys(t, decoded, [][]byte{keyA}).Test(0))
+			require.True(t, blocksForKeys(t, decoded, [][]byte{keyB}).Test(5))
+			require.False(t, blocksForKeys(t, decoded, [][]byte{keyB}).Test(0))
 
-	// Matching behavior is preserved after decode.
-	require.True(t, decoded.BlocksForKeys([][]byte{keyA}).Test(0))
-	require.True(t, decoded.BlocksForKeys([][]byte{keyB}).Test(5))
-	require.False(t, decoded.BlocksForKeys([][]byte{keyB}).Test(0))
-
-	// Short/corrupt input returns a non-nil, non-panicking result.
-	require.Error(t, decoded.UnmarshalBinary(data[:10]))
-	require.Error(t, decoded.UnmarshalBinary(nil))
+			// Short/corrupt input returns a non-nil, non-panicking result.
+			require.Error(t, variant.new().UnmarshalBinary(data[:10]))
+			require.Error(t, variant.new().UnmarshalBinary(nil))
+		})
+	}
 }
 
 // Round-trips a filter whose range does not start at block 0, so a byte-offset
@@ -192,12 +236,14 @@ func TestAggregatedBloomFilter_UnmarshalBinary_NonZeroRange(t *testing.T) {
 
 	data := mustMarshal(t, &filter)
 
-	var decoded core.AggregatedBloomFilter
-	require.NoError(t, decoded.UnmarshalBinary(data))
-	require.Equal(t, filter, decoded)
-	require.Equal(t, from, decoded.FromBlock())
-	require.Equal(t, from+core.MaxBlockOffsetPerFilter, decoded.ToBlock())
-	require.True(t, decoded.BlocksForKeys([][]byte{key}).Test(7))
+	for _, variant := range filterVariants {
+		t.Run(variant.name, func(t *testing.T) {
+			decoded := mustUnmarshal(t, variant.new, data)
+			require.Equal(t, from, decoded.FromBlock())
+			require.Equal(t, from+core.MaxBlockOffsetPerFilter, decoded.ToBlock())
+			require.True(t, blocksForKeys(t, decoded, [][]byte{key}).Test(7))
+		})
+	}
 }
 
 // Pins the on-disk header layout (fromBlock:uint64, toBlock:uint64,
@@ -215,65 +261,96 @@ func TestAggregatedBloomFilter_MarshalBinary_HeaderLayout(t *testing.T) {
 	require.Equal(t, uint32(core.EventsBloomLength), binary.BigEndian.Uint32(data[16:20]))
 }
 
-// Exercises the decode validation and bounds-checking branches: a row with a
-// wrong bit-length header is rejected, and truncation mid-row does not panic.
+// Exercises the decode validation branches: framing corruption is rejected at
+// decode; row corruption surfaces at decode (filter) or at query time (view).
 func TestAggregatedBloomFilter_UnmarshalBinary_Corrupt(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
-	insertKey(t, &filter, []byte{0x01}, 0)
+	key := []byte{0x01}
+	insertKey(t, &filter, key, 0)
 
 	data := mustMarshal(t, &filter)
 
-	t.Run("wrong row bit-length", func(t *testing.T) {
-		corrupt := make([]byte, len(data))
-		copy(corrupt, data)
-		// Row 0 blob starts after the 20-byte header + 4-byte blob length;
-		// its first 8 bytes are the bitset bit-length header.
-		binary.BigEndian.PutUint64(corrupt[24:], core.NumBlocksPerFilter+1)
+	// Row corruption must target a row the key hashes to, since the view reads
+	// only the queried rows. Row i starts at header (20) + i*rowSize, with
+	// rowSize = 4-byte blob length + 8-byte bit length + 1024 row bytes.
+	keyRow := bloom.Locations(key, core.EventsBloomHashFuncs)[0] % core.EventsBloomLength
+	rowSize := 4 + 8 + core.NumBlocksPerFilter/8
+	rowStart := 20 + keyRow*rowSize
 
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
-	})
+	corruptCopy := func(mutate func(corrupt []byte)) []byte {
+		corrupt := append([]byte{}, data...)
+		mutate(corrupt)
+		return corrupt
+	}
 
-	t.Run("truncated mid-row", func(t *testing.T) {
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(data[:30]), io.ErrUnexpectedEOF)
-	})
+	tests := []struct {
+		name    string
+		corrupt []byte
+		wantErr error
+		lazyRow bool // for the view: error surfaces at query time, not decode
+	}{
+		{
+			name: "wrong row bit-length",
+			corrupt: corruptCopy(func(corrupt []byte) {
+				binary.BigEndian.PutUint64(corrupt[rowStart+4:], core.NumBlocksPerFilter+1)
+			}),
+			wantErr: core.ErrBloomFilterSizeMismatch,
+			lazyRow: true,
+		},
+		{
+			// A non-canonical length that still fits in-bounds must be rejected.
+			name: "wrong row blob-length",
+			corrupt: corruptCopy(func(corrupt []byte) {
+				binary.BigEndian.PutUint32(corrupt[rowStart:], 8)
+			}),
+			wantErr: core.ErrBloomFilterSizeMismatch,
+			lazyRow: true,
+		},
+		{
+			name:    "truncated header",
+			corrupt: data[:10],
+			wantErr: io.ErrUnexpectedEOF,
+		},
+		{
+			name:    "truncated mid-row",
+			corrupt: data[:30],
+			wantErr: io.ErrUnexpectedEOF,
+		},
+		{
+			name: "wrong row count",
+			corrupt: corruptCopy(func(corrupt []byte) {
+				binary.BigEndian.PutUint32(corrupt[16:20], core.EventsBloomLength-1)
+			}),
+			wantErr: core.ErrBloomFilterSizeMismatch,
+		},
+		{
+			name: "toBlock not matching range",
+			corrupt: corruptCopy(func(corrupt []byte) {
+				binary.BigEndian.PutUint64(corrupt[8:16], 1<<40)
+			}),
+			wantErr: core.ErrBloomFilterSizeMismatch,
+		},
+		{
+			name:    "trailing bytes",
+			corrupt: append(append([]byte{}, data...), 0x00, 0x01, 0x02, 0x03),
+			wantErr: io.ErrUnexpectedEOF,
+		},
+	}
 
-	t.Run("wrong row blob-length", func(t *testing.T) {
-		corrupt := make([]byte, len(data))
-		copy(corrupt, data)
-		// Row 0's 4-byte blob-length prefix sits right after the 20-byte header.
-		// A non-canonical length that still fits in-bounds must be rejected.
-		binary.BigEndian.PutUint32(corrupt[20:24], 8)
-
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
-	})
-
-	t.Run("wrong row count", func(t *testing.T) {
-		corrupt := make([]byte, len(data))
-		copy(corrupt, data)
-		binary.BigEndian.PutUint32(corrupt[16:20], core.EventsBloomLength-1)
-
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
-	})
-
-	t.Run("toBlock not matching range", func(t *testing.T) {
-		corrupt := make([]byte, len(data))
-		copy(corrupt, data)
-		binary.BigEndian.PutUint64(corrupt[8:16], 1<<40)
-
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(corrupt), core.ErrBloomFilterSizeMismatch)
-	})
-
-	t.Run("trailing bytes", func(t *testing.T) {
-		withJunk := append([]byte{}, data...)
-		withJunk = append(withJunk, 0x00, 0x01, 0x02, 0x03)
-		var decoded core.AggregatedBloomFilter
-		require.ErrorIs(t, decoded.UnmarshalBinary(withJunk), io.ErrUnexpectedEOF)
-	})
+	for _, variant := range filterVariants {
+		for _, test := range tests {
+			t.Run(variant.name+"/"+test.name, func(t *testing.T) {
+				decoded := variant.new()
+				if test.lazyRow && variant.lazyRows {
+					require.NoError(t, decoded.UnmarshalBinary(test.corrupt))
+					out := bitset.New(uint(core.NumBlocksPerFilter))
+					require.ErrorIs(t, decoded.BlocksForKeysInto([][]byte{key}, out), test.wantErr)
+					return
+				}
+				require.ErrorIs(t, decoded.UnmarshalBinary(test.corrupt), test.wantErr)
+			})
+		}
+	}
 }
 
 // UnmarshalBinary decodes untrusted DB bytes and must never panic on arbitrary
@@ -295,6 +372,12 @@ func FuzzAggregatedBloomFilterUnmarshal(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded core.AggregatedBloomFilter
 		_ = decoded.UnmarshalBinary(data) // must not panic
+
+		var view core.AggregatedBloomFilterView
+		if view.UnmarshalBinary(data) == nil {
+			out := bitset.New(uint(core.NumBlocksPerFilter))
+			_ = view.BlocksForKeysInto([][]byte{{0x01}}, out) // must not panic
+		}
 	})
 }
 
@@ -315,4 +398,71 @@ func TestAggregatedBloomFilter_UnmarshalBinary_Allocs(t *testing.T) {
 	// interface boxing in AllocsPerRun itself; current code is ~2.
 	require.LessOrEqual(t, allocs, float64(8),
 		"decode should allocate O(1) buffers, got %.0f", allocs)
+}
+
+func TestAggregatedBloomFilterView_MatchesDecodedFilter(t *testing.T) {
+	const fromBlock = 3 * core.NumBlocksPerFilter
+	filter := core.NewAggregatedFilter(fromBlock)
+	keyA := []byte("key-a")
+	keyB := []byte("key-b")
+	insertKey(t, &filter, keyA, fromBlock)
+	insertKey(t, &filter, keyA, fromBlock+17)
+	insertKey(t, &filter, keyB, fromBlock+core.MaxBlockOffsetPerFilter)
+
+	var view core.AggregatedBloomFilterView
+	require.NoError(t, view.UnmarshalBinary(mustMarshal(t, &filter)))
+	require.Equal(t, filter.FromBlock(), view.FromBlock())
+	require.Equal(t, filter.ToBlock(), view.ToBlock())
+
+	keySets := [][][]byte{
+		nil,
+		{keyA},
+		{keyB},
+		{keyA, keyB},
+		{[]byte("absent")},
+	}
+	for _, keys := range keySets {
+		want := blocksForKeys(t, &filter, keys)
+		got := blocksForKeys(t, &view, keys)
+		require.True(t, want.Equal(got), "view mismatch for keys %q", keys)
+	}
+}
+
+// The stored value round-trip covers the accessors' assumption that the CBOR
+// encoding of an AggregatedBloomFilter is a byte string of MarshalBinary output.
+func TestGetAggregatedBloomFilter_RoundTrip(t *testing.T) {
+	memDB := memory.New()
+	const fromBlock = 5 * core.NumBlocksPerFilter
+	filter := core.NewAggregatedFilter(fromBlock)
+	key := []byte("round-trip")
+	insertKey(t, &filter, key, fromBlock+42)
+	require.NoError(t, core.WriteAggregatedBloomFilter(memDB, &filter))
+
+	getters := []struct {
+		name string
+		get  func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error)
+	}{
+		{"filter", func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error) {
+			decoded, err := core.GetAggregatedBloomFilter(r, fromBlock, toBlock)
+			return &decoded, err
+		}},
+		{"view", func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error) {
+			view, err := core.GetAggregatedBloomFilterView(r, fromBlock, toBlock)
+			return &view, err
+		}},
+	}
+
+	for _, getter := range getters {
+		t.Run(getter.name, func(t *testing.T) {
+			decoded, err := getter.get(memDB, filter.FromBlock(), filter.ToBlock())
+			require.NoError(t, err)
+			require.Equal(t, filter.FromBlock(), decoded.FromBlock())
+			require.Equal(t, filter.ToBlock(), decoded.ToBlock())
+
+			want := blocksForKeys(t, &filter, [][]byte{key})
+			got := blocksForKeys(t, decoded, [][]byte{key})
+			require.True(t, want.Equal(got))
+			require.True(t, got.Test(42))
+		})
+	}
 }

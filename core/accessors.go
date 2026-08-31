@@ -656,6 +656,21 @@ func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (A
 	return filter, nil
 }
 
+func GetAggregatedBloomFilterView(
+	r db.KeyValueReader,
+	fromBlock, toBlock uint64,
+) (AggregatedBloomFilterView, error) {
+	var view AggregatedBloomFilterView
+	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBlock), func(data []byte) error {
+		return encoder.Unmarshal(data, &view)
+	})
+	if err != nil {
+		return AggregatedBloomFilterView{}, err
+	}
+
+	return view, nil
+}
+
 func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
 	enc, err := encoder.Marshal(filter)
 	if err != nil {
