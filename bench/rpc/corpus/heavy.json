@@ -1,0 +1,17 @@
+{
+  "getClass-blockNumber": "getClass --block-id number",
+  "getClass-blockHash": "getClass --block-id hash",
+  "getClass-latest": "getClass --block-id latest",
+  "getClassAt-blockNumber": "getClassAt --block-id number",
+  "getClassAt-blockHash": "getClassAt --block-id hash",
+  "getClassAt-latest": "getClassAt --block-id latest",
+  "getCompiledCasm": "getCompiledCasm",
+  "getEvents-blockNumber": "getEvents --block-id number",
+  "getEvents-blockHash": "getEvents --block-id hash",
+  "getStorageProof": "getStorageProof",
+  "traceBlockTransactions-blockNumber": "traceBlockTransactions --block-id number",
+  "traceBlockTransactions-blockHash": "traceBlockTransactions --block-id hash",
+  "traceBlockTransactions-latest": "traceBlockTransactions --block-id latest",
+  "traceBlockTransactions-initialReads": "traceBlockTransactions --return-initial-reads",
+  "traceTransaction": "traceTransaction"
+}

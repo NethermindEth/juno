@@ -21,10 +21,6 @@
   "getStateUpdate-blockNumber": "getStateUpdate --block-id number",
   "getStateUpdate-blockHash": "getStateUpdate --block-id hash",
   "getStateUpdate-latest": "getStateUpdate --block-id latest",
-  "traceBlockTransactions-blockNumber": "traceBlockTransactions --block-id number",
-  "traceBlockTransactions-blockHash": "traceBlockTransactions --block-id hash",
-  "traceBlockTransactions-latest": "traceBlockTransactions --block-id latest",
-  "traceBlockTransactions-initialReads": "traceBlockTransactions --return-initial-reads",
 
   "getTransactionByBlockIdAndIndex-blockNumber": "getTransactionByBlockIdAndIndex --block-id number",
   "getTransactionByBlockIdAndIndex-blockHash": "getTransactionByBlockIdAndIndex --block-id hash",
@@ -33,27 +29,15 @@
   "getTransactionByHash-proofFacts": "getTransactionByHash --include-proof-facts",
   "getTransactionReceipt": "getTransactionReceipt",
   "getTransactionStatus": "getTransactionStatus",
-  "traceTransaction": "traceTransaction",
 
-  "getClass-blockNumber": "getClass --block-id number",
-  "getClass-blockHash": "getClass --block-id hash",
-  "getClass-latest": "getClass --block-id latest",
-  "getClassAt-blockNumber": "getClassAt --block-id number",
-  "getClassAt-blockHash": "getClassAt --block-id hash",
-  "getClassAt-latest": "getClassAt --block-id latest",
   "getClassHashAt-blockNumber": "getClassHashAt --block-id number",
   "getClassHashAt-blockHash": "getClassHashAt --block-id hash",
   "getClassHashAt-latest": "getClassHashAt --block-id latest",
-  "getCompiledCasm": "getCompiledCasm",
   "getNonce-blockNumber": "getNonce --block-id number",
   "getNonce-blockHash": "getNonce --block-id hash",
   "getNonce-latest": "getNonce --block-id latest",
   "getStorageAt-blockNumber": "getStorageAt --block-id number",
   "getStorageAt-blockHash": "getStorageAt --block-id hash",
   "getStorageAt-latest": "getStorageAt --block-id latest",
-  "getStorageAt-lastUpdateBlock": "getStorageAt --include-last-update-block",
-
-  "getEvents-blockNumber": "getEvents --block-id number",
-  "getEvents-blockHash": "getEvents --block-id hash",
-  "getStorageProof": "getStorageProof"
+  "getStorageAt-lastUpdateBlock": "getStorageAt --include-last-update-block"
 }

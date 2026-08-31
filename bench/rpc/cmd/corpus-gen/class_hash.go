@@ -2,12 +2,12 @@ package main
 
 import "fmt"
 
-func classAtBlockSampler(input samplerInput[blockRangeFlags]) (classAtBlockParams, error) {
+func classAtBlockSampler(input samplerInput[blockIDArgs]) (classAtBlockParams, error) {
 	contract, err := contractAddressSampler(storageDiffAddresses)(input)
 	if err != nil {
 		return classAtBlockParams{}, err
 	}
-	blockNumber := contract.BlockID.BlockNumber
+	blockNumber := contract.BlockID.blockNumber()
 	classHash, err := input.client.classHashAt(input.ctx, blockNumber, contract.ContractAddress)
 	if err != nil {
 		return classAtBlockParams{}, fmt.Errorf(
@@ -18,12 +18,14 @@ func classAtBlockSampler(input samplerInput[blockRangeFlags]) (classAtBlockParam
 }
 
 func sierraClassHashSampler(input samplerInput[blockRangeFlags]) (classHashParams, error) {
-	params, err := classAtBlockSampler(input)
+	params, err := classAtBlockSampler(
+		rebindArgs(input, &blockIDArgs{blockRangeFlags: *input.args, BlockIDKind: blockIDNumber}),
+	)
 	if err != nil {
 		return classHashParams{}, err
 	}
 	isSierra, err := input.cache.isSierra(
-		input.ctx, input.client, params.BlockID.BlockNumber, params.ClassHash,
+		input.ctx, input.client, params.BlockID.blockNumber(), params.ClassHash,
 	)
 	if err != nil {
 		return classHashParams{}, err

@@ -77,12 +77,12 @@ func newRootCmd() *cobra.Command {
 	cmd.AddGroup(&cobra.Group{ID: methodsGroupID, Title: "RPC Methods:"})
 	cmd.AddCommand(
 		newSampledCmd(cfg, "starknet_getBlockWithTxHashes", blockIDSampler),
-		newSampledCmd(cfg, "starknet_getBlockWithTxs", blockIDSampler),
-		newSampledCmd(cfg, "starknet_getBlockWithReceipts", blockIDSampler),
+		newSampledCmd(cfg, "starknet_getBlockWithTxs", blockIDWithProofFactsSampler),
+		newSampledCmd(cfg, "starknet_getBlockWithReceipts", blockIDWithProofFactsSampler),
 		newSampledCmd(cfg, "starknet_getStateUpdate", blockIDSampler),
 		newSampledCmd(cfg, "starknet_getBlockTransactionCount", blockIDSampler),
-		newSampledCmd(cfg, "starknet_traceBlockTransactions", blockIDSampler),
-		newSampledCmd(cfg, "starknet_getTransactionByHash", txHashSampler),
+		newSampledCmd(cfg, "starknet_traceBlockTransactions", traceBlockTransactionsSampler),
+		newSampledCmd(cfg, "starknet_getTransactionByHash", txHashWithProofFactsSampler),
 		newSampledCmd(cfg, "starknet_getTransactionStatus", txHashSampler),
 		newSampledCmd(cfg, "starknet_getTransactionReceipt", txHashSampler),
 		newSampledCmd(cfg, "starknet_traceTransaction", txHashSampler),
