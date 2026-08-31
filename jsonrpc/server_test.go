@@ -1051,3 +1051,37 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 		}
 	})
 }
+
+func TestBatchArrayIsByteIdenticalToJSONMarshal(t *testing.T) {
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "echo",
+		Params:  []jsonrpc.Parameter{{Name: "data"}},
+		Handler: func(data string) (string, *jsonrpc.Error) { return data, nil },
+	}))
+
+	payloads := []string{
+		"<script>a && b</script>",
+		"line\u2028sep\u2029par",
+		`quote " backslash \`,
+		"",
+	}
+
+	elements := make([]string, len(payloads))
+	for i, payload := range payloads {
+		params, err := json.Marshal([]string{payload})
+		require.NoError(t, err)
+		elements[i] = fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"method":"echo","params":%s}`, i+1, params)
+	}
+
+	body, _, err := server.HandleReader(t.Context(), strings.NewReader("["+strings.Join(elements, ",")+"]"))
+	require.NoError(t, err)
+
+	var got []json.RawMessage
+	require.NoError(t, json.Unmarshal(body, &got))
+	require.Len(t, got, len(payloads))
+
+	want, err := json.Marshal(got)
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(body))
+}
