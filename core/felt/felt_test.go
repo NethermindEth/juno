@@ -3,6 +3,7 @@ package felt_test
 import (
 	"encoding"
 	"encoding/json"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -394,7 +395,8 @@ func FuzzFeltUnmarshal(f *testing.F) {
 
 		reference, err := new(felt.Felt).SetString(string(data[1 : len(data)-1]))
 		require.NoError(t, err, "accepted %q that SetString rejects", data)
-		assert.True(t, decoded.Equal(reference), "input %q: got %s want %s",
+		assert.True(
+			t, decoded.Equal(reference), "input %q: got %s want %s",
 			data, decoded.String(), reference.String(),
 		)
 
@@ -405,4 +407,35 @@ func FuzzFeltUnmarshal(f *testing.F) {
 		require.NoError(t, json.Unmarshal(marshalled, &roundTrip))
 		assert.True(t, decoded.Equal(&roundTrip))
 	})
+}
+
+func TestSetBigInt(t *testing.T) {
+	// Starknet's field modulus.
+	modulus, ok := new(big.Int).SetString(
+		"3618502788666131213697322783095070105623107215331596699973092056135872020481",
+		10,
+	)
+	require.True(t, ok)
+
+	for _, test := range []struct {
+		name  string
+		value *big.Int
+		want  *felt.Felt
+	}{
+		{"zero", big.NewInt(0), new(felt.Felt)},
+		{"one", big.NewInt(1), new(felt.Felt).SetUint64(1)},
+		{"the modulus reduces to zero", modulus, new(felt.Felt)},
+		{
+			"one past the modulus wraps to one", new(big.Int).Add(modulus, big.NewInt(1)),
+			new(felt.Felt).SetUint64(1),
+		},
+		{
+			"negative one is the modulus minus one",
+			big.NewInt(-1), new(felt.Felt).SetBigInt(new(big.Int).Sub(modulus, big.NewInt(1))),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, new(felt.Felt).SetBigInt(test.value))
+		})
+	}
 }
