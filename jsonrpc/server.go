@@ -33,11 +33,6 @@ const (
 	ResponseTooLarge = -32003
 )
 
-const (
-	DefaultMaxBatchElements      = 1000
-	DefaultMaxBatchResponseBytes = 64 * 1024 * 1024
-)
-
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
@@ -134,7 +129,8 @@ func (r *Request) isSane() error {
 	return nil
 }
 
-// validID reports whether id may be echoed back in a response
+// validID reports whether id is a valid JSON-RPC request id: a string, or a
+// number with no fractional part.
 func validID(id any) bool {
 	idType := reflect.TypeOf(id)
 	if idType.Kind() != reflect.String && idType.Name() != "Number" {
@@ -183,12 +179,10 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	s := &Server{
-		logger:                logger,
-		methods:               make(map[string]Method),
-		pool:                  pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener:              &SelectiveListener{},
-		maxBatchElements:      DefaultMaxBatchElements,
-		maxBatchResponseBytes: DefaultMaxBatchResponseBytes,
+		logger:   logger,
+		methods:  make(map[string]Method),
+		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener: &SelectiveListener{},
 	}
 
 	return s
@@ -450,7 +444,6 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		// totalBytes mirrors what json.Marshal will emit: one byte for the closing
 		// bracket plus, per element, its own length and the leading '[' or ','
 		totalBytes = 1
-		full       bool
 	)
 
 	addResponse := func(response any, header http.Header) {
@@ -466,15 +459,12 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		totalBytes += len(responseJSON) + 1
 		responses = append(responses, responseJSON)
 		headers = append(headers, header)
-		if s.maxBatchResponseBytes > 0 && totalBytes >= s.maxBatchResponseBytes {
-			full = true
-		}
 	}
 
 	batchFull := func() bool {
 		mutex.Lock()
 		defer mutex.Unlock()
-		return full
+		return s.maxBatchResponseBytes > 0 && totalBytes >= s.maxBatchResponseBytes
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -522,7 +512,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	wg.Wait()
 
-	if full {
+	if batchFull() {
 		s.logger.Warn("Batch stopped at the response size limit: the rest was not processed",
 			zap.Int("limit", s.maxBatchResponseBytes),
 			zap.Int("skipped", skipped),

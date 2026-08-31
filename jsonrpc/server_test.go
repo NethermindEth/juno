@@ -923,7 +923,7 @@ func TestBatchElementLimit(t *testing.T) {
 	})
 
 	t.Run("zero disables the limit", func(t *testing.T) {
-		const n = jsonrpc.DefaultMaxBatchElements + 50
+		const n = 1050
 		server, _ := newServer(t, 0)
 		res, _, err := server.HandleReader(t.Context(), strings.NewReader(batchOf(n)))
 		require.NoError(t, err)

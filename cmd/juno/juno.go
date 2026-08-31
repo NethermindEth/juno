@@ -282,7 +282,8 @@ const (
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
 		"The calls answered so far are returned, the rest are not executed. " +
 		"0 disables the limit."
-	rpcBatchConcurrencyUsage = "Maximum calls from a batch executed at once, per RPC version. " +
+	rpcBatchConcurrencyUsage = "Maximum batch calls that run at the same time, per RPC version. " +
+		"All batch requests to a version share this limit. " +
 		"Default is set based on available hardware resources."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
 		"Default is set based on available hardware resources."
