@@ -41,16 +41,21 @@ h1 {
     padding: 0.9rem 1rem;
     font-weight: 600;
     text-align: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.method-tabs .tabs__item:hover {
+.method-tabs .tabs__item:not(.tabs__item--active):hover {
     background-color: var(--ifm-hover-overlay);
-    border-bottom-color: var(--ifm-color-emphasis-300);
+    border-color: var(--ifm-color-emphasis-400);
 }
 
 .method-tabs .tabs__item--active {
     background-color: rgba(255, 74, 4, 0.08);
     border-color: var(--ifm-color-primary);
-    border-bottom-color: var(--ifm-color-primary);
     color: var(--ifm-color-primary);
+}
+
+.method-tabs .tabs__item--active:hover {
+    background-color: rgba(255, 74, 4, 0.16);
+    border-color: var(--ifm-color-primary);
 }
