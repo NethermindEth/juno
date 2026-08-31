@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/NethermindEth/juno/encoder"
 )
 
@@ -85,8 +84,7 @@ type extractAllTransactionHashes struct{}
 // extract reads each transaction's own TransactionHash field, decoded without the rest of the
 // transaction.
 func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]felt.Felt, error) {
-	hashes, err := indexed.AllMapped(
-		b.transactionHashProjections(),
+	hashes, err := b.transactionHashProjections().AllMapped(
 		func(i int, p transactionHashProjection) (felt.Felt, error) {
 			if p.TransactionHash.IsZero() {
 				return felt.Felt{}, fmt.Errorf("missing TransactionHash in transaction %d", i)
@@ -139,8 +137,7 @@ func (extractAllTransactionEvents) extract(
 	b *BlockTransactions,
 	_ struct{},
 ) ([]TransactionEvents, error) {
-	events, err := indexed.AllMapped(
-		b.transactionEventsProjections(),
+	events, err := b.transactionEventsProjections().AllMapped(
 		func(_ int, p receiptEventsProjection) (TransactionEvents, error) {
 			return TransactionEvents{
 				Events:          p.Events,

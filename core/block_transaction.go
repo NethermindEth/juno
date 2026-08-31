@@ -52,12 +52,12 @@ func NewBlockTransactionsFromIterators[T, R any](
 	receipts iter.Seq2[R, error],
 ) (BlockTransactions, error) {
 	writer := indexed.NewBufferedEncoder()
-	transactionIndexes, err := indexed.Write(writer, transactions)
+	transactionIndexes, err := writer.WriteSeq(transactions)
 	if err != nil {
 		return BlockTransactions{}, err
 	}
 
-	receiptIndexes, err := indexed.Write(writer, receipts)
+	receiptIndexes, err := writer.WriteSeq(receipts)
 	if err != nil {
 		return BlockTransactions{}, err
 	}

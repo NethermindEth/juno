@@ -20,10 +20,7 @@ func NewBufferedEncoder() BufferedEncoder {
 	}
 }
 
-func Write[T any](
-	writer BufferedEncoder,
-	items iter.Seq2[T, error],
-) ([]int, error) {
+func (writer BufferedEncoder) WriteSeq[T any](items iter.Seq2[T, error]) ([]int, error) {
 	indexes := make([]int, 0)
 	for tx, err := range items {
 		if err != nil {
