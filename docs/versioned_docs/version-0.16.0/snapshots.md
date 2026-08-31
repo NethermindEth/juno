@@ -119,7 +119,9 @@ Streaming downloads and extracts the snapshot in a single step, reducing require
 
 ##### 1. Install streaming dependencies
 
-The commands below use `wget` or `lftp`, which allow the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
+Streaming requires either `wget` or `lftp` installed on your computer.
+
+These allow the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
 
 <Tabs groupId="streaming-tools">
 <TabItem value="wget" label="wget" default>
