@@ -44,6 +44,12 @@ linters:
           deny:
             - pkg: github.com/sirupsen/logrus
               desc: use github.com/NethermindEth/juno/utils for logging
+        cbor:
+          files:
+            - "!**/utils/cbor/*.go"
+          deny:
+            - pkg: github.com/fxamacker/cbor/v2
+              desc: use github.com/NethermindEth/juno/utils/cbor, do not import any CBOR library directly
     funlen:
       lines: 120
       statements: 50
