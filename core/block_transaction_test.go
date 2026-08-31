@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db/typed/partial"
 	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
-	"github.com/fxamacker/cbor/v2"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/stretchr/testify/require"
 )
 

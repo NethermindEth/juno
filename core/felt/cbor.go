@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/fxamacker/cbor/v2"
 )
 
 // Fast, felt-specialized CBOR marshaling.

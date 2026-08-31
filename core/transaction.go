@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/fxamacker/cbor/v2"
 	"golang.org/x/crypto/sha3"
 )
 

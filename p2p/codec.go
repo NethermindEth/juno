@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/fxamacker/cbor/v2"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/multiformats/go-multiaddr"
 )
 

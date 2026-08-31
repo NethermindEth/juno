@@ -8,8 +8,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	bloom "github.com/bits-and-blooms/bloom/v3"
-	cbor "github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 

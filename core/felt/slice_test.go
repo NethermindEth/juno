@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/fxamacker/cbor/v2"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/stretchr/testify/require"
 )
 

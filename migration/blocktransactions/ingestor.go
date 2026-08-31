@@ -10,8 +10,8 @@ import (
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/fxamacker/cbor/v2"
 	"go.uber.org/zap"
 )
 
