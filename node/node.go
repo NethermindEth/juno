@@ -136,6 +136,9 @@ type Config struct {
 	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
 	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
 	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+	RPCMaxBatchSize          uint          `mapstructure:"rpc-max-batch-size"`
+	RPCMaxBatchResponseSize  uint          `mapstructure:"rpc-max-batch-response-size"`
+	RPCBatchConcurrency      uint          `mapstructure:"rpc-batch-concurrency"`
 
 	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
 	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
@@ -533,9 +536,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	if cfg.RPCBatchConcurrency > 0 {
+		maxGoroutines = int(cfg.RPCBatchConcurrency)
+	}
+	maxBatchResponseBytes := int(cfg.RPCMaxBatchResponseSize) * db.Megabyte
 
 	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv10.Validator()).
+		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
+		WithMaxBatchResponseBytes(maxBatchResponseBytes).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV10, pathV10 := rpcHandler.MethodsV0_10()
 	if err = jsonrpcServerV10.RegisterMethods(methodsV10...); err != nil {
@@ -544,6 +553,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv9.Validator()).
+		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
+		WithMaxBatchResponseBytes(maxBatchResponseBytes).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
 	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
@@ -552,6 +563,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
 		WithValidator(rpcv8.Validator()).
+		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
+		WithMaxBatchResponseBytes(maxBatchResponseBytes).
 		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
