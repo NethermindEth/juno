@@ -214,7 +214,7 @@ func (c *Client) Block(ctx context.Context, blockID string) (starknet.Block, err
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.Block](ctx, c, queryURL)
+	return c.doRequest[starknet.Block](ctx, queryURL)
 }
 
 func (c *Client) BlockHeader(
@@ -225,7 +225,7 @@ func (c *Client) BlockHeader(
 		"headerOnly":   trueStr,
 	})
 
-	return doRequest[starknet.BlockHeader](ctx, c, queryURL)
+	return c.doRequest[starknet.BlockHeader](ctx, queryURL)
 }
 
 func (c *Client) BlockTrace(ctx context.Context, blockHash string) (starknet.BlockTrace, error) {
@@ -233,7 +233,7 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (starknet.Blo
 		"blockHash": blockHash,
 	})
 
-	return doRequest[starknet.BlockTrace](ctx, c, queryURL)
+	return c.doRequest[starknet.BlockTrace](ctx, queryURL)
 }
 
 func (c *Client) CasmClassDefinition(
@@ -275,20 +275,20 @@ func (c *Client) ClassDefinition(
 		blockNumberArg: "latest",
 	})
 
-	return doRequest[starknet.ClassDefinition](ctx, c, queryURL)
+	return c.doRequest[starknet.ClassDefinition](ctx, queryURL)
 }
 
 func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
 	queryURL := buildQueryString(c.url, "get_contract_addresses", nil)
 
-	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
+	return c.doRequest[starknet.FeeTokenAddresses](ctx, queryURL)
 }
 
 func (c *Client) PublicKey(ctx context.Context) (felt.Felt, error) {
 	queryURL := buildQueryString(c.url, "get_public_key", nil)
 
 	// public key is a hex string
-	publicKey, err := doRequest[starknet.PublicKey](ctx, c, queryURL)
+	publicKey, err := c.doRequest[starknet.PublicKey](ctx, queryURL)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -300,7 +300,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (starknet.Signat
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.Signature](ctx, c, queryURL)
+	return c.doRequest[starknet.Signature](ctx, queryURL)
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (starknet.StateUpdate, error) {
@@ -308,7 +308,7 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (starknet.Stat
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.StateUpdate](ctx, c, queryURL)
+	return c.doRequest[starknet.StateUpdate](ctx, queryURL)
 }
 
 func (c *Client) StateUpdateWithBlockAndSignature(
@@ -321,7 +321,7 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 		"includeSignature": trueStr,
 	})
 
-	return doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
+	return c.doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, queryURL)
 }
 
 // PreConfirmedBlockWithIdentifier fetches the pre_confirmed block at the given height,
@@ -425,7 +425,7 @@ func (c *Client) Transaction(
 		"transactionHash": transactionHash.String(),
 	})
 
-	return doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
+	return c.doRequest[starknet.DeprecatedTransactionStatus](ctx, queryURL)
 }
 
 // TransactionStatus calls the get_transaction_status endpoint which returns only status fields
@@ -438,5 +438,5 @@ func (c *Client) TransactionStatus(
 		"transactionHash": transactionHash.String(),
 	})
 
-	return doRequest[starknet.TransactionStatus](ctx, c, queryURL)
+	return c.doRequest[starknet.TransactionStatus](ctx, queryURL)
 }
