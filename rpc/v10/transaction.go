@@ -431,11 +431,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 
 		return AdaptTransaction(tipBlock.Transactions[txIndex], includeProofFacts), nil
 	case blockID.IsLatest():
-		header, err := h.bcReader.HeadsHeader()
-		if err != nil {
-			return Transaction{}, rpccore.ErrBlockNotFound
-		}
-		blockNumber = header.Number
+		blockNumber, err = h.bcReader.Height()
 	case blockID.IsHash():
 		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
 	case blockID.IsNumber():
