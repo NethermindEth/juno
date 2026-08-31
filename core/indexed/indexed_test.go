@@ -46,7 +46,7 @@ func writeToBufferedEncoderSuccessfully[T any](
 	count int,
 ) []int {
 	t.Helper()
-	indexes, err := indexed.Write(bufferedEncoder, items)
+	indexes, err := bufferedEncoder.WriteSeq(items)
 	require.NoError(t, err)
 	require.Len(t, indexes, count)
 
@@ -68,7 +68,7 @@ func writeUnsuccessfully[T any](
 	require.Equal(t, 0, bufferedEncoder.Len())
 	require.Len(t, bufferedEncoder.Buffer.Bytes(), 0)
 
-	_, err := indexed.Write(bufferedEncoder, items)
+	_, err := bufferedEncoder.WriteSeq(items)
 	require.Error(t, err)
 	require.Equal(t, expectedError, err)
 }

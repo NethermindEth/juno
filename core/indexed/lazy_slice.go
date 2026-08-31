@@ -57,8 +57,7 @@ func (l LazySlice[T]) All() ([]T, error) {
 	return items, nil
 }
 
-func AllMapped[T, R any](
-	l LazySlice[T],
+func (l LazySlice[T]) AllMapped[R any](
 	extract func(index int, value T) (R, error),
 ) ([]R, error) {
 	results := make([]R, len(l.indexes))

@@ -5,7 +5,6 @@ package indexed_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,8 +33,7 @@ func TestLazySliceAllocations(t *testing.T) {
 
 	t.Run("AllMapped allocates the decode target and the result slice", func(t *testing.T) {
 		allocs := testing.AllocsPerRun(10, func() {
-			_, err := indexed.AllMapped(
-				lazySlice,
+			_, err := lazySlice.AllMapped(
 				func(_ int, value benchItem) ([4]uint64, error) { return value.Hash, nil },
 			)
 			if err != nil {
@@ -47,8 +45,7 @@ func TestLazySliceAllocations(t *testing.T) {
 
 	t.Run("Pointer into extract's value costs one copy per element", func(t *testing.T) {
 		allocs := testing.AllocsPerRun(10, func() {
-			_, err := indexed.AllMapped(
-				lazySlice,
+			_, err := lazySlice.AllMapped(
 				func(_ int, value benchItem) (*[4]uint64, error) { return &value.Hash, nil },
 			)
 			if err != nil {
