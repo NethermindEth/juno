@@ -23,29 +23,31 @@ type EventFiltersCacheKey struct {
 	toBlock   uint64
 }
 
-// AggregatedBloomFilterCache stores and manages LRU-cached aggregated bloom filters
-// for block ranges, supporting fallback loading and bulk insertion.
+// AggregatedBloomFilterCache stores and manages LRU-cached aggregated bloom
+// filter views for block ranges, supporting fallback loading and bulk insertion.
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
-	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
-	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
+	cache        *lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilterView]
+	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilterView, error)
 }
 
-// NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
-// with the specified maximum size (number of ranges to cache).
+// NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filter
+// views with the specified maximum size (number of ranges to cache).
 func NewAggregatedBloomCache(size int) *AggregatedBloomFilterCache {
 	return &AggregatedBloomFilterCache{
 		cache: lru.New[
 			EventFiltersCacheKey,
-			*core.AggregatedBloomFilter,
+			*core.AggregatedBloomFilterView,
 		](size),
 	}
 }
 
 // WithFallback sets a fallback fetch function to be used if a requested
-// AggregatedBloomFilter is not found in the cache. The provided function must
-// return a filter matching the queried range, or an error.
-func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)) {
+// filter view is not found in the cache. The provided function must
+// return a view matching the queried range, or an error.
+func (c *AggregatedBloomFilterCache) WithFallback(
+	fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilterView, error),
+) {
 	c.fallbackFunc = fallback
 }
 
@@ -54,16 +56,16 @@ func (c *AggregatedBloomFilterCache) Reset() {
 	c.cache.Purge()
 }
 
-// SetMany inserts multiple aggregated bloom filters into the cache.
-// Each filter is keyed by its block range.
-func (c *AggregatedBloomFilterCache) SetMany(filters []*core.AggregatedBloomFilter) {
-	for _, filter := range filters {
+// SetMany inserts multiple aggregated bloom filter views into the cache.
+// Each view is keyed by its block range.
+func (c *AggregatedBloomFilterCache) SetMany(views []*core.AggregatedBloomFilterView) {
+	for _, view := range views {
 		c.cache.Add(
 			EventFiltersCacheKey{
-				fromBlock: filter.FromBlock(),
-				toBlock:   filter.ToBlock(),
+				fromBlock: view.FromBlock(),
+				toBlock:   view.ToBlock(),
 			},
-			filter,
+			view,
 		)
 	}
 }

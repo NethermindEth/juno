@@ -1,8 +1,8 @@
 package core
 
 import (
+	"bytes"
 	"encoding/binary"
-	"io"
 
 	"github.com/bits-and-blooms/bitset"
 )
@@ -24,8 +24,8 @@ const (
 )
 
 type bloomRowsMethods interface {
-	// indices are raw bloom locations, not yet reduced modulo EventsBloomLength.
-	intersectRows(rawIndices []uint64, innerMatches *bitset.BitSet) error
+	// indices are already reduced modulo EventsBloomLength.
+	intersectRows(indices, matchWords []uint64) error
 	// unmarshalRows assumes parseHeader already validated data.
 	unmarshalRows(data []byte) error
 }
@@ -40,51 +40,82 @@ type memRows []bitset.BitSet
 
 var _ bloomRowsMethods = (*memRows)(nil)
 
-func (r *memRows) intersectRows(rawIndices []uint64, innerMatches *bitset.BitSet) error {
+func (r *memRows) intersectRows(indices, matchWords []uint64) error {
 	rows := *r
-	for _, index := range rawIndices {
-		row := rows[index%EventsBloomLength]
-		innerMatches.InPlaceIntersection(&row)
+	// Constant-length reslices let the compiler drop the per-word bounds checks.
+	matchWords = matchWords[:wordsPerFilterRow]
+	for _, index := range indices {
+		row := rows[index].Words()[:wordsPerFilterRow]
+		for w := range wordsPerFilterRow {
+			matchWords[w] &= row[w]
+		}
 	}
 	return nil
 }
 
 func (r *memRows) unmarshalRows(data []byte) error {
+	blob := blobRows(data)
 	backing := make([]uint64, EventsBloomLength*wordsPerFilterRow)
 	rows := make(memRows, EventsBloomLength)
 
-	// The count precheck in parseHeader guarantees room for count rows of
-	// filterRowSize each, so every row's window is in bounds; no per-row
-	// length check is needed.
-	offset := filterHeaderSize
 	for i := range EventsBloomLength {
-		blobLen := int(binary.BigEndian.Uint32(data[offset:]))
-		offset += filterRowLenSize
-		// bitsetLen and blobLen are independent fields, so both are checked.
-		// Pinning blobLen to filterRowBlobLen keeps the word reads below in bounds.
-		if blobLen != filterRowBlobLen {
-			return ErrBloomFilterSizeMismatch
-		}
-		if bitsetLen := binary.BigEndian.Uint64(data[offset:]); bitsetLen != NumBlocksPerFilter {
-			return ErrBloomFilterSizeMismatch
+		wordBytes, err := blob.rowWordBytes(uint64(i))
+		if err != nil {
+			return err
 		}
 
 		rowStart := i * wordsPerFilterRow
 		row := backing[rowStart : rowStart+wordsPerFilterRow : rowStart+wordsPerFilterRow]
-		wordsAt := offset + filterBitsetLenSize
 		for w := range wordsPerFilterRow {
-			row[w] = binary.BigEndian.Uint64(data[wordsAt+w*filterBytesUint64:])
+			row[w] = binary.BigEndian.Uint64(wordBytes[w*filterBytesUint64:])
 		}
 		rows[i] = *bitset.FromWithLength(uint(NumBlocksPerFilter), row)
-
-		offset += blobLen
-	}
-
-	// Trailing bytes mean framing corruption; a canonical blob is consumed exactly.
-	if offset != len(data) {
-		return io.ErrUnexpectedEOF
 	}
 
 	*r = rows
 	return nil
+}
+
+// blobRows reads rows in place from an AggregatedBloomFilter MarshalBinary blob.
+type blobRows []byte
+
+var _ bloomRowsMethods = (*blobRows)(nil)
+
+func (r *blobRows) intersectRows(indices, matchWords []uint64) error {
+	blob := *r
+	// Constant-length reslices let the compiler drop the per-word bounds checks.
+	matchWords = matchWords[:wordsPerFilterRow]
+	for _, index := range indices {
+		wordBytes, err := blob.rowWordBytes(index)
+		if err != nil {
+			return err
+		}
+		// The error-path phi hides wordBytes' fixed length, so reslice again for BCE.
+		wordBytes = wordBytes[:wordsPerFilterRow*filterBytesUint64]
+		for w := range wordsPerFilterRow {
+			matchWords[w] &= binary.BigEndian.Uint64(wordBytes[w*filterBytesUint64:])
+		}
+	}
+	return nil
+}
+
+func (r *blobRows) unmarshalRows(data []byte) error {
+	// The BinaryUnmarshaler contract forbids retaining data, so keep a copy.
+	*r = bytes.Clone(data)
+	return nil
+}
+
+// rowWordBytes validates row index's length prefixes and returns its raw word bytes.
+func (r blobRows) rowWordBytes(index uint64) ([]byte, error) {
+	offset := filterHeaderSize + int(index)*filterRowSize
+	// bitsetLen and blobLen are independent fields, so both are checked.
+	if blobLen := int(binary.BigEndian.Uint32(r[offset:])); blobLen != filterRowBlobLen {
+		return nil, ErrBloomFilterRowBlobLenMismatch
+	}
+	offset += filterRowLenSize
+	if bitsetLen := binary.BigEndian.Uint64(r[offset:]); bitsetLen != NumBlocksPerFilter {
+		return nil, ErrBloomFilterRowBitsetLenMismatch
+	}
+	offset += filterBitsetLenSize
+	return r[offset : offset+wordsPerFilterRow*filterBytesUint64], nil
 }
