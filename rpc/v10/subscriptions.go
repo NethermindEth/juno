@@ -54,9 +54,6 @@ func (h *Handler) subscribe(
 	wsConn jsonrpc.Conn,
 	subscriber subscriber,
 ) (SubscriptionID, *jsonrpc.Error) {
-	if h.subscriptionLimiter != nil && !h.subscriptionLimiter.TryAcquire(1) {
-		return "", rpccore.ErrTooManySubscriptions
-	}
 	id := h.idgen()
 	//nolint:gosec // G118: cancel called in unsubscribe()
 	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(wsConn.Context())
@@ -78,9 +75,6 @@ func (h *Handler) subscribe(
 	)
 
 	sub.wg.Go(func() {
-		if h.subscriptionLimiter != nil {
-			defer h.subscriptionLimiter.Release(1)
-		}
 		defer func() {
 			h.unsubscribe(sub, id)
 			unsubscribeFeedSubscription(reorgSub)

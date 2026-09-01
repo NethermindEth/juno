@@ -297,6 +297,7 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	require.NoError(t, conn4.Close(websocket.StatusNormalClosure, ""))
 }
 
+
 func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -316,7 +317,7 @@ func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 
 	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(block, echo))
-	gate := jsonrpc.NewGate(1, 0)
+	gate := jsonrpc.NewGate(1, 10)
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithGate(gate)
 	srv := httptest.NewServer(ws)
 	t.Cleanup(srv.Close)
@@ -338,7 +339,7 @@ func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 	_, got, err := connB.Read(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t,
-		`{"jsonrpc":"2.0","error":{"code":-32603,"message":"server busy"},"id":null}`,
+		`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":null}`,
 		string(got))
 
 	close(release)

@@ -67,7 +67,24 @@ func (g *Gate) Acquire(ctx context.Context) error {
 	}
 }
 
-// Release frees a processing slot previously taken by a successful Acquire.
+// TryAcquire reserves a processing slot without waiting, reporting whether it
+// got one. A failure is counted as a rejection, the same as ErrServerBusy from
+// Acquire.
+func (g *Gate) TryAcquire() bool {
+	g.increaseActiveReq()
+
+	select {
+	case g.sem <- struct{}{}:
+		return true
+	default:
+		g.decreaseActiveReq()
+		g.rejected.Add(1)
+		return false
+	}
+}
+
+// Release frees a processing slot previously taken by a successful Acquire or
+// TryAcquire.
 func (g *Gate) Release() {
 	<-g.sem
 	g.decreaseActiveReq()

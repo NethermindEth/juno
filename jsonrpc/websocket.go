@@ -24,7 +24,7 @@ const (
 var serverBusyResponse = func() []byte {
 	b, err := json.Marshal(&response{
 		Version: "2.0",
-		Error:   &Error{Code: InternalError, Message: ErrServerBusy.Error()},
+		Error:   &Error{Code: ServerBusy, Message: ErrServerBusy.Error()},
 	})
 	if err != nil {
 		panic(err)
@@ -33,8 +33,10 @@ var serverBusyResponse = func() []byte {
 }()
 
 type Websocket struct {
-	rpc            *Server
-	logger         log.StructuredLogger
+	rpc    *Server
+	logger log.StructuredLogger
+	// For logging busy warnings without flooding
+	sampledLogger  log.StructuredLogger
 	connParams     *WebsocketConnParams
 	listener       NewRequestListener
 	shutdown       <-chan struct{}
@@ -46,13 +48,16 @@ type Websocket struct {
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, logger log.StructuredLogger) *Websocket {
+	const busyLogInterval = time.Second
+
 	ws := &Websocket{
-		rpc:        rpc,
-		logger:     logger,
-		connParams: DefaultWebsocketConnParams(),
-		listener:   &SelectiveListener{},
-		shutdown:   shutdown,
-		connSem:    semaphore.NewWeighted(maxConns),
+		rpc:           rpc,
+		logger:        logger,
+		sampledLogger: log.Sampled(logger, busyLogInterval, 1, 0),
+		connParams:    DefaultWebsocketConnParams(),
+		listener:      &SelectiveListener{},
+		shutdown:      shutdown,
+		connSem:       semaphore.NewWeighted(maxConns),
 	}
 
 	return ws
@@ -75,6 +80,7 @@ func (ws *Websocket) WithRequestTimeout(d time.Duration) *Websocket {
 	return ws
 }
 
+// WithGate registers a gate
 func (ws *Websocket) WithGate(g *Gate) *Websocket {
 	ws.gate = g
 	return ws
@@ -164,20 +170,20 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (ws *Websocket) logServerBusy() {
+	ws.sampledLogger.Warn("Rejected websocket RPC request: server is busy",
+		zap.Int("running", ws.gate.Running()),
+		zap.Int("queued", ws.gate.Queued()),
+		zap.Uint64("rejected", ws.gate.Rejected()),
+	)
+}
+
 func (ws *Websocket) handleMessage(wsc *websocketConn) error {
 	if ws.gate != nil {
-		acquireCtx := wsc.ctx
-		if ws.requestTimeout > 0 {
-			var cancel context.CancelFunc
-			acquireCtx, cancel = context.WithTimeout(acquireCtx, ws.requestTimeout)
-			defer cancel()
-		}
-		if err := ws.gate.Acquire(acquireCtx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return err
-			}
-			_, writeErr := wsc.Write(serverBusyResponse)
-			return writeErr
+		if !ws.gate.TryAcquire() {
+			ws.logServerBusy()
+			_, err := wsc.Write(serverBusyResponse)
+			return err
 		}
 		defer ws.gate.Release()
 	}
