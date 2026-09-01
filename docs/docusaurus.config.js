@@ -1,8 +1,7 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-// One Light/Dark carry warm accents (hues 5-35) either side of Juno's brand
-// orange at hue 17, so code blocks sit in the same palette family as the site.
+// Warmer palette than github/dracula, sits closer to the brand orange.
 const lightCodeTheme = require("prism-react-renderer").themes.oneLight;
 const darkCodeTheme = require("prism-react-renderer").themes.oneDark;
 
@@ -85,10 +84,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       colorMode: {
-        // The OS preference wins for a first-time visitor: with
-        // respectPrefersColorScheme on, defaultMode is only consulted when the
-        // system expresses no preference. Light is therefore co-primary, not a
-        // fallback — the theme has to be finished in both modes.
+        // defaultMode only applies when the OS states no preference.
         defaultMode: "dark",
         respectPrefersColorScheme: true,
       },

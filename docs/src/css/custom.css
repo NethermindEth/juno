@@ -174,15 +174,11 @@ html {
   font-size: 0.875rem;
 }
 
-/* Category headings read as section labels, not clickable rows. */
+/* Categories separate from their items by weight, not by a different face. */
 .menu__list-item-collapsible > .menu__link,
 .theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--juno-ink-3);
-  font-weight: 400;
+  font-weight: 600;
+  color: var(--juno-ink);
 }
 
 .menu__link {
