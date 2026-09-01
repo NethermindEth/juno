@@ -2,7 +2,7 @@
 title: FAQ
 ---
 
-# Frequently Asked Questions :question:
+# Frequently Asked Questions
 
 <details>
   <summary>What is Juno?</summary>

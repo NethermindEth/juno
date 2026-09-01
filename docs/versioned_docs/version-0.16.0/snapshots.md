@@ -2,13 +2,13 @@
 title: Snapshot Sync
 ---
 
-# Sync from a Snapshot :camera_flash:
+# Sync from a Snapshot
 
 It is possible to avoid syncing from the beginning and waiting weeks to catch up by downloading a Juno snapshot. You're downloading a pre-synced Juno database that you can point your node to. This will reduce the syncing time to just a few hours.
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-Additionally, _pruned_ snapshots are offered — they contain only the latest data, greatly reducing storage size.
+Additionally, _pruned_ snapshots are offered. They contain only the latest data, greatly reducing storage size.
 
 
 ## Network Snapshots
@@ -27,7 +27,7 @@ import TabItem from "@theme/TabItem";
 ```
 
 :::tip
-Select your network in any tab below and the rest of the page follows — the choice is synced across every command on this page.
+Select your network in any tab below and the rest of the page follows. The choice is synced across every command on this page.
 :::
 
 ## Getting snapshot sizes
@@ -188,7 +188,7 @@ sudo dnf install lftp pv
 </TabItem>
 <TabItem value="curl" label="curl">
 
-Nothing to install — `curl` is preinstalled on most systems.
+Nothing to install. `curl` is preinstalled on most systems.
 
 ---
 

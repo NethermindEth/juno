@@ -2,7 +2,7 @@
 title: Kubernetes
 ---
 
-# Running Juno on Kubernetes :wheel_of_dharma:
+# Running Juno on Kubernetes
 
 You can deploy Juno on Kubernetes using the official [Helm chart](https://github.com/NethermindEth/helm-charts/tree/main/charts/juno). The chart deploys a Juno Starknet full node as a StatefulSet with persistent storage. Optionally, a [staking validator](staking-validator) service can be enabled alongside.
 
