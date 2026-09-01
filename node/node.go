@@ -591,10 +591,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		"/rpc" + pathV08: jsonrpcServerV08,
 	}
 	var rpcGate *jsonrpc.Gate
-	if cfg.RPCMaxConcurrentRequests > 0 {
+	if (cfg.HTTP || cfg.Websocket) && cfg.RPCMaxConcurrentRequests > 0 {
 		rpcGate = jsonrpc.NewGate(cfg.RPCMaxConcurrentRequests, uint64(cfg.RPCMaxRequestQueue))
 		if cfg.Metrics {
-			makeHTTPGateMetrics(rpcGate)
+			makeRPCGateMetrics(rpcGate)
 		}
 	}
 	if cfg.HTTP {
