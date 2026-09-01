@@ -63,3 +63,17 @@ func WithHTTPClient(client *http.Client) Option {
 func WithTimeouts(timeouts []time.Duration, fixed bool) Option {
 	return func(o *options) { o.timeouts = makeTimeouts(timeouts, fixed) }
 }
+
+// requestConfig holds per-request overrides of the client's retry behavior.
+type requestConfig struct {
+	failFastOnBadRequest bool
+}
+
+// requestOption is a functional option applied to a single request.
+type requestOption func(*requestConfig)
+
+// failFastOnBadRequest makes get return an HTTP 400 immediately instead of
+// burning the retry budget. A 400 is deterministic — retrying cannot help.
+func failFastOnBadRequest() requestOption {
+	return func(c *requestConfig) { c.failFastOnBadRequest = true }
+}

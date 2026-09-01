@@ -28,6 +28,20 @@ const (
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
+// ErrPreConfirmedBlockNotFound is returned by the pre-confirmed queries when
+// the gateway answers 400, meaning the requested block is not (or no longer)
+// in the pre-confirmed window.
+var ErrPreConfirmedBlockNotFound = errors.New("pre-confirmed block not found")
+
+// StatusError reports a non-OK HTTP status from the feeder gateway.
+type StatusError struct {
+	Code int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("%d %s", e.Code, http.StatusText(e.Code))
+}
+
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
@@ -131,7 +145,16 @@ func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, error) {
+func (c *Client) get(
+	ctx context.Context,
+	queryURL *url.URL,
+	opts ...requestOption,
+) (io.ReadCloser, error) {
+	var cfg requestConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
@@ -165,10 +188,14 @@ func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, err
 					timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
-					err = errors.New(res.Status)
+					err = &StatusError{Code: res.StatusCode}
 				}
 
 				res.Body.Close()
+			}
+
+			if cfg.failFastOnBadRequest && badRequest {
+				return nil, err
 			}
 
 			if !tooManyRequests && !badRequest {
@@ -397,8 +424,17 @@ func (c *Client) fetchPreConfirmedUpdate(
 	// PreConfirmedUpdateEnvelope intentionally has no UnmarshalJSON (see its doc),
 	// so it cannot ride the generic doRequest. Decode in a single scan, then run
 	// the same Validate + error-wrap that doRequest applies.
-	body, err := c.get(ctx, queryURL)
+	//
+	// The gateway answers 400 (never 404) when the queried block is not in the
+	// pre-confirmed window. That is deterministic, so the request fails fast
+	// instead of burning the retry budget, and the 400 surfaces as
+	// ErrPreConfirmedBlockNotFound for callers to match on.
+	body, err := c.get(ctx, queryURL, failFastOnBadRequest())
 	if err != nil {
+		var statusErr *StatusError
+		if errors.As(err, &statusErr) && statusErr.Code == http.StatusBadRequest {
+			return nil, fmt.Errorf("%w: %w", ErrPreConfirmedBlockNotFound, err)
+		}
 		return nil, err
 	}
 	defer body.Close()
