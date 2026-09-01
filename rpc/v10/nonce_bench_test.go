@@ -104,6 +104,12 @@ func BenchmarkNonce(b *testing.B) {
 	latest := rpc.BlockIDLatest()
 	handler := buildHandler(b, su)
 
+	// Sanity-check the read path returns real data before measuring, so a
+	// regression that returns garbage fast doesn't register as a win.
+	nonce, rpcErr := handler.Nonce(&latest, &addrs[0])
+	require.Nil(b, rpcErr)
+	require.Equal(b, felt.FromUint64[felt.Felt](1), *nonce)
+
 	i := 0
 	for b.Loop() {
 		addr := addrs[i%len(addrs)]
