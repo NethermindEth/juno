@@ -297,7 +297,6 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	require.NoError(t, conn4.Close(websocket.StatusNormalClosure, ""))
 }
 
-
 func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
