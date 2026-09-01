@@ -45,6 +45,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -541,7 +542,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 	maxBatchResponseBytes := int(cfg.RPCMaxBatchResponseSize) * db.Megabyte
 
+	batchPool := pool.New().WithMaxGoroutines(maxGoroutines)
+
 	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
+		WithPool(batchPool).
 		WithValidator(rpcv10.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -552,6 +556,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
+		WithPool(batchPool).
 		WithValidator(rpcv9.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -562,6 +567,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
+		WithPool(batchPool).
 		WithValidator(rpcv8.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
