@@ -135,7 +135,6 @@ func TestGateZeroQueue(t *testing.T) {
 	})
 }
 
-
 func TestGateTryAcquire(t *testing.T) {
 	gate := jsonrpc.NewGate(1, 2)
 
