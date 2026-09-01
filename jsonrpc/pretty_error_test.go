@@ -152,7 +152,7 @@ var parseErrorTests = map[string]struct {
 
 	"oversized single-line input keeps only the trailing window": {
 		req: `{"jsonrpc": "2.0", "method": "starknet_call", "params": [` + strings.Repeat(`"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", `, 10) + `"0xbad" @]}`,
-		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 510]"},"id":null}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 766]"},"id":null}`,
 	},
 
 	"context is capped at three lines within the window": {
@@ -228,4 +228,13 @@ func TestHandleParseError(t *testing.T) {
 			assert.JSONEq(t, test.res, string(res))
 		})
 	}
+}
+
+func TestHandleParseErrorKeepsAbsoluteColumnForLongUnicodeLine(t *testing.T) {
+	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	req := `{"jsonrpc":"2.0","method":"x","padding":"` + strings.Repeat("👍", 160) + `","id":@}`
+
+	res, _, err := server.HandleReader(t.Context(), strings.NewReader(req))
+	require.NoError(t, err)
+	assert.Contains(t, string(res), `[line 1, position 209]`)
 }

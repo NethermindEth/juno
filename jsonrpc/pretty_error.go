@@ -19,9 +19,10 @@ const (
 
 // windowBuffer keeps the last maxWindowSize bytes read
 type windowBuffer struct {
-	window        []byte
-	consumedBytes int
-	newlinesSeen  int
+	window          []byte
+	consumedBytes   int
+	newlinesSeen    int
+	linePrefixRunes int
 }
 
 func (c *windowBuffer) Write(p []byte) (int, error) {
@@ -29,16 +30,53 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
 
 	if len(p) >= maxWindowSize {
-		c.window = append(c.window[:0], p[len(p)-maxWindowSize:]...)
+		start := runeBoundaryAtOrAfter(p, len(p)-maxWindowSize)
+		c.advanceLinePrefix(c.window, p[:start])
+		c.window = append(c.window[:0], p[start:]...)
 		return len(p), nil
 	}
 
-	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
-		c.window = c.window[:copy(c.window, c.window[overflow:])]
-	}
 	c.window = append(c.window, p...)
+	if overflow := len(c.window) - maxWindowSize; overflow > 0 {
+		start := runeBoundaryAtOrAfter(c.window, overflow)
+		c.advanceLinePrefix(c.window[:start])
+		c.window = c.window[:copy(c.window, c.window[start:])]
+	}
 
 	return len(p), nil
+}
+
+func runeBoundaryAtOrAfter(p []byte, offset int) int {
+	for offset < len(p) && !utf8.RuneStart(p[offset]) {
+		offset++
+	}
+	return offset
+}
+
+func (c *windowBuffer) advanceLinePrefix(parts ...[]byte) {
+	var runeBytes [utf8.UTFMax]byte
+	runeLen := 0
+
+	for _, part := range parts {
+		for _, b := range part {
+			runeBytes[runeLen] = b
+			runeLen++
+			if !utf8.FullRune(runeBytes[:runeLen]) {
+				continue
+			}
+
+			if runeBytes[0] == '\n' {
+				c.linePrefixRunes = 0
+			} else {
+				c.linePrefixRunes++
+			}
+			runeLen = 0
+		}
+	}
+
+	// Window boundaries are advanced to the next rune start, so this is only
+	// reachable for invalid or incomplete UTF-8.
+	c.linePrefixRunes += utf8.RuneCount(runeBytes[:runeLen])
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
@@ -62,6 +100,9 @@ func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
 	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
 	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
 	col = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
+	if lineStart == 0 {
+		col += c.linePrefixRunes
+	}
 	return line, col
 }
 
