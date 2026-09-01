@@ -246,6 +246,10 @@ func buildContractLeavesData(
 	state core.StateReader,
 	contracts []felt.Felt,
 ) ([]*LeafData, error) {
+	if metadataReader, ok := state.(contractMetadataReader); ok {
+		return buildContractLeavesDataFromMetadata(metadataReader, contracts)
+	}
+
 	contractLeavesData := make([]*LeafData, len(contracts))
 
 	for i, contract := range contracts {
@@ -270,6 +274,35 @@ func buildContractLeavesData(
 
 		storageRoot, err := contractStorageTrie.Hash()
 		if err != nil {
+			return nil, err
+		}
+
+		contractLeavesData[i] = &LeafData{
+			Nonce:       &nonce,
+			ClassHash:   &classHash,
+			StorageRoot: &storageRoot,
+		}
+	}
+
+	return contractLeavesData, nil
+}
+
+type contractMetadataReader interface {
+	ContractMetadata(addr *felt.Felt) (classHash, nonce, storageRoot felt.Felt, err error)
+}
+
+func buildContractLeavesDataFromMetadata(
+	state contractMetadataReader,
+	contracts []felt.Felt,
+) ([]*LeafData, error) {
+	contractLeavesData := make([]*LeafData, len(contracts))
+
+	for i, contract := range contracts {
+		classHash, nonce, storageRoot, err := state.ContractMetadata(&contract)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				continue
+			}
 			return nil, err
 		}
 
