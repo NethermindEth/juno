@@ -219,10 +219,8 @@ func getClassProof(tr core.TrieReader, classes []felt.Felt) ([]*HashToNode, erro
 		return adaptDeprecatedTrieProofNodes(classProof), nil
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
-		for _, class := range classes {
-			if err := t.Prove(&class, classProof); err != nil {
-				return nil, err
-			}
+		if err := t.ProveMulti(classes, classProof); err != nil {
+			return nil, err
 		}
 		return adaptTrieProofNodes(classProof)
 	default:
@@ -315,10 +313,8 @@ func getContractProofWithTrie(
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 
-	for _, contract := range contracts {
-		if err := tr.Prove(&contract, contractProof); err != nil {
-			return nil, err
-		}
+	if err := tr.ProveMulti(contracts, contractProof); err != nil {
+		return nil, err
 	}
 
 	contractLeavesData, err := buildContractLeavesData(state, contracts)
@@ -357,10 +353,8 @@ func getContractStorageProof(
 			contractStorageRes[i] = adaptDeprecatedTrieProofNodes(contractStorageProof)
 		case *trie2.Trie:
 			contractStorageProof := trie2.NewProofNodeSet()
-			for _, key := range storageKey.Keys {
-				if err := t.Prove(&key, contractStorageProof); err != nil {
-					return nil, err
-				}
+			if err := t.ProveMulti(storageKey.Keys, contractStorageProof); err != nil {
+				return nil, err
 			}
 			nodes, err := adaptTrieProofNodes(contractStorageProof)
 			if err != nil {

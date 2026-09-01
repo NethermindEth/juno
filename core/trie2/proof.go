@@ -3,6 +3,7 @@ package trie2
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -76,6 +77,150 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	}
 
 	return nil
+}
+
+// ProveMulti generates Merkle proofs for multiple keys with a shared trie traversal.
+// Keys are sorted by trie path internally so shared prefixes are visited once.
+func (t *Trie) ProveMulti(keys []felt.Felt, proof *ProofNodeSet) error {
+	if t.committed {
+		return ErrCommitted
+	}
+
+	if len(keys) == 0 {
+		return nil
+	}
+
+	paths := make([]Path, len(keys))
+	for i := range keys {
+		paths[i] = trieutils.FeltToPath(&keys[i], t.height)
+	}
+
+	// FeltToPath returns the trie path, so this order groups keys with shared
+	// prefixes and lets proveMultiFrom split each subtree as a contiguous range.
+	slices.SortFunc(paths, func(a, b Path) int {
+		return a.Cmp(&b)
+	})
+
+	dedupedPaths := paths[:0]
+	for i := range paths {
+		if len(dedupedPaths) == 0 || !paths[i].Equal(&dedupedPaths[len(dedupedPaths)-1]) {
+			dedupedPaths = append(dedupedPaths, paths[i])
+		}
+	}
+
+	var prefix Path
+	hasher := newHasher(t.hashFn, false)
+	return t.proveMultiFrom(t.root, prefix, dedupedPaths, true, &hasher, proof)
+}
+
+func (t *Trie) proveMultiFrom(
+	rootNode trienode.Node,
+	prefix Path,
+	paths []Path,
+	isRoot bool,
+	hasher *hasher,
+	proof *ProofNodeSet,
+) error {
+	if rootNode == nil || len(paths) == 0 {
+		return nil
+	}
+
+	continuingPaths := paths[:0]
+	for i := range paths {
+		if paths[i].Len() > 0 {
+			continuingPaths = append(continuingPaths, paths[i])
+		}
+	}
+	if len(continuingPaths) == 0 {
+		return nil
+	}
+
+	for {
+		hashNode, ok := rootNode.(*trienode.HashNode)
+		if !ok {
+			break
+		}
+
+		resolved, err := t.resolveNode(hashNode, prefix)
+		if err != nil {
+			return err
+		}
+		rootNode = resolved
+	}
+
+	switch n := rootNode.(type) {
+	case *trienode.EdgeNode:
+		addProofNode(proof, hasher, n, isRoot)
+
+		matchingPaths := continuingPaths[:0]
+		for i := range continuingPaths {
+			if n.PathMatches(&continuingPaths[i]) {
+				var remaining Path
+				remaining.LSBs(&continuingPaths[i], n.Path.Len())
+				if remaining.Len() > 0 {
+					matchingPaths = append(matchingPaths, remaining)
+				}
+			}
+		}
+		if len(matchingPaths) == 0 {
+			return nil
+		}
+
+		var childPrefix Path
+		childPrefix.Append(&prefix, n.Path)
+		return t.proveMultiFrom(n.Child, childPrefix, matchingPaths, false, hasher, proof)
+	case *trienode.BinaryNode:
+		addProofNode(proof, hasher, n, isRoot)
+
+		rightStart := len(continuingPaths)
+		for i := range continuingPaths {
+			if continuingPaths[i].MSB() == 1 {
+				rightStart = i
+				break
+			}
+		}
+
+		leftPaths := dropMSB(continuingPaths[:rightStart])
+		rightPaths := dropMSB(continuingPaths[rightStart:])
+
+		var leftPrefix Path
+		leftPrefix.AppendBit(&prefix, 0)
+		if err := t.proveMultiFrom(n.Left(), leftPrefix, leftPaths, false, hasher, proof); err != nil {
+			return err
+		}
+
+		var rightPrefix Path
+		rightPrefix.AppendBit(&prefix, 1)
+		return t.proveMultiFrom(n.Right(), rightPrefix, rightPaths, false, hasher, proof)
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
+}
+
+func addProofNode(proof *ProofNodeSet, hasher *hasher, node trienode.Node, isRoot bool) {
+	proofNode, hashNode := hasher.proofHash(node)
+	hash, ok := hashNode.(*trienode.HashNode)
+	if !ok {
+		if !isRoot {
+			return
+		}
+		hashVal := proofNode.Hash(hasher.hashFn)
+		hash = (*trienode.HashNode)(&hashVal)
+	}
+
+	proof.Put(felt.Felt(*hash), proofNode)
+}
+
+func dropMSB(paths []Path) []Path {
+	trimmedPaths := paths[:0]
+	for i := range paths {
+		var remaining Path
+		remaining.LSBs(&paths[i], 1)
+		if remaining.Len() > 0 {
+			trimmedPaths = append(trimmedPaths, remaining)
+		}
+	}
+	return trimmedPaths
 }
 
 // GetRangeProof generates a range proof for the given range of keys.
