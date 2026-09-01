@@ -24,8 +24,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 var feltOne = &felt.One
@@ -161,19 +159,6 @@ func wirePoller(
 	ds preconfirmed.DataSource,
 ) harness {
 	t.Helper()
-	return wirePollerWithLogger(t, bc, head, ds, log.NewNopZapLogger())
-}
-
-// wirePollerWithLogger is wirePoller with an injectable logger, for tests that
-// assert on the poller's log output.
-func wirePollerWithLogger(
-	t *testing.T,
-	bc *blockchain.Blockchain,
-	head *core.Header,
-	ds preconfirmed.DataSource,
-	logger log.StructuredLogger,
-) harness {
-	t.Helper()
 	storage := preconfirmed.NewChainStorage()
 	out := feed.New[*pending.PreConfirmed]()
 	sub := out.SubscribeKeepLast()
@@ -182,7 +167,7 @@ func wirePollerWithLogger(
 	highest := &atomic.Pointer[core.Header]{}
 	highest.Store(head)
 
-	p := preconfirmed.NewPoller(ds, storage, bc, out, highest, tickInterval, logger)
+	p := preconfirmed.NewPoller(ds, storage, bc, out, highest, tickInterval, log.NewNopZapLogger())
 	return harness{
 		poller:  p,
 		storage: storage,
@@ -587,10 +572,10 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 }
 
 // The gateway answering 400 to a pre-confirmed poll surfaces as
-// feeder.ErrPreConfirmedBlockNotFound; the tick treats it as "nothing to do"
-// rather than a failure — no Warn is logged — and the next tick picks up the
-// window normally.
-func TestPollerLatestNotFoundIsQuietNoOp(t *testing.T) {
+// feeder.ErrPreConfirmedBlockNotFound; the tick treats it as "the window is
+// empty — nothing to do": it stores nothing, and the next tick picks up the
+// window normally once it opens.
+func TestPollerLatestNotFoundSkipsTickAndRecovers(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
@@ -605,13 +590,12 @@ func TestPollerLatestNotFoundIsQuietNoOp(t *testing.T) {
 			Return(block1, uint64(1), nil),
 	)
 
-	obsCore, logs := observer.New(zapcore.WarnLevel)
 	synctest.Test(t, func(t *testing.T) {
-		h := wirePollerWithLogger(t, fx.bc, fx.head, ds, log.NewZapLoggerWithCore(obsCore))
+		h := wirePoller(t, fx.bc, fx.head, ds)
 		go h.poller.Run(t.Context())
 		synctest.Wait()
 
-		// Tick 1: nothing in the pre-confirmed window — quiet no-op.
+		// Tick 1: nothing in the pre-confirmed window — the tick is a no-op.
 		time.Sleep(tickInterval)
 		synctest.Wait()
 		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
@@ -622,45 +606,68 @@ func TestPollerLatestNotFoundIsQuietNoOp(t *testing.T) {
 		synctest.Wait()
 		view = h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		assertChain(t, &view, entry(1, &block1))
-
-		require.Zero(t, logs.Len(), "a pre-confirmed not-found must not log at Warn level")
 	})
 }
 
 // A block that left the pre-confirmed window mid-backfill surfaces as
 // feeder.ErrPreConfirmedBlockNotFound through backfill's wrapping; the tick
-// skips the rest of the fill quietly instead of reporting a polling failure.
-func TestPollerBackfillNotFoundSkipsQuietly(t *testing.T) {
+// abandons the rest of the fill — nothing is applied, not even the already
+// fetched latest — and the next tick reconciles the whole gap from scratch.
+func TestPollerBackfillNotFoundSkipsApplyAndRecovers(t *testing.T) {
 	t.Parallel()
 	fx := newChainFixture(t)
 
+	block1 := makeTestPreConfirmedBlock("r1", 0)
+	block2 := makeTestPreConfirmedBlock("r2", 0)
 	latestReply := makeTestPreConfirmedBlock("r3", 0)
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
+	// Exactly-once, in-order expectations double as a behavioral pin: a tick
+	// that kept backfilling past the not-found would consume tick 2's
+	// expectations early and fail the script.
 	gomock.InOrder(
+		// Tick 1: latest says 3, but block 1 already left the window.
 		ds.EXPECT().
-			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+			PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 			Return(latestReply, uint64(3), nil),
 		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
 			Return(nil, fmt.Errorf(
 				"polling pre-confirmed for number 1: %w", feeder.ErrPreConfirmedBlockNotFound,
 			)),
+		// Tick 2: storage is still empty, so the poller re-walks the full gap.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+			Return(block1, nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "", uint64(0)).
+			Return(block2, nil),
 	)
 
-	obsCore, logs := observer.New(zapcore.WarnLevel)
 	synctest.Test(t, func(t *testing.T) {
-		h := wirePollerWithLogger(t, fx.bc, fx.head, ds, log.NewZapLoggerWithCore(obsCore))
+		h := wirePoller(t, fx.bc, fx.head, ds)
 		go h.poller.Run(t.Context())
 		synctest.Wait()
 
+		// Tick 1: the mid-fill not-found aborts the tick before any apply.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-
 		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Zero(t, view.Length(), "backfill skipped: nothing applied this tick")
-		require.Zero(t, logs.Len(), "a mid-backfill not-found must not log at Warn level")
+
+		// Tick 2: the full gap backfills and the latest lands on top.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view = h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+		assertChain(t, &view,
+			entry(1, &block1),
+			entry(2, &block2),
+			entry(3, &latestReply),
+		)
 	})
 }
 
