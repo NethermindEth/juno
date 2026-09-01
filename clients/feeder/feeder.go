@@ -144,6 +144,72 @@ func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
 	c.timeouts.Store(makeTimeouts(timeouts, fixed))
 }
 
+// buildRequest constructs the GET request for queryURL with the client's
+// identification headers set.
+func (c *Client) buildRequest(ctx context.Context, queryURL *url.URL) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-Throttling-Bypass", c.apiKey)
+	}
+	return req, nil
+}
+
+// tryGet performs a single request attempt with the given timeout. It returns
+// the response body on 200, a StatusError on any other status, and transport
+// errors unchanged.
+func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser, error) {
+	c.client.Timeout = timeout
+	reqTimer := time.Now()
+	res, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+	if res.StatusCode == http.StatusOK {
+		return res.Body, nil
+	}
+	res.Body.Close()
+	return nil, &StatusError{Code: res.StatusCode}
+}
+
+// logRetry reports a failed attempt, promoting the retries from debug to warn
+// once the adaptive timeout has grown past mediumGrowThreshold.
+func (c *Client) logRetry(
+	reqURL string,
+	wait time.Duration,
+	err error,
+	currentTimeout time.Duration,
+) {
+	if currentTimeout >= mediumGrowThreshold {
+		c.logger.Warn("Failed query to feeder, retrying...",
+			zap.String("req", log.SanitizeString(reqURL)),
+			zap.String("retryAfter", wait.String()),
+			zap.Error(err),
+			zap.String("newHTTPTimeout", currentTimeout.String()),
+		)
+		c.logger.Warn("Timeouts can be updated via HTTP PUT request",
+			zap.String("timeout", currentTimeout.String()),
+			zap.String("hint",
+				`Set --http-update-port and --http-update-host flags and `+
+					`make a PUT request to "/feeder/timeouts" with the specified timeouts`,
+			),
+		)
+	} else {
+		c.logger.Debug("Failed query to feeder, retrying...",
+			zap.String("req", log.SanitizeString(reqURL)),
+			zap.String("retryAfter", wait.String()),
+			zap.Error(err),
+			zap.String("newHTTPTimeout", currentTimeout.String()),
+		)
+	}
+}
+
 // get performs a "GET" http request with the given URL and returns the response body
 func (c *Client) get(
 	ctx context.Context,
@@ -155,7 +221,6 @@ func (c *Client) get(
 		opt(&cfg)
 	}
 
-	var res *http.Response
 	var err error
 	wait := time.Duration(0)
 	for range c.maxRetries + 1 {
@@ -163,42 +228,31 @@ func (c *Client) get(
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(wait):
-			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), http.NoBody)
-			if err != nil {
-				return nil, err
-			}
-			if c.userAgent != "" {
-				req.Header.Set("User-Agent", c.userAgent)
-			}
-			if c.apiKey != "" {
-				req.Header.Set("X-Throttling-Bypass", c.apiKey)
+			req, reqErr := c.buildRequest(ctx, queryURL)
+			if reqErr != nil {
+				return nil, reqErr
 			}
 
 			timeouts := c.timeouts.Load()
-			c.client.Timeout = timeouts.GetCurrentTimeout()
-			reqTimer := time.Now()
-			res, err = c.client.Do(req)
-			tooManyRequests, badRequest := false, false
+			var body io.ReadCloser
+			body, err = c.tryGet(req, timeouts.GetCurrentTimeout())
 			if err == nil {
-				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
-				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
-				badRequest = res.StatusCode == http.StatusBadRequest
-				if res.StatusCode == http.StatusOK {
-					timeouts.DecreaseTimeout()
-					return res.Body, nil
-				} else {
-					err = &StatusError{Code: res.StatusCode}
-				}
-
-				res.Body.Close()
+				timeouts.DecreaseTimeout()
+				return body, nil
 			}
 
-			if cfg.failFastOnBadRequest && badRequest {
+			code := 0
+			var statusErr *StatusError
+			if errors.As(err, &statusErr) {
+				code = statusErr.Code
+			}
+
+			if cfg.failFastOnBadRequest && code == http.StatusBadRequest {
 				return nil, err
 			}
 
-			if !tooManyRequests && !badRequest {
+			// 429 and 400 don't indicate a slow gateway, so they don't grow the timeout.
+			if code != http.StatusTooManyRequests && code != http.StatusBadRequest {
 				timeouts.IncreaseTimeout()
 			}
 
@@ -207,30 +261,7 @@ func (c *Client) get(
 			} else {
 				wait = min(c.backoff(wait), c.maxWait)
 			}
-
-			currentTimeout := timeouts.GetCurrentTimeout()
-			if currentTimeout >= mediumGrowThreshold {
-				c.logger.Warn("Failed query to feeder, retrying...",
-					zap.String("req", log.SanitizeString(req.URL.String())),
-					zap.String("retryAfter", wait.String()),
-					zap.Error(err),
-					zap.String("newHTTPTimeout", currentTimeout.String()),
-				)
-				c.logger.Warn("Timeouts can be updated via HTTP PUT request",
-					zap.String("timeout", currentTimeout.String()),
-					zap.String("hint",
-						`Set --http-update-port and --http-update-host flags and `+
-							`make a PUT request to "/feeder/timeouts" with the specified timeouts`,
-					),
-				)
-			} else {
-				c.logger.Debug("Failed query to feeder, retrying...",
-					zap.String("req", log.SanitizeString(req.URL.String())),
-					zap.String("retryAfter", wait.String()),
-					zap.Error(err),
-					zap.String("newHTTPTimeout", currentTimeout.String()),
-				)
-			}
+			c.logRetry(req.URL.String(), wait, err, timeouts.GetCurrentTimeout())
 		}
 	}
 	return nil, err
