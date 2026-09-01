@@ -134,3 +134,27 @@ func TestGateZeroQueue(t *testing.T) {
 		wg.Wait()
 	})
 }
+
+
+func TestGateTryAcquire(t *testing.T) {
+	gate := jsonrpc.NewGate(1, 2)
+
+	require.True(t, gate.TryAcquire())
+	assert.Equal(t, 1, gate.Running())
+	assert.Equal(t, 0, gate.Queued())
+	assert.Equal(t, uint64(0), gate.Rejected())
+
+	require.False(t, gate.TryAcquire(), "no free slot, and TryAcquire must not queue")
+	assert.Equal(t, 1, gate.Running())
+	assert.Equal(t, 0, gate.Queued(), "a refused caller leaves nothing behind in the queue")
+	assert.Equal(t, uint64(1), gate.Rejected())
+
+	gate.Release()
+	assert.Equal(t, 0, gate.Running())
+
+	require.True(t, gate.TryAcquire(), "the slot is reusable once released")
+	gate.Release()
+	assert.Equal(t, 0, gate.Running())
+	assert.Equal(t, 0, gate.Queued())
+	assert.Equal(t, uint64(1), gate.Rejected())
+}

@@ -31,6 +31,9 @@ const (
 	// ResponseTooLarge marks a call that was not executed because the batch had
 	// already reached its response size limit.
 	ResponseTooLarge = -32003
+	// ServerBusy marks a request that was not executed because the server had no
+	// free capacity
+	ServerBusy = -32004
 )
 
 var (
