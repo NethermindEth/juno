@@ -2,6 +2,7 @@ package statebackend
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
@@ -24,14 +25,34 @@ type readOnlyTxn struct {
 	db.KeyValueReader
 }
 
-var errReadOnlyStateView = errors.New("cannot write through a read-only state view")
+//nolint:staticcheck // db.IndexedBatch is deprecated but still required by deprecatedstate.New
+var _ db.IndexedBatch = readOnlyTxn{}
 
-func (readOnlyTxn) Put(_, _ []byte) error         { return errReadOnlyStateView }
-func (readOnlyTxn) Delete(_ []byte) error         { return errReadOnlyStateView }
-func (readOnlyTxn) DeleteRange(_, _ []byte) error { return errReadOnlyStateView }
-func (readOnlyTxn) Write() error                  { return errReadOnlyStateView }
-func (readOnlyTxn) Size() int                     { return 0 }
-func (readOnlyTxn) Close() error                  { return nil }
+// ErrReadOnlyStateView is returned by any write attempted through a read-only
+// state view.
+var ErrReadOnlyStateView = errors.New("cannot write through a read-only state view")
+
+func (readOnlyTxn) Put(_, _ []byte) error {
+	return fmt.Errorf("%w: Put", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Delete(_ []byte) error {
+	return fmt.Errorf("%w: Delete", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) DeleteRange(_, _ []byte) error {
+	return fmt.Errorf("%w: DeleteRange", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Write() error {
+	return fmt.Errorf("%w: Write", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Size() int    { return 0 }
+func (readOnlyTxn) Close() error { return nil }
+
+// emptyStateReader backs the zero-block-hash view: always empty, never written to.
+var emptyStateReader = readOnlyTxn{memory.New()}
 
 func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
 	// Fail early if no block has been committed (no head state to open)
@@ -60,7 +81,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	blockHash *felt.Felt,
 ) (core.StateReader, StateCloser, error) {
 	if blockHash.IsZero() {
-		return deprecatedstate.New(readOnlyTxn{memory.New()}), NoopStateCloser, nil
+		return deprecatedstate.New(emptyStateReader), NoopStateCloser, nil
 	}
 
 	blockNumber, err := pruner.BlockNumberByHashIfStateRetained(b.database, blockHash)
