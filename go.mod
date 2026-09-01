@@ -18,7 +18,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.19.1
-	github.com/klauspost/reedsolomon v1.14.1
+	github.com/klauspost/reedsolomon v1.14.2
 	github.com/libp2p/go-libp2p v0.49.0
 	github.com/libp2p/go-libp2p-kad-dht v0.42.2
 	github.com/libp2p/go-libp2p-pubsub v0.17.0
