@@ -32,7 +32,11 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 			`{"block_hash":"` + hash.String() + `","block_number":42}`,
 			rpc.BlockIDFromHash(hash),
 		},
-		{"null hash falls back to number", `{"block_hash":null,"block_number":42}`, rpc.BlockIDFromNumber(42)},
+		{
+			"null hash falls back to number",
+			`{"block_hash":null,"block_number":42}`,
+			rpc.BlockIDFromNumber(42),
+		},
 	}
 
 	for _, test := range tests {
