@@ -1,8 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require("prism-react-renderer").themes.github;
-const darkCodeTheme = require("prism-react-renderer").themes.dracula;
+// Warmer palette than github/dracula, sits closer to the brand orange.
+const lightCodeTheme = require("prism-react-renderer").themes.oneLight;
+const darkCodeTheme = require("prism-react-renderer").themes.oneDark;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -82,6 +83,11 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      colorMode: {
+        // defaultMode only applies when the OS states no preference.
+        defaultMode: "dark",
+        respectPrefersColorScheme: true,
+      },
       navbar: {
         title: "JUNO",
         logo: {
