@@ -146,21 +146,9 @@ func (f *AggregatedBloomFilter) clear(blockNumber uint64) error {
 // the given keys. If no keys are provided, returns a bitset with all bits set.
 func (f *AggregatedBloomFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	blockMatches := bitset.New(uint(NumBlocksPerFilter))
-	if len(keys) == 0 {
-		return blockMatches.SetAll()
-	}
-
-	innerMatches := bitset.New(uint(NumBlocksPerFilter))
-	for _, key := range keys {
-		innerMatches.SetAll()
-		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
-
-		for _, index := range rawIndices {
-			row := f.bitmap[index%EventsBloomLength]
-			innerMatches.InPlaceIntersection(&row)
-		}
-
-		blockMatches.InPlaceUnion(innerMatches)
+	// memRows never fails and the buffer is correctly sized, so no error can occur.
+	if err := f.BlocksForKeysInto(keys, blockMatches); err != nil {
+		panic(err)
 	}
 	return blockMatches
 }

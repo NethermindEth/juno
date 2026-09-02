@@ -8,6 +8,10 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
+// AggregatedBloomFilterView reads an AggregatedBloomFilter's MarshalBinary
+// blob in place, decoding only the rows a query's keys hash to.
+type AggregatedBloomFilterView = filterView[blobRows, *blobRows]
+
 // filterView is the shared core: a block range plus key queries over rows R.
 type filterView[R any, PR bloomRows[R]] struct {
 	bitmap    R
@@ -41,12 +45,17 @@ func (v *filterView[R, PR]) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet)
 	}
 
 	out.ClearAll()
-	innerMatches := bitset.New(uint(NumBlocksPerFilter))
+	innerWords := make([]uint64, wordsPerFilterRow)
+	// innerMatches shares innerWords as backing.
+	innerMatches := bitset.FromWithLength(uint(NumBlocksPerFilter), innerWords)
 	rows := PR(&v.bitmap)
 	for _, key := range keys {
 		innerMatches.SetAll()
-		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
-		if err := rows.intersectRows(rawIndices, innerMatches); err != nil {
+		indices := bloom.Locations(key, EventsBloomHashFuncs)
+		for i := range indices {
+			indices[i] %= EventsBloomLength
+		}
+		if err := rows.intersectRows(indices, innerWords); err != nil {
 			return err
 		}
 		out.InPlaceUnion(innerMatches)
@@ -77,9 +86,9 @@ func (v *filterView[R, PR]) parseHeader(data []byte) error {
 	if count != EventsBloomLength {
 		return ErrBloomFilterSizeMismatch
 	}
-	// Reject input too short for count rows up front: fails truncation fast and
-	// lets the row decoding read each row's window without per-row bounds checks.
-	if count > (len(data)-filterHeaderSize)/filterRowSize {
+	// Rows are fixed-size, so a canonical blob has exactly this length; anything
+	// else is framing corruption. Row length prefixes are still checked per row.
+	if len(data) != filterHeaderSize+count*filterRowSize {
 		return io.ErrUnexpectedEOF
 	}
 

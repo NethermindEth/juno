@@ -172,8 +172,8 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 	}
 
 	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
-	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
-		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
+	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilterView, error) {
+		return core.GetAggregatedBloomFilterView(database, key.fromBlock, key.toBlock)
 	}
 	cachedFilters.WithFallback(fallback)
 

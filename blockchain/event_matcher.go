@@ -104,8 +104,17 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 	return possibleMatches
 }
 
+// blockKeyFilter is the candidate-block lookup shared by the decoded
+// aggregated filter and its raw-blob view.
+type blockKeyFilter interface {
+	BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error
+}
+
 // Returns candidate possibly matching block in the given filter.
-func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBloomFilter, out *bitset.BitSet) error {
+func (e *EventMatcher) getCandidateBlocksForFilterInto(
+	filter blockKeyFilter,
+	out *bitset.BitSet,
+) error {
 	if out == nil {
 		return core.ErrMatchesBufferNil
 	}
