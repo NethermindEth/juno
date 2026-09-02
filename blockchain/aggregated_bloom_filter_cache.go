@@ -151,6 +151,23 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	fromAligned := windowStart - (windowStart % core.NumBlocksPerFilter)
 	toAligned := fromAligned + core.NumBlocksPerFilter - 1
 
+	if err := it.fillCurrentBits(fromAligned, toAligned); err != nil {
+		return err
+	}
+	it.currentWindowStart = fromAligned // set current window start absolute index
+	return nil
+}
+
+// fillCurrentBits computes the candidate-block bits for the aligned window into currentBits,
+// sourcing the filter from the running filter, the cache, or the fallback.
+func (it *MatchedBlockIterator) fillCurrentBits(fromAligned, toAligned uint64) error {
+	// A matcher with no addresses and no keys matches every block, so skip the
+	// bloom lookup entirely instead of fetching a filter to compute all-ones.
+	if it.matcher.matchesAllBlocks() {
+		it.currentBits.SetAll()
+		return nil
+	}
+
 	// Falls into range of running filter
 	runningFrom, err := it.runningFilter.FromBlock()
 	if err != nil {
@@ -165,7 +182,6 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		if err != nil {
 			return fmt.Errorf("getting candidate blocks for running filter: %w", err)
 		}
-		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
 	}
 
@@ -177,7 +193,6 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		if err != nil {
 			return fmt.Errorf("getting candidate blocks for cached filter: %w", err)
 		}
-		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
 	}
 
@@ -201,7 +216,6 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	if err != nil {
 		return fmt.Errorf("getting candidate blocks for fetched filter: %w", err)
 	}
-	it.currentWindowStart = fromAligned // set current window start absolute index
 	return nil
 }
 
