@@ -3,6 +3,7 @@ package preconfirmed_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -566,6 +568,106 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 
 		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
 		require.Zero(t, view.Length(), "tick aborts before any apply when backfill errors")
+	})
+}
+
+// The gateway answering 400 to a pre-confirmed poll surfaces as
+// feeder.ErrPreConfirmedBlockNotFound; the tick treats it as "the window is
+// empty — nothing to do": it stores nothing, and the next tick picks up the
+// window normally once it opens.
+func TestPollerLatestNotFoundSkipsTickAndRecovers(t *testing.T) {
+	t.Parallel()
+	fx := newChainFixture(t)
+
+	block1 := makeTestPreConfirmedBlock("r1", 0)
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockStarknetData(ctrl)
+	gomock.InOrder(
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(nil, uint64(0), fmt.Errorf("querying: %w", feeder.ErrPreConfirmedBlockNotFound)),
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(block1, uint64(1), nil),
+	)
+
+	synctest.Test(t, func(t *testing.T) {
+		h := wirePoller(t, fx.bc, fx.head, ds)
+		go h.poller.Run(t.Context())
+		synctest.Wait()
+
+		// Tick 1: nothing in the pre-confirmed window — the tick is a no-op.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+		require.Zero(t, view.Length())
+
+		// Tick 2: the window opened; polling proceeds normally.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view = h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+		assertChain(t, &view, entry(1, &block1))
+	})
+}
+
+// A block that left the pre-confirmed window mid-backfill surfaces as
+// feeder.ErrPreConfirmedBlockNotFound through backfill's wrapping; the tick
+// abandons the rest of the fill — nothing is applied, not even the already
+// fetched latest — and the next tick reconciles the whole gap from scratch.
+func TestPollerBackfillNotFoundSkipsApplyAndRecovers(t *testing.T) {
+	t.Parallel()
+	fx := newChainFixture(t)
+
+	block1 := makeTestPreConfirmedBlock("r1", 0)
+	block2 := makeTestPreConfirmedBlock("r2", 0)
+	latestReply := makeTestPreConfirmedBlock("r3", 0)
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockStarknetData(ctrl)
+	// Exactly-once, in-order expectations double as a behavioral pin: a tick
+	// that kept backfilling past the not-found would consume tick 2's
+	// expectations early and fail the script.
+	gomock.InOrder(
+		// Tick 1: latest says 3, but block 1 already left the window.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+			Return(nil, fmt.Errorf(
+				"polling pre-confirmed for number 1: %w", feeder.ErrPreConfirmedBlockNotFound,
+			)),
+		// Tick 2: storage is still empty, so the poller re-walks the full gap.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+			Return(block1, nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), uint64(2), "", uint64(0)).
+			Return(block2, nil),
+	)
+
+	synctest.Test(t, func(t *testing.T) {
+		h := wirePoller(t, fx.bc, fx.head, ds)
+		go h.poller.Run(t.Context())
+		synctest.Wait()
+
+		// Tick 1: the mid-fill not-found aborts the tick before any apply.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view := h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+		require.Zero(t, view.Length(), "backfill skipped: nothing applied this tick")
+
+		// Tick 2: the full gap backfills and the latest lands on top.
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		view = h.storage.SnapshotForBlock(oldestPreConfFor(h.head.Number))
+		assertChain(t, &view,
+			entry(1, &block1),
+			entry(2, &block2),
+			entry(3, &latestReply),
+		)
 	})
 }
 
