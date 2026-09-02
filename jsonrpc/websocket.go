@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -16,10 +17,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const (
-	closeReasonMaxBytes = 125
-	maxConns            = 2048 // TODO: an arbitrary default number, should be revisited after monitoring
-)
+const closeReasonMaxBytes = 125
 
 var serverBusyResponse = func() []byte {
 	b, err := json.Marshal(&response{
@@ -43,8 +41,10 @@ type Websocket struct {
 	requestTimeout time.Duration
 	gate           *Gate
 
-	// Add connection tracking
+	// connSem bounds concurrent connections
 	connSem *semaphore.Weighted
+	// maxSubscriptions caps every connection separately
+	maxSubscriptions int64
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, logger log.StructuredLogger) *Websocket {
@@ -57,15 +57,22 @@ func NewWebsocket(rpc *Server, shutdown <-chan struct{}, logger log.StructuredLo
 		connParams:    DefaultWebsocketConnParams(),
 		listener:      &SelectiveListener{},
 		shutdown:      shutdown,
-		connSem:       semaphore.NewWeighted(maxConns),
 	}
 
 	return ws
 }
 
-// WithMaxConnections sets the maximum number of concurrent websocket connections
-func (ws *Websocket) WithMaxConnections(maxConns int64) *Websocket {
-	ws.connSem = semaphore.NewWeighted(maxConns)
+// WithConnLimiter sets the semaphore that bounds concurrent websocket
+// connections. nil leaves them unbounded.
+func (ws *Websocket) WithConnLimiter(sem *semaphore.Weighted) *Websocket {
+	ws.connSem = sem
+	return ws
+}
+
+// WithMaxSubscriptions sets how many subscriptions one connection may hold at
+// once; zero or less leaves them unbounded.
+func (ws *Websocket) WithMaxSubscriptions(n int64) *Websocket {
+	ws.maxSubscriptions = n
 	return ws
 }
 
@@ -92,15 +99,17 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 	return ws
 }
 
-// ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
-// The connection's entire "lifetime" is spent in this function.
-func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// acquireConnSlot takes a connection slot
+func (ws *Websocket) acquireConnSlot(ctx context.Context, w http.ResponseWriter) bool {
+	if ws.connSem == nil {
+		return true
+	}
+
 	// Create a timeout context for the acquisition
 	const connTimeout = 5 * time.Second
-	acquireCtx, cancel := context.WithTimeout(r.Context(), connTimeout)
+	acquireCtx, cancel := context.WithTimeout(ctx, connTimeout)
 	defer cancel()
 
-	// Check connection limit
 	if err := ws.connSem.Acquire(acquireCtx, 1); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			ws.logger.Warn("Connection request timed out while waiting for slot")
@@ -108,9 +117,25 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			ws.logger.Warn("Connection request was canceled while waiting for slot")
 		}
+		return false
+	}
+
+	return true
+}
+
+func (ws *Websocket) releaseConnSlot() {
+	if ws.connSem != nil {
+		ws.connSem.Release(1)
+	}
+}
+
+// ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
+// The connection's entire "lifetime" is spent in this function.
+func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !ws.acquireConnSlot(r.Context(), w) {
 		return
 	}
-	defer ws.connSem.Release(1)
+	defer ws.releaseConnSlot()
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
@@ -132,7 +157,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	wsc := newWebsocketConn(ctx, conn, ws.connParams)
+	wsc := newWebsocketConn(ctx, conn, ws.connParams, ws.maxSubscriptions)
 
 	for {
 		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
@@ -210,15 +235,43 @@ type websocketConn struct {
 	conn   *websocket.Conn
 	ctx    context.Context
 	params *WebsocketConnParams
+
+	subscriptions    atomic.Int64
+	maxSubscriptions int64
 }
 
-func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams) *websocketConn {
+var _ SubscriptionSlots = (*websocketConn)(nil)
+
+func newWebsocketConn(
+	ctx context.Context,
+	conn *websocket.Conn,
+	params *WebsocketConnParams,
+	maxSubscriptions int64,
+) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
-		conn:   conn,
-		ctx:    ctx,
-		params: params,
+		conn:             conn,
+		ctx:              ctx,
+		params:           params,
+		maxSubscriptions: maxSubscriptions,
 	}
+}
+
+// TryAcquireSubscription takes a slot if the connection is below its limit
+func (wsc *websocketConn) TryAcquireSubscription() bool {
+	for {
+		held := wsc.subscriptions.Load()
+		if wsc.maxSubscriptions > 0 && held >= wsc.maxSubscriptions {
+			return false
+		}
+		if wsc.subscriptions.CompareAndSwap(held, held+1) {
+			return true
+		}
+	}
+}
+
+func (wsc *websocketConn) ReleaseSubscription() {
+	wsc.subscriptions.Add(-1)
 }
 
 func (wsc *websocketConn) Read(p []byte) (int, error) {

@@ -3,6 +3,7 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/semaphore"
 )
 
 // The caller is responsible for closing the connection.
@@ -266,7 +268,8 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	t.Parallel()
 
 	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
-	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithMaxConnections(2)
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
+		WithConnLimiter(semaphore.NewWeighted(2))
 	httpSrv := httptest.NewServer(ws)
 	defer httpSrv.Close()
 
@@ -351,4 +354,86 @@ func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 	_, got, err = connB.Read(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, `{"jsonrpc":"2.0","result":"hi","id":3}`, string(got))
+}
+
+func TestWebsocketSubscriptionSlotsArePerConnection(t *testing.T) {
+	const maxSubs = 2
+
+	connOf := func(ctx context.Context) (jsonrpc.Conn, *jsonrpc.Error) {
+		conn, ok := jsonrpc.ConnFromContext(ctx)
+		if !ok {
+			return nil, &jsonrpc.Error{Code: 1, Message: "no connection in context"}
+		}
+		return conn, nil
+	}
+
+	subscribe := jsonrpc.Method{
+		Name: "test_subscribe",
+		Handler: func(ctx context.Context) (string, *jsonrpc.Error) {
+			conn, rpcErr := connOf(ctx)
+			if rpcErr != nil {
+				return "", rpcErr
+			}
+			if !conn.TryAcquireSubscription() {
+				return "", &jsonrpc.Error{Code: 101, Message: "Too many subscriptions"}
+			}
+			return "subscribed", nil
+		},
+	}
+	unsubscribe := jsonrpc.Method{
+		Name: "test_unsubscribe",
+		Handler: func(ctx context.Context) (string, *jsonrpc.Error) {
+			conn, rpcErr := connOf(ctx)
+			if rpcErr != nil {
+				return "", rpcErr
+			}
+			conn.ReleaseSubscription()
+			return "unsubscribed", nil
+		},
+	}
+
+	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(subscribe, unsubscribe))
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
+		WithMaxSubscriptions(maxSubs)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	dial := func() *websocket.Conn {
+		conn, resp, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes it
+		require.NoError(t, err)
+		require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+		t.Cleanup(func() { conn.Close(websocket.StatusNormalClosure, "") })
+		return conn
+	}
+	call := func(conn *websocket.Conn, method string, id int) string {
+		require.NoError(t, conn.Write(t.Context(), websocket.MessageText,
+			[]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":%q,"id":%d}`, method, id))))
+		_, got, err := conn.Read(t.Context())
+		require.NoError(t, err)
+		return string(got)
+	}
+
+	const (
+		subscribed = `{"jsonrpc":"2.0","result":"subscribed","id":%d}`
+		tooMany    = `{"jsonrpc":"2.0","error":{"code":101,"message":"Too many subscriptions"},"id":%d}`
+	)
+
+	connA, connB := dial(), dial()
+
+	// Interleaved on purpose: if the budget were shared, connB's second call would
+	// be the fifth overall and would already be refused.
+	for i := 1; i <= maxSubs; i++ {
+		assert.JSONEq(t, fmt.Sprintf(subscribed, i), call(connA, "test_subscribe", i))
+		assert.JSONEq(t, fmt.Sprintf(subscribed, i), call(connB, "test_subscribe", i))
+	}
+
+	assert.JSONEq(t, fmt.Sprintf(tooMany, 3), call(connA, "test_subscribe", 3))
+	assert.JSONEq(t, fmt.Sprintf(tooMany, 3), call(connB, "test_subscribe", 3))
+
+	// A frees one of its own. B stays full, which is the isolation the test is for.
+	assert.JSONEq(t, `{"jsonrpc":"2.0","result":"unsubscribed","id":4}`,
+		call(connA, "test_unsubscribe", 4))
+	assert.JSONEq(t, fmt.Sprintf(subscribed, 5), call(connA, "test_subscribe", 5))
+	assert.JSONEq(t, fmt.Sprintf(tooMany, 5), call(connB, "test_subscribe", 5))
 }

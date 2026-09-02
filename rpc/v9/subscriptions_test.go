@@ -66,6 +66,10 @@ func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
 
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
+
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]

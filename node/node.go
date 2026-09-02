@@ -136,6 +136,8 @@ type Config struct {
 	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
 	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
 	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
+	RPCMaxWSConnections      uint          `mapstructure:"rpc-max-ws-connections"`
+	RPCMaxSubscriptions      uint          `mapstructure:"rpc-max-subscriptions"`
 	RPCMaxBatchSize          uint          `mapstructure:"rpc-max-batch-size"`
 	RPCMaxBatchResponseSize  uint          `mapstructure:"rpc-max-batch-response-size"`
 	RPCBatchConcurrency      uint          `mapstructure:"rpc-batch-concurrency"`
@@ -632,6 +634,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
 				rpcGate,
+				cfg.RPCMaxWSConnections,
+				cfg.RPCMaxSubscriptions,
 			),
 		)
 	}
