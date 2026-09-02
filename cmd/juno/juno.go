@@ -115,6 +115,8 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
 	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
+	rpcMaxWSConnectionsF                = "rpc-max-ws-connections"
+	rpcMaxSubscriptionsF                = "rpc-max-subscriptions"
 	rpcMaxBatchSizeF                    = "rpc-max-batch-size"
 	rpcMaxBatchResponseSizeF            = "rpc-max-batch-response-size"
 	rpcBatchConcurrencyF                = "rpc-batch-concurrency"
@@ -190,6 +192,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 1024
 	defaultRPCMaxQueuedRequests               = 2048
+	defaultRPCMaxWSConnections                = 2048
+	defaultRPCMaxSubscriptions                = 128
 	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
@@ -295,6 +299,12 @@ const (
 		"together; 0 disables the limit."
 	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
+	rpcMaxWSConnectionsUsage = "Maximum concurrent websocket connections, across all " +
+		"RPC versions. 0 disables the limit."
+	rpcMaxSubscriptionsUsage = "Maximum subscriptions one websocket connection may hold. " +
+		"The limit is per connection so that one client cannot take the slots another needs; " +
+		"multiplied by rpc-max-ws-connections it is the most the process will carry. " +
+		"0 disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
@@ -551,6 +561,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultRPCMaxQueuedRequests,
 		rpcMaxRequestQueueUsage,
 	)
+	junoCmd.Flags().Uint(rpcMaxWSConnectionsF, defaultRPCMaxWSConnections, rpcMaxWSConnectionsUsage)
+	junoCmd.Flags().Uint(rpcMaxSubscriptionsF, defaultRPCMaxSubscriptions, rpcMaxSubscriptionsUsage)
 	junoCmd.Flags().Uint(rpcMaxBatchSizeF, defaultRPCMaxBatchSize, rpcMaxBatchSizeUsage)
 	junoCmd.Flags().Uint(
 		rpcMaxBatchResponseSizeF,
@@ -576,6 +588,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcRequestTimeoutF,
 		rpcMaxConcurrentRequestsF,
 		rpcMaxRequestQueueF,
+		rpcMaxWSConnectionsF,
+		rpcMaxSubscriptionsF,
 		rpcMaxBatchSizeF,
 		rpcMaxBatchResponseSizeF,
 		rpcBatchConcurrencyF,

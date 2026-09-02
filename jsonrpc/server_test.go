@@ -931,6 +931,10 @@ type messageConn struct {
 	io.Writer
 }
 
+func (messageConn) TryAcquireSubscription() bool { return true }
+
+func (messageConn) ReleaseSubscription() {}
+
 func (fc *fakeConn) Write(p []byte) (int, error) {
 	return 0, nil
 }
@@ -942,6 +946,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
+
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
 
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
