@@ -32,6 +32,7 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 			`{"block_hash":"` + hash.String() + `","block_number":42}`,
 			rpc.BlockIDFromHash(hash),
 		},
+		{"null hash falls back to number", `{"block_hash":null,"block_number":42}`, rpc.BlockIDFromNumber(42)},
 	}
 
 	for _, test := range tests {
@@ -53,12 +54,30 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 		{"array", `[]`},
 		{"malformed hash", `{"block_hash":"not a felt"}`},
 		{"negative number", `{"block_number":-1}`},
+		{"null hash", `{"block_hash":null}`},
+		{"null number", `{"block_number":null}`},
 	}
 
 	for _, test := range errorTests {
 		t.Run("error/"+test.name, func(t *testing.T) {
 			var blockID rpc.BlockID
 			require.Error(t, json.Unmarshal([]byte(test.data), &blockID))
+		})
+	}
+
+	// encoding/json rejects malformed input before it reaches the unmarshaler, so call it directly.
+	rawErrorTests := []struct {
+		name string
+		data string
+	}{
+		{"blank input", "  \n\t"},
+		{"unterminated tag", `"latest`},
+	}
+
+	for _, test := range rawErrorTests {
+		t.Run("error/"+test.name, func(t *testing.T) {
+			var blockID rpc.BlockID
+			require.Error(t, blockID.UnmarshalJSON([]byte(test.data)))
 		})
 	}
 }

@@ -149,12 +149,12 @@ func (b *BlockID) Number() uint64 {
 	return b.data[0]
 }
 
-type blockIDObject struct {
-	BlockHash   *felt.Felt `json:"block_hash"`
-	BlockNumber *uint64    `json:"block_number"`
-}
-
 func (b *BlockID) UnmarshalJSON(data []byte) error {
+	type blockIDObject struct {
+		BlockHash   *felt.Felt `json:"block_hash"`
+		BlockNumber *uint64    `json:"block_number"`
+	}
+
 	trimmed := bytes.TrimLeft(data, " \t\r\n")
 	if len(trimmed) == 0 {
 		return errors.New("cannot unmarshal block id")
