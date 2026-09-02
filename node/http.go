@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sourcegraph/conc"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 )
 
@@ -145,6 +146,8 @@ func makeRPCOverWebsocket(
 	corsEnabled bool,
 	rpcRequestTimeout time.Duration,
 	gate *jsonrpc.Gate,
+	maxConns uint,
+	maxSubscriptions uint,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -153,11 +156,20 @@ func makeRPCOverWebsocket(
 
 	shutdown := make(chan struct{})
 
+	// One connection limiter shared by the per-version handlers below. Zero means
+	// no limit.
+	var connLimiter *semaphore.Weighted
+	if maxConns > 0 {
+		connLimiter = semaphore.NewWeighted(int64(maxConns))
+	}
+
 	mux := http.NewServeMux()
 	for path, server := range servers {
 		wsHandler := jsonrpc.NewWebsocket(server, shutdown, logger).
 			WithRequestTimeout(rpcRequestTimeout).
-			WithGate(gate)
+			WithGate(gate).
+			WithConnLimiter(connLimiter).
+			WithMaxSubscriptions(int64(maxSubscriptions))
 		if listener != nil {
 			wsHandler = wsHandler.WithListener(listener)
 		}

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	stdsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -64,6 +65,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
+
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
 
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.Block]
@@ -2883,4 +2888,89 @@ func GetTestBlockWithCommitments(
 	}
 
 	return adaptedBlock, commitments, adaptedState
+}
+
+// limitedConn is a fakeConn that also caps its subscriptions, which is what a
+// real websocket connection does. Equal is redeclared because fakeConn's asserts
+// on *fakeConn and would not recognise this type, and Unsubscribe compares the
+// stored connection to the caller's.
+type limitedConn struct {
+	*fakeConn
+	held atomic.Int64
+	max  int64
+}
+
+func (lc *limitedConn) Equal(other jsonrpc.Conn) bool {
+	other2, ok := other.(*limitedConn)
+	if !ok {
+		return false
+	}
+	return lc.w == other2.w
+}
+
+func (lc *limitedConn) TryAcquireSubscription() bool {
+	for {
+		held := lc.held.Load()
+		if held >= lc.max {
+			return false
+		}
+		if lc.held.CompareAndSwap(held, held+1) {
+			return true
+		}
+	}
+}
+
+func (lc *limitedConn) ReleaseSubscription() {
+	lc.held.Add(-1)
+}
+
+func TestSubscribeRespectsConnectionLimit(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, 56377)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, logger)
+
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	connCtx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	conn := &limitedConn{
+		fakeConn: &fakeConn{Conn: clientConn, w: serverConn, ctx: connCtx},
+		max:      1,
+	}
+	ctx := context.WithValue(connCtx, jsonrpc.ConnKey{}, conn)
+
+	blockIDLatest := BlockIDLatest()
+	subBlockID := (*SubscriptionBlockID)(&blockIDLatest)
+
+	subID, rpcErr := handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
+	assert.Equal(t, int64(1), conn.held.Load())
+
+	_, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	assert.Equal(t, rpccore.ErrTooManySubscriptions, rpcErr)
+	assert.Equal(t, int64(1), conn.held.Load(), "a refused call must not take a slot")
+
+	ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+	assert.Equal(t, int64(0), conn.held.Load(), "the slot is free once Unsubscribe returns")
+
+	subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
 }

@@ -287,10 +287,12 @@ type Conn interface {
 	io.Writer
 	Equal(Conn) bool
 	Context() context.Context
+	SubscriptionSlots
 }
 
 type connection struct {
 	w         io.Writer
+	slots     SubscriptionSlots
 	activated <-chan struct{}
 	ctx       context.Context
 
@@ -320,6 +322,28 @@ func (c *connection) Context() context.Context {
 	return c.ctx
 }
 
+// SubscriptionSlots caps how many subscriptions one connection carries at once.
+type SubscriptionSlots interface {
+	// TryAcquireSubscription reserves a slot without waiting
+	TryAcquireSubscription() bool
+	// ReleaseSubscription returns a slot taken by TryAcquireSubscription
+	ReleaseSubscription()
+}
+
+// Transport is what HandleReadWriter needs of a connection
+type Transport interface {
+	io.ReadWriter
+	SubscriptionSlots
+}
+
+func (c *connection) TryAcquireSubscription() bool {
+	return c.slots.TryAcquireSubscription()
+}
+
+func (c *connection) ReleaseSubscription() {
+	c.slots.ReleaseSubscription()
+}
+
 // ConnKey the key used to retrieve the connection from the context passed to a handler.
 // It is exported to allow transports to set it manually if they decide not to use HandleReadWriter, which sets it automatically.
 // Manually setting the connection can be especially useful when testing handlers.
@@ -343,12 +367,13 @@ func ConnFromContext(ctx context.Context) (Conn, bool) {
 func (s *Server) HandleReadWriter(
 	connCtx context.Context,
 	requestTimeout time.Duration,
-	rw io.ReadWriter,
+	rw Transport,
 ) error {
 	activated := make(chan struct{})
 	defer close(activated)
 	conn := &connection{
-		w:         rw.(io.Writer),
+		w:         rw,
+		slots:     rw,
 		activated: activated,
 		ctx:       connCtx,
 	}
