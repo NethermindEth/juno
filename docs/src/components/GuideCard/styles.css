@@ -51,7 +51,7 @@
 .guide-card-icon::before {
   content: counter(guide, decimal-leading-zero);
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   color: var(--juno-ink-3);
   letter-spacing: 0.02em;
@@ -68,14 +68,14 @@
 
 .guide-card-title {
   font-weight: 600;
-  font-size: 0.98rem;
+  font-size: 1rem;
   line-height: 1.45;
   letter-spacing: -0.005em;
   color: var(--juno-ink);
 }
 
 .guide-card-description {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   line-height: 1.55;
   color: var(--juno-ink-2);
 }

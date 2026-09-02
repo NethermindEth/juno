@@ -13,15 +13,27 @@
  * through those tokens, so neither theme can end up with one theme's text on
  * the other's ground.
  *
- * Muted text (--juno-ink-3) carries descriptions, breadcrumbs, TOC links and
- * table headers — all small text. It is tuned against the PANEL colour rather
- * than the page ground, because the panel is the tighter constraint and the
- * same token is used on both. Do not lighten it back for looks.
+ * Text tokens make a three-step ladder — base, --juno-ink-2, --juno-ink-3 —
+ * each measured on the ground it actually sits on. --juno-ink-3 carries the
+ * mono micro-labels (breadcrumbs, sidebar categories, TOC, table headers,
+ * code-block titles), so its tightest ground is --juno-panel-2: it holds
+ * 6.5:1 there in dark and 5.8:1 in light. WCAG AA (4.5:1) is the floor for
+ * 16px body text, not a target for 13px uppercase text at 0.06em tracking —
+ * the earlier values scraped 4.28:1 dark and 4.36:1 light and read as unlit.
+ * Keep those three steps at least 1.2 apart, or they collapse into one grey.
+ *
+ * --ifm-font-size-base is a PERCENTAGE, not px. It lands on html, so it sets
+ * the rem unit for every size below AND keeps the reader's own browser font
+ * setting in play; a px value silently overrides that setting.
+ *
+ * --juno-label-size is the floor for the mono uppercase labels, which ran
+ * 0.68–0.72rem: the smallest text on the page carried the dimmest token.
  *
  * Colour note: the brand orange #ff4a04 is 3.37:1 on white, under WCAG AA for
  * body text. Light mode therefore uses a hue-matched darker orange for anything
  * rendered as text; #ff4a04 stays as the non-text brand accent and as the top
- * step of the light ramp. Dark mode keeps #ff4a04, which clears AA at 5.10:1.
+ * step of the light ramp. Dark mode lightens it to #ff7a45 for the same reason
+ * — the ramp there is text-facing too — and keeps #ff4a04 as --juno-orange.
  */
 
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap");
@@ -32,14 +44,17 @@
   --juno-navy: #1b1b50;
 
   /* Primary ramp, hue and saturation of the brand orange, darkened until the
-     base clears 4.5:1 on white. Declaring the whole ramp is what stops Infima
-     falling back to its default blue on hover and active states. */
-  --ifm-color-primary-darkest: #9d2c00;
-  --ifm-color-primary-darker: #ac3000;
-  --ifm-color-primary-dark: #be3500;
-  --ifm-color-primary: #cb3900;
-  --ifm-color-primary-light: #e23f00;
-  --ifm-color-primary-lighter: #f44400;
+     base holds 6:1 on the page ground. Declaring the whole ramp is what stops
+     Infima falling back to its default blue on hover and active states.
+     6:1 rather than a bare AA pass because --ifm-color-primary is also
+     --ifm-link-color: at 4.72:1 the links sat at half the contrast of the
+     prose around them and read as the dimmest text on the page. */
+  --ifm-color-primary-darkest: #802400;
+  --ifm-color-primary-darker: #8f2800;
+  --ifm-color-primary-dark: #a12d00;
+  --ifm-color-primary: #ae3100;
+  --ifm-color-primary-light: #ca3900;
+  --ifm-color-primary-lighter: #e74100;
   --ifm-color-primary-lightest: #ff4a04;
 
   --ifm-background-color: #f6f6f8;
@@ -47,10 +62,10 @@
   --juno-panel-2: #ececf4;
   --juno-rule: #e0e0ec;
   --juno-rule-soft: #ebebf3;
-  --ifm-font-color-base: #4a4a68;
+  --ifm-font-color-base: #3e3e57;
   --juno-ink: #12123a;
-  --juno-ink-2: #595974;
-  --juno-ink-3: #6b6b8b;
+  --juno-ink-2: #4d4d65;
+  --juno-ink-3: #585873;
   --juno-ok: #0f7a4a;
 
   --ifm-font-family-base: "DM Sans", -apple-system, BlinkMacSystemFont,
@@ -60,8 +75,9 @@
   --ifm-heading-color: var(--juno-navy);
   --ifm-heading-font-weight: 600;
   --ifm-line-height-base: 1.75;
-  --ifm-font-size-base: 16px;
-  --ifm-code-font-size: 88%;
+  --ifm-font-size-base: 106.25%;
+  --ifm-code-font-size: 90%;
+  --juno-label-size: 0.76rem;
 
   --ifm-global-radius: 3px;
   --ifm-code-border-radius: 2px;
@@ -89,10 +105,10 @@
   --juno-panel-2: #161636;
   --juno-rule: #23234d;
   --juno-rule-soft: #1b1b3d;
-  --ifm-font-color-base: #a5a5c4;
+  --ifm-font-color-base: #c1c1d7;
   --juno-ink: #e8e8f4;
-  --juno-ink-2: #9595af;
-  --juno-ink-3: #7b7b9b;
+  --juno-ink-2: #aaaabf;
+  --juno-ink-3: #9c9cb4;
   --juno-ok: #3ddc97;
 
   /* Navy is unreadable on this ground; headings take the base ink. */
@@ -158,7 +174,7 @@ html {
 
 .navbar__link {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--juno-ink-3);
@@ -186,7 +202,7 @@ html {
 
 .menu {
   padding: 1.25rem 0.75rem !important;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
 }
 
 /* Pages read as links: body face at body weight — a declaration on the
@@ -227,7 +243,7 @@ html {
 
 .theme-doc-sidebar-menu .menu__list-item-collapsible .menu__link {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.72rem;
+  font-size: var(--juno-label-size);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -348,7 +364,7 @@ html {
 /* ── Chrome: breadcrumbs and TOC ───────────────────────────────────── */
 .theme-doc-breadcrumbs {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.72rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -365,7 +381,7 @@ html {
 }
 
 .table-of-contents {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   border-left: 1px solid var(--juno-rule);
 }
 
@@ -426,7 +442,7 @@ html {
 /* Native ```lang title="…" header, styled as a command-block label. */
 div[class^="codeBlockTitle"] {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.7rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--juno-ink-3);
@@ -442,7 +458,7 @@ code {
    ground. Restyle it as a quiet monospace tag in both modes. */
 .theme-doc-version-badge {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--juno-ink-3);
@@ -460,7 +476,7 @@ code {
    rail, a tinted panel, and a monospace label. Semantic hue is kept —
    it carries meaning — but desaturated to sit inside the theme. */
 :root {
-  --juno-note: #5c5c7a;
+  --juno-note: #595977;
   --juno-tip: #0f7a5a;
   --juno-info: #2b5f9e;
   --juno-warn: #8a5a00;
@@ -468,7 +484,7 @@ code {
 }
 
 :root[data-theme="dark"] {
-  --juno-note: #8a8aa8;
+  --juno-note: #9898b2;
   --juno-tip: #4ec49a;
   --juno-info: #7aa8e6;
   --juno-warn: #d9a441;
@@ -488,7 +504,7 @@ code {
 .theme-admonition .admonitionHeading_Gvgb,
 .theme-admonition div[class*="admonitionHeading"] {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
+  font-size: var(--juno-label-size);
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -552,7 +568,7 @@ div[class*="codeBlockContent"] {
   display: table;
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.94rem;
 }
 
 .markdown table thead tr {
@@ -562,7 +578,7 @@ div[class*="codeBlockContent"] {
 
 .markdown table th {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--juno-ink-3);
@@ -596,7 +612,7 @@ div[class*="codeBlockContent"] {
 
 .footer__title {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--juno-ink-3);
@@ -609,7 +625,7 @@ div[class*="codeBlockContent"] {
 
 .pagination-nav__sublabel {
   font-family: var(--ifm-font-family-monospace);
-  font-size: 0.68rem;
+  font-size: var(--juno-label-size);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
