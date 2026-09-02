@@ -124,15 +124,30 @@ html {
   text-decoration: underline;
 }
 
+/* Frosted top bar. The blur must live on a pseudo-element, NOT on .navbar
+   itself: a non-none backdrop-filter turns the nav into the containing
+   block for fixed-position descendants (Filter Effects L2), and Docusaurus
+   renders the mobile drawer and its scrim INSIDE <nav> — pinned to a
+   52px-tall bar, the drawer's item list computes to height 0 and the
+   burger menu opens empty. On ::before the filter has nothing to capture:
+   the nav is sticky (positioned, own stacking context), so the pseudo
+   fills it at z-index -1 while the drawer escapes to the viewport. */
 .navbar {
   background-color: color-mix(
     in srgb,
     var(--ifm-background-color) 86%,
     transparent
   );
-  backdrop-filter: saturate(160%) blur(10px);
   border-bottom: 1px solid var(--juno-rule);
   padding: 0 1.25rem;
+}
+
+.navbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: saturate(160%) blur(10px);
 }
 
 .navbar__title {
