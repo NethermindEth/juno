@@ -966,7 +966,11 @@ func requireProofSetInvariant(t *testing.T, proofSet *trie.ProofNodeSet, hashFn 
 	}
 }
 
-func requireProofNodeSetEqual(t *testing.T, expected, actual *trie.ProofNodeSet, hash crypto.HashFn) {
+func requireProofNodeSetEqual(
+	t *testing.T,
+	expected, actual *trie.ProofNodeSet,
+	hash crypto.HashFn,
+) {
 	t.Helper()
 
 	require.Equal(t, expected.Size(), actual.Size())

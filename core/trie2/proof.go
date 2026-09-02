@@ -125,76 +125,119 @@ func (t *Trie) proveMultiFrom(
 		return nil
 	}
 
+	continuingPaths := nonEmptyPaths(paths)
+	if len(continuingPaths) == 0 {
+		return nil
+	}
+
+	rootNode, err := t.resolveProofNode(rootNode, prefix)
+	if err != nil {
+		return err
+	}
+
+	switch n := rootNode.(type) {
+	case *trienode.EdgeNode:
+		return t.proveMultiFromEdge(n, prefix, continuingPaths, isRoot, hasher, proof)
+	case *trienode.BinaryNode:
+		return t.proveMultiFromBinary(n, prefix, continuingPaths, isRoot, hasher, proof)
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
+}
+
+func nonEmptyPaths(paths []Path) []Path {
 	continuingPaths := paths[:0]
 	for i := range paths {
 		if paths[i].Len() > 0 {
 			continuingPaths = append(continuingPaths, paths[i])
 		}
 	}
-	if len(continuingPaths) == 0 {
-		return nil
-	}
+	return continuingPaths
+}
 
+func (t *Trie) resolveProofNode(rootNode trienode.Node, prefix Path) (trienode.Node, error) {
 	for {
 		hashNode, ok := rootNode.(*trienode.HashNode)
 		if !ok {
-			break
+			return rootNode, nil
 		}
 
 		resolved, err := t.resolveNode(hashNode, prefix)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		rootNode = resolved
 	}
+}
 
-	switch n := rootNode.(type) {
-	case *trienode.EdgeNode:
-		addProofNode(proof, hasher, n, isRoot)
+func (t *Trie) proveMultiFromEdge(
+	node *trienode.EdgeNode,
+	prefix Path,
+	paths []Path,
+	isRoot bool,
+	hasher *hasher,
+	proof *ProofNodeSet,
+) error {
+	addProofNode(proof, hasher, node, isRoot)
 
-		matchingPaths := continuingPaths[:0]
-		for i := range continuingPaths {
-			if n.PathMatches(&continuingPaths[i]) {
-				var remaining Path
-				remaining.LSBs(&continuingPaths[i], n.Path.Len())
-				if remaining.Len() > 0 {
-					matchingPaths = append(matchingPaths, remaining)
-				}
-			}
-		}
-		if len(matchingPaths) == 0 {
-			return nil
-		}
-
-		var childPrefix Path
-		childPrefix.Append(&prefix, n.Path)
-		return t.proveMultiFrom(n.Child, childPrefix, matchingPaths, false, hasher, proof)
-	case *trienode.BinaryNode:
-		addProofNode(proof, hasher, n, isRoot)
-
-		rightStart := len(continuingPaths)
-		for i := range continuingPaths {
-			if continuingPaths[i].MSB() == 1 {
-				rightStart = i
-				break
-			}
-		}
-
-		leftPaths := dropMSB(continuingPaths[:rightStart])
-		rightPaths := dropMSB(continuingPaths[rightStart:])
-
-		var leftPrefix Path
-		leftPrefix.AppendBit(&prefix, 0)
-		if err := t.proveMultiFrom(n.Left(), leftPrefix, leftPaths, false, hasher, proof); err != nil {
-			return err
-		}
-
-		var rightPrefix Path
-		rightPrefix.AppendBit(&prefix, 1)
-		return t.proveMultiFrom(n.Right(), rightPrefix, rightPaths, false, hasher, proof)
-	default:
-		panic(fmt.Sprintf("unknown node type: %T", n))
+	matchingPaths := matchingEdgePaths(node, paths)
+	if len(matchingPaths) == 0 {
+		return nil
 	}
+
+	var childPrefix Path
+	childPrefix.Append(&prefix, node.Path)
+	return t.proveMultiFrom(node.Child, childPrefix, matchingPaths, false, hasher, proof)
+}
+
+func matchingEdgePaths(node *trienode.EdgeNode, paths []Path) []Path {
+	matchingPaths := paths[:0]
+	for i := range paths {
+		if node.PathMatches(&paths[i]) {
+			var remaining Path
+			remaining.LSBs(&paths[i], node.Path.Len())
+			if remaining.Len() > 0 {
+				matchingPaths = append(matchingPaths, remaining)
+			}
+		}
+	}
+	return matchingPaths
+}
+
+func (t *Trie) proveMultiFromBinary(
+	node *trienode.BinaryNode,
+	prefix Path,
+	paths []Path,
+	isRoot bool,
+	hasher *hasher,
+	proof *ProofNodeSet,
+) error {
+	addProofNode(proof, hasher, node, isRoot)
+
+	leftPaths, rightPaths := splitPathsByMSB(paths)
+	leftPaths = dropMSB(leftPaths)
+	rightPaths = dropMSB(rightPaths)
+
+	var leftPrefix Path
+	leftPrefix.AppendBit(&prefix, 0)
+	if err := t.proveMultiFrom(node.Left(), leftPrefix, leftPaths, false, hasher, proof); err != nil {
+		return err
+	}
+
+	var rightPrefix Path
+	rightPrefix.AppendBit(&prefix, 1)
+	return t.proveMultiFrom(node.Right(), rightPrefix, rightPaths, false, hasher, proof)
+}
+
+func splitPathsByMSB(paths []Path) ([]Path, []Path) {
+	rightStart := len(paths)
+	for i := range paths {
+		if paths[i].MSB() == 1 {
+			rightStart = i
+			break
+		}
+	}
+	return paths[:rightStart], paths[rightStart:]
 }
 
 func addProofNode(proof *ProofNodeSet, hasher *hasher, node trienode.Node, isRoot bool) {

@@ -50,7 +50,9 @@ func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return contract.Nonce, nil
 }
 
-func (s *StateReader) ContractMetadata(addr *felt.Felt) (classHash, nonce, storageRoot felt.Felt, err error) {
+func (s *StateReader) ContractMetadata(
+	addr *felt.Felt,
+) (classHash, nonce, storageRoot felt.Felt, err error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, felt.Felt{}, felt.Felt{}, err

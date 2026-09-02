@@ -162,62 +162,30 @@ func (t *Trie) proveMultiFrom(
 	knownNode *Node,
 	proof *ProofNodeSet,
 ) error {
-	if cur == nil || len(keys) == 0 {
-		return nil
-	}
-	// proof nodes set "nil" nodes to zero. This mirrors nodesFromRoot for non-root children.
-	if parentKey != nil && cur.len == 0 {
+	if shouldSkipMultiProofNode(cur, parentKey, keys) {
 		return nil
 	}
 
-	node := knownNode
-	if node == nil {
-		readNode, err := t.readStorage.Get(cur)
-		if err != nil {
-			return err
-		}
-		node = readNode
+	node, err := t.proofNode(cur, knownNode)
+	if err != nil {
+		return err
 	}
 
-	continuingKeys := keys[:0]
-	for i := range keys {
-		if cur.Len() < keys[i].Len() && keys[i].EqualMSBs(cur) {
-			continuingKeys = append(continuingKeys, keys[i])
-		}
+	continuingKeys := multiProofKeysForNode(cur, keys)
+	leftKeys, rightKeys := splitKeysByBit(continuingKeys, cur.Len())
+
+	knownChildren, leftNode, rightNode, err := t.readKnownProofChildren(node, leftKeys, rightKeys)
+	if err != nil {
+		return err
 	}
 
-	rightStart := len(continuingKeys)
-	for i := range continuingKeys {
-		if continuingKeys[i].IsBitSet(cur.Len()) {
-			rightStart = i
-			break
-		}
-	}
-
-	var knownChildren []*StorageNode
-	var leftNode *Node
-	leftKeys := continuingKeys[:rightStart]
-	if len(leftKeys) > 0 && node.Left != nil && node.Left.len != 0 {
-		readNode, err := t.readStorage.Get(node.Left)
-		if err != nil {
-			return err
-		}
-		leftNode = readNode
-		knownChildren = append(knownChildren, &StorageNode{key: node.Left, node: leftNode})
-	}
-
-	var rightNode *Node
-	rightKeys := continuingKeys[rightStart:]
-	if len(rightKeys) > 0 && node.Right != nil && node.Right.len != 0 {
-		readNode, err := t.readStorage.Get(node.Right)
-		if err != nil {
-			return err
-		}
-		rightNode = readNode
-		knownChildren = append(knownChildren, &StorageNode{key: node.Right, node: rightNode})
-	}
-
-	binary, err := t.addProofNode(parentKey, StorageNode{key: cur, node: node}, carriedHash, proof, knownChildren...)
+	binary, err := t.addProofNode(
+		parentKey,
+		StorageNode{key: cur, node: node},
+		carriedHash,
+		proof,
+		knownChildren...,
+	)
 	if err != nil {
 		return err
 	}
@@ -239,6 +207,83 @@ func (t *Trie) proveMultiFrom(
 		rightHash = binary.RightHash
 	}
 	return t.proveMultiFrom(node.Right, cur, rightKeys, rightHash, rightNode, proof)
+}
+
+func shouldSkipMultiProofNode(cur, parentKey *BitArray, keys []BitArray) bool {
+	if cur == nil || len(keys) == 0 {
+		return true
+	}
+	// Proof nodes set "nil" nodes to zero. This mirrors nodesFromRoot for non-root children.
+	return parentKey != nil && cur.len == 0
+}
+
+func (t *Trie) proofNode(cur *BitArray, knownNode *Node) (*Node, error) {
+	if knownNode != nil {
+		return knownNode, nil
+	}
+	return t.readStorage.Get(cur)
+}
+
+func multiProofKeysForNode(cur *BitArray, keys []BitArray) []BitArray {
+	continuingKeys := keys[:0]
+	for i := range keys {
+		if cur.Len() < keys[i].Len() && keys[i].EqualMSBs(cur) {
+			continuingKeys = append(continuingKeys, keys[i])
+		}
+	}
+	return continuingKeys
+}
+
+func splitKeysByBit(keys []BitArray, bitIndex uint8) ([]BitArray, []BitArray) {
+	rightStart := len(keys)
+	for i := range keys {
+		if keys[i].IsBitSet(bitIndex) {
+			rightStart = i
+			break
+		}
+	}
+	return keys[:rightStart], keys[rightStart:]
+}
+
+func (t *Trie) readKnownProofChildren(
+	node *Node,
+	leftKeys, rightKeys []BitArray,
+) ([]*StorageNode, *Node, *Node, error) {
+	var knownChildren []*StorageNode
+
+	leftNode, leftChild, err := t.readKnownProofChild(leftKeys, node.Left)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if leftChild != nil {
+		knownChildren = append(knownChildren, leftChild)
+	}
+
+	rightNode, rightChild, err := t.readKnownProofChild(rightKeys, node.Right)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if rightChild != nil {
+		knownChildren = append(knownChildren, rightChild)
+	}
+
+	return knownChildren, leftNode, rightNode, nil
+}
+
+func (t *Trie) readKnownProofChild(
+	keys []BitArray,
+	childKey *BitArray,
+) (*Node, *StorageNode, error) {
+	if len(keys) == 0 || childKey == nil || childKey.len == 0 {
+		return nil, nil, nil
+	}
+
+	node, err := t.readStorage.Get(childKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return node, &StorageNode{key: childKey, node: node}, nil
 }
 
 func (t *Trie) addProofNode(

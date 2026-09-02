@@ -1577,170 +1577,226 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 }
 
 func BenchmarkStorageProof(b *testing.B) {
-	var (
-		blkHash     = felt.NewFromUint64[felt.Felt](0x11ead)
-		key         = felt.NewFromUint64[felt.Felt](1)
-		key2        = felt.NewFromUint64[felt.Felt](8)
-		noSuchKey   = felt.NewFromUint64[felt.Felt](0)
-		contract    = felt.NewFromUint64[felt.Felt](0xadd0)
-		nonce       = felt.NewFromUint64[felt.Felt](121)
-		classHash   = felt.NewFromUint64[felt.Felt](1234)
-		blockLatest = rpc.BlockIDLatest()
-		blockNumber = uint64(1313)
-		oldBlock    = rpc.BlockIDFromNumber(1)
-	)
-
-	smallClasses := []felt.Felt{*key, *key2}
-	smallContracts := []felt.Felt{*contract}
-	storageTrieKeys := []felt.Felt{*key, *key2}
-	manyClasses := benchmarkUnsortedFelts(0x1000, 128)
-	manyContracts := benchmarkUnsortedFelts(0x2000, 128)
-
-	setup := func(
-		b *testing.B,
-		classTrieKeys []felt.Felt,
-		contractTrieKeys []felt.Felt,
-		storageTrieKeys []felt.Felt,
-	) (*rpc.Handler, func()) {
-		b.Helper()
-
-		classTrie, contractTrie, storageTrie := benchmarkStorageProofTries(b, classTrieKeys, contractTrieKeys, storageTrieKeys)
-		mockCtrl := gomock.NewController(b)
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockState := mocks.NewMockStateReader(mockCtrl)
-
-		mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).Return(blkHash, nil).AnyTimes()
-		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
-
-		mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()
-		mockState.EXPECT().ContractTrie().Return(contractTrie, nil).AnyTimes()
-		mockState.EXPECT().ContractNonce(gomock.Any()).Return(*nonce, nil).AnyTimes()
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*classHash, nil).AnyTimes()
-		mockState.EXPECT().ContractStorageTrie(gomock.Any()).Return(storageTrie, nil).AnyTimes()
-
-		return rpc.New(mockReader, nil, nil, log.NewNopZapLogger()), mockCtrl.Finish
+	fixture := newStorageProofBenchmarkFixture()
+	cases := fixture.cases()
+	for i := range cases {
+		tc := &cases[i]
+		b.Run(tc.name, func(b *testing.B) {
+			benchmarkStorageProofCase(b, fixture, tc)
+		})
 	}
+}
 
-	b.Run("empty latest", func(b *testing.B) {
-		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
-		defer finish()
+type storageProofBenchmarkFixture struct {
+	blkHash        *felt.Felt
+	key            *felt.Felt
+	key2           *felt.Felt
+	noSuchKey      *felt.Felt
+	contract       *felt.Felt
+	nonce          *felt.Felt
+	classHash      *felt.Felt
+	blockLatest    rpc.BlockID
+	blockNumber    uint64
+	oldBlock       rpc.BlockID
+	smallClasses   []felt.Felt
+	smallContracts []felt.Felt
+	storageKeys    []felt.Felt
+	manyClasses    []felt.Felt
+	manyContracts  []felt.Felt
+}
 
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, nil)
-			if rpcErr != nil {
-				b.Fatal(rpcErr)
-			}
-			if proof == nil {
-				b.Fatal("expected proof")
-			}
+type storageProofBenchmarkCase struct {
+	name             string
+	classTrieKeys    []felt.Felt
+	contractTrieKeys []felt.Felt
+	storageTrieKeys  []felt.Felt
+	classes          []felt.Felt
+	contracts        []felt.Felt
+	storageKeys      []rpc.StorageKeys
+	blockID          rpc.BlockID
+	want             storageProofBenchmarkResult
+}
+
+type storageProofBenchmarkResult uint8
+
+const (
+	storageProofBenchmarkSuccess storageProofBenchmarkResult = iota
+	storageProofBenchmarkUnsupported
+	storageProofBenchmarkMissingContract
+)
+
+func newStorageProofBenchmarkFixture() *storageProofBenchmarkFixture {
+	key := felt.NewFromUint64[felt.Felt](1)
+	key2 := felt.NewFromUint64[felt.Felt](8)
+	contract := felt.NewFromUint64[felt.Felt](0xadd0)
+
+	return &storageProofBenchmarkFixture{
+		blkHash:        felt.NewFromUint64[felt.Felt](0x11ead),
+		key:            key,
+		key2:           key2,
+		noSuchKey:      felt.NewFromUint64[felt.Felt](0),
+		contract:       contract,
+		nonce:          felt.NewFromUint64[felt.Felt](121),
+		classHash:      felt.NewFromUint64[felt.Felt](1234),
+		blockLatest:    rpc.BlockIDLatest(),
+		blockNumber:    1313,
+		oldBlock:       rpc.BlockIDFromNumber(1),
+		smallClasses:   []felt.Felt{*key, *key2},
+		smallContracts: []felt.Felt{*contract},
+		storageKeys:    []felt.Felt{*key, *key2},
+		manyClasses:    benchmarkUnsortedFelts(0x1000, 128),
+		manyContracts:  benchmarkUnsortedFelts(0x2000, 128),
+	}
+}
+
+func (f *storageProofBenchmarkFixture) cases() []storageProofBenchmarkCase {
+	return []storageProofBenchmarkCase{
+		{
+			name:             "empty latest",
+			classTrieKeys:    f.smallClasses,
+			contractTrieKeys: f.smallContracts,
+			storageTrieKeys:  f.storageKeys,
+			blockID:          f.blockLatest,
+		},
+		{
+			name:             "class contract and storage proofs",
+			classTrieKeys:    f.smallClasses,
+			contractTrieKeys: f.smallContracts,
+			storageTrieKeys:  f.storageKeys,
+			classes:          f.smallClasses,
+			contracts:        f.smallContracts,
+			storageKeys: []rpc.StorageKeys{{
+				Contract: f.contract,
+				Keys:     []felt.Felt{*f.key, *f.key2, *f.noSuchKey},
+			}},
+			blockID: f.blockLatest,
+		},
+		{
+			name:             "many classes",
+			classTrieKeys:    f.manyClasses,
+			contractTrieKeys: f.smallContracts,
+			storageTrieKeys:  f.storageKeys,
+			classes:          f.manyClasses,
+			blockID:          f.blockLatest,
+		},
+		{
+			name:             "many contracts",
+			classTrieKeys:    f.smallClasses,
+			contractTrieKeys: f.manyContracts,
+			storageTrieKeys:  f.storageKeys,
+			contracts:        f.manyContracts,
+			blockID:          f.blockLatest,
+		},
+		{
+			name:             "many classes and contracts",
+			classTrieKeys:    f.manyClasses,
+			contractTrieKeys: f.manyContracts,
+			storageTrieKeys:  f.storageKeys,
+			classes:          f.manyClasses,
+			contracts:        f.manyContracts,
+			blockID:          f.blockLatest,
+		},
+		{
+			name:             "unsupported historical block",
+			classTrieKeys:    f.smallClasses,
+			contractTrieKeys: f.smallContracts,
+			storageTrieKeys:  f.storageKeys,
+			blockID:          f.oldBlock,
+			want:             storageProofBenchmarkUnsupported,
+		},
+		{
+			name:             "invalid storage keys",
+			classTrieKeys:    f.smallClasses,
+			contractTrieKeys: f.smallContracts,
+			storageTrieKeys:  f.storageKeys,
+			storageKeys:      []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*f.key}}},
+			blockID:          f.blockLatest,
+			want:             storageProofBenchmarkMissingContract,
+		},
+	}
+}
+
+func benchmarkStorageProofCase(
+	b *testing.B,
+	fixture *storageProofBenchmarkFixture,
+	tc *storageProofBenchmarkCase,
+) {
+	b.Helper()
+
+	handler, finish := fixture.setup(
+		b,
+		tc.classTrieKeys,
+		tc.contractTrieKeys,
+		tc.storageTrieKeys,
+	)
+	defer finish()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		proof, rpcErr := handler.StorageProof(&tc.blockID, tc.classes, tc.contracts, tc.storageKeys)
+		checkStorageProofBenchmarkResult(b, proof, rpcErr, tc.want)
+	}
+}
+
+func (f *storageProofBenchmarkFixture) setup(
+	b *testing.B,
+	classTrieKeys []felt.Felt,
+	contractTrieKeys []felt.Felt,
+	storageTrieKeys []felt.Felt,
+) (*rpc.Handler, func()) {
+	b.Helper()
+
+	classTrie, contractTrie, storageTrie := benchmarkStorageProofTries(
+		b,
+		classTrieKeys,
+		contractTrieKeys,
+		storageTrieKeys,
+	)
+	mockCtrl := gomock.NewController(b)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
+
+	mockReader.EXPECT().Height().Return(f.blockNumber, nil).AnyTimes()
+	mockReader.EXPECT().BlockHeaderHashByNumber(f.blockNumber).Return(f.blkHash, nil).AnyTimes()
+	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
+
+	mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()
+	mockState.EXPECT().ContractTrie().Return(contractTrie, nil).AnyTimes()
+	mockState.EXPECT().ContractNonce(gomock.Any()).Return(*f.nonce, nil).AnyTimes()
+	mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*f.classHash, nil).AnyTimes()
+	mockState.EXPECT().ContractStorageTrie(gomock.Any()).Return(storageTrie, nil).AnyTimes()
+
+	return rpc.New(mockReader, nil, nil, log.NewNopZapLogger()), mockCtrl.Finish
+}
+
+func checkStorageProofBenchmarkResult(
+	b *testing.B,
+	proof *rpc.StorageProofResult,
+	rpcErr *jsonrpc.Error,
+	want storageProofBenchmarkResult,
+) {
+	b.Helper()
+
+	switch want {
+	case storageProofBenchmarkUnsupported:
+		if rpcErr != rpccore.ErrStorageProofNotSupported {
+			b.Fatalf("expected storage proof unsupported, got proof=%v err=%v", proof, rpcErr)
 		}
-	})
-
-	b.Run("class contract and storage proofs", func(b *testing.B) {
-		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
-		defer finish()
-
-		storageKeys := []rpc.StorageKeys{{
-			Contract: contract,
-			Keys:     []felt.Felt{*key, *key2, *noSuchKey},
-		}}
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, smallClasses, smallContracts, storageKeys)
-			if rpcErr != nil {
-				b.Fatal(rpcErr)
-			}
-			if proof == nil {
-				b.Fatal("expected proof")
-			}
+	case storageProofBenchmarkMissingContract:
+		if rpcErr == nil ||
+			rpcErr.Code != jsonrpc.InvalidParams ||
+			rpcErr.Data != rpc.MissingContractAddress {
+			b.Fatalf("expected missing contract address, got proof=%v err=%v", proof, rpcErr)
 		}
-	})
-
-	b.Run("many classes", func(b *testing.B) {
-		handler, finish := setup(b, manyClasses, smallContracts, storageTrieKeys)
-		defer finish()
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, manyClasses, nil, nil)
-			if rpcErr != nil {
-				b.Fatal(rpcErr)
-			}
-			if proof == nil {
-				b.Fatal("expected proof")
-			}
+	default:
+		if rpcErr != nil {
+			b.Fatal(rpcErr)
 		}
-	})
-
-	b.Run("many contracts", func(b *testing.B) {
-		handler, finish := setup(b, smallClasses, manyContracts, storageTrieKeys)
-		defer finish()
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, nil, manyContracts, nil)
-			if rpcErr != nil {
-				b.Fatal(rpcErr)
-			}
-			if proof == nil {
-				b.Fatal("expected proof")
-			}
+		if proof == nil {
+			b.Fatal("expected proof")
 		}
-	})
-
-	b.Run("many classes and contracts", func(b *testing.B) {
-		handler, finish := setup(b, manyClasses, manyContracts, storageTrieKeys)
-		defer finish()
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, manyClasses, manyContracts, nil)
-			if rpcErr != nil {
-				b.Fatal(rpcErr)
-			}
-			if proof == nil {
-				b.Fatal("expected proof")
-			}
-		}
-	})
-
-	b.Run("unsupported historical block", func(b *testing.B) {
-		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
-		defer finish()
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&oldBlock, nil, nil, nil)
-			if rpcErr != rpccore.ErrStorageProofNotSupported {
-				b.Fatalf("expected storage proof unsupported, got proof=%v err=%v", proof, rpcErr)
-			}
-		}
-	})
-
-	b.Run("invalid storage keys", func(b *testing.B) {
-		handler, finish := setup(b, smallClasses, smallContracts, storageTrieKeys)
-		defer finish()
-
-		storageKeys := []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}}
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		for b.Loop() {
-			proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
-			if rpcErr == nil || rpcErr.Code != jsonrpc.InvalidParams || rpcErr.Data != rpc.MissingContractAddress {
-				b.Fatalf("expected missing contract address, got proof=%v err=%v", proof, rpcErr)
-			}
-		}
-	})
+	}
 }
 
 func arityTest(t *testing.T,
@@ -1828,14 +1884,36 @@ func benchmarkStorageProofTries(
 
 	newComm := felt.FromUint64[felt.StateRootHash](1)
 	trieDB := trie2.NewTestNodeDatabase(memory.New(), trie2.PathScheme)
-	benchmarkTrie(b, &trieDB, trieutils.NewClassTrieID(felt.FromUint64[felt.StateRootHash](0)), newComm, classKeys)
-	benchmarkTrie(b, &trieDB, trieutils.NewContractTrieID(felt.FromUint64[felt.StateRootHash](0)), newComm, contractKeys)
-	benchmarkTrie(b, &trieDB, trieutils.NewContractStorageTrieID(felt.FromUint64[felt.StateRootHash](0), felt.Address{}), newComm, storageKeys)
+	oldComm := felt.FromUint64[felt.StateRootHash](0)
+	benchmarkTrie(
+		b,
+		&trieDB,
+		trieutils.NewClassTrieID(oldComm),
+		newComm,
+		classKeys,
+		crypto.Poseidon,
+	)
+	benchmarkTrie(
+		b,
+		&trieDB,
+		trieutils.NewContractTrieID(oldComm),
+		newComm,
+		contractKeys,
+		crypto.Pedersen,
+	)
+	benchmarkTrie(
+		b,
+		&trieDB,
+		trieutils.NewContractStorageTrieID(oldComm, felt.Address{}),
+		newComm,
+		storageKeys,
+		crypto.Pedersen,
+	)
 
 	classTrie, err := trie2.New(
 		trieutils.NewClassTrieID(newComm),
 		251,
-		crypto.Pedersen,
+		crypto.Poseidon,
 		&trieDB,
 	)
 	require.NoError(b, err)
@@ -1882,10 +1960,11 @@ func benchmarkTrie(
 	id trieutils.TrieID,
 	commitment felt.StateRootHash,
 	keys []felt.Felt,
+	hashFn crypto.HashFn,
 ) {
 	b.Helper()
 
-	tr, err := trie2.New(id, 251, crypto.Pedersen, trieDB)
+	tr, err := trie2.New(id, 251, hashFn, trieDB)
 	require.NoError(b, err)
 	for i := range keys {
 		value := felt.NewFromUint64[felt.Felt](uint64(i + 1))

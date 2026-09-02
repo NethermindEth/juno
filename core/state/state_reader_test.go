@@ -148,8 +148,11 @@ func TestContractMetadata(t *testing.T) {
 	assert.Equal(t, expectedStorageRoot, storageRoot)
 
 	missing := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
-	_, _, _, err = reader.ContractMetadata(missing)
+	missingClassHash, missingNonce, missingStorageRoot, err := reader.ContractMetadata(missing)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	assert.True(t, missingClassHash.IsZero())
+	assert.True(t, missingNonce.IsZero())
+	assert.True(t, missingStorageRoot.IsZero())
 }
 
 func TestClass(t *testing.T) {
