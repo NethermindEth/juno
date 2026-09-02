@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Juno RPC Nightly Benchmarks</title>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.js"
+    integrity="sha384-hfkuqrKeWFmnTMWN31VWyoe8xgdTADD11kgxmdpx2uyE6j5Az5uZq6u6AKYYmAOw"
+    crossorigin="anonymous"
+  ></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Juno RPC Nightly Benchmarks</h1>
+      <div id="status" role="status">Loading results...</div>
+      <div class="controls">
+        <label>
+          Endpoint
+          <select id="endpoint"></select>
+        </label>
+        <label>
+          History window
+          <select id="window">
+            <option value="3" selected>3 months</option>
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+          </select>
+        </label>
+      </div>
+    </header>
+    <section class="summary" id="summary" aria-label="Latest result"></section>
+    <details class="configuration-panel">
+      <summary>Run configuration</summary>
+      <dl class="configuration" id="configuration"></dl>
+    </details>
+    <div id="overview-charts"></div>
+    <section id="latency-panel">
+      <div class="chart"><canvas id="latency"></canvas></div>
+    </section>
+    <section id="throughput-panel">
+      <div class="chart"><canvas id="throughput"></canvas></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
