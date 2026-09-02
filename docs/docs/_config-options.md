@@ -17,6 +17,8 @@
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
 | `rpc-max-concurrent-requests` | `1024` | Maximum concurrent RPC requests, over HTTP and websocket together; 0 disables the limit |
 | `rpc-max-request-queue` | `2048` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
+| `rpc-max-subscriptions` | `128` | Maximum subscriptions one websocket connection may hold. The limit is per connection so that one client cannot take the slots another needs; multiplied by rpc-max-ws-connections it is the most the process will carry. 0 disables the limit |
+| `rpc-max-ws-connections` | `2048` | Maximum concurrent websocket connections, across all RPC versions. 0 disables the limit |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC
