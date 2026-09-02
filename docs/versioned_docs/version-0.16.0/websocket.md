@@ -2,7 +2,7 @@
 title: WebSockets
 ---
 
-# WebSocket Interface :globe_with_meridians:
+# WebSocket Interface
 
 Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
 

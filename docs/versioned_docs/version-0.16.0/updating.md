@@ -2,7 +2,7 @@
 title: Updating
 ---
 
-# Updating Juno :arrows_counterclockwise:
+# Updating Juno
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";

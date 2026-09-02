@@ -2,7 +2,7 @@
 title: Monitoring
 ---
 
-# Metrics Monitoring :bar_chart:
+# Metrics Monitoring
 
 Juno uses [Prometheus](https://prometheus.io/) to monitor and collect metrics data, which you can visualise with [Grafana](https://grafana.com/). You can use these insights to understand what is happening when Juno is running.
 

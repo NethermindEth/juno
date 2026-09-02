@@ -2,7 +2,7 @@
 title: Configuration
 ---
 
-# Configuring Juno :gear:
+# Configuring Juno
 
 Juno can be configured using several methods, with the following order of precedence:
 
