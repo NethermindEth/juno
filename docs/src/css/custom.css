@@ -124,15 +124,30 @@ html {
   text-decoration: underline;
 }
 
+/* Frosted top bar. The blur must live on a pseudo-element, NOT on .navbar
+   itself: a non-none backdrop-filter turns the nav into the containing
+   block for fixed-position descendants (Filter Effects L2), and Docusaurus
+   renders the mobile drawer and its scrim INSIDE <nav> — pinned to a
+   52px-tall bar, the drawer's item list computes to height 0 and the
+   burger menu opens empty. On ::before the filter has nothing to capture:
+   the nav is sticky (positioned, own stacking context), so the pseudo
+   fills it at z-index -1 while the drawer escapes to the viewport. */
 .navbar {
   background-color: color-mix(
     in srgb,
     var(--ifm-background-color) 86%,
     transparent
   );
-  backdrop-filter: saturate(160%) blur(10px);
   border-bottom: 1px solid var(--juno-rule);
   padding: 0 1.25rem;
+}
+
+.navbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: saturate(160%) blur(10px);
 }
 
 .navbar__title {
@@ -174,18 +189,19 @@ html {
   font-size: 0.875rem;
 }
 
-/* Categories separate from their items by weight, not by a different face. */
-.menu__list-item-collapsible > .menu__link,
-.theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
-  font-weight: 600;
-  color: var(--juno-ink);
-}
-
+/* Pages read as links: body face at body weight — a declaration on the
+   link outranks the weight 500 the .menu container would hand down.
+   Unscoped on purpose: the mobile drawer renders navbar items with these
+   same classes and should keep the same quiet treatment. background-clip
+   keeps hover washes out of the 2px border strip, where the guide rail
+   runs on nested lists. */
 .menu__link {
   border-radius: 0;
   border-left: 2px solid transparent;
   padding: 0.3rem 0.6rem;
+  font-weight: 400;
   color: var(--ifm-font-color-base);
+  background-clip: padding-box;
 }
 
 .menu__link:hover {
@@ -198,6 +214,135 @@ html {
   border-left-color: var(--juno-orange);
   background: none;
   font-weight: 600;
+}
+
+/* Categories are title bars, not bigger links: the code-block-title
+   treatment — panel tint, hairline rule, mono uppercase label. The bar
+   states "this is a section of pages"; plain rows are the pages. Scoped
+   to .theme-doc-sidebar-menu (doc menu root in both the desktop rail and
+   the mobile drawer, absent from the drawer's navbar items). */
+.theme-doc-sidebar-menu .menu__list-item-collapsible {
+  border-radius: 0;
+}
+
+.theme-doc-sidebar-menu .menu__list-item-collapsible .menu__link {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  padding: 0.45rem 0.6rem;
+}
+
+/* The bar bleeds through the menu's 0.75rem side padding to run
+   edge-to-edge (level 1 only — a nested category, if one ever lands,
+   would sit inside a rail and must not). The label's side padding grows
+   by the same amount, so its text keeps the exact x of page-link text.
+   The tint is pinned across hover and active: Infima paints its untuned
+   hover overlay on this row, and the row must not flicker between
+   materials — approach is signalled by the label, not the ground. */
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible {
+  margin: 0 -0.75rem;
+  border-bottom: 1px solid var(--juno-rule-soft);
+}
+
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible,
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible:hover,
+.theme-doc-sidebar-item-category-level-1
+  > .menu__list-item-collapsible--active {
+  background: var(--juno-panel-2);
+}
+
+.theme-doc-sidebar-item-category-level-1
+  > .menu__list-item-collapsible
+  > .menu__link {
+  padding-left: 1.35rem;
+  padding-right: 1.35rem;
+}
+
+/* The label steps up on approach, and while its section holds the current
+   page — the category link carries menu__link--active whenever a
+   descendant is active, a state that previously produced no cue at all.
+   (Infima force-kills backgrounds on links inside a collapsible with
+   background: none !important, which is fine here: the bar's tint lives
+   on the row div, and only the label's colour moves.) */
+.theme-doc-sidebar-menu .menu__list-item-collapsible:hover .menu__link,
+.theme-doc-sidebar-menu
+  .menu__list-item-collapsible
+  .menu__link--sublist.menu__link--active {
+  color: var(--juno-ink);
+}
+
+/* The caret is drawn, not shipped: Infima's is a data-URI icon inverted
+   for dark mode with a filter. Two hairline borders in currentColor follow
+   the label through its colour steps in both themes for free. Also applied
+   in the drawer so the version dropdown matches. background, filter and
+   the 1.25rem min-width must all be zeroed or the stock icon geometry
+   bleeds through. Expanded points down… */
+.theme-doc-sidebar-menu .menu__link--sublist-caret::after,
+.navbar-sidebar .menu__link--sublist-caret::after {
+  content: "";
+  background: none;
+  filter: none;
+  min-width: 0;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--ifm-transition-fast) linear;
+}
+
+/* …collapsed points along the reading direction. Must outgun our own base
+   rule above: Infima's collapsed state (rotateZ(90deg)) ties that base at
+   (0,2,1) and would otherwise lose to it by source order. */
+.theme-doc-sidebar-menu
+  .menu__list-item--collapsed
+  .menu__link--sublist-caret::after,
+.navbar-sidebar .menu__list-item--collapsed .menu__link--sublist-caret::after {
+  transform: rotate(-45deg);
+}
+
+/* Child lists hang from a hairline rail, and the ul's indent moves into
+   the link so the active page's 2px accent sits exactly ON the rail: with
+   the ul's padding zeroed the li starts 1px right of the rail, so
+   margin-left -1px lands the link's border-box on it. Descendants paint
+   over ancestor borders — orange covers the hairline; every other row's
+   transparent border lets it show through. 0.75rem + 0.6rem puts the text
+   back at the x it had when the ul carried the 0.75rem itself. (The root
+   ul is itself a .menu__list, so one .menu__list under the scope already
+   means "nested".) */
+.theme-doc-sidebar-menu .menu__list {
+  padding-left: 0;
+  border-left: 1px solid var(--juno-rule);
+}
+
+.theme-doc-sidebar-menu .menu__list .menu__link {
+  margin-left: -1px;
+  padding-left: calc(0.75rem + 0.6rem);
+}
+
+/* Group rhythm: air above each top-level section and above the run of
+   loose pages after the last one. The level classes exist only on doc
+   items, so the drawer's navbar items keep Infima's 0.25rem. */
+.theme-doc-sidebar-item-category-level-1:not(:first-child),
+.theme-doc-sidebar-item-category-level-1
+  + .theme-doc-sidebar-item-link-level-1 {
+  margin-top: 1rem;
+}
+
+/* The type:"html" externals in sidebars.js ship a stale hashed icon class,
+   so their SVG lost its stock margin (an &nbsp; in the markup stands in
+   for it). Their <li> also lacks menu__list-item, so Infima's inter-item
+   gap is restored by hand. */
+.theme-doc-sidebar-menu .external-link {
+  margin-top: 0.25rem;
+}
+
+.theme-doc-sidebar-menu .external-link svg {
+  flex: none;
 }
 
 /* ── Chrome: breadcrumbs and TOC ───────────────────────────────────── */
@@ -467,10 +612,6 @@ div[class*="codeBlockContent"] {
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.external-link {
-  margin-top: 0.25rem;
 }
 
 /* ── Prominent button-style tabs (snapshot download method) ────────── */
