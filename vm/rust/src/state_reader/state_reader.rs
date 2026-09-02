@@ -26,7 +26,7 @@ use crate::{
 
 struct CachedRunnableCompiledClass {
     pub definition: RunnableCompiledClass,
-    pub cached_on_height: u64,
+    pub declared_at: u64,
 }
 
 static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedRunnableCompiledClass>>> =
@@ -135,25 +135,19 @@ impl StateReader for JunoStateReader {
     /// Returns the contract class of the given class hash.
     fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
-            // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
-            // that we are reading from right now.
-            //
-            // About the changes in the second attempt at making class cache behave as expected;
-            //
-            // The initial assumption here was that `self.height` uniquely identifies and strictly orders the underlying state
-            // instances. The first assumption doesn't necessarily hold, because we can pass different state instaces with the
-            // same height. This most commonly happens with call/estimate/simulate and trace flows. Trace flow calls the VM
-            // for block number N with the state at the beginning of the block, while call/estimate/simulate flows call the VM
-            // with the same block number but with the state at the end of that block. That is why, we cannot use classes from cache
-            // if they are cached on the same height that we are executing on. Because they might be cached using a state instance that
-            // is in the future compared to the state that we are currently executing on, even tho they have the same height.
-            if self.height.is_after(cached_class.cached_on_height) {
+            // A class declared at height D exists in every state from the end of block D on. Trace
+            // and call flows can run block N on different states (start vs end of N), so a height
+            // equal to D is not a hit.
+            if self.height.is_after(cached_class.declared_at) {
                 return Ok(cached_class.definition.clone());
             }
         }
 
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
-        let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
+        let mut declared_at: u64 = 0;
+        let ptr = unsafe {
+            JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr(), &mut declared_at)
+        };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
@@ -166,14 +160,15 @@ impl StateReader for JunoStateReader {
                 Ok(class) => {
                     let runnable_compiled_class =
                         RunnableCompiledClass::try_from(class.contract_class).unwrap();
-                    if let BlockHeight::Height(height) = self.height {
+                    // Pending states report declared_at 0 for classes declared in the pending block.
+                    if matches!(self.height, BlockHeight::Height(_)) {
                         CLASS_CACHE.lock().unwrap().cache_set(
                             class_hash,
                             CachedRunnableCompiledClass {
                                 // This clone is cheap, it is just a reference copy in the underlying
                                 // RunnableCompiledClass implementation
                                 definition: runnable_compiled_class.clone(),
-                                cached_on_height: height,
+                                declared_at,
                             },
                         );
                     }

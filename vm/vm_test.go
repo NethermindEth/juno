@@ -440,3 +440,83 @@ func NewState(
 	stateDB := state.NewStateDB(testDB, triedb)
 	return state.New(stateRoot, stateDB, batch)
 }
+
+// classFetchCounter counts how often the VM asks Go for a class definition.
+type classFetchCounter struct {
+	core.StateReader
+	fetches int
+}
+
+func (c *classFetchCounter) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+	c.fetches++
+	return c.StateReader.Class(classHash)
+}
+
+func TestClassCacheKeyedOnDeclarationHeight(t *testing.T) {
+	testDB := memory.New()
+	batch := testDB.NewBatch()
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
+	classHash := felt.NewUnsafeFromString[felt.Felt](
+		"0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+	)
+	simpleClass, err := gw.Class(t.Context(), classHash)
+	require.NoError(t, err)
+
+	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	require.NoError(t, err)
+	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+		),
+		StateDiff: &core.StateDiff{
+			DeployedContracts: map[felt.Felt]*felt.Felt{
+				*contractAddr: classHash,
+			},
+		},
+	}, map[felt.Felt]core.ClassDefinition{
+		*classHash: simpleClass,
+	}, false))
+	require.NoError(t, batch.Write())
+
+	entryPoint := felt.NewUnsafeFromString[felt.Felt](
+		"0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695",
+	)
+	chainInfo := ChainInfo{
+		ChainID:           networks.Mainnet.L2ChainID,
+		FeeTokenAddresses: networks.DefaultFeeTokenAddresses,
+	}
+	counter := &classFetchCounter{StateReader: testState}
+	callAt := func(height uint64) {
+		_, err := New(&chainInfo, false, nil).Call(
+			&CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        entryPoint,
+			},
+			// A non-nil hash marks the block as not pending, which enables the class cache.
+			&BlockInfo{Header: &core.Header{Number: height, Hash: &felt.One}},
+			counter,
+			DefaultMaxSteps,
+			DefaultMaxGas,
+			false,
+			false,
+		)
+		require.NoError(t, err)
+	}
+
+	callAt(10)
+	fetchesAfterFirstCall := counter.fetches
+
+	callAt(5)
+	assert.Equal(t, fetchesAfterFirstCall, counter.fetches,
+		"a class declared at block 0 must be served from the cache at any later height")
+
+	callAt(0)
+	assert.Equal(t, fetchesAfterFirstCall+1, counter.fetches,
+		"the declaration height itself must not be served from the cache")
+}
