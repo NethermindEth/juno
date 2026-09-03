@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +31,7 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
 
 	if len(p) >= maxWindowSize {
-		start := runeBoundaryAtOrAfter(p, len(p)-maxWindowSize)
+		start := nextRuneStartAt(p, len(p)-maxWindowSize)
 		c.advanceLinePrefix(c.window, p[:start])
 		c.window = append(c.window[:0], p[start:]...)
 		return len(p), nil
@@ -38,45 +39,68 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 
 	c.window = append(c.window, p...)
 	if overflow := len(c.window) - maxWindowSize; overflow > 0 {
-		start := runeBoundaryAtOrAfter(c.window, overflow)
-		c.advanceLinePrefix(c.window[:start])
+		start := nextRuneStartAt(c.window, overflow)
+		c.advanceLinePrefix(nil, c.window[:start])
 		c.window = c.window[:copy(c.window, c.window[start:])]
 	}
 
 	return len(p), nil
 }
 
-func runeBoundaryAtOrAfter(p []byte, offset int) int {
+func nextRuneStartAt(p []byte, offset int) int {
 	for offset < len(p) && !utf8.RuneStart(p[offset]) {
 		offset++
 	}
 	return offset
 }
 
-func (c *windowBuffer) advanceLinePrefix(parts ...[]byte) {
-	var runeBytes [utf8.UTFMax]byte
-	runeLen := 0
+func (c *windowBuffer) advanceLinePrefix(first, second []byte) {
+	if lastNewline := bytes.LastIndexByte(second, '\n'); lastNewline >= 0 {
+		c.linePrefixRunes = countRuneStarts(second[lastNewline+1:])
+		return
+	}
+	if lastNewline := bytes.LastIndexByte(first, '\n'); lastNewline >= 0 {
+		c.linePrefixRunes = countRuneStarts(first[lastNewline+1:]) + countRuneStarts(second)
+		return
+	}
+	c.linePrefixRunes += countRuneStarts(first) + countRuneStarts(second)
+}
 
-	for _, part := range parts {
-		for _, b := range part {
-			runeBytes[runeLen] = b
-			runeLen++
-			if !utf8.FullRune(runeBytes[:runeLen]) {
-				continue
-			}
-
-			if runeBytes[0] == '\n' {
-				c.linePrefixRunes = 0
-			} else {
-				c.linePrefixRunes++
-			}
-			runeLen = 0
+func countRuneStarts(p []byte) int {
+	count := 0
+	for len(p) >= 32 {
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[8:]))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[16:]))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[24:]))
+		p = p[32:]
+	}
+	for len(p) >= 8 {
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
+		p = p[8:]
+	}
+	for _, b := range p {
+		if utf8.RuneStart(b) {
+			count++
 		}
 	}
+	return count
+}
 
-	// Window boundaries are advanced to the next rune start, so this is only
-	// reachable for invalid or incomplete UTF-8.
-	c.linePrefixRunes += utf8.RuneCount(runeBytes[:runeLen])
+func countRuneStartsInWord(word uint64) int {
+	const highBits = uint64(0x8080808080808080)
+	if word&highBits == 0 {
+		return 8
+	}
+
+	count := 0
+	for range 8 {
+		if utf8.RuneStart(byte(word)) {
+			count++
+		}
+		word >>= 8
+	}
+	return count
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
@@ -96,14 +120,15 @@ func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	}
 }
 
-func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
+func lineAndColumn(c *windowBuffer, markerPos int) (line, relativeCol, absoluteCol int) {
 	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
 	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
-	col = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
+	relativeCol = countRuneStarts(c.window[lineStart:markerPos]) + 1
+	absoluteCol = relativeCol
 	if lineStart == 0 {
-		col += c.linePrefixRunes
+		absoluteCol += c.linePrefixRunes
 	}
-	return line, col
+	return line, relativeCol, absoluteCol
 }
 
 func expectedToken(reason string) (string, bool) {
@@ -245,8 +270,8 @@ func prettyParseError(c *windowBuffer, err error) string {
 	}
 
 	markerPos := absOffset - windowStart
-	line, col := lineAndColumn(c, markerPos)
-	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
+	line, relativeCol, absoluteCol := lineAndColumn(c, markerPos)
+	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, absoluteCol)
 
-	return drawMarker(c.window, windowStart, markerPos, col, msg)
+	return drawMarker(c.window, windowStart, markerPos, relativeCol, msg)
 }
