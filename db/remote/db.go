@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/utils/log"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -54,12 +55,19 @@ func (d *DB) Path() string {
 func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	defer d.listener.OnIO(write, time.Now())
 
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	// Every transaction owns a stream, so it needs its own context to release it.
+	ctx, cancel := context.WithCancel(d.ctx)
+	txClient, err := d.kvClient.Tx(
+		ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
-	return &transaction{client: txClient, logger: d.logger}, nil
+	return &transaction{client: txClient, cancel: cancel, logger: d.logger}, nil
 }
 
 func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
@@ -83,10 +91,10 @@ func (d *DB) Write(fn func(w db.Batch) error) error {
 
 	batch := d.NewBatch()
 	if err := fn(batch); err != nil {
-		return err
+		return errors.Join(err, batch.Close())
 	}
 
-	return batch.Write()
+	return errors.Join(batch.Write(), batch.Close())
 }
 
 func (d *DB) Close() error {
@@ -110,6 +118,7 @@ func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 	if err != nil {
 		return err
 	}
+	defer d.discard(txn)
 
 	return txn.Get(key, cb)
 }
@@ -119,6 +128,7 @@ func (d *DB) Has(key []byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer d.discard(txn)
 
 	return txn.Has(key)
 }
@@ -128,14 +138,12 @@ func (d *DB) Put(key, val []byte) error {
 }
 
 func (d *DB) NewBatch() db.Batch {
-	defer d.listener.OnIO(false, time.Now())
-
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txn, err := d.NewTransaction(false)
 	if err != nil {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, logger: d.logger}
+	return txn
 }
 
 func (d *DB) NewBatchWithSize(size int) db.Batch {
@@ -143,14 +151,12 @@ func (d *DB) NewBatchWithSize(size int) db.Batch {
 }
 
 func (d *DB) NewIndexedBatch() db.IndexedBatch {
-	defer d.listener.OnIO(true, time.Now())
-
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txn, err := d.NewTransaction(true)
 	if err != nil {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, logger: d.logger}
+	return txn
 }
 
 func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
@@ -163,23 +169,34 @@ func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error)
 		return nil, err
 	}
 
-	return txn.NewIterator(start, withUpperBound)
+	it, err := txn.NewIterator(start, withUpperBound)
+	if err != nil {
+		return nil, errors.Join(err, txn.Discard())
+	}
+
+	return &ownedIterator{Iterator: it, txn: txn}, nil
 }
 
 func (d *DB) NewSnapshot() db.Snapshot {
-	defer d.listener.OnIO(false, time.Now())
-
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txn, err := d.NewTransaction(false)
 	if err != nil {
 		panic(err)
 	}
 
-	return &transaction{client: txClient, logger: d.logger}
+	return txn
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	d.listener = listener
 	return d
+}
+
+// discard releases a transaction the DB opened for a single call. A read has
+// nothing to report on close, so the error only reaches the log.
+func (d *DB) discard(txn *transaction) {
+	if err := txn.Discard(); err != nil {
+		d.logger.Debug("Discarding remote transaction", zap.Error(err))
+	}
 }
 
 func discardTxnOnPanic(txn *transaction) {

@@ -2,6 +2,7 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"errors"
 
 	"github.com/NethermindEth/juno/db"
@@ -21,6 +22,7 @@ var (
 
 type transaction struct {
 	client gen.KV_TxClient
+	cancel context.CancelFunc
 	logger log.StructuredLogger
 }
 
@@ -53,8 +55,13 @@ func (t *transaction) NewIterator(prefix []byte, withUpperBound bool) (db.Iterat
 	}, nil
 }
 
+// Discard releases the stream. Closing the send side lets the server return and
+// drop the batch it holds open; the cancel releases the client side, which
+// otherwise waits for the response stream to be drained to EOF.
 func (t *transaction) Discard() error {
-	return t.client.CloseSend()
+	err := t.client.CloseSend()
+	t.cancel()
+	return err
 }
 
 func (t *transaction) Commit() error {
@@ -110,4 +117,4 @@ func (t *transaction) Put(key, val []byte) error {
 func (t *transaction) Size() int    { return 0 }
 func (t *transaction) Reset()       {}
 func (t *transaction) Write() error { return nil }
-func (t *transaction) Close() error { return t.client.CloseSend() }
+func (t *transaction) Close() error { return t.Discard() }

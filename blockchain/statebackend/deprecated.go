@@ -1,6 +1,8 @@
 package statebackend
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,10 +22,12 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 	// Fail early if no block has been committed (no head state to open)
 	// only the key's existence matters, not the height itself.
 	if _, err := core.GetChainHeight(txn); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Join(err, txn.Close())
 	}
 
-	return deprecatedstate.New(txn), NoopStateCloser, nil
+	// The batch has to be closed: on a remote DB it is a gRPC stream, and the
+	// server holds a batch of its own open for as long as the stream lives.
+	return deprecatedstate.New(txn), txn.Close, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockNumber(
@@ -38,7 +42,7 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		blockNumber,
-	), NoopStateCloser, nil
+	), txn.Close, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockHash(
@@ -48,7 +52,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	if blockHash.IsZero() {
 		memDB := memory.New()
 		txn := memDB.NewIndexedBatch()
-		return deprecatedstate.New(txn), NoopStateCloser, nil
+		return deprecatedstate.New(txn), txn.Close, nil
 	}
 
 	blockNumber, err := pruner.BlockNumberByHashIfStateRetained(b.database, blockHash)
@@ -60,7 +64,7 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	return deprecatedstate.NewHistory(
 		deprecatedstate.New(txn),
 		blockNumber,
-	), NoopStateCloser, nil
+	), txn.Close, nil
 }
 
 func (b *deprecatedStateBackend) Store(
