@@ -138,6 +138,11 @@ readinessProbe:
   failureThreshold: 3
 ```
 
+### `/ready/rpc` endpoint
+
+The `/ready/rpc` endpoint returns `200 OK` once the database has a canonical head and RPC requests can be served.
+Use it as the readiness probe for tests or benchmarks started with `--disable-sync` and a preloaded database.
+
 ### Configuring readiness criteria
 
 You can configure what "synced" means for the `/ready` endpoint using the `readiness-block-tolerance` configuration option:
