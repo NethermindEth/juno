@@ -22,8 +22,8 @@ func newTx(dbTx db.IndexedBatch) *tx {
 	}
 }
 
-func (t *tx) newCursor() (uint32, error) {
-	it, err := t.dbTx.NewIterator(nil, false)
+func (t *tx) newCursor(prefix []byte, withUpperBound bool) (uint32, error) {
+	it, err := t.dbTx.NewIterator(prefix, withUpperBound)
 	if err != nil {
 		return 0, err
 	}
