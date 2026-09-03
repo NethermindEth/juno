@@ -24,10 +24,19 @@ type transaction struct {
 	logger log.StructuredLogger
 }
 
-func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {
-	err := t.client.Send(&gen.Cursor{
-		Op: gen.Op_OPEN,
-	})
+func (t *transaction) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	// The remote iterator has to be created with the same bounds as a local one,
+	// otherwise it scans the whole database and First returns a foreign key.
+	// BucketName carries the prefix and a non-empty V asks for the upper bound.
+	cursor := &gen.Cursor{
+		Op:         gen.Op_OPEN,
+		BucketName: prefix,
+	}
+	if withUpperBound {
+		cursor.V = []byte{1}
+	}
+
+	err := t.client.Send(cursor)
 	if err != nil {
 		return nil, err
 	}
