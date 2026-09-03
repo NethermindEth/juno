@@ -190,6 +190,12 @@ func AssertTracedBlockTransactions(
 			require.Nil(t, err)
 			require.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 			require.Equal(t, test.wantTrace, traces)
+
+			withReads, _, err := handler.TraceBlockTransactions(
+				t.Context(), &blockID, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+			)
+			require.Nil(t, err)
+			require.Equal(t, &rpcv10.InitialReads{}, withReads.InitialReads)
 		})
 	}
 }

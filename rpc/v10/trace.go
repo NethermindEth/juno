@@ -469,10 +469,10 @@ func (h *Handler) traceFinalisedBlockSource(
 			return finalisedBlockTraceSource{}, rpcErr
 		}
 
-		// The gateway never supplies initial reads, so an empty set is final for these blocks.
+		// The gateway never supplies initial reads. Preserve its historical null-slice wire shape.
 		response := TraceBlockTransactionsResponse{
 			Traces:       traces,
-			InitialReads: emptyInitialReads(),
+			InitialReads: &InitialReads{},
 		}
 		return finalisedBlockTraceSource{complete: &response}, nil
 	}
