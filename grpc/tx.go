@@ -56,5 +56,5 @@ func (t *tx) cleanup() error {
 		err = errors.Join(err, it.Close())
 		return true
 	})
-	return err
+	return errors.Join(err, t.dbTx.Close())
 }
