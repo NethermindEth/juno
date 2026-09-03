@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -37,12 +38,12 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 
-	c.window = append(c.window, p...)
-	if overflow := len(c.window) - maxWindowSize; overflow > 0 {
+	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
 		start := nextRuneStartAt(c.window, overflow)
 		c.advanceLinePrefix(nil, c.window[:start])
 		c.window = c.window[:copy(c.window, c.window[start:])]
 	}
+	c.window = append(c.window, p...)
 
 	return len(p), nil
 }
@@ -55,13 +56,15 @@ func nextRuneStartAt(p []byte, offset int) int {
 }
 
 func (c *windowBuffer) advanceLinePrefix(first, second []byte) {
-	if lastNewline := bytes.LastIndexByte(second, '\n'); lastNewline >= 0 {
-		c.linePrefixRunes = countRuneStarts(second[lastNewline+1:])
-		return
-	}
-	if lastNewline := bytes.LastIndexByte(first, '\n'); lastNewline >= 0 {
-		c.linePrefixRunes = countRuneStarts(first[lastNewline+1:]) + countRuneStarts(second)
-		return
+	if c.newlinesSeen > 0 {
+		if lastNewline := bytes.LastIndexByte(second, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRuneStarts(second[lastNewline+1:])
+			return
+		}
+		if lastNewline := bytes.LastIndexByte(first, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRuneStarts(first[lastNewline+1:]) + countRuneStarts(second)
+			return
+		}
 	}
 	c.linePrefixRunes += countRuneStarts(first) + countRuneStarts(second)
 }
@@ -89,18 +92,10 @@ func countRuneStarts(p []byte) int {
 
 func countRuneStartsInWord(word uint64) int {
 	const highBits = uint64(0x8080808080808080)
-	if word&highBits == 0 {
-		return 8
-	}
-
-	count := 0
-	for range 8 {
-		if utf8.RuneStart(byte(word)) {
-			count++
-		}
-		word >>= 8
-	}
-	return count
+	// UTF-8 continuation bytes start with 10; isolate their high bits and
+	// subtract them from the eight possible rune starts in the word.
+	continuationBits := word & ^(word << 1) & highBits
+	return 8 - bits.OnesCount64(continuationBits)
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {

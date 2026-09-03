@@ -168,6 +168,13 @@ var parseErrorTests = map[string]struct {
 		marker:    '@',
 	},
 
+	"oversized mixed-width line counts rune starts across words": {
+		req:       `{"jsonrpc":"2.0","method":"x","padding":"` + strings.Repeat("aé€👍", 80) + `","id":@` + strings.Repeat("x", 96) + `}`,
+		chunkSize: 127,
+		position:  `[line 1, position 369]`,
+		marker:    '@',
+	},
+
 	"discarded newline resets the absolute column prefix": {
 		req:       strings.Repeat(" ", 600) + "\n" + `{"padding":"` + strings.Repeat("👍", 160) + `","id":@` + strings.Repeat("x", 96) + `}`,
 		chunkSize: 127,
