@@ -3,8 +3,9 @@ use crate::{
         execute::{
             process::{determine_gas_vector_mode, process_transaction},
             utils::{
-                adjust_fee_calculation_result, append_gas_and_fee, append_initial_reads,
-                append_receipt, append_trace, parse_json, transaction_from_api,
+                adjust_fee_calculation_result, append_execution_steps, append_gas_and_fee,
+                append_initial_reads, append_receipt, append_trace, parse_json,
+                transaction_from_api,
             },
         },
         utils::build_block_context,
@@ -20,7 +21,7 @@ use crate::{
 use serde::Deserialize;
 use std::{
     collections::VecDeque,
-    ffi::{c_char, c_uchar},
+    ffi::{c_char, c_longlong, c_uchar},
 };
 
 use blockifier::state::cached_state::CachedState;
@@ -45,6 +46,7 @@ pub fn cairo_vm_execute(
     allow_binary_search: c_uchar,
     is_estimate_fee: c_uchar,
     return_initial_reads: c_uchar,
+    trace_index: c_longlong,
 ) -> Result<(), JunoError> {
     let block_info = unsafe { *block_info_ptr };
     let chain_info = unsafe { *chain_info_ptr };
@@ -78,6 +80,7 @@ pub fn cairo_vm_execute(
     let allow_binary_search = allow_binary_search == 1;
     let is_estimate_fee = is_estimate_fee == 1;
     let return_initial_reads = return_initial_reads == 1;
+    let trace_index = usize::try_from(trace_index).ok();
 
     let mut writer_buffer = Vec::with_capacity(10_000);
 
@@ -162,34 +165,43 @@ pub fn cairo_vm_execute(
             )?
         }
 
-        append_gas_and_fee(&tx_execution_info, reader_handle);
+        let append_result = trace_index.is_none_or(|index| index == txn_index);
+        if append_result {
+            append_gas_and_fee(&tx_execution_info, reader_handle);
+        }
+        append_execution_steps(&tx_execution_info, reader_handle);
 
-        let transaction_receipt = TransactionReceipt {
-            gas: tx_execution_info.receipt.gas,
-            da_gas: tx_execution_info.receipt.da_gas,
-            fee: tx_execution_info.receipt.fee,
-        };
-        append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
-            .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+        if append_result {
+            let transaction_receipt = TransactionReceipt {
+                gas: tx_execution_info.receipt.gas,
+                da_gas: tx_execution_info.receipt.da_gas,
+                fee: tx_execution_info.receipt.fee,
+            };
+            append_receipt(reader_handle, &transaction_receipt, &mut writer_buffer)
+                .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
 
-        let trace = new_transaction_trace(
-            &txn_and_query_bit.txn,
-            tx_execution_info,
-            &mut txn_state,
-            block_context.versioned_constants(),
-            &gas_vector_computation_mode,
-        )
-        .map_err(|err| {
-            JunoError::tx_non_execution_error(
-                format!("failed building txn state diff reason: {err:?}"),
-                txn_index,
+            let trace = new_transaction_trace(
+                &txn_and_query_bit.txn,
+                tx_execution_info,
+                &mut txn_state,
+                block_context.versioned_constants(),
+                &gas_vector_computation_mode,
             )
-        })?;
+            .map_err(|err| {
+                JunoError::tx_non_execution_error(
+                    format!("failed building txn state diff reason: {err:?}"),
+                    txn_index,
+                )
+            })?;
 
-        append_trace(reader_handle, &trace, &mut writer_buffer)
-            .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+            append_trace(reader_handle, &trace, &mut writer_buffer)
+                .map_err(|err| JunoError::tx_non_execution_error(err, txn_index))?;
+        }
 
         txn_state.commit();
+        if trace_index == Some(txn_index) {
+            break;
+        }
     }
 
     if return_initial_reads {

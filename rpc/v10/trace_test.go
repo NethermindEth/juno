@@ -422,7 +422,9 @@ func TestTraceTransaction(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			vm.TraceOptions{}).Return(vm.ExecutionResults{
+			gomock.Cond(func(opts vm.TraceOptions) bool {
+				return opts.TraceIndex != nil && *opts.TraceIndex == 0
+			})).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{vmTrace},
@@ -630,6 +632,59 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Equal(t, "0", httpHeader.Get(rpcv10.ExecutionStepsHeader))
 		assert.Equal(t, expectedRevertedTrace, trace)
 	})
+}
+
+func TestTraceTransactionReplaysOnlyThroughTarget(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	reader := mocks.NewMockReader(ctrl)
+	runner := mocks.NewMockVM(ctrl)
+	state := mocks.NewMockStateReader(ctrl)
+	header := &core.Header{
+		Hash:             felt.NewFromUint64[felt.Felt](1),
+		ParentHash:       felt.NewFromUint64[felt.Felt](2),
+		SequencerAddress: felt.NewFromUint64[felt.Felt](3),
+		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](4),
+		ProtocolVersion:  "99.12.3",
+	}
+	transactions := []core.Transaction{
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](5)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](6)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](7)},
+	}
+	target := (*felt.TransactionHash)(transactions[1].Hash())
+	vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
+
+	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
+	reader.EXPECT().BlockNumberAndIndexByTxHash(target).Return(header.Number, uint64(1), nil)
+	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
+	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil)
+	reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+	reader.EXPECT().HeadState().Return(state, nopCloser, nil)
+	runner.EXPECT().Trace(
+		transactions[:2], []core.ClassDefinition(nil), []*felt.Felt{},
+		&vm.BlockInfo{Header: header}, state, gomock.Any(),
+	).DoAndReturn(func(
+		_ []core.Transaction,
+		_ []core.ClassDefinition,
+		_ []*felt.Felt,
+		_ *vm.BlockInfo,
+		_ core.StateReader,
+		opts vm.TraceOptions,
+	) (vm.ExecutionResults, error) {
+		require.NotNil(t, opts.TraceIndex)
+		require.Equal(t, uint64(1), *opts.TraceIndex)
+		return vm.ExecutionResults{
+			Traces:      []vm.TransactionTrace{vmTrace},
+			GasConsumed: []core.GasConsumed{{L1Gas: 9}},
+			NumSteps:    42,
+		}, nil
+	})
+
+	handler := rpcv10.New(reader, nil, runner, log.NewNopZapLogger())
+	trace, responseHeader, rpcErr := handler.TraceTransaction(t.Context(), target)
+	require.Nil(t, rpcErr)
+	require.Equal(t, "42", responseHeader.Get(rpcv10.ExecutionStepsHeader))
+	require.Equal(t, uint64(9), trace.ExecutionResources.L1Gas)
 }
 
 func TestTraceBlockTransactions(t *testing.T) {
@@ -1497,10 +1552,8 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		}
 	}
 
-	// After TraceTransaction has cached the block without initial reads,
-	// a follow-up TraceBlockTransactions with RETURN_INITIAL_READS must
-	// re-execute the VM and return populated reads — not the empty struct
-	// that was served from the poisoned cache.
+	// A targeted TraceTransaction replay must not populate the block cache, so a
+	// follow-up request with RETURN_INITIAL_READS replays the complete block.
 	t.Run("TraceTransaction does not poison RETURN_INITIAL_READS", func(t *testing.T) {
 		t.Parallel()
 		mockCtrl := gomock.NewController(t)
@@ -1529,7 +1582,9 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		// First VM call: no initial reads requested.
 		gomock.InOrder(
 			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				vm.TraceOptions{},
+				gomock.Cond(func(opts vm.TraceOptions) bool {
+					return opts.TraceIndex != nil && *opts.TraceIndex == 0
+				}),
 			).Return(execResultWithReads(nil), nil),
 			// Second VM call: flag set, VM produces populated reads.
 			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,

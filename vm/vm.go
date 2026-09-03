@@ -55,6 +55,7 @@ type executeOptions struct {
 	AllowBinarySearch  bool
 	IsEstimateFee      bool
 	ReturnInitialReads bool
+	TraceIndex         *uint64
 }
 
 // SimulateOptions carries the flags relevant to RPC simulate.
@@ -74,6 +75,8 @@ type EstimateFeeOptions struct {
 // TraceOptions carries the flags relevant to replaying an existing block.
 type TraceOptions struct {
 	ReturnInitialReads bool
+	// TraceIndex executes through this transaction and returns only its trace.
+	TraceIndex *uint64
 }
 
 // BuildBlockOptions carries flags used when producing a block (builder or
@@ -519,6 +522,10 @@ func (v *vm) execute(
 		return ExecutionResults{}, err
 	}
 	defer inputs.free()
+	traceIndex := C.longlong(-1)
+	if opts.TraceIndex != nil {
+		traceIndex = C.longlong(*opts.TraceIndex)
+	}
 
 	C.cairoVMExecute(
 		inputs.txnsCStr, inputs.classesCStr, inputs.feesCStr,
@@ -532,6 +539,7 @@ func (v *vm) execute(
 		toUchar(opts.IsEstimateFee),
 		//nolint:gocritic // false positive: dupSubExpr with cgo toUchar(opts.ReturnInitialReads),
 		toUchar(opts.ReturnInitialReads),
+		traceIndex,
 	)
 
 	return parseExecutionResults(inputs.context)
@@ -606,6 +614,7 @@ func (v *vm) Trace(
 		executeOptions{
 			ErrStack:           true,
 			ReturnInitialReads: opts.ReturnInitialReads,
+			TraceIndex:         opts.TraceIndex,
 		},
 	)
 }
