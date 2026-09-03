@@ -125,21 +125,18 @@ func TestRemote(t *testing.T) {
 // a key sorting before the prefix and one sorting after it must not surface.
 func TestRemoteIteratorBounds(t *testing.T) {
 	memDB := memory.New()
-	require.NoError(t, memDB.Update(func(txn db.IndexedBatch) error {
-		keys := [][]byte{
-			{0x00, 0xFF},
-			{0x01, 0x00},
-			{0x01, 0x01},
-			{0x01, 0x02},
-			{0x02, 0x00},
-		}
-		for _, k := range keys {
-			if err := txn.Put(k, k); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
+	batch := memDB.NewBatch()
+	keys := [][]byte{
+		{0x00, 0xFF},
+		{0x01, 0x00},
+		{0x01, 0x01},
+		{0x01, 0x02},
+		{0x02, 0x00},
+	}
+	for _, k := range keys {
+		require.NoError(t, batch.Put(k, k))
+	}
+	require.NoError(t, batch.Write())
 
 	grpcHandler := junogrpc.New(memDB, "0.0.0")
 	grpcSrv := grpc.NewServer()
