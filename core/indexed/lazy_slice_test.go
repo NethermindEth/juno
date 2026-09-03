@@ -52,8 +52,7 @@ func TestAllMapped(t *testing.T) {
 		)
 
 		indexes := make([]int, 0, 3)
-		results, err := indexed.AllMapped(
-			lazySlice,
+		results, err := lazySlice.AllMapped(
 			func(index int, value fullShape) (int64, error) {
 				indexes = append(indexes, index)
 				return value.B, nil
@@ -72,8 +71,7 @@ func TestAllMapped(t *testing.T) {
 		)
 
 		expectedErr := errors.New("extract failed")
-		_, err := indexed.AllMapped(
-			lazySlice,
+		_, err := lazySlice.AllMapped(
 			func(index int, _ fullShape) (int64, error) {
 				if index == 1 {
 					return 0, expectedErr
@@ -86,8 +84,7 @@ func TestAllMapped(t *testing.T) {
 
 	t.Run("Decode error propagates", func(t *testing.T) {
 		lazySlice := indexed.NewLazySlice[fullShape]([]int{0}, []byte{0xff, 0xff})
-		_, err := indexed.AllMapped(
-			lazySlice,
+		_, err := lazySlice.AllMapped(
 			func(_ int, value fullShape) (int64, error) { return value.B, nil },
 		)
 		require.Error(t, err)
@@ -102,8 +99,7 @@ func TestReusedDecodeTargetIsReset(t *testing.T) {
 			partialShape{A: "y"},
 		)
 
-		results, err := indexed.AllMapped(
-			lazySlice,
+		results, err := lazySlice.AllMapped(
 			func(_ int, value fullShape) (fullShape, error) { return value, nil },
 		)
 		require.NoError(t, err)
@@ -117,8 +113,7 @@ func TestReusedDecodeTargetIsReset(t *testing.T) {
 			nullableShape{A: "y", B: nil},
 		)
 
-		results, err := indexed.AllMapped(
-			lazySlice,
+		results, err := lazySlice.AllMapped(
 			func(_ int, value fullShape) (fullShape, error) { return value, nil },
 		)
 		require.NoError(t, err)
@@ -148,8 +143,7 @@ func TestAllMappedPointerFieldFreshPointees(t *testing.T) {
 		pointerShape{V: ptrTo[int64](2)},
 	)
 
-	results, err := indexed.AllMapped(
-		lazySlice,
+	results, err := lazySlice.AllMapped(
 		func(_ int, value pointerShape) (*int64, error) { return value.V, nil },
 	)
 	require.NoError(t, err)
@@ -165,8 +159,7 @@ func TestAllMappedPointerIntoValueStaysCorrect(t *testing.T) {
 		fullShape{A: "y", B: 7},
 	)
 
-	results, err := indexed.AllMapped(
-		lazySlice,
+	results, err := lazySlice.AllMapped(
 		func(_ int, value fullShape) (*int64, error) { return &value.B, nil },
 	)
 	require.NoError(t, err)

@@ -1,30 +1,671 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * Juno documentation — "Operator" theme.
+ *
+ * Dark-first, monospace-forward, dense. Written for node operators who want
+ * numbers above the fold, not adjectives.
+ *
+ * Structure follows Docusaurus: the complete light palette lives on :root, and
+ * :root[data-theme="dark"] redefines the same token names. The :root prefix is
+ * REQUIRED, not decoration — Docusaurus ships html[data-theme='dark'] at
+ * specificity (0,1,1); a bare [data-theme="dark"] is (0,1,0) and silently
+ * loses every --ifm-* token no matter how late it is declared. :root[...] is
+ * (0,2,0) and wins. Every rule below styles
+ * through those tokens, so neither theme can end up with one theme's text on
+ * the other's ground.
+ *
+ * Text tokens make a three-step ladder — base, --juno-ink-2, --juno-ink-3 —
+ * each measured on the ground it actually sits on. --juno-ink-3 carries the
+ * mono micro-labels (breadcrumbs, sidebar categories, TOC, table headers,
+ * code-block titles), so its tightest ground is --juno-panel-2: it holds
+ * 6.5:1 there in dark and 5.8:1 in light. WCAG AA (4.5:1) is the floor for
+ * 16px body text, not a target for 13px uppercase text at 0.06em tracking —
+ * the earlier values scraped 4.28:1 dark and 4.36:1 light and read as unlit.
+ * Keep those three steps at least 1.2 apart, or they collapse into one grey.
+ *
+ * --ifm-font-size-base is a PERCENTAGE, not px. It lands on html, so it sets
+ * the rem unit for every size below AND keeps the reader's own browser font
+ * setting in play; a px value silently overrides that setting.
+ *
+ * --juno-label-size is the floor for the mono uppercase labels, which ran
+ * 0.68–0.72rem: the smallest text on the page carried the dimmest token.
+ *
+ * Colour note: the brand orange #ff4a04 is 3.37:1 on white, under WCAG AA for
+ * body text. Light mode therefore uses a hue-matched darker orange for anything
+ * rendered as text; #ff4a04 stays as the non-text brand accent and as the top
+ * step of the light ramp. Dark mode lightens it to #ff7a45 for the same reason
+ * — the ramp there is text-facing too — and keeps #ff4a04 as --juno-orange.
  */
 
-/* You can override the default Infima variables here. */
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;1,400;1,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap");
 
+/* ── Tokens: light ─────────────────────────────────────────────────── */
 :root {
-    --ifm-color-primary: #ff4a04;
-    --ifm-code-font-size: 95%;
+  --juno-orange: #ff4a04;
+  --juno-navy: #1b1b50;
+
+  /* Primary ramp, hue and saturation of the brand orange, darkened until the
+     base holds 6:1 on the page ground. Declaring the whole ramp is what stops
+     Infima falling back to its default blue on hover and active states.
+     6:1 rather than a bare AA pass because --ifm-color-primary is also
+     --ifm-link-color: at 4.72:1 the links sat at half the contrast of the
+     prose around them and read as the dimmest text on the page. */
+  --ifm-color-primary-darkest: #802400;
+  --ifm-color-primary-darker: #8f2800;
+  --ifm-color-primary-dark: #a12d00;
+  --ifm-color-primary: #ae3100;
+  --ifm-color-primary-light: #ca3900;
+  --ifm-color-primary-lighter: #e74100;
+  --ifm-color-primary-lightest: #ff4a04;
+
+  --ifm-background-color: #f6f6f8;
+  --ifm-background-surface-color: #eeeef3;
+  --juno-panel-2: #ececf4;
+  --juno-rule: #e0e0ec;
+  --juno-rule-soft: #ebebf3;
+  --ifm-font-color-base: #3e3e57;
+  --juno-ink: #12123a;
+  --juno-ink-2: #4d4d65;
+  --juno-ink-3: #585873;
+  --juno-ok: #0f7a4a;
+
+  --ifm-font-family-base: "DM Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ifm-font-family-monospace: "DM Mono", ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", monospace;
+  --ifm-heading-color: var(--juno-navy);
+  --ifm-heading-font-weight: 600;
+  --ifm-line-height-base: 1.75;
+  --ifm-font-size-base: 106.25%;
+  --ifm-code-font-size: 90%;
+  --juno-label-size: 0.76rem;
+
+  --ifm-global-radius: 3px;
+  --ifm-code-border-radius: 2px;
+  --doc-sidebar-width: 248px;
+
+  --ifm-navbar-height: 52px;
+  --ifm-navbar-shadow: none;
+  --ifm-toc-border-color: var(--juno-rule);
+  --ifm-hr-border-color: var(--juno-rule-soft);
+  --ifm-table-border-color: var(--juno-rule-soft);
 }
 
-* {
-    font-family: "DM Sans", sans-serif;
+/* ── Tokens: dark ──────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --ifm-color-primary-darkest: #d03a00;
+  --ifm-color-primary-darker: #df3e00;
+  --ifm-color-primary-dark: #f14300;
+  --ifm-color-primary: #ff7a45;
+  --ifm-color-primary-light: #ff8a5c;
+  --ifm-color-primary-lighter: #ff9a73;
+  --ifm-color-primary-lightest: #ffab8a;
+
+  --ifm-background-color: #0b0b1c;
+  --ifm-background-surface-color: #11112a;
+  --juno-panel-2: #161636;
+  --juno-rule: #23234d;
+  --juno-rule-soft: #1b1b3d;
+  --ifm-font-color-base: #c1c1d7;
+  --juno-ink: #e8e8f4;
+  --juno-ink-2: #aaaabf;
+  --juno-ink-3: #9c9cb4;
+  --juno-ok: #3ddc97;
+
+  /* Navy is unreadable on this ground; headings take the base ink. */
+  --ifm-heading-color: var(--juno-ink);
+  --ifm-toc-border-color: var(--juno-rule);
 }
 
-h1 {
-    font-weight: 600;
+/* ── Chrome: navbar ────────────────────────────────────────────────── */
+html {
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
 }
 
-.external-link {
-    margin-top: 0.25rem;
+/* Identifiers, versions and figures line up in columns. */
+.markdown table,
+.theme-doc-version-badge,
+.breadcrumbs {
+  font-variant-numeric: tabular-nums;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
-    --ifm-color-primary: #ff4a04;
+/* Links carry the accent, not an underline, until you approach them. */
+.markdown a:not(.card):not(.button) {
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+.markdown a:not(.card):not(.button):hover {
+  text-decoration: underline;
+}
+
+/* Frosted top bar. The blur must live on a pseudo-element, NOT on .navbar
+   itself: a non-none backdrop-filter turns the nav into the containing
+   block for fixed-position descendants (Filter Effects L2), and Docusaurus
+   renders the mobile drawer and its scrim INSIDE <nav> — pinned to a
+   52px-tall bar, the drawer's item list computes to height 0 and the
+   burger menu opens empty. On ::before the filter has nothing to capture:
+   the nav is sticky (positioned, own stacking context), so the pseudo
+   fills it at z-index -1 while the drawer escapes to the viewport. */
+.navbar {
+  background-color: color-mix(
+    in srgb,
+    var(--ifm-background-color) 86%,
+    transparent
+  );
+  border-bottom: 1px solid var(--juno-rule);
+  padding: 0 1.25rem;
+}
+
+.navbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: saturate(160%) blur(10px);
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--juno-ink);
+}
+
+.navbar__link {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--juno-ink);
+}
+
+/* The version dropdown reads as a status pill rather than a nav link. */
+.navbar__items--right .dropdown > .navbar__link {
+  border: 1px solid var(--juno-rule);
+  background: var(--ifm-background-surface-color);
+  border-radius: 2px;
+  padding: 0.2rem 0.55rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* ── Chrome: sidebar ───────────────────────────────────────────────── */
+.theme-doc-sidebar-container {
+  border-right: 1px solid var(--juno-rule-soft) !important;
+}
+
+.menu {
+  padding: 1.25rem 0.75rem !important;
+  font-size: 0.9rem;
+}
+
+/* Pages read as links: body face at body weight — a declaration on the
+   link outranks the weight 500 the .menu container would hand down.
+   Unscoped on purpose: the mobile drawer renders navbar items with these
+   same classes and should keep the same quiet treatment. background-clip
+   keeps hover washes out of the 2px border strip, where the guide rail
+   runs on nested lists. */
+.menu__link {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  padding: 0.3rem 0.6rem;
+  font-weight: 400;
+  color: var(--ifm-font-color-base);
+  background-clip: padding-box;
+}
+
+.menu__link:hover {
+  background: var(--ifm-background-surface-color);
+  color: var(--juno-ink);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  color: var(--juno-ink);
+  border-left-color: var(--juno-orange);
+  background: none;
+  font-weight: 600;
+}
+
+/* Categories are title bars, not bigger links: the code-block-title
+   treatment — panel tint, hairline rule, mono uppercase label. The bar
+   states "this is a section of pages"; plain rows are the pages. Scoped
+   to .theme-doc-sidebar-menu (doc menu root in both the desktop rail and
+   the mobile drawer, absent from the drawer's navbar items). */
+.theme-doc-sidebar-menu .menu__list-item-collapsible {
+  border-radius: 0;
+}
+
+.theme-doc-sidebar-menu .menu__list-item-collapsible .menu__link {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  padding: 0.45rem 0.6rem;
+}
+
+/* The bar bleeds through the menu's 0.75rem side padding to run
+   edge-to-edge (level 1 only — a nested category, if one ever lands,
+   would sit inside a rail and must not). The label's side padding grows
+   by the same amount, so its text keeps the exact x of page-link text.
+   The tint is pinned across hover and active: Infima paints its untuned
+   hover overlay on this row, and the row must not flicker between
+   materials — approach is signalled by the label, not the ground. */
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible {
+  margin: 0 -0.75rem;
+  border-bottom: 1px solid var(--juno-rule-soft);
+}
+
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible,
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible:hover,
+.theme-doc-sidebar-item-category-level-1
+  > .menu__list-item-collapsible--active {
+  background: var(--juno-panel-2);
+}
+
+.theme-doc-sidebar-item-category-level-1
+  > .menu__list-item-collapsible
+  > .menu__link {
+  padding-left: 1.35rem;
+  padding-right: 1.35rem;
+}
+
+/* The label steps up on approach, and while its section holds the current
+   page — the category link carries menu__link--active whenever a
+   descendant is active, a state that previously produced no cue at all.
+   (Infima force-kills backgrounds on links inside a collapsible with
+   background: none !important, which is fine here: the bar's tint lives
+   on the row div, and only the label's colour moves.) */
+.theme-doc-sidebar-menu .menu__list-item-collapsible:hover .menu__link,
+.theme-doc-sidebar-menu
+  .menu__list-item-collapsible
+  .menu__link--sublist.menu__link--active {
+  color: var(--juno-ink);
+}
+
+/* The caret is drawn, not shipped: Infima's is a data-URI icon inverted
+   for dark mode with a filter. Two hairline borders in currentColor follow
+   the label through its colour steps in both themes for free. Also applied
+   in the drawer so the version dropdown matches. background, filter and
+   the 1.25rem min-width must all be zeroed or the stock icon geometry
+   bleeds through. Expanded points down… */
+.theme-doc-sidebar-menu .menu__link--sublist-caret::after,
+.navbar-sidebar .menu__link--sublist-caret::after {
+  content: "";
+  background: none;
+  filter: none;
+  min-width: 0;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--ifm-transition-fast) linear;
+}
+
+/* …collapsed points along the reading direction. Must outgun our own base
+   rule above: Infima's collapsed state (rotateZ(90deg)) ties that base at
+   (0,2,1) and would otherwise lose to it by source order. */
+.theme-doc-sidebar-menu
+  .menu__list-item--collapsed
+  .menu__link--sublist-caret::after,
+.navbar-sidebar .menu__list-item--collapsed .menu__link--sublist-caret::after {
+  transform: rotate(-45deg);
+}
+
+/* Child lists hang from a hairline rail, and the ul's indent moves into
+   the link so the active page's 2px accent sits exactly ON the rail: with
+   the ul's padding zeroed the li starts 1px right of the rail, so
+   margin-left -1px lands the link's border-box on it. Descendants paint
+   over ancestor borders — orange covers the hairline; every other row's
+   transparent border lets it show through. 0.75rem + 0.6rem puts the text
+   back at the x it had when the ul carried the 0.75rem itself. (The root
+   ul is itself a .menu__list, so one .menu__list under the scope already
+   means "nested".) */
+.theme-doc-sidebar-menu .menu__list {
+  padding-left: 0;
+  border-left: 1px solid var(--juno-rule);
+}
+
+.theme-doc-sidebar-menu .menu__list .menu__link {
+  margin-left: -1px;
+  padding-left: calc(0.75rem + 0.6rem);
+}
+
+/* Group rhythm: air above each top-level section and above the run of
+   loose pages after the last one. The level classes exist only on doc
+   items, so the drawer's navbar items keep Infima's 0.25rem. */
+.theme-doc-sidebar-item-category-level-1:not(:first-child),
+.theme-doc-sidebar-item-category-level-1
+  + .theme-doc-sidebar-item-link-level-1 {
+  margin-top: 1rem;
+}
+
+/* The type:"html" externals in sidebars.js ship a stale hashed icon class,
+   so their SVG lost its stock margin (an &nbsp; in the markup stands in
+   for it). Their <li> also lacks menu__list-item, so Infima's inter-item
+   gap is restored by hand. */
+.theme-doc-sidebar-menu .external-link {
+  margin-top: 0.25rem;
+}
+
+.theme-doc-sidebar-menu .external-link svg {
+  flex: none;
+}
+
+/* ── Chrome: breadcrumbs and TOC ───────────────────────────────────── */
+.theme-doc-breadcrumbs {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.breadcrumbs__link {
+  background: none;
+  color: var(--juno-ink-3);
+  padding: 0;
+}
+
+.breadcrumbs__item--active .breadcrumbs__link {
+  background: none;
+  color: var(--juno-ink-3);
+}
+
+.table-of-contents {
+  font-size: 0.85rem;
+  border-left: 1px solid var(--juno-rule);
+}
+
+.table-of-contents__link {
+  color: var(--juno-ink-3);
+}
+
+.table-of-contents__link--active,
+.table-of-contents__link:hover {
+  color: var(--juno-ink);
+}
+
+/* ── Content ───────────────────────────────────────────────────────── */
+.markdown h1:first-child {
+  font-size: 2.45rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+  margin-bottom: 1.5rem;
+}
+
+.markdown > p:first-of-type {
+  font-size: 1.1rem;
+  line-height: 1.65;
+  color: var(--juno-ink-2);
+}
+
+.markdown > h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  margin-top: 3.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown > h3 {
+  font-size: 1.18rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  margin-top: 2.5rem;
+  margin-bottom: 0.6rem;
+}
+
+/* A wider measure than the usual 65ch: reference prose carries long
+   identifiers and flag names that a narrow column breaks badly. */
+.theme-doc-markdown {
+  max-width: 52rem;
+}
+
+/* ── Code ──────────────────────────────────────────────────────────── */
+.theme-code-block {
+  box-shadow: none !important;
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+}
+
+/* Native ```lang title="…" header, styled as a command-block label. */
+div[class^="codeBlockTitle"] {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  background: var(--juno-panel-2);
+  border-bottom: 1px solid var(--juno-rule-soft);
+}
+
+code {
+  border-color: var(--juno-rule);
+}
+
+/* Docusaurus' version badge ships as a light chip, which glares on the dark
+   ground. Restyle it as a quiet monospace tag in both modes. */
+.theme-doc-version-badge {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--juno-rule);
+  border-radius: 2px;
+  padding: 0.16rem 0.5rem;
+  vertical-align: middle;
+}
+
+/* ── Admonitions ───────────────────────────────────────────────────────
+   Infima ships saturated primary colours for these (a tip is pure green,
+   #009400 on #003100), which fight a navy-and-orange palette and read as
+   default template styling. Restyled as quiet callouts: a muted semantic
+   rail, a tinted panel, and a monospace label. Semantic hue is kept —
+   it carries meaning — but desaturated to sit inside the theme. */
+:root {
+  --juno-note: #595977;
+  --juno-tip: #0f7a5a;
+  --juno-info: #2b5f9e;
+  --juno-warn: #8a5a00;
+  --juno-danger: #a3342a;
+}
+
+:root[data-theme="dark"] {
+  --juno-note: #9898b2;
+  --juno-tip: #4ec49a;
+  --juno-info: #7aa8e6;
+  --juno-warn: #d9a441;
+  --juno-danger: #e88a7e;
+}
+
+.theme-admonition {
+  border: 1px solid var(--juno-rule);
+  border-left: 2px solid var(--juno-note);
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+  box-shadow: none;
+  padding: 0.9rem 1.1rem;
+}
+
+.theme-admonition .admonitionHeading_Gvgb,
+.theme-admonition div[class*="admonitionHeading"] {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--juno-note);
+  margin-bottom: 0.4rem;
+}
+
+/* Infima's icons are filled glyphs sized for the loud original treatment. */
+.theme-admonition span[class*="admonitionIcon"] svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  opacity: 0.75;
+}
+
+.theme-admonition-tip { border-left-color: var(--juno-tip); }
+.theme-admonition-tip div[class*="admonitionHeading"] { color: var(--juno-tip); }
+.theme-admonition-info,
+.theme-admonition-note { border-left-color: var(--juno-info); }
+.theme-admonition-info div[class*="admonitionHeading"],
+.theme-admonition-note div[class*="admonitionHeading"] { color: var(--juno-info); }
+.theme-admonition-caution,
+.theme-admonition-warning { border-left-color: var(--juno-warn); }
+.theme-admonition-caution div[class*="admonitionHeading"],
+.theme-admonition-warning div[class*="admonitionHeading"] { color: var(--juno-warn); }
+.theme-admonition-danger { border-left-color: var(--juno-danger); }
+.theme-admonition-danger div[class*="admonitionHeading"] { color: var(--juno-danger); }
+
+/* ── Code blocks ───────────────────────────────────────────────────────
+   One Light/Dark carry their own background (#282c34 on dark), a neutral
+   grey that sits visibly apart from the navy panels around it. Pointing
+   the block at the theme's own surface keeps the page one material; the
+   syntax colours are untouched. */
+:root {
+  --prism-background-color: var(--ifm-background-surface-color);
+}
+
+:root[data-theme="dark"] {
+  --prism-background-color: var(--ifm-background-surface-color);
+}
+
+/* Docusaurus writes the prism theme's background as an INLINE style on the
+   <pre> (background-color: rgb(40,44,52) for One Dark), so a selector cannot
+   reach it — !important is the only lever. Measured before overriding: every
+   One Dark token gains contrast on the navy panel rather than losing it
+   (plain text 6.57:1 -> 8.66:1, keywords 4.75:1 -> 6.27:1). */
+.theme-code-block pre.prism-code {
+  background-color: var(--ifm-background-surface-color) !important;
+}
+
+div[class*="codeBlockTitle"] {
+  background: var(--juno-panel-2);
+}
+
+/* Long commands are common here; make the overflow edge legible. */
+div[class*="codeBlockContent"] {
+  scrollbar-width: thin;
+}
+
+/* ── Tables: rules, not gridlines ──────────────────────────────────── */
+.markdown table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+}
+
+.markdown table thead tr {
+  border-bottom: 2px solid var(--juno-rule);
+  background: none;
+}
+
+.markdown table th {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+  font-weight: 500;
+}
+
+.markdown table th,
+.markdown table td {
+  border: none;
+  border-bottom: 1px solid var(--juno-rule-soft);
+  padding: 0.55rem 1.25rem 0.55rem 0;
+  vertical-align: top;
+}
+
+.markdown table td code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ifm-color-primary);
+}
+
+.markdown table tr:nth-child(2n) {
+  background: none;
+}
+
+/* ── Footer and pagination ─────────────────────────────────────────── */
+.footer {
+  background: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--juno-rule);
+}
+
+.footer__title {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--juno-ink-3);
+}
+
+.pagination-nav__link {
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+}
+
+.pagination-nav__sublabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: var(--juno-label-size);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Prominent button-style tabs (snapshot download method) ────────── */
+.method-tabs {
+  gap: 0.75rem;
+}
+
+.method-tabs .tabs__item {
+  flex: 1 1 0;
+  border: 1px solid var(--juno-rule);
+  border-radius: var(--ifm-global-radius);
+  padding: 0.9rem 1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.method-tabs .tabs__item:not(.tabs__item--active):hover {
+  background-color: var(--ifm-background-surface-color);
+  border-color: var(--juno-rule);
+}
+
+.method-tabs .tabs__item--active {
+  background-color: color-mix(in srgb, var(--juno-orange) 8%, transparent);
+  border-color: var(--juno-orange);
+  color: var(--ifm-color-primary);
+}
+
+.method-tabs .tabs__item--active:hover {
+  background-color: color-mix(in srgb, var(--juno-orange) 16%, transparent);
+  border-color: var(--juno-orange);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

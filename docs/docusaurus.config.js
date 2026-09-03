@@ -1,8 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require("prism-react-renderer").themes.github;
-const darkCodeTheme = require("prism-react-renderer").themes.dracula;
+// Warmer palette than github/dracula, sits closer to the brand orange.
+const lightCodeTheme = require("prism-react-renderer").themes.oneLight;
+const darkCodeTheme = require("prism-react-renderer").themes.oneDark;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -22,7 +23,13 @@ const config = {
   projectName: "juno", // Usually your repo name.
 
   onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+
+  markdown: {
+    hooks: {
+      // Was the top-level onBrokenMarkdownLinks, deprecated since v3.10.
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   // Even if you don't use internalization, you can use this field to set useful
   // metadata like html lang. For example, if your site is Chinese, you may want
@@ -82,6 +89,14 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      colorMode: {
+        // respectPrefersColorScheme makes the navbar toggle a three-state
+        // System -> Light -> Dark cycle (Docusaurus 3.8+): the site follows
+        // the OS until the visitor pins a mode. defaultMode only seeds
+        // server-side rendering.
+        defaultMode: "dark",
+        respectPrefersColorScheme: true,
+      },
       navbar: {
         title: "JUNO",
         logo: {
@@ -107,15 +122,15 @@ const config = {
             title: "Docs",
             items: [
               {
-                label: "Running Juno",
+                label: "Installation",
                 to: "running-juno",
               },
               {
-                label: "Configuring Juno",
+                label: "Configuration",
                 to: "configuring",
               },
               {
-                label: "Interacting with Juno",
+                label: "JSON-RPC",
                 to: "json-rpc",
               },
             ],

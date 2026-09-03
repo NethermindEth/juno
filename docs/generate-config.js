@@ -121,6 +121,11 @@ const extractConfigs = (codebase) => {
     if (configName === "max-compilation-queue") {
       defaultValue = "2 * max-concurrent-compilations";
     }
+    // Registered as 0, which means "derive from GOMAXPROCS at startup" rather
+    // than "no concurrency".
+    if (configName === "rpc-batch-concurrency") {
+      defaultValue = "2 * CPU Cores";
+    }
     // The registered Cobra default is 0, but pruning is gated on the flag's
     // presence, not its value — a bare `--prune-mode` enables pruning with the
     // NoOptDefVal of 128. Show 128 as the effective default when enabled.

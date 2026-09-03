@@ -121,7 +121,7 @@ func (c *rpcClient) blockWithTxHashes(
 		ctx,
 		c,
 		"starknet_getBlockWithTxHashes",
-		blockIDParams{blockNumberID{blockNumber}},
+		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
 
@@ -130,7 +130,7 @@ func (c *rpcClient) txCountInBlock(ctx context.Context, blockNumber uint64) (uin
 		ctx,
 		c,
 		"starknet_getBlockTransactionCount",
-		blockIDParams{blockNumberID{blockNumber}},
+		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
 
@@ -139,7 +139,7 @@ func (c *rpcClient) stateUpdateAt(ctx context.Context, blockNumber uint64) (stat
 		ctx,
 		c,
 		"starknet_getStateUpdate",
-		blockIDParams{blockNumberID{blockNumber}},
+		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
 
@@ -177,6 +177,6 @@ func (c *rpcClient) blockWithReceipts(
 		ctx,
 		c,
 		"starknet_getBlockWithReceipts",
-		blockIDParams{blockNumberID{blockNumber}},
+		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }

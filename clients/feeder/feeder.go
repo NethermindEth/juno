@@ -28,6 +28,20 @@ const (
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
+// ErrPreConfirmedBlockNotFound is returned by the pre-confirmed queries when
+// the gateway answers 400, meaning the requested block is not (or no longer)
+// in the pre-confirmed window.
+var ErrPreConfirmedBlockNotFound = errors.New("pre-confirmed block not found")
+
+// StatusError reports a non-OK HTTP status from the feeder gateway.
+type StatusError struct {
+	Code int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("%d %s", e.Code, http.StatusText(e.Code))
+}
+
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
@@ -130,9 +144,83 @@ func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
 	c.timeouts.Store(makeTimeouts(timeouts, fixed))
 }
 
+// buildRequest constructs the GET request for queryURL with the client's
+// identification headers set.
+func (c *Client) buildRequest(ctx context.Context, queryURL *url.URL) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-Throttling-Bypass", c.apiKey)
+	}
+	return req, nil
+}
+
+// tryGet performs a single request attempt with the given timeout. It returns
+// the response body on 200, a StatusError on any other status, and transport
+// errors unchanged.
+func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser, error) {
+	c.client.Timeout = timeout
+	reqTimer := time.Now()
+	res, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+	if res.StatusCode == http.StatusOK {
+		return res.Body, nil
+	}
+	res.Body.Close()
+	return nil, &StatusError{Code: res.StatusCode}
+}
+
+// logRetry reports a failed attempt, promoting the retries from debug to warn
+// once the adaptive timeout has grown past mediumGrowThreshold.
+func (c *Client) logRetry(
+	reqURL string,
+	wait time.Duration,
+	err error,
+	currentTimeout time.Duration,
+) {
+	if currentTimeout >= mediumGrowThreshold {
+		c.logger.Warn("Failed query to feeder, retrying...",
+			zap.String("req", log.SanitizeString(reqURL)),
+			zap.String("retryAfter", wait.String()),
+			zap.Error(err),
+			zap.String("newHTTPTimeout", currentTimeout.String()),
+		)
+		c.logger.Warn("Timeouts can be updated via HTTP PUT request",
+			zap.String("timeout", currentTimeout.String()),
+			zap.String("hint",
+				`Set --http-update-port and --http-update-host flags and `+
+					`make a PUT request to "/feeder/timeouts" with the specified timeouts`,
+			),
+		)
+	} else {
+		c.logger.Debug("Failed query to feeder, retrying...",
+			zap.String("req", log.SanitizeString(reqURL)),
+			zap.String("retryAfter", wait.String()),
+			zap.Error(err),
+			zap.String("newHTTPTimeout", currentTimeout.String()),
+		)
+	}
+}
+
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, error) {
-	var res *http.Response
+func (c *Client) get(
+	ctx context.Context,
+	queryURL *url.URL,
+	opts ...requestOption,
+) (io.ReadCloser, error) {
+	var cfg requestConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	var err error
 	wait := time.Duration(0)
 	for range c.maxRetries + 1 {
@@ -140,38 +228,31 @@ func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, err
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(wait):
-			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), http.NoBody)
-			if err != nil {
-				return nil, err
-			}
-			if c.userAgent != "" {
-				req.Header.Set("User-Agent", c.userAgent)
-			}
-			if c.apiKey != "" {
-				req.Header.Set("X-Throttling-Bypass", c.apiKey)
+			req, reqErr := c.buildRequest(ctx, queryURL)
+			if reqErr != nil {
+				return nil, reqErr
 			}
 
 			timeouts := c.timeouts.Load()
-			c.client.Timeout = timeouts.GetCurrentTimeout()
-			reqTimer := time.Now()
-			res, err = c.client.Do(req)
-			tooManyRequests, badRequest := false, false
+			var body io.ReadCloser
+			body, err = c.tryGet(req, timeouts.GetCurrentTimeout())
 			if err == nil {
-				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
-				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
-				badRequest = res.StatusCode == http.StatusBadRequest
-				if res.StatusCode == http.StatusOK {
-					timeouts.DecreaseTimeout()
-					return res.Body, nil
-				} else {
-					err = errors.New(res.Status)
-				}
-
-				res.Body.Close()
+				timeouts.DecreaseTimeout()
+				return body, nil
 			}
 
-			if !tooManyRequests && !badRequest {
+			code := 0
+			var statusErr *StatusError
+			if errors.As(err, &statusErr) {
+				code = statusErr.Code
+			}
+
+			if cfg.failFastOnBadRequest && code == http.StatusBadRequest {
+				return nil, err
+			}
+
+			// 429 and 400 don't indicate a slow gateway, so they don't grow the timeout.
+			if code != http.StatusTooManyRequests && code != http.StatusBadRequest {
 				timeouts.IncreaseTimeout()
 			}
 
@@ -180,30 +261,7 @@ func (c *Client) get(ctx context.Context, queryURL *url.URL) (io.ReadCloser, err
 			} else {
 				wait = min(c.backoff(wait), c.maxWait)
 			}
-
-			currentTimeout := timeouts.GetCurrentTimeout()
-			if currentTimeout >= mediumGrowThreshold {
-				c.logger.Warn("Failed query to feeder, retrying...",
-					zap.String("req", log.SanitizeString(req.URL.String())),
-					zap.String("retryAfter", wait.String()),
-					zap.Error(err),
-					zap.String("newHTTPTimeout", currentTimeout.String()),
-				)
-				c.logger.Warn("Timeouts can be updated via HTTP PUT request",
-					zap.String("timeout", currentTimeout.String()),
-					zap.String("hint",
-						`Set --http-update-port and --http-update-host flags and `+
-							`make a PUT request to "/feeder/timeouts" with the specified timeouts`,
-					),
-				)
-			} else {
-				c.logger.Debug("Failed query to feeder, retrying...",
-					zap.String("req", log.SanitizeString(req.URL.String())),
-					zap.String("retryAfter", wait.String()),
-					zap.Error(err),
-					zap.String("newHTTPTimeout", currentTimeout.String()),
-				)
-			}
+			c.logRetry(req.URL.String(), wait, err, timeouts.GetCurrentTimeout())
 		}
 	}
 	return nil, err
@@ -214,7 +272,7 @@ func (c *Client) Block(ctx context.Context, blockID string) (starknet.Block, err
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.Block](ctx, c, queryURL)
+	return c.doRequest[starknet.Block](ctx, queryURL)
 }
 
 func (c *Client) BlockHeader(
@@ -225,7 +283,7 @@ func (c *Client) BlockHeader(
 		"headerOnly":   trueStr,
 	})
 
-	return doRequest[starknet.BlockHeader](ctx, c, queryURL)
+	return c.doRequest[starknet.BlockHeader](ctx, queryURL)
 }
 
 func (c *Client) BlockTrace(ctx context.Context, blockHash string) (starknet.BlockTrace, error) {
@@ -233,7 +291,7 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (starknet.Blo
 		"blockHash": blockHash,
 	})
 
-	return doRequest[starknet.BlockTrace](ctx, c, queryURL)
+	return c.doRequest[starknet.BlockTrace](ctx, queryURL)
 }
 
 func (c *Client) CasmClassDefinition(
@@ -275,20 +333,20 @@ func (c *Client) ClassDefinition(
 		blockNumberArg: "latest",
 	})
 
-	return doRequest[starknet.ClassDefinition](ctx, c, queryURL)
+	return c.doRequest[starknet.ClassDefinition](ctx, queryURL)
 }
 
 func (c *Client) FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error) {
 	queryURL := buildQueryString(c.url, "get_contract_addresses", nil)
 
-	return doRequest[starknet.FeeTokenAddresses](ctx, c, queryURL)
+	return c.doRequest[starknet.FeeTokenAddresses](ctx, queryURL)
 }
 
 func (c *Client) PublicKey(ctx context.Context) (felt.Felt, error) {
 	queryURL := buildQueryString(c.url, "get_public_key", nil)
 
 	// public key is a hex string
-	publicKey, err := doRequest[starknet.PublicKey](ctx, c, queryURL)
+	publicKey, err := c.doRequest[starknet.PublicKey](ctx, queryURL)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -300,7 +358,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (starknet.Signat
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.Signature](ctx, c, queryURL)
+	return c.doRequest[starknet.Signature](ctx, queryURL)
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (starknet.StateUpdate, error) {
@@ -308,7 +366,7 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (starknet.Stat
 		blockNumberArg: blockID,
 	})
 
-	return doRequest[starknet.StateUpdate](ctx, c, queryURL)
+	return c.doRequest[starknet.StateUpdate](ctx, queryURL)
 }
 
 func (c *Client) StateUpdateWithBlockAndSignature(
@@ -321,7 +379,7 @@ func (c *Client) StateUpdateWithBlockAndSignature(
 		"includeSignature": trueStr,
 	})
 
-	return doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, c, queryURL)
+	return c.doRequest[starknet.StateUpdateWithBlockAndSignature](ctx, queryURL)
 }
 
 // PreConfirmedBlockWithIdentifier fetches the pre_confirmed block at the given height,
@@ -397,8 +455,17 @@ func (c *Client) fetchPreConfirmedUpdate(
 	// PreConfirmedUpdateEnvelope intentionally has no UnmarshalJSON (see its doc),
 	// so it cannot ride the generic doRequest. Decode in a single scan, then run
 	// the same Validate + error-wrap that doRequest applies.
-	body, err := c.get(ctx, queryURL)
+	//
+	// The gateway answers 400 (never 404) when the queried block is not in the
+	// pre-confirmed window. That is deterministic, so the request fails fast
+	// instead of burning the retry budget, and the 400 surfaces as
+	// ErrPreConfirmedBlockNotFound for callers to match on.
+	body, err := c.get(ctx, queryURL, failFastOnBadRequest())
 	if err != nil {
+		var statusErr *StatusError
+		if errors.As(err, &statusErr) && statusErr.Code == http.StatusBadRequest {
+			return nil, fmt.Errorf("%w: %w", ErrPreConfirmedBlockNotFound, err)
+		}
 		return nil, err
 	}
 	defer body.Close()
@@ -425,7 +492,7 @@ func (c *Client) Transaction(
 		"transactionHash": transactionHash.String(),
 	})
 
-	return doRequest[starknet.DeprecatedTransactionStatus](ctx, c, queryURL)
+	return c.doRequest[starknet.DeprecatedTransactionStatus](ctx, queryURL)
 }
 
 // TransactionStatus calls the get_transaction_status endpoint which returns only status fields
@@ -438,5 +505,5 @@ func (c *Client) TransactionStatus(
 		"transactionHash": transactionHash.String(),
 	})
 
-	return doRequest[starknet.TransactionStatus](ctx, c, queryURL)
+	return c.doRequest[starknet.TransactionStatus](ctx, queryURL)
 }

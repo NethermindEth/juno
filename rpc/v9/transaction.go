@@ -588,11 +588,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 
 		return AdaptTransaction(tipBlock.Transactions[txIndex]), nil
 	case latest:
-		header, err := h.bcReader.HeadsHeader()
-		if err != nil {
-			return Transaction{}, rpccore.ErrBlockNotFound
-		}
-		blockNumber = header.Number
+		blockNumber, err = h.bcReader.Height()
 	case hash:
 		blockNumber, err = h.bcReader.BlockNumberByHash(blockID.Hash())
 	case number:

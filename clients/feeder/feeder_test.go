@@ -903,6 +903,51 @@ func TestBackoffFailure(t *testing.T) {
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
 
+func TestBadRequestRetryPolicy(t *testing.T) {
+	maxRetries := 3
+	callCount := make(map[string]int)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount[r.URL.Path]++
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	t.Cleanup(srv.Close)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	client := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
+
+	t.Run("pre-confirmed queries fail fast with a domain error", func(t *testing.T) {
+		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+		require.ErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+
+		var statusErr *feeder.StatusError
+		require.ErrorAs(t, err, &statusErr)
+		assert.Equal(t, http.StatusBadRequest, statusErr.Code)
+
+		_, err = client.PreConfirmedBlockWithIdentifier(t.Context(), "10", "", 0)
+		require.ErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+
+		assert.Equal(t, 2, callCount["/get_preconfirmed_block"],
+			"a 400 on a pre-confirmed query must not be retried")
+	})
+
+	t.Run("other endpoints keep the full retry budget on 400", func(t *testing.T) {
+		_, err := client.Block(t.Context(), strconv.Itoa(0))
+		assert.EqualError(t, err, "400 Bad Request")
+		assert.NotErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+
+		var statusErr *feeder.StatusError
+		require.ErrorAs(t, err, &statusErr)
+		assert.Equal(t, http.StatusBadRequest, statusErr.Code)
+
+		assert.Equal(t, maxRetries+1, callCount["/get_block"])
+	})
+}
+
 func TestCompiledClassDefinition(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
@@ -1245,7 +1290,7 @@ func clientServingBody(t *testing.T, body string) *feeder.Client {
 }
 
 // TestFeederValidation checks that the response
-// validation wired into [doRequest] works as expected.
+// validation wired into [Client.doRequest] works as expected.
 func TestFeederValidation(t *testing.T) {
 	t.Run("valid response is returned", func(t *testing.T) {
 		body := `{

@@ -2,31 +2,63 @@ package main
 
 import "encoding/json"
 
+type blockID interface {
+	blockNumber() uint64
+}
+
 type blockNumberID struct {
 	BlockNumber uint64 `json:"block_number"`
 }
 
+func (b blockNumberID) blockNumber() uint64 { return b.BlockNumber }
+
+type blockHashID struct {
+	BlockHash string `json:"block_hash"`
+
+	number uint64
+}
+
+func (b blockHashID) blockNumber() uint64 { return b.number }
+
+type latestBlockID struct {
+	number uint64
+}
+
+func (b latestBlockID) blockNumber() uint64 { return b.number }
+
+func (latestBlockID) MarshalJSON() ([]byte, error) {
+	return json.Marshal("latest")
+}
+
 type blockIDParams struct {
-	BlockID blockNumberID `json:"block_id"`
+	BlockID       blockID  `json:"block_id"`
+	ResponseFlags []string `json:"response_flags,omitempty"`
+}
+
+type traceBlockParams struct {
+	BlockID    blockID  `json:"block_id"`
+	TraceFlags []string `json:"trace_flags,omitempty"`
 }
 
 type txHashParams struct {
-	TransactionHash string `json:"transaction_hash"`
+	TransactionHash string   `json:"transaction_hash"`
+	ResponseFlags   []string `json:"response_flags,omitempty"`
 }
 
 type txByBlockIDAndIndexParams struct {
-	BlockID blockNumberID `json:"block_id"`
-	Index   uint64        `json:"index"`
+	BlockID       blockID  `json:"block_id"`
+	Index         uint64   `json:"index"`
+	ResponseFlags []string `json:"response_flags,omitempty"`
 }
 
 type contractAtBlockParams struct {
-	BlockID         blockNumberID `json:"block_id"`
-	ContractAddress string        `json:"contract_address"`
+	BlockID         blockID `json:"block_id"`
+	ContractAddress string  `json:"contract_address"`
 }
 
 type classAtBlockParams struct {
-	BlockID   blockNumberID `json:"block_id"`
-	ClassHash string        `json:"class_hash"`
+	BlockID   blockID `json:"block_id"`
+	ClassHash string  `json:"class_hash"`
 }
 
 type classHashParams struct {
@@ -34,9 +66,10 @@ type classHashParams struct {
 }
 
 type storageAtParams struct {
-	ContractAddress string        `json:"contract_address"`
-	Key             string        `json:"key"`
-	BlockID         blockNumberID `json:"block_id"`
+	ContractAddress string   `json:"contract_address"`
+	Key             string   `json:"key"`
+	BlockID         blockID  `json:"block_id"`
+	ResponseFlags   []string `json:"response_flags,omitempty"`
 }
 
 type eventsParams struct {
@@ -44,10 +77,20 @@ type eventsParams struct {
 }
 
 type eventFilter struct {
-	FromBlock blockNumberID `json:"from_block"`
-	ToBlock   blockNumberID `json:"to_block"`
-	Address   string        `json:"address,omitempty"`
-	ChunkSize int           `json:"chunk_size"`
+	FromBlock blockID     `json:"from_block,omitempty"`
+	ToBlock   blockID     `json:"to_block,omitempty"`
+	Address   addressList `json:"address,omitempty"`
+	Keys      [][]string  `json:"keys,omitempty"`
+	ChunkSize uint64      `json:"chunk_size"`
+}
+
+type addressList []string
+
+func (a addressList) MarshalJSON() ([]byte, error) {
+	if len(a) == 1 {
+		return json.Marshal(a[0])
+	}
+	return json.Marshal([]string(a))
 }
 
 type storageProofParams struct {
@@ -63,6 +106,7 @@ type contractStorageKeys struct {
 }
 
 type txHashesBlock struct {
+	BlockHash    string   `json:"block_hash"`
 	Transactions []string `json:"transactions"`
 }
 
@@ -86,12 +130,15 @@ type contractClass struct {
 	SierraProgram []json.RawMessage `json:"sierra_program"`
 }
 
+type receiptEvent struct {
+	FromAddress string   `json:"from_address"`
+	Keys        []string `json:"keys"`
+}
+
 type receiptsBlock struct {
 	Transactions []struct {
 		Receipt struct {
-			Events []struct {
-				FromAddress string `json:"from_address"`
-			} `json:"events"`
+			Events []receiptEvent `json:"events"`
 		} `json:"receipt"`
 	} `json:"transactions"`
 }

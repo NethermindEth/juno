@@ -1,8 +1,8 @@
 ---
-title: Frequently Asked Questions
+title: FAQ
 ---
 
-# Frequently Asked Questions :question:
+# Frequently Asked Questions
 
 <details>
   <summary>What is Juno?</summary>
@@ -14,7 +14,7 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 <details>
   <summary>How can I run Juno?</summary>
 
-Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on GCP.
+Check out the [Installation](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [GCP](running-on-gcp) guide to learn how to run Juno on GCP.
 
 </details>
 
@@ -28,14 +28,14 @@ We recommend running Juno with at least 8GB of RAM. Check out the [Hardware Requ
 <details>
   <summary>How can I configure my Juno node?</summary>
 
-You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and a [YAML configuration file](configuring#configuration-file). Check out the [Configuring Juno](configuring) guide to learn their usage and precedence.
+You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and a [YAML configuration file](configuring#configuration-file). Check out the [Configuration](configuring) guide to learn their usage and precedence.
 
 </details>
 
 <details>
   <summary>How can I update my Juno node?</summary>
 
-Check out the [Updating Juno](updating) guide for instructions on updating your node to the latest version.
+Check out the [Updating](updating) guide for instructions on updating your node to the latest version.
 
 </details>
 
@@ -49,7 +49,7 @@ You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [We
 <details>
   <summary>How can I monitor my Juno node?</summary>
 
-Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Metrics Monitoring](monitoring) guide to get started.
+Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring](monitoring) guide to get started.
 
 </details>
 

@@ -1,8 +1,8 @@
 ---
-title: Deploy on Kubernetes
+title: Kubernetes
 ---
 
-# Running Juno on Kubernetes :wheel_of_dharma:
+# Running Juno on Kubernetes
 
 You can deploy Juno on Kubernetes using the official [Helm chart](https://github.com/NethermindEth/helm-charts/tree/main/charts/juno). The chart deploys a Juno Starknet full node as a StatefulSet with persistent storage. Optionally, a [staking validator](staking-validator) service can be enabled alongside.
 
@@ -67,7 +67,12 @@ juno:
   initContainers:
     - name: download-snapshot
       image: alpine:latest
-      command: ["sh", "-c", "apk add --no-cache zstd && wget -O- <SNAPSHOT_URL> | zstd -d | tar -xf - -C /data"]
+      command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache lftp zstd
+          lftp -c "cat <SNAPSHOT_URL>" | zstd -d | tar -xf - -C /data
       volumeMounts:
         - name: data-juno
           mountPath: /data
@@ -120,7 +125,7 @@ juno:
     - --readiness-block-tolerance=10
 ```
 
-See the [Configuring Juno](configuring) guide for the full list of options.
+See the [Configuration](configuring) guide for the full list of options.
 
 ### Persistent storage
 
@@ -241,7 +246,7 @@ serviceMonitor:
     release: prometheus
 ```
 
-The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Metrics Monitoring](monitoring) guide.
+The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Monitoring](monitoring) guide.
 
 ## Upgrading
 

@@ -110,6 +110,9 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
 	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
+	rpcMaxBatchSizeF                    = "rpc-max-batch-size"
+	rpcMaxBatchResponseSizeF            = "rpc-max-batch-response-size"
+	rpcBatchConcurrencyF                = "rpc-batch-concurrency"
 	maxConcurrentCompilationsF          = "max-concurrent-compilations"
 	maxCompilationQueueF                = "max-compilation-queue"
 	maxCompilationMemoryF               = "max-compilation-memory"
@@ -179,6 +182,9 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 256000
 	defaultRPCMaxQueuedRequests               = 256000
+	defaultRPCMaxBatchSize                    = 1000
+	defaultRPCMaxBatchResponseSize            = 64 // MB
+	defaultRPCBatchConcurrency                = uint(0)
 	defaultMaxConcurrentCompilations          = uint64(0)
 	defaultMaxCompilationQueue                = uint64(0)
 	defaultMaxCompilationMemory               = 4 * 1024 // MB (4 GB) per compilation process
@@ -271,6 +277,14 @@ const (
 	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
 	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit."
+	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
+		"0 disables the limit."
+	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
+		"The calls answered so far are returned, the rest are not executed. " +
+		"0 disables the limit."
+	rpcBatchConcurrencyUsage = "Maximum batch calls that run at the same time, per RPC version. " +
+		"All batch requests to a version share this limit. " +
+		"Default is set based on available hardware resources."
 	maxConcurrentCompilationsUsage = "Maximum concurrent Sierra compilations. " +
 		"Default is set based on available hardware resources."
 	maxCompilationQueueUsage = "Maximum number of compilation requests to queue after " +
@@ -513,6 +527,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultRPCMaxQueuedRequests,
 		rpcMaxRequestQueueUsage,
 	)
+	junoCmd.Flags().Uint(rpcMaxBatchSizeF, defaultRPCMaxBatchSize, rpcMaxBatchSizeUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxBatchResponseSizeF,
+		defaultRPCMaxBatchResponseSize,
+		rpcMaxBatchResponseSizeUsage,
+	)
+	junoCmd.Flags().Uint(
+		rpcBatchConcurrencyF,
+		defaultRPCBatchConcurrency,
+		rpcBatchConcurrencyUsage,
+	)
 	junoCmd.Flags().Bool(
 		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
 	)
@@ -527,6 +552,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcRequestTimeoutF,
 		rpcMaxConcurrentRequestsF,
 		rpcMaxRequestQueueF,
+		rpcMaxBatchSizeF,
+		rpcMaxBatchResponseSizeF,
+		rpcBatchConcurrencyF,
 		disableRPCBatchRequestsF,
 	)
 

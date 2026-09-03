@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These assert exact error positions, which fail under the experiment on Go 1.26
-// because it shifts the offset reported for a JSON parse error.
-// It is a toolchain bug, fixed in Go 1.27 (go.dev/issue/79659).
 var parseErrorTests = map[string]struct {
 	req string
 	res string

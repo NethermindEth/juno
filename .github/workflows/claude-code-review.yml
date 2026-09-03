@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  id-token: write
+  id-token: write # OIDC auth to Infisical
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -40,14 +40,26 @@ jobs:
       - name: Install Jemalloc
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2
 
-      - name: Claude review
-        uses: anthropics/claude-code-action@v1 # TODO: pin to commit SHA
+      # Exports the LiteLLM gateway virtual key into the job env as LITELLM_API_KEY.
+      - name: Load gateway key from Infisical
+        uses: NethermindEth/github-workflows/get_infisical_secrets@4fba7597607cbac9de0c448403ead6bfcda72273
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          identity-id: ${{ secrets.INFISICAL_IDENTITY_ID }}
+          project-id: ${{ secrets.INFISICAL_PROJECT_ID }}
+          env-slug: prod
+          secret-path: /apps/litellm/juno-ai-reviewer
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@1f291e1cfe0f5fc21db2aef19af844591600ade7 # v1.0.206
+        timeout-minutes: 20
+        env:
+          ANTHROPIC_BASE_URL: https://litellm.nethermind.dev # org LiteLLM gateway
+        with:
+          # The gateway key doubles as the Anthropic key: the action requires
+          # ANTHROPIC_API_KEY, and LiteLLM accepts it as the x-api-key header.
+          anthropic_api_key: ${{ env.LITELLM_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "infrmtcs-agent[bot]"
-          model: claude-opus-4-7
-          timeout_minutes: "20"
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
@@ -74,4 +86,5 @@ jobs:
             grouped by severity (blocker / important / nit). If the PR is clean,
             say so in one sentence and skip inline comments.
           claude_args: |
+            --model anthropic/claude-sonnet-5
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(go build:*),Bash(go vet:*),Bash(gofmt:*),Bash(git diff:*),Bash(git log:*),Bash(rg:*)"

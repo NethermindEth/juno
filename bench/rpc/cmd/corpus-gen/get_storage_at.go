@@ -3,9 +3,21 @@ package main
 import (
 	"cmp"
 	"slices"
+
+	"github.com/spf13/cobra"
 )
 
-func storageAtSampler(input samplerInput[blockRangeFlags]) (storageAtParams, error) {
+type storageAtArgs struct {
+	blockIDArgs
+	ResponseFlags storageAtFlags `json:"responseFlags"`
+}
+
+func (a *storageAtArgs) bind(cmd *cobra.Command, client *rpcClient) {
+	a.ResponseFlags.bind(cmd, client)
+	a.blockIDArgs.bind(cmd, client)
+}
+
+func storageAtSampler(input samplerInput[storageAtArgs]) (storageAtParams, error) {
 	blockNumber := input.args.sampleBlockNumber(input.rng)
 	update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 	if err != nil {
@@ -15,10 +27,15 @@ func storageAtSampler(input samplerInput[blockRangeFlags]) (storageAtParams, err
 	if err != nil {
 		return storageAtParams{}, err
 	}
+	id, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, blockNumber)
+	if err != nil {
+		return storageAtParams{}, err
+	}
 	return storageAtParams{
 		ContractAddress: entry.Address,
 		Key:             entry.Key,
-		BlockID:         blockNumberID{blockNumber},
+		BlockID:         id,
+		ResponseFlags:   input.args.ResponseFlags,
 	}, nil
 }
 

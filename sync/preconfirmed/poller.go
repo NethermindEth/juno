@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
@@ -141,6 +142,12 @@ func (p *Poller) tick(ctx context.Context) error {
 
 	update, updateBlockNum, err := p.dataSource.PreConfirmedBlockLatest(ctx, identifier, txCount)
 	if err != nil {
+		if errors.Is(err, feeder.ErrPreConfirmedBlockNotFound) {
+			p.logger.Debug("No pre-confirmed block in gateway window; skipping tick",
+				zap.Error(err),
+			)
+			return nil
+		}
 		return fmt.Errorf("polling latest pre-confirmed: %w", err)
 	}
 
@@ -157,6 +164,14 @@ func (p *Poller) tick(ctx context.Context) error {
 	if updateBlockNum > fromBlock {
 		err = p.backfill(ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum)
 		if err != nil {
+			if errors.Is(err, feeder.ErrPreConfirmedBlockNotFound) {
+				p.logger.Debug("Pre-confirmed block left the gateway window; skipping backfill",
+					zap.Uint64("fromBlock", fromBlock),
+					zap.Uint64("toBlock", updateBlockNum),
+					zap.Error(err),
+				)
+				return nil
+			}
 			return fmt.Errorf(
 				"backfilling from %d to %d: %w",
 				fromBlock, updateBlockNum, err,

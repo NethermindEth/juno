@@ -15,7 +15,7 @@ type blockRangeFlags struct {
 }
 
 func (f blockRangeFlags) sampleBlockNumber(rng *rand.Rand) uint64 {
-	return f.Start + rng.Uint64N(f.End-f.Start+1)
+	return uniformRange(rng, f.Start, f.End)
 }
 
 func (f *blockRangeFlags) bind(cmd *cobra.Command, client *rpcClient) {

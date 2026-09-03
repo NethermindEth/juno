@@ -310,3 +310,56 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		// TODO(Ege)
 	})
 }
+
+func TestMatchedBlockIterator_MatchAllSkipsBloomLookups(t *testing.T) {
+	// Empty cache and nil fallback: any bloom lookup would fail with
+	// ErrAggregatedBloomFilterFallbackNil, so a full iteration proves the
+	// match-all fast path never touches bloom data.
+	cache := blockchain.NewAggregatedBloomCache(1)
+
+	testDB := memory.New()
+	runningFilterStart := 10 * core.NumBlocksPerFilter
+	innerFilter := core.NewAggregatedFilter(runningFilterStart)
+	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
+
+	matchAllMatchers := map[string]blockchain.EventMatcher{
+		"no addresses, no keys":       blockchain.NewEventMatcher(nil, nil),
+		"empty key positions only":    blockchain.NewEventMatcher(nil, [][]felt.Felt{{}, {}}),
+		"empty addresses, empty keys": blockchain.NewEventMatcher([]felt.Address{}, [][]felt.Felt{}),
+	}
+	const start, end = 5, core.NumBlocksPerFilter + 10 // spans two windows
+	for name, matcher := range matchAllMatchers {
+		t.Run(name, func(t *testing.T) {
+			iterator, err := cache.NewMatchedBlockIterator(start, end, 0, &matcher, runningFilter)
+			require.NoError(t, err)
+
+			for expected := uint64(start); expected <= end; expected++ {
+				blockNumber, ok, err := iterator.Next()
+				require.NoError(t, err)
+				require.True(t, ok)
+				require.Equal(t, expected, blockNumber)
+			}
+			_, ok, err := iterator.Next()
+			require.NoError(t, err)
+			require.False(t, ok)
+		})
+	}
+
+	t.Run("addressed matcher still needs bloom data", func(t *testing.T) {
+		matcher := blockchain.NewEventMatcher([]felt.Address{felt.Random[felt.Address]()}, nil)
+		iterator, err := cache.NewMatchedBlockIterator(start, end, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		_, _, err = iterator.Next()
+		require.ErrorIs(t, err, blockchain.ErrAggregatedBloomFilterFallbackNil)
+	})
+
+	t.Run("non-empty key at later position still needs bloom data", func(t *testing.T) {
+		matcher := blockchain.NewEventMatcher(nil, [][]felt.Felt{{}, {felt.Random[felt.Felt]()}})
+		iterator, err := cache.NewMatchedBlockIterator(start, end, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		_, _, err = iterator.Next()
+		require.ErrorIs(t, err, blockchain.ErrAggregatedBloomFilterFallbackNil)
+	})
+}

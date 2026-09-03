@@ -65,8 +65,7 @@ func BenchmarkLazySliceAllMapped(b *testing.B) {
 	lazySlice := newBenchLazySlice(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		_, err := indexed.AllMapped(
-			lazySlice,
+		_, err := lazySlice.AllMapped(
 			func(_ int, value benchItem) ([4]uint64, error) { return value.Hash, nil },
 		)
 		if err != nil {
@@ -79,8 +78,7 @@ func BenchmarkLazySliceAllMappedPointerMisuse(b *testing.B) {
 	lazySlice := newBenchLazySlice(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		_, err := indexed.AllMapped(
-			lazySlice,
+		_, err := lazySlice.AllMapped(
 			func(_ int, value benchItem) (*[4]uint64, error) { return &value.Hash, nil },
 		)
 		if err != nil {

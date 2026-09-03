@@ -9,13 +9,13 @@
   "getBlockWithTxHashes": "getBlockWithTxHashes --count=100000 --seed=1",
   "getBlockWithTxs": "getBlockWithTxs --count=100000 --seed=1",
   "getStateUpdate": "getStateUpdate --count=100000 --seed=1",
-  "traceBlockTransactions": "traceBlockTransactions --count=10000 --seed=1",
+  "traceBlockTransactions": "traceBlockTransactions --count=10000 --seed=1 --block-start=1952705 --block-end=12945535",
 
   "getTransactionByBlockIdAndIndex": "getTransactionByBlockIdAndIndex --count=100000 --seed=1",
   "getTransactionByHash": "getTransactionByHash --count=100000 --seed=1",
   "getTransactionReceipt": "getTransactionReceipt --count=100000 --seed=1",
   "getTransactionStatus": "getTransactionStatus --count=100000 --seed=1",
-  "traceTransaction": "traceTransaction --count=10000 --seed=1",
+  "traceTransaction": "traceTransaction --count=10000 --seed=1 --block-start=1952705 --block-end=12945535",
 
   "getClass": "getClass --count=100000 --seed=1",
   "getClassAt": "getClassAt --count=100000 --seed=1",

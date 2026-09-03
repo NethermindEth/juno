@@ -1,14 +1,14 @@
 ---
-title: Sync from a Snapshot
+title: Snapshot Sync
 ---
 
-# Sync from a Snapshot :camera_flash:
+# Sync from a Snapshot
 
 It is possible to avoid syncing from the beginning and waiting weeks to catch up by downloading a Juno snapshot. You're downloading a pre-synced Juno database that you can point your node to. This will reduce the syncing time to just a few hours.
 
 Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-Additionally, _pruned_ snapshots are offered — they contain only the latest data, greatly reducing storage size.
+Additionally, _pruned_ snapshots are offered. They contain only the latest data, greatly reducing storage size.
 
 
 ## Network Snapshots
@@ -27,7 +27,7 @@ import TabItem from "@theme/TabItem";
 ```
 
 :::tip
-Select your network in any tab below and the rest of the page follows — the choice is synced across every command on this page.
+Select your network in any tab below and the rest of the page follows. The choice is synced across every command on this page.
 :::
 
 ## Getting snapshot sizes
@@ -79,17 +79,9 @@ curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/lat
 
 ## Run Juno with a snapshot
 
-This method downloads and extracts the snapshot in one step without requiring double disk space:
+You can either stream the snapshot directly into the target directory without storing the archive, or download the snapshot archive and then extract it. All commands below run in your current directory, so `cd` into the location where you want the snapshot first. Both methods share the first step:
 
-### 1. Prepare a directory
-
-Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
-
-```bash
-mkdir -p $HOME/snapshots
-```
-
-### 2. Install zstd
+### 1. Install zstd
 
 [zstd (Zstandard)](https://github.com/facebook/zstd) is required to decompress and directly stream the snapshots into your system without requiring temporary storage. `zstd` provides significantly better compression ratios and faster decompression speeds compared to traditional tar compression.
 
@@ -111,220 +103,493 @@ brew install zstd
 <TabItem value="rhel" label="RHEL/CentOS/Fedora">
 
 ```bash
-sudo dnf install zstd  # or yum install zstd
+sudo dnf install zstd
 ```
 
 </TabItem>
 </Tabs>
 
-### 3. Download and extract
+### 2. Get the snapshot
 
-Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough you can always try the **alternative method** below.
+<Tabs groupId="snapshot-method" block className="method-tabs">
+<TabItem value="streaming" label="Stream" default>
 
-##### 1. Download the snapshot
+Streaming downloads and extracts the snapshot in a single step, reducing required disk space to just the size of the extracted database, contrary to **Download**, which additionally needs space for the compressed archive.
+
+
+##### 1. Install streaming dependencies
+
+Streaming requires either `wget` or `lftp` installed on your computer.
+
+These allow the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
+
+<Tabs groupId="streaming-tools">
+<TabItem value="wget" label="wget" default>
+
+`wget` is usually preinstalled on Linux distributions. If missing:
+
+<Tabs groupId="os">
+<TabItem value="ubuntu" label="Ubuntu/Debian" default>
+
+```bash
+sudo apt-get install wget
+```
+
+</TabItem>
+<TabItem value="macos" label="macOS">
+
+```bash
+brew install wget
+```
+
+</TabItem>
+<TabItem value="rhel" label="RHEL/CentOS/Fedora">
+
+```bash
+sudo dnf install wget
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+</TabItem>
+<TabItem value="lftp-pv" label="lftp + pv">
+
+`pv` is an optional dependency for showing a progress bar while executing the `lftp` command.
+
+<Tabs groupId="os">
+<TabItem value="ubuntu" label="Ubuntu/Debian" default>
+
+```bash
+sudo apt-get install lftp pv
+```
+
+</TabItem>
+<TabItem value="macos" label="macOS">
+
+```bash
+brew install lftp pv
+```
+
+</TabItem>
+<TabItem value="rhel" label="RHEL/CentOS/Fedora">
+
+```bash
+sudo dnf install lftp pv
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+Nothing to install. `curl` is preinstalled on most systems.
+
+---
+
+</TabItem>
+</Tabs>
+
+##### 2. Stream the snapshot
+
+Create a subfolder in your current directory where to stream the download, then download and extract the snapshot directly to your target directory:
 
 <Tabs groupId="network">
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-wget --continue -O "$HOME/snapshots/juno_mainnet.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet/latest
-```
-
-Or using `curl`:
-
-```bash
-curl -L -C - -o $HOME/snapshots/juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
+mkdir -p juno_mainnet
 ```
 
 </TabItem>
 <TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
-wget --continue -O "$HOME/snapshots/juno_mainnet_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
-```
-
-Or using `curl`:
-
-```bash
-curl -L -C - -o $HOME/snapshots/juno_mainnet_pruned.tar.zst https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+mkdir -p juno_mainnet_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
-wget --continue -O "$HOME/snapshots/juno_sepolia.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia/latest
-```
-
-Or using `curl`:
-
-```bash
-curl -L -C - -o $HOME/snapshots/juno_sepolia.tar.zst https://juno-snapshots.nethermind.io/files/sepolia/latest
+mkdir -p juno_sepolia
 ```
 
 </TabItem>
 <TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
 
 ```bash
-wget --continue -O "$HOME/snapshots/juno_sepolia_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
-```
-
-Or using `curl`:
-
-```bash
-curl -L -C - -o $HOME/snapshots/juno_sepolia_pruned.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+mkdir -p juno_sepolia_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia-integration" label="Sepolia-Integration">
 
 ```bash
-wget --continue -O "$HOME/snapshots/juno_sepolia_integration.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+mkdir -p juno_sepolia_integration
 ```
 
-Or using `curl`:
+</TabItem>
+</Tabs>
+
+
+Stream the data to your computer: 
+
+1. `wget` streams the data reliably and comes preinstalled on most systems.
+2. `lftp + pv` is a solid alternative if you've no access to `wget`.
+3. `curl` gives no guarantees. Use it only as a last resort.
+
+<Tabs groupId="streaming-tools">
+<TabItem value="wget" label="wget" default>
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-curl -L -C - -o $HOME/snapshots/juno_sepolia_integration.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xf - -C juno_mainnet
 ```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xf - -C juno_sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="lftp-pv" label="lftp + pv">
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_mainnet
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xf - -C juno_mainnet
+```
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xf - -C juno_sepolia
+```
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+</TabItem>
+</Tabs>
+
+
+:::warning
+Streaming with `curl` is unreliable: any network interruption forces a restart from scratch. Use it only if you cannot use wget or lftp.
+:::
+
+</TabItem>
+</Tabs>
+
+
+</TabItem>
+<TabItem value="download-extract" label="Download">
+
+Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough, use the **Stream** tab instead.
+
+##### 1. Download the snapshot
+
+Both `wget --continue` and `curl -C -` resume an interrupted download: if the transfer dies for any reason, re-run the same command and it continues from where it stopped.
+
+<Tabs groupId="network">
+<TabItem value="mainnet" label="Mainnet" default>
+
+<Tabs groupId="download-tool">
+<TabItem value="wget" label="wget" default>
+
+```bash
+wget --continue -O "juno_mainnet.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet/latest
+```
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+```bash
+curl -L -C - -o juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
+
+<Tabs groupId="download-tool">
+<TabItem value="wget" label="wget" default>
+
+```bash
+wget --continue -O "juno_mainnet_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+```bash
+curl -L -C - -o juno_mainnet_pruned.tar.zst https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="sepolia" label="Sepolia">
+
+<Tabs groupId="download-tool">
+<TabItem value="wget" label="wget" default>
+
+```bash
+wget --continue -O "juno_sepolia.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+```bash
+curl -L -C - -o juno_sepolia.tar.zst https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
+
+<Tabs groupId="download-tool">
+<TabItem value="wget" label="wget" default>
+
+```bash
+wget --continue -O "juno_sepolia_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+```
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+```bash
+curl -L -C - -o juno_sepolia_pruned.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="sepolia-integration" label="Sepolia-Integration">
+
+<Tabs groupId="download-tool">
+<TabItem value="wget" label="wget" default>
+
+```bash
+wget --continue -O "juno_sepolia_integration.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+</TabItem>
+<TabItem value="curl" label="curl">
+
+```bash
+curl -L -C - -o juno_sepolia_integration.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>
 
 ##### 2. Extract the snapshot
 
-Create a subfolder inside `$HOME/snapshots` where to unzip the downloaded snapshot:
+Create a subfolder in your current directory where to unzip the downloaded snapshot:
 
 <Tabs groupId="network">
 <TabItem value="mainnet" label="Mainnet" default>
 
 ```bash
-mkdir $HOME/snapshots/mainnet/
+mkdir juno_mainnet
 ```
 
 ```bash
-# Extract to your snapshots directory
-zstd -d juno_mainnet.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet
+# Extract the snapshot
+zstd -dc juno_mainnet.tar.zst | tar -xf - -b 2048 -C juno_mainnet
 ```
 
 </TabItem>
 <TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
 
 ```bash
-mkdir $HOME/snapshots/mainnet-pruned/
+mkdir juno_mainnet_pruned
 ```
 
 ```bash
-# Extract to your snapshots directory
-zstd -d juno_mainnet_pruned.tar.zst -c | tar -xvf - -C $HOME/snapshots/mainnet-pruned
+# Extract the snapshot
+zstd -dc juno_mainnet_pruned.tar.zst | tar -xf - -b 2048 -C juno_mainnet_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia" label="Sepolia">
 
 ```bash
-mkdir $HOME/snapshots/sepolia/
+mkdir juno_sepolia
 ```
 
 ```bash
-# Extract to your snapshots directory
-zstd -d juno_sepolia.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia
+# Extract the snapshot
+zstd -dc juno_sepolia.tar.zst | tar -xf - -b 2048 -C juno_sepolia
 ```
 
 </TabItem>
 <TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
 
 ```bash
-mkdir $HOME/snapshots/sepolia-pruned/
+mkdir juno_sepolia_pruned
 ```
 
 ```bash
-# Extract to your snapshots directory
-zstd -d juno_sepolia_pruned.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia-pruned
+# Extract the snapshot
+zstd -dc juno_sepolia_pruned.tar.zst | tar -xf - -b 2048 -C juno_sepolia_pruned
 ```
 
 </TabItem>
 <TabItem value="sepolia-integration" label="Sepolia-Integration">
 
 ```bash
-mkdir $HOME/snapshots/sepolia-integration/
+mkdir juno_sepolia_integration
 ```
 
 ```bash
-# Extract to your snapshots directory
-zstd -d juno_sepolia_integration.tar.zst -c | tar -xvf - -C $HOME/snapshots/sepolia-integration
+# Extract the snapshot
+zstd -dc juno_sepolia_integration.tar.zst | tar -xf - -b 2048 -C juno_sepolia_integration
 ```
 
 </TabItem>
 </Tabs>
-
-#### Alternative method: Stream the snapshot directly
-
-:::warning
-Streaming can become unreliable if the network conditions are not extremely good, requiring multiple restarts. Resort to this if disk space is at a premium.
-:::
-
-Create a subfolder inside `$HOME/snapshots` where to stream the download, then download and extract the snapshot directly to your target directory:
-
-<Tabs groupId="network">
-<TabItem value="mainnet" label="Mainnet" default>
-
-```bash
-mkdir $HOME/snapshots/mainnet/
-```
-
-```bash
-curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/mainnet
-```
-
-</TabItem>
-<TabItem value="mainnet-pruned" label="Mainnet (Pruned)">
-
-```bash
-mkdir $HOME/snapshots/mainnet-pruned/
-```
-
-```bash
-curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/mainnet-pruned
-```
-
-</TabItem>
-<TabItem value="sepolia" label="Sepolia">
-
-```bash
-mkdir $HOME/snapshots/sepolia/
-```
-
-```bash
-curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia
-```
-
-</TabItem>
-<TabItem value="sepolia-pruned" label="Sepolia (Pruned)">
-
-```bash
-mkdir $HOME/snapshots/sepolia-pruned/
-```
-
-```bash
-curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia-pruned
-```
-
-</TabItem>
-<TabItem value="sepolia-integration" label="Sepolia-Integration">
-
-```bash
-mkdir $HOME/snapshots/sepolia-integration/
-```
-
-```bash
-curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
-| zstd -d | tar -xvf - -C $HOME/snapshots/sepolia-integration
-```
 
 </TabItem>
 </Tabs>
@@ -333,7 +598,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
 
 ### 1. Run Juno
 
-Run the Docker command to start Juno:
+From the same directory where you extracted or streamed the snapshot, run the Docker command to start Juno:
 
 <Tabs groupId="network">
 <TabItem value="mainnet" label="Mainnet" default>
@@ -343,7 +608,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/mainnet:/var/lib/juno \
+  -v $(pwd)/juno_mainnet:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -363,7 +628,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/mainnet-pruned:/var/lib/juno \
+  -v $(pwd)/juno_mainnet_pruned:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -384,7 +649,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/sepolia:/var/lib/juno \
+  -v $(pwd)/juno_sepolia:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -405,7 +670,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/sepolia-pruned:/var/lib/juno \
+  -v $(pwd)/juno_sepolia_pruned:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -427,7 +692,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -p 6061:6061 \
-  -v $HOME/snapshots/sepolia-integration:/var/lib/juno \
+  -v $(pwd)/juno_sepolia_integration:/var/lib/juno \
   nethermind/juno \
   --http \
   --http-port 6060 \
@@ -448,5 +713,5 @@ Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure i
 :::
 
 :::tip
-These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, see [Running Juno](running-juno) guide.
+These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, see the [Installation](running-juno) guide.
 :::
