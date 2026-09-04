@@ -46,10 +46,10 @@ linters:
               desc: use github.com/NethermindEth/juno/utils for logging
         cbor:
           files:
-            - "!**/encoder/*.go"
+            - "!**/utils/cbor/*/*.go"
           deny:
             - pkg: github.com/fxamacker/cbor/v2
-              desc: use github.com/NethermindEth/juno/encoder, do not import any other CBOR library directly
+              desc: use github.com/NethermindEth/juno/utils/cbor, do not import any other CBOR library directly
     funlen:
       lines: 120
       statements: 50

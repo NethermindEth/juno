@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 var once sync.Once
@@ -39,7 +39,7 @@ func init() {
 		}
 
 		for _, t := range types {
-			err := encoder.RegisterType(t)
+			err := cbor.RegisterType(t)
 			if err != nil {
 				panic(err)
 			}

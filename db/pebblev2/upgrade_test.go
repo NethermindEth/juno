@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/encoder"
-	_ "github.com/NethermindEth/juno/encoder/registry"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	pebblev2lib "github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/stretchr/testify/require"
@@ -48,7 +48,7 @@ func buildTestValue(t *testing.T) []byte {
 		data[key] = rand.Text()
 	}
 
-	dataBytes, err := encoder.Marshal(data)
+	dataBytes, err := cbor.Marshal(data)
 	require.NoError(t, err)
 	return dataBytes
 }

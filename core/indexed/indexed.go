@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"iter"
 
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 type BufferedEncoder struct {
 	*bytes.Buffer
-	encoder.Encoder
+	cbor.Encoder
 }
 
 func NewBufferedEncoder() BufferedEncoder {
 	var buf bytes.Buffer
 	return BufferedEncoder{
 		Buffer:  &buf,
-		Encoder: encoder.NewEncoder(&buf),
+		Encoder: cbor.NewEncoder(&buf),
 	}
 }
 

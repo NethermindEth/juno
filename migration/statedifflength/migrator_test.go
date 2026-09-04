@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/migration/statedifflength"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )

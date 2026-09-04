@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,11 +15,11 @@ import (
 func TestFeltCbor(t *testing.T) {
 	val := felt.NewRandom[felt.Felt]()
 
-	encoded, err := encoder.Marshal(val)
+	encoded, err := cbor.Marshal(val)
 	require.NoError(t, err)
 
 	var decoded felt.Felt
-	require.NoError(t, encoder.Unmarshal(encoded, &decoded))
+	require.NoError(t, cbor.Unmarshal(encoded, &decoded))
 	assert.Equal(t, val, &decoded)
 }
 

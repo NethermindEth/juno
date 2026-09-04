@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -21,7 +21,7 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 	if decodeFelt(data, z) {
 		return nil
 	}
-	return encoder.Unmarshal(data, (*fp.Element)(z))
+	return cbor.Unmarshal(data, (*fp.Element)(z))
 }
 
 const (

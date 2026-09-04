@@ -10,7 +10,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 type Slice[F FeltLike] []F
@@ -18,8 +18,8 @@ type Slice[F FeltLike] []F
 var (
 	_ json.MarshalerTo     = Slice[Felt]{}
 	_ json.UnmarshalerFrom = (*Slice[Felt])(nil)
-	_ encoder.SelfEncoder  = Slice[Felt]{}
-	_ encoder.SelfDecoder  = (*Slice[Felt])(nil)
+	_ cbor.SelfEncoder     = Slice[Felt]{}
+	_ cbor.SelfDecoder     = (*Slice[Felt])(nil)
 )
 
 const (
@@ -80,7 +80,7 @@ func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 // unmarshalGeneric handles any shape the fast path does not recognise.
 func (s *Slice[F]) unmarshalGeneric(data []byte) error {
 	var buffer []F
-	if err := encoder.Unmarshal(data, &buffer); err != nil {
+	if err := cbor.Unmarshal(data, &buffer); err != nil {
 		return err
 	}
 

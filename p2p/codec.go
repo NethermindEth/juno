@@ -3,7 +3,7 @@ package p2p
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -14,7 +14,7 @@ func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
 		multiAddrBytes[i] = addr.Bytes()
 	}
 
-	encoded, err := encoder.Marshal(multiAddrBytes)
+	encoded, err := cbor.Marshal(multiAddrBytes)
 	if err != nil {
 		return nil, fmt.Errorf("encode addresses: %w", err)
 	}
@@ -25,7 +25,7 @@ func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
 // decodeAddrs decodes a byte slice into a slice of multiaddrs
 func decodeAddrs(b []byte) ([]multiaddr.Multiaddr, error) {
 	var multiAddrBytes [][]byte
-	if err := encoder.Unmarshal(b, &multiAddrBytes); err != nil {
+	if err := cbor.Unmarshal(b, &multiAddrBytes); err != nil {
 		return nil, fmt.Errorf("decode addresses: %w", err)
 	}
 

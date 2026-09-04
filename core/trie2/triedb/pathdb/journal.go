@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 const (
@@ -75,7 +75,7 @@ func (dl *diffLayer) journal(w io.Writer) error {
 		EncNodeset: buf.Bytes(),
 	}
 
-	enc, err := encoder.Marshal(diffJn)
+	enc, err := cbor.Marshal(diffJn)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func (dl *diskLayer) journal(w io.Writer) error {
 		EncNodeset: buf.Bytes(),
 	}
 
-	enc, err := encoder.Marshal(diskJn)
+	enc, err := cbor.Marshal(diskJn)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (d *Database) Journal(root *felt.StateRootHash) error {
 
 	dbJn.EncLayers = buf.Bytes()
 
-	enc, err := encoder.Marshal(dbJn)
+	enc, err := cbor.Marshal(dbJn)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (d *Database) loadJournal() (layer, error) {
 	}
 
 	var journal DBJournal
-	if err := encoder.Unmarshal(enc, &journal); err != nil {
+	if err := cbor.Unmarshal(enc, &journal); err != nil {
 		return nil, err
 	}
 
@@ -223,7 +223,7 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 		switch layerType {
 		case diffJournal:
 			var diffJn DiffJournal
-			if err := encoder.Unmarshal(encLayer, &diffJn); err != nil {
+			if err := cbor.Unmarshal(encLayer, &diffJn); err != nil {
 				return nil, err
 			}
 			nodes := new(nodeSet)
@@ -240,7 +240,7 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 			parent = head
 		case diskJournal:
 			var diskJn DiskJournal
-			if err := encoder.Unmarshal(encLayer, &diskJn); err != nil {
+			if err := cbor.Unmarshal(encLayer, &diskJn); err != nil {
 				return nil, err
 			}
 

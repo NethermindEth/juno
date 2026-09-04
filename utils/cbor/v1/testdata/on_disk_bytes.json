@@ -27,7 +27,7 @@
   "[][]byte nil": "f6",
   "[][]byte, the p2p shape": "834301020342040540",
   "[]byte, the schema state": "43090807",
-  "encoder.RawMessage": "83010203",
+  "cbor.RawMessage": "83010203",
   "felt.Slice nil": "f6",
   "felt.Slice, two felts": "82841bffffffffffffff211bffffffffffffffff1bffffffffffffffff1b07fffffffffff130841bffffffffffffff011bffffffffffffffff1bffffffffffffffff1b07ffffffffffef10"
 }
