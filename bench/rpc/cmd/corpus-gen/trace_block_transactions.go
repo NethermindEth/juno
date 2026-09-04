@@ -15,7 +15,7 @@ func (a *traceBlockArgs) bind(cmd *cobra.Command, client *rpcClient) {
 func traceBlockTransactionsSampler(
 	input samplerInput[traceBlockArgs],
 ) (traceBlockParams, error) {
-	params, err := blockIDSampler(rebindArgs(input, &input.args.blockIDArgs))
+	params, err := blockIDSampler(input.rebindArgs(&input.args.blockIDArgs))
 	if err != nil {
 		return traceBlockParams{}, err
 	}

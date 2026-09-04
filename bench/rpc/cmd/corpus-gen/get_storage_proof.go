@@ -49,8 +49,8 @@ func storageProofSampler(input samplerInput[storageProofArgs]) (storageProofPara
 		blockRangeFlags: input.args.blockRangeFlags,
 		BlockIDKind:     blockIDNumber,
 	}
-	blockInput := rebindArgs(input, &blockArgs)
-	storageInput := rebindArgs(input, &storageAtArgs{blockIDArgs: blockArgs})
+	blockInput := input.rebindArgs(&blockArgs)
+	storageInput := input.rebindArgs(&storageAtArgs{blockIDArgs: blockArgs})
 	for range input.args.NumClasses {
 		// Cairo 0 hashes are fine here: keys absent from the classes trie
 		// yield valid non-membership proofs with near-identical node work.

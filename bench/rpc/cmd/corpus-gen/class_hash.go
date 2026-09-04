@@ -19,7 +19,7 @@ func classAtBlockSampler(input samplerInput[blockIDArgs]) (classAtBlockParams, e
 
 func sierraClassHashSampler(input samplerInput[blockRangeFlags]) (classHashParams, error) {
 	params, err := classAtBlockSampler(
-		rebindArgs(input, &blockIDArgs{blockRangeFlags: *input.args, BlockIDKind: blockIDNumber}),
+		input.rebindArgs(&blockIDArgs{blockRangeFlags: *input.args, BlockIDKind: blockIDNumber}),
 	)
 	if err != nil {
 		return classHashParams{}, err

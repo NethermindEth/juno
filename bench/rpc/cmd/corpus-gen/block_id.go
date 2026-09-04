@@ -89,7 +89,7 @@ func blockIDSampler(input samplerInput[blockIDArgs]) (blockIDParams, error) {
 func blockIDWithProofFactsSampler(
 	input samplerInput[blockIDWithProofFactsArgs],
 ) (blockIDParams, error) {
-	params, err := blockIDSampler(rebindArgs(input, &input.args.blockIDArgs))
+	params, err := blockIDSampler(input.rebindArgs(&input.args.blockIDArgs))
 	if err != nil {
 		return blockIDParams{}, err
 	}
