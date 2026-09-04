@@ -1,0 +1,166 @@
+package trie
+
+import (
+	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
+)
+
+type edgeHashJob struct {
+	leftChildHash, rightChildHash felt.Felt
+	leftSeg, rightSeg             trieutils.Path
+	parentPath                    trieutils.Path
+}
+
+type inFlightBatch struct {
+	jobs    []edgeHashJob
+	results []felt.Felt
+	done    <-chan struct{}
+}
+
+type hashScheduler struct {
+	hashFn   crypto.HashFn
+	parallel bool
+	bucket   db.Bucket
+	owner    felt.Address
+	pool     *hashWorkerPool
+
+	jobs        []edgeHashJob
+	altJobs     []edgeHashJob
+	results     []felt.Felt
+	inFlightBuf inFlightBatch
+	hasInFlight bool
+}
+
+func newHashScheduler(
+	hashFn crypto.HashFn,
+	parallel bool,
+	bucket db.Bucket,
+	owner felt.Address,
+	pool *hashWorkerPool,
+) *hashScheduler {
+	s := &hashScheduler{
+		hashFn:   hashFn,
+		parallel: parallel,
+		bucket:   bucket,
+		owner:    owner,
+		pool:     pool,
+	}
+	if parallel {
+		s.jobs = make([]edgeHashJob, 0, parallelHashBatchSize)
+		s.altJobs = make([]edgeHashJob, 0, parallelHashBatchSize)
+		s.results = make([]felt.Felt, 2*parallelHashBatchSize)
+	}
+	return s
+}
+
+func (s *hashScheduler) schedule(job *edgeHashJob, batch db.Batch) error {
+	if !s.parallel {
+		leftEdge := computeEdgeHash(&job.leftChildHash, &job.leftSeg, s.hashFn)
+		rightEdge := computeEdgeHash(&job.rightChildHash, &job.rightSeg, s.hashFn)
+		return s.writeBinaryAndEdges(job, &leftEdge, &rightEdge, batch)
+	}
+	s.jobs = append(s.jobs, *job)
+	if len(s.jobs) >= parallelHashBatchSize {
+		return s.fire(batch)
+	}
+	return nil
+}
+
+func (s *hashScheduler) fire(batch db.Batch) error {
+	if err := s.drainInFlight(batch); err != nil {
+		return err
+	}
+	results := s.results[:2*len(s.jobs)]
+	s.inFlightBuf = inFlightBatch{
+		jobs:    s.jobs,
+		results: results,
+		done:    s.pool.submit(s.hashFn, s.jobs, results),
+	}
+	s.hasInFlight = true
+	s.jobs, s.altJobs = s.altJobs[:0], s.jobs
+	return nil
+}
+
+func (s *hashScheduler) drainInFlight(batch db.Batch) error {
+	if !s.hasInFlight {
+		return nil
+	}
+	<-s.inFlightBuf.done
+	for i := range s.inFlightBuf.jobs {
+		err := s.writeBinaryAndEdges(
+			&s.inFlightBuf.jobs[i],
+			&s.inFlightBuf.results[2*i],
+			&s.inFlightBuf.results[2*i+1],
+			batch,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	s.hasInFlight = false
+	return nil
+}
+
+func (s *hashScheduler) sync(batch db.Batch) error {
+	if !s.parallel {
+		return nil
+	}
+	if err := s.drainInFlight(batch); err != nil {
+		return err
+	}
+	if len(s.jobs) > 0 {
+		results := s.results[:2*len(s.jobs)]
+		<-s.pool.submit(s.hashFn, s.jobs, results)
+		for i := range s.jobs {
+			if err := s.writeBinaryAndEdges(
+				&s.jobs[i],
+				&results[2*i],
+				&results[2*i+1],
+				batch,
+			); err != nil {
+				return err
+			}
+		}
+		s.jobs = s.jobs[:0]
+	}
+	return nil
+}
+
+func (s *hashScheduler) writeBinaryAndEdges(
+	job *edgeHashJob,
+	leftEdge,
+	rightEdge *felt.Felt,
+	batch db.Batch,
+) error {
+	var buf [maxNodeKeySize + binaryNodeBlobSize]byte
+	keyLen := encodeNodeKey(buf[:], s.bucket, &s.owner, &job.parentPath, false)
+	blobLen := encodeBinaryNode(buf[keyLen:], leftEdge, rightEdge)
+	if err := batch.Put(buf[:keyLen], buf[keyLen:keyLen+blobLen]); err != nil {
+		return err
+	}
+
+	if err := s.writeEdge(&job.parentPath, 0, &job.leftChildHash, &job.leftSeg, batch); err != nil {
+		return err
+	}
+	return s.writeEdge(&job.parentPath, 1, &job.rightChildHash, &job.rightSeg, batch)
+}
+
+func (s *hashScheduler) writeEdge(
+	parentPath *trieutils.Path,
+	bit uint8,
+	childHash *felt.Felt,
+	seg *trieutils.Path,
+	batch db.Batch,
+) error {
+	if seg.Len() == 0 {
+		return nil
+	}
+	var edgePath trieutils.Path
+	edgePath.AppendBit(parentPath, bit)
+	var buf [maxNodeKeySize + edgeNodeMaxSize]byte
+	keyLen := encodeNodeKey(buf[:], s.bucket, &s.owner, &edgePath, false)
+	blobLen := encodeEdgeNode(buf[keyLen:], childHash, seg)
+	return batch.Put(buf[:keyLen], buf[keyLen:keyLen+blobLen])
+}
