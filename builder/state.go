@@ -77,6 +77,7 @@ func cloneStateDiff(stateDiff *core.StateDiff) *core.StateDiff {
 		DeclaredV0Classes: slices.Clone(stateDiff.DeclaredV0Classes),
 		DeclaredV1Classes: maps.Clone(stateDiff.DeclaredV1Classes),
 		ReplacedClasses:   maps.Clone(stateDiff.ReplacedClasses),
+		MigratedClasses:   maps.Clone(stateDiff.MigratedClasses),
 	}
 }
 
