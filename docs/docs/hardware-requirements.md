@@ -1,5 +1,6 @@
 ---
 title: Hardware Requirements
+description: "CPU, memory and storage needed to run Juno, for validators and dApps or as a high-traffic RPC provider."
 ---
 
 # Hardware Requirements

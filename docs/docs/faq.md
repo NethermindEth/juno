@@ -1,5 +1,6 @@
 ---
 title: FAQ
+description: "Answers to common Juno questions: requirements, updating, databases, and frequent startup errors."
 ---
 
 # Frequently Asked Questions
