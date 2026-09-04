@@ -10,10 +10,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed/key"
 	"github.com/NethermindEth/juno/db/typed/prefix"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
 )
 

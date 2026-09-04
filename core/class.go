@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto/blake2s"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 var (
@@ -338,7 +338,7 @@ type DeclaredClassDefinition struct {
 }
 
 func (d *DeclaredClassDefinition) MarshalBinary() ([]byte, error) {
-	classEnc, err := encoder.Marshal(d.Class)
+	classEnc, err := cbor.Marshal(d.Class)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	}
 
 	d.At = binary.BigEndian.Uint64(data[:8])
-	return encoder.Unmarshal(data[8:], &d.Class)
+	return cbor.Unmarshal(data[8:], &d.Class)
 }
 
 // ClassCasmHashMetadata tracks the CASM (Compiled Sierra) hash metadata for a class.

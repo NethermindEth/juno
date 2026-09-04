@@ -1,4 +1,4 @@
-package encoder_test
+package cbor_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +39,7 @@ func generateTestStructSlice() []testStruct {
 }
 
 type testCase interface {
-	encode(*testing.T, encoder.Encoder)
+	encode(*testing.T, cbor.Encoder)
 	assert(*testing.T, []byte) []byte
 }
 
@@ -51,7 +51,7 @@ func testData[T any](expected T) testCase {
 	return testCaseData[T]{expected: expected}
 }
 
-func (c testCaseData[T]) encode(t *testing.T, encoder encoder.Encoder) {
+func (c testCaseData[T]) encode(t *testing.T, encoder cbor.Encoder) {
 	t.Helper()
 	require.NoError(t, encoder.Encode(c.expected))
 }
@@ -59,7 +59,7 @@ func (c testCaseData[T]) encode(t *testing.T, encoder encoder.Encoder) {
 func (c testCaseData[T]) assert(t *testing.T, data []byte) []byte {
 	t.Helper()
 	var actual T
-	remaining, err := encoder.UnmarshalFirst(data, &actual)
+	remaining, err := cbor.UnmarshalFirst(data, &actual)
 	require.NoError(t, err)
 	require.Equal(t, c.expected, actual)
 	return remaining
@@ -67,7 +67,7 @@ func (c testCaseData[T]) assert(t *testing.T, data []byte) []byte {
 
 func TestUnmarshalFirst(t *testing.T) {
 	var buf bytes.Buffer
-	encoder := encoder.NewEncoder(&buf)
+	encoder := cbor.NewEncoder(&buf)
 
 	testCases := []testCase{
 		testData(felt.Random[felt.Felt]()),

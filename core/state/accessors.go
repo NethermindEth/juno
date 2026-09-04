@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateObject, error) {
@@ -106,7 +106,7 @@ func WriteClass(
 	classHash *felt.Felt,
 	class *core.DeclaredClassDefinition,
 ) error {
-	enc, err := encoder.Marshal(class)
+	enc, err := cbor.Marshal(class)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDef
 
 	var class core.DeclaredClassDefinition
 	if err := r.Get(key, func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
+		return cbor.Unmarshal(data, &class)
 	}); err != nil {
 		return nil, err
 	}
