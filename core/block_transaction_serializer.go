@@ -5,13 +5,13 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 type BlockTransactionsSerializer struct{}
 
 func (BlockTransactionsSerializer) Marshal(value *BlockTransactions) ([]byte, error) {
-	indexes, err := encoder.Marshal(value.Indexes)
+	indexes, err := cbor.Marshal(value.Indexes)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (blockTransactionsPartialSerializer[E, S, T]) UnmarshalPartial(
 	value *T,
 ) error {
 	var blockTransactions BlockTransactions
-	remaining, err := encoder.UnmarshalFirst(data, &blockTransactions.Indexes)
+	remaining, err := cbor.UnmarshalFirst(data, &blockTransactions.Indexes)
 	if err != nil {
 		return err
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/stretchr/testify/require"
 )
 

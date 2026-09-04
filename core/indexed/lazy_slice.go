@@ -5,7 +5,7 @@ import (
 	"iter"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 // Items are stored contiguously in a data slice, with an indexes slice marking each
@@ -35,7 +35,7 @@ func (l LazySlice[T]) getInto(index int, value *T) error {
 	if index < len(l.indexes)-1 {
 		end = l.indexes[index+1]
 	}
-	return encoder.Unmarshal(l.data[start:end], value)
+	return cbor.Unmarshal(l.data[start:end], value)
 }
 
 func (l LazySlice[T]) Get(index int) (T, error) {

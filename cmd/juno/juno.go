@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/mitchellh/mapstructure"
