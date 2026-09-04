@@ -8,6 +8,7 @@ title: Introduction
 Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
 
 - **[Small database](configuring#pruning)**: pruning runs mainnet in roughly a fifth of full-history disk
+- **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
 - **[Snapshot sync](snapshots)**: start from a recent block instead of replaying from genesis
 - **[Three RPC versions](json-rpc)**: `v0_8`, `v0_9` and `v0_10` served at the same time
 - **[WebSocket subscriptions](websocket)**: new blocks and events pushed as they happen
