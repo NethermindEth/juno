@@ -7,8 +7,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/migration/state/headstate"
-	"github.com/NethermindEth/juno/migration/state/history"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/headstate"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/history"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
