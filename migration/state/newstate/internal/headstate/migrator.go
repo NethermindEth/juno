@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/migration/state/common"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
