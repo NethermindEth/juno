@@ -1,5 +1,6 @@
 ---
 title: GCP
+description: "Run a Juno node on Google Cloud Platform."
 ---
 
 # Running Juno on GCP

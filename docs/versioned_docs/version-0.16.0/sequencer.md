@@ -1,5 +1,6 @@
 ---
 title: Juno Sequencer
+description: "Run Juno in experimental sequencer mode to build blocks on a custom network."
 ---
 Juno can now operate as a **standalone sequencer**. When Juno is run in this experimental mode, users are able to submit transactions to the Juno client, which stores them in a mempool. Every _N_ seconds, Juno will attempt to build a new block using any transactions that are present.
 
