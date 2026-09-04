@@ -1,4 +1,12 @@
 User-agent: *
 Allow: /
+Disallow: /0.15.0/
+Disallow: /0.14.0/
+Disallow: /0.13.0/
+Disallow: /0.12.4/
+Disallow: /0.11.8/
+Disallow: /0.11.0/
+Disallow: /0.9.3/
+Disallow: /0.8.0/
 
 Sitemap: https://juno.nethermind.io/sitemap.xml

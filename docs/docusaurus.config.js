@@ -47,10 +47,33 @@ const config = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/",
+          // Retired versions stay reachable for humans but are hidden from crawlers.
+          versions: {
+            "0.15.0": { noIndex: true },
+            "0.14.0": { noIndex: true },
+            "0.13.0": { noIndex: true },
+            "0.12.4": { noIndex: true },
+            "0.11.8": { noIndex: true },
+            "0.11.0": { noIndex: true },
+            "0.9.3": { noIndex: true },
+            "0.8.0": { noIndex: true },
+          },
           // Edit links point at docs/ (next) so fixes land where they flow forward.
           editUrl: "https://github.com/NethermindEth/juno/edit/main/docs/",
           editCurrentVersion: true,
           showLastUpdateTime: true,
+        },
+        sitemap: {
+          ignorePatterns: [
+            "/0.15.0/**",
+            "/0.14.0/**",
+            "/0.13.0/**",
+            "/0.12.4/**",
+            "/0.11.8/**",
+            "/0.11.0/**",
+            "/0.9.3/**",
+            "/0.8.0/**",
+          ],
         },
         blog: false,
         theme: {
