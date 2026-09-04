@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
@@ -38,13 +38,13 @@ func WriteTailValue(w db.KeyValueWriter, tail *felt.Felt) error {
 func GetTxn(r db.KeyValueReader, txnHash *felt.Felt) (dbPoolTxn, error) {
 	var item dbPoolTxn
 	err := r.Get(db.MempoolNodeKey(txnHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &item)
+		return cbor.Unmarshal(data, &item)
 	})
 	return item, err
 }
 
 func WriteTxn(w db.KeyValueWriter, item *dbPoolTxn) error {
-	itemBytes, err := encoder.Marshal(item)
+	itemBytes, err := cbor.Marshal(item)
 	if err != nil {
 		return err
 	}
