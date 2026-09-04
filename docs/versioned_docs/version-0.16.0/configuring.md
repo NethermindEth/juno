@@ -1,5 +1,6 @@
 ---
 title: Configuration
+description: "Juno's configuration options, settable by flag, environment variable, or YAML file, with defaults."
 ---
 
 # Configuring Juno
