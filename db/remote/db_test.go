@@ -2,6 +2,7 @@ package remote
 
 import (
 	"net"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
@@ -79,6 +80,21 @@ func TestRemote(t *testing.T) {
 		assert.Equal(t, foundKeys, byte(3))
 	})
 
+	t.Run("first", func(t *testing.T) {
+		snap := remoteDB.NewSnapshot()
+		defer snap.Close()
+
+		it, err := snap.NewIterator(nil, false)
+		require.NoError(t, err)
+		defer it.Close()
+
+		require.True(t, it.First())
+		assert.Equal(t, []byte{0}, it.Key())
+		v, err := it.Value()
+		require.NoError(t, err)
+		assert.Equal(t, []byte{0}, v)
+	})
+
 	t.Run("seek", func(t *testing.T) {
 		snap := remoteDB.NewSnapshot()
 		defer snap.Close()
@@ -103,4 +119,53 @@ func TestRemote(t *testing.T) {
 		assert.EqualError(t, err, "read only DB")
 	})
 	grpcSrv.GracefulStop()
+}
+
+// TestRemoteIteratorBounds guards against the bounds being dropped on the wire:
+// a key sorting before the prefix and one sorting after it must not surface.
+func TestRemoteIteratorBounds(t *testing.T) {
+	memDB := memory.New()
+	batch := memDB.NewBatch()
+	keys := [][]byte{
+		{0x00, 0xFF},
+		{0x01, 0x00},
+		{0x01, 0x01},
+		{0x01, 0x02},
+		{0x02, 0x00},
+	}
+	for _, k := range keys {
+		require.NoError(t, batch.Put(k, k))
+	}
+	require.NoError(t, batch.Write())
+
+	grpcHandler := junogrpc.New(memDB, "0.0.0")
+	grpcSrv := grpc.NewServer()
+	gen.RegisterKVServer(grpcSrv, grpcHandler)
+
+	var lc net.ListenConfig
+	l, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() {
+		require.NoError(t, grpcSrv.Serve(l))
+	}()
+	defer grpcSrv.GracefulStop()
+
+	remoteDB, err := New(
+		l.Addr().String(),
+		t.Context(),
+		log.NewNopZapLogger(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+
+	// Top-level NewIterator, not a snapshot's, so this also exercises ownedIterator.
+	it, err := remoteDB.NewIterator([]byte{0x01}, true)
+	require.NoError(t, err)
+	defer it.Close()
+
+	var found [][]byte
+	for valid := it.First(); valid; valid = it.Next() {
+		found = append(found, slices.Clone(it.Key()))
+	}
+	assert.Equal(t, [][]byte{{0x01, 0x00}, {0x01, 0x01}, {0x01, 0x02}}, found)
 }

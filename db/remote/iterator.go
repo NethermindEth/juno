@@ -3,6 +3,7 @@ package remote
 import (
 	"slices"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -88,4 +89,19 @@ func (i *iterator) Seek(key []byte) bool {
 
 func (i *iterator) Close() error {
 	return i.doOpAndUpdate(gen.Op_CLOSE, nil)
+}
+
+// ownedIterator holds the only reference to its transaction, so closing it has
+// to release the stream. An iterator taken from a batch or a snapshot shares
+// that stream with its owner and must leave it alone.
+type ownedIterator struct {
+	db.Iterator
+	txn *transaction
+}
+
+// Close discards the transaction, which drops the iterator on the server too.
+// It skips [gen.Op_CLOSE]: the round trip is redundant and its error would
+// surface as a failure of the scan that has already finished.
+func (i *ownedIterator) Close() error {
+	return i.txn.Discard()
 }
