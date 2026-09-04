@@ -1,4 +1,4 @@
-<!-- This file is generated automatically. Any manual modifications will be overwritten. -->
+{/* This file is generated automatically. Any manual modifications will be overwritten. */}
 
 ### HTTP RPC
 
