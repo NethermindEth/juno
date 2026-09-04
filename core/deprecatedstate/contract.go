@@ -69,8 +69,8 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 }
 
 //nolint:staticcheck // Necessary for old state
-func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
-	_, err := core.GetContractClassHash(txn, addr)
+func deployed(addr *felt.Felt, reader db.KeyValueReader) (bool, error) {
+	_, err := core.GetContractClassHash(reader, addr)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
@@ -147,9 +147,9 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 }
 
 //nolint:staticcheck // Necessary for old state
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractStorage(addr, key *felt.Felt, reader db.KeyValueReader) (felt.Felt, error) {
 	return trie.GetLeafPedersen(
-		txn, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
+		reader, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
 	)
 }
 
@@ -171,4 +171,15 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
+}
+
+// storageReader returns a read-only view of the storage trie of the contract.
+func storageReader(addr *felt.Felt, r db.KeyValueReader) (*trie.TrieReader, error) {
+	tr, err := trie.NewTrieReaderPedersen(
+		r, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &tr, nil
 }

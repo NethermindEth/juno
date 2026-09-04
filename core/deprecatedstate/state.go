@@ -132,18 +132,23 @@ func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 }
 
 func (s *State) ClassTrie() (core.TrieReader, error) {
-	// We don't need to call the closer function here because we are only reading the trie
-	tr, _, err := s.classesTrie()
-	return tr, err
+	tr, err := trie.NewTrieReaderPoseidon(s.txn, db.ClassesTrie.Key(), globalTrieHeight)
+	if err != nil {
+		return nil, err
+	}
+	return &tr, nil
 }
 
 func (s *State) ContractTrie() (core.TrieReader, error) {
-	tr, _, err := s.storage()
-	return tr, err
+	tr, err := trie.NewTrieReaderPedersen(s.txn, db.StateTrie.Key(), globalTrieHeight)
+	if err != nil {
+		return nil, err
+	}
+	return &tr, nil
 }
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
-	return storage(addr, s.txn)
+	return storageReader(addr, s.txn)
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
