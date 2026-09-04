@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +34,7 @@ func rawLazySlice[T any](t *testing.T, items ...any) indexed.LazySlice[T] {
 	indexes := make([]int, len(items))
 	var data []byte
 	for i, item := range items {
-		encoded, err := encoder.Marshal(item)
+		encoded, err := cbor.Marshal(item)
 		require.NoError(t, err)
 		indexes[i] = len(data)
 		data = append(data, encoded...)

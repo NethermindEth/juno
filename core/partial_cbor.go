@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -23,8 +23,8 @@ var errDiscardedCBORMarshal = errors.New(
 )
 
 var (
-	_ encoder.SelfEncoder = discardedCBOR{}
-	_ encoder.SelfDecoder = discardedCBOR{}
+	_ cbor.SelfEncoder = discardedCBOR{}
+	_ cbor.SelfDecoder = discardedCBOR{}
 )
 
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }

@@ -1,13 +1,13 @@
 package value
 
-import "github.com/NethermindEth/juno/encoder"
+import "github.com/NethermindEth/juno/utils/cbor/v1"
 
 type cborSerializer[V any] struct{}
 
 func (cborSerializer[V]) Marshal(value *V) ([]byte, error) {
-	return encoder.Marshal(value)
+	return cbor.Marshal(value)
 }
 
 func (cborSerializer[V]) Unmarshal(data []byte, value *V) error {
-	return encoder.Unmarshal(data, value)
+	return cbor.Unmarshal(data, value)
 }
