@@ -190,6 +190,12 @@ func AssertTracedBlockTransactions(
 			require.Nil(t, err)
 			require.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "0")
 			require.Equal(t, test.wantTrace, traces)
+
+			withReads, _, err := handler.TraceBlockTransactions(
+				t.Context(), &blockID, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+			)
+			require.Nil(t, err)
+			require.Equal(t, &rpcv10.InitialReads{}, withReads.InitialReads)
 		})
 	}
 }
@@ -422,11 +428,12 @@ func TestTraceTransaction(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			vm.TraceOptions{}).Return(vm.ExecutionResults{
-			OverallFees: overallFee,
-			GasConsumed: gc,
-			Traces:      []vm.TransactionTrace{vmTrace},
-			NumSteps:    stepsUsed,
+			vm.TraceOptions{ReturnInitialReads: true}).Return(vm.ExecutionResults{
+			OverallFees:  overallFee,
+			GasConsumed:  gc,
+			Traces:       []vm.TransactionTrace{vmTrace},
+			NumSteps:     stepsUsed,
+			InitialReads: &vm.InitialReads{},
 		}, nil)
 
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
@@ -632,6 +639,127 @@ func TestTraceTransaction(t *testing.T) {
 	})
 }
 
+func TestProgressiveTraceCacheExtendsPrefix(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	baseState := mocks.NewMockStateReader(mockCtrl)
+	headState := mocks.NewMockStateReader(mockCtrl)
+
+	header := &core.Header{
+		Hash:             felt.NewFromUint64[felt.Felt](100),
+		ParentHash:       felt.NewFromUint64[felt.Felt](99),
+		SequencerAddress: felt.NewFromUint64[felt.Felt](98),
+		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](1),
+		ProtocolVersion:  "99.12.3",
+	}
+	transactions := []core.Transaction{
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](10)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](11)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](12)},
+	}
+	hashes := make([]*felt.TransactionHash, len(transactions))
+	for index := range transactions {
+		hashes[index] = (*felt.TransactionHash)(transactions[index].Hash())
+	}
+
+	address := felt.FromUint64[felt.Felt](20)
+	addressTyped := felt.Address(address)
+	key1 := felt.FromUint64[felt.Felt](21)
+	key2 := felt.FromUint64[felt.Felt](22)
+	zero := felt.Zero
+	value1 := felt.FromUint64[felt.Felt](31)
+	value2 := felt.FromUint64[felt.Felt](32)
+	nonce1 := felt.FromUint64[felt.Felt](1)
+
+	prefixTraces := []vm.TransactionTrace{
+		{StateDiff: &vm.StateDiff{StorageDiffs: []vm.StorageDiff{{
+			Address: address, StorageEntries: []vm.Entry{{Key: key1, Value: value1}},
+		}}}},
+		{StateDiff: &vm.StateDiff{Nonces: []vm.Nonce{{ContractAddress: address, Nonce: nonce1}}}},
+	}
+	suffixTrace := vm.TransactionTrace{StateDiff: &vm.StateDiff{StorageDiffs: []vm.StorageDiff{{
+		Address: address, StorageEntries: []vm.Entry{{Key: key2, Value: value2}},
+	}}}}
+	prefixReads := &vm.InitialReads{
+		Storage: []vm.InitialReadsStorageEntry{{ContractAddress: addressTyped, Key: key1, Value: zero}},
+		Nonces:  []vm.InitialReadsNonceEntry{{ContractAddress: addressTyped, Nonce: zero}},
+	}
+	suffixReads := &vm.InitialReads{
+		Storage: []vm.InitialReadsStorageEntry{
+			{ContractAddress: addressTyped, Key: key1, Value: value1},
+			{ContractAddress: addressTyped, Key: key2, Value: zero},
+		},
+	}
+
+	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
+	for _, target := range []uint64{1, 0, 2} {
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hashes[target]).Return(header.Number, target, nil)
+		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
+	}
+	for range 2 {
+		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil)
+	}
+	mockReader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil)
+	mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(baseState, nopCloser, nil).Times(2)
+	mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil).Times(2)
+
+	gomock.InOrder(
+		mockVM.EXPECT().Trace(
+			transactions[:2], []core.ClassDefinition(nil), []*felt.Felt{},
+			&vm.BlockInfo{Header: header}, baseState, vm.TraceOptions{ReturnInitialReads: true},
+		).Return(vm.ExecutionResults{
+			Traces: prefixTraces, GasConsumed: []core.GasConsumed{{L1Gas: 1}, {L1Gas: 2}},
+			NumSteps: 10, InitialReads: prefixReads,
+		}, nil),
+		mockVM.EXPECT().Trace(
+			transactions[2:], []core.ClassDefinition(nil), []*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Cond(func(state core.StateReader) bool {
+				storage, err := state.ContractStorage(&address, &key1)
+				if err != nil || !storage.Equal(&value1) {
+					return false
+				}
+				nonce, err := state.ContractNonce(&address)
+				return err == nil && nonce.Equal(&nonce1)
+			}),
+			vm.TraceOptions{ReturnInitialReads: true},
+		).Return(vm.ExecutionResults{
+			Traces: []vm.TransactionTrace{suffixTrace}, GasConsumed: []core.GasConsumed{{L1Gas: 3}},
+			NumSteps: 20, InitialReads: suffixReads,
+		}, nil),
+	)
+
+	handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+
+	trace, responseHeader, rpcErr := handler.TraceTransaction(t.Context(), hashes[1])
+	require.Nil(t, rpcErr)
+	require.Equal(t, "10", responseHeader.Get(rpcv10.ExecutionStepsHeader))
+	require.Equal(t, uint64(2), trace.ExecutionResources.L1Gas)
+
+	trace, responseHeader, rpcErr = handler.TraceTransaction(t.Context(), hashes[0])
+	require.Nil(t, rpcErr)
+	require.Equal(t, "0", responseHeader.Get(rpcv10.ExecutionStepsHeader))
+	require.Equal(t, uint64(1), trace.ExecutionResources.L1Gas)
+
+	trace, responseHeader, rpcErr = handler.TraceTransaction(t.Context(), hashes[2])
+	require.Nil(t, rpcErr)
+	require.Equal(t, "20", responseHeader.Get(rpcv10.ExecutionStepsHeader))
+	require.Equal(t, uint64(3), trace.ExecutionResources.L1Gas)
+
+	blockID := rpcv10.BlockIDFromHash(header.Hash)
+	blockResponse, responseHeader, rpcErr := handler.TraceBlockTransactions(
+		t.Context(), &blockID, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+	)
+	require.Nil(t, rpcErr)
+	require.Equal(t, "0", responseHeader.Get(rpcv10.ExecutionStepsHeader))
+	require.Len(t, blockResponse.Traces, 3)
+	require.NotNil(t, blockResponse.InitialReads)
+	require.Len(t, blockResponse.InitialReads.Storage, 2)
+	require.Equal(t, zero, blockResponse.InitialReads.Storage[0].Value)
+	require.Equal(t, key2, blockResponse.InitialReads.Storage[1].Key)
+}
+
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpcv10.BlockID{
 		"latest":        rpcv10.BlockIDLatest(),
@@ -727,13 +855,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 			[]*felt.Felt{},
 			&vm.BlockInfo{Header: header},
 			gomock.Any(),
-			vm.TraceOptions{}).
+			vm.TraceOptions{ReturnInitialReads: true}).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
-				GasConsumed:      []core.GasConsumed{{}, {}},
+				GasConsumed:      []core.GasConsumed{{}},
 				Traces:           []vm.TransactionTrace{vmTrace},
 				NumSteps:         stepsUsed,
+				InitialReads:     &vm.InitialReads{},
 			}, nil)
 
 		expectedTrace := rpcv10.AdaptVMTransactionTrace(&vmTrace)
@@ -1402,15 +1531,13 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 			mockReader.EXPECT().BlockHeaderHashByNumber(uint64(90)).Return(revealedHeader.Hash, nil)
 
-			returnInitialReads := slices.Contains(test.simulationFlags, rpcv10.ReturnInitialReadsFlag)
-
 			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				vm.TraceOptions{ReturnInitialReads: returnInitialReads},
+				vm.TraceOptions{ReturnInitialReads: true},
 			).Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{&felt.Zero},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
-				Traces:           []vm.TransactionTrace{{}},
+				Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
 				NumSteps:         100,
 				InitialReads:     test.initialReads,
 			}, nil)
@@ -1424,6 +1551,11 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 				test.traceFlags,
 			)
 
+			if test.initialReads == nil {
+				require.NotNil(t, err)
+				require.Contains(t, err.Data, "VM omitted initial reads")
+				return
+			}
 			require.Nil(t, err)
 
 			require.Equal(t, test.expectedInitialReads, traces.InitialReads)
@@ -1491,17 +1623,15 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 			OverallFees:      []*felt.Felt{&felt.Zero},
 			DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 			GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
-			Traces:           []vm.TransactionTrace{{}},
+			Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
 			NumSteps:         100,
 			InitialReads:     reads,
 		}
 	}
 
-	// After TraceTransaction has cached the block without initial reads,
-	// a follow-up TraceBlockTransactions with RETURN_INITIAL_READS must
-	// re-execute the VM and return populated reads — not the empty struct
-	// that was served from the poisoned cache.
-	t.Run("TraceTransaction does not poison RETURN_INITIAL_READS", func(t *testing.T) {
+	// TraceTransaction captures initial reads for continuation even though it does not return them.
+	// A follow-up block trace with RETURN_INITIAL_READS can therefore reuse the completed entry.
+	t.Run("TraceTransaction populates RETURN_INITIAL_READS cache", func(t *testing.T) {
 		t.Parallel()
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -1522,20 +1652,13 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(block.Header, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(block.Number).
-			Return(block.Transactions, nil).Times(2)
-		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil).Times(2)
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(2)
+			Return(block.Transactions, nil)
+		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
-		// First VM call: no initial reads requested.
-		gomock.InOrder(
-			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				vm.TraceOptions{},
-			).Return(execResultWithReads(nil), nil),
-			// Second VM call: flag set, VM produces populated reads.
-			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
-				vm.TraceOptions{ReturnInitialReads: true},
-			).Return(execResultWithReads(populatedVMReads()), nil),
-		)
+		mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
+			vm.TraceOptions{ReturnInitialReads: true},
+		).Return(execResultWithReads(populatedVMReads()), nil)
 
 		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
 

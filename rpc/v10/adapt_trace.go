@@ -247,16 +247,8 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 	}
 }
 
+// adaptVMInitialReads requires non-nil VM output; callers decide how missing reads are handled.
 func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
-	if vmInitialReads == nil {
-		return InitialReads{
-			Storage:           []StorageEntry{},
-			Nonces:            []NonceEntry{},
-			ClassHashes:       []ClassHashEntry{},
-			DeclaredContracts: []DeclaredContractEntry{},
-		}
-	}
-
 	storage := make([]StorageEntry, len(vmInitialReads.Storage))
 	for i, s := range vmInitialReads.Storage {
 		storage[i] = StorageEntry{
