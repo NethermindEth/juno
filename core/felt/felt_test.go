@@ -14,7 +14,13 @@ import (
 
 func TestFeltCbor(t *testing.T) {
 	val := felt.NewRandom[felt.Felt]()
-	encoder.TestSymmetry(t, val)
+
+	encoded, err := encoder.Marshal(val)
+	require.NoError(t, err)
+
+	var decoded felt.Felt
+	require.NoError(t, encoder.Unmarshal(encoded, &decoded))
+	assert.Equal(t, val, &decoded)
 }
 
 func TestShortString(t *testing.T) {
