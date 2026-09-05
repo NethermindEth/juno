@@ -189,6 +189,12 @@ function parseValue(value) {
     return `${multipliedTime[1]}${timeUnitSuffix[multipliedTime[2]]}`;
   }
 
+  // An integer product like `4 * 1024` is a value, not a formula, so render the result.
+  const product = value.match(/^(\d+)\s*\*\s*(\d+)$/);
+  if (product) {
+    return Number(product[1]) * Number(product[2]);
+  }
+
   // Handle large unsigned integer value
   if (value === "math.MaxUint") {
     return "18446744073709551615";
@@ -277,10 +283,7 @@ function generateConfigTable(configs) {
 
   const fileWarning =
     "<!-- This file is generated automatically. Any manual modifications will be overwritten. -->\n\n";
-  fs.writeFileSync(
-    "docs/_config-options.md",
-    fileWarning + sections.join("\n"),
-  );
+  return fileWarning + sections.join("\n");
 }
 
 function fetchUrl(url) {
@@ -319,7 +322,7 @@ async function main() {
     const configs = extractConfigs(preprocessedCode);
     console.log("Extracted Juno's configuration");
 
-    generateConfigTable(configs);
+    fs.writeFileSync("docs/_config-options.md", generateConfigTable(configs));
     console.log("Generated the configuration options table");
   } catch (error) {
     console.error(
@@ -329,4 +332,9 @@ async function main() {
   }
 }
 
-main();
+// Run as a CLI when invoked directly; check-flags.js imports the parser instead.
+if (require.main === module) {
+  main();
+}
+
+module.exports = { preprocessCodebase, extractConfigs, generateConfigTable };

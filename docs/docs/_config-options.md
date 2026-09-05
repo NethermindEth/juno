@@ -8,12 +8,15 @@
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
+| `rpc-batch-concurrency` | `2 * CPU Cores` | Maximum batch calls that run at the same time, per RPC version. All batch requests to a version share this limit. Default is set based on available hardware resources |
 | `rpc-call-max-gas` | `100000000` | Maximum number of Sierra gas to be executed in starknet_call requests |
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
+| `rpc-max-batch-response-size` | `64` | Size (in MBs) at which a batch stops being processed. The calls answered so far are returned, the rest are not executed. 0 disables the limit |
+| `rpc-max-batch-size` | `1000` | Maximum number of calls in a single batch request. 0 disables the limit |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
 | `rpc-max-concurrent-requests` | `256000` | Maximum concurrent HTTP RPC requests; 0 disables the limit |
-| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests before rejecting incoming requests |
+| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC
@@ -103,11 +106,12 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `max-compilation-cpu-time` | `10` | Maximum CPU time (in seconds) each Sierra compilation process may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
-| `max-compilation-memory` | `4 * 1024` | Maximum memory (in MB) each Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
-| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations before starting to reject incoming requests |
-| `max-concurrent-compilations` | `CPU Cores` | Maximum concurrent Sierra compilations |
+| `max-compilation-memory` | `4096` | Maximum virtual memory (in MB) a Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations. Default sets the queue to twice the concurrency limit |
+| `max-concurrent-compilations` | `auto (memory-aware)` | Maximum concurrent Sierra compilations. Default is set based on available hardware resources. Derived as `min(cpu_cores, (available_memory - node_memory_reserve) / max_compilation_memory)`, at least 1 |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
+| `node-memory-reserve` | `4096` | Memory (in MB) excluded from the compilations memory budget when calculating the default for `max-concurrent-compilations` |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
 
 ### Custom Network
@@ -145,10 +149,10 @@
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `seq-block-time` | `60` | Time to build a block, in seconds |
-| `seq-disable-fees` | `false` | Skip charge fee for sequencer execution |
-| `seq-enable` | `false` | Enables sequencer mode of operation |
-| `seq-genesis-file` |  | Path to the genesis file |
+| `seq-block-time` | `60` | EXPERIMENTAL: Time to build a block, in seconds |
+| `seq-disable-fees` | `false` | EXPERIMENTAL: Skip charging fees for sequencer execution |
+| `seq-enable` | `false` | EXPERIMENTAL: Enables sequencer mode of operation |
+| `seq-genesis-file` |  | EXPERIMENTAL: Path to the genesis file |
 
 ### gRPC
 
