@@ -535,9 +535,8 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		return nil, finalHeaders, nil
 	}
 
-	result, err := json.Marshal(responses)
-
-	return result, finalHeaders, err // todo: fix batch request aggregate header
+	// todo: fix batch request aggregate header
+	return concatBatchResponses(responses), finalHeaders, nil
 }
 
 func isBatch(reader *bufio.Reader) bool {
@@ -566,6 +565,27 @@ func isNilOrEmpty(i any) (bool, error) {
 	default:
 		return false, fmt.Errorf("impossible param type: check request.isSane")
 	}
+}
+
+// concatBatchResponses builds the JSON array from elements that already valid
+// JSON, so it joins bytes instead of re-encoding. json.Marshal would run every
+// byte through compact() again, which is costly
+func concatBatchResponses(responses []json.RawMessage) []byte {
+	size := len(responses) + 1
+	for _, response := range responses {
+		size += len(response)
+	}
+
+	result := make([]byte, 0, size)
+	result = append(result, '[')
+	for i, response := range responses {
+		if i > 0 {
+			result = append(result, ',')
+		}
+		result = append(result, response...)
+	}
+
+	return append(result, ']')
 }
 
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
