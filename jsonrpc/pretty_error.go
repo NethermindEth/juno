@@ -2,10 +2,12 @@ package jsonrpc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -19,9 +21,10 @@ const (
 
 // windowBuffer keeps the last maxWindowSize bytes read
 type windowBuffer struct {
-	window        []byte
-	consumedBytes int
-	newlinesSeen  int
+	window          []byte
+	consumedBytes   int
+	newlinesSeen    int
+	linePrefixRunes int
 }
 
 func (c *windowBuffer) Write(p []byte) (int, error) {
@@ -29,16 +32,70 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 	c.newlinesSeen += bytes.Count(p, []byte{'\n'})
 
 	if len(p) >= maxWindowSize {
-		c.window = append(c.window[:0], p[len(p)-maxWindowSize:]...)
+		start := nextRuneStartAt(p, len(p)-maxWindowSize)
+		c.advanceLinePrefix(c.window, p[:start])
+		c.window = append(c.window[:0], p[start:]...)
 		return len(p), nil
 	}
 
 	if overflow := len(c.window) + len(p) - maxWindowSize; overflow > 0 {
-		c.window = c.window[:copy(c.window, c.window[overflow:])]
+		start := nextRuneStartAt(c.window, overflow)
+		c.advanceLinePrefix(nil, c.window[:start])
+		c.window = c.window[:copy(c.window, c.window[start:])]
 	}
 	c.window = append(c.window, p...)
 
 	return len(p), nil
+}
+
+func nextRuneStartAt(p []byte, offset int) int {
+	for offset < len(p) && !utf8.RuneStart(p[offset]) {
+		offset++
+	}
+	return offset
+}
+
+func (c *windowBuffer) advanceLinePrefix(first, second []byte) {
+	if c.newlinesSeen > 0 {
+		if lastNewline := bytes.LastIndexByte(second, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRuneStarts(second[lastNewline+1:])
+			return
+		}
+		if lastNewline := bytes.LastIndexByte(first, '\n'); lastNewline >= 0 {
+			c.linePrefixRunes = countRuneStarts(first[lastNewline+1:]) + countRuneStarts(second)
+			return
+		}
+	}
+	c.linePrefixRunes += countRuneStarts(first) + countRuneStarts(second)
+}
+
+func countRuneStarts(p []byte) int {
+	count := 0
+	for len(p) >= 32 {
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[8:]))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[16:]))
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p[24:]))
+		p = p[32:]
+	}
+	for len(p) >= 8 {
+		count += countRuneStartsInWord(binary.LittleEndian.Uint64(p))
+		p = p[8:]
+	}
+	for _, b := range p {
+		if utf8.RuneStart(b) {
+			count++
+		}
+	}
+	return count
+}
+
+func countRuneStartsInWord(word uint64) int {
+	const highBits = uint64(0x8080808080808080)
+	// UTF-8 continuation bytes start with 10; isolate their high bits and
+	// subtract them from the eight possible rune starts in the word.
+	continuationBits := word & ^(word << 1) & highBits
+	return 8 - bits.OnesCount64(continuationBits)
 }
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
@@ -58,11 +115,15 @@ func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	}
 }
 
-func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
+func lineAndColumn(c *windowBuffer, markerPos int) (line, relativeCol, absoluteCol int) {
 	line = c.newlinesSeen - bytes.Count(c.window[markerPos:], []byte{'\n'}) + 1
 	lineStart := bytes.LastIndexByte(c.window[:markerPos], '\n') + 1
-	col = utf8.RuneCount(c.window[lineStart:markerPos]) + 1
-	return line, col
+	relativeCol = countRuneStarts(c.window[lineStart:markerPos]) + 1
+	absoluteCol = relativeCol
+	if lineStart == 0 {
+		absoluteCol += c.linePrefixRunes
+	}
+	return line, relativeCol, absoluteCol
 }
 
 func expectedToken(reason string) (string, bool) {
@@ -204,8 +265,8 @@ func prettyParseError(c *windowBuffer, err error) string {
 	}
 
 	markerPos := absOffset - windowStart
-	line, col := lineAndColumn(c, markerPos)
-	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
+	line, relativeCol, absoluteCol := lineAndColumn(c, markerPos)
+	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, absoluteCol)
 
-	return drawMarker(c.window, windowStart, markerPos, col, msg)
+	return drawMarker(c.window, windowStart, markerPos, relativeCol, msg)
 }

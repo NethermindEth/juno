@@ -1,8 +1,11 @@
 package jsonrpc_test
 
 import (
+	stdjson "encoding/json"
+	"io"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
@@ -11,8 +14,11 @@ import (
 )
 
 var parseErrorTests = map[string]struct {
-	req string
-	res string
+	req       string
+	res       string
+	chunkSize int
+	position  string
+	marker    byte
 }{
 	"invalid json": {
 		req: `{]`,
@@ -98,7 +104,7 @@ var parseErrorTests = map[string]struct {
 
 	"error exactly at the window start still draws the marker": {
 		req: `{"jsonrpc": 5, "method": "x", "params": [` + strings.Repeat(`"0x1", `, 66) + strings.Repeat(" ", 5) + `"0x2"], "id": 1}`,
-		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5, \"method\": \"x\", \"params\": [\"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x...\n^\nfield \"jsonrpc\" should be string, got number [line 1, position 1]"},"id":null}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"5, \"method\": \"x\", \"params\": [\"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x1\", \"0x...\n^\nfield \"jsonrpc\" should be string, got number [line 1, position 13]"},"id":null}`,
 	},
 
 	"long line is windowed": {
@@ -152,7 +158,28 @@ var parseErrorTests = map[string]struct {
 
 	"oversized single-line input keeps only the trailing window": {
 		req: `{"jsonrpc": "2.0", "method": "starknet_call", "params": [` + strings.Repeat(`"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", `, 10) + `"0xbad" @]}`,
-		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 510]"},"id":null}`,
+		res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7\", \"0xbad\" @]}\n                                                                          ^\nunexpected '@', expected ',' or ']' [line 1, position 766]"},"id":null}`,
+	},
+
+	"oversized unicode line keeps absolute column and relative marker": {
+		req:       `{"jsonrpc":"2.0","method":"x","padding":"` + strings.Repeat("👍", 160) + `","id":@` + strings.Repeat("x", 96) + `}`,
+		chunkSize: 127,
+		position:  `[line 1, position 209]`,
+		marker:    '@',
+	},
+
+	"oversized mixed-width line counts rune starts across words": {
+		req:       `{"jsonrpc":"2.0","method":"x","padding":"` + strings.Repeat("aé€👍", 80) + `","id":@` + strings.Repeat("x", 96) + `}`,
+		chunkSize: 127,
+		position:  `[line 1, position 369]`,
+		marker:    '@',
+	},
+
+	"discarded newline resets the absolute column prefix": {
+		req:       strings.Repeat(" ", 600) + "\n" + `{"padding":"` + strings.Repeat("👍", 160) + `","id":@` + strings.Repeat("x", 96) + `}`,
+		chunkSize: 127,
+		position:  `[line 2, position 180]`,
+		marker:    '@',
 	},
 
 	"context is capped at three lines within the window": {
@@ -217,15 +244,55 @@ var parseErrorTests = map[string]struct {
 	},
 }
 
+type maxChunkReader struct {
+	io.Reader
+	size int
+}
+
+func (r *maxChunkReader) Read(p []byte) (int, error) {
+	return r.Reader.Read(p[:min(len(p), r.size)])
+}
+
+func requireMarkerUnderByte(t *testing.T, data string, marker byte) {
+	t.Helper()
+
+	lines := strings.Split(data, "\n")
+	require.GreaterOrEqual(t, len(lines), 3)
+	line, caret := lines[len(lines)-3], lines[len(lines)-2]
+	markerAt, caretAt := strings.IndexByte(line, marker), strings.IndexByte(caret, '^')
+	require.NotEqual(t, -1, markerAt)
+	require.NotEqual(t, -1, caretAt)
+	assert.Equal(t, utf8.RuneCountInString(line[:markerAt]), caretAt)
+}
+
 func TestHandleParseError(t *testing.T) {
 	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
 
 	for desc, test := range parseErrorTests {
 		t.Run(desc, func(t *testing.T) {
-			res, httpHeader, err := server.HandleReader(t.Context(), strings.NewReader(test.req))
+			reader := io.Reader(strings.NewReader(test.req))
+			if test.chunkSize > 0 {
+				reader = &maxChunkReader{Reader: reader, size: test.chunkSize}
+			}
+
+			res, httpHeader, err := server.HandleReader(t.Context(), reader)
 			require.NoError(t, err)
 			assert.NotNil(t, httpHeader)
-			assert.JSONEq(t, test.res, string(res))
+			if test.res != "" {
+				assert.JSONEq(t, test.res, string(res))
+			}
+			if test.position != "" || test.marker != 0 {
+				var response struct {
+					Error struct {
+						Data string `json:"data"`
+					} `json:"error"`
+				}
+				require.NoError(t, stdjson.Unmarshal(res, &response))
+				assert.Contains(t, response.Error.Data, test.position)
+				if test.marker != 0 {
+					requireMarkerUnderByte(t, response.Error.Data, test.marker)
+				}
+			}
 		})
 	}
 }
