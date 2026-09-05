@@ -718,27 +718,18 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, root, proof.GlobalRoots.ContractsTreeRoot)
 	})
 	t.Run("error whenever block number is older than the latest", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		blockID := rpc.BlockIDFromNumber(1)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error whenever block number is newer than the latest", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		blockID := rpc.BlockIDFromNumber(blockNumber + 10)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error whenever block hash is not the latest", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		blockHash := felt.NewFromUint64[felt.Felt](1)
 		mockReader.EXPECT().BlockNumberByHash(blockHash).
 			Return(blockNumber-10, nil)
@@ -749,9 +740,6 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error whenever block hash does not exist", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		blockHash := felt.NewFromUint64[felt.Felt](1)
 		mockReader.EXPECT().BlockNumberByHash(blockHash).Return(uint64(0), db.ErrKeyNotFound)
 
@@ -761,9 +749,6 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error for pre_confirmed block", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		blockID := rpc.BlockIDPreConfirmed()
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
@@ -797,9 +782,6 @@ func TestStorageProof(t *testing.T) {
 		require.NotNil(t, proof)
 	})
 	t.Run("error when address in contract storage keys is nil", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		proof, rpcErr := handler.StorageProof(
 			&blockLatest,
 			nil,
@@ -810,9 +792,6 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error when keys in contract storage keys are nil", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		proof, rpcErr := handler.StorageProof(
 			&blockLatest,
 			nil,
@@ -823,9 +802,6 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error when keys in contract storage keys are empty", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil)
-
 		proof, rpcErr := handler.StorageProof(
 			&blockLatest,
 			nil,
