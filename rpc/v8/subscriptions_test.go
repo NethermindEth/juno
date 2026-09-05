@@ -58,6 +58,10 @@ func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
 
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
+
 func TestSubscribeEvents(t *testing.T) {
 	logger := log.NewNopZapLogger()
 

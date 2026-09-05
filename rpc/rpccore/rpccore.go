@@ -90,4 +90,5 @@ var (
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
+	ErrTooManySubscriptions = &jsonrpc.Error{Code: 101, Message: "Too many subscriptions"}
 )
