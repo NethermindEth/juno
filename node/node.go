@@ -280,6 +280,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			blockchain.WithRunningEventFilterInitializer(pruner.InitializeRunningEventFilter),
 		)
 	}
+	if dbIsRemote {
+		opts = append(opts, blockchain.WithRemoteDatabase())
+	}
 	chain := blockchain.New(database, &cfg.Network, opts...)
 
 	// Verify that cfg.Network is compatible with the database.
