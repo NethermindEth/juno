@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -568,18 +569,41 @@ func isNilOrEmpty(i any) (bool, error) {
 	}
 }
 
-// TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
-// instead of crashing the HTTP connection
-func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
+func (s *Server) handleRequest(
+	ctx context.Context,
+	req *Request,
+) (res *response, header http.Header, resErr error) {
 	s.logger.Trace("Received request", zap.Object("req", req))
 
-	header := http.Header{}
+	header = http.Header{}
+
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error("Recovered from panic while handling RPC request",
+				zap.String("method", req.Method),
+				zap.Any("panic", r),
+				zap.ByteString("stack", debug.Stack()),
+			)
+			resErr = nil
+			if req.ID == nil { // notification: the spec forbids a response either way
+				res = nil
+				return
+			}
+			res = &response{
+				Version: "2.0",
+				ID:      req.ID,
+				Error:   Err(InternalError, nil),
+			}
+			s.listener.OnRequestFailed(req.Method, res.Error)
+		}
+	}()
+
 	if err := req.isSane(); err != nil {
 		s.logger.Trace("Request sanity check failed", zap.Error(err))
 		return nil, header, err
 	}
 
-	res := &response{
+	res = &response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
