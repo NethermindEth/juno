@@ -1081,3 +1081,75 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 		}
 	})
 }
+
+// Only ticks that reach the gateway report a duration through the OnTickDone
+// hook: a not-at-tip tick is silent, while productive, gateway-empty and
+// failing polls all report. Inside the synctest bubble the clock is virtual,
+// so the measured durations are exact.
+func TestPollerReportsWorkTickDurations(t *testing.T) {
+	t.Parallel()
+	fx := newChainFixture(t)
+
+	block1 := makeTestPreConfirmedBlock("r0", 1)
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockStarknetData(ctrl)
+	gomock.InOrder(
+		// Second tick: productive poll taking 30ms.
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			DoAndReturn(func(context.Context, string, uint64) (starknet.PreConfirmedUpdate, uint64, error) {
+				time.Sleep(30 * time.Millisecond)
+				return block1, uint64(1), nil
+			}),
+		// Third tick: the gateway window is empty — still a full 70ms round trip.
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(1)).
+			DoAndReturn(func(context.Context, string, uint64) (starknet.PreConfirmedUpdate, uint64, error) {
+				time.Sleep(70 * time.Millisecond)
+				return nil, uint64(0), feeder.ErrPreConfirmedBlockNotFound
+			}),
+		// Fourth tick: hard failure, instant.
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(1)).
+			Return(nil, uint64(0), errors.New("wire boom")),
+	)
+
+	type tickRecord struct {
+		blockNum uint64
+		took     time.Duration
+	}
+
+	synctest.Test(t, func(t *testing.T) {
+		h := wirePoller(t, fx.bc, fx.head, ds)
+		var got []tickRecord
+		h.poller.WithOnTickDone(func(blockNum uint64, took time.Duration) {
+			got = append(got, tickRecord{blockNum: blockNum, took: took})
+		})
+		// The first tick fires while canonical sync is behind the network:
+		// atTip fails and the tick returns before polling.
+		h.highest.Store(&core.Header{Number: fx.head.Number + 5})
+
+		go h.poller.Run(t.Context())
+		synctest.Wait()
+
+		time.Sleep(tickInterval)
+		synctest.Wait()
+		require.Empty(t, got)
+
+		h.highest.Store(fx.head)
+		time.Sleep(3 * tickInterval)
+		synctest.Wait()
+
+		oldest := oldestPreConfFor(fx.head.Number)
+		require.Equal(t, []tickRecord{
+			{blockNum: oldest, took: 30 * time.Millisecond},
+			{blockNum: oldest, took: 70 * time.Millisecond},
+			{blockNum: oldest, took: 0},
+		}, got)
+
+		// The average is derived the way Prometheus does it: sum/count.
+		var sum time.Duration
+		for _, r := range got {
+			sum += r.took
+		}
+		require.Equal(t, 100*time.Millisecond, sum) // avg = 100ms / 3 work ticks
+	})
+}

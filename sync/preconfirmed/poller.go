@@ -53,6 +53,8 @@ type Poller struct {
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
 	logger             log.StructuredLogger
+
+	onTickDone func(blockNum uint64, took time.Duration)
 }
 
 func NewPoller(
@@ -73,6 +75,18 @@ func NewPoller(
 		interval:           interval,
 		logger:             logger,
 	}
+}
+
+// WithOnTickDone registers a callback invoked from the polling goroutine after
+// every tick that polls the gateway, with the pre-confirmed block number and how
+// long the poll (fetch, any backfill, apply) took. Ticks that return before
+// reaching the network are not reported. Must be set before Run starts.
+func (p *Poller) WithOnTickDone(onTickDone func(blockNum uint64, took time.Duration)) *Poller {
+	p.onTickDone = onTickDone
+	return p
+}
+
+func (p *Poller) PreConfirmedChainFor(blockNum uint64) {
 }
 
 // Run polls the sequencer every interval and builds the pre-confirmed chain from it.
@@ -105,26 +119,27 @@ func (p *Poller) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.tick(ctx); err != nil {
+			height, err := p.blockchain.Height()
+			if err != nil {
+				p.logger.Error("Reading chain height", zap.Error(err))
+				continue
+			}
+			if !p.atTip(height) {
+				continue
+			}
+
+			err = p.pollPreConfirmed(ctx, height+1)
+			if err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
 			}
 		}
 	}
 }
 
-func (p *Poller) tick(ctx context.Context) error {
-	height, err := p.blockchain.Height()
-	if err != nil {
-		return fmt.Errorf("reading chain height: %w", err)
-	}
-
-	oldestPreConf := height + 1
+func (p *Poller) pollPreConfirmed(ctx context.Context, oldestPreConf uint64) error {
 	p.storage.AdvanceTo(oldestPreConf)
-	if !p.atTip(height) {
-		return nil
-	}
-
 	chain := p.storage.SnapshotForBlock(oldestPreConf)
+
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string
@@ -139,6 +154,18 @@ func (p *Poller) tick(ctx context.Context) error {
 			txCount = uint64(len(mostRecent.Block.Transactions))
 		}
 	}
+
+	start := time.Now()
+	defer func() {
+		took := time.Since(start)
+		p.logger.Trace("Pre-confirmed tick done",
+			zap.Uint64("blockNumber", oldestPreConf),
+			zap.Duration("duration", took),
+		)
+		if p.onTickDone != nil {
+			p.onTickDone(oldestPreConf, took)
+		}
+	}()
 
 	update, updateBlockNum, err := p.dataSource.PreConfirmedBlockLatest(ctx, identifier, txCount)
 	if err != nil {
@@ -162,7 +189,9 @@ func (p *Poller) tick(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
-		err = p.backfill(ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum)
+		err = p.backfill(
+			ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum,
+		)
 		if err != nil {
 			if errors.Is(err, feeder.ErrPreConfirmedBlockNotFound) {
 				p.logger.Debug("Pre-confirmed block left the gateway window; skipping backfill",
@@ -179,13 +208,6 @@ func (p *Poller) tick(ctx context.Context) error {
 		}
 	}
 
-	// txCount is mostRecent's tx count; it's only semantically valid as
-	// baseTxCount when blockNumber == mostRecent.Block.Number (Delta replay
-	// onto the same block we already had). On a forward jump the server saw
-	// an identifier mismatch and returned a Full update, whose ApplyUpdate
-	// path ignores baseTxCount — so the stale value is harmless under current
-	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
-	// for non-Delta updates.
 	return p.apply(update, updateBlockNum, txCount, oldestPreConf, nil)
 }
 
