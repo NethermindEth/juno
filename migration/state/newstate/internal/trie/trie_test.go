@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	trielib "github.com/NethermindEth/juno/migration/trie"
+	trielib "github.com/NethermindEth/juno/migration/state/newstate/internal/trie"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
