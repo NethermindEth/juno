@@ -53,10 +53,6 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
-type PreConfirmedDataSubscription struct {
-	*feed.Subscription[*pending.PreConfirmed]
-}
-
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -77,7 +73,7 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
-	SubscribePreConfirmed() PreConfirmedDataSubscription
+	SubscribePreConfirmed() preconfirmed.Subscription
 	PreConfirmedChain() (preconfirmed.ChainReader, error)
 }
 
@@ -100,8 +96,8 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
-	return PreConfirmedDataSubscription{feed.New[*pending.PreConfirmed]().Subscribe()}
+func (n *NoopSynchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
+	return preconfirmed.Subscription{feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
@@ -110,21 +106,19 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
-	blockchain           *blockchain.Blockchain
-	readOnlyBlockchain   bool
-	dataSource           DataSource
-	startingBlockNumber  atomic.Pointer[uint64]
-	startingBlockHeader  atomic.Pointer[core.Header]
-	highestBlockHeader   atomic.Pointer[core.Header]
-	newHeads             *feed.Feed[*core.Block]
-	reorgFeed            *feed.Feed[*ReorgBlockRange]
-	preConfirmedDataFeed *feed.Feed[*pending.PreConfirmed]
+	blockchain          *blockchain.Blockchain
+	readOnlyBlockchain  bool
+	dataSource          DataSource
+	startingBlockNumber atomic.Pointer[uint64]
+	startingBlockHeader atomic.Pointer[core.Header]
+	highestBlockHeader  atomic.Pointer[core.Header]
+	newHeads            *feed.Feed[*core.Block]
+	reorgFeed           *feed.Feed[*ReorgBlockRange]
 
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             *preconfirmed.ChainStorage
-	preConfirmedPollInterval time.Duration
+	preConfirmedPoller *preconfirmed.Poller
 
 	catchUpMode bool
 	plugin      junoplugin.JunoPlugin
@@ -155,7 +149,7 @@ func WithReadOnlyBlockchain(readOnly bool) Option {
 }
 
 func New(
-	bc *blockchain.Blockchain,
+	blockchain *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
 	opts ...Option,
@@ -166,17 +160,31 @@ func New(
 	}
 
 	s := &Synchronizer{
-		blockchain:               bc,
-		dataSource:               dataSource,
-		logger:                   logger,
-		newHeads:                 feed.New[*core.Block](),
-		reorgFeed:                feed.New[*ReorgBlockRange](),
-		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preConfirmedPollInterval: cfg.preConfirmedPollInterval,
-		listener:                 &SelectiveListener{},
-		readOnlyBlockchain:       cfg.readOnlyBlockchain,
-		preConfirmed:             preconfirmed.NewChainStorage(),
+		blockchain:         blockchain,
+		readOnlyBlockchain: cfg.readOnlyBlockchain,
+		dataSource:         dataSource,
+		newHeads:           feed.New[*core.Block](),
+		reorgFeed:          feed.New[*ReorgBlockRange](),
+
+		logger:   logger,
+		listener: &SelectiveListener{},
 	}
+
+	poller := preconfirmed.NewPoller(
+		dataSource,
+		// note(rdr): this doesn't make sense API wise, leaving for now not to break tests
+		preconfirmed.NewChainStorage(),
+		blockchain,
+		feed.New[*pending.PreConfirmed](),
+		&s.highestBlockHeader,
+		cfg.preConfirmedPollInterval,
+		s.logger,
+	)
+
+	// note(rdr): this doesn't make sense
+	// I have to do, so they both share s.highestBlockHeader
+	s.preConfirmedPoller = poller
+
 	return s
 }
 
@@ -503,7 +511,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	go s.pollLatest(syncCtx)
 
 	pollPendingWg := &stdsync.WaitGroup{}
-	pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
+	pollPendingWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
 
 	for {
 		select {
@@ -520,7 +528,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
-				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
+				pollPendingWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
 				s.logger.Warn("Restarting sync process",
 					zap.Uint64("height", nextHeight),
 					zap.Bool("catchUpMode", s.catchUpMode),
@@ -619,8 +627,8 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedDataSubscription {
-	return PreConfirmedDataSubscription{s.preConfirmedDataFeed.Subscribe()}
+func (s *Synchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
+	return s.preConfirmedPoller.Subscribe()
 }
 
 func (s *Synchronizer) pollLatest(ctx context.Context) {
@@ -645,44 +653,11 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	height, err := s.blockchain.Height()
-	if err != nil {
-		return preconfirmed.ChainReader{}, err
-	}
-
-	snapshot := s.preConfirmed.SnapshotForBlock(height + 1)
-	if snapshot.Length() > 0 {
-		return snapshot, nil
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		return preconfirmed.ChainReader{}, err
-	}
-
-	emptyPreConfirmed, err := MakeEmptyPreConfirmedForParent(s.blockchain, head)
-	if err != nil {
-		return preconfirmed.ChainReader{}, err
-	}
-
-	return preconfirmed.NewChain(&emptyPreConfirmed)
+	return s.preConfirmedPoller.PreConfirmedChain()
 }
 
-// pollPendingData launches the pre_confirmed chain poller.
-func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.preConfirmedPollInterval == 0 {
-		s.logger.Info("Pre-confirmed block polling is disabled")
-		return
-	}
-
-	poller := preconfirmed.NewPoller(
-		s.dataSource,
-		s.preConfirmed,
-		s.blockchain,
-		s.preConfirmedDataFeed,
-		&s.highestBlockHeader,
-		s.preConfirmedPollInterval,
-		s.logger,
-	)
-	poller.Run(ctx)
+// note(rdr): shouldn't it be called pollPreconfirmedData?
+// pollPreConfirmedData launches the pre_confirmed chain poller.
+func (s *Synchronizer) pollPreConfirmedData(ctx context.Context) {
+	s.preConfirmedPoller.Run(ctx)
 }
