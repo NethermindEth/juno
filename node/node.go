@@ -544,8 +544,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	batchPool := pool.New().WithMaxGoroutines(maxGoroutines)
 
-	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithPool(batchPool).
+	jsonrpcServerV10 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv10.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -555,8 +554,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithPool(batchPool).
+	jsonrpcServerV09 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv9.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -566,8 +564,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
-		WithPool(batchPool).
+	jsonrpcServerV08 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv8.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
