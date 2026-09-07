@@ -19,21 +19,15 @@ WORKDIR /app
 
 # Copy Cargo manifests for dependency caching
 COPY Makefile ./
-COPY starknet/compiler/rust/Makefile starknet/compiler/rust/Cargo.toml starknet/compiler/rust/Cargo.lock starknet/compiler/rust/
 COPY vm/rust/Makefile vm/rust/Cargo.toml vm/rust/Cargo.lock vm/rust/
 
 # Touch empty lib.rs to satisfy Cargo
-RUN mkdir -p \
-    starknet/compiler/rust/src \
-    vm/rust/src && \
-    touch starknet/compiler/rust/src/lib.rs \
-            vm/rust/src/lib.rs
+RUN mkdir -p vm/rust/src && touch vm/rust/src/lib.rs
 
 # Pre-build Rust dependencies, then clean to force cargo to only cache the dependencies and rebuild the application.
 # See: https://github.com/rust-lang/cargo/issues/9598
 RUN make rustdeps
-RUN cargo clean --release --manifest-path starknet/compiler/rust/Cargo.toml --package juno-starknet-compiler-rs && \
-    cargo clean --release --manifest-path vm/rust/Cargo.toml --package juno-starknet-rs
+RUN cargo clean --release --manifest-path vm/rust/Cargo.toml --package juno-starknet-rs
 
 # Copy go mod files and download deps
 COPY go.mod go.sum ./

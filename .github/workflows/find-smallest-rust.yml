@@ -8,7 +8,6 @@ on:
       - docs/docs/running-juno.md
       - .github/workflows/find-smallest-rust.yml
       - vm/rust/*
-      - starknet/compiler/rust/*
   workflow_dispatch:
 
 permissions:
@@ -28,7 +27,7 @@ jobs:
         id: rust-version
         uses: derrix060/detect-rust-minimum-version@7758bf709a98d268224549d3e5b2285d23ca9baf # v1.1.0
         with:
-          paths: vm/rust/,starknet/compiler/rust/
+          paths: vm/rust/
           locked: "true" # Enforce using Cargo.lock to prevent dependency drift
           min: "1.78.0" # Cargo.lock v4 requires Rust 1.78+
       - name: Send notification on PR

@@ -8,7 +8,6 @@ on:
   pull_request:
     paths:
       - vm/rust/**
-      - starknet/compiler/rust/**
       - rust-toolchain.toml
       - .github/workflows/rust-lint.yml
 permissions:
@@ -28,18 +27,10 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
-          workspaces: |
-            vm/rust
-            starknet/compiler/rust
+          workspaces: vm/rust
       - name: fmt vm/rust
         run: cargo fmt --check
         working-directory: vm/rust
-      - name: fmt starknet/compiler/rust
-        run: cargo fmt --check
-        working-directory: starknet/compiler/rust
       - name: clippy vm/rust
         run: cargo clippy -- -D warnings
         working-directory: vm/rust
-      - name: clippy starknet/compiler/rust
-        run: cargo clippy -- -D warnings
-        working-directory: starknet/compiler/rust
