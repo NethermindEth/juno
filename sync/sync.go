@@ -39,6 +39,10 @@ const (
 	OpReorgCheckFast   = "reorgCheckFast"
 	OpReorgCheckRemote = "reorgCheckRemote"
 	OpReorgCheckLocal  = "reorgCheckLocal"
+
+	// OpPreConfirmedPoll times how long it takes to poll the Gateway and gather
+	// pre-confirmed data.
+	OpPreConfirmedPoll = "preConfirmedPoll"
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
@@ -125,8 +129,8 @@ type Synchronizer struct {
 	logger   log.StructuredLogger
 	listener EventListener
 
-	preConfirmed             *preconfirmed.ChainStorage
-	preConfirmedPollInterval time.Duration
+	poller       *preconfirmed.Poller
+	preConfirmed *preconfirmed.ChainStorage
 
 	catchUpMode bool
 	plugin      junoplugin.JunoPlugin
@@ -135,26 +139,53 @@ type Synchronizer struct {
 }
 
 func New(
-	bc *blockchain.Blockchain,
+	blockchain *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
 	preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
 ) *Synchronizer {
+	// note(rdr): Does this makes sense to be here. Maybe, all pre-confirmed logic
+	//            should be moved to the poller.
+	preConfirmedFeed := feed.New[*pending.PreConfirmed]()
+
 	s := &Synchronizer{
-		blockchain:               bc,
-		dataSource:               dataSource,
-		db:                       database,
-		logger:                   logger,
-		newHeads:                 feed.New[*core.Block](),
-		reorgFeed:                feed.New[*ReorgBlockRange](),
-		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preConfirmedPollInterval: preConfirmedPollInterval,
-		listener:                 &SelectiveListener{},
-		readOnlyBlockchain:       readOnlyBlockchain,
-		preConfirmed:             preconfirmed.NewChainStorage(),
+		blockchain:           blockchain,
+		db:                   database,
+		readOnlyBlockchain:   readOnlyBlockchain,
+		dataSource:           dataSource,
+		newHeads:             feed.New[*core.Block](),
+		reorgFeed:            feed.New[*ReorgBlockRange](),
+		preConfirmedDataFeed: preConfirmedFeed,
+
+		logger:   logger,
+		listener: &SelectiveListener{},
+
+		preConfirmed: preconfirmed.NewChainStorage(),
 	}
+
+	poller := preconfirmed.NewPoller(
+		dataSource,
+		// note(rdr): this doesn't make sense API wise, leaving for now not to break tests
+		preconfirmed.NewChainStorage(),
+		blockchain,
+		preConfirmedFeed,
+		&s.highestBlockHeader,
+		preConfirmedPollInterval,
+		s.logger,
+	)
+
+	poller.WithOnTickDone(func(blockNum uint64, took time.Duration) {
+		// Reads s.listener at call time: the Prometheus listener is only
+		// installed later via WithListener.
+		s.listener.OnSyncStepDone(OpPreConfirmedPoll, blockNum, took)
+	})
+
+	// note(rdr): this doesn't make sense
+	// I have to do, so they both share s.highestBlockHeader
+	s.poller = poller
+
 	return s
 }
 
@@ -623,6 +654,8 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 }
 
 func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+	// note(rdr): Why query for the height here if the sync mechanism have a notion of
+	// the latest block itself?
 	height, err := s.blockchain.Height()
 	if err != nil {
 		return preconfirmed.ChainReader{}, err
@@ -646,21 +679,8 @@ func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	return preconfirmed.NewChain(&emptyPreConfirmed)
 }
 
+// note(rdr): shouldn't it be called pollPreconfirmedData?
 // pollPendingData launches the pre_confirmed chain poller.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.preConfirmedPollInterval == 0 {
-		s.logger.Info("Pre-confirmed block polling is disabled")
-		return
-	}
-
-	poller := preconfirmed.NewPoller(
-		s.dataSource,
-		s.preConfirmed,
-		s.blockchain,
-		s.preConfirmedDataFeed,
-		&s.highestBlockHeader,
-		s.preConfirmedPollInterval,
-		s.logger,
-	)
-	poller.Run(ctx)
+	s.poller.Run(ctx)
 }
