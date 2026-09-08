@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/migration"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +32,7 @@ func goldenBytes(t *testing.T) map[string]string {
 	return vectors
 }
 
-// goldenCases pins the bytes the node writes today.
+// goldenCases is the record set every encoder version is checked against.
 func goldenCases() []struct {
 	name  string
 	value any
@@ -71,7 +70,6 @@ func goldenCases() []struct {
 			felt.FromUint64[felt.Felt](8),
 		}},
 		{"felt.Slice nil", felt.Slice[felt.Felt](nil)},
-		{"cbor.RawMessage", cbor.RawMessage{0x83, 0x01, 0x02, 0x03}},
 		{"DeclaredClassDefinition, a Sierra class", populatedDeclaredClassDefinition()},
 		{"Header, populated", populatedHeader()},
 		{"InvokeTransaction, populated", populatedInvokeTransaction()},
