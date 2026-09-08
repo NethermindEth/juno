@@ -35,9 +35,9 @@ import (
 //	nonceAt(300)      = 7
 //	storageAt(0x55, 400) = 0x99
 //
-// That last one is also the ordering assertion: history sources head values
-// from the new-layout Contract records that headstate writes, so running it
-// first would silently find no addresses and migrate nothing.
+// That last one is also the ordering assertion: the head value can only come
+// from the deprecated storage trie, which the trie phase wipes. If trie ran
+// before history, it would read back as zero.
 const (
 	deployHeight  = uint64(100)
 	replaceHeight = uint64(200)
@@ -157,7 +157,8 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 	slotValue, err := reader.ContractStorageAt(&fixture.addr, &fixture.slot, storeHeight)
 	require.NoError(t, err)
 	assert.Equal(t, fixture.headSlotValue, slotValue,
-		"storage at the change block must come from the deprecated head trie")
+		"storage at the change block must come from the deprecated head trie, "+
+			"which is only readable while the trie phase has not wiped it")
 
 	for _, bucket := range []db.Bucket{
 		db.ContractClassHash,
@@ -166,9 +167,14 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 		db.DeprecatedContractClassHashHistory,
 		db.DeprecatedContractNonceHistory,
 		db.DeprecatedContractStorageHistory,
+		db.ClassesTrie,
+		db.StateTrie,
+		db.ContractStorage,
 	} {
 		assert.Zerof(t, bucketKeyCount(t, memDB, bucket), "bucket %v must be wiped", bucket)
 	}
+	assert.NotZero(t, bucketKeyCount(t, memDB, db.ContractTrieStorage),
+		"the storage trie must exist in the new layout")
 }
 
 func TestMigrateRunsEveryPhase(t *testing.T) {
