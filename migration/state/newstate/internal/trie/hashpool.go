@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 )
 
 type hashWork struct {
@@ -21,10 +22,10 @@ type hashWorkerPool struct {
 
 func newHashWorkerPool() *hashWorkerPool {
 	p := &hashWorkerPool{
-		work: make(chan hashWork, IngestorCount*2),
-		n:    IngestorCount,
+		work: make(chan hashWork, common.IngestorCount*2),
+		n:    common.IngestorCount,
 	}
-	for range IngestorCount {
+	for range common.IngestorCount {
 		go func() {
 			for w := range p.work {
 				for i := range w.jobs {
