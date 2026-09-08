@@ -17,7 +17,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.3
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/klauspost/compress v1.19.1
+	github.com/klauspost/compress v1.20.0
 	github.com/klauspost/reedsolomon v1.14.2
 	github.com/libp2p/go-libp2p v0.49.0
 	github.com/libp2p/go-libp2p-kad-dht v0.42.2
@@ -37,7 +37,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/exp v0.0.0-20260718201538-764159d718ef
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0

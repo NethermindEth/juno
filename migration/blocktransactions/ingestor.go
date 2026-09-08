@@ -8,10 +8,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed/prefix"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/fxamacker/cbor/v2"
 	"go.uber.org/zap"
 )
 
@@ -168,10 +168,12 @@ func (c *ingestor) validateCount(
 	return nil
 }
 
-func extractValues(seq iter.Seq2[prefix.Entry[[]byte], error]) iter.Seq2[cbor.RawMessage, error] {
-	return func(yield func(cbor.RawMessage, error) bool) {
+func extractValues(
+	seq iter.Seq2[prefix.Entry[[]byte], error],
+) iter.Seq2[encoder.RawMessage, error] {
+	return func(yield func(encoder.RawMessage, error) bool) {
 		for item, err := range seq {
-			if !yield(cbor.RawMessage(item.Value), err) {
+			if !yield(encoder.RawMessage(item.Value), err) {
 				return
 			}
 		}
