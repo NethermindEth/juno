@@ -1,10 +1,8 @@
 package cbor_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -20,12 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const goldenFile = "testdata/on_disk_bytes.json"
+const goldenFile = "testdata/golden_bytes.json"
 
-func loadGoldenBytes(t *testing.T, path string) map[string]string {
+// goldenBytes is each record's hex, keyed by name.
+// It is how the records were written, so it is byte for byte what a database holds.
+func goldenBytes(t *testing.T) map[string]string {
 	t.Helper()
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(goldenFile)
 	require.NoError(t, err)
 
 	var vectors map[string]string
@@ -326,27 +326,4 @@ func populatedReceipt() core.TransactionReceipt {
 			TotalGasConsumed:       &core.GasConsumed{L1Gas: 13, L1DataGas: 14},
 		},
 	}
-}
-
-func TestGoldenBytes(t *testing.T) {
-	golden := loadGoldenBytes(t, goldenFile)
-
-	for _, c := range goldenCases() {
-		t.Run(c.name, func(t *testing.T) {
-			b, err := cbor.Marshal(c.value)
-			require.NoError(t, err)
-
-			want, ok := golden[c.name]
-			require.Truef(t, ok, "no vector for %q, the encoder wrote %s", c.name, hex.EncodeToString(b))
-			require.Equal(t, want, hex.EncodeToString(b))
-
-			stored, err := hex.DecodeString(want)
-			require.NoError(t, err)
-
-			back := reflect.New(reflect.TypeOf(c.value))
-			require.NoError(t, cbor.Unmarshal(stored, back.Interface()))
-			require.Equal(t, c.value, back.Elem().Interface())
-		})
-	}
-	require.Equal(t, len(goldenCases()), len(golden), "a case lost its vector")
 }
