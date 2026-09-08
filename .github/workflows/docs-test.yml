@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,9 +15,12 @@ concurrency:
 jobs:
   test-deploy:
     name: Test deployment
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.0.0
         with:
           node-version-file: docs/.nvmrc
@@ -27,3 +33,35 @@ jobs:
       - name: Build website
         run: npm run build
         working-directory: docs
+
+  flag-parity:
+    name: Docs flags match the binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the published docs are checked against their release tag.
+          fetch-depth: 0
+      - name: Skip unless docs changed
+        id: gate
+        if: github.event_name == 'pull_request'
+        run: |
+          # Write first, then count: a git failure must fail the step rather than
+          # read as "no docs changed" and skip the check for good.
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > "$RUNNER_TEMP/changed.txt"
+          changed=$(grep -c '^docs/' "$RUNNER_TEMP/changed.txt" || true)
+          echo "docs=$changed" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.0.0
+        if: github.event_name != 'pull_request' || steps.gate.outputs.docs != '0'
+        with:
+          node-version-file: docs/.nvmrc
+      - name: Check flags
+        if: github.event_name != 'pull_request' || steps.gate.outputs.docs != '0'
+        run: node docs/check-flags.js
+      - name: Alert Slack on drift
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          MESSAGE="🚨 *Juno docs drift:* documented flags no longer match the binary. Run \`node docs/check-flags.js\` locally for the list."
+          curl --fail -sS -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" "$SLACK_WEBHOOK_URL"

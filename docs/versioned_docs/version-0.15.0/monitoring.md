@@ -185,10 +185,6 @@ In case you want to change the log level in runtime without the need to restart 
 
 To enable this feature, use the following configuration options:
 
-:::note
-These flags were renamed from `--log-host` and `--log-port` in v0.14.4. When running in a container, set `--http-update-host=0.0.0.0`; the default binds localhost.
-:::
-
 - `http-update-host`: The interface to listen for requests. Defaults to `localhost`.
 - `http-update-port`: The port to listen for requests. REQUIRED
 

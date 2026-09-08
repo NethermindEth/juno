@@ -34,7 +34,7 @@ function flagsFromCommand(line) {
   // Anchored so nethermind/juno-plugin and friends do not match.
   const image =
     /\bdocker\s+(run|create)\b/.test(args) &&
-    args.match(/nethermind\/juno(?::\S+|@\S+)?(?=\s|$)/);
+    args.match(/(?:^|\s)nethermind\/juno(?::\S+|@\S+)?(?=\s|$)/);
   if (image) {
     args = args.slice(image.index + image[0].length);
   } else if (/^(\S*\/)?juno\s/.test(args)) {
@@ -45,35 +45,28 @@ function flagsFromCommand(line) {
   return [...args.matchAll(/(?:^|\s)--([a-z][a-z0-9-]*)/g)].map((m) => m[1]);
 }
 
-// Every --flag a page mentions: backticked in prose, or passed to Juno in a fence.
+// Every --flag passed to Juno inside a code fence, continuation lines joined.
 function flagMentions(markdown) {
   const mentions = new Map(); // name -> first line, for the report
   const lines = markdown.split("\n");
-  let fenceMarker = null; // a fence only closes on its own marker
+  let inFence = false;
   let joined = "";
+  let startLine = 0; // a continued command reports where it starts, not where it ends
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    const fence = l.trim().match(/^(```|~~~)/);
-    if (fence && (!fenceMarker || fence[1] === fenceMarker)) {
-      fenceMarker = fenceMarker ? null : fence[1];
+    if (/^(```|~~~)/.test(l.trim())) {
+      inFence = !inFence;
       joined = "";
       continue;
     }
-    const inFence = fenceMarker !== null;
-    if (inFence) {
-      joined += l.endsWith("\\") ? l.slice(0, -1) + " " : l;
-      if (l.endsWith("\\")) continue;
-      for (const f of flagsFromCommand(joined)) {
-        if (!mentions.has(f)) mentions.set(f, i + 1);
-      }
-      joined = "";
-    } else {
-      // A removed or renamed flag must stay documentable, so those lines are exempt.
-      if (/\b(removed|renamed|deprecated)\b/i.test(l)) continue;
-      for (const m of l.matchAll(/`--([a-z][a-z0-9-]*)[^`]*`/g)) {
-        if (!mentions.has(m[1])) mentions.set(m[1], i + 1);
-      }
+    if (!inFence) continue;
+    if (!joined) startLine = i + 1;
+    joined += l.endsWith("\\") ? l.slice(0, -1) + " " : l;
+    if (l.endsWith("\\")) continue;
+    for (const f of flagsFromCommand(joined)) {
+      if (!mentions.has(f)) mentions.set(f, startLine);
     }
+    joined = "";
   }
   return mentions;
 }
@@ -95,7 +88,8 @@ function checkTree(treeDir, source) {
   for (const file of fs.readdirSync(treeDir).filter((f) => f.endsWith(".md"))) {
     const p = path.join(treeDir, file);
     const md = fs.readFileSync(p, "utf8");
-    const documented = file.startsWith("_") ? tableNames(md) : flagMentions(md);
+    const documented =
+      file === "_config-options.md" ? tableNames(md) : flagMentions(md);
     for (const [flag, line] of documented) {
       if (!names.has(flag)) {
         fail(p, `line ${line}: \`--${flag}\` is not a flag in ${source.label}`);
@@ -142,21 +136,26 @@ function main() {
   }
 
   // published: checked against the newest stable tag of its line.
+  // versions.json[0] is what the site root serves (docusaurus.config.js sets no lastVersion).
   const published = JSON.parse(
     fs.readFileSync(path.join(__dirname, "versions.json"), "utf8"),
   )[0];
   const line = published.split(".").slice(0, 2).join(".");
-  const tags = execFileSync("git", ["tag", "-l", `v${line}.*`], {
-    cwd: repoRoot,
-  })
+  // git sorts by version; keep stable releases only and take the newest.
+  const tag = execFileSync(
+    "git",
+    ["tag", "-l", `v${line}.*`, "--sort=v:refname"],
+    { cwd: repoRoot },
+  )
     .toString()
     .split("\n")
-    .filter((t) => /^v\d+\.\d+\.\d+$/.test(t)) // stable releases only
-    .sort((a, b) => Number(a.split(".")[2]) - Number(b.split(".")[2]));
-  const tag = tags[tags.length - 1];
+    .filter((t) => /^v\d+\.\d+\.\d+$/.test(t))
+    .pop();
   if (!tag) {
-    // Shallow clone without tags: warn instead of failing; CI fetches full history.
-    console.warn(`no v${line}.* tag found; skipping the published-version check`);
+    // A shallow local clone has no tags; CI always must (fetch-depth: 0).
+    const msg = `no v${line}.* tag found; did checkout fetch tags?`;
+    if (process.env.CI) throw new Error(msg);
+    console.warn(`${msg} skipping the published-version check`);
   } else {
     const tagSource = execFileSync(
       "git",
