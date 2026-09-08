@@ -32,13 +32,16 @@ function cleanBody(body, dir) {
   });
   const lines = [];
   let inMdx = false;
-  let inFence = false; // never strip anything inside a real code fence
+  let fence = null; // the marker that opened the current fence, so ``` and ~~~ do not cross-close
   for (const l of body.split("\n")) {
     const t = l.trim();
-    if (t === "```mdx-code-block") { inMdx = true; continue; }
+    if (!fence && t === "```mdx-code-block") { inMdx = true; continue; }
     if (inMdx && t === "```") { inMdx = false; continue; }
-    if (!inMdx && /^(```|~~~)/.test(t)) inFence = !inFence;
-    if (!inFence && /^import\s.+\sfrom\s["']/.test(l)) continue;
+    const marker = t.match(/^(```|~~~)/);
+    if (!inMdx && marker && (!fence || marker[1] === fence)) {
+      fence = fence ? null : marker[1];
+    }
+    if (!fence && /^import\s.+\sfrom\s["']/.test(l)) continue;
     lines.push(l);
   }
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
@@ -149,3 +152,6 @@ module.exports = function llmsTxtPlugin() {
     },
   };
 };
+
+// Exported for llms-txt.test.js; the module itself stays the plugin factory.
+module.exports.cleanBody = cleanBody;
