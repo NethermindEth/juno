@@ -9,20 +9,12 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 )
 
-type task struct {
-	batch db.Batch
-	tries int
-	nodes int
-}
-
 type ingestor struct {
-	ctx            context.Context
-	database       db.KeyValueReader
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
-	pool           *hashWorkerPool
-	tasks          [IngestorCount]task
+	common.BaseIngestor
+	pool *hashWorkerPool
 }
 
 func newIngestor(
@@ -31,62 +23,34 @@ func newIngestor(
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	pool *hashWorkerPool,
 ) *ingestor {
-	in := &ingestor{
-		ctx:            ctx,
-		database:       database,
-		batchSemaphore: batchSemaphore,
-		pool:           pool,
+	return &ingestor{
+		BaseIngestor: common.NewBaseIngestor(ctx, batchSemaphore, database),
+		pool:         pool,
 	}
-	for i := range IngestorCount {
-		in.tasks[i].batch = batchSemaphore.GetBlocking()
-	}
-	return in
 }
 
-func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- task) error {
-	done, err := rootProcessed(i.database, desc.TrieBucket, &desc.Owner)
+// Run migrates one trie. CompletedAddrs counts tries and EntryCount counts
+// nodes; the committer labels them accordingly via SetProgress.
+func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- common.Task) error {
+	done, err := rootProcessed(i.Database, desc.TrieBucket, &desc.Owner)
 	if err != nil {
 		return fmt.Errorf("rootProcessed(%v, %x): %w", desc.TrieBucket, desc.Owner, err)
 	}
 
-	t := &i.tasks[index]
+	t := &i.Tasks[index]
 	if done {
 		// Already migrated — credit the counts so progress display reaches 100% on resume.
-		t.tries++
-		t.nodes += desc.NodeCount
-		return i.flush(t, outputs)
+		t.CompletedAddrs++
+		t.EntryCount += desc.NodeCount
+		return i.Flush(t, outputs)
 	}
 
 	if err := i.migrateTrie(t, desc, outputs); err != nil {
 		return err
 	}
 
-	t.tries++
-	return i.flush(t, outputs)
-}
-
-func (i *ingestor) Done(index int, outputs chan<- task) error {
-	select {
-	case <-i.ctx.Done():
-		return i.ctx.Err()
-	case outputs <- i.tasks[index]:
-	}
-	return nil
-}
-
-func (i *ingestor) flush(t *task, outputs chan<- task) error {
-	if t.batch.Size() < targetBatchByteSize {
-		return nil
-	}
-	select {
-	case <-i.ctx.Done():
-		return i.ctx.Err()
-	case outputs <- task{batch: t.batch, tries: t.tries, nodes: t.nodes}:
-	}
-	t.tries = 0
-	t.nodes = 0
-	t.batch = i.batchSemaphore.GetBlocking()
-	return nil
+	t.CompletedAddrs++
+	return i.Flush(t, outputs)
 }
 
 // migrateTrie reads one deprecated trie and writes its equivalent into the
@@ -173,7 +137,7 @@ func (i *ingestor) flush(t *task, outputs chan<- task) error {
 //
 // In-flight batches flush at target size; cancellation is observed at
 // every flush and every channel send.
-func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) error {
+func (i *ingestor) migrateTrie(t *common.Task, desc TrieDesc, outputs chan<- common.Task) error {
 	if desc.NodeCount == 0 {
 		return nil
 	}
@@ -185,11 +149,11 @@ func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) erro
 	if err != nil {
 		return err
 	}
-	if err := sched.sync(t.batch); err != nil {
+	if err := sched.sync(t.Batch); err != nil {
 		return err
 	}
 	if desc.RootPath.Len() > 0 {
-		if err := writeRootEdgeNode(desc.RootPath, rootHash, sched, t.batch); err != nil {
+		if err := writeRootEdgeNode(desc.RootPath, rootHash, sched, t.Batch); err != nil {
 			return err
 		}
 	}
@@ -197,24 +161,24 @@ func (i *ingestor) migrateTrie(t *task, desc TrieDesc, outputs chan<- task) erro
 }
 
 func (i *ingestor) traverse(
-	t *task,
-	outputs chan<- task,
+	t *common.Task,
+	outputs chan<- common.Task,
 	prefix []byte,
 	oldPath trie.BitArray,
 	sched *hashScheduler,
 ) (felt.Felt, error) {
-	parsed, err := readNode(i.database, prefix, &oldPath)
+	parsed, err := readNode(i.Database, prefix, &oldPath)
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	t.nodes++
+	t.EntryCount++
 
 	if parsed.isLeaf {
 		newPath := toNewPath(&oldPath)
-		if err := writeLeafNode(newPath, &parsed.value, sched, t.batch); err != nil {
+		if err := writeLeafNode(newPath, &parsed.value, sched, t.Batch); err != nil {
 			return felt.Felt{}, err
 		}
-		if err := i.flush(t, outputs); err != nil {
+		if err := i.Flush(t, outputs); err != nil {
 			return felt.Felt{}, err
 		}
 		return parsed.value, nil
@@ -231,11 +195,11 @@ func (i *ingestor) traverse(
 
 	newPath := toNewPath(&oldPath)
 	if err := processBinary(
-		newPath, &parsed.left, &parsed.right, leftHash, rightHash, sched, t.batch,
+		newPath, &parsed.left, &parsed.right, leftHash, rightHash, sched, t.Batch,
 	); err != nil {
 		return felt.Felt{}, err
 	}
-	if err := i.flush(t, outputs); err != nil {
+	if err := i.Flush(t, outputs); err != nil {
 		return felt.Felt{}, err
 	}
 	return parsed.value, nil
