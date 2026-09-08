@@ -7,35 +7,20 @@ import (
 	"github.com/NethermindEth/juno/utils/lru"
 )
 
-// blockTraceCache retains successful trace progress in an LRU and permits one active extension per
-// block. An extension becomes visible only after its entire requested suffix succeeds; failed work
-// only wakes its waiters. mu protects LRU and flight membership, while per-record locks allow
-// unrelated blocks to be read and extended concurrently.
+// blockTraceCache publishes immutable trace prefixes and permits one active execution per block.
+// mu protects cache and flight membership; execution and trace appends happen outside the lock.
 type blockTraceCache struct {
-	mu sync.Mutex
-
+	mu      sync.Mutex
 	records *lru.SimpleCache[felt.Felt, *blockTraceRecord]
-	flights map[felt.Felt]*traceFlight
+	flights map[felt.Felt]chan struct{}
 }
 
-// blockTraceRecord is the append-only tracing progress for one block. Returned trace slices are
-// capacity-limited, so a later extension cannot change their visible length or elements.
+// Published records are immutable. The flight owner may append beyond the prefix's length,
+// but must publish a new record. Responses borrow read-only data with capacity-limited slices.
 type blockTraceRecord struct {
-	mu sync.RWMutex
-
 	traces       []TracedBlockTransaction
-	initialReads *InitialReads // non-nil once the record has been published
+	initialReads *InitialReads // only complete records may contain initial reads
 	complete     bool
-}
-
-type blockTraceRecordView struct {
-	traces       []TracedBlockTransaction
-	initialReads *InitialReads
-	complete     bool
-}
-
-type traceFlight struct {
-	done chan struct{}
 }
 
 type traceCacheLookupKind uint8
@@ -43,7 +28,7 @@ type traceCacheLookupKind uint8
 const (
 	traceCacheHit traceCacheLookupKind = iota + 1
 	traceCacheWait
-	traceCacheExtend
+	traceCacheExecute
 )
 
 type traceCacheLookup struct {
@@ -53,98 +38,30 @@ type traceCacheLookup struct {
 	work     *traceCacheWork
 }
 
-// traceCacheWork is owned by the caller executing a suffix. Work retains its record across LRU
-// eviction; only a successful commit republishes it. After commit removes the flight, the deferred
-// abort sees that it is no longer active and becomes a no-op.
+// Work retains its prefix across eviction and publishes only after successful execution.
 type traceCacheWork struct {
 	cache  *blockTraceCache
 	hash   felt.Felt
-	flight *traceFlight
+	flight chan struct{}
 	record *blockTraceRecord
-}
-
-func (r *blockTraceRecord) view() blockTraceRecordView {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.viewLocked()
-}
-
-func (r *blockTraceRecord) viewLocked() blockTraceRecordView {
-	return blockTraceRecordView{
-		traces:       r.traces[:len(r.traces):len(r.traces)],
-		initialReads: r.initialReads,
-		complete:     r.complete,
-	}
-}
-
-func (r *blockTraceRecord) append(
-	extension TraceBlockTransactionsResponse,
-	totalTransactions int,
-) blockTraceRecordView {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.traces = append(r.traces, extension.Traces...)
-	r.initialReads = mergeInitialReads(r.initialReads, extension.InitialReads)
-	r.complete = len(r.traces) == totalTransactions
-	return r.viewLocked()
-}
-
-func (v blockTraceRecordView) response() TraceBlockTransactionsResponse {
-	// Responses borrow record-owned data and must be treated as read-only.
-	response := TraceBlockTransactionsResponse{Traces: v.traces}
-	if v.complete {
-		response.InitialReads = v.initialReads
-	}
-	return response
-}
-
-func (w *traceCacheWork) prefix() []TracedBlockTransaction {
-	return w.record.view().traces
-}
-
-func (w *traceCacheWork) commit(
-	extension TraceBlockTransactionsResponse,
-	totalTransactions int,
-) TraceBlockTransactionsResponse {
-	view := w.record.append(extension, totalTransactions)
-
-	cache := w.cache
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	cache.records.Add(w.hash, w.record)
-	cache.finishLocked(w.hash, w.flight)
-	return view.response()
-}
-
-func (w *traceCacheWork) abort() {
-	cache := w.cache
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	if cache.flights[w.hash] != w.flight {
-		return
-	}
-	cache.finishLocked(w.hash, w.flight)
 }
 
 func newBlockTraceCache(limit int) *blockTraceCache {
 	return &blockTraceCache{
 		records: lru.NewSimple[felt.Felt, *blockTraceRecord](limit),
-		flights: make(map[felt.Felt]*traceFlight),
+		flights: make(map[felt.Felt]chan struct{}),
 	}
 }
 
 func (c *blockTraceCache) completeResponse(
 	blockHash felt.Felt,
+	requireInitialReads bool,
 ) (TraceBlockTransactionsResponse, bool) {
 	record, found := c.record(blockHash)
-	if !found {
+	if !found || !record.complete || requireInitialReads && record.initialReads == nil {
 		return TraceBlockTransactionsResponse{}, false
 	}
-	view := record.view()
-	if !view.complete {
-		return TraceBlockTransactionsResponse{}, false
-	}
-	return view.response(), true
+	return record.response(), true
 }
 
 func (c *blockTraceCache) traceAt(
@@ -152,63 +69,37 @@ func (c *blockTraceCache) traceAt(
 	index uint64,
 ) (TracedBlockTransaction, bool) {
 	record, found := c.record(blockHash)
-	if !found {
+	if !found || index >= uint64(len(record.traces)) {
 		return TracedBlockTransaction{}, false
 	}
-	view := record.view()
-	if index >= uint64(len(view.traces)) {
-		return TracedBlockTransaction{}, false
-	}
-	return view.traces[index], true
-}
-
-func (c *blockTraceCache) record(blockHash felt.Felt) (*blockTraceRecord, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.records.Get(blockHash)
+	return record.traces[index], true
 }
 
 func (c *blockTraceCache) lookupOrStart(
 	blockHash felt.Felt,
 	target uint64,
+	requireInitialReads bool,
 ) traceCacheLookup {
 	c.mu.Lock()
-	record, _ := c.records.Get(blockHash)
-	if flight, found := c.flights[blockHash]; found {
-		c.mu.Unlock()
-		if lookup, found := lookupBlockTraceRecord(record, target); found {
-			return lookup
-		}
-		return traceCacheLookup{kind: traceCacheWait, done: flight.done}
-	}
 	defer c.mu.Unlock()
-
-	if lookup, found := lookupBlockTraceRecord(record, target); found {
-		return lookup
+	record, _ := c.records.Get(blockHash)
+	if record != nil && target < uint64(len(record.traces)) &&
+		(!requireInitialReads || record.initialReads != nil) {
+		return traceCacheLookup{kind: traceCacheHit, response: record.response()}
 	}
-	if record == nil {
+	if flight, found := c.flights[blockHash]; found {
+		return traceCacheLookup{kind: traceCacheWait, done: flight}
+	}
+	// Missing initial reads require a full replay. Keep the old record available until commit.
+	if record == nil || requireInitialReads {
 		record = &blockTraceRecord{}
 	}
-	flight := &traceFlight{done: make(chan struct{})}
+	flight := make(chan struct{})
 	c.flights[blockHash] = flight
 	return traceCacheLookup{
-		kind: traceCacheExtend,
+		kind: traceCacheExecute,
 		work: &traceCacheWork{cache: c, hash: blockHash, flight: flight, record: record},
 	}
-}
-
-func lookupBlockTraceRecord(
-	record *blockTraceRecord,
-	target uint64,
-) (traceCacheLookup, bool) {
-	if record == nil {
-		return traceCacheLookup{}, false
-	}
-	view := record.view()
-	if target < uint64(len(view.traces)) {
-		return traceCacheLookup{kind: traceCacheHit, response: view.response()}, true
-	}
-	return traceCacheLookup{}, false
 }
 
 // storeComplete takes ownership of the response containers. InitialReads must be non-nil.
@@ -226,7 +117,48 @@ func (c *blockTraceCache) storeComplete(
 	c.records.Add(blockHash, record)
 }
 
-func (c *blockTraceCache) finishLocked(blockHash felt.Felt, flight *traceFlight) {
+func (c *blockTraceCache) record(blockHash felt.Felt) (*blockTraceRecord, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.records.Get(blockHash)
+}
+
+func (c *blockTraceCache) finishLocked(blockHash felt.Felt, flight chan struct{}) {
 	delete(c.flights, blockHash)
-	close(flight.done)
+	close(flight)
+}
+
+func (r *blockTraceRecord) response() TraceBlockTransactionsResponse {
+	return TraceBlockTransactionsResponse{
+		Traces:       r.traces[:len(r.traces):len(r.traces)],
+		InitialReads: r.initialReads,
+	}
+}
+
+func (w *traceCacheWork) commit(
+	executed TraceBlockTransactionsResponse,
+	totalTransactions int,
+) TraceBlockTransactionsResponse {
+	record := &blockTraceRecord{
+		traces:       append(w.record.traces, executed.Traces...),
+		initialReads: executed.InitialReads,
+	}
+	record.complete = len(record.traces) == totalTransactions
+
+	cache := w.cache
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	cache.records.Add(w.hash, record)
+	cache.finishLocked(w.hash, w.flight)
+	return record.response()
+}
+
+func (w *traceCacheWork) abort() {
+	cache := w.cache
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.flights[w.hash] != w.flight {
+		return
+	}
+	cache.finishLocked(w.hash, w.flight)
 }

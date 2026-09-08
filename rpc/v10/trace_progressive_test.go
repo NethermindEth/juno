@@ -53,10 +53,9 @@ func progressiveTestResults(transactions []core.Transaction) vm.ExecutionResults
 		gas[index].L1Gas = transactions[index].Hash().Uint64()
 	}
 	return vm.ExecutionResults{
-		Traces:       traces,
-		GasConsumed:  gas,
-		NumSteps:     uint64(len(transactions)),
-		InitialReads: &vm.InitialReads{},
+		Traces:      traces,
+		GasConsumed: gas,
+		NumSteps:    uint64(len(transactions)),
 	}
 }
 
@@ -67,7 +66,8 @@ func newProgressiveTestHandler(
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
-	state := mocks.NewMockStateReader(ctrl)
+	parentState := mocks.NewMockStateReader(ctrl)
+	headState := mocks.NewMockStateReader(ctrl)
 	header := &core.Header{
 		Hash:             felt.NewFromUint64[felt.Felt](100),
 		ParentHash:       felt.NewFromUint64[felt.Felt](99),
@@ -77,10 +77,10 @@ func newProgressiveTestHandler(
 		ProtocolVersion:  "99.12.3",
 	}
 	reader.EXPECT().StateAtBlockHash(header.ParentHash).
-		Return(state, func() error { return nil }, nil).AnyTimes()
-	reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).AnyTimes()
+		Return(parentState, func() error { return nil }, nil).AnyTimes()
+	reader.EXPECT().HeadState().Return(headState, func() error { return nil }, nil).AnyTimes()
 	handler := New(reader, nil, virtualMachine, log.NewNopZapLogger())
-	return handler, header, progressiveTestTransactions(3), state
+	return handler, header, progressiveTestTransactions(3), headState
 }
 
 func TestMergeRPCStateDiff(t *testing.T) {
@@ -94,8 +94,7 @@ func TestMergeRPCStateDiff(t *testing.T) {
 	migratedClass := felt.FromUint64[felt.SierraClassHash](8)
 	migratedCompiled := felt.FromUint64[felt.CasmClassHash](9)
 
-	converted := core.EmptyStateDiff()
-	mergeRPCStateDiff(&converted, &StateDiff{
+	diff := StateDiff{
 		StorageDiffs: []StorageDiff{{
 			Address: address, StorageEntries: []Entry{{Key: key, Value: value}},
 		}},
@@ -109,7 +108,9 @@ func TestMergeRPCStateDiff(t *testing.T) {
 		MigratedCompiledClasses: []MigratedCompiledClass{{
 			ClassHash: migratedClass, CompiledClassHash: migratedCompiled,
 		}},
-	})
+	}
+	converted := core.EmptyStateDiff()
+	mergeRPCStateDiff(&converted, &diff)
 
 	require.Equal(t, value, *converted.StorageDiffs[address][key])
 	require.Equal(t, nonce, *converted.Nonces[address])
@@ -119,7 +120,7 @@ func TestMergeRPCStateDiff(t *testing.T) {
 	require.Equal(t, replacement, *converted.ReplacedClasses[address])
 	require.Equal(t, migratedCompiled, converted.MigratedClasses[migratedClass])
 
-	value.SetUint64(99)
+	diff.StorageDiffs[0].StorageEntries[0].Value.SetUint64(99)
 	require.Equal(t, uint64(3), converted.StorageDiffs[address][key].Uint64())
 }
 
@@ -220,27 +221,7 @@ func TestProgressiveTraceCacheDoesNotCacheFailedFirstExtension(t *testing.T) {
 	require.False(t, inflight)
 }
 
-func TestProgressiveTraceCacheRejectsMissingStateDiff(t *testing.T) {
-	virtualMachine := &progressiveTestVM{trace: func(
-		transactions []core.Transaction,
-		_ core.StateReader,
-	) (vm.ExecutionResults, error) {
-		results := progressiveTestResults(transactions)
-		results.Traces[0].StateDiff = nil
-		return results, nil
-	}}
-	handler, header, transactions, _ := newProgressiveTestHandler(t, virtualMachine)
-
-	_, _, rpcErr := handler.traceProgressiveBlock(t.Context(), header, transactions, 0, false)
-	require.NotNil(t, rpcErr)
-	require.Contains(t, rpcErr.Data, "VM omitted state diff for transaction trace 0")
-
-	_, cached, inflight := blockTraceCacheState(handler.blockTraceCache, *header.Hash)
-	require.False(t, cached)
-	require.False(t, inflight)
-}
-
-func TestProgressiveTraceCacheRejectsMismatchedVMResults(t *testing.T) {
+func TestProgressiveTraceCacheRejectsMalformedVMResults(t *testing.T) {
 	tests := []struct {
 		name       string
 		traceCount int
@@ -249,6 +230,7 @@ func TestProgressiveTraceCacheRejectsMismatchedVMResults(t *testing.T) {
 	}{
 		{"too few traces", 1, 2, "unexpected number of transaction traces"},
 		{"too few gas results", 2, 1, "unexpected number of gas results"},
+		{"missing state diff", 2, 2, "VM omitted state diff for transaction trace 0"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -264,6 +246,9 @@ func TestProgressiveTraceCacheRejectsMismatchedVMResults(t *testing.T) {
 			_, _, rpcErr := handler.traceProgressiveBlock(t.Context(), header, transactions, 1, false)
 			require.NotNil(t, rpcErr)
 			require.Contains(t, rpcErr.Data, test.want)
+			_, cached, inflight := blockTraceCacheState(handler.blockTraceCache, *header.Hash)
+			require.False(t, cached)
+			require.False(t, inflight)
 		})
 	}
 }
@@ -281,12 +266,9 @@ func TestProgressiveTraceCachePanicClearsInflight(t *testing.T) {
 	}}
 	handler, header, transactions, _ := newProgressiveTestHandler(t, virtualMachine)
 
-	func() {
-		defer func() {
-			require.Equal(t, "trace panic", recover())
-		}()
+	require.PanicsWithValue(t, "trace panic", func() {
 		_, _, _ = handler.traceProgressiveBlock(t.Context(), header, transactions, 0, false)
-	}()
+	})
 
 	response, _, rpcErr := handler.traceProgressiveBlock(
 		t.Context(), header, transactions, 0, false,
@@ -294,6 +276,27 @@ func TestProgressiveTraceCachePanicClearsInflight(t *testing.T) {
 	require.Nil(t, rpcErr)
 	require.Len(t, response.Traces, 1)
 	require.Equal(t, uint64(2), calls.Load())
+}
+
+func TestTraceFinalisedBlockRejectsInvalidTargetBeforeExecution(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	reader := mocks.NewMockReader(ctrl)
+	virtualMachine := mocks.NewMockVM(ctrl)
+	header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ProtocolVersion: "99.12.3"}
+	transactions := progressiveTestTransactions(1)
+	reader.EXPECT().Network().Return(&networks.Mainnet).Times(2)
+	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil).Times(2)
+	handler := New(reader, nil, virtualMachine, log.NewNopZapLogger())
+
+	for name, target := range map[string]traceTarget{
+		"index out of range": {index: 1, hash: felt.TransactionHash(*transactions[0].Hash())},
+		"hash mismatch":      {index: 0, hash: felt.FromUint64[felt.TransactionHash](999)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, rpcErr := handler.traceFinalisedBlock(t.Context(), header, &target, false)
+			require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+		})
+	}
 }
 
 func TestTraceFinalisedEmptyBlockReturnsWithoutCaching(t *testing.T) {
@@ -310,7 +313,7 @@ func TestTraceFinalisedEmptyBlockReturnsWithoutCaching(t *testing.T) {
 	handler := New(reader, nil, virtualMachine, log.NewNopZapLogger())
 
 	response, responseHeader, rpcErr := handler.traceFinalisedBlock(
-		t.Context(), header, true,
+		t.Context(), header, nil, true,
 	)
 	require.Nil(t, rpcErr)
 	require.Empty(t, response.Traces)
@@ -321,10 +324,10 @@ func TestTraceFinalisedEmptyBlockReturnsWithoutCaching(t *testing.T) {
 	require.Empty(t, response.InitialReads.DeclaredContracts)
 	require.Equal(t, "0", responseHeader.Get(ExecutionStepsHeader))
 
-	response, responseHeader, rpcErr = handler.traceFinalisedBlock(t.Context(), header, false)
+	response, responseHeader, rpcErr = handler.traceFinalisedBlock(t.Context(), header, nil, false)
 	require.Nil(t, rpcErr)
 	require.Empty(t, response.Traces)
-	require.Nil(t, response.InitialReads)
+	require.NotNil(t, response.InitialReads, "internal responses remain canonical")
 	require.Equal(t, "0", responseHeader.Get(ExecutionStepsHeader))
 }
 
@@ -363,7 +366,7 @@ func TestProgressiveTraceCacheAllowsRecordEvictionDuringFlight(t *testing.T) {
 	require.False(t, found, "the base record may be evicted while its owner retains it")
 	require.True(t, inflight, "active work must remain discoverable through its flight")
 
-	waiting := handler.blockTraceCache.lookupOrStart(*header.Hash, 1)
+	waiting := handler.blockTraceCache.lookupOrStart(*header.Hash, 1, false)
 	require.Equal(t, traceCacheWait, waiting.kind)
 	close(release)
 
@@ -412,7 +415,7 @@ func TestProgressiveTraceCacheMakesPrefixDeclarationsAvailableToSuffix(t *testin
 	require.Equal(t, uint64(2), calls.Load())
 }
 
-func TestTransactionTraceIfHashMatchesValidatesCachedEntry(t *testing.T) {
+func TestTransactionTraceResponseValidatesEntry(t *testing.T) {
 	hash := felt.FromUint64[felt.TransactionHash](1)
 	otherHash := felt.FromUint64[felt.Felt](2)
 	trace := &TransactionTrace{}
@@ -423,14 +426,16 @@ func TestTransactionTraceIfHashMatchesValidatesCachedEntry(t *testing.T) {
 	}
 	for name, cached := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, valid := transactionTraceIfHashMatches(cached, &hash)
-			require.False(t, valid)
+			_, header, rpcErr := transactionTraceResponse(cached, &hash, defaultExecutionHeader())
+			require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+			require.Nil(t, header)
 		})
 	}
 
-	result, valid := transactionTraceIfHashMatches(TracedBlockTransaction{
+	result, header, rpcErr := transactionTraceResponse(TracedBlockTransaction{
 		TransactionHash: (*felt.Felt)(&hash), TraceRoot: trace,
-	}, &hash)
-	require.True(t, valid)
+	}, &hash, defaultExecutionHeader())
+	require.Nil(t, rpcErr)
+	require.Equal(t, "0", header.Get(ExecutionStepsHeader))
 	require.Equal(t, *trace, result)
 }

@@ -31,13 +31,6 @@ type TransactionTrace struct {
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
-// finalisedBlockTraceSource contains either a complete gateway response or transactions for local
-// replay. The caller owns publishing complete responses to the cache.
-type finalisedBlockTraceSource struct {
-	complete     *TraceBlockTransactionsResponse
-	transactions []core.Transaction
-}
-
 /****************************************************
 		Public API Handlers
 *****************************************************/
@@ -149,7 +142,11 @@ func (h *Handler) TraceBlockTransactions(
 	}
 
 	returnInitialReads := slices.Contains(traceFlags, TraceReturnInitialReadsFlag)
-	return h.traceFinalisedBlock(ctx, header, returnInitialReads)
+	response, responseHeader, rpcErr := h.traceFinalisedBlock(ctx, header, nil, returnInitialReads)
+	if !returnInitialReads {
+		response.InitialReads = nil
+	}
+	return response, responseHeader, rpcErr
 }
 
 /****************************************************
@@ -295,56 +292,31 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	}
 
 	if cached, found := h.blockTraceCache.traceAt(*header.Hash, txIndex); found {
-		trace, valid := transactionTraceIfHashMatches(cached, hash)
-		if !valid {
-			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-		}
-		return trace, defaultExecutionHeader(), nil
+		return transactionTraceResponse(cached, hash, defaultExecutionHeader())
 	}
 
-	source, rpcErr := h.traceFinalisedBlockSource(ctx, header)
-	if rpcErr != nil {
-		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
-	}
-
-	if source.complete != nil {
-		h.blockTraceCache.storeComplete(*header.Hash, *source.complete)
-		blockTraces := source.complete.Traces
-		if txIndex >= uint64(len(blockTraces)) {
-			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-		}
-		trace, valid := transactionTraceIfHashMatches(blockTraces[txIndex], hash)
-		if !valid {
-			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-		}
-		return trace, defaultExecutionHeader(), nil
-	}
-	transactions := source.transactions
-
-	// txIndex comes from the tx-hash index while transactions come from a later block read.
-	if txIndex >= uint64(len(transactions)) ||
-		!transactions[txIndex].Hash().Equal((*felt.Felt)(hash)) {
-		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-	}
-
-	response, httpHeader, rpcErr := h.traceProgressiveBlock(
-		ctx, header, transactions, txIndex, false,
+	response, responseHeader, rpcErr := h.traceFinalisedBlock(
+		ctx, header, &traceTarget{index: txIndex, hash: *hash}, false,
 	)
 	if rpcErr != nil {
-		return TransactionTrace{}, httpHeader, rpcErr
+		return TransactionTrace{}, responseHeader, rpcErr
 	}
-	return *response.Traces[txIndex].TraceRoot, httpHeader, nil
+	if txIndex >= uint64(len(response.Traces)) {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+	return transactionTraceResponse(response.Traces[txIndex], hash, responseHeader)
 }
 
-func transactionTraceIfHashMatches(
+func transactionTraceResponse(
 	traced TracedBlockTransaction,
 	hash *felt.TransactionHash,
-) (TransactionTrace, bool) {
+	responseHeader http.Header,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	if traced.TransactionHash == nil || traced.TraceRoot == nil ||
 		!traced.TransactionHash.Equal((*felt.Felt)(hash)) {
-		return TransactionTrace{}, false
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
-	return *traced.TraceRoot, true
+	return *traced.TraceRoot, responseHeader, nil
 }
 
 // findAndTraceInPreConfirmed traces a transaction located in any block of the
@@ -406,85 +378,72 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		Block Tracing Helpers
 *****************************************************/
 
-// traceFinalisedBlock gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+// traceTarget identifies the last transaction to trace and the hash expected at that index.
+type traceTarget struct {
+	index uint64
+	hash  felt.TransactionHash
+}
+
+// traceFinalisedBlock returns traces through target, or the whole block when target is nil.
+// Transaction callers check their prefix cache before entering this shared path.
 func (h *Handler) traceFinalisedBlock(
 	ctx context.Context,
 	header *core.Header,
+	target *traceTarget,
 	returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
 	cacheKey := *header.Hash
-	if response, complete := h.blockTraceCache.completeResponse(cacheKey); complete {
-		return shapeTraceResponse(response, returnInitialReads), defaultExecutionHeader(), nil
+	if target == nil {
+		response, complete := h.blockTraceCache.completeResponse(cacheKey, returnInitialReads)
+		if complete {
+			return response, defaultExecutionHeader(), nil
+		}
 	}
 
-	source, rpcErr := h.traceFinalisedBlockSource(ctx, header)
-	if rpcErr != nil {
-		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
+	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
+	if err != nil {
+		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(),
+			rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
-	if source.complete != nil {
-		response := *source.complete
+	if fetchFromFeederGW {
+		traces, rpcErr := h.fetchTracesFromFeederGateway(ctx, header)
+		if rpcErr != nil {
+			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpcErr
+		}
+		// The gateway never supplies initial reads. Preserve its historical null-slice wire shape.
+		response := TraceBlockTransactionsResponse{Traces: traces, InitialReads: &InitialReads{}}
 		h.blockTraceCache.storeComplete(cacheKey, response)
-		return shapeTraceResponse(response, returnInitialReads), defaultExecutionHeader(), nil
+		return response, defaultExecutionHeader(), nil
 	}
-	transactions := source.transactions
+
+	transactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+		}
+		return TraceBlockTransactionsResponse{}, defaultExecutionHeader(),
+			rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	if target != nil {
+		// The tx-hash index and transaction list come from separate reads; validate before execution.
+		if target.index >= uint64(len(transactions)) ||
+			!transactions[target.index].Hash().Equal((*felt.Felt)(&target.hash)) {
+			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+		}
+		return h.traceProgressiveBlock(ctx, header, transactions, target.index, returnInitialReads)
+	}
 	if len(transactions) > 0 {
 		return h.traceProgressiveBlock(
 			ctx, header, transactions, uint64(len(transactions)-1), returnInitialReads,
 		)
 	}
 
-	// The VM produces no traces or execution steps for an empty block. Block preprocessing only
-	// writes to its temporary cached state, so it also produces no initial reads.
-	response := TraceBlockTransactionsResponse{
+	// Empty local blocks produce no traces or initial reads and are not cached.
+	return TraceBlockTransactionsResponse{
 		Traces:       []TracedBlockTransaction{},
 		InitialReads: emptyInitialReads(),
-	}
-	return shapeTraceResponse(response, returnInitialReads), defaultExecutionHeader(), nil
-}
-
-// shapeTraceResponse applies request flags at the RPC boundary; cached responses remain canonical.
-func shapeTraceResponse(
-	response TraceBlockTransactionsResponse,
-	returnInitialReads bool,
-) TraceBlockTransactionsResponse {
-	if !returnInitialReads {
-		response.InitialReads = nil
-	}
-	return response
-}
-
-func (h *Handler) traceFinalisedBlockSource(
-	ctx context.Context,
-	header *core.Header,
-) (finalisedBlockTraceSource, *jsonrpc.Error) {
-	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
-	if err != nil {
-		return finalisedBlockTraceSource{}, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-	}
-
-	if fetchFromFeederGW {
-		traces, rpcErr := h.fetchTracesFromFeederGateway(ctx, header)
-		if rpcErr != nil {
-			return finalisedBlockTraceSource{}, rpcErr
-		}
-
-		// The gateway never supplies initial reads. Preserve its historical null-slice wire shape.
-		response := TraceBlockTransactionsResponse{
-			Traces:       traces,
-			InitialReads: &InitialReads{},
-		}
-		return finalisedBlockTraceSource{complete: &response}, nil
-	}
-
-	transactions, err := h.bcReader.TransactionsByBlockNumber(header.Number)
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return finalisedBlockTraceSource{}, rpccore.ErrBlockNotFound
-		}
-		return finalisedBlockTraceSource{}, rpccore.ErrInternal.CloneWithData(err)
-	}
-	return finalisedBlockTraceSource{transactions: transactions}, nil
+	}, defaultExecutionHeader(), nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway
