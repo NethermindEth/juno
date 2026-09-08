@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Verifies the docs and the binary agree about flags, in both directions. Next docs
-// are checked against the working tree; published docs against their line's newest stable tag.
+// Checks documented flags against the binary: next against the working tree, published against its release tag.
 
 const fs = require("fs");
 const path = require("path");
@@ -26,8 +25,7 @@ function flagNames(goSource) {
   return new Set([...names, ...COBRA_BUILTINS]);
 }
 
-// Flags a fenced line passes to Juno. Docker's own flags sit before the image,
-// and helm charts are also named nethermind/juno, so the image rule is docker-only.
+// Flags a fenced line passes to Juno. Docker's own flags sit before the image.
 function flagsFromCommand(line) {
   // Env-var prefixes (`JUNO_HTTP=true juno ...`) would otherwise hide the command.
   let args = line.trim().replace(/^(?:[A-Z_][A-Z0-9_]*=\S+\s+)+/, "");
@@ -123,20 +121,21 @@ function main() {
     text: localSource,
   });
 
-  // next only: the committed table must byte-match the generator's output.
-  const expected = generateConfigTable(
-    extractConfigs(preprocessCodebase(localSource)),
-  );
-  const tablePath = path.join(__dirname, "docs", "_config-options.md");
-  if (fs.readFileSync(tablePath, "utf8") !== expected) {
-    fail(
-      tablePath,
-      "stale against cmd/juno/juno.go (working tree); run `cd docs && node generate-config.js` and commit the result",
+  // Off on PRs: a flag reworded on main would fail every open docs PR.
+  if (process.env.CHECK_TABLE_FRESHNESS === "true") {
+    const expected = generateConfigTable(
+      extractConfigs(preprocessCodebase(localSource)),
     );
+    const tablePath = path.join(__dirname, "docs", "_config-options.md");
+    if (fs.readFileSync(tablePath, "utf8") !== expected) {
+      fail(
+        tablePath,
+        "stale against cmd/juno/juno.go; run `cd docs && node generate-config.js` and commit the result",
+      );
+    }
   }
 
-  // published: checked against the newest stable tag of its line.
-  // versions.json[0] is what the site root serves (docusaurus.config.js sets no lastVersion).
+  // versions.json[0] is the version the site root serves, so that is what we check.
   const published = JSON.parse(
     fs.readFileSync(path.join(__dirname, "versions.json"), "utf8"),
   )[0];

@@ -1,5 +1,8 @@
 name: Test Documentation Build
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches:
@@ -40,14 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history: the published docs are checked against their release tag.
           fetch-depth: 0
       - name: Skip unless docs changed
         id: gate
         if: github.event_name == 'pull_request'
         run: |
-          # Write first, then count: a git failure must fail the step rather than
-          # read as "no docs changed" and skip the check for good.
           git diff --name-only "origin/${{ github.base_ref }}...HEAD" > "$RUNNER_TEMP/changed.txt"
           changed=$(grep -c '^docs/' "$RUNNER_TEMP/changed.txt" || true)
           echo "docs=$changed" >> "$GITHUB_OUTPUT"
@@ -57,6 +57,8 @@ jobs:
           node-version-file: docs/.nvmrc
       - name: Check flags
         if: github.event_name != 'pull_request' || steps.gate.outputs.docs != '0'
+        env:
+          CHECK_TABLE_FRESHNESS: ${{ github.event_name != 'pull_request' }}
         run: node docs/check-flags.js
       - name: Alert Slack on drift
         if: failure() && github.event_name == 'schedule'
