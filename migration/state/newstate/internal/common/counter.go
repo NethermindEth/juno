@@ -78,7 +78,8 @@ func (c *Counter) Log(byteSize uint64, completedUnits, entryCount int) {
 	round := func(v float64) float64 { return math.Round(v*cent) / cent }
 
 	mbs := float64(c.size) / float64(db.Megabyte)
-	fields := make([]zap.Field, 0, 11)
+	const maxFields = 11
+	fields := make([]zap.Field, 0, maxFields)
 	if c.phaseName != "" {
 		fields = append(fields, zap.String("phase", c.phaseName))
 	}
