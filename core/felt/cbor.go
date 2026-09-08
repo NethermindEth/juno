@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/fxamacker/cbor/v2"
 )
 
 // Fast, felt-specialized CBOR marshaling.
@@ -21,7 +21,7 @@ func (z *Felt) UnmarshalCBOR(data []byte) error {
 	if decodeFelt(data, z) {
 		return nil
 	}
-	return cbor.Unmarshal(data, (*fp.Element)(z))
+	return encoder.Unmarshal(data, (*fp.Element)(z))
 }
 
 const (
