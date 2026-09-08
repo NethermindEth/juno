@@ -20,6 +20,9 @@ import (
 )
 
 const (
+	// TODO: no test crosses this threshold - the largest test trie is 1000
+	// leaves - so the parallel hashing path never runs in CI, while every
+	// real global trie takes it.
 	SmallTrieThreshold    = 100_000
 	parallelHashBatchSize = 16384
 )
@@ -153,6 +156,8 @@ func runMigration(
 		return shouldRerun, errors.New("trie migration: pipeline did not complete")
 	}
 
+	// TODO: verify before wiping. Compute the state commitment for old and new state
+	// and compare
 	if err := wipeDeprecatedBuckets(database); err != nil {
 		return shouldRerun, err
 	}
