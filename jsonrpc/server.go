@@ -188,6 +188,18 @@ func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
 	return s
 }
 
+// NewServerWithPool instantiates a JSONRPC server with pool
+func NewServerWithPool(pool *pool.Pool, logger log.StructuredLogger) *Server {
+	s := &Server{
+		logger:   logger,
+		methods:  make(map[string]Method),
+		pool:     pool,
+		listener: &SelectiveListener{},
+	}
+
+	return s
+}
+
 // WithValidator registers a validator to validate handler struct arguments
 func (s *Server) WithValidator(validator Validator) *Server {
 	s.validator = validator

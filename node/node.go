@@ -45,6 +45,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -541,7 +542,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 	maxBatchResponseBytes := int(cfg.RPCMaxBatchResponseSize) * db.Megabyte
 
-	jsonrpcServerV10 := jsonrpc.NewServer(maxGoroutines, logger).
+	batchPool := pool.New().WithMaxGoroutines(maxGoroutines)
+
+	jsonrpcServerV10 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv10.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -551,7 +554,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, logger).
+	jsonrpcServerV09 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv9.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
@@ -561,7 +564,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, logger).
+	jsonrpcServerV08 := jsonrpc.NewServerWithPool(batchPool, logger).
 		WithValidator(rpcv8.Validator()).
 		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
 		WithMaxBatchResponseBytes(maxBatchResponseBytes).
