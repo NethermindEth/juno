@@ -31,3 +31,7 @@ func TestV1GoldenBytes(t *testing.T) {
 	}
 	require.Equal(t, len(goldenCases()), len(golden), "a case lost its vector")
 }
+
+func TestV1RawMessage(t *testing.T) {
+	rawMessageContract[cborv1.RawMessage](t, cborv1.Marshal, cborv1.Unmarshal)
+}
