@@ -36,7 +36,7 @@ func TestCounter_LogRoundsMBAndAttributesCaller(t *testing.T) {
 
 	const bytes uint64 = 12_345_678 // arbitrary; not a clean MB count
 	c.size = bytes
-	c.completedAddrs = 4242
+	c.units = 4242
 
 	c.Log(0, 0, 0)
 
