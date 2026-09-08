@@ -202,6 +202,7 @@ func resolveHistoryValue(
 	if !leafValid {
 		return felt.Felt{}, false, nil
 	}
+	// TODO: pruning breaks this
 	if !bytes.Equal(headIt.Key()[len(leafPrefix):], slot.Marshal()) {
 		return felt.Felt{}, false, nil
 	}
