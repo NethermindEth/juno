@@ -57,9 +57,12 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
         with:
           go-version-file: go.mod
+          cache: true
           cache-dependency-path: |
             go.mod
+            go.sum
             .jemalloc-libdir
+
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           toolchain: "1.94.1"

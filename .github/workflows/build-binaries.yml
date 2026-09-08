@@ -49,6 +49,7 @@ jobs:
           cache: true
           cache-dependency-path: |
             go.mod
+            go.sum
             .jemalloc-libdir
 
       - name: Set up Rust
