@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -16,16 +15,13 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
 const (
-	batchByteSize         = 128 * db.Megabyte
-	targetBatchByteSize   = 96 * db.Megabyte
-	timeLogRate           = 5 * time.Second
 	SmallTrieThreshold    = 100_000
 	parallelHashBatchSize = 16384
-	IngestorCount         = 4
 )
 
 var (
@@ -110,8 +106,8 @@ func runMigration(
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	batchSem := semaphore.New(IngestorCount*2, func() db.Batch {
-		return database.NewBatchWithSize(batchByteSize)
+	batchSem := semaphore.New(common.IngestorCount*2, func() db.Batch {
+		return database.NewBatchWithSize(common.BatchByteSize)
 	})
 
 	pool := newHashWorkerPool()
@@ -137,11 +133,12 @@ func runMigration(
 			}
 		}
 	})
-	ingested := pipeline.New(src, IngestorCount, ing)
+	ingested := pipeline.New(src, common.IngestorCount, ing)
 	committed := pipeline.New(
 		ingested,
 		1,
-		newCommitter(logger, batchSem, allTries, allNodes),
+		common.NewCommitter(logger, batchSem, "trie").
+			SetProgress("tries", allTries, allNodes),
 	)
 
 	_, wait := committed.Run(ctx)
