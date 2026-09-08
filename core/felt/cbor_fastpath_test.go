@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,13 +50,13 @@ func encodeBoth(value *felt.Felt) (fast, generic []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	generic, err = cbor.Marshal((*fp.Element)(value))
+	generic, err = encoder.Marshal((*fp.Element)(value))
 	return fast, generic, err
 }
 
 func decodeBoth(data []byte) (fast, generic felt.Felt, errFast, errGeneric error) {
 	errFast = fast.UnmarshalCBOR(data)
-	errGeneric = cbor.Unmarshal(data, (*fp.Element)(&generic))
+	errGeneric = encoder.Unmarshal(data, (*fp.Element)(&generic))
 	return fast, generic, errFast, errGeneric
 }
 
