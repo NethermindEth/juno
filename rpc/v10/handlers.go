@@ -42,6 +42,9 @@ type Handler struct {
 	subscriptions stdsync.Map // map[string]*subscription
 
 	blockTraceCache *blockTraceCache
+	// Serializes snapshot acquisition and retirement. Execution runs outside these locks.
+	preConfirmedTraceMu     stdsync.Mutex
+	preConfirmedTraceCaches map[uint64]*preConfirmedTraceCache
 	// submittedTransactionsCache is a TTL membership set, unlike the coordinated block trace LRU.
 	submittedTransactionsCache *rpccore.TransactionCache
 
@@ -82,8 +85,9 @@ func New(
 		preConfirmedFeed: feed.New[*pending.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: newBlockTraceCache(rpccore.TraceCacheSize),
-		filterLimit:     math.MaxUint,
+		blockTraceCache:         newBlockTraceCache(rpccore.TraceCacheSize),
+		preConfirmedTraceCaches: make(map[uint64]*preConfirmedTraceCache),
+		filterLimit:             math.MaxUint,
 	}
 }
 
@@ -143,7 +147,7 @@ func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction])
 	return h
 }
 
-// Currently only used for testing
+// Run forwards synchronization events and retires obsolete preconfirmed trace contexts.
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
@@ -153,12 +157,24 @@ func (h *Handler) Run(ctx context.Context) error {
 	defer reorgsSub.Unsubscribe()
 	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
-	feed.Tee(newHeadsSub, h.newHeads)
-	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
-	<-ctx.Done()
+updates:
+	for {
+		select {
+		case <-ctx.Done():
+			break updates
+		case head := <-newHeadsSub.Recv():
+			h.refreshPreConfirmedTraceCaches()
+			h.newHeads.Send(head)
+		case reorg := <-reorgsSub.Recv():
+			h.refreshPreConfirmedTraceCaches()
+			h.reorgs.Send(reorg)
+		case preConfirmed := <-preConfirmedSub.Recv():
+			h.refreshPreConfirmedTraceCaches()
+			h.preConfirmedFeed.Send(preConfirmed)
+		}
+	}
 	h.subscriptions.Range(func(key, value any) bool {
 		sub := value.(*subscription)
 		sub.wg.Wait()

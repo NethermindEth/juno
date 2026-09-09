@@ -356,8 +356,7 @@ func TestTraceTransaction(t *testing.T) {
 			// The tx-hash index lookup misses
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -482,7 +481,9 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
+		baseHash := felt.NewFromUint64[felt.Felt](99)
+		mockReader.EXPECT().BlockHeaderHashByNumber(header.Number-1).Return(baseHash, nil)
+		mockReader.EXPECT().StateAtBlockHash(baseHash).
 			Return(headState, nopCloser, nil)
 
 		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
@@ -558,7 +559,9 @@ func TestTraceTransaction(t *testing.T) {
 		mockSyncReader.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 		// Base resolution: bottom (= baseHeader.Number) - 1.
-		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
+		baseHash := felt.NewFromUint64[felt.Felt](99)
+		mockReader.EXPECT().BlockHeaderHashByNumber(baseHeader.Number-1).Return(baseHash, nil)
+		mockReader.EXPECT().StateAtBlockHash(baseHash).
 			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
 
 		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")

@@ -22,14 +22,19 @@ import (
 // wire send and the storage apply.
 var ErrBaseTxCountMismatch = errors.New("pre-confirmed base transaction count mismatch")
 
+// Generations are process-unique even across independently constructed chains.
+// Zero is reserved for an invalid identity.
+var nextExecutionGeneration atomic.Uint64
+
 // node is one entry in the chain's immutable linked list, pointing back
 // toward older blocks via parent. Nodes are never mutated in place — every
 // storage write produces fresh nodes for the affected slot and everything
 // newer than it, so concurrent readers walking a prior snapshot see a stable
 // graph. Popped nodes become unreferenced and GC-collectable.
 type node struct {
-	preconfirmed *pending.PreConfirmed
-	parent       *node
+	executionGeneration uint64
+	preconfirmed        *pending.PreConfirmed
+	parent              *node
 }
 
 // ChainReader is an immutable snapshot of a contiguous run of pre-confirmed
@@ -60,7 +65,11 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 				index, entry.Block.Number, entries[index-1].Block.Number,
 			)
 		}
-		head = &node{preconfirmed: entry, parent: head}
+		head = &node{
+			preconfirmed:        entry,
+			parent:              head,
+			executionGeneration: nextExecutionGeneration.Add(1),
+		}
 	}
 	return ChainReader{head: head, length: len(entries)}, nil
 }
@@ -137,6 +146,24 @@ func (c *ChainReader) ReceiptByHash(
 	return nil, 0, pending.ErrTransactionReceiptNotFound
 }
 
+// TraceExecutionIdentity identifies the execution context of existing transactions
+// in a block, together with the canonical height beneath this snapshot. Ordinary
+// deltas preserve the generation. Ancestors cannot change beneath it: only the
+// tip accepts deltas/class updates, and older replacements discard descendants.
+// Callers must additionally identify the canonical base by hash, not just height.
+func (c *ChainReader) TraceExecutionIdentity(
+	blockNumber uint64,
+) (generation, baseBlockNumber uint64, err error) {
+	if !c.contains(blockNumber) {
+		return 0, 0, pending.ErrPreConfirmedNotFound
+	}
+	current := c.head
+	for range c.tip() - blockNumber {
+		current = current.parent
+	}
+	return current.executionGeneration, c.oldestPreConf() - 1, nil
+}
+
 // PreConfirmedStateAt returns the chain's view of state at blockNumber. The chain
 // owns base resolution: it opens the canonical state immediately below its
 // own oldest slot (derived from tip - length + 1).
@@ -179,6 +206,36 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 	index uint,
 	bcReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
+	diff, classes, err := c.stateBeforeIndex(blockNumber, index)
+	if err != nil {
+		return nil, nil, err
+	}
+	base, closer, err := c.baseState(bcReader)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pending.NewState(diff, classes, base, blockNumber), closer, nil
+}
+
+// PreConfirmedStateBeforeIndexAtWithBase composes the transaction's preceding
+// diffs over a caller-owned canonical reader. The caller must supply the base
+// identified by TraceExecutionIdentity and retain/close it for the execution.
+func (c *ChainReader) PreConfirmedStateBeforeIndexAtWithBase(
+	blockNumber uint64,
+	index uint,
+	base core.StateReader,
+) (core.StateReader, error) {
+	diff, classes, err := c.stateBeforeIndex(blockNumber, index)
+	if err != nil {
+		return nil, err
+	}
+	return pending.NewState(diff, classes, base, blockNumber), nil
+}
+
+func (c *ChainReader) stateBeforeIndex(
+	blockNumber uint64,
+	index uint,
+) (*core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
 	if !c.contains(blockNumber) {
 		return nil, nil, pending.ErrPreConfirmedNotFound
 	}
@@ -206,14 +263,10 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 		return nil, nil, pending.ErrTransactionIndexOutOfBounds
 	}
 	newClasses = mergeClassesInto(newClasses, target.NewClasses)
-	base, closer, err := c.baseState(bcReader)
-	if err != nil {
-		return nil, nil, err
-	}
 	for _, txStateDiff := range target.TransactionStateDiffs[:index] {
 		stateDiff.Merge(txStateDiff)
 	}
-	return pending.NewState(&stateDiff, newClasses, base, blockNumber), closer, nil
+	return &stateDiff, newClasses, nil
 }
 
 // baseState opens the canonical state immediately below the chain's oldest
@@ -398,7 +451,11 @@ func rebuild(current *node, keep int) *node {
 		return nil
 	}
 	child := rebuild(current.parent, keep-1)
-	return &node{preconfirmed: current.preconfirmed, parent: child}
+	return &node{
+		preconfirmed:        current.preconfirmed,
+		parent:              child,
+		executionGeneration: current.executionGeneration,
+	}
 }
 
 // computeUpdate is the pure dispatcher that turns a wire-side update into a
@@ -498,7 +555,7 @@ func bootstrapChain(
 		return nil, nil, err
 	}
 	next.NewClasses = newClasses
-	newNode := &node{preconfirmed: &next, parent: nil}
+	newNode := &node{preconfirmed: &next, executionGeneration: nextExecutionGeneration.Add(1)}
 	return &ChainReader{head: newNode, length: 1}, &next, nil
 }
 
@@ -518,7 +575,11 @@ func extend(
 		return nil, nil, err
 	}
 	next.NewClasses = newClasses
-	newNode := &node{preconfirmed: &next, parent: current.head}
+	newNode := &node{
+		preconfirmed:        &next,
+		parent:              current.head,
+		executionGeneration: nextExecutionGeneration.Add(1),
+	}
 	return &ChainReader{head: newNode, length: current.length + 1}, &next, nil
 }
 
@@ -563,7 +624,11 @@ func replaceSlot(
 		if shouldPreserveSlot(target.preconfirmed, &next) {
 			return nil, nil, nil
 		}
-		newNode := &node{preconfirmed: &next, parent: target.parent}
+		newNode := &node{
+			preconfirmed:        &next,
+			parent:              target.parent,
+			executionGeneration: nextExecutionGeneration.Add(1),
+		}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length - depthFromHead,
@@ -582,7 +647,15 @@ func replaceSlot(
 			return nil, nil, err
 		}
 		next.NewClasses = mergeClassesCopying(next.NewClasses, newClasses)
-		newNode := &node{preconfirmed: &next, parent: target.parent}
+		generation := target.executionGeneration
+		if len(newClasses) != 0 {
+			generation = nextExecutionGeneration.Add(1)
+		}
+		newNode := &node{
+			preconfirmed:        &next,
+			parent:              target.parent,
+			executionGeneration: generation,
+		}
 		return &ChainReader{
 			head:   newNode,
 			length: current.length,
@@ -607,7 +680,11 @@ func replaceSlot(
 		}
 		next := *target.preconfirmed
 		next.NewClasses = merged
-		newNode := &node{preconfirmed: &next, parent: target.parent}
+		newNode := &node{
+			preconfirmed:        &next,
+			parent:              target.parent,
+			executionGeneration: nextExecutionGeneration.Add(1),
+		}
 		return &ChainReader{head: newNode, length: current.length}, &next, nil
 	}
 	return nil, nil, fmt.Errorf("unknown PreConfirmedUpdate variant %T", update)

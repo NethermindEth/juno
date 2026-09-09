@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
@@ -53,7 +54,7 @@ func (h *Handler) TraceTransaction(
 	}
 
 	// Not in a finalised block, so try the pre_confirmed chain.
-	trace, header, err = h.findAndTraceInPreConfirmed(hash)
+	trace, header, err = h.findAndTraceInPreConfirmed(ctx, hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
 	}
@@ -319,59 +320,142 @@ func transactionTraceResponse(
 	return *traced.TraceRoot, responseHeader, nil
 }
 
-// findAndTraceInPreConfirmed traces a transaction located in any block of the
-// pre_confirmed chain (head+1 .. tip). The chain is scanned newest-first. The
-// state immediately before txIndex is reconstructed by layering every chain
-// entry's diff from chain bottom up to entry's block, then the entry's own
-// transaction-level diffs up to (but not including) txIndex.
-func (h *Handler) findAndTraceInPreConfirmed(
-	hash *felt.TransactionHash,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	chain, err := h.syncReader.PreConfirmedChain()
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-		}
-		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
-	}
+// A request retains its snapshot and cache even if reconciliation retires the context.
+type preConfirmedTraceWork struct {
+	chain       preconfirmed.ChainReader
+	transaction core.Transaction
+	index       uint
+	blockInfo   vm.BlockInfo
+	cache       *preConfirmedTraceCache
+}
 
+func (h *Handler) findAndTraceInPreConfirmed(
+	ctx context.Context, hash *felt.TransactionHash,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	work, rpcErr := h.preparePreConfirmedTrace(hash)
+	if rpcErr != nil {
+		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
+	}
+	return work.cache.getOrExecute(ctx, work.index,
+		func() (TransactionTrace, http.Header, *jsonrpc.Error) {
+			base, closer, err := h.bcReader.StateAtBlockHash(&work.cache.context.baseHash)
+			if err != nil {
+				return TransactionTrace{}, defaultExecutionHeader(),
+					rpccore.ErrInternal.CloneWithData(err.Error())
+			}
+			defer h.callAndLogErr(closer, "Failed to close state in findAndTraceInPreConfirmed")
+			state, err := work.chain.PreConfirmedStateBeforeIndexAtWithBase(
+				work.blockInfo.Header.Number, work.index, base,
+			)
+			if err != nil {
+				return TransactionTrace{}, defaultExecutionHeader(),
+					rpccore.ErrInternal.CloneWithData(err.Error())
+			}
+			traces, _, header, rpcErr := traceTransactionsWithState(
+				h.vm, []core.Transaction{work.transaction}, state, state,
+				&work.blockInfo, vm.TraceOptions{}, 0,
+			)
+			if rpcErr != nil {
+				return TransactionTrace{}, header, rpcErr
+			}
+			return *traces[0].TraceRoot, header, nil
+		})
+}
+
+func (h *Handler) refreshPreConfirmedTraceCaches() {
+	h.preConfirmedTraceMu.Lock()
+	defer h.preConfirmedTraceMu.Unlock()
+	if len(h.preConfirmedTraceCaches) != 0 {
+		_, _, _ = h.reconcilePreConfirmedTraceCaches()
+	}
+}
+
+// Acquire the lifecycle lock before reading the chain so delayed requests cannot
+// reinstall a context from an older snapshot.
+func (h *Handler) preparePreConfirmedTrace(
+	hash *felt.TransactionHash,
+) (*preConfirmedTraceWork, *jsonrpc.Error) {
+	h.preConfirmedTraceMu.Lock()
+	defer h.preConfirmedTraceMu.Unlock()
+	chain, baseHash, rpcErr := h.reconcilePreConfirmedTraceCaches()
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	for entry := range chain.NewestFirst() {
-		transaction, transactionIndex, err := entry.TransactionByHash(hash)
+		transaction, index, err := entry.TransactionByHash(hash)
 		if err != nil {
 			continue
 		}
-
-		state, baseCloser, err := chain.PreConfirmedStateBeforeIndexAt(
-			entry.Block.Number,
-			transactionIndex,
-			h.bcReader,
-		)
-		if err != nil {
-			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		cache := h.preConfirmedTraceCaches[entry.Block.Number]
+		if cache == nil {
+			context, err := h.readPreConfirmedTraceContext(&chain, entry.Block.Number, baseHash)
+			if err != nil {
+				return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+			}
+			cache = newPreConfirmedTraceCache(&context)
+			h.preConfirmedTraceCaches[entry.Block.Number] = cache
 		}
-		//nolint:gocritic // safe to defer in loop: we return on this iteration
-		defer h.callAndLogErr(baseCloser, "Failed to close state in findAndTraceInPreConfirmed")
-
-		blockInfo, rpcErr := h.buildBlockInfo(entry.GetHeader())
-		if rpcErr != nil {
-			return TransactionTrace{}, defaultExecutionHeader(), rpcErr
+		blockInfo := vm.BlockInfo{Header: entry.GetHeader()}
+		if cache.context.hasRevealedBlock {
+			blockInfo.BlockHashToBeRevealed = &cache.context.revealedBlockHash
 		}
-
-		traces, _, httpHeader, rpcErr := traceTransactionsWithState(
-			h.vm,
-			[]core.Transaction{transaction},
-			state, // execution state
-			state, // class lookup state (same for preconfirmed)
-			&blockInfo,
-			vm.TraceOptions{},
-			0,
-		)
-		if rpcErr != nil {
-			return TransactionTrace{}, httpHeader, rpcErr
-		}
-		return *traces[0].TraceRoot, httpHeader, nil
+		return &preConfirmedTraceWork{
+			chain: chain, transaction: transaction, index: index, blockInfo: blockInfo, cache: cache,
+		}, nil
 	}
-	return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+	return nil, rpccore.ErrTxnHashNotFound
+}
+
+// Reconcile against a fresh chain while holding preConfirmedTraceMu. Failed
+// metadata reads retire caches too; later requests may rebuild them safely.
+func (h *Handler) reconcilePreConfirmedTraceCaches() (
+	preconfirmed.ChainReader, *felt.Felt, *jsonrpc.Error,
+) {
+	chain, err := h.syncReader.PreConfirmedChain()
+	if err != nil || chain.Length() == 0 {
+		clear(h.preConfirmedTraceCaches)
+		if err == nil || errors.Is(err, db.ErrKeyNotFound) ||
+			errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return chain, nil, rpccore.ErrTxnHashNotFound
+		}
+		return chain, nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	_, baseNumber, err := chain.TraceExecutionIdentity(chain.Head().Block.Number)
+	if err != nil {
+		return chain, nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	baseHash, err := h.bcReader.BlockHeaderHashByNumber(baseNumber)
+	if err != nil {
+		clear(h.preConfirmedTraceCaches)
+		return chain, nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	// Retire whole objects. Existing callers can finish using the detached cache.
+	for number, cache := range h.preConfirmedTraceCaches {
+		context, err := h.readPreConfirmedTraceContext(&chain, number, baseHash)
+		if err != nil || cache.context != context {
+			delete(h.preConfirmedTraceCaches, number)
+		}
+	}
+	return chain, baseHash, nil
+}
+
+func (h *Handler) readPreConfirmedTraceContext(
+	chain *preconfirmed.ChainReader, number uint64, base *felt.Felt,
+) (preConfirmedTraceContext, error) {
+	generation, _, err := chain.TraceExecutionIdentity(number)
+	if err != nil {
+		return preConfirmedTraceContext{}, err
+	}
+	revealed, err := h.getRevealedBlockHash(number)
+	if err != nil {
+		return preConfirmedTraceContext{}, err
+	}
+	context := preConfirmedTraceContext{baseHash: *base, generation: generation}
+	if revealed != nil {
+		context.hasRevealedBlock = true
+		context.revealedBlockHash = *revealed
+	}
+	return context, nil
 }
 
 /****************************************************
