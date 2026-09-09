@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,13 +17,12 @@ type ingestor struct {
 }
 
 func newIngestor(
-	ctx context.Context,
 	database db.KeyValueReader,
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	pool *hashWorkerPool,
 ) *ingestor {
 	return &ingestor{
-		BaseIngestor: common.NewBaseIngestor(ctx, batchSemaphore, database),
+		BaseIngestor: common.NewBaseIngestor(batchSemaphore, database),
 		pool:         pool,
 	}
 }
@@ -144,6 +142,8 @@ func (i *ingestor) migrateTrie(t *common.Task, desc TrieDesc, outputs chan<- com
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
 	prefix := deprecatedTriePrefix(desc)
 	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.TrieBucket, desc.Owner, i.pool)
+	// Every return below sync must still drain the in-flight batch
+	defer sched.discard()
 
 	rootHash, err := i.traverse(t, outputs, prefix, *desc.RootPath, sched)
 	if err != nil {

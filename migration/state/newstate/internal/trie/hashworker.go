@@ -103,6 +103,14 @@ func (s *hashScheduler) drainInFlight(batch db.Batch) error {
 	return nil
 }
 
+func (s *hashScheduler) discard() {
+	if !s.hasInFlight {
+		return
+	}
+	<-s.inFlightBuf.done
+	s.hasInFlight = false
+}
+
 func (s *hashScheduler) sync(batch db.Batch) error {
 	if !s.parallel {
 		return nil
