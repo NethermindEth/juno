@@ -177,32 +177,39 @@ func checkpointFromTraces(traces []TracedBlockTransaction) core.StateDiff {
 }
 
 func mergeRPCStateDiff(result *core.StateDiff, diff *StateDiff) {
-	for _, storage := range diff.StorageDiffs {
+	for storageIndex := range diff.StorageDiffs {
+		storage := &diff.StorageDiffs[storageIndex]
 		entries, found := result.StorageDiffs[storage.Address]
 		if !found {
 			entries = make(map[felt.Felt]*felt.Felt, len(storage.StorageEntries))
 			result.StorageDiffs[storage.Address] = entries
 		}
-		for _, entry := range storage.StorageEntries {
+		for entryIndex := range storage.StorageEntries {
+			entry := &storage.StorageEntries[entryIndex]
 			entries[entry.Key] = entry.Value.Clone()
 		}
 	}
-	for _, nonce := range diff.Nonces {
+	for nonceIndex := range diff.Nonces {
+		nonce := &diff.Nonces[nonceIndex]
 		result.Nonces[nonce.ContractAddress] = nonce.Nonce.Clone()
 	}
-	for _, deployed := range diff.DeployedContracts {
+	for deployedIndex := range diff.DeployedContracts {
+		deployed := &diff.DeployedContracts[deployedIndex]
 		result.DeployedContracts[deployed.Address] = deployed.ClassHash.Clone()
 	}
 	for _, hash := range diff.DeprecatedDeclaredClasses {
 		result.DeclaredV0Classes = append(result.DeclaredV0Classes, hash.Clone())
 	}
-	for _, declared := range diff.DeclaredClasses {
+	for declaredIndex := range diff.DeclaredClasses {
+		declared := &diff.DeclaredClasses[declaredIndex]
 		result.DeclaredV1Classes[declared.ClassHash] = declared.CompiledClassHash.Clone()
 	}
-	for _, replaced := range diff.ReplacedClasses {
+	for replacedIndex := range diff.ReplacedClasses {
+		replaced := &diff.ReplacedClasses[replacedIndex]
 		result.ReplacedClasses[replaced.ContractAddress] = replaced.ClassHash.Clone()
 	}
-	for _, migrated := range diff.MigratedCompiledClasses {
+	for migratedIndex := range diff.MigratedCompiledClasses {
+		migrated := &diff.MigratedCompiledClasses[migratedIndex]
 		result.MigratedClasses[migrated.ClassHash] = migrated.CompiledClassHash
 	}
 }

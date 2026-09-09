@@ -289,8 +289,8 @@ func TestTraceFinalisedBlockRejectsInvalidTargetBeforeExecution(t *testing.T) {
 	handler := New(reader, nil, virtualMachine, log.NewNopZapLogger())
 
 	for name, target := range map[string]traceTarget{
-		"index out of range": {index: 1, hash: felt.TransactionHash(*transactions[0].Hash())},
-		"hash mismatch":      {index: 0, hash: felt.FromUint64[felt.TransactionHash](999)},
+		"index out of range": {index: 1, hash: (*felt.TransactionHash)(transactions[0].Hash())},
+		"hash mismatch":      {index: 0, hash: felt.NewFromUint64[felt.TransactionHash](999)},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, _, rpcErr := handler.traceFinalisedBlock(t.Context(), header, &target, false)

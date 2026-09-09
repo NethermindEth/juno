@@ -296,7 +296,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	}
 
 	response, responseHeader, rpcErr := h.traceFinalisedBlock(
-		ctx, header, &traceTarget{index: txIndex, hash: *hash}, false,
+		ctx, header, &traceTarget{index: txIndex, hash: hash}, false,
 	)
 	if rpcErr != nil {
 		return TransactionTrace{}, responseHeader, rpcErr
@@ -381,7 +381,7 @@ func (h *Handler) findAndTraceInPreConfirmed(
 // traceTarget identifies the last transaction to trace and the hash expected at that index.
 type traceTarget struct {
 	index uint64
-	hash  felt.TransactionHash
+	hash  *felt.TransactionHash
 }
 
 // traceFinalisedBlock returns traces through target, or the whole block when target is nil.
@@ -428,7 +428,7 @@ func (h *Handler) traceFinalisedBlock(
 	if target != nil {
 		// The tx-hash index and transaction list come from separate reads; validate before execution.
 		if target.index >= uint64(len(transactions)) ||
-			!transactions[target.index].Hash().Equal((*felt.Felt)(&target.hash)) {
+			!transactions[target.index].Hash().Equal((*felt.Felt)(target.hash)) {
 			return TraceBlockTransactionsResponse{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 		}
 		return h.traceProgressiveBlock(ctx, header, transactions, target.index, returnInitialReads)

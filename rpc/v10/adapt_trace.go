@@ -250,7 +250,8 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 // adaptVMInitialReads requires non-nil VM output; callers decide how missing reads are handled.
 func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	storage := make([]StorageEntry, len(vmInitialReads.Storage))
-	for i, s := range vmInitialReads.Storage {
+	for i := range vmInitialReads.Storage {
+		s := &vmInitialReads.Storage[i]
 		storage[i] = StorageEntry{
 			ContractAddress: s.ContractAddress,
 			Key:             s.Key,
@@ -259,7 +260,8 @@ func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	}
 
 	nonces := make([]NonceEntry, len(vmInitialReads.Nonces))
-	for i, n := range vmInitialReads.Nonces {
+	for i := range vmInitialReads.Nonces {
+		n := &vmInitialReads.Nonces[i]
 		nonces[i] = NonceEntry{
 			ContractAddress: n.ContractAddress,
 			Nonce:           n.Nonce,
@@ -267,7 +269,8 @@ func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	}
 
 	classHashes := make([]ClassHashEntry, len(vmInitialReads.ClassHashes))
-	for i, ch := range vmInitialReads.ClassHashes {
+	for i := range vmInitialReads.ClassHashes {
+		ch := &vmInitialReads.ClassHashes[i]
 		classHashes[i] = ClassHashEntry{
 			ContractAddress: ch.ContractAddress,
 			ClassHash:       ch.ClassHash,
@@ -275,7 +278,8 @@ func adaptVMInitialReads(vmInitialReads *vm.InitialReads) InitialReads {
 	}
 
 	declaredContracts := make([]DeclaredContractEntry, len(vmInitialReads.DeclaredContracts))
-	for i, dc := range vmInitialReads.DeclaredContracts {
+	for i := range vmInitialReads.DeclaredContracts {
+		dc := &vmInitialReads.DeclaredContracts[i]
 		declaredContracts[i] = DeclaredContractEntry{
 			ClassHash:  dc.ClassHash,
 			IsDeclared: dc.IsDeclared,
