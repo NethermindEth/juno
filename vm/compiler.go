@@ -1,17 +1,7 @@
-package compiler
+package vm
 
 /*
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
-
-// Extern function declarations from Rust
-extern char compileSierraToCasm(char* sierra_json, char** result);
-extern void freeCstr(char* ptr);
-
-// Linker flags for Rust shared library
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_compiler_rs
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_compiler_rs
+#include "vm_ffi.h"
 */
 import "C"
 
@@ -23,8 +13,8 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 )
 
-// CompileFFI performs Sierra-to-CASM compilation via direct CGo FFI.
-func CompileFFI(sierra *starknet.SierraClass) (*starknet.CasmClass, error) {
+// CompileSierraToCasm compiles a Sierra class to CASM in-process via the Rust FFI.
+func CompileSierraToCasm(sierra *starknet.SierraClass) (*starknet.CasmClass, error) {
 	sierraJSON, err := json.Marshal(starknet.SierraClass{
 		EntryPoints: sierra.EntryPoints,
 		Program:     sierra.Program,
