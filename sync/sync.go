@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
@@ -112,7 +111,6 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain           *blockchain.Blockchain
-	db                   db.KeyValueStore
 	readOnlyBlockchain   bool
 	dataSource           DataSource
 	startingBlockNumber  atomic.Pointer[uint64]
@@ -160,7 +158,6 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
-	database db.KeyValueStore,
 	opts ...Option,
 ) *Synchronizer {
 	cfg := options{preConfirmedPollInterval: DefaultPreConfirmedPollInterval}
@@ -171,7 +168,6 @@ func New(
 	s := &Synchronizer{
 		blockchain:               bc,
 		dataSource:               dataSource,
-		db:                       database,
 		logger:                   logger,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
@@ -592,7 +588,7 @@ func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
 		return nil, errors.New("starting block number is not set")
 	}
 
-	header, err := core.GetBlockHeaderByNumber(s.db, *startingBlockNumber)
+	header, err := s.blockchain.BlockHeaderByNumber(*startingBlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("getting header for block %d: %w", *startingBlockNumber, err)
 	}

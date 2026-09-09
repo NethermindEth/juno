@@ -70,7 +70,7 @@ func TestSyncBlocks(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, testDB, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -93,7 +93,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, testDB, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -157,7 +157,7 @@ func TestSyncBlocks(t *testing.T) {
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(bc, dataSource, logger, testDB, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -190,7 +190,6 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 		bc,
 		dataSource,
 		log.NewNopZapLogger(),
-		testDB,
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
 	)
@@ -228,7 +227,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), testDB, sync.WithPreConfirmedPollInterval(0))
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
 
 	storedStartingBlock := make(chan struct{}, 1)
 	synchronizer.WithListener(&sync.SelectiveListener{
@@ -272,7 +271,6 @@ func TestStartingBlockHeaderNotRunning(t *testing.T) {
 		bc,
 		newTestBlockDataSource(),
 		log.NewNopZapLogger(),
-		testDB,
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
 	)
@@ -297,7 +295,6 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 		bc,
 		dataSource,
 		log.NewNopZapLogger(),
-		testDB,
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
 	)
@@ -335,7 +332,7 @@ func TestReorg(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), testDB, sync.WithPreConfirmedPollInterval(0))
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -357,7 +354,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), testDB, sync.WithPreConfirmedPollInterval(0))
+		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
@@ -408,7 +405,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, logger, testDB, sync.WithPreConfirmedPollInterval(0))
+	syncer := sync.New(chain, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -449,7 +446,7 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, logger, testDB, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, nil, logger, sync.WithPreConfirmedPollInterval(0))
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 

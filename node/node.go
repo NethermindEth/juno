@@ -448,7 +448,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				chain,
 				feederGatewayDataSource,
 				logger,
-				database,
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
 			)
