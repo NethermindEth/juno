@@ -11,9 +11,9 @@ const latencyPanel = document.getElementById("latency-panel");
 const throughputPanel = document.getElementById("throughput-panel");
 const summaryPathPattern = /^runs\/[A-Za-z0-9][A-Za-z0-9._-]*\/summary\.json$/;
 const latencySeries = [
-  {label: "p50", metric: "med", color: "#67a3d9"},
+  {label: "p50", metric: "med", color: "#8e44ad"},
   {label: "p95", metric: "p95", color: "#2855d9"},
-  {label: "p99", metric: "p99", color: "#8e44ad"}
+  {label: "p99", metric: "p99", color: "#67a3d9"}
 ];
 let runs = [];
 let endpoints = [];
