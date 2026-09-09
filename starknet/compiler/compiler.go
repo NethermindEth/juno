@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/NethermindEth/juno/vm"
 	"go.uber.org/zap"
 )
 
@@ -159,5 +160,5 @@ func NewUnsafe() Compiler {
 func (r *inProcessCompiler) Compile(
 	_ context.Context, sierra *starknet.SierraClass,
 ) (*starknet.CasmClass, error) {
-	return CompileFFI(sierra)
+	return vm.CompileSierraToCasm(sierra)
 }

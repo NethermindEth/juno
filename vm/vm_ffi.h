@@ -69,5 +69,8 @@ extern void cairoVMExecute(
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
 
+extern char compileSierraToCasm(char* sierra_json, char** result);
+extern void freeCstr(char* ptr);
+
 #endif // VM_FFI_H
 

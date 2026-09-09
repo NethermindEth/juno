@@ -50,7 +50,7 @@ jobs:
           secret-path: /apps/litellm/juno-ai-reviewer
 
       - name: Claude review
-        uses: anthropics/claude-code-action@1f291e1cfe0f5fc21db2aef19af844591600ade7 # v1.0.206
+        uses: anthropics/claude-code-action@d75b94d5ad426cb8546e6628b6f5f19b84e5cce1 # v1.0.216
         timeout-minutes: 20
         env:
           ANTHROPIC_BASE_URL: https://litellm.nethermind.dev # org LiteLLM gateway

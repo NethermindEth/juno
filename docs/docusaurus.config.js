@@ -24,6 +24,11 @@ const config = {
 
   onBrokenLinks: "warn",
 
+  future: {
+    v4: true,
+    faster: true,
+  },
+
   markdown: {
     hooks: {
       // Was the top-level onBrokenMarkdownLinks, deprecated since v3.10.
