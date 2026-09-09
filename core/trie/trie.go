@@ -422,10 +422,14 @@ func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, sibli
 }
 
 func (t *TrieReader) Hash() (felt.Felt, error) {
+	if t.rootKey == nil {
+		return felt.Zero, nil
+	}
 	root, err := t.readStorage.Get(t.rootKey)
 	if err != nil {
 		return felt.Zero, err
 	}
+	defer nodePool.Put(root)
 	path := path(t.rootKey, nil)
 	return root.Hash(&path, t.hash), nil
 }

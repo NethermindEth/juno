@@ -1,6 +1,9 @@
 package statebackend
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,17 +16,52 @@ type deprecatedStateBackend struct {
 	baseState
 }
 
-func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
+// readOnlyTxn adapts a KeyValueReader into the db.IndexedBatch shape that
+// [deprecatedstate.New] requires. Read-only state views (HeadState,
+// StateAtBlockNumber, StateAtBlockHash) never write, and an IndexedBatch read
+// is not a snapshot either. Reading the database directly skips the per-call
+// batch allocation and the overlay merge that every Get would otherwise pay.
+type readOnlyTxn struct {
+	db.KeyValueReader
+}
 
+//nolint:staticcheck // db.IndexedBatch is deprecated but still required by deprecatedstate.New
+var _ db.IndexedBatch = readOnlyTxn{}
+
+// ErrReadOnlyStateView is returned by any write attempted through a read-only
+// state view.
+var ErrReadOnlyStateView = errors.New("cannot write through a read-only state view")
+
+func (readOnlyTxn) Put(_, _ []byte) error {
+	return fmt.Errorf("%w: Put", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Delete(_ []byte) error {
+	return fmt.Errorf("%w: Delete", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) DeleteRange(_, _ []byte) error {
+	return fmt.Errorf("%w: DeleteRange", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Write() error {
+	return fmt.Errorf("%w: Write", ErrReadOnlyStateView)
+}
+
+func (readOnlyTxn) Size() int    { return 0 }
+func (readOnlyTxn) Close() error { return nil }
+
+// emptyStateReader backs the zero-block-hash view: always empty, never written to.
+var emptyStateReader = readOnlyTxn{memory.New()}
+
+func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, error) {
 	// Fail early if no block has been committed (no head state to open)
 	// only the key's existence matters, not the height itself.
-	if _, err := core.GetChainHeight(txn); err != nil {
+	if _, err := core.GetChainHeight(b.database); err != nil {
 		return nil, nil, err
 	}
 
-	return deprecatedstate.New(txn), NoopStateCloser, nil
+	return deprecatedstate.New(readOnlyTxn{b.database}), NoopStateCloser, nil
 }
 
 func (b *deprecatedStateBackend) StateAtBlockNumber(
@@ -33,10 +71,8 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 	if err != nil {
 		return nil, nil, err
 	}
-	//nolint:staticcheck,nolintlint // used by old state
-	txn := b.database.NewIndexedBatch()
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(txn),
+		deprecatedstate.New(readOnlyTxn{b.database}),
 		blockNumber,
 	), NoopStateCloser, nil
 }
@@ -44,11 +80,8 @@ func (b *deprecatedStateBackend) StateAtBlockNumber(
 func (b *deprecatedStateBackend) StateAtBlockHash(
 	blockHash *felt.Felt,
 ) (core.StateReader, StateCloser, error) {
-	//nolint:staticcheck,nolintlint // used by old state
 	if blockHash.IsZero() {
-		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
-		return deprecatedstate.New(txn), NoopStateCloser, nil
+		return deprecatedstate.New(emptyStateReader), NoopStateCloser, nil
 	}
 
 	blockNumber, err := pruner.BlockNumberByHashIfStateRetained(b.database, blockHash)
@@ -56,9 +89,8 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 		return nil, nil, err
 	}
 
-	txn := b.database.NewIndexedBatch() //nolint:staticcheck // indexedBatch used by old state
 	return deprecatedstate.NewHistory(
-		deprecatedstate.New(txn),
+		deprecatedstate.New(readOnlyTxn{b.database}),
 		blockNumber,
 	), NoopStateCloser, nil
 }
