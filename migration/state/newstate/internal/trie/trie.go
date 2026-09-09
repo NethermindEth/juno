@@ -21,11 +21,11 @@ import (
 
 const (
 	// TODO: no test crosses this threshold - the largest test trie is 1000
-	// leaves - so the parallel hashing path never runs in CI, while every
-	// real global trie takes it.
-	SmallTrieThreshold    = 100_000
-	parallelHashBatchSize = 16384
+	// leaves - so the parallel hashing path never runs in CI
+	SmallTrieThreshold = 100_000
 )
+
+var parallelHashBatchSize = 16384
 
 var (
 	shouldRerun    = []byte{}
@@ -116,7 +116,7 @@ func runMigration(
 	pool := newHashWorkerPool()
 	defer pool.close()
 
-	ing := newIngestor(ctx, database, batchSem, pool)
+	ing := newIngestor(database, batchSem, pool)
 
 	tries, err := enumerateTries(database)
 	if err != nil {
