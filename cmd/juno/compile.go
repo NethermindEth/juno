@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +35,7 @@ func CompileSierraCmd() *cobra.Command {
 				return fmt.Errorf("unmarshal sierra class: %w", err)
 			}
 
-			casmClass, err := compiler.CompileFFI(&sierra)
+			casmClass, err := vm.CompileSierraToCasm(&sierra)
 			if err != nil {
 				return err
 			}

@@ -3,6 +3,7 @@
 // change it or not.
 #![allow(clippy::module_inception)]
 
+mod compiler;
 mod entrypoint;
 mod error;
 mod ffi_entrypoint;

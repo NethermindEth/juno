@@ -44,9 +44,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           key: rust-toolchain-${{ matrix.os }}
-          workspaces: |
-            vm/rust
-            starknet/compiler/rust
+          workspaces: vm/rust
 
       - name: Set TAG env var
         run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
