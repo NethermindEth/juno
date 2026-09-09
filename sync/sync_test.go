@@ -70,14 +70,7 @@ func TestSyncBlocks(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(
-			bc,
-			dataSource,
-			logger,
-			time.Duration(0),
-			false,
-			testDB,
-		)
+		synchronizer := sync.New(bc, dataSource, logger, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -100,14 +93,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(
-			bc,
-			dataSource,
-			logger,
-			time.Duration(0),
-			false,
-			testDB,
-		)
+		synchronizer := sync.New(bc, dataSource, logger, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -171,14 +157,7 @@ func TestSyncBlocks(t *testing.T) {
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(
-			bc,
-			dataSource,
-			logger,
-			time.Duration(0),
-			false,
-			testDB,
-		)
+		synchronizer := sync.New(bc, dataSource, logger, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -211,9 +190,8 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 		bc,
 		dataSource,
 		log.NewNopZapLogger(),
-		time.Duration(0),
-		true,
 		testDB,
+		sync.WithReadOnlyBlockchain(true),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -249,14 +227,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(
-		bc,
-		dataSource,
-		log.NewNopZapLogger(),
-		time.Duration(0),
-		false,
-		testDB,
-	)
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), testDB)
 
 	storedStartingBlock := make(chan struct{}, 1)
 	synchronizer.WithListener(&sync.SelectiveListener{
@@ -300,9 +271,8 @@ func TestStartingBlockHeaderNotRunning(t *testing.T) {
 		bc,
 		newTestBlockDataSource(),
 		log.NewNopZapLogger(),
-		time.Duration(0),
-		true,
 		testDB,
+		sync.WithReadOnlyBlockchain(true),
 	)
 
 	header, err := synchronizer.StartingBlockHeader()
@@ -325,9 +295,8 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 		bc,
 		dataSource,
 		log.NewNopZapLogger(),
-		time.Duration(0),
-		true,
 		testDB,
+		sync.WithReadOnlyBlockchain(true),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -363,7 +332,7 @@ func TestReorg(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), 0, false, testDB)
+	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), testDB)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -385,7 +354,7 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), 0, false, testDB)
+		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), testDB)
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
@@ -436,7 +405,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, logger, 0, false, testDB)
+	syncer := sync.New(chain, dataSource, logger, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -477,7 +446,7 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, logger, 0, false, testDB)
+		synchronizer := sync.New(bc, nil, logger, testDB)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 

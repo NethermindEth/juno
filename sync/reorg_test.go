@@ -276,7 +276,7 @@ func setup(
 	t.Cleanup(wg.Wait)
 	t.Cleanup(cancel)
 	wg.Go(func() {
-		synchronizer := sync.New(blockchain, dataSource, logger, 0, false, synchronizerDatabase)
+		synchronizer := sync.New(blockchain, dataSource, logger, synchronizerDatabase)
 		require.NoError(t, synchronizer.Run(ctx))
 	})
 

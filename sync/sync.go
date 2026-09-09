@@ -134,14 +134,37 @@ type Synchronizer struct {
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
+// options carries the optional Synchronizer settings; see [Option].
+type options struct {
+	preConfirmedPollInterval time.Duration
+	readOnlyBlockchain       bool
+}
+
+// Option is a functional option for configuring a Synchronizer.
+type Option func(*options)
+
+// WithPreConfirmedPollInterval sets how often the pre-confirmed poller ticks; zero disables polling.
+func WithPreConfirmedPollInterval(interval time.Duration) Option {
+	return func(o *options) { o.preConfirmedPollInterval = interval }
+}
+
+// WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
+func WithReadOnlyBlockchain(readOnly bool) Option {
+	return func(o *options) { o.readOnlyBlockchain = readOnly }
+}
+
 func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
-	preConfirmedPollInterval time.Duration,
-	readOnlyBlockchain bool,
 	database db.KeyValueStore,
+	opts ...Option,
 ) *Synchronizer {
+	var cfg options
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	s := &Synchronizer{
 		blockchain:               bc,
 		dataSource:               dataSource,
@@ -150,9 +173,9 @@ func New(
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preConfirmedPollInterval: preConfirmedPollInterval,
+		preConfirmedPollInterval: cfg.preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
-		readOnlyBlockchain:       readOnlyBlockchain,
+		readOnlyBlockchain:       cfg.readOnlyBlockchain,
 		preConfirmed:             preconfirmed.NewChainStorage(),
 	}
 	return s

@@ -448,9 +448,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				chain,
 				feederGatewayDataSource,
 				logger,
-				cfg.PreConfirmedPollInterval,
-				dbIsRemote,
 				database,
+				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
+				sync.WithReadOnlyBlockchain(dbIsRemote),
 			)
 			synchronizer.WithPlugin(junoPlugin)
 		}

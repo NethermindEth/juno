@@ -159,7 +159,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
-			syncer := sync.New(chain, dataSource, logger, 0, false, database).
+			syncer := sync.New(chain, dataSource, logger, database).
 				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.
 					if op == sync.OpStore {
