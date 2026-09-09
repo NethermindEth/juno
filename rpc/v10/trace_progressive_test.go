@@ -358,7 +358,7 @@ func TestProgressiveTraceCacheAllowsRecordEvictionDuringFlight(t *testing.T) {
 	<-entered
 	for index := range rpccore.TraceCacheSize {
 		handler.blockTraceCache.storeComplete(
-			felt.FromUint64[felt.Felt](uint64(1_000+index)),
+			felt.NewFromUint64[felt.Felt](uint64(1_000+index)),
 			TraceBlockTransactionsResponse{InitialReads: emptyInitialReads()},
 		)
 	}

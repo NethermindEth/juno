@@ -54,7 +54,7 @@ func newBlockTraceCache(limit int) *blockTraceCache {
 }
 
 func (c *blockTraceCache) completeResponse(
-	blockHash felt.Felt,
+	blockHash *felt.Felt,
 	requireInitialReads bool,
 ) (TraceBlockTransactionsResponse, bool) {
 	record, found := c.record(blockHash)
@@ -65,7 +65,7 @@ func (c *blockTraceCache) completeResponse(
 }
 
 func (c *blockTraceCache) traceAt(
-	blockHash felt.Felt,
+	blockHash *felt.Felt,
 	index uint64,
 ) (TracedBlockTransaction, bool) {
 	record, found := c.record(blockHash)
@@ -104,7 +104,7 @@ func (c *blockTraceCache) lookupOrStart(
 
 // storeComplete takes ownership of the response containers. InitialReads must be non-nil.
 func (c *blockTraceCache) storeComplete(
-	blockHash felt.Felt,
+	blockHash *felt.Felt,
 	response TraceBlockTransactionsResponse,
 ) {
 	record := &blockTraceRecord{
@@ -114,17 +114,17 @@ func (c *blockTraceCache) storeComplete(
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.records.Add(blockHash, record)
+	c.records.Add(*blockHash, record)
 }
 
-func (c *blockTraceCache) record(blockHash felt.Felt) (*blockTraceRecord, bool) {
+func (c *blockTraceCache) record(blockHash *felt.Felt) (*blockTraceRecord, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.records.Get(blockHash)
+	return c.records.Get(*blockHash)
 }
 
-func (c *blockTraceCache) finishLocked(blockHash felt.Felt, flight chan struct{}) {
-	delete(c.flights, blockHash)
+func (c *blockTraceCache) finishLocked(blockHash *felt.Felt, flight chan struct{}) {
+	delete(c.flights, *blockHash)
 	close(flight)
 }
 
@@ -149,7 +149,7 @@ func (w *traceCacheWork) commit(
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	cache.records.Add(w.hash, record)
-	cache.finishLocked(w.hash, w.flight)
+	cache.finishLocked(&w.hash, w.flight)
 	return record.response()
 }
 
@@ -160,5 +160,5 @@ func (w *traceCacheWork) abort() {
 	if cache.flights[w.hash] != w.flight {
 		return
 	}
-	cache.finishLocked(w.hash, w.flight)
+	cache.finishLocked(&w.hash, w.flight)
 }

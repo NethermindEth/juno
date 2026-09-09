@@ -291,7 +291,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	if cached, found := h.blockTraceCache.traceAt(*header.Hash, txIndex); found {
+	if cached, found := h.blockTraceCache.traceAt(header.Hash, txIndex); found {
 		return transactionTraceResponse(cached, hash, defaultExecutionHeader())
 	}
 
@@ -392,7 +392,7 @@ func (h *Handler) traceFinalisedBlock(
 	target *traceTarget,
 	returnInitialReads bool,
 ) (TraceBlockTransactionsResponse, http.Header, *jsonrpc.Error) {
-	cacheKey := *header.Hash
+	cacheKey := header.Hash
 	if target == nil {
 		response, complete := h.blockTraceCache.completeResponse(cacheKey, returnInitialReads)
 		if complete {
