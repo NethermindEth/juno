@@ -227,7 +227,12 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		sync.WithPreConfirmedPollInterval(0),
+	)
 
 	storedStartingBlock := make(chan struct{}, 1)
 	synchronizer.WithListener(&sync.SelectiveListener{
@@ -332,7 +337,12 @@ func TestReorg(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
-	synchronizer := sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log.NewNopZapLogger(),
+		sync.WithPreConfirmedPollInterval(0),
+	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -354,7 +364,12 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, log.NewNopZapLogger(), sync.WithPreConfirmedPollInterval(0))
+		synchronizer = sync.New(
+			bc,
+			dataSource,
+			log.NewNopZapLogger(),
+			sync.WithPreConfirmedPollInterval(0),
+		)
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
