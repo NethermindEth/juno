@@ -276,7 +276,7 @@ function generateConfigTable(configs) {
   });
 
   const fileWarning =
-    "<!-- This file is generated automatically. Any manual modifications will be overwritten. -->\n\n";
+    "{/* This file is generated automatically. Any manual modifications will be overwritten. */}\n\n";
   fs.writeFileSync(
     "docs/_config-options.md",
     fileWarning + sections.join("\n"),
