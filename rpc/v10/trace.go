@@ -440,10 +440,13 @@ func (h *Handler) traceFinalisedBlock(
 	}
 
 	// Empty local blocks produce no traces or initial reads and are not cached.
-	return TraceBlockTransactionsResponse{
-		Traces:       []TracedBlockTransaction{},
-		InitialReads: emptyInitialReads(),
-	}, defaultExecutionHeader(), nil
+	response := TraceBlockTransactionsResponse{
+		Traces: []TracedBlockTransaction{},
+	}
+	if returnInitialReads {
+		response.InitialReads = emptyInitialReads()
+	}
+	return response, defaultExecutionHeader(), nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway

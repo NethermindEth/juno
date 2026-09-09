@@ -327,7 +327,7 @@ func TestTraceFinalisedEmptyBlockReturnsWithoutCaching(t *testing.T) {
 	response, responseHeader, rpcErr = handler.traceFinalisedBlock(t.Context(), header, nil, false)
 	require.Nil(t, rpcErr)
 	require.Empty(t, response.Traces)
-	require.NotNil(t, response.InitialReads, "internal responses remain canonical")
+	require.Nil(t, response.InitialReads)
 	require.Equal(t, "0", responseHeader.Get(ExecutionStepsHeader))
 }
 
