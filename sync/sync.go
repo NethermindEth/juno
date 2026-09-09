@@ -134,6 +134,9 @@ type Synchronizer struct {
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
+// DefaultPreConfirmedPollInterval is how often the pre-confirmed poller ticks unless overridden.
+const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
+
 // options carries the optional Synchronizer settings; see [Option].
 type options struct {
 	preConfirmedPollInterval time.Duration
@@ -143,7 +146,7 @@ type options struct {
 // Option is a functional option for configuring a Synchronizer.
 type Option func(*options)
 
-// WithPreConfirmedPollInterval sets how often the pre-confirmed poller ticks; zero disables polling.
+// WithPreConfirmedPollInterval overrides [DefaultPreConfirmedPollInterval]; zero disables polling.
 func WithPreConfirmedPollInterval(interval time.Duration) Option {
 	return func(o *options) { o.preConfirmedPollInterval = interval }
 }
@@ -160,7 +163,7 @@ func New(
 	database db.KeyValueStore,
 	opts ...Option,
 ) *Synchronizer {
-	var cfg options
+	cfg := options{preConfirmedPollInterval: DefaultPreConfirmedPollInterval}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
