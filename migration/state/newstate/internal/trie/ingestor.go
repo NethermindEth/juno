@@ -144,6 +144,8 @@ func (i *ingestor) migrateTrie(t *common.Task, desc TrieDesc, outputs chan<- com
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
 	prefix := deprecatedTriePrefix(desc)
 	sched := newHashScheduler(desc.HashFn, parallelDispatch, desc.TrieBucket, desc.Owner, i.pool)
+	// Every return below sync must still drain the in-flight batch
+	defer sched.discard()
 
 	rootHash, err := i.traverse(t, outputs, prefix, *desc.RootPath, sched)
 	if err != nil {
