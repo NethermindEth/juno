@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
@@ -112,7 +111,6 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain           *blockchain.Blockchain
-	db                   db.KeyValueStore
 	readOnlyBlockchain   bool
 	dataSource           DataSource
 	startingBlockNumber  atomic.Pointer[uint64]
@@ -134,25 +132,49 @@ type Synchronizer struct {
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
+// DefaultPreConfirmedPollInterval is how often the pre-confirmed poller ticks unless overridden.
+const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
+
+// options carries the optional Synchronizer settings; see [Option].
+type options struct {
+	preConfirmedPollInterval time.Duration
+	readOnlyBlockchain       bool
+}
+
+// Option is a functional option for configuring a Synchronizer.
+type Option func(*options)
+
+// WithPreConfirmedPollInterval overrides [DefaultPreConfirmedPollInterval]; zero disables polling.
+func WithPreConfirmedPollInterval(interval time.Duration) Option {
+	return func(o *options) { o.preConfirmedPollInterval = interval }
+}
+
+// WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
+func WithReadOnlyBlockchain(readOnly bool) Option {
+	return func(o *options) { o.readOnlyBlockchain = readOnly }
+}
+
 func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	logger log.StructuredLogger,
-	preConfirmedPollInterval time.Duration,
-	readOnlyBlockchain bool,
-	database db.KeyValueStore,
+	opts ...Option,
 ) *Synchronizer {
+	cfg := options{preConfirmedPollInterval: DefaultPreConfirmedPollInterval}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	s := &Synchronizer{
 		blockchain:               bc,
 		dataSource:               dataSource,
-		db:                       database,
 		logger:                   logger,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		preConfirmedDataFeed:     feed.New[*pending.PreConfirmed](),
-		preConfirmedPollInterval: preConfirmedPollInterval,
+		preConfirmedPollInterval: cfg.preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
-		readOnlyBlockchain:       readOnlyBlockchain,
+		readOnlyBlockchain:       cfg.readOnlyBlockchain,
 		preConfirmed:             preconfirmed.NewChainStorage(),
 	}
 	return s
@@ -566,7 +588,7 @@ func (s *Synchronizer) StartingBlockHeader() (*core.Header, error) {
 		return nil, errors.New("starting block number is not set")
 	}
 
-	header, err := core.GetBlockHeaderByNumber(s.db, *startingBlockNumber)
+	header, err := s.blockchain.BlockHeaderByNumber(*startingBlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("getting header for block %d: %w", *startingBlockNumber, err)
 	}
