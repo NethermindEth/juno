@@ -97,7 +97,7 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 }
 
 func (n *NoopSynchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
-	return preconfirmed.Subscription{feed.New[*pending.PreConfirmed]().Subscribe()}
+	return preconfirmed.Subscription{Subscription: feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
