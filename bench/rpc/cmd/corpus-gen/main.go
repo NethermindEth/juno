@@ -95,6 +95,9 @@ func newRootCmd() *cobra.Command {
 		cfg.newSampledCmd("starknet_getStorageAt", storageAtSampler),
 		cfg.newSampledCmd("starknet_getEvents", eventsSampler),
 		cfg.newSampledCmd("starknet_getStorageProof", storageProofSampler),
+		cfg.newSampledCmd("starknet_call", callSampler),
+		cfg.newSampledCmd("starknet_estimateFee", estimateFeeSampler),
+		cfg.newSampledCmd("starknet_simulateTransactions", simulateTxsSampler),
 	)
 	cmd.AddCommand(newNoParamCmds(
 		cfg,
