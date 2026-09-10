@@ -111,7 +111,7 @@ func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 }
 
 // Run polls the sequencer every interval and builds the pre-confirmed chain from it.
-// If the blockchain is empty (pre-genesis) then it will stall until the genesis block
+// If the blockchain is empty (pre-genesis) then it will wait until the genesis block
 // is synced. It only stops on context cancellation.
 func (p *Poller) Run(ctx context.Context) {
 	if p.interval == 0 {
@@ -143,7 +143,9 @@ func (p *Poller) Run(ctx context.Context) {
 			height, err := p.blockchain.Height()
 			if err != nil {
 				p.logger.Error("Reading chain heigh", zap.Error(err))
+				continue
 			}
+			p.preConfirmedChain.AdvanceTo(height + 1)
 			if !p.atTip(height) {
 				continue
 			}
@@ -156,7 +158,6 @@ func (p *Poller) Run(ctx context.Context) {
 }
 
 func (p *Poller) poll(ctx context.Context, oldestPreConf uint64) error {
-	p.preConfirmedChain.AdvanceTo(oldestPreConf)
 	chain := p.preConfirmedChain.SnapshotForBlock(oldestPreConf)
 
 	var (
