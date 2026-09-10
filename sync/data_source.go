@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
 type CommittedBlock struct {
@@ -22,18 +23,7 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
-	PreConfirmedBlockByNumber(
-		ctx context.Context,
-		blockNumber uint64,
-		blockIdentifier string,
-		knownTransactionCount uint64,
-	) (starknet.PreConfirmedUpdate, error)
-	PreConfirmedBlockLatest(
-		ctx context.Context,
-		blockIdentifier string,
-		knownTransactionCount uint64,
-	) (starknet.PreConfirmedUpdate, uint64, error)
-	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
+	preconfirmed.DataSource
 }
 
 type feederGatewayDataSource struct {

@@ -20,6 +20,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
+type Subscription struct {
+	*feed.Subscription[*pending.PreConfirmed]
+}
+
 // DataSource is the narrow surface the Poller needs from the wire side. Any
 // type implementing these methods (e.g. sync.DataSource) satisfies it.
 type DataSource interface {
@@ -47,9 +52,9 @@ type DataSource interface {
 // in apply as delta / preserve / replace.
 type Poller struct {
 	dataSource         DataSource
-	storage            *ChainStorage
+	preConfirmedChain  *ChainStorage
 	blockchain         *blockchain.Blockchain
-	out                *feed.Feed[*pending.PreConfirmed]
+	feed               *feed.Feed[*pending.PreConfirmed]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
 	logger             log.StructuredLogger
@@ -57,26 +62,54 @@ type Poller struct {
 
 func NewPoller(
 	dataSource DataSource,
-	storage *ChainStorage,
-	bc *blockchain.Blockchain,
-	out *feed.Feed[*pending.PreConfirmed],
+	blockchain *blockchain.Blockchain,
 	highestBlockHeader *atomic.Pointer[core.Header],
 	interval time.Duration,
 	logger log.StructuredLogger,
 ) *Poller {
 	return &Poller{
 		dataSource:         dataSource,
-		storage:            storage,
-		blockchain:         bc,
-		out:                out,
+		preConfirmedChain:  NewChainStorage(),
+		blockchain:         blockchain,
+		feed:               feed.New[*pending.PreConfirmed](),
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
 		logger:             logger,
 	}
 }
 
+func (p *Poller) Subscribe() Subscription {
+	return Subscription{p.feed.Subscribe()}
+}
+
+func (p *Poller) PreConfirmedChain() (ChainReader, error) {
+	// note(rdr): maybe querying for the height here can be skipped, since this system
+	// should be aware what is the latest block that was stored and if it is synced (the height)
+	height, err := p.blockchain.Height()
+	if err != nil {
+		return ChainReader{}, err
+	}
+
+	snapshot := p.preConfirmedChain.SnapshotForBlock(height + 1)
+	if snapshot.Length() > 0 {
+		return snapshot, nil
+	}
+
+	head, err := p.blockchain.HeadsHeader()
+	if err != nil {
+		return ChainReader{}, err
+	}
+
+	emptyPreConfirmed, err := makeEmptyPreConfirmedForParent(p.blockchain, head)
+	if err != nil {
+		return ChainReader{}, err
+	}
+
+	return NewChain(&emptyPreConfirmed)
+}
+
 // Run polls the sequencer every interval and builds the pre-confirmed chain from it.
-// If the blockchain is empty (pre-genesis) then it will stall until the genesis block
+// If the blockchain is empty (pre-genesis) then it will wait until the genesis block
 // is synced. It only stops on context cancellation.
 func (p *Poller) Run(ctx context.Context) {
 	if p.interval == 0 {
@@ -84,7 +117,6 @@ func (p *Poller) Run(ctx context.Context) {
 		return
 	}
 	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
 
 	// Guard to prevent the poller from initially running when we are at the genesis
 	// state. If the error is different than [db.ErrKeyNotFound] we assume the issue is
@@ -105,26 +137,26 @@ func (p *Poller) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.tick(ctx); err != nil {
+			height, err := p.blockchain.Height()
+			if err != nil {
+				p.logger.Error("Reading chain heigh", zap.Error(err))
+				continue
+			}
+			p.preConfirmedChain.AdvanceTo(height + 1)
+			if !p.atTip(height) {
+				continue
+			}
+
+			if err := p.poll(ctx, height+1); err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
 			}
 		}
 	}
 }
 
-func (p *Poller) tick(ctx context.Context) error {
-	height, err := p.blockchain.Height()
-	if err != nil {
-		return fmt.Errorf("reading chain height: %w", err)
-	}
+func (p *Poller) poll(ctx context.Context, oldestPreConf uint64) error {
+	chain := p.preConfirmedChain.SnapshotForBlock(oldestPreConf)
 
-	oldestPreConf := height + 1
-	p.storage.AdvanceTo(oldestPreConf)
-	if !p.atTip(height) {
-		return nil
-	}
-
-	chain := p.storage.SnapshotForBlock(oldestPreConf)
 	var (
 		mostRecent *pending.PreConfirmed
 		identifier string
@@ -162,7 +194,9 @@ func (p *Poller) tick(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
-		err = p.backfill(ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum)
+		err = p.backfill(
+			ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum,
+		)
 		if err != nil {
 			if errors.Is(err, feeder.ErrPreConfirmedBlockNotFound) {
 				p.logger.Debug("Pre-confirmed block left the gateway window; skipping backfill",
@@ -243,7 +277,9 @@ func (p *Poller) apply(
 	oldestPreConf uint64,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	applied, err := p.storage.ApplyUpdate(update, blockNumber, baseTxCount, oldestPreConf, newClasses)
+	applied, err := p.preConfirmedChain.ApplyUpdate(
+		update, blockNumber, baseTxCount, oldestPreConf, newClasses,
+	)
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}
@@ -254,7 +290,7 @@ func (p *Poller) apply(
 		return nil
 	}
 	if applied != nil {
-		p.out.Send(applied)
+		p.feed.Send(applied)
 	}
 
 	return nil
@@ -359,4 +395,74 @@ func declaredClassCount(
 func (p *Poller) atTip(headNum uint64) bool {
 	highest := p.highestBlockHeader.Load()
 	return highest != nil && highest.Number <= headNum
+}
+
+func makeEmptyPreConfirmedForParent(
+	bcReader blockchain.Reader,
+	latestHeader *core.Header,
+) (pending.PreConfirmed, error) {
+	receipts := make([]*core.TransactionReceipt, 0)
+	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
+		Header: &core.Header{
+			SequencerAddress: latestHeader.SequencerAddress,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  latestHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    latestHeader.L1GasPriceETH,
+			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
+			L2GasPrice:       latestHeader.L2GasPrice,
+			L1DataGasPrice:   latestHeader.L1DataGasPrice,
+			L1DAMode:         latestHeader.L1DAMode,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := makeStateDiffForEmptyBlock(bcReader, latestHeader.Number+1)
+	if err != nil {
+		return pending.PreConfirmed{}, err
+	}
+
+	preConfirmed := pending.PreConfirmed{
+		Block: preConfirmedBlock,
+		StateUpdate: &core.StateUpdate{
+			StateDiff: stateDiff,
+		},
+		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
+		TransactionStateDiffs: make([]*core.StateDiff, 0),
+		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
+	}
+
+	return preConfirmed, nil
+}
+
+// makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
+// It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
+func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
+	stateDiff := &core.StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, 1),
+		Nonces:            make(map[felt.Felt]*felt.Felt, 0),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
+		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash, 0),
+	}
+
+	if blockNumber < core.BlockHashLag {
+		return stateDiff, nil
+	}
+
+	targetBlock := blockNumber - core.BlockHashLag
+	blockHash, err := bc.BlockHeaderHashByNumber(targetBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	stateDiff.StorageDiffs[*core.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
+		*new(felt.Felt).SetUint64(targetBlock): blockHash,
+	}
+	return stateDiff, nil
 }
