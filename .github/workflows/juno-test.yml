@@ -42,10 +42,27 @@ jobs:
               - 'go.sum'
               - '.github/workflows/juno-test.yml'
 
+      - name: Install Jemalloc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jemalloc
+
+      - name: Record the Jemalloc library path
+        run: pkg-config --variable=libdir jemalloc > .jemalloc-libdir
+
       - name: Set up go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
         with:
           go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+            .jemalloc-libdir
+
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           toolchain: "1.94.1"
@@ -57,14 +74,6 @@ jobs:
 
       - name: Install deps
         run: make install-deps
-
-      - name: Install Jemalloc (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install jemalloc
 
       - name: Tests (Coverage)
         if: matrix.os == 'ubuntu-latest'
