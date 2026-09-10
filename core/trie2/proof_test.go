@@ -70,6 +70,115 @@ func TestProveRandom(t *testing.T) {
 	}
 }
 
+func TestProveMultiMatchesRepeatedProve(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T) (*Trie, []*felt.Felt)
+	}{
+		{
+			name: "no keys",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, _ := nonRandomTrie(t, 1000)
+				return tr, nil
+			},
+		},
+		{
+			name: "empty trie with missing keys",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, err := NewEmptyPedersen()
+				require.NoError(t, err)
+
+				return tr, []*felt.Felt{
+					new(felt.Felt).SetUint64(10),
+					new(felt.Felt).SetUint64(2),
+					new(felt.Felt).SetUint64(7),
+				}
+			},
+		},
+		{
+			name: "unsorted existing keys",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, records := randomTrie(t, 1000)
+				return tr, []*felt.Felt{
+					records[700].key,
+					records[3].key,
+					records[510].key,
+					records[42].key,
+					records[250].key,
+				}
+			},
+		},
+		{
+			name: "unsorted duplicates",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, records := randomTrie(t, 1000)
+				return tr, []*felt.Felt{
+					records[300].key,
+					records[12].key,
+					records[300].key,
+					records[12].key,
+					records[800].key,
+				}
+			},
+		},
+		{
+			name: "mixed existing and missing keys",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, records := nonRandomTrie(t, 1000)
+				return tr, []*felt.Felt{
+					records[400].key,
+					new(felt.Felt).SetUint64(3000),
+					records[5].key,
+					new(felt.Felt).SetUint64(2000),
+					records[900].key,
+				}
+			},
+		},
+		{
+			name: "small compressed trie",
+			setup: func(t *testing.T) (*Trie, []*felt.Felt) {
+				tr, records := build3KeyTrie(t)
+				return tr, []*felt.Felt{
+					records[2].key,
+					records[0].key,
+					records[1].key,
+					records[2].key,
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tr, keys := tc.setup(t)
+			repeatedProof := NewProofNodeSet()
+			for _, key := range keys {
+				require.NoError(t, tr.Prove(key, repeatedProof))
+			}
+
+			multiKeys := make([]felt.Felt, len(keys))
+			for i := range keys {
+				multiKeys[i] = *keys[i]
+			}
+			multiProof := NewProofNodeSet()
+			require.NoError(t, tr.ProveMulti(multiKeys, multiProof))
+
+			requireProofNodeSetEqual(t, repeatedProof, multiProof, tr.HashFn())
+
+			root, err := tr.Hash()
+			require.NoError(t, err)
+			if root.IsZero() {
+				require.Zero(t, multiProof.Size())
+				return
+			}
+			for _, key := range keys {
+				_, err := VerifyProof(&root, key, multiProof, tr.HashFn())
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestProveCustom(t *testing.T) {
 	tests := []testTrie{
 		{
@@ -711,6 +820,22 @@ func build3KeyTrie(t *testing.T) (*Trie, []*keyValue) {
 	}
 
 	return buildTrie(t, records), records
+}
+
+func requireProofNodeSetEqual(t *testing.T, expected, actual *ProofNodeSet, hash crypto.HashFn) {
+	t.Helper()
+
+	require.Equal(t, expected.Size(), actual.Size())
+	for _, key := range expected.Keys() {
+		expectedNode, ok := expected.Get(key)
+		require.True(t, ok)
+
+		actualNode, ok := actual.Get(key)
+		require.True(t, ok)
+
+		require.Equal(t, expectedNode.Hash(hash), actualNode.Hash(hash))
+		require.Equal(t, expectedNode.String(), actualNode.String())
+	}
 }
 
 func decrementFelt(f *felt.Felt) *felt.Felt {
