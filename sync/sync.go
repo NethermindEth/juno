@@ -40,6 +40,9 @@ const (
 	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
+// DefaultPreConfirmedPollInterval is how often the pre-confirmed poller ticks unless overridden.
+const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
+
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
 type NewHeadSubscription struct {
 	*feed.Subscription[*core.Block]
@@ -104,6 +107,25 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 	return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 }
 
+// options carries the optional Synchronizer settings; see [Option].
+type options struct {
+	preConfirmedPollInterval time.Duration
+	readOnlyBlockchain       bool
+}
+
+// Option is a functional option for configuring a Synchronizer.
+type Option func(*options)
+
+// WithPreConfirmedPollInterval overrides [DefaultPreConfirmedPollInterval]; zero disables polling.
+func WithPreConfirmedPollInterval(interval time.Duration) Option {
+	return func(o *options) { o.preConfirmedPollInterval = interval }
+}
+
+// WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
+func WithReadOnlyBlockchain(readOnly bool) Option {
+	return func(o *options) { o.readOnlyBlockchain = readOnly }
+}
+
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
@@ -124,28 +146,6 @@ type Synchronizer struct {
 	plugin      junoplugin.JunoPlugin
 
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
-}
-
-// DefaultPreConfirmedPollInterval is how often the pre-confirmed poller ticks unless overridden.
-const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
-
-// options carries the optional Synchronizer settings; see [Option].
-type options struct {
-	preConfirmedPollInterval time.Duration
-	readOnlyBlockchain       bool
-}
-
-// Option is a functional option for configuring a Synchronizer.
-type Option func(*options)
-
-// WithPreConfirmedPollInterval overrides [DefaultPreConfirmedPollInterval]; zero disables polling.
-func WithPreConfirmedPollInterval(interval time.Duration) Option {
-	return func(o *options) { o.preConfirmedPollInterval = interval }
-}
-
-// WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
-func WithReadOnlyBlockchain(readOnly bool) Option {
-	return func(o *options) { o.readOnlyBlockchain = readOnly }
 }
 
 func New(
@@ -181,8 +181,7 @@ func New(
 		s.logger,
 	)
 
-	// note(rdr): this doesn't make sense
-	// I have to do, so they both share s.highestBlockHeader
+	// todo(rdr): do something about shared `highestBlockHeader`
 	s.preConfirmedPoller = poller
 
 	return s
@@ -206,33 +205,34 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
-	resetStreams context.CancelFunc,
+func (s *Synchronizer) fetcherTask(
+	ctx context.Context, height uint64, verifiers *stream.Stream, resetStreams context.CancelFunc,
 ) stream.Callback {
 	for {
 		select {
 		case <-ctx.Done():
 			return func() {}
 		default:
-			committedBlock, err := s.dataSource.BlockByNumber(ctx, height)
-			if err != nil {
-				if lastPossiblyValidHeight, isReorg := s.isReverting(ctx, height); isReorg {
-					return func() {
-						verifiers.Go(func() stream.Callback {
-							return func() {
-								s.revertTask(ctx, lastPossiblyValidHeight, resetStreams)
-							}
-						})
-					}
-				}
-				continue
-			}
+		}
 
-			return func() {
-				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, &committedBlock, resetStreams)
-				})
+		committedBlock, err := s.dataSource.BlockByNumber(ctx, height)
+		if err != nil {
+			if lastPossiblyValidHeight, isReorg := s.isReverting(ctx, height); isReorg {
+				return func() {
+					verifiers.Go(func() stream.Callback {
+						return func() {
+							s.revertTask(ctx, lastPossiblyValidHeight, resetStreams)
+						}
+					})
+				}
 			}
+			continue
+		}
+
+		return func() {
+			verifiers.Go(func() stream.Callback {
+				return s.verifierTask(ctx, &committedBlock, resetStreams)
+			})
 		}
 	}
 }
@@ -535,15 +535,16 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				)
 			}
 		default:
-			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
-			fetchers.Go(func() stream.Callback {
-				fetchTimer := time.Now()
-				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
-				s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
-				return cb
-			})
-			nextHeight++
 		}
+
+		curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
+		fetchers.Go(func() stream.Callback {
+			fetchTimer := time.Now()
+			cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
+			s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
+			return cb
+		})
+		nextHeight++
 	}
 }
 
@@ -556,7 +557,8 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	if s.catchUpMode {
 		numWorkers = maxWorkers()
 	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	return stream.New().WithMaxGoroutines(numWorkers),
+		stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
 func (s *Synchronizer) revertHead(localHeader *core.Header) {
@@ -644,10 +646,8 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
-			continue
 		}
 	}
 }

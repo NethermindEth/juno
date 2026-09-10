@@ -119,7 +119,6 @@ func (p *Poller) Run(ctx context.Context) {
 		return
 	}
 	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
 
 	// Guard to prevent the poller from initially running when we are at the genesis
 	// state. If the error is different than [db.ErrKeyNotFound] we assume the issue is
