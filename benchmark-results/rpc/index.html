@@ -29,9 +29,26 @@
             <option value="12">12 months</option>
           </select>
         </label>
+        <label>
+          View
+          <select id="view">
+            <option value="timeline" selected>Latency over time</option>
+            <option value="percentile">Percentile profile</option>
+            <option value="snapshot">Per-run snapshot</option>
+          </select>
+        </label>
+        <label id="run-count-control" hidden>
+          Compare runs
+          <select id="run-count">
+            <option value="3">Latest 3</option>
+            <option value="5" selected>Latest 5</option>
+            <option value="7">Latest 7</option>
+          </select>
+        </label>
       </div>
     </header>
     <section class="summary" id="summary" aria-label="Latest result"></section>
+    <section class="highlights" id="highlights" aria-label="Highlights"></section>
     <details class="configuration-panel">
       <summary>Run configuration</summary>
       <dl class="configuration" id="configuration"></dl>

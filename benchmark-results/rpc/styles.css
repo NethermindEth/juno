@@ -21,8 +21,16 @@ section,
   border-radius: 10px;
   background: #fff;
 }
+header {
+  /* Title and run summary share a line, controls take the next one. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
 h1 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 24px;
 }
 h2 {
@@ -37,12 +45,15 @@ h2 {
 #status {
   min-height: 20px;
   color: #526078;
+  text-align: right;
 }
 .controls {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  margin-top: 18px;
+  /* Full basis so the title row keeps its own line above. */
+  flex-basis: 100%;
+  margin-top: 14px;
 }
 label {
   display: grid;
@@ -58,22 +69,32 @@ select {
 }
 .summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  /* Packed rather than a fixed four, so the six overview cards and the eight
+     endpoint cards both sit on one row. */
+  grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+  gap: 10px;
 }
 .card {
   min-width: 0;
-  padding: 14px;
+  padding: 10px 12px;
   border-radius: 8px;
   background: #f8fafc;
   color: #526078;
+  /* Sized so the longest label still fits the narrowest track, which is what
+     the eight endpoint cards produce. */
+  font-size: 13px;
 }
 .card strong {
   display: block;
-  overflow-wrap: anywhere;
-  margin-top: 6px;
+  /* One line per value keeps the row to a single band; a long version string
+     would otherwise wrap and set the height of every card beside it. The full
+     text stays on the title attribute and in the configuration panel. */
+  overflow: hidden;
+  margin-top: 3px;
   color: #172033;
-  font-size: 17px;
+  font-size: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .card strong.passed {
   color: #08783e;
@@ -103,6 +124,101 @@ select {
 }
 .daily-chart {
   height: 420px;
+}
+.highlights h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.highlights h3 ~ h3 {
+  margin-top: 22px;
+}
+.highlight-note {
+  margin: 0;
+  color: #526078;
+}
+.endpoint-link {
+  padding: 0;
+  border: 0;
+  color: #2855d9;
+  font: inherit;
+  background: none;
+  cursor: pointer;
+}
+.endpoint-link:hover {
+  text-decoration: underline;
+}
+.movers {
+  width: 100%;
+  border-collapse: collapse;
+  /* Fixed so the degradation and improvement tables line up as one grid. */
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+.movers th:first-child {
+  width: 28%;
+}
+.movers th:nth-child(2) {
+  width: 14%;
+}
+.movers th:nth-child(3) {
+  width: 26%;
+}
+.movers th:nth-child(4) {
+  width: 14%;
+}
+.movers th,
+.movers td {
+  padding: 8px 12px 8px 0;
+  text-align: left;
+  border-bottom: 1px solid #eef1f5;
+}
+.movers thead th {
+  color: #526078;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.movers tbody th {
+  font-weight: 400;
+}
+.movers td.passed {
+  color: #08783e;
+}
+.movers td.failed {
+  color: #b42318;
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0 0 18px;
+  padding: 0;
+  color: #526078;
+  list-style: none;
+}
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chart-legend .swatch {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.chart-panel {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dce2ea;
+  border-radius: 10px;
+  background: #fff;
+}
+.panel-chart {
+  height: 260px;
 }
 [hidden] {
   display: none !important;
