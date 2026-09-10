@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
 type Subscription struct {
 	*feed.Subscription[*pending.PreConfirmed]
 }
@@ -84,7 +85,6 @@ func (p *Poller) Subscribe() Subscription {
 func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 	// note(rdr): maybe querying for the height here can be skipped, since this system
 	// should be aware what is the latest block that was stored and if it is synced (the height)
-	// note(rdr): In fact, we only have blockchain here to query the height and the heads header
 	height, err := p.blockchain.Height()
 	if err != nil {
 		return ChainReader{}, err
