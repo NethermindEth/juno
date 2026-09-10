@@ -9,7 +9,6 @@ on:
       - "go.sum"
       - "Cargo.toml"
       - "Cargo.lock"
-      - ".github/workflows/**"
 permissions:
   contents: read
   pull-requests: write
