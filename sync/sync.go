@@ -172,10 +172,7 @@ func New(
 
 	poller := preconfirmed.NewPoller(
 		dataSource,
-		// note(rdr): this doesn't make sense API wise, leaving for now not to break tests
-		preconfirmed.NewChainStorage(),
 		blockchain,
-		feed.New[*pending.PreConfirmed](),
 		&s.highestBlockHeader,
 		cfg.preConfirmedPollInterval,
 		s.logger,

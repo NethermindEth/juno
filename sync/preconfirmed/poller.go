@@ -61,18 +61,16 @@ type Poller struct {
 
 func NewPoller(
 	dataSource DataSource,
-	preConfirmedChain *ChainStorage,
 	blockchain *blockchain.Blockchain,
-	feed *feed.Feed[*pending.PreConfirmed],
 	highestBlockHeader *atomic.Pointer[core.Header],
 	interval time.Duration,
 	logger log.StructuredLogger,
 ) *Poller {
 	return &Poller{
 		dataSource:         dataSource,
-		preConfirmedChain:  preConfirmedChain,
+		preConfirmedChain:  NewChainStorage(),
 		blockchain:         blockchain,
-		feed:               feed,
+		feed:               feed.New[*pending.PreConfirmed](),
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
 		logger:             logger,
@@ -279,7 +277,9 @@ func (p *Poller) apply(
 	oldestPreConf uint64,
 	newClasses map[felt.Felt]core.ClassDefinition,
 ) error {
-	applied, err := p.preConfirmedChain.ApplyUpdate(update, blockNumber, baseTxCount, oldestPreConf, newClasses)
+	applied, err := p.preConfirmedChain.ApplyUpdate(
+		update, blockNumber, baseTxCount, oldestPreConf, newClasses,
+	)
 	if err != nil {
 		return fmt.Errorf("applying pre-confirmed update at block %d: %w", blockNumber, err)
 	}

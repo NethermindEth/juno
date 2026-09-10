@@ -443,9 +443,9 @@ func TestPreConfirmed(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	// The stored-snapshot fast path is covered by
-	// TestPreConfirmedChainReturnsStoredSnapshot (preconfirmed_chain_test.go),
-	// which fills the storage through Run's pre-confirmed poller.
+	// The stored-snapshot fast path is covered by the poller tests in
+	// sync/preconfirmed/poller_test.go, which fill the chain through Run's
+	// pre-confirmed poller and read it back with PreConfirmedChain.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
