@@ -2,17 +2,14 @@ package headstate
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"iter"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/migration/pipeline"
-	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 	"github.com/NethermindEth/juno/utils/log"
 )
@@ -25,7 +22,7 @@ var (
 var _ migration.Migration = (*Migrator)(nil)
 
 // Migrator consolidates the deprecated per-field contract layout into a
-// single Contract record per address, written via state.WriteContract:
+// single Contract record per address:
 //
 //	ContractClassHash[addr]
 //	ContractNonce[addr]
@@ -37,15 +34,12 @@ var _ migration.Migration = (*Migrator)(nil)
 // StorageRoot is left zero — the running node lazily backfills it on the
 // contract's first storage write.
 //
-// Each address discovered in the ContractClassHash bucket is processed by one
-// of common.IngestorCount worker goroutines that read the three old fields
-// into a shared db.Batch; a single committer drains batches to disk. Once
-// every address has been migrated, the three deprecated buckets are wiped via
-// DeleteRange.
+// pendingContracts walks the buckets in lockstep; the records are batched and
+// written here. Once every address has been migrated, the three deprecated
+// buckets are wiped via DeleteRange.
 //
-// Re-run safe: an address whose Contract record already exists is skipped
-// (via state.HasContract), and the trailing wipe re-issues DeleteRange over
-// the (possibly already empty) ranges.
+// Re-run safe: an address already present in Contract is skipped, and the
+// trailing wipe re-issues DeleteRange over the (possibly empty) ranges.
 type Migrator struct{}
 
 func (Migrator) Before([]byte) error {
@@ -58,84 +52,56 @@ func (Migrator) Migrate(
 	_ *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	addressesIter, sourceErr := pendingAddresses(database)
-	res := migrateAddresses(ctx, database, logger, addressesIter)
-
-	if err := errors.Join(sourceErr(), res.Err); err != nil {
-		return shouldRerun, err
-	}
-	if !res.IsDone {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return shouldRerun, fmt.Errorf("migrating head state addresses: %w", ctxErr)
-		}
-		return shouldRerun, errors.New("migrating head state addresses: pipeline reported incomplete")
+	if err := migrateContracts(ctx, database, logger); err != nil {
+		return shouldRerun, fmt.Errorf("migrating head state contracts: %w", err)
 	}
 
 	return shouldNotRerun, wipeDeprecatedBuckets(database)
 }
 
-func migrateAddresses(
+// migrateContracts batches the merged source and writes at the target size.
+func migrateContracts(
 	ctx context.Context,
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
-	addresses iter.Seq[felt.Address],
-) pipeline.Result {
-	batchSemaphore := semaphore.New(
-		common.IngestorCount+1,
-		func() db.Batch {
-			return database.NewBatchWithSize(common.BatchByteSize)
-		},
-	)
+) error {
+	contracts, sourceErr := pendingContracts(database)
+	counter := common.NewCounter(logger, common.TimeLogRate, "")
+	batch := database.NewBatchWithSize(common.BatchByteSize)
+	completed := 0
 
-	source := pipeline.Source(addresses)
-
-	ingestorPipeline := pipeline.New(
-		source,
-		common.IngestorCount,
-		newIngestor(ctx, batchSemaphore, database),
-	)
-
-	committerPipeline := pipeline.New(
-		ingestorPipeline,
-		1,
-		// TODO: report progress. A Sepolia run logged one line in 31 minutes
-		// because the counter only fires on a batch commit. Add
-		// .SetProgress("contracts", total, 0)
-		common.NewCommitter(logger, batchSemaphore, ""),
-	)
-
-	_, wait := committerPipeline.Run(ctx)
-	return wait()
-}
-
-func pendingAddresses(r db.KeyValueReader) (iter.Seq[felt.Address], func() error) {
-	var iterErr error
-	seq := func(yield func(felt.Address) bool) {
-		prefix := db.ContractClassHash.Key()
-		it, err := r.NewIterator(prefix, true)
-		if err != nil {
-			iterErr = err
-			return
+	write := func() error {
+		size := uint64(batch.Size())
+		if err := batch.Write(); err != nil {
+			return err
 		}
-		defer it.Close()
+		counter.Log(size, completed, 0)
+		completed = 0
+		batch = database.NewBatchWithSize(common.BatchByteSize)
+		return nil
+	}
 
-		for valid := it.First(); valid; valid = it.Next() {
-			key := it.Key()
-			if len(key) != len(prefix)+felt.Bytes {
-				iterErr = fmt.Errorf(
-					"malformed ContractClassHash key: len %d, want %d",
-					len(key),
-					len(prefix)+felt.Bytes,
-				)
-				return
-			}
-			addr := felt.FromBytes[felt.Address](key[len(prefix):])
-			if !yield(addr) {
-				return
+	for pc := range contracts {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		addr := (*felt.Felt)(&pc.addr)
+		if err := state.WriteContract(batch, addr, pc.nonce, pc.classHash, pc.height); err != nil {
+			return fmt.Errorf("WriteContract(%s): %w", &pc.addr, err)
+		}
+		completed++
+
+		if batch.Size() >= common.TargetBatchByteSize {
+			if err := write(); err != nil {
+				return err
 			}
 		}
 	}
-	return seq, func() error { return iterErr }
+
+	if err := sourceErr(); err != nil {
+		return err
+	}
+	return write()
 }
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {
