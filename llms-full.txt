@@ -1,0 +1,2842 @@
+# Introduction
+
+Source: https://juno.nethermind.io/
+
+# Welcome to Juno
+
+Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
+
+- **[Small database](configuring#pruning)**: pruning runs mainnet in roughly a fifth of full-history disk
+- **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
+- **[Snapshot sync](snapshots)**: start from a recent block instead of replaying from genesis
+- **[Three RPC versions](json-rpc)**: `v0_8`, `v0_9` and `v0_10` served at the same time
+- **[WebSocket subscriptions](websocket)**: new blocks and events pushed as they happen
+- **[Minimal RPC latency](configuring#vm--compilation)**: tune VM concurrency and cache size for read-heavy nodes
+- **[Prometheus metrics](monitoring)**: sync, database and RPC counters on a scrape endpoint
+
+## Getting started
+
+These pages follow the order you will need them, from sizing a machine to serving your first request.
+
+- [Hardware Requirements](hardware-requirements): Size a machine for a validator, a dApp backend, or an RPC provider
+
+- [Running a Juno Node](running-juno): Start a node with Docker, a prebuilt binary, or from source
+
+- [Syncing from a Snapshot](snapshots): Start from a recent block instead of replaying the chain from genesis
+
+- [Configuring Juno](configuring): Set options with flags, environment variables, or a YAML file
+
+- [Interacting with Juno](json-rpc): Call the node over JSON-RPC and subscribe to updates over WebSocket
+
+## Community and support
+
+The [FAQ](faq) covers the errors most operators meet first. For anything else:
+
+- [Telegram](https://t.me/+LHRF4H8iQ3c5MDY0): Ask questions and follow announcements.
+- [Discord](https://discord.gg/SZkKcmmChJ): Reach the Juno team and other operators.
+- [X (Twitter)](https://x.com/Nethermind): Follow for the latest news and insights from Nethermind.
+
+## Contributions and partnerships
+
+We value community contributions and are eager to support your involvement. Here's how you can contribute:
+
+- [Run a Juno node](running-juno) to strengthen the Starknet network, or [stake and validate](staking-validator).
+- Give Juno a [star on GitHub](https://github.com/NethermindEth/juno).
+- Share your thoughts on [X (Twitter)](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=Nethermind&hashtags=Starknet%2CJuno).
+- [Report bugs](https://github.com/NethermindEth/juno/issues/new) or [suggest new features](https://github.com/NethermindEth/juno/issues/new).
+
+Whether it's a partnership, an idea, or a question that doesn't fit anywhere above, we'd love to hear from you at [juno@nethermind.io](mailto:juno@nethermind.io).
+
+---
+
+# Hardware Requirements
+
+Source: https://juno.nethermind.io/hardware-requirements
+
+# Hardware Requirements
+
+Juno can be used either as part of a **validator** setup during Starknet staking v2 ([read more](https://nethermindeth.github.io/starknet-staking-v2/)) or as a **full node** serving RPC requests. Hardware requirements will vary depending on the intended usage.
+
+Each hardware component impacts different aspects of node performance:
+
+- **High-speed CPU cores** allow the node to execute Cairo-heavy RPC methods more quickly such as `starknet_traceTransaction` or `starknet_estimateFee`.
+- **Multiple CPU cores** (or threads) enable Juno to perform more tasks concurrently, which becomes especially important when serving a high volume of CPU-heavy requests (e.g. simulating execution / compiling Cairo classes).
+- **More RAM** allows handling of many concurrent requests.
+- **Fast SSD storage** improves the overall node performance. Nearly all internal processes require reading data (for RPC purposes) and writing data (during syncing).
+
+:::tip
+Remember to always pair your hardware accordingly. Having a very powerful CPU will provide minimal improvements if paired with a disk with slow read and write speeds.
+:::
+
+## Normal Usage (Validators, dApps)
+
+These requirements are enough to comfortably run a Juno node. They will allow the node to keep in sync as well as performing validation duties. Additionally, it will be well capable of serving RPC request needs for individuals or small groups.
+
+- **CPU**: 4 CPU cores
+- **RAM**: 8GB or more
+- **Storage**: High-speed NVMe SSD drive
+
+:::tip
+Additionally, if your app only requires access to _recent data_ you can set the `--prune-mode` flag to keep only recent history, reducing space requirements.
+:::
+
+## Heavy Usage (RPC Providers, Starknet Explorers)
+
+With this configuration it will be possible for Juno nodes to work as servers to satisfy multiple RPC requests.
+
+- **CPU**: 8 high-speed CPU cores
+- **RAM**: 16GB of RAM
+- **Storage**: Highest speed NVMe SSD drive
+
+These requirements are a good baseline and should be adjusted to the node's dominant workload:
+- **Increase CPU** if re-executing many transactions / blocks or compiling new Cairo classes.
+- **Increase memory** if you want to hold a bigger chunk of the database in memory and minimize latency when fetching historical data.
+
+See [Tuning](tuning) for more information on how to control the resource usage of your Juno node.
+
+:::tip
+We intend the above specifications as a guideline. You should set the hardware requirements that fit best for your usage. If unsure, feel free to [reach the team](https://juno.nethermind.io/#community-and-support)!
+:::
+
+---
+
+# Installation
+
+Source: https://juno.nethermind.io/running-juno
+
+# Running Juno
+
+You can run a Juno node using several methods:
+
+- **Docker container** or **Standalone binary** (see below)
+- [Building from source](#building-from-source)
+- [Kubernetes with Helm](running-on-kubernetes)
+- [Google Cloud Platform (GCP)](running-on-gcp)
+
+:::tip
+You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started.
+:::
+
+### Docker
+
+**1. Get the Docker image**
+
+Juno Docker images can be found at the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository on Docker Hub. Download the latest image:
+
+```bash
+docker pull nethermind/juno
+```
+
+You can also build the image locally:
+
+```bash
+# Clone the Juno repository
+git clone https://github.com/NethermindEth/juno
+cd juno
+
+# Build the Docker image
+docker build -t nethermind/juno:latest .
+```
+
+**2. Run the Docker container**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+You can view logs from the Docker container using the following command:
+
+```bash
+docker logs -f juno
+```
+
+### Standalone Binary
+
+**1. Download the binary**
+
+Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
+
+**2. Run the binary**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the binary
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path ./juno_mainnet
+```
+
+Replace `<YOUR-ETH-NODE>` with your actual Ethereum node address. If you're using Infura, it might look something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Make sure you use the WebSockets URL (`ws`/`wss`) and not the HTTP URL (`http`/`https`).
+
+You can view logs from the standalone binary by redirecting the output to a file:
+
+```shell
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path ./juno_mainnet \
+  > juno.log 2>&1
+```
+
+:::tip
+The `--ws`, `--ws-port`, and `--ws-host` options enable the WebSocket RPC server, which is required for subscriptions like `starknet_subscribeNewHeads`. Check out the [WebSockets](websocket) guide to learn more.
+:::
+
+## Building from source
+
+You can build the Juno binary or Docker image from the source code to access the latest updates or specific versions.
+
+### Docker
+
+Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/NethermindEth/juno
+cd juno
+```
+
+:::tip
+You can use `git tag -l` to view specific version tags.
+:::
+
+**2. Build the Docker image**
+
+```bash
+docker build -t nethermind/juno:latest .
+```
+
+**3. Run the Docker container**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+### Standalone Binary
+
+**Prerequisites**
+
+- [Golang 1.26](https://go.dev/doc/install) or later
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
+- C compiler: `gcc` or `clang`
+- [jemalloc](https://github.com/jemalloc/jemalloc)
+
+### Ubuntu
+
+```bash
+sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
+```
+
+### MacOS (Homebrew)
+
+```bash
+brew install jemalloc pkg-config
+```
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/NethermindEth/juno
+cd juno
+```
+
+:::tip
+You can use `git tag -l` to view specific version tags.
+:::
+
+**2. Build the binary**
+
+```bash
+# Install juno dependencies
+make install-deps
+
+# Build the binary
+make juno
+```
+
+**3. Run the binary**
+
+Locate the standalone binary in the `./build/` directory:
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the binary
+./build/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path ./juno_mainnet \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+:::tip
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
+:::
+
+---
+
+# Configuration
+
+Source: https://juno.nethermind.io/configuring
+
+# Configuring Juno
+
+Juno can be configured using several methods, with the following order of precedence:
+
+1. [Command line parameters (flags)](#command-line-params)
+2. [Environment variables](#environment-variables)
+3. [Configuration file](#configuration-file)
+
+## Command line params
+
+Juno can be configured directly on the command line by prefixing `--` to each option name:
+
+```bash
+./build/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
+```
+
+When using Docker, append the command line parameters after the image name to configure Juno:
+
+```bash
+docker run nethermind/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
+```
+
+:::tip
+Command line parameters override [environment variables](#environment-variables) and [configuration file](#configuration-file).
+:::
+
+## Environment variables
+
+Juno can be configured through environment variables by prefixing the variable names with `JUNO_` and using the configuration options in [SCREAMING_SNAKE_CASE](https://en.wiktionary.org/wiki/screaming_snake_case) format.
+
+To set the `http`, `http-port`, and `http-host` configurations, Juno should be run in this format:
+
+```bash
+JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 JUNO_ETH_NODE=<YOUR-ETH-NODE> ./build/juno
+```
+
+When using Docker, start Juno using the `-e` command option:
+
+```bash
+docker run \
+  -e "JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 JUNO_ETH_NODE=<YOUR-ETH-NODE>" \
+  nethermind/juno
+```
+
+:::tip
+Environment variables rank second in configuration precedence. [Command line parameters](#command-line-params) override environment variables.
+:::
+
+## Configuration file
+
+Juno can be configured using a [YAML](https://en.wikipedia.org/wiki/YAML) file:
+
+```yaml title="Sample YAML File" showLineNumbers
+log-level: info
+network: mainnet
+http: true
+http-port: 6060
+ws: true
+ws-port: 6061
+metrics: true
+metrics-port: 9090
+eth-node: <YOUR-ETH-NODE>
+```
+
+To run Juno with a configuration file, use the `config` option to specify the path of the configuration file:
+
+### Docker
+
+```bash
+docker run nethermind/juno --config <CONFIG FILE PATH>
+```
+
+### Binary
+
+```bash
+./build/juno --config <CONFIG FILE PATH>
+```
+
+:::info
+By default, Juno looks for the configuration file in the `$XDG_CONFIG_HOME` directory.
+:::
+
+:::tip
+Configuration file rank third in configuration precedence. [Command line parameters](#command-line-params) and [environment variables](#environment-variables) override configuration file.
+:::
+
+## Configuration options
+
+To list all available command line options, you can use the `--help` parameter:
+
+### Docker
+
+```bash
+docker run nethermind/juno --help
+```
+
+### Binary
+
+```bash
+./build/juno --help
+```
+
+Below is a list of all configuration options available in Juno, along with their default values and descriptions:
+
+{/* This file is generated automatically. Any manual modifications will be overwritten. */}
+
+### HTTP RPC
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `disable-rpc-batch-requests` | `false` | Disables handling of batched RPC requests |
+| `http` | `false` | Enables the HTTP RPC server on the default port and interface |
+| `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
+| `http-port` | `6060` | The port on which the HTTP server will listen for requests |
+| `rpc-call-max-gas` | `100000000` | Maximum number of Sierra gas to be executed in starknet_call requests |
+| `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
+| `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
+| `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
+| `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
+
+### WebSocket RPC
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `disable-received-txn-stream` | `false` | The starknet_subscribeNewTransactions WebSocket API allows users to subscribe to new transactions. By default, it streams transactions that have been accepted on L2. Users can optionally provide a set of finality statuses to be notified about, including transactions from canonical blocks, blocks with softer finality guarantees such as pre-confirmed, as well as transactions not yet part of any block such as received and candidate. When subscribers select the RECEIVED status, they will be notified about transactions that have been submitted through this node — these transactions are local to the node and are not sourced from the network. When this flag is enabled, the node will no longer notify subscribers about transactions submitted through it |
+| `ws` | `false` | Enables the WebSocket RPC server on the default port |
+| `ws-host` | `localhost` | The interface on which the WebSocket RPC server will listen for requests |
+| `ws-port` | `6061` | The port on which the WebSocket server will listen for requests |
+
+### Network & L1
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `disable-l1-verification` | `false` | Disables L1 verification since an Ethereum node is not provided |
+| `eth-node` |  | WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, Juno must connect to an Ethereum node and parse events in the Starknet contract |
+| `network` | `mainnet` | Options: mainnet, sepolia, sepolia-integration |
+
+### Sync & Polling
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
+| `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
+| `remote-db` |  | gRPC URL of a remote Juno node |
+
+### Gateway
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `gw-api-key` |  | API key for gateway endpoints to avoid throttling |
+| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified in three ways:\n- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment |
+
+### Pruning
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `prune-min-age` | `1h` | Protect blocks whose on-chain timestamp is younger than this duration from being pruned. Acts as an additional floor on top of --prune-mode: a block is retained if either the block-count window or this minimum-age window covers it. Set 0 to disable. Default 1h. Requires --prune-mode |
+| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor |
+
+### Logging
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `colour` | `true` | Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes) |
+| `log-json` | `false` | Use JSON encoding for log output |
+| `log-level` |  | Options: trace, debug, info, warn, error |
+
+### Logs HTTP Update Endpoint
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `http-update-host` | `localhost` | The interface on which the log level and gateway timeouts HTTP server will listen for requests |
+| `http-update-port` | `0` | The port on which the log level and gateway timeouts HTTP server will listen for requests |
+
+### Metrics
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `metrics` | `false` | Enables the Prometheus metrics endpoint on the default port |
+| `metrics-host` | `localhost` | The interface on which the Prometheus endpoint will listen for requests |
+| `metrics-port` | `9090` | The port on which the Prometheus endpoint will listen for requests |
+
+### Database
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `db-cache-size` | `1024` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
+| `db-compaction-concurrency` |  | DB compaction concurrency range. Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2 |
+| `db-compression` | `zstd` | Database compression profile. Options: zstd, snappy, minlz. Use zstd for low storage |
+| `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
+| `db-memtable-count` | `2` | Determines the number of memtables the database can queue before stalling writes |
+| `db-memtable-size` | `256` | Determines the amount of memory (in MBs) allocated for database memtables |
+| `db-path` | `juno` | Location of the database files |
+
+### Transaction Cache
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `submitted-transactions-cache-entry-ttl` | `5m` | Time-to-live for each entry in the submitted transactions cache |
+| `submitted-transactions-cache-size` | `10000` | Maximum number of entries in the submitted transactions cache |
+
+### VM & Compilation
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `max-compilation-cpu-time` | `10` | Maximum CPU time (in seconds) each Sierra compilation process may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-memory` | `4 * 1024` | Maximum memory (in MB) each Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations before starting to reject incoming requests |
+| `max-concurrent-compilations` | `CPU Cores` | Maximum concurrent Sierra compilations |
+| `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
+| `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
+| `versioned-constants-file` |  | Use custom versioned constants from provided file |
+
+### Custom Network
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `cn-core-contract-address` |  | Custom network core contract address |
+| `cn-feeder-url` |  | Custom network feeder URL |
+| `cn-gateway-url` |  | Custom network gateway URL |
+| `cn-l1-chain-id` |  | Custom network L1 chain id |
+| `cn-l2-chain-id` |  | Custom network L2 chain id |
+| `cn-name` |  | Custom network name |
+| `cn-unverifiable-range` | `[]` | Custom network range of blocks to skip hash verifications (e.g. `0,100`) |
+
+### Profiling
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `pprof` | `false` | Enables the pprof endpoint on the default port |
+| `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
+| `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
+
+### P2P (experimental)
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `p2p` | `false` | EXPERIMENTAL: Enables p2p server |
+| `p2p-addr` |  | EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777 |
+| `p2p-feeder-node` | `false` | EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network |
+| `p2p-peers` |  | EXPERIMENTAL: Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes |
+| `p2p-private-key` |  | EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve |
+| `p2p-public-addr` |  | EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777 |
+
+### Sequencer
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `seq-block-time` | `60` | Time to build a block, in seconds |
+| `seq-disable-fees` | `false` | Skip charge fee for sequencer execution |
+| `seq-enable` | `false` | Enables sequencer mode of operation |
+| `seq-genesis-file` |  | Path to the genesis file |
+
+### gRPC
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `grpc` | `false` | Enable the HTTP gRPC server on the default port |
+| `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
+| `grpc-port` | `6064` | The port on which the gRPC server will listen for requests |
+
+### Plugins & Misc
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `config` |  | The YAML configuration file |
+| `new-state` | `false` | EXPERIMENTAL: Use the new state package implementation |
+| `plugin-path` |  | Path to the plugin .so file |
+
+## Subcommands
+
+Juno provides several subcommands to perform specific tasks or operations. Here are the available ones:
+
+- `genp2pkeypair`: Generate a private key pair for p2p.
+- `db`: Perform database-related operations
+  - `db info`: Retrieve information about the database.
+  - `db size`: Calculate database size information for each data type.
+  - `db revert`: Reverts the database to a specific block number.
+
+To use a subcommand, append it when running Juno:
+
+```bash
+# Running a subcommand
+./build/juno <subcommand>
+
+# Running the genp2pkeypair subcommand
+./build/juno genp2pkeypair
+
+# Running the db info subcommand
+./build/juno db info
+```
+
+---
+
+# Updating
+
+Source: https://juno.nethermind.io/updating
+
+# Updating Juno
+
+It is important to run the latest version of Juno as each update brings new features, security patches, and improvements over previous versions. Follow these steps to update Juno.
+
+:::info
+When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database. The commands below use paths relative to your current directory, so run them from the same directory as the previous node.
+:::
+
+### Docker
+
+**1. Get the latest Docker image**
+
+Download the latest Juno Docker image from the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository:
+
+```bash
+docker pull nethermind/juno:latest
+```
+
+**2. Stop and remove the current Juno container**
+
+Stop the currently running Juno container. If you're unsure of the container name, use `docker ps` to view all running containers:
+
+```bash
+docker stop juno
+```
+
+Remove the old container to prevent any conflicts with the new version:
+
+```bash
+docker rm juno
+```
+
+**3. Start a new container with the updated image**
+
+Run a new container using the updated Docker image:
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+Verify that the node is running correctly with the updated version:
+
+```bash
+docker logs juno
+```
+
+### Standalone Binary
+
+Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
+
+## Updating from source
+
+### Docker
+
+Pull the latest changes and rebuild the Docker image:
+
+```bash
+# Pull the latest updates to the codebase
+git pull
+
+# Rebuild the Docker image
+docker build -t nethermind/juno:latest .
+```
+
+Then stop, remove, and start the container again with the rebuilt image, as shown in the **Docker** tab above.
+
+### Standalone Binary
+
+You can update the standalone binary by pulling the latest changes from GitHub and rebuilding it.
+
+```bash
+# Pull the latest updates to the codebase
+git pull
+
+# Rebuild the binary
+make juno
+```
+
+See [Building from source](running-juno#building-from-source) for the full prerequisites and build steps.
+
+:::tip
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
+:::
+
+---
+
+# Snapshot Sync
+
+Source: https://juno.nethermind.io/snapshots
+
+# Sync from a Snapshot
+
+It is possible to avoid syncing from the beginning and waiting weeks to catch up by downloading a Juno snapshot. You're downloading a pre-synced Juno database that you can point your node to. This will reduce the syncing time to just a few hours.
+
+Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
+
+Additionally, _pruned_ snapshots are offered. They contain only the latest data, greatly reducing storage size.
+
+## Network Snapshots
+
+| Network             | Download Link                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Mainnet             | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet (Pruned)    | [**juno_mainnet_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest)           |
+| Sepolia             | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia (Pruned)    | [**juno_sepolia_pruned.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest)           |
+| Sepolia-Integration | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+
+:::tip
+Select your network in any tab below and the rest of the page follows. The choice is synced across every command on this page.
+:::
+
+## Getting snapshot sizes
+
+Snapshot sizes as of `Fri Jul 31 2026`:
+
+### Mainnet
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 453.93 GB
+```
+
+### Mainnet (Pruned)
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 85.63 GB
+```
+
+### Sepolia
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 77.14 GB
+```
+
+### Sepolia (Pruned)
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 23.56 GB
+```
+
+### Sepolia-Integration
+
+```bash
+curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+# 38.64 GB
+```
+
+## Run Juno with a snapshot
+
+You can either stream the snapshot directly into the target directory without storing the archive, or download the snapshot archive and then extract it. All commands below run in your current directory, so `cd` into the location where you want the snapshot first. Both methods share the first step:
+
+### 1. Install zstd
+
+[zstd (Zstandard)](https://github.com/facebook/zstd) is required to decompress and directly stream the snapshots into your system without requiring temporary storage. `zstd` provides significantly better compression ratios and faster decompression speeds compared to traditional tar compression.
+
+### Ubuntu/Debian
+
+```bash
+sudo apt-get install zstd
+```
+
+### macOS
+
+```bash
+brew install zstd
+```
+
+### RHEL/CentOS/Fedora
+
+```bash
+sudo dnf install zstd
+```
+
+### 2. Get the snapshot
+
+### Stream
+
+Streaming downloads and extracts the snapshot in a single step, reducing required disk space to just the size of the extracted database, contrary to **Download**, which additionally needs space for the compressed archive.
+
+##### 1. Install streaming dependencies
+
+Streaming requires either `wget` or `lftp` installed on your computer.
+
+These allow the `zstd` and `tar` context to survive a network error, restarting the transfer seamlessly and keeping the stream going even in the worst of network connections.
+
+### wget
+
+`wget` is usually preinstalled on Linux distributions. If missing:
+
+### Ubuntu/Debian
+
+```bash
+sudo apt-get install wget
+```
+
+### macOS
+
+```bash
+brew install wget
+```
+
+### RHEL/CentOS/Fedora
+
+```bash
+sudo dnf install wget
+```
+
+---
+
+### lftp + pv
+
+`pv` is an optional dependency for showing a progress bar while executing the `lftp` command.
+
+### Ubuntu/Debian
+
+```bash
+sudo apt-get install lftp pv
+```
+
+### macOS
+
+```bash
+brew install lftp pv
+```
+
+### RHEL/CentOS/Fedora
+
+```bash
+sudo dnf install lftp pv
+```
+
+---
+
+### curl
+
+Nothing to install. `curl` is preinstalled on most systems.
+
+---
+
+##### 2. Stream the snapshot
+
+Create a subfolder in your current directory where to stream the download, then download and extract the snapshot directly to your target directory:
+
+### Mainnet
+
+```bash
+mkdir -p juno_mainnet
+```
+
+### Mainnet (Pruned)
+
+```bash
+mkdir -p juno_mainnet_pruned
+```
+
+### Sepolia
+
+```bash
+mkdir -p juno_sepolia
+```
+
+### Sepolia (Pruned)
+
+```bash
+mkdir -p juno_sepolia_pruned
+```
+
+### Sepolia-Integration
+
+```bash
+mkdir -p juno_sepolia_integration
+```
+
+Stream the data to your computer: 
+
+1. `wget` streams the data reliably and comes preinstalled on most systems.
+2. `lftp + pv` is a solid alternative if you've no access to `wget`.
+3. `curl` gives no guarantees. Use it only as a last resort.
+
+### wget
+
+### Mainnet
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xf - -C juno_mainnet
+```
+
+### Mainnet (Pruned)
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+### Sepolia
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xf - -C juno_sepolia
+```
+
+### Sepolia (Pruned)
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+### Sepolia-Integration
+
+```bash
+wget --tries=0 --retry-connrefused --retry-on-http-error=500,502,503,504 --read-timeout=60 -O - \
+  https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+### lftp + pv
+
+### Mainnet
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_mainnet
+```
+
+### Mainnet (Pruned)
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+### Sepolia
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia
+```
+
+### Sepolia (Pruned)
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+### Sepolia-Integration
+
+```bash
+JUNO_SNAPSHOT_URL=https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+JUNO_SNAPSHOT_SIZE=$(curl -sIL "$JUNO_SNAPSHOT_URL" | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')
+lftp -c "cat $JUNO_SNAPSHOT_URL" \
+  | pv ${JUNO_SNAPSHOT_SIZE:+-s "$JUNO_SNAPSHOT_SIZE"} \
+  | zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+### curl
+
+### Mainnet
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
+| zstd -d | tar -xf - -C juno_mainnet
+```
+
+### Mainnet (Pruned)
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest \
+| zstd -d | tar -xf - -C juno_mainnet_pruned
+```
+
+### Sepolia
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia/latest \
+| zstd -d | tar -xf - -C juno_sepolia
+```
+
+### Sepolia (Pruned)
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest \
+| zstd -d | tar -xf - -C juno_sepolia_pruned
+```
+
+### Sepolia-Integration
+
+```bash
+curl -s -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest \
+| zstd -d | tar -xf - -C juno_sepolia_integration
+```
+
+:::warning
+Streaming with `curl` is unreliable: any network interruption forces a restart from scratch. Use it only if you cannot use wget or lftp.
+:::
+
+### Download
+
+Two-step approach where we first download the snapshot and extract it later. Note that this will create the requirement to have twice the space required for the Juno snapshot. If space is not enough, use the **Stream** tab instead.
+
+##### 1. Download the snapshot
+
+Both `wget --continue` and `curl -C -` resume an interrupted download: if the transfer dies for any reason, re-run the same command and it continues from where it stopped.
+
+### Mainnet
+
+### wget
+
+```bash
+wget --continue -O "juno_mainnet.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet/latest
+```
+
+### curl
+
+```bash
+curl -L -C - -o juno_mainnet.tar.zst https://juno-snapshots.nethermind.io/files/mainnet/latest
+```
+
+### Mainnet (Pruned)
+
+### wget
+
+```bash
+wget --continue -O "juno_mainnet_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+### curl
+
+```bash
+curl -L -C - -o juno_mainnet_pruned.tar.zst https://juno-snapshots.nethermind.io/files/mainnet-pruned/latest
+```
+
+### Sepolia
+
+### wget
+
+```bash
+wget --continue -O "juno_sepolia.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+### curl
+
+```bash
+curl -L -C - -o juno_sepolia.tar.zst https://juno-snapshots.nethermind.io/files/sepolia/latest
+```
+
+### Sepolia (Pruned)
+
+### wget
+
+```bash
+wget --continue -O "juno_sepolia_pruned.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+```
+
+### curl
+
+```bash
+curl -L -C - -o juno_sepolia_pruned.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-pruned/latest
+```
+
+### Sepolia-Integration
+
+### wget
+
+```bash
+wget --continue -O "juno_sepolia_integration.tar.zst" https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+### curl
+
+```bash
+curl -L -C - -o juno_sepolia_integration.tar.zst https://juno-snapshots.nethermind.io/files/sepolia-integration/latest
+```
+
+##### 2. Extract the snapshot
+
+Create a subfolder in your current directory where to unzip the downloaded snapshot:
+
+### Mainnet
+
+```bash
+mkdir juno_mainnet
+```
+
+```bash
+# Extract the snapshot
+zstd -dc juno_mainnet.tar.zst | tar -xf - -b 2048 -C juno_mainnet
+```
+
+### Mainnet (Pruned)
+
+```bash
+mkdir juno_mainnet_pruned
+```
+
+```bash
+# Extract the snapshot
+zstd -dc juno_mainnet_pruned.tar.zst | tar -xf - -b 2048 -C juno_mainnet_pruned
+```
+
+### Sepolia
+
+```bash
+mkdir juno_sepolia
+```
+
+```bash
+# Extract the snapshot
+zstd -dc juno_sepolia.tar.zst | tar -xf - -b 2048 -C juno_sepolia
+```
+
+### Sepolia (Pruned)
+
+```bash
+mkdir juno_sepolia_pruned
+```
+
+```bash
+# Extract the snapshot
+zstd -dc juno_sepolia_pruned.tar.zst | tar -xf - -b 2048 -C juno_sepolia_pruned
+```
+
+### Sepolia-Integration
+
+```bash
+mkdir juno_sepolia_integration
+```
+
+```bash
+# Extract the snapshot
+zstd -dc juno_sepolia_integration.tar.zst | tar -xf - -b 2048 -C juno_sepolia_integration
+```
+
+## Running Juno with snapshots
+
+### 1. Run Juno
+
+From the same directory where you extracted or streamed the snapshot, run the Docker command to start Juno:
+
+### Mainnet
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Mainnet (Pruned)
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet_pruned:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --prune-mode \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Sepolia
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_sepolia:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Sepolia (Pruned)
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_sepolia_pruned:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia \
+  --prune-mode \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Sepolia-Integration
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_sepolia_integration:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --network sepolia-integration \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+:::info
+Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL, and make sure it matches the network's L1: Starknet Mainnet settles on Ethereum Mainnet (e.g. `wss://mainnet.infura.io/ws/v3/your-project-id`), while Sepolia and Sepolia-Integration settle on Ethereum Sepolia (e.g. `wss://sepolia.infura.io/ws/v3/your-project-id`). Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+:::
+
+:::tip
+These examples use Docker. For other ways to run Juno (standalone binary, building from source) and more configuration details, see the [Installation](running-juno) guide.
+:::
+
+---
+
+# JSON-RPC
+
+Source: https://juno.nethermind.io/json-rpc
+
+# JSON-RPC Interface
+
+Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) over HTTP and [WebSocket](websocket).
+
+## Enable the JSON-RPC server
+
+To enable the JSON-RPC interface, use the following configuration options:
+
+- `http`: Enables the HTTP RPC server on the default port and interface (disabled by default).
+- `http-host`: The interface on which the HTTP RPC server will listen for requests. If skipped, it defaults to `localhost`.
+- `http-port`: The port on which the HTTP server will listen for requests. If skipped, it defaults to `6060`.
+
+### Docker
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --eth-node <YOUR-ETH-NODE> \
+  --http-host 0.0.0.0
+```
+
+### Binary
+
+```bash
+./build/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
+```
+
+## Making JSON-RPC requests
+
+You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
+
+### Raw
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "juno_version",
+  "params": [],
+  "id": 1
+}
+```
+
+### cURL
+
+```bash
+curl --location 'http://localhost:6060/' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "juno_version",
+    "params": [],
+    "id": 1
+}'
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "v0.16.0",
+  "id": 1
+}
+```
+
+Get the most recent accepted block hash and number with the `starknet_blockHashAndNumber` method:
+
+### Raw
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_blockHashAndNumber",
+  "params": [],
+  "id": 1
+}
+```
+
+### cURL
+
+```bash
+curl --location 'http://localhost:6060' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_blockHashAndNumber",
+    "params": [],
+    "id": 1
+}'
+```
+
+### Starknet.js
+
+```js
+const { RpcProvider } = require("starknet");
+
+const provider = new RpcProvider({
+  nodeUrl: "http://localhost:6060",
+});
+
+provider.getBlockLatestAccepted().then((blockHashAndNumber) => {
+  console.log(blockHashAndNumber);
+});
+```
+
+### Starknet.go
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/rpc"
+	"github.com/NethermindEth/starknet.go/utils"
+)
+
+func main() {
+	rpcUrl := "http://localhost:6060"
+	client, err := rpc.NewClient(rpcUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	provider := rpc.NewProvider(client)
+	result, err := provider.BlockHashAndNumber(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("BlockHashAndNumber:", result)
+}
+```
+
+### Starknet.rs
+
+```rust
+use starknet::providers::{
+    jsonrpc::{HttpTransport, JsonRpcClient},
+    Provider, Url,
+};
+
+#[tokio::main]
+async fn main() {
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse("http://localhost:6060").unwrap(),
+    ));
+
+    let result = provider.block_hash_and_number().await;
+    match result {
+        Ok(block_hash_and_number) => {
+            println!("{block_hash_and_number:#?}");
+        }
+        Err(err) => {
+            eprintln!("Error: {err}");
+        }
+    }
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "block_hash": "0x637ae4d7468bb603c2f16ba7f9118d58c7d7c98a8210260372e83e7c9df443a",
+    "block_number": 640827
+  },
+  "id": 1
+}
+```
+
+## Supported Starknet API versions
+
+Juno supports the following Starknet API versions:
+
+- **v0.10.1**: Accessible via endpoints `/v0_10`, `/rpc/v0_10`,  or the defaults `/rpc` and `/`
+- **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`
+- **v0.8.1**: Accessible via endpoints `/v0_8`, `/rpc/v0_8`
+
+To use a specific API version, specify the version endpoint in your RPC calls:
+
+### v0.10.1
+
+```bash
+curl --location 'http://localhost:6060/v0_10' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+### v0.9.0
+
+```bash
+curl --location 'http://localhost:6060/v0_9' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+### v0.8.1
+
+```bash
+curl --location 'http://localhost:6060/v0_8' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+---
+
+# WebSockets
+
+Source: https://juno.nethermind.io/websocket
+
+# WebSocket Interface
+
+Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
+
+## Enable the WebSocket server
+
+To enable the WebSocket RPC server, use the following configuration options:
+
+- `ws`: Enables the Websocket RPC server on the default port (disabled by default).
+- `ws-host`: The interface on which the Websocket RPC server will listen for requests. If skipped, it defaults to `localhost`.
+- `ws-port`: The port on which the WebSocket server will listen for requests. If skipped, it defaults to `6061`.
+
+### Docker
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6061:6061 \
+  nethermind/juno \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Binary
+
+```bash
+./build/juno --ws --ws-port 6061 --ws-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
+```
+
+## Making WebSocket requests
+
+You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.10.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "juno_version",
+  "params": [],
+  "id": 1
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "v0.16.0",
+  "id": 1
+}
+```
+
+Get the most recent accepted block hash and number with the `starknet_blockHashAndNumber` method:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_blockHashAndNumber",
+  "params": [],
+  "id": 1
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "block_hash": "0x637ae4d7468bb603c2f16ba7f9118d58c7d7c98a8210260372e83e7c9df443a",
+    "block_number": 640827
+  },
+  "id": 1
+}
+```
+
+## Subscribe to newly created blocks
+
+The WebSocket server provides a `starknet_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeNewHeads",
+  "id": 1
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": 6178305545967232212,
+  "id": 1
+}
+```
+
+When a new block is added, you will receive a message like this:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscriptionNewHeads",
+  "params": {
+    "result": {
+      "block_hash": "0x662757cbae602a3146cd96e5b661e92cf5d120ccc1d9ac6e78bee200afddfd5",
+      "parent_hash": "0x348c37f50bf689c7fbf9ee971bf4378cf9232882e7a61eb2117486ee61236b1",
+      "block_number": 69061,
+      "new_root": "0x128eabdfcabc8043d1a7f30faed9fdc077e57fdce7aeb072c514b132e99c499",
+      "timestamp": 1739977268,
+      "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+      "l1_gas_price": {
+        "price_in_fri": "0xd177c25056f4",
+        "price_in_wei": "0x4769a28dd"
+      },
+      "l1_data_gas_price": {
+        "price_in_fri": "0x963",
+        "price_in_wei": "0x1"
+      },
+      "l1_da_mode": "BLOB",
+      "starknet_version": "0.13.4",
+      "l2_gas_price": {
+        "price_in_fri": "0x157312ab4",
+        "price_in_wei": "0x7500b"
+      }
+    },
+    "subscription_id": 6178305545967232212
+  }
+}
+```
+
+## Subscribe to events
+
+You can subscribe to events using the `starknet_subscribeEvents` method:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeEvents",
+  "params": {
+    "block_id": "latest"
+  },
+  "id": 1
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": 12301735893776740437,
+  "id": 1
+}
+```
+
+## Subscribe to transaction status
+
+You can track the status of transactions using the `starknet_subscribeTransactionStatus` method:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeTransactionStatus",
+  "params": {
+    "transaction_hash": "0x22a6cd68819aa4813fed5db5cbaa0f396936b7bd53e4de51ef19ab57317de7c"
+  },
+  "id": 1
+}
+```
+
+## Subscribe to pending transactions
+
+You can subscribe to pending transactions using the `starknet_subscribePendingTransactions` method:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribePendingTransactions",
+  "id": 1
+}
+```
+
+## Unsubscribe
+
+Use the `starknet_unsubscribe` with subscription_id method to stop receiving updates for any of the subscribed events:
+
+### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_unsubscribe",
+  "params": {
+    "subscription_id": 14754861534419680325
+  },
+  "id": 1
+}
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": true,
+  "id": 1
+}
+```
+
+## Testing the WebSocket connection
+
+You can test your WebSocket connection using tools like [wscat](https://github.com/websockets/wscat) or [websocat](https://github.com/vi/websocat):
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
+
+# websocat
+$ websocat -v ws://localhost:6061
+    [INFO  websocat::lints] Auto-inserting the line mode
+    [INFO  websocat::stdio_threaded_peer] get_stdio_peer (threaded)
+    [INFO  websocat::ws_client_peer] get_ws_client_peer
+    [INFO  websocat::ws_client_peer] Connected to ws
+    {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
+```
+
+## Supported Starknet API versions
+
+Juno supports the following Starknet API versions:
+
+- **v0.10.1**: Accessible via endpoint `/v0_10`, `/ws/v0_10` or the defaults `/ws` and `/`
+- **v0.9.0**: Accessible via endpoint `/v0_9`, `/ws/v0_9`
+- **v0.8.1**: Accessible via endpoint `/v0_8`, `/ws/v0_8`
+
+To use a specific API version, specify the version endpoint in your WS calls:
+
+### v0.10.1
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_10
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
+```
+
+### v0.9.0
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_9
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
+```
+
+### v0.8.0
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_8
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
+```
+
+---
+
+# Kubernetes
+
+Source: https://juno.nethermind.io/running-on-kubernetes
+
+# Running Juno on Kubernetes
+
+You can deploy Juno on Kubernetes using the official [Helm chart](https://github.com/NethermindEth/helm-charts/tree/main/charts/juno). The chart deploys a Juno Starknet full node as a StatefulSet with persistent storage. Optionally, a [staking validator](staking-validator) service can be enabled alongside.
+
+## Prerequisites
+
+- A running Kubernetes cluster (v1.23+)
+- [Helm](https://helm.sh/docs/intro/install/) v3 installed
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) configured for your cluster
+- An Ethereum node WebSocket endpoint (or use `--disable-l1-verification` for testing)
+
+## 1. Add the Helm repository
+
+```bash
+helm repo add nethermind https://nethermindeth.github.io/helm-charts
+helm repo update
+```
+
+## 2. Install the chart
+
+```bash
+# For testing (disables L1 verification, no Ethereum node required)
+helm install my-juno nethermind/juno \
+  --set juno.extraArgs[0]="--disable-l1-verification"
+```
+
+This installs Juno with the default configuration (Sepolia network) and disables L1 verification so it can start without an Ethereum node. For production use or to enable full L1 verification, configure an Ethereum node endpoint via `juno.extraArgs` in a `values.yaml` file, for example:
+
+```yaml title="values.yaml"
+juno:
+  network: mainnet
+  image:
+    tag: "v0.16.0"
+  extraArgs:
+    - --eth-node=wss://mainnet.infura.io/ws/v3/<YOUR-PROJECT-ID>
+  persistence:
+    size: 1Ti
+    storageClassName: "your-storage-class"
+  resources:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+```
+
+Then install with your values:
+
+```bash
+helm install my-juno nethermind/juno -f values.yaml
+```
+
+:::caution
+You must provide either `--eth-node <WS endpoint>` or `--disable-l1-verification` in `juno.extraArgs`. Without one of these, Juno will fail to start.
+:::
+
+:::tip
+You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started. Use an init container to download the snapshot before Juno starts:
+
+```yaml
+juno:
+  initContainers:
+    - name: download-snapshot
+      image: alpine:latest
+      command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache lftp zstd
+          lftp -c "cat <SNAPSHOT_URL>" | zstd -d | tar -xf - -C /data
+      volumeMounts:
+        - name: data-juno
+          mountPath: /data
+```
+
+:::
+
+## 3. Verify the deployment
+
+```bash
+# Check pod status
+kubectl get pods -l app.kubernetes.io/name=juno
+
+# View logs
+kubectl logs -f statefulset/my-juno-juno
+
+# Test the RPC endpoint
+kubectl port-forward svc/my-juno-juno 6060:6060
+curl -s http://localhost:6060 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"juno_version","params":[],"id":1}'
+```
+
+## Configuration
+
+### Network selection
+
+Set `juno.network` to one of: `mainnet`, `sepolia`, or `sepolia-integration`.
+
+### Ports
+
+The chart exposes the following ports by default:
+
+| Port | Service | Description            |
+| ---- | ------- | ---------------------- |
+| 6060 | RPC     | HTTP JSON-RPC endpoint |
+| 6061 | WS      | WebSocket endpoint     |
+| 8080 | Metrics | Prometheus metrics     |
+
+### Extra arguments
+
+Pass additional CLI flags to Juno using `juno.extraArgs`:
+
+```yaml
+juno:
+  extraArgs:
+    - --rpc-cors-enable
+    - --ws
+    - --ws-port=6061
+    - --readiness-block-tolerance=10
+```
+
+See the [Configuration](configuring) guide for the full list of options.
+
+### Persistent storage
+
+The chart creates a PersistentVolumeClaim for Juno's data directory. Configure the storage size and class:
+
+```yaml
+juno:
+  persistence:
+    size: 1Ti
+    storageClassName: "gp3"
+    accessModes:
+      - ReadWriteOnce
+```
+
+## Exposing the RPC endpoint
+
+### Ingress
+
+Enable an Ingress resource to expose Juno externally. Each path defaults to the RPC port (6060). Set `servicePort` to route to a different port (e.g., 6061 for WebSocket):
+
+```yaml
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: rpc.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: ws.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: 6061
+  tls:
+    - secretName: juno-tls
+      hosts:
+        - rpc.example.com
+        - ws.example.com
+```
+
+### Gateway API (HTTPRoute)
+
+If your cluster uses the Gateway API instead of Ingress:
+
+```yaml
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: gateway
+      sectionName: http
+  hostnames:
+    - rpc.example.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+```
+
+## Enabling the staking service
+
+The chart can deploy a [staking validator](staking-validator) alongside Juno. The staking service automatically connects to the Juno node via internal service DNS.
+
+### Using an existing secret (recommended)
+
+First, create a Kubernetes secret with your staking configuration:
+
+```bash
+kubectl create secret generic staking-config \
+  --from-file=config.json=path/to/your/config.json
+```
+
+Then enable the staking service:
+
+```yaml
+staking:
+  enabled: true
+  config:
+    existingSecret: "staking-config"
+  resources:
+    requests:
+      cpu: "1"
+      memory: "4Gi"
+```
+
+### Using inline config (dev/test only)
+
+For development and testing, you can provide the config inline:
+
+```yaml
+staking:
+  enabled: true
+  config:
+    data:
+      signer:
+        privateKey: "0x..."
+        operationalAddress: "0x..."
+```
+
+:::warning
+Do not use inline config with private keys in production. Use `existingSecret` instead.
+:::
+
+## Monitoring
+
+### ServiceMonitor
+
+If you have the [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) installed, enable the ServiceMonitor to automatically scrape metrics from both Juno and the staking service:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  interval: "30s"
+  labels:
+    release: prometheus
+```
+
+The ServiceMonitor targets the `metrics` port on each enabled service at `/metrics`. For more details on monitoring, see the [Monitoring](monitoring) guide.
+
+## Upgrading
+
+```bash
+helm repo update
+helm upgrade my-juno nethermind/juno -f values.yaml
+```
+
+## Uninstalling
+
+```bash
+helm uninstall my-juno
+```
+
+:::caution
+Uninstalling the chart does **not** delete the PersistentVolumeClaim. To fully remove the data, delete the PVC manually:
+
+```bash
+kubectl delete pvc -l "app.kubernetes.io/name=juno,app.kubernetes.io/instance=my-juno"
+```
+
+:::
+
+:::tip
+For the full list of configurable values, see the [chart README](https://github.com/NethermindEth/helm-charts/tree/main/charts/juno) or run:
+
+```bash
+helm show values nethermind/juno
+```
+
+:::
+
+---
+
+# GCP
+
+Source: https://juno.nethermind.io/running-on-gcp
+
+# Running Juno on GCP
+
+To run Juno on the Google Cloud Platform (GCP), you can use the Starknet RPC Virtual Machine (VM) developed by Nethermind.
+
+## 1. Install the Starknet RPC Node
+
+Head to the [Google Marketplace](https://console.cloud.google.com/marketplace/browse?q=Starknet%20RPC%20Node) and search for **"Starknet RPC Node"**. Then, click the **"GET STARTED"** button to begin the deployment process.
+
+![Starknet RPC Node overview](/img/installing_on_gcp/overview.png)
+
+## 2. Configure the Juno client
+
+Choose the configuration settings for the Juno client and click the **"DEPLOY"** button.
+
+![Starknet RPC Node configuration](/img/installing_on_gcp/config.png)
+
+## 3. Post-configuration and testing
+
+![Starknet RPC Node testing](/img/installing_on_gcp/testing.png)
+
+## 4. Enable Juno during startup
+
+1. Click on the name of the newly created VM instance to view its details.
+2. Click the **"Edit"** button.
+3. Head to the **"Automation"** section and enter the following startup script:
+   ```bash
+   #! /bin/bash
+   sudo /usr/local/bin/run_juno.sh
+   ```
+4. Click the **"Save"** button.
+5. Restart the VM.
+
+## 5. Interact with the Juno node
+
+You can interact with Juno using its [JSON-RPC](json-rpc) interface. Here's an example to check the availability of Juno:
+
+### Request
+
+```bash
+curl --location 'http://localhost:6060' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "juno_version",
+    "params": [],
+    "id": 1
+}'
+```
+
+### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "v0.11.7",
+  "id": 1
+}
+```
+
+:::tip
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
+:::
+
+---
+
+# Starknet Staking
+
+Source: https://juno.nethermind.io/staking-validator
+
+# Staking with Juno
+
+Staking on Starknet provides an opportunity to contribute to network security and earn rewards by becoming a validator. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide to learn more about the validator process.
+
+## Prerequisites
+
+- **STRK Tokens**: At least 20,000 STRK is required for staking. For the latest details, check out the [Staking Protocol Details](https://docs.starknet.io/learn/protocol/staking#protocol).
+- **Node Setup**: The [latest version of Juno](updating) installed and running on your machine.
+- **Starknet Wallet**: A compatible wallet, like [Braavos](https://braavos.app/wallet-features/ledger-on-braavos/) or [Argent](https://www.argent.xyz/blog/how-to-use-your-hardware-wallet-with-argent).
+- **Access to CLI/Block Explorer**: Tools like [Voyager](https://voyager.online) for interacting with contracts.
+
+## 1. Set up Juno
+
+Juno is a reliable choice for running a Starknet node. Follow the [Installation](running-juno) guide to configure Juno using Docker, binaries, source builds, [Kubernetes with Helm](running-on-kubernetes), or Google Cloud Platform (GCP).
+
+## 2. Stake STRK tokens
+
+Register as a validator by staking STRK tokens through the Starknet staking contract. Check out the [Becoming a Validator](https://docs.starknet.io/secure/quickstart/becoming-a-validator/) guide for complete instructions. The staking process includes:
+
+- **Pre-approving STRK Transfer**: Allow the staking contract to lock your tokens.
+- **Calling the `stake` Function**: Register operational and reward addresses, set commission rates, and enable pooling if desired.
+
+## 3. Finalising your validator
+
+Once Juno is running and your STRK tokens are staked:
+
+1. Monitor your validator's status via dashboards like [Voyager](https://voyager.online/).
+2. Stay updated for future network requirements or configurations.
+
+:::info
+You're now a staking validator! With your node running and tokens staked, you support Starknet's security and earn rewards. The network manages most operations, though future updates may require additional setup.
+:::
+
+---
+
+# Monitoring
+
+Source: https://juno.nethermind.io/monitoring
+
+# Metrics Monitoring
+
+Juno uses [Prometheus](https://prometheus.io/) to monitor and collect metrics data, which you can visualise with [Grafana](https://grafana.com/). You can use these insights to understand what is happening when Juno is running.
+
+## Enable the metrics server
+
+To enable the metrics server, use the following configuration options:
+
+- `metrics`: Enables the Prometheus metrics endpoint on the default port (disabled by default).
+- `metrics-host`: The interface on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `localhost`.
+- `metrics-port`: The port on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `9090`.
+
+### Docker
+
+```bash
+docker run -d \
+  --name juno \
+  -p 9090:9090 \
+  nethermind/juno \
+  --metrics \
+  --metrics-port 9090 \
+  --metrics-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+### Binary
+
+```bash
+./build/juno --metrics --metrics-port 9090 --metrics-host=0.0.0.0 --eth-node <YOUR-ETH-NODE>
+```
+
+## Configure Grafana dashboard
+
+The Juno Grafana dashboard is optimized for single-node deployments and uses generic metric selectors that work with standard Prometheus configurations.
+
+### 1. Set up Grafana
+
+- Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to install Grafana.
+- Download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
+
+### 2. Set up Prometheus
+
+- Follow the [First steps with Prometheus](https://prometheus.io/docs/introduction/first_steps/) guide to install Prometheus.
+- Add the Juno metrics endpoint in the `prometheus.yml` configuration file:
+
+```yaml title="prometheus.yml" showLineNumbers
+scrape_configs:
+  - job_name: "juno"
+    static_configs:
+      - targets: ["localhost:9090"]
+```
+
+### 3. Set up Grafana Loki
+
+- Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to install [Loki](https://grafana.com/oss/loki/).
+- Configure Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno. You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to send logs to Loki:
+
+```yaml title="Sample Loki Configuration" showLineNumbers
+scrape_configs:
+  - job_name: "juno-logs"
+    labels:
+      job: "juno"
+      __path__: "/path/to/juno/logs/*"
+```
+
+:::tip
+To have Juno write logs to a file, use the command:
+
+```bash
+./build/juno >> /path/juno.log 2>&1
+```
+
+:::
+
+### 4. Configure the data sources
+
+1. Follow the [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) guide to add data sources.
+2. Choose **Prometheus** as a data source:
+
+- Enter the URL where Prometheus is running, e.g., `http://localhost:9090`.
+- Click the **"Save & Test"** button.
+
+3. Choose **Loki** as a data source:
+
+- Enter the URL where Loki is running, e.g., `http://localhost:3100`.
+- Click the **"Save & Test"** button.
+
+![Grafana dashboard](/img/grafana-1.png)
+
+![Grafana dashboard](/img/grafana-2.png)
+
+## Health endpoints for Kubernetes
+
+Juno provides standard health endpoints that are designed to work with Kubernetes liveness and readiness probes:
+
+### `/live` endpoint
+
+The `/live` endpoint always returns a `200 OK` response to indicate that the Juno process is running. This endpoint is intended for use with Kubernetes `livenessProbe` to prevent unnecessary container restarts.
+
+```yaml title="Kubernetes livenessProbe example"
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 6060
+  initialDelaySeconds: 30
+  periodSeconds: 10
+```
+
+### `/ready` endpoint
+
+The `/ready` endpoint returns:
+- `200 OK` when the node is synced and ready to serve requests
+- `503 Service Unavailable` during migrations or when the node is not yet synced
+
+This endpoint is intended for use with Kubernetes `readinessProbe` to control traffic routing.
+
+```yaml title="Kubernetes readinessProbe example"
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 6060
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 3
+```
+
+### Configuring readiness criteria
+
+You can configure what "synced" means for the `/ready` endpoint using the `readiness-block-tolerance` configuration option:
+
+- `readiness-block-tolerance`: Maximum blocks behind the latest block for the `/ready` endpoint to return `200 OK` (default: `6`)
+
+```bash
+# Example: Allow up to 10 blocks behind latest
+./build/juno --readiness-block-tolerance 10 --http --http-port 6060
+```
+
+### Complete Kubernetes deployment example
+
+```yaml title="kubernetes-deployment.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: juno
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: juno
+  template:
+    metadata:
+      labels:
+        app: juno
+    spec:
+      containers:
+      - name: juno
+        image: nethermind/juno:latest
+        ports:
+        - containerPort: 6060
+        args:
+          - --http
+          - --http-port=6060
+          - --http-host=0.0.0.0
+          - --readiness-block-tolerance=6
+          - --eth-node=<YOUR-ETH-NODE>
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 6060
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 6060
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+```
+
+## Change log level in runtime
+
+In case you want to change the log level in runtime without the need to restart the juno process, you can do it via HTTP calls.
+
+To enable this feature, use the following configuration options:
+
+- `log-host`: The interface to listen for requests. Defaults to `localhost`.
+- `log-port`: The port to listen for requests.  REQUIRED
+
+Examples:
+
+```console
+# Start juno specifying the log port
+juno --log-port=6789 --log-level=error ...
+
+# Get current level
+curl -X GET 'localhost:6789/log/level'
+error
+
+# Set level
+curl -X PUT 'localhost:6789/log/level?level=trace'
+Replaced log level with 'trace' successfully
+
+# Get new level
+curl -X GET 'localhost:6789/log/level'
+trace
+```
+
+---
+
+# Performance Tuning
+
+Source: https://juno.nethermind.io/tuning
+
+It is important for full nodes to scale accordingly to the hardware where they are being executed. To unlock this, the following are a list of configurations users can update based on their hardware specs to maximize the performance of their Juno node.
+
+The default values of each of these options are set to maximize performance with a machine that matches Juno's minimum requirements – described in the **Hardware Requirement** section.
+
+## Database Compression
+
+Set by the `--db-compression` flag, it applies a compression algorithm over the database **every time** Juno writes to it.
+
+Available options:
+
+- `snappy`: Fast compression with a low compression ratio
+- `zstd`: Slower but reduces storage quite a lot
+- `minlz`: Alternative compression option
+
+Depending on the compression algorithm used it becomes a trade-off between **disk space** and **CPU** usage every time there is a disk operation.
+
+We recommend `zstd` because it is fast enough that it doesn't delay any process significantly while providing huge database size reduction.
+
+:::info
+Note that once the compression is changed the new database is not compressed immediately, but gradually through the node usage by writing new information.
+:::
+
+:::info
+There is a secret `zstd1` option that provides far greater performance than `zstd` but we are still testing it out and it might become the default later.
+:::
+
+## Database Memory Table Size
+
+Set by the `--db-memtable-size` flag (default: 256 MB), this controls the amount of memory allocated for the database memtable. The memtable is an in-memory buffer where writes are stored before being flushed to disk.
+
+A sensible default is **256 MB** for nodes that satisfy the minimum requirements. Increasing this value reduces the frequency of disk flushes, which can improve write throughput during sync.
+
+:::warning
+Setting this value too high can cause **uneven write performance**. Larger memtables mean flushes happen less frequently but involve more data at once, leading to bursty I/O patterns. If writes accumulate faster than the database can flush, writes will stall entirely until flushing catches up. A moderate value like 256 MB balances flush frequency with I/O smoothness.
+:::
+
+## Database Memory Table Count
+
+Set by the `--db-memtable-count` flag (default: 2), this controls the number of memtables the database can hold in memory before stalling writes. Memtables are in-memory buffers where writes accumulate before being flushed to disk.
+
+With the default of 2, Pebble can accept writes into one memtable while flushing a previous one to disk. Increasing this value allows more memtables to be queued, which can absorb write bursts and prevent stalls when flush speed falls behind write speed.
+
+:::warning
+Each additional memtable consumes up to `--db-memtable-size` MB of memory. For example, with the default memtable size of 256 MB and a count of 4, up to 1 GB of memory could be used for memtables alone.
+:::
+
+## Database Compaction Concurrency
+
+Set by the `--db-compaction-concurrency` flag, this controls how many concurrent compaction workers the database uses. Compaction is the background process that merges and optimises data on disk.
+
+Format options:
+
+- `N`: Sets the range from 1 to N workers (e.g., `--db-compaction-concurrency=4`)
+- `M,N`: Sets the range from M to N workers (e.g., `--db-compaction-concurrency=2,8`)
+
+The default is `1,GOMAXPROCS/2` (half of available CPU cores). Increasing the upper bound on systems with many cores can speed up compaction as well as increase CPU resources usage while syncing parts of the network where there was a lot of usage.
+
+:::info
+Note that this effectively improve syncing speed while behind the tip of the chain but after reaching the latest block resource usage will gradually reduce back to minimums.
+:::
+
+## Database Cache Size
+
+Set by the `--db-cache-size` flag (default: 1024 MB), this determines the amount of memory allocated for caching frequently accessed data from the database.
+
+A larger cache reduces disk reads and improves query performance. On systems with ample memory, increasing this value (e.g., 2048 or 4096 MB) can significantly improve RPC response times and overall node performance.
+
+## Sierra Compilation Limits
+
+:::warning
+These limits are enforced by the kernel and only on **Linux**. On other operating systems they have no effect.
+:::
+
+Juno compiles Sierra classes to CASM in isolated child processes. Two flags cap the resources each compilation process may use, protecting the node from pathological or malicious classes that would otherwise consume CPU and memory without bound:
+
+- `--max-compilation-memory` (default: 4096 MB): Maximum memory a single compilation process may use. A compilation exceeding it is aborted.
+- `--max-compilation-cpu-time` (default: 10 seconds): Maximum CPU time a single compilation process may consume. A compilation exceeding it is killed.
+
+Setting either flag to `0` disables that limit. The defaults are generous for legitimate classes and only need raising if genuine compilations are being aborted.
+
+:::info
+The CPU time limit counts seconds of CPU actually consumed by the compilation process, not elapsed wall-clock time, so it is unaffected by how busy the rest of the machine is.
+:::
+
+Up to `--max-concurrent-compilations` (default: one per available CPU core) processes can run at once, so the worst-case memory that compilations can claim is the product of that flag and `--max-compilation-memory`. Lower either value on memory-constrained machines.
+
+---
+
+# Plugins
+
+Source: https://juno.nethermind.io/plugins
+
+Juno supports plugins that satisfy the `JunoPlugin` interface, enabling developers to extend and customize Juno's behaviour and functionality by dynamically loading external plugins during runtime.
+
+The `JunoPlugin` interface provides a structured way for plugins to interact with the blockchain by sending notifications when new blocks are added or reverted. This abstracts away the complexity of implementing block syncing and revert logic, especially during blockchain reorganizations.
+
+## JunoPlugin Interface
+
+Your plugin must implement the `JunoPlugin` interface, which includes methods for initializing, shutting down, and handling new and reverted blocks.
+
+```go
+type JunoPlugin interface {
+	Init() error
+	Shutdown() error
+	NewBlock(
+		block *core.Block,
+		stateUpdate *core.StateUpdate,
+		newClasses map[felt.Felt]core.ClassDefinition,
+	) error
+	// The state is reverted by applying a write operation with the reverseStateDiff's StorageDiffs, Nonces, and ReplacedClasses,
+	// and a delete option with its DeclaredV0Classes, DeclaredV1Classes, and ReplacedClasses.
+	RevertBlock(from, to *BlockAndStateUpdate, reverseStateDiff *core.StateDiff) error
+}
+
+type BlockAndStateUpdate struct {
+	Block       *core.Block
+	StateUpdate *core.StateUpdate
+}
+```
+
+**Init**: Called once at node startup, when Juno loads the plugin (before syncing begins). This can be used to set up database connections or any other necessary resources. If `Init` returns an error, Juno fails to start.
+
+**Shutdown**: Called when the Juno node is shut down. This can be used to clean up resources like database connections.
+
+**NewBlock**: Called by the synchronizer each time a new block is stored. Juno sends the block, the corresponding state update, and any new classes (as `core.ClassDefinition` values), and waits for the call to return before continuing the sync. Note that a returned error is logged but does not stop the sync. The plugin is responsible for handling its own failures.
+
+**RevertBlock**: Called during a blockchain reorganization (reorg), once for each block that needs to be reverted. `reverseStateDiff` describes how to undo the block's state changes: apply its `StorageDiffs`, `Nonces`, and `ReplacedClasses` as writes, and its `DeclaredV0Classes`, `DeclaredV1Classes`, and `ReplacedClasses` as deletions. As with `NewBlock`, Juno waits for the call to return, and errors are logged without stopping the sync.
+
+## Example plugin
+
+Here is a basic example of a plugin that satisfies the `JunoPlugin` interface:
+
+```go
+// go:generate go build -buildmode=plugin -o ../../build/plugin.so ./example.go
+type examplePlugin string
+
+// Important: "JunoPluginInstance" needs to be exported for Juno to load the plugin correctly
+var JunoPluginInstance examplePlugin
+
+var _ junoplugin.JunoPlugin = (*examplePlugin)(nil)
+
+func (p *examplePlugin) Init() error {
+	fmt.Println("ExamplePlugin initialized")
+	return nil
+}
+
+func (p *examplePlugin) Shutdown() error {
+	fmt.Println("ExamplePlugin shutdown")
+	return nil
+}
+
+func (p *examplePlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition) error {
+	fmt.Println("ExamplePlugin NewBlock called")
+	return nil
+}
+
+func (p *examplePlugin) RevertBlock(from, to *junoplugin.BlockAndStateUpdate, reverseStateDiff *core.StateDiff) error {
+	fmt.Println("ExamplePlugin RevertBlock called")
+	return nil
+}
+```
+
+The `JunoPluginInstance` variable must be exported for Juno to correctly load the plugin:
+`var JunoPluginInstance examplePlugin`
+
+We ensure the plugin implements the `JunoPlugin` interface, with the following line:
+`var _ junoplugin.JunoPlugin = (*examplePlugin)(nil)`
+
+## Building and loading the plugin
+
+Once you have written your plugin, you can compile it into a shared object file (.so) using the following command:
+
+```shell
+go build -buildmode=plugin -o ./plugin.so /path/to/your/plugin.go
+```
+
+This command compiles the plugin into a shared object file (`plugin.so`), which can then be loaded by the Juno client.
+
+Go plugins impose strict compatibility requirements. If any of them are not met, Juno will fail to load the plugin at runtime:
+
+- The plugin must be built with the **same Go toolchain version** used to build the Juno binary.
+- The plugin must depend on the **same version of the `github.com/NethermindEth/juno` module** (and identical versions of any shared dependencies) as the running node.
+- The plugin must be built with **CGO enabled** (`CGO_ENABLED=1`).
+- Go plugins are only supported on **Linux and macOS**.
+
+## Running Juno with the plugin
+
+Once your plugin has been compiled into a `.so` file, run Juno with the `--plugin-path` flag pointing at the file:
+
+```shell
+./build/juno --plugin-path ./plugin.so
+```
+
+The plugin path can also be set via the `JUNO_PLUGIN_PATH` environment variable or the `plugin-path` key in a YAML configuration file.
+
+---
+
+# FAQ
+
+Source: https://juno.nethermind.io/faq
+
+# Frequently Asked Questions
+
+<details>
+  <summary>What is Juno?</summary>
+
+Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
+
+</details>
+
+<details>
+  <summary>How can I run Juno?</summary>
+
+Check out the [Installation](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [GCP](running-on-gcp) guide to learn how to run Juno on GCP.
+
+</details>
+
+<details>
+  <summary>What are the hardware requirements for running Juno?</summary>
+
+We recommend running Juno with at least 8GB of RAM. Check out the [Hardware Requirements](hardware-requirements) for more information.
+
+</details>
+
+<details>
+  <summary>How can I configure my Juno node?</summary>
+
+You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and a [YAML configuration file](configuring#configuration-file). Check out the [Configuration](configuring) guide to learn their usage and precedence.
+
+</details>
+
+<details>
+  <summary>How can I update my Juno node?</summary>
+
+Check out the [Updating](updating) guide for instructions on updating your node to the latest version.
+
+</details>
+
+<details>
+  <summary>How can I interact with my Juno node?</summary>
+
+You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [WebSocket](websocket) interfaces.
+
+</details>
+
+<details>
+  <summary>How can I monitor my Juno node?</summary>
+
+Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring](monitoring) guide to get started.
+
+</details>
+
+<details>
+  <summary>Do node operators receive any rewards, or is participation solely to support the network?</summary>
+
+Presently, running a node does not come with direct rewards; its primary purpose is contributing to the network's functionality and stability. However, operating a node provides valuable educational benefits and deepens your knowledge of the network's operation.
+
+</details>
+
+<details>
+  <summary>How can I view Juno logs from Docker?</summary>
+
+You can view logs from the Docker container using the following command:
+
+```bash
+docker logs -f juno
+```
+
+</details>
+
+<details>
+  <summary>How can I get real-time updates of new blocks?</summary>
+
+The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides a `starknet_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain.
+
+</details>
+
+<details>
+  <summary>Does Juno provide snapshots to sync with Starknet quickly?</summary>
+
+Yes, Juno provides snapshots for both the Starknet Mainnet and Sepolia networks. Check out the [Sync from a Snapshot](snapshots) guide to get started.
+
+</details>
+
+<details>
+  <summary>How can I contribute to Juno?</summary>
+
+You can contribute to Juno by running a node, starring on GitHub, reporting bugs, and suggesting new features. Check out the [Contributions and Partnerships](/#contributions-and-partnerships) page for more information.
+
+</details>
+
+<details>
+  <summary>I noticed a warning in my logs saying: **Failed storing Block \{"err": "unsupported block version"\}**. How should I proceed?</summary>
+
+You can fix this problem by [updating to the latest version](updating) of Juno. Check for updates and install them to maintain compatibility with the latest block versions.
+
+</details>
+
+<details>
+  <summary>After updating Juno, I receive **error while migrating DB.** How should I proceed?</summary>
+
+This error suggests your database is corrupted, likely due to the node being interrupted during migration. This can occur if there are insufficient system resources, such as RAM, to finish the process. The only solution is to resynchronise the node from the beginning. To avoid this issue in the future, ensure your system has adequate resources and that the node remains uninterrupted during upgrades.
+
+</details>
+
+<details>
+  <summary>I receive **Error: unable to verify latest block hash; are the database and --network option compatible?** while running Juno. How should I proceed?</summary>
+
+To resolve this issue, ensure that the `eth-node` configuration aligns with the `network` option for the Starknet network.
+
+</details>
+
+<details>
+  <summary>I receive **process \<PID\> killed** and **./build/juno: invalid signature (code or signature have been modified)** while running the binary on macOS. How should I proceed?</summary>
+
+You need to re-sign the binary to resolve this issue using the following command:
+
+```bash
+codesign --sign - ./build/juno
+```
+
+</details>
+
+---
+
+# Running a Juno P2P Node
+
+Source: https://juno.nethermind.io/running-p2p
+
+# Running a Juno P2P Node
+
+Juno can be run as a peer-to-peer node for decentralised data synchronisation and to enhance the resilience and reliability of the Starknet network. Check out the [Juno peer-to-peer launch](https://medium.com/nethermind-eth/junos-experimental-peer-to-peer-launch-3040e195550d) guide to learn how it works.
+
+:::caution
+The P2P feature is currently under active development and is being tested on smaller Juno networks. As a result, syncing with non-Juno nodes may be unstable.
+:::
+
+---
+
+# Juno Sequencer
+
+Source: https://juno.nethermind.io/sequencer
+
+Juno can now operate as a **standalone sequencer**. When Juno is run in this experimental mode, users are able to submit transactions to the Juno client, which stores them in a mempool. Every _N_ seconds, Juno will attempt to build a new block using any transactions that are present.
+
+Sequencer mode is activated via a set of dedicated command-line flags:
+
+- `--seq-enable`: Enables sequencer mode of operation  
+- `--seq-block-time`: Time interval (in seconds) between block production attempts  
+- `--seq-genesis-file`: Optional path to a genesis file for initializing the state (useful for pre-funded accounts). An example genesis file is provided at `./genesis/genesis_prefund_accounts.json`. Users can customize this file to include any accounts, balances, or deployed contracts needed for their setup.
+- `--seq-disable-fees`: When set, disables transaction fee enforcement in the sequencer (useful for testing)
+
+This makes it ideal for testing rollup flows, simulating block production, or running isolated environments without requiring Layer 1 verification.
+
+## Features
+
+- Accepts transactions via standard RPC calls  
+- Stores transactions in a local mempool  
+- Automatically builds blocks at a fixed interval (`--seq-block-time`)  
+- Optionally starts with a blank or pre-funded state  
+
+## Running the Sequencer
+
+You can run the Juno sequencer in two modes:
+
+### 1. Blank State (Clean Genesis)
+
+```bash
+./build/juno \
+  --http \
+  --http-port=6060 \
+  --http-host=0.0.0.0 \
+  --db-path=./seq-db-tmp \
+  --log-level=debug \
+  --seq-enable \
+  --seq-block-time=1 \
+  --network sequencer \
+  --disable-l1-verification \
+  --rpc-call-max-steps=4123000
+```
+
+### 2. With Pre-Funded Accounts
+```bash
+./build/juno \
+  --http \
+  --http-port=6060 \
+  --http-host=0.0.0.0 \
+  --db-path=./seq-db-tmp-w-accounts \
+  --log-level=debug \
+  --seq-enable \
+  --seq-block-time=1 \
+  --network sequencer \
+  --disable-l1-verification \
+  --seq-genesis-file ./genesis/genesis_prefund_accounts.json \
+  --rpc-call-max-steps=4123000
+```

@@ -1,0 +1,221 @@
+# Running Juno
+
+You can run a Juno node using several methods:
+
+- **Docker container** or **Standalone binary** (see below)
+- [Building from source](#building-from-source)
+- [Kubernetes with Helm](running-on-kubernetes)
+- [Google Cloud Platform (GCP)](running-on-gcp)
+
+:::tip
+You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started.
+:::
+
+### Docker
+
+**1. Get the Docker image**
+
+Juno Docker images can be found at the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository on Docker Hub. Download the latest image:
+
+```bash
+docker pull nethermind/juno
+```
+
+You can also build the image locally:
+
+```bash
+# Clone the Juno repository
+git clone https://github.com/NethermindEth/juno
+cd juno
+
+# Build the Docker image
+docker build -t nethermind/juno:latest .
+```
+
+**2. Run the Docker container**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+You can view logs from the Docker container using the following command:
+
+```bash
+docker logs -f juno
+```
+
+### Standalone Binary
+
+**1. Download the binary**
+
+Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
+
+**2. Run the binary**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the binary
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path ./juno_mainnet
+```
+
+Replace `<YOUR-ETH-NODE>` with your actual Ethereum node address. If you're using Infura, it might look something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Make sure you use the WebSockets URL (`ws`/`wss`) and not the HTTP URL (`http`/`https`).
+
+You can view logs from the standalone binary by redirecting the output to a file:
+
+```shell
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path ./juno_mainnet \
+  > juno.log 2>&1
+```
+
+:::tip
+The `--ws`, `--ws-port`, and `--ws-host` options enable the WebSocket RPC server, which is required for subscriptions like `starknet_subscribeNewHeads`. Check out the [WebSockets](websocket) guide to learn more.
+:::
+
+## Building from source
+
+You can build the Juno binary or Docker image from the source code to access the latest updates or specific versions.
+
+### Docker
+
+Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/NethermindEth/juno
+cd juno
+```
+
+:::tip
+You can use `git tag -l` to view specific version tags.
+:::
+
+**2. Build the Docker image**
+
+```bash
+docker build -t nethermind/juno:latest .
+```
+
+**3. Run the Docker container**
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the container
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -p 6061:6061 \
+  -v $(pwd)/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
+  --db-path /snapshots/juno_mainnet
+```
+
+### Standalone Binary
+
+**Prerequisites**
+
+- [Golang 1.26](https://go.dev/doc/install) or later
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
+- C compiler: `gcc` or `clang`
+- [jemalloc](https://github.com/jemalloc/jemalloc)
+
+### Ubuntu
+
+```bash
+sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
+```
+
+### MacOS (Homebrew)
+
+```bash
+brew install jemalloc pkg-config
+```
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/NethermindEth/juno
+cd juno
+```
+
+:::tip
+You can use `git tag -l` to view specific version tags.
+:::
+
+**2. Build the binary**
+
+```bash
+# Install juno dependencies
+make install-deps
+
+# Build the binary
+make juno
+```
+
+**3. Run the binary**
+
+Locate the standalone binary in the `./build/` directory:
+
+```bash
+# Prepare the database directory
+mkdir -p juno_mainnet
+
+# Run the binary
+./build/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --ws \
+  --ws-port 6061 \
+  --ws-host 0.0.0.0 \
+  --db-path ./juno_mainnet \
+  --eth-node <YOUR-ETH-NODE>
+```
+
+:::tip
+To learn how to configure Juno, check out the [Configuration](configuring) guide.
+:::

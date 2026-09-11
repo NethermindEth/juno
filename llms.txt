@@ -1,0 +1,35 @@
+Append `.md` to any docs page URL below for its raw Markdown (e.g. `https://juno.nethermind.io/configuring.md`; the front page is `https://juno.nethermind.io/index.md`), or fetch all current pages at `https://juno.nethermind.io/llms-full.txt`.
+
+# Juno Docs
+
+> Juno: Decentralising Starknet. Documentation for Juno 0.16.0, a Starknet full node written in Go.
+
+  - [Introduction](https://juno.nethermind.io/): What Juno is and where to start: hardware, running a node, snapshots, configuration, and the JSON-RPC interface.
+
+- Installation and Setup
+
+  - [Hardware Requirements](https://juno.nethermind.io/hardware-requirements): CPU, memory and storage needed to run Juno, for validators and dApps or as a high-traffic RPC provider.
+  - [Installation](https://juno.nethermind.io/running-juno): Start a Juno node with Docker, a prebuilt binary, or a source build, on mainnet or Sepolia.
+  - [Configuration](https://juno.nethermind.io/configuring): Juno's configuration options, settable by flag, environment variable, or YAML file, with defaults.
+  - [Updating](https://juno.nethermind.io/updating): Update a Juno node to a new release with Docker, a prebuilt binary, or from source.
+  - [Snapshot Sync](https://juno.nethermind.io/snapshots): Download a database snapshot and start from a recent block instead of syncing from genesis, with sizes and commands per network.
+
+- RPC and WebSockets
+
+  - [JSON-RPC](https://juno.nethermind.io/json-rpc): Call Juno over JSON-RPC: supported spec versions, endpoint paths, and example requests.
+  - [WebSockets](https://juno.nethermind.io/websocket): Subscribe to new blocks, events and transaction status over Juno's WebSocket interface.
+
+- Deployments
+
+  - [Kubernetes](https://juno.nethermind.io/running-on-kubernetes): Deploy Juno on Kubernetes with the official Helm chart.
+  - [GCP](https://juno.nethermind.io/running-on-gcp): Run a Juno node on Google Cloud Platform.
+  - [Starknet Staking](https://juno.nethermind.io/staking-validator): Prerequisites and setup for using a Juno node as a Starknet staking validator.
+  - [Monitoring](https://juno.nethermind.io/monitoring): Monitor a Juno node with Prometheus metrics, Grafana, and the /live and /ready readiness endpoints.
+  - [Performance Tuning](https://juno.nethermind.io/tuning): Tune Juno's database and compilation settings for faster sync and lower resource use.
+  - [Plugins](https://juno.nethermind.io/plugins): Extend Juno with Go plugins that receive new and reverted blocks through the JunoPlugin interface.
+  - [FAQ](https://juno.nethermind.io/faq): Answers to common Juno questions: requirements, updating, databases, and frequent startup errors.
+
+- Other pages
+
+  - [Running a Juno P2P Node](https://juno.nethermind.io/running-p2p): Run Juno's experimental peer-to-peer synchronisation.
+  - [Juno Sequencer](https://juno.nethermind.io/sequencer): Run Juno in experimental sequencer mode to build blocks on a custom network.
