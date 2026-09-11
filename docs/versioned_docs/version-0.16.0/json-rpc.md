@@ -1,5 +1,6 @@
 ---
 title: JSON-RPC
+description: "Call Juno over JSON-RPC: supported spec versions, endpoint paths, and example requests."
 ---
 
 # JSON-RPC Interface

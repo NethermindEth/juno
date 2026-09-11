@@ -1,5 +1,6 @@
 ---
 title: Performance Tuning
+description: "Tune Juno's database and compilation settings for faster sync and lower resource use."
 ---
 
 It is important for full nodes to scale accordingly to the hardware where they are being executed. To unlock this, the following are a list of configurations users can update based on their hardware specs to maximize the performance of their Juno node.

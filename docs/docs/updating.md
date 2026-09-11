@@ -1,5 +1,6 @@
 ---
 title: Updating
+description: "Update a Juno node to a new release with Docker, a prebuilt binary, or from source."
 ---
 
 # Updating Juno

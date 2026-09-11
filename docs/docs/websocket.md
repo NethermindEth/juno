@@ -1,5 +1,6 @@
 ---
 title: WebSockets
+description: "Subscribe to new blocks, events and transaction status over Juno's WebSocket interface."
 ---
 
 # WebSocket Interface

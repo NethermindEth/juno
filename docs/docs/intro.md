@@ -1,6 +1,7 @@
 ---
 slug: /
 title: Introduction
+description: "What Juno is and where to start: hardware, running a node, snapshots, configuration, and the JSON-RPC interface."
 ---
 
 # Welcome to Juno
