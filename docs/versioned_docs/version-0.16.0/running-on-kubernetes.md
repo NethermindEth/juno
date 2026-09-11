@@ -1,5 +1,6 @@
 ---
 title: Kubernetes
+description: "Deploy Juno on Kubernetes with the official Helm chart."
 ---
 
 # Running Juno on Kubernetes

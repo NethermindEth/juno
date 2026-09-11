@@ -1,5 +1,6 @@
 ---
 title: Snapshot Sync
+description: "Download a database snapshot and start from a recent block instead of syncing from genesis, with sizes and commands per network."
 ---
 
 # Sync from a Snapshot

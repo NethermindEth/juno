@@ -1,5 +1,6 @@
 ---
 title: Monitoring
+description: "Monitor a Juno node with Prometheus metrics, Grafana, and the /live and /ready readiness endpoints."
 ---
 
 # Metrics Monitoring

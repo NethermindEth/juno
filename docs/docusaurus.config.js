@@ -52,6 +52,10 @@ const config = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/",
+          // Edit links point at docs/ (next) so fixes land where they flow forward.
+          editUrl: "https://github.com/NethermindEth/juno/edit/main/docs/",
+          editCurrentVersion: true,
+          showLastUpdateTime: true,
         },
         blog: false,
         theme: {
@@ -62,6 +66,7 @@ const config = {
   ],
 
   plugins: [
+    require.resolve("./plugins/llms-txt.js"),
     [
       "@easyops-cn/docusaurus-search-local",
       {

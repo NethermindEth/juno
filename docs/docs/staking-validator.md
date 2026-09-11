@@ -1,5 +1,6 @@
 ---
 title: Starknet Staking
+description: "Prerequisites and setup for using a Juno node as a Starknet staking validator."
 ---
 
 # Staking with Juno
