@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -135,16 +136,14 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wsc := newWebsocketConn(ctx, conn, ws.connParams)
 
 	for {
-		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
-		if err != nil {
+		var body []byte
+		if body, err = ws.readMessage(wsc); err != nil {
 			break
 		}
+		wsc.r = bytes.NewReader(body)
+
 		ws.listener.OnNewRequest("any")
-		if err = ws.handleMessage(wsc); err != nil {
-			break
-		}
-		// From websocket docs: "Read to EOF otherwise connection will hang."
-		if _, err = io.Copy(io.Discard, wsc.r); err != nil {
+		if err = ws.handleMessage(wsc, body); err != nil {
 			break
 		}
 	}
@@ -178,11 +177,51 @@ func (ws *Websocket) logServerBusy() {
 	)
 }
 
-func (ws *Websocket) handleMessage(wsc *websocketConn) error {
+// readMessage waits for the next message and reads it whole
+//
+// ReadAll satisfies the websocket docs' "Read to EOF otherwise
+// connection will hang"
+func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
+	msgCtx, cancel := context.WithCancel(wsc.ctx)
+	defer cancel()
+
+	_, reader, err := wsc.conn.Reader(msgCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	if ws.requestTimeout > 0 {
+		timer := time.AfterFunc(ws.requestTimeout, cancel)
+		defer timer.Stop()
+	}
+
+	return io.ReadAll(reader)
+}
+
+func busyResponse(body []byte) []byte {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+
+	var req Request
+	if dec.Decode(&req) != nil || req.ID == nil || !validID(req.ID) {
+		return serverBusyResponse
+	}
+
+	resp := errResponse(ServerBusy, nil)
+	resp.ID = req.ID
+	out, err := json.Marshal(resp)
+	if err != nil {
+		return serverBusyResponse
+	}
+
+	return out
+}
+
+func (ws *Websocket) handleMessage(wsc *websocketConn, body []byte) error {
 	if ws.gate != nil {
 		if !ws.gate.TryAcquire() {
 			ws.logServerBusy()
-			_, err := wsc.Write(serverBusyResponse)
+			_, err := wsc.Write(busyResponse(body))
 			return err
 		}
 		defer ws.gate.Release()
