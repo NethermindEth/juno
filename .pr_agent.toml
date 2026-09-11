@@ -1,0 +1,40 @@
+# PR-Agent settings for the ai-review workflow.
+#
+# The reusable workflow (NethermindEth/github-workflows) passes most settings as env
+# vars, and those win over this file for any key they both set. Only keys the workflow
+# never touches belong here.
+#
+# Both workflows pin PR_AGENT_CONFIG_BRANCH to the PR base branch, so this file is read
+# from the base branch. A change takes effect after it merges, not on the PR that makes
+# it, and `/review` on a draft gives no pre-merge test. A PR cannot weaken its own review.
+
+[config]
+patch_extra_lines_before = 12
+patch_extra_lines_after = 4
+max_extra_lines_before_dynamic_context = 24
+
+# Applies to the fallback model only: the primary is auto-selected as internal/default
+# or gemini-pro-latest, and neither is Claude. This engages after a primary failure.
+enable_claude_adaptive_thinking = true
+
+[pr_reviewer]
+# Splits a diff too large for the token budget into chunks, reviews each, and merges
+# the results. Without it, files past the budget get no review at all. This guards the
+# token budget, not latency.
+enable_large_pr_chunking = true
+max_number_of_calls = 3
+
+# Puts findings at file:line instead of collapsing them into the summary table.
+# Tradeoff: GitHub resolves only threads it marks outdated, so a finding on a line that
+# never changes stays open until someone closes it.
+inline_key_issues = true
+
+# Removes the "No major issues detected" comment on a clean PR. The gate is unaffected:
+# _prepare_pr_review() writes the review JSON to GITHUB_OUTPUT before the publish check.
+publish_output_no_suggestions = false
+
+# Names the files to read first, and rates overall risk.
+require_priority_files = true
+require_risk_assessment = true
+
+enable_review_labels_effort = false
