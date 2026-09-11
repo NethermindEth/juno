@@ -206,7 +206,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	state, closer, err := h.bcReader.HeadState()
+	state, closer, err := h.bcReader.StateAtBlockNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
