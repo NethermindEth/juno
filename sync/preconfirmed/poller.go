@@ -52,12 +52,15 @@ type DataSource interface {
 // in apply as delta / preserve / replace.
 type Poller struct {
 	dataSource         DataSource
-	preConfirmedChain  *ChainStorage
 	blockchain         *blockchain.Blockchain
-	feed               *feed.Feed[*pending.PreConfirmed]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
+	feed               *feed.Feed[*pending.PreConfirmed]
 	logger             log.StructuredLogger
+
+	preConfirmedChain *ChainStorage
+	req               chan struct{}
+	rec               chan struct{}
 }
 
 func NewPoller(
@@ -69,12 +72,15 @@ func NewPoller(
 ) *Poller {
 	return &Poller{
 		dataSource:         dataSource,
-		preConfirmedChain:  NewChainStorage(),
 		blockchain:         blockchain,
-		feed:               feed.New[*pending.PreConfirmed](),
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
+		feed:               feed.New[*pending.PreConfirmed](),
 		logger:             logger,
+
+		preConfirmedChain: NewChainStorage(),
+		req:               make(chan struct{}),
+		rec:               make(chan struct{}),
 	}
 }
 
@@ -83,6 +89,8 @@ func (p *Poller) Subscribe() Subscription {
 }
 
 func (p *Poller) PreConfirmedChain() (ChainReader, error) {
+	p.requestChainUpdate()
+
 	// note(rdr): maybe querying for the height here can be skipped, since this system
 	// should be aware what is the latest block that was stored and if it is synced (the height)
 	height, err := p.blockchain.Height()
@@ -106,6 +114,30 @@ func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 	}
 
 	return NewChain(&emptyPreConfirmed)
+}
+
+func (p *Poller) requestChainUpdate() {
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancelCtx()
+
+	select {
+	case <-ctx.Done():
+		return
+	case p.req <- struct{}{}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-p.rec:
+	}
+}
+
+func (p *Poller) processChainUpdateRequest() {
+	select {
+	case p.rec <- struct{}{}:
+	default:
+	}
 }
 
 // Run polls the sequencer every interval and builds the pre-confirmed chain from it.
@@ -132,29 +164,49 @@ func (p *Poller) Run(ctx context.Context) {
 		}
 	}
 
+	lastSuccessfulPoll := time.Now()
+	const freshness = 100 * time.Millisecond
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			height, err := p.blockchain.Height()
-			if err != nil {
-				p.logger.Error("Reading chain heigh", zap.Error(err))
-				continue
-			}
-			p.preConfirmedChain.AdvanceTo(height + 1)
-			if !p.atTip(height) {
+
+		case <-p.req:
+			if time.Since(lastSuccessfulPoll) <= freshness {
+				p.processChainUpdateRequest()
 				continue
 			}
 
-			if err := p.poll(ctx, height+1); err != nil {
+			if err := p.poll(ctx); err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				p.processChainUpdateRequest()
+				continue
 			}
+			lastSuccessfulPoll = time.Now()
+			ticker.Reset(p.interval)
+			p.processChainUpdateRequest()
+
+		case <-ticker.C:
+			if err := p.poll(ctx); err != nil {
+				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				continue
+			}
+			lastSuccessfulPoll = time.Now()
 		}
 	}
 }
 
-func (p *Poller) poll(ctx context.Context, oldestPreConf uint64) error {
+func (p *Poller) poll(ctx context.Context) error {
+	height, err := p.blockchain.Height()
+	if err != nil {
+		return fmt.Errorf("reading chain height: %w", err)
+	}
+	p.preConfirmedChain.AdvanceTo(height + 1)
+	if !p.atTip(height) {
+		return nil
+	}
+
+	oldestPreConf := height + 1
 	chain := p.preConfirmedChain.SnapshotForBlock(oldestPreConf)
 
 	var (
