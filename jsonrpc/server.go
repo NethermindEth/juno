@@ -105,6 +105,8 @@ func Err(code int, data any) *Error {
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
 	case ResponseTooLarge:
 		return &Error{Code: ResponseTooLarge, Message: "Response too large", Data: data}
+	case ServerBusy:
+		return &Error{Code: ServerBusy, Message: ErrServerBusy.Error(), Data: data}
 	default:
 		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}

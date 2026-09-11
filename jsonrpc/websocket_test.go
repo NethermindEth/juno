@@ -338,6 +338,14 @@ func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 	_, got, err := connB.Read(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t,
+		`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":2}`,
+		string(got))
+
+	require.NoError(t, connB.Write(t.Context(), websocket.MessageText,
+		[]byte(`[{"jsonrpc":"2.0","method":"test_echo","params":["hi"],"id":3}]`)))
+	_, got, err = connB.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t,
 		`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":null}`,
 		string(got))
 
