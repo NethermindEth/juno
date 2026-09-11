@@ -70,8 +70,4 @@ We value community contributions and are eager to support your involvement. Here
 - Share your thoughts on [X (Twitter)](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=Nethermind&hashtags=Starknet%2CJuno).
 - [Report bugs](https://github.com/NethermindEth/juno/issues/new) or [suggest new features](https://github.com/NethermindEth/juno/issues/new).
 
-:::tip
-If you want to contribute but are unsure where to start, ask in [Discord](https://discord.gg/SZkKcmmChJ) and we'll point you at a beginner-friendly issue.
-:::
-
 Whether it's a partnership, an idea, or a question that doesn't fit anywhere above, we'd love to hear from you at [juno@nethermind.io](mailto:juno@nethermind.io).
