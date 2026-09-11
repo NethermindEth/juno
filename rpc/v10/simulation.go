@@ -160,6 +160,15 @@ type InitialReads struct {
 	DeclaredContracts []DeclaredContractEntry `json:"declared_contracts"`
 }
 
+func emptyInitialReads() *InitialReads {
+	return &InitialReads{
+		Storage:           []StorageEntry{},
+		Nonces:            []NonceEntry{},
+		ClassHashes:       []ClassHashEntry{},
+		DeclaredContracts: []DeclaredContractEntry{},
+	}
+}
+
 type BroadcastedTransactionInputs = rpccore.LimitSlice[
 	BroadcastedTransaction,
 	rpccore.SimulationLimit,

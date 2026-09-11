@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -20,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
 )
@@ -43,8 +41,8 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache *lru.Cache[felt.Felt, TraceBlockTransactionsResponse]
-	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
+	blockTraceCache *blockTraceCache
+	// submittedTransactionsCache is a TTL membership set, unlike the coordinated block trace LRU.
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -84,11 +82,8 @@ func New(
 		preConfirmedFeed: feed.New[*pending.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: lru.New[
-			felt.Felt,
-			TraceBlockTransactionsResponse,
-		](rpccore.TraceCacheSize),
-		filterLimit: math.MaxUint,
+		blockTraceCache: newBlockTraceCache(rpccore.TraceCacheSize),
+		filterLimit:     math.MaxUint,
 	}
 }
 
