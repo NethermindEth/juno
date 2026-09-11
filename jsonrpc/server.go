@@ -615,7 +615,7 @@ func (s *Server) handleRequest(
 			s.logger.Error("Recovered from panic while handling RPC request",
 				zap.String("method", req.Method),
 				zap.Any("panic", r),
-				zap.ByteString("stack", debug.Stack()),
+				zap.String("stack", string(debug.Stack())),
 			)
 			resErr = nil
 			if req.ID == nil { // notification: the spec forbids a response either way
