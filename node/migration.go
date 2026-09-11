@@ -45,6 +45,11 @@ func migrateIfNeeded(
 	chain *blockchain.Blockchain,
 	logger log.Logger,
 ) error {
+	// A remote DB is read-only over gRPC; the node that owns it runs the migrations.
+	if config.RemoteDB != "" {
+		return nil
+	}
+
 	migrateFn := func() error {
 		// Run deprecated migrations first
 		if err := deprecated.MigrateIfNeeded(

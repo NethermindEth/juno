@@ -68,7 +68,7 @@ func (h Handler) handleTxCursor(
 
 	// open is special case: it's the only way to receive cursor id
 	if cur.Op == gen.Op_OPEN {
-		cursorID, err := tx.newCursor()
+		cursorID, err := tx.newCursor(cur.BucketName, len(cur.V) > 0)
 		if err != nil {
 			return err
 		}
@@ -95,6 +95,11 @@ func (h Handler) handleTxCursor(
 	responsePair.CursorId = cur.Cursor
 
 	switch cur.Op {
+	case gen.Op_FIRST:
+		if it.First() {
+			responsePair.K = it.Key()
+			responsePair.V, err = it.Value()
+		}
 	case gen.Op_SEEK:
 		key := slices.Concat(cur.BucketName, cur.K)
 		if it.Seek(key) {
