@@ -123,6 +123,9 @@ func runPipeline(
 	sourceErr func() error,
 ) error {
 	ingestors := pipeline.New(src, common.IngestorCount, ing)
+	// TODO: add .SetProgress("contracts", total, 0) so each sub-phase reports
+	// completion, the way the trie phase does. Needs a contract count, which
+	// means one pass over db.Contract before the pipeline starts.
 	committers := pipeline.New(ingestors, 1, common.NewCommitter(logger, sem, name))
 
 	_, wait := committers.Run(ctx)
