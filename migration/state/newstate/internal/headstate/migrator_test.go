@@ -207,3 +207,42 @@ func TestMigrate_Idempotent(t *testing.T) {
 		assert.Equal(t, s.classHash, got.ClassHash)
 	}
 }
+
+func TestMigrate_MissingHeightMidRunIsAnError(t *testing.T) {
+	memDB := memory.New()
+	t.Cleanup(func() { memDB.Close() })
+
+	seeds := []contractData{
+		{
+			addr:      felt.FromUint64[felt.Felt](10),
+			classHash: felt.FromUint64[felt.Felt](110),
+			nonce:     felt.FromUint64[felt.Felt](11),
+			height:    100,
+		},
+		{
+			addr:      felt.FromUint64[felt.Felt](30),
+			classHash: felt.FromUint64[felt.Felt](130),
+			nonce:     felt.FromUint64[felt.Felt](33),
+			height:    300,
+		},
+	}
+	seedDeprecated(t, memDB, seeds)
+
+	gap := felt.FromUint64[felt.Felt](20)
+	gapClassHash := felt.FromUint64[felt.Felt](120)
+	require.NoError(t, core.WriteContractClassHash(memDB, &gap, &gapClassHash))
+
+	_, err := headstate.Migrator{}.Migrate(
+		context.Background(),
+		memDB,
+		&networks.Sepolia,
+		log.NewNopZapLogger(),
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deployment height")
+
+	got, err := state.GetContract(memDB, &gap)
+	if err == nil {
+		assert.NotEqual(t, uint64(300), got.DeployedHeight, "must not inherit the next contract's height")
+	}
+}
