@@ -556,8 +556,11 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
+	// Once for the tick and once for reading the chain: the failed tick leaves the chain
+	// outdated, so the read asks for a new poll, which fails the same way.
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, uint64(0), errors.New("wire boom"))
+		Return(nil, uint64(0), errors.New("wire boom")).
+		Times(2)
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
@@ -584,6 +587,15 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
 	gomock.InOrder(
+		// Tick 1.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("backfill boom")),
+		// Reading the chain: the failed tick leaves it outdated, so the read asks for a new
+		// poll, which fails the same way.
 		ds.EXPECT().
 			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(latestReply, uint64(3), nil),
