@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 )
 
 type benchItem struct {
@@ -20,7 +20,7 @@ func newBenchLazySlice(tb testing.TB) indexed.LazySlice[benchItem] {
 	indexes := make([]int, 0, benchItemsCount)
 	var data []byte
 	for i := range benchItemsCount {
-		encoded, err := encoder.Marshal(benchItem{
+		encoded, err := cbor.Marshal(benchItem{
 			Hash:  [4]uint64{uint64(i), uint64(i + 1), uint64(i + 2), uint64(i + 3)},
 			Nonce: uint64(i),
 			Extra: uint64(i * 2),

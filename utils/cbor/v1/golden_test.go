@@ -1,4 +1,4 @@
-package encoder_test
+package cbor_test
 
 import (
 	"encoding/hex"
@@ -12,9 +12,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/encoder"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/l1/eth"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -70,7 +70,7 @@ func goldenCases() []struct {
 			felt.FromUint64[felt.Felt](8),
 		}},
 		{"felt.Slice nil", felt.Slice[felt.Felt](nil)},
-		{"encoder.RawMessage", encoder.RawMessage{0x83, 0x01, 0x02, 0x03}},
+		{"cbor.RawMessage", cbor.RawMessage{0x83, 0x01, 0x02, 0x03}},
 		{"DeclaredClassDefinition, a Sierra class", populatedDeclaredClassDefinition()},
 		{"Header, populated", populatedHeader()},
 		{"InvokeTransaction, populated", populatedInvokeTransaction()},
@@ -183,7 +183,7 @@ func TestGoldenBytes(t *testing.T) {
 
 	for _, c := range goldenCases() {
 		t.Run(c.name, func(t *testing.T) {
-			b, err := encoder.Marshal(c.value)
+			b, err := cbor.Marshal(c.value)
 			require.NoError(t, err)
 
 			want, ok := golden[c.name]
@@ -194,7 +194,7 @@ func TestGoldenBytes(t *testing.T) {
 			require.NoError(t, err)
 
 			back := reflect.New(reflect.TypeOf(c.value))
-			require.NoError(t, encoder.Unmarshal(stored, back.Interface()))
+			require.NoError(t, cbor.Unmarshal(stored, back.Interface()))
 			require.Equal(t, c.value, back.Elem().Interface())
 		})
 	}

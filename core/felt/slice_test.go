@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,7 +55,7 @@ func requireSliceDecodeCBOREquivalent[F felt.FeltLike](t *testing.T, data []byte
 	errFast := fast.UnmarshalCBOR(data)
 
 	var generic []F
-	errGeneric := encoder.Unmarshal(data, &generic)
+	errGeneric := cbor.Unmarshal(data, &generic)
 
 	if errGeneric != nil {
 		require.Equal(
@@ -109,7 +109,7 @@ func TestSliceRoundTripCBORBoundarySizes(t *testing.T) {
 
 			fast, err := s.MarshalCBOR()
 			require.NoError(t, err)
-			generic, err := encoder.Marshal([]felt.Felt(s))
+			generic, err := cbor.Marshal([]felt.Felt(s))
 			require.NoError(t, err)
 			require.Equal(
 				t,
@@ -132,7 +132,7 @@ func TestSliceMarshalCBORNil(t *testing.T) {
 
 	fast, err := s.MarshalCBOR()
 	require.NoError(t, err)
-	generic, err := encoder.Marshal([]felt.Felt(s))
+	generic, err := cbor.Marshal([]felt.Felt(s))
 	require.NoError(t, err)
 	require.Equal(t, generic, fast, "nil slice must marshal like the generic encoder")
 

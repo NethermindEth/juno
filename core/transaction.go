@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/bits-and-blooms/bloom/v3"
 	"golang.org/x/crypto/sha3"
 )
@@ -197,8 +197,8 @@ func (v *TransactionVersion) AsFelt() *felt.Felt {
 }
 
 var (
-	_ encoder.SelfEncoder = (*TransactionVersion)(nil)
-	_ encoder.SelfDecoder = (*TransactionVersion)(nil)
+	_ cbor.SelfEncoder = (*TransactionVersion)(nil)
+	_ cbor.SelfDecoder = (*TransactionVersion)(nil)
 )
 
 func (v *TransactionVersion) MarshalCBOR() ([]byte, error) {
