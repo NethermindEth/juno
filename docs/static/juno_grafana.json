@@ -2051,7 +2051,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rpc_http_active_requests{job=\"juno\"}",
+          "expr": "rpc_gate_active_requests{job=\"juno\"}",
           "instant": false,
           "legendFormat": "active",
           "range": true,
@@ -2063,7 +2063,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rpc_http_queued_requests{job=\"juno\"}",
+          "expr": "rpc_gate_queued_requests{job=\"juno\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "queued",
@@ -2164,7 +2164,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(rpc_http_rejected_requests{job=\"juno\"}[$__rate_interval])",
+          "expr": "rate(rpc_gate_rejected_requests{job=\"juno\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "rejected",
           "range": true,

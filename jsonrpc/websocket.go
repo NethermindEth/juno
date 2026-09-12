@@ -1,7 +1,9 @@
 package jsonrpc
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -20,26 +22,43 @@ const (
 	maxConns            = 2048 // TODO: an arbitrary default number, should be revisited after monitoring
 )
 
+var serverBusyResponse = func() []byte {
+	b, err := json.Marshal(&response{
+		Version: "2.0",
+		Error:   &Error{Code: ServerBusy, Message: ErrServerBusy.Error()},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return b
+}()
+
 type Websocket struct {
-	rpc            *Server
-	logger         log.StructuredLogger
+	rpc    *Server
+	logger log.StructuredLogger
+	// For logging busy warnings without flooding
+	sampledLogger  log.StructuredLogger
 	connParams     *WebsocketConnParams
 	listener       NewRequestListener
 	shutdown       <-chan struct{}
 	requestTimeout time.Duration
+	gate           *Gate
 
 	// Add connection tracking
 	connSem *semaphore.Weighted
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, logger log.StructuredLogger) *Websocket {
+	const busyLogInterval = time.Second
+
 	ws := &Websocket{
-		rpc:        rpc,
-		logger:     logger,
-		connParams: DefaultWebsocketConnParams(),
-		listener:   &SelectiveListener{},
-		shutdown:   shutdown,
-		connSem:    semaphore.NewWeighted(maxConns),
+		rpc:           rpc,
+		logger:        logger,
+		sampledLogger: log.Sampled(logger, busyLogInterval, 1, 0),
+		connParams:    DefaultWebsocketConnParams(),
+		listener:      &SelectiveListener{},
+		shutdown:      shutdown,
+		connSem:       semaphore.NewWeighted(maxConns),
 	}
 
 	return ws
@@ -59,6 +78,12 @@ func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 
 func (ws *Websocket) WithRequestTimeout(d time.Duration) *Websocket {
 	ws.requestTimeout = d
+	return ws
+}
+
+// WithGate registers a gate
+func (ws *Websocket) WithGate(g *Gate) *Websocket {
+	ws.gate = g
 	return ws
 }
 
@@ -111,16 +136,14 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wsc := newWebsocketConn(ctx, conn, ws.connParams)
 
 	for {
-		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
-		if err != nil {
+		var body []byte
+		if body, err = ws.readMessage(wsc); err != nil {
 			break
 		}
+		wsc.r = bytes.NewReader(body)
+
 		ws.listener.OnNewRequest("any")
-		if err = ws.rpc.HandleReadWriter(wsc.ctx, ws.requestTimeout, wsc); err != nil {
-			break
-		}
-		// From websocket docs: "Read to EOF otherwise connection will hang."
-		if _, err = io.Copy(io.Discard, wsc.r); err != nil {
+		if err = ws.handleMessage(wsc, body); err != nil {
 			break
 		}
 	}
@@ -144,6 +167,67 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ws.logger.Error("Failed to close websocket connection", zap.String("err", errString))
 		}
 	}
+}
+
+func (ws *Websocket) logServerBusy() {
+	ws.sampledLogger.Warn("Rejected websocket RPC request: server is busy",
+		zap.Int("running", ws.gate.Running()),
+		zap.Int("queued", ws.gate.Queued()),
+		zap.Uint64("rejected", ws.gate.Rejected()),
+	)
+}
+
+// readMessage waits for the next message and reads it whole
+//
+// ReadAll satisfies the websocket docs' "Read to EOF otherwise
+// connection will hang"
+func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
+	msgCtx, cancel := context.WithCancel(wsc.ctx)
+	defer cancel()
+
+	_, reader, err := wsc.conn.Reader(msgCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	if ws.requestTimeout > 0 {
+		timer := time.AfterFunc(ws.requestTimeout, cancel)
+		defer timer.Stop()
+	}
+
+	return io.ReadAll(reader)
+}
+
+func busyResponse(body []byte) []byte {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+
+	var req Request
+	if dec.Decode(&req) != nil || req.ID == nil || !validID(req.ID) {
+		return serverBusyResponse
+	}
+
+	resp := errResponse(ServerBusy, nil)
+	resp.ID = req.ID
+	out, err := json.Marshal(resp)
+	if err != nil {
+		return serverBusyResponse
+	}
+
+	return out
+}
+
+func (ws *Websocket) handleMessage(wsc *websocketConn, body []byte) error {
+	if ws.gate != nil {
+		if !ws.gate.TryAcquire() {
+			ws.logServerBusy()
+			_, err := wsc.Write(busyResponse(body))
+			return err
+		}
+		defer ws.gate.Release()
+	}
+
+	return ws.rpc.HandleReadWriter(wsc.ctx, ws.requestTimeout, wsc)
 }
 
 type WebsocketConnParams struct {

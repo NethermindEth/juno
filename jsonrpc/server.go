@@ -31,6 +31,9 @@ const (
 	// ResponseTooLarge marks a call that was not executed because the batch had
 	// already reached its response size limit.
 	ResponseTooLarge = -32003
+	// ServerBusy marks a request that was not executed because the server had no
+	// free capacity
+	ServerBusy = -32004
 )
 
 var (
@@ -102,6 +105,8 @@ func Err(code int, data any) *Error {
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
 	case ResponseTooLarge:
 		return &Error{Code: ResponseTooLarge, Message: "Response too large", Data: data}
+	case ServerBusy:
+		return &Error{Code: ServerBusy, Message: ErrServerBusy.Error(), Data: data}
 	default:
 		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}
