@@ -494,3 +494,46 @@ func TestSanitizeString(t *testing.T) {
 		})
 	}
 }
+
+func TestFormattedMethods(t *testing.T) {
+	// Regression test: Infof/Errorf/Fatalf must spread args into the format call
+	// (args... not args) and log at their own level.
+	newLogger := func(t *testing.T) (*log.ZapLogger, *observer.ObservedLogs) {
+		t.Helper()
+		core, logs := observer.New(zapcore.DebugLevel)
+		return log.NewZapLoggerWithCore(core), logs
+	}
+
+	t.Run("Infof formats args at info level", func(t *testing.T) {
+		logger, logs := newLogger(t)
+		logger.Infof("block %d took %s", 42, "3ms")
+
+		require.Equal(t, 1, logs.Len())
+		entry := logs.All()[0]
+		assert.Equal(t, zapcore.InfoLevel, entry.Level)
+		assert.Equal(t, "block 42 took 3ms", entry.Message)
+	})
+
+	t.Run("Errorf formats args at error level", func(t *testing.T) {
+		logger, logs := newLogger(t)
+		logger.Errorf("failed %s: %v", "op", fmt.Errorf("boom"))
+
+		require.Equal(t, 1, logs.Len())
+		entry := logs.All()[0]
+		assert.Equal(t, zapcore.ErrorLevel, entry.Level)
+		assert.Equal(t, "failed op: boom", entry.Message)
+	})
+
+	t.Run("Fatalf formats args at fatal level", func(t *testing.T) {
+		logger, logs := newLogger(t)
+		// Replace os.Exit with a panic so the test survives.
+		logger = logger.WithOptions(zap.WithFatalHook(zapcore.WriteThenPanic))
+
+		assert.Panics(t, func() { logger.Fatalf("fatal %d %s", 1, "x") })
+
+		require.Equal(t, 1, logs.Len())
+		entry := logs.All()[0]
+		assert.Equal(t, zapcore.FatalLevel, entry.Level)
+		assert.Equal(t, "fatal 1 x", entry.Message)
+	})
+}
