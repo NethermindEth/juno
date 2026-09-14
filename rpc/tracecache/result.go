@@ -33,7 +33,7 @@ func FromVM(
 	if initialReads && result.InitialReads == nil {
 		return nil, errors.New("VM omitted initial reads for block trace")
 	}
-	block := &BlockTrace{Traces: make([]TransactionTrace, len(transactions))}
+	block := &BlockTrace{Complete: true, Traces: make([]TransactionTrace, len(transactions))}
 	for i := range transactions {
 		block.Traces[i] = TransactionTrace{
 			Hash:    *transactions[i].Hash(),
@@ -66,7 +66,7 @@ func FromFeeder(
 			gas[*receipt.TransactionHash] = receipt.ExecutionResources.TotalGasConsumed
 		}
 	}
-	block := &BlockTrace{Source: Feeder, Traces: make([]TransactionTrace, len(kinds))}
+	block := &BlockTrace{Complete: true, Source: Feeder, Traces: make([]TransactionTrace, len(kinds))}
 	for i, kind := range kinds {
 		sourceTrace := &source.Traces[i]
 		block.Traces[i] = TransactionTrace{
