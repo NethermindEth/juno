@@ -9,20 +9,28 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-// FromVM retains the trace data needed for adaptation, without execution metrics.
-func FromVM(transactions []core.Transaction, result *vm.ExecutionResults, initialReads bool) (*BlockTrace, error) {
+// FromVM retains traces and gas. Requested initial reads must be non-nil, even for empty blocks.
+func FromVM(
+	transactions []core.Transaction,
+	result *vm.ExecutionResults,
+	initialReads bool,
+) (*BlockTrace, error) {
 	if len(result.Traces) != len(transactions) {
 		return nil, errors.New("VM returned an unexpected number of transaction traces")
 	}
 	if len(result.GasConsumed) != len(result.Traces) {
 		return nil, errors.New("VM returned an unexpected number of gas results")
 	}
-	if initialReads && len(transactions) > 0 && result.InitialReads == nil {
+	if initialReads && result.InitialReads == nil {
 		return nil, errors.New("VM omitted initial reads for block trace")
 	}
 	block := &BlockTrace{Traces: make([]TransactionTrace, len(transactions))}
 	for i := range transactions {
-		block.Traces[i] = TransactionTrace{Hash: *transactions[i].Hash(), vmTrace: &result.Traces[i], Gas: result.GasConsumed[i]}
+		block.Traces[i] = TransactionTrace{
+			Hash:    *transactions[i].Hash(),
+			vmTrace: &result.Traces[i],
+			Gas:     result.GasConsumed[i],
+		}
 	}
 	if initialReads {
 		block.InitialReads = result.InitialReads
@@ -31,7 +39,11 @@ func FromVM(transactions []core.Transaction, result *vm.ExecutionResults, initia
 }
 
 // FromFeeder pairs source traces with supplied types and receipt gas.
-func FromFeeder(kinds []vm.TransactionType, receipts []*core.TransactionReceipt, source *starknet.BlockTrace) (*BlockTrace, error) {
+func FromFeeder(
+	kinds []vm.TransactionType,
+	receipts []*core.TransactionReceipt,
+	source *starknet.BlockTrace,
+) (*BlockTrace, error) {
 	if len(kinds) != len(source.Traces) {
 		return nil, errors.New("mismatched number of txs and traces")
 	}

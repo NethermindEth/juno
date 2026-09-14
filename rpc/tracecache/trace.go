@@ -14,10 +14,12 @@ const (
 	Feeder
 )
 
+const DefaultBlockCapacity = 256
+
 // TransactionTrace holds one source trace and its RPC adaptation metadata.
 type TransactionTrace struct {
 	Hash felt.Felt
-	Type vm.TransactionType
+	Type vm.TransactionType // Set by FromFeeder; VM traces carry their own type.
 	Gas  core.GasConsumed
 
 	vmTrace     *vm.TransactionTrace
@@ -32,8 +34,7 @@ func (t *TransactionTrace) FeederTrace() *starknet.TransactionTrace {
 	return t.feederTrace
 }
 
-// BlockTrace holds version-neutral traces in block order. Once published,
-// all slices and referenced data are read-only, including for adapters.
+// BlockTrace holds version-neutral traces in block order; published data is read-only.
 // InitialReads is nil when uncollected or unavailable (Feeder).
 type BlockTrace struct {
 	Source       Source
@@ -41,10 +42,7 @@ type BlockTrace struct {
 	InitialReads *vm.InitialReads
 }
 
-// DefaultCapacity is the number of finalized blocks retained across RPC versions.
-const DefaultCapacity = 256
-
-// Covers checks block coverage and requested reads; adapters handle unavailable feeder reads.
+// Covers checks requested read coverage, allowing unavailable feeder reads.
 func (b *BlockTrace) Covers(initialReads bool) bool {
 	return !initialReads || b.InitialReads != nil || b.Source == Feeder
 }
