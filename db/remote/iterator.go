@@ -51,6 +51,12 @@ func (i *iterator) Key() []byte {
 	return i.currentK
 }
 
+// DO NOT USE this if you don't parse the key immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedKey() []byte {
+	return i.currentK
+}
+
 func (i *iterator) Value() ([]byte, error) {
 	return slices.Clone(i.currentV), nil
 }
