@@ -92,7 +92,7 @@ func migrateAddresses(
 	ingestorPipeline := pipeline.New(
 		source,
 		common.IngestorCount,
-		newIngestor(ctx, batchSemaphore, database),
+		newIngestor(batchSemaphore, database),
 	)
 
 	committerPipeline := pipeline.New(

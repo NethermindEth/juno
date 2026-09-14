@@ -1,13 +1,10 @@
 package history
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
@@ -15,16 +12,19 @@ import (
 
 type nonceIngestor struct {
 	common.BaseIngestor
+	scratches []historyScratch
 }
 
 var _ pipeline.State[felt.Address, common.Task] = (*nonceIngestor)(nil)
 
 func newNonceIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *nonceIngestor {
-	return &nonceIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
+	return &nonceIngestor{
+		BaseIngestor: common.NewBaseIngestor(sem, database),
+		scratches:    make([]historyScratch, common.IngestorCount),
+	}
 }
 
 // Run migrates the nonce history of a single contract.
@@ -49,56 +49,61 @@ func newNonceIngestor(
 // are deleted at the end of the run.
 func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
 	addrFelt := (*felt.Felt)(&addr)
+	task := &i.Tasks[index]
+	scratch := &i.scratches[index]
 
-	curTask := &i.Tasks[index]
-	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addrFelt)
-
-	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
+	prefix := fillAddressKey(scratch.deprecatedPrefix[:], db.DeprecatedContractNonceHistory, &addr)
+	depIt, err := i.Database.NewIterator(prefix, true)
 	if err != nil {
-		return fmt.Errorf("nonce: open deprecated iter(%s): %w", addrFelt, err)
+		return fmt.Errorf("opening deprecated nonce history of %s: %w", addrFelt.String(), err)
 	}
 	defer depIt.Close()
 	if !depIt.First() {
 		return nil
 	}
 
-	contract, err := state.GetContract(i.Database, addrFelt)
+	contractKey := fillAddressKey(scratch.contractKey[:], db.Contract, &addr)
+	headNonce, err := readHeadNonce(i.Database, contractKey)
 	if err != nil {
-		return fmt.Errorf("nonce: GetContract(%s): %w", addrFelt, err)
+		return fmt.Errorf("reading contract record of %s: %w", addrFelt.String(), err)
 	}
 
-	for {
-		block, err := parseBlockKey(depIt.Key(), deprecatedPrefix)
+	// key trails one deprecated row behind the iterator: it names the block
+	// whose post-value the row being read supplies.
+	key := scratch.key[:blockKeyLen]
+	if err := fillHistoryKeyFrom(key, db.ContractNonceHistory, depIt.UncopiedKey()); err != nil {
+		return fmt.Errorf("%s: %w", addrFelt.String(), err)
+	}
+
+	for depIt.Next() {
+		// This row's stored pre-value is the nonce in effect after the block
+		// key names, and needs no decoding to move.
+		value, err := depIt.UncopiedValue()
 		if err != nil {
-			return fmt.Errorf("nonce(%s): %w", addrFelt, err)
+			return fmt.Errorf("reading deprecated nonce of %s: %w", addrFelt.String(), err)
 		}
-		hasNext := depIt.Next()
-		historyValue := contract.Nonce
-		if hasNext {
-			rawValue, err := depIt.Value()
-			if err != nil {
-				return fmt.Errorf("nonce(%s): %w", addrFelt, err)
-			}
-			historyValue = felt.FromBytes[felt.Felt](rawValue)
-		}
-		err = state.WriteNonceHistory(curTask.Batch, addrFelt, block, &historyValue)
-		if err != nil {
+		if err := task.Batch.Put(key, value); err != nil {
 			return err
 		}
-		curTask.EntryCount++
-		if err := i.Flush(curTask, outputs); err != nil {
+
+		if err := fillHistoryKeyFrom(key, db.ContractNonceHistory, depIt.UncopiedKey()); err != nil {
+			return fmt.Errorf("%s: %w", addrFelt.String(), err)
+		}
+		task.EntryCount++
+		if err := i.Flush(task, outputs); err != nil {
 			return err
 		}
-		if !hasNext {
-			break
-		}
 	}
 
-	err = curTask.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix))
-	if err != nil {
-		return fmt.Errorf("nonce: DeleteRange deprecated(%s): %w", addrFelt, err)
+	// The last entry's value is the head nonce, which the history never stored.
+	if err := task.Batch.Put(key, headNonce[:]); err != nil {
+		return err
+	}
+	task.EntryCount++
+	if err := i.Flush(task, outputs); err != nil {
+		return err
 	}
 
-	curTask.CompletedAddrs++
+	task.CompletedAddrs++
 	return nil
 }
