@@ -122,7 +122,11 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 		return nil, httpHeader, rpccore.ErrTxnHashNotFound
 	}
 
-	traceResults, header, traceBlockErr := h.traceBlockTransactions(ctx, block)
+	var target *tracecache.TransactionTarget
+	if !isPendingBlock {
+		target = &tracecache.TransactionTarget{Index: uint64(txIndex), Hash: &hash}
+	}
+	traceResults, header, traceBlockErr := h.traceBlockTransactions(ctx, block, target)
 	if traceBlockErr != nil {
 		return nil, header, traceBlockErr
 	}
@@ -140,7 +144,7 @@ func (h *Handler) TraceBlockTransactions(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	traces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block)
+	traces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block, nil)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
@@ -148,17 +152,31 @@ func (h *Handler) TraceBlockTransactions(
 }
 
 // traceBlockTransactions caches local or feeder traces; pending blocks bypass the cache.
+//
+//nolint:gocyclo // Preserve v8 pending/finalized orchestration and error ordering in one place.
 func (h *Handler) traceBlockTransactions(
-	ctx context.Context, block *core.Block,
+	ctx context.Context, block *core.Block, target *tracecache.TransactionTarget,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 	var lease *tracecache.Lease[felt.Felt, *tracecache.BlockTrace]
+	var cached *tracecache.BlockTrace
+	var plan *tracecache.Range
 	if !isPending {
-		cached, acquiredLease, err := h.blockTraceCache.Acquire(ctx, block.Hash)
+		previous, acquiredLease, err := h.blockTraceCache.AcquireWithCondition(
+			ctx,
+			block.Hash,
+			func(b *tracecache.BlockTrace) bool {
+				return b.CoversTarget(target, false)
+			},
+		)
+		cached = previous
 		if err != nil {
 			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
 		if acquiredLease == nil {
+			if cached.ValidateTarget(target) != nil {
+				return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+			}
 			return cached, defaultExecutionHeader(), nil
 		}
 		lease = acquiredLease
@@ -186,26 +204,47 @@ func (h *Handler) traceBlockTransactions(
 			if err != nil {
 				return nil, defaultExecutionHeader(), err
 			}
+			if traces.ValidateTarget(target) != nil {
+				return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+			}
 			lease.Publish(traces)
 			return traces, defaultExecutionHeader(), nil
 		}
 	}
 
-	traces, httpHeader, rpcErr := h.traceBlockTransactionWithVM(block)
+	if !isPending {
+		var planErr error
+		plan, planErr = tracecache.PlanRange(cached, block.Transactions, target, false)
+		if planErr != nil {
+			if errors.Is(planErr, tracecache.ErrTargetNotFound) {
+				return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+			}
+			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(planErr.Error())
+		}
+	}
+	traces, httpHeader, rpcErr := h.traceBlockTransactionWithVM(block, plan)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
 	if lease != nil {
-		traces.Complete = true
+		combined, combineErr := plan.Combine(traces)
+		if combineErr != nil {
+			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(combineErr.Error())
+		}
+		traces = combined
 		lease.Publish(traces)
 	}
 	return traces, httpHeader, nil
 }
 
-func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
+func (h *Handler) traceBlockTransactionWithVM(block *core.Block, plan *tracecache.Range) (
 	*tracecache.BlockTrace, http.Header, *jsonrpc.Error,
 ) {
 	httpHeader := defaultExecutionHeader()
+	transactions := block.Transactions
+	if plan != nil {
+		transactions = transactions[plan.Start:plan.End]
+	}
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrBlockNotFound
@@ -223,10 +262,17 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
+	if plan != nil {
+		state, err = plan.ResumeState(state, headState, block.Number)
+		if err != nil {
+			return nil, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+	}
+
 	var classes []core.ClassDefinition
 	paidFeesOnL1 := []*felt.Felt{}
 
-	for _, transaction := range block.Transactions {
+	for _, transaction := range transactions {
 		switch tx := transaction.(type) {
 		case *core.DeclareTransaction:
 			class, stateErr := headState.Class(tx.ClassHash)
@@ -251,9 +297,12 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResult, err := h.vm.Trace(block.Transactions, classes, paidFeesOnL1,
+	executionResult, err := h.vm.Trace(transactions, classes, paidFeesOnL1,
 		&blockInfo, state, vm.TraceOptions{})
 
+	if plan != nil {
+		err = tracecache.OffsetExecutionError(err, plan.Start)
+	}
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if err != nil {
@@ -265,7 +314,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result, packErr := tracecache.FromVM(block.Transactions, &executionResult, false)
+	result, packErr := tracecache.FromVM(transactions, &executionResult, false)
 	if packErr != nil {
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(packErr.Error())
 	}
