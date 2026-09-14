@@ -15,13 +15,14 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
 func TestServer_RegisterMethod(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	tests := map[string]struct {
 		handler    any
 		paramNames []jsonrpc.Parameter
@@ -199,7 +200,7 @@ func TestHandle(t *testing.T) {
 	}
 
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
 		WithValidator(validator.New()).
 		WithListener(&listener)
 	require.NoError(t, server.RegisterMethods(methods...))
@@ -577,7 +578,7 @@ func TestHandle(t *testing.T) {
 }
 
 func TestServerWithDisabledBatchRequests(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 
 	err := server.RegisterMethods(
 		jsonrpc.Method{
@@ -642,7 +643,7 @@ var benchHandleR http.Header
 
 func BenchmarkHandle(b *testing.B) {
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
 		WithValidator(validator.New()).
 		WithListener(&listener)
 	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
@@ -665,7 +666,7 @@ func BenchmarkHandle(b *testing.B) {
 // BenchmarkHandleLargeRequest measures large bodies (up to the 10MB request
 // limit), where the TeeReader copy scales with the input size.
 func BenchmarkHandleLargeRequest(b *testing.B) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger()).WithValidator(validator.New())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).WithValidator(validator.New())
 	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
 		Name:    "echo",
 		Params:  []jsonrpc.Parameter{{Name: "data"}},
@@ -694,7 +695,7 @@ func BenchmarkHandleLargeRequest(b *testing.B) {
 }
 
 func TestCannotWriteToConnInHandler(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 		Name: "test",
 		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
@@ -728,7 +729,7 @@ func (fc *fakeConn) Context() context.Context {
 
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -765,7 +766,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 }
 
 func TestWriteToClosedConnInHandler(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	wg := conc.NewWaitGroup()
 	t.Cleanup(wg.Wait)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -876,7 +877,7 @@ func write(t *testing.T, c io.Writer, data string) {
 func TestBatchElementLimit(t *testing.T) {
 	newServer := func(t *testing.T, limit int) (*jsonrpc.Server, *atomic.Int64) {
 		var calls atomic.Int64
-		server := jsonrpc.NewServer(8, log.NewNopZapLogger()).WithMaxBatchElements(limit)
+		server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(8), log.NewNopZapLogger()).WithMaxBatchElements(limit)
 		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 			Name: "count",
 			Handler: func() (int, *jsonrpc.Error) {
@@ -938,7 +939,7 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 	const payload = 512
 
 	newServer := func(t *testing.T, workers, limit int) *jsonrpc.Server {
-		server := jsonrpc.NewServer(workers, log.NewNopZapLogger()).
+		server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(workers), log.NewNopZapLogger()).
 			WithMaxBatchElements(0).
 			WithMaxBatchResponseBytes(limit)
 		require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -1053,7 +1054,7 @@ func TestBatchResponseSizeLimit(t *testing.T) {
 }
 
 func TestBatchArrayIsByteIdenticalToJSONMarshal(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 		Name:    "echo",
 		Params:  []jsonrpc.Parameter{{Name: "data"}},

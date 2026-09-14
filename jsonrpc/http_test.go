@@ -15,6 +15,7 @@ import (
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -31,7 +32,7 @@ func TestHTTP(t *testing.T) {
 	}
 	listener := CountingEventListener{}
 	logger := log.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, logger).WithListener(&listener)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger).WithListener(&listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
@@ -111,7 +112,7 @@ func TestHTTPRequestGate(t *testing.T) {
 	}
 	core, logs := observer.New(zapcore.WarnLevel)
 	logger := log.NewZapLoggerWithCore(core)
-	rpc := jsonrpc.NewServer(1, logger)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Gate with a single slot and no queue: one request runs, the next is rejected.
@@ -185,7 +186,7 @@ func TestHTTPRequestGateTimeout(t *testing.T) {
 		},
 	}
 	logger := log.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, logger)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// One slot plus one queue slot: the first request runs, the second queues (instead
@@ -251,7 +252,7 @@ func TestGzipResponse(t *testing.T) {
 		Params: []jsonrpc.Parameter{{Name: "msg"}},
 	}
 	logger := log.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, logger)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, logger))
@@ -274,7 +275,7 @@ func TestGzipResponse(t *testing.T) {
 
 func TestContentLength(t *testing.T) {
 	logger := log.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, logger)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
 		Name:    "echo",
 		Params:  []jsonrpc.Parameter{{Name: "msg"}},
@@ -312,7 +313,7 @@ func TestContentLength(t *testing.T) {
 
 func TestGzipResponseReusesWriter(t *testing.T) {
 	logger := log.NewNopZapLogger()
-	rpc := jsonrpc.NewServer(1, logger)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
 		Name:    "echo",
 		Params:  []jsonrpc.Parameter{{Name: "msg"}},
