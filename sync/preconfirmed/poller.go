@@ -117,7 +117,7 @@ func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 }
 
 func (p *Poller) requestChainUpdate() {
-	ctx, cancelCtx := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelCtx()
 
 	select {
@@ -133,8 +133,9 @@ func (p *Poller) requestChainUpdate() {
 	}
 }
 
-func (p *Poller) processChainUpdateRequest() {
+func (p *Poller) processChainUpdateRequest(ctx context.Context) {
 	select {
+	case <-ctx.Done():
 	case p.rec <- struct{}{}:
 	default:
 	}
@@ -173,18 +174,18 @@ func (p *Poller) Run(ctx context.Context) {
 
 		case <-p.req:
 			if time.Since(lastSuccessfulPoll) <= freshness {
-				p.processChainUpdateRequest()
+				p.processChainUpdateRequest(ctx)
 				continue
 			}
 
 			if err := p.poll(ctx); err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
-				p.processChainUpdateRequest()
+				p.processChainUpdateRequest(ctx)
 				continue
 			}
 			lastSuccessfulPoll = time.Now()
 			ticker.Reset(p.interval)
-			p.processChainUpdateRequest()
+			p.processChainUpdateRequest(ctx)
 
 		case <-ticker.C:
 			if err := p.poll(ctx); err != nil {
