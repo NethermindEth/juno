@@ -1,4 +1,4 @@
-package headstate
+package common
 
 import (
 	"math"
@@ -20,8 +20,8 @@ func TestCounter_DoesNotLogBeforeTimeLogRate(t *testing.T) {
 	core, recorded := observer.New(zapcore.InfoLevel)
 	logger := log.NewZapLoggerWithCore(core)
 
-	c := newCounter(logger, time.Hour)
-	c.log(uint64(db.Megabyte), 5)
+	c := NewCounter(logger, time.Hour, "")
+	c.Log(uint64(db.Megabyte), 5, 0)
 
 	assert.Zero(t, recorded.Len())
 }
@@ -30,7 +30,7 @@ func TestCounter_LogRoundsMBAndAttributesCaller(t *testing.T) {
 	core, recorded := observer.New(zapcore.InfoLevel)
 	logger := log.NewZapLoggerWithCore(core)
 
-	c := newCounter(logger, time.Millisecond)
+	c := NewCounter(logger, time.Millisecond, "")
 	// Force elapsed > timeLogRate without sleeping.
 	c.start = time.Now().Add(-time.Second)
 
@@ -38,7 +38,7 @@ func TestCounter_LogRoundsMBAndAttributesCaller(t *testing.T) {
 	c.size = bytes
 	c.completedAddrs = 4242
 
-	c.log(0, 0)
+	c.Log(0, 0, 0)
 
 	require.Equal(t, 1, recorded.Len())
 	entry := recorded.All()[0]
@@ -48,7 +48,7 @@ func TestCounter_LogRoundsMBAndAttributesCaller(t *testing.T) {
 
 	require.True(t, entry.Caller.Defined, "caller must be captured")
 	assert.Equal(t, "counter_test.go", filepath.Base(entry.Caller.File),
-		"log must be attributed to caller of counter.log, not counter.go itself")
+		"log must be attributed to caller of Counter.Log, not counter.go itself")
 
 	mb := fields["MB"].(float64)
 	mbPerS := fields["MB/s"].(float64)
@@ -61,6 +61,22 @@ func TestCounter_LogRoundsMBAndAttributesCaller(t *testing.T) {
 	assertTwoDecimalsOrFewer(t, "MB/s", mbPerS)
 
 	assert.Equal(t, uint64(4242), fields["completedContracts"])
+
+	_, hasPhase := fields["phase"]
+	assert.False(t, hasPhase, "empty phaseName must be omitted from the log entry")
+}
+
+func TestCounter_LogIncludesPhaseWhenSet(t *testing.T) {
+	core, recorded := observer.New(zapcore.InfoLevel)
+	logger := log.NewZapLoggerWithCore(core)
+
+	c := NewCounter(logger, time.Millisecond, "class-hash")
+	c.start = time.Now().Add(-time.Second)
+	c.Log(0, 0, 0)
+
+	require.Equal(t, 1, recorded.Len())
+	fields := recorded.All()[0].ContextMap()
+	assert.Equal(t, "class-hash", fields["phase"])
 }
 
 func assertTwoDecimalsOrFewer(t *testing.T, name string, v float64) {
