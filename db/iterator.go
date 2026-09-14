@@ -30,6 +30,15 @@ type Iterator interface {
 	// Value returns the value at the current position.
 	Value() ([]byte, error)
 
+	// DO NOT USE this unless the key is consumed immediately.
+	//
+	// UncopiedKey returns the key at the current position without copying it.
+	// The returned slice is invalidated by the next call to [Next], [Prev], or [Seek].
+	// Callers must copy the key if it needs to outlive the current iteration.
+	//
+	// This is intended for immediate parsing to avoid an extra allocation.
+	UncopiedKey() []byte
+
 	// DO NOT USE this unless the value is consumed immediately.
 	//
 	// UncopiedValue returns the value at the current position without copying it.

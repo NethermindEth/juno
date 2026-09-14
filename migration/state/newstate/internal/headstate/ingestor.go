@@ -1,7 +1,6 @@
 package headstate
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -21,11 +20,10 @@ type ingestor struct {
 var _ pipeline.State[felt.Address, common.Task] = (*ingestor)(nil)
 
 func newIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *ingestor {
-	return &ingestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
+	return &ingestor{BaseIngestor: common.NewBaseIngestor(sem, database)}
 }
 
 func (c *ingestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {

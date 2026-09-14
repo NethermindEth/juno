@@ -29,6 +29,12 @@ func (i *iterator) Key() []byte {
 	return buf
 }
 
+// DO NOT USE this if you don't parse the key immediately.
+// See [db.Iterator] for more details.
+func (i *iterator) UncopiedKey() []byte {
+	return i.iter.Key()
+}
+
 func (i *iterator) Value() ([]byte, error) {
 	if i.iter == nil {
 		return nil, pebble.ErrClosed

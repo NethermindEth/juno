@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"slices"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/db"
 )
@@ -73,6 +74,23 @@ func (i *iterator) Key() []byte {
 	}
 
 	return []byte(i.keys[i.curInd])
+}
+
+// DO NOT USE this if you don't parse the key immediately.
+// See [db.Iterator] for more details.
+//
+// Keys are held as strings here, so this returns a read-only view of one rather
+// than the copy [iterator.Key] makes. Strings are immutable, so the view is safe
+// for the immediate use the contract allows.
+func (i *iterator) UncopiedKey() []byte {
+	if i.closed {
+		panic(errIteratorClosed)
+	}
+	if !i.Valid() {
+		return nil
+	}
+	key := i.keys[i.curInd]
+	return unsafe.Slice(unsafe.StringData(key), len(key))
 }
 
 func (i *iterator) Value() ([]byte, error) {
