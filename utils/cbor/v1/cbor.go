@@ -1,17 +1,17 @@
-package encoder
+package cbor
 
 import (
 	"io"
 	"reflect"
 
-	"github.com/fxamacker/cbor/v2"
+	fxcbor "github.com/fxamacker/cbor/v2"
 )
 
 // UnmarshalTypeError is a wire item that does not fit the Go type, as opposed to malformed input.
-type UnmarshalTypeError = cbor.UnmarshalTypeError
+type UnmarshalTypeError = fxcbor.UnmarshalTypeError
 
 var (
-	ts = cbor.NewTagSet()
+	ts = fxcbor.NewTagSet()
 	// https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 	// 65536-15309735 	Unassigned
 	tagNum     uint64 = 65536
@@ -20,16 +20,16 @@ var (
 	strictMode        = newStrictMode()
 )
 
-func newEncMode() cbor.EncMode {
-	mode, err := cbor.CanonicalEncOptions().EncModeWithTags(ts)
+func newEncMode() fxcbor.EncMode {
+	mode, err := fxcbor.CanonicalEncOptions().EncModeWithTags(ts)
 	if err != nil {
 		panic(err)
 	}
 	return mode
 }
 
-func newDecMode() cbor.DecMode {
-	mode, err := cbor.DecOptions{
+func newDecMode() fxcbor.DecMode {
+	mode, err := fxcbor.DecOptions{
 		MaxArrayElements: 10485760, // Set to a reasonably high value, 10MiB
 	}.DecModeWithTags(ts)
 	if err != nil {
@@ -38,9 +38,9 @@ func newDecMode() cbor.DecMode {
 	return mode
 }
 
-func newStrictMode() cbor.DecMode {
-	mode, err := cbor.DecOptions{
-		ExtraReturnErrors: cbor.ExtraDecErrorUnknownField,
+func newStrictMode() fxcbor.DecMode {
+	mode, err := fxcbor.DecOptions{
+		ExtraReturnErrors: fxcbor.ExtraDecErrorUnknownField,
 	}.DecMode()
 	if err != nil {
 		panic(err)
@@ -52,7 +52,7 @@ func newStrictMode() cbor.DecMode {
 // Only call this from encoder/registry's init().
 func RegisterType(rType reflect.Type) error {
 	if err := ts.Add(
-		cbor.TagOptions{EncTag: cbor.EncTagRequired, DecTag: cbor.DecTagRequired},
+		fxcbor.TagOptions{EncTag: fxcbor.EncTagRequired, DecTag: fxcbor.DecTagRequired},
 		rType,
 		tagNum,
 	); err != nil {

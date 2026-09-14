@@ -13,8 +13,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -289,11 +289,11 @@ func TestClassEncoding(t *testing.T) {
 func checkClassSymmetry(t *testing.T, input core.ClassDefinition) {
 	t.Helper()
 
-	data, err := encoder.Marshal(input)
+	data, err := cbor.Marshal(input)
 	require.NoError(t, err)
 
 	var class core.ClassDefinition
-	require.NoError(t, encoder.Unmarshal(data, &class))
+	require.NoError(t, cbor.Unmarshal(data, &class))
 
 	switch v := class.(type) {
 	case *core.DeprecatedCairoClass:
