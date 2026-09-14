@@ -98,6 +98,9 @@ func migrateAddresses(
 	committerPipeline := pipeline.New(
 		ingestorPipeline,
 		1,
+		// TODO: report progress. A Sepolia run logged one line in 31 minutes
+		// because the counter only fires on a batch commit. Add
+		// .SetProgress("contracts", total, 0)
 		common.NewCommitter(logger, batchSemaphore, ""),
 	)
 
