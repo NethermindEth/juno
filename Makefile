@@ -47,6 +47,10 @@ corpus-gen: ## Build the corpus generator
 	@mkdir -p build
 	@go build -o build/corpus-gen ./bench/rpc/cmd/corpus-gen
 
+feeder-sim: ## Build the feeder gateway simulator
+	@mkdir -p build
+	@go build -o build/feeder-sim ./bench/sync/cmd/feeder-sim
+
 MINIMUM_RUST_VERSION = 1.94.1
 CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
 check-rust: ## Ensure rust version is greater than minimum
