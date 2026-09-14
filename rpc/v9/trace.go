@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
@@ -122,7 +123,11 @@ func (h *Handler) TraceBlockTransactions(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	return h.traceFinalisedBlock(ctx, header)
+	traces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header)
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
+	}
+	return adaptCachedTraces(traces), httpHeader, nil
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579
@@ -210,6 +215,20 @@ func traceTransactionsWithState(
 	classLookupState core.StateReader,
 	blockInfo *vm.BlockInfo,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+	result, httpHeader, rpcErr := traceTransactionsNeutral(runner, transactions, executionState, classLookupState, blockInfo)
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
+	}
+	return adaptCachedTraces(result), httpHeader, nil
+}
+
+func traceTransactionsNeutral(
+	runner vm.VM,
+	transactions []core.Transaction,
+	executionState core.StateReader,
+	classLookupState core.StateReader,
+	blockInfo *vm.BlockInfo,
+) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
 	declaredClasses, paidFeesOnL1, err := fetchDeclaredClassesAndL1Fees(
@@ -238,27 +257,11 @@ func traceTransactionsWithState(
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(vmErr.Error())
 	}
 
-	// Adapt traces
-	traces := make([]TracedBlockTransaction, len(executionResult.Traces))
-	for index := range executionResult.Traces {
-		// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
-		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
-
-		trace.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
-				L1Gas: executionResult.GasConsumed[index].L1Gas,
-				L2Gas: executionResult.GasConsumed[index].L2Gas,
-			},
-			L1DataGas: executionResult.GasConsumed[index].L1DataGas,
-		}
-		traces[index] = TracedBlockTransaction{
-			TraceRoot: &trace,
-			//nolint:gosec // G602: index bounded by len(Traces) which matches len(transactions)
-			TransactionHash: transactions[index].Hash(),
-		}
+	result, packErr := tracecache.FromVM(transactions, &executionResult, false)
+	if packErr != nil {
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(packErr.Error())
 	}
-
-	return traces, httpHeader, nil
+	return result, httpHeader, nil
 }
 
 // fetchDeclaredClassesAndL1Fees collects class declarations and L1Handler placeholder fees.
@@ -317,12 +320,14 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 
 	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
 	// confirm the trace at that index really is the transaction that was asked for.
-	if txIndex >= uint64(len(blockTraces)) ||
-		!blockTraces[txIndex].TransactionHash.Equal((*felt.Felt)(hash)) {
+	if txIndex >= uint64(len(blockTraces.Traces)) ||
+		!blockTraces.Traces[txIndex].Hash.Equal((*felt.Felt)(hash)) {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
+	var trace TransactionTrace
+	adaptCachedTrace(&blockTraces.Traces[txIndex], &trace)
+	return trace, httpHeader, nil
 }
 
 // findAndTraceInPreConfirmed traces a transaction located in any block of the
@@ -386,12 +391,15 @@ func (h *Handler) findAndTraceInPreConfirmed(
 // on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
 func (h *Handler) traceFinalisedBlock(
 	ctx context.Context, header *core.Header,
-) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	// Check if it was already traced
-	cacheKey := *header.Hash
-	if traces, hit := h.blockTraceCache.Get(cacheKey); hit {
-		return traces, defaultExecutionHeader(), nil
+) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
+	cached, lease, err := h.blockTraceCache.Acquire(ctx, *header.Hash, nil)
+	if err != nil {
+		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+	if lease == nil {
+		return cached, defaultExecutionHeader(), nil
+	}
+	defer lease.Abort()
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
 	if err != nil {
@@ -399,7 +407,7 @@ func (h *Handler) traceFinalisedBlock(
 	}
 
 	var (
-		traces     []TracedBlockTransaction
+		traces     *tracecache.BlockTrace
 		httpHeader = defaultExecutionHeader()
 		rpcErr     *jsonrpc.Error
 	)
@@ -419,7 +427,7 @@ func (h *Handler) traceFinalisedBlock(
 		return nil, httpHeader, rpcErr
 	}
 
-	h.blockTraceCache.Add(cacheKey, traces)
+	lease.Publish(traces)
 
 	return traces, httpHeader, nil
 }
@@ -428,7 +436,7 @@ func (h *Handler) traceFinalisedBlock(
 func (h *Handler) traceBlockWithVM(
 	header *core.Header,
 	transactions []core.Transaction,
-) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	// Prepare execution state
 	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
 	if err != nil {
@@ -457,7 +465,7 @@ func (h *Handler) traceBlockWithVM(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	traces, httpHeader, rpcErr := traceTransactionsWithState(
+	traces, httpHeader, rpcErr := traceTransactionsNeutral(
 		h.vm,
 		transactions,
 		state,
@@ -475,7 +483,7 @@ func (h *Handler) traceBlockWithVM(
 // and fills in missing data.
 func (h *Handler) fetchTracesFromFeederGateway(
 	ctx context.Context, header *core.Header,
-) ([]TracedBlockTransaction, *jsonrpc.Error) {
+) (*tracecache.BlockTrace, *jsonrpc.Error) {
 	if h.feederClient == nil {
 		return nil, rpccore.ErrInternal.CloneWithData("no feeder client configured")
 	}
@@ -493,12 +501,16 @@ func (h *Handler) fetchTracesFromFeederGateway(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	traces, err := AdaptFeederBlockTrace(transactions, &blockTrace)
+	kinds := make([]vm.TransactionType, len(transactions))
+	for i, tx := range transactions {
+		kinds[i] = vm.TransactionType(transactionTypeFrom(tx))
+	}
+	traces, err := tracecache.FromFeeder(kinds, receipts, &blockTrace)
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	return fillFeederGatewayData(traces, receipts), nil
+	return traces, nil
 }
 
 // buildBlockInfo builds block info for VM execution.
@@ -536,43 +548,6 @@ func shouldFetchTracesFromFeederGateway(
 			*network == networks.Mainnet)
 
 	return fetchFromFeederGW, nil
-}
-
-// fillFeederGatewayData mutates the `traces` argument and fills it with
-// the data from `receipts` which the Feeder Gateway doesn't provide by default.
-func fillFeederGatewayData(
-	traces []TracedBlockTransaction, receipts []*core.TransactionReceipt,
-) []TracedBlockTransaction {
-	totalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(receipts))
-	for _, re := range receipts {
-		if re.ExecutionResources == nil {
-			continue
-		}
-
-		if reGasConsumed := re.ExecutionResources.TotalGasConsumed; reGasConsumed != nil {
-			tgs := core.GasConsumed{
-				L1Gas:     reGasConsumed.L1Gas,
-				L1DataGas: reGasConsumed.L1DataGas,
-				L2Gas:     reGasConsumed.L2Gas,
-			}
-			totalGasConsumed[*re.TransactionHash] = tgs
-		}
-	}
-
-	// For every trace in block, add execution resources on root level
-	for index, trace := range traces {
-		tgs := totalGasConsumed[*trace.TransactionHash]
-
-		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
-				L1Gas: tgs.L1Gas,
-				L2Gas: tgs.L2Gas,
-			},
-			L1DataGas: tgs.L1DataGas,
-		}
-	}
-
-	return traces
 }
 
 // defaultExecutionHeader returns a default HTTP header for execution responses,

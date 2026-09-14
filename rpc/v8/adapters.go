@@ -3,7 +3,9 @@ package rpcv8
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -388,4 +390,31 @@ func adaptFeederTransactionTrace(
 	}
 
 	return trace
+}
+
+// Allocate response containers to keep cached traces read-only.
+func adaptCachedTrace(source *tracecache.TransactionTrace, result *TransactionTrace) {
+	if feeder := source.FeederTrace(); feeder != nil {
+		*result = adaptFeederTransactionTrace(TransactionType(source.Type), feeder)
+	} else {
+		*result = AdaptVMTransactionTrace(source.VMTrace())
+	}
+	result.ExecutionResources = adaptTraceGas(source.Gas)
+}
+
+func adaptCachedTraces(result *tracecache.BlockTrace) []TracedBlockTransaction {
+	traces := make([]TracedBlockTransaction, len(result.Traces))
+	for i := range result.Traces {
+		var trace TransactionTrace
+		adaptCachedTrace(&result.Traces[i], &trace)
+		traces[i] = TracedBlockTransaction{TraceRoot: &trace, TransactionHash: &result.Traces[i].Hash}
+	}
+	return traces
+}
+
+func adaptTraceGas(gas core.GasConsumed) *ExecutionResources {
+	return &ExecutionResources{
+		InnerExecutionResources: InnerExecutionResources{L1Gas: gas.L1Gas, L2Gas: gas.L2Gas},
+		L1DataGas:               gas.L1DataGas,
+	}
 }
