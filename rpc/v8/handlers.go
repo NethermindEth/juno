@@ -17,10 +17,10 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
-	"github.com/NethermindEth/juno/utils/lru"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
 )
@@ -44,7 +44,7 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *lru.Cache[felt.Felt, []TracedBlockTransaction]
+	blockTraceCache            *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -82,11 +82,8 @@ func New(
 		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: lru.New[
-			felt.Felt,
-			[]TracedBlockTransaction,
-		](rpccore.TraceCacheSize),
-		filterLimit: math.MaxUint,
+		blockTraceCache: tracecache.New[felt.Felt, *tracecache.BlockTrace](tracecache.DefaultCapacity),
+		filterLimit:     math.MaxUint,
 	}
 }
 
@@ -323,4 +320,10 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.GetMessageStatus,
 		},
 	}, "/v0_8"
+}
+
+// WithTraceCache must be called before serving requests.
+func (h *Handler) WithTraceCache(cache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]) *Handler {
+	h.blockTraceCache = cache
+	return h
 }
