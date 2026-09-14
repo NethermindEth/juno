@@ -176,20 +176,8 @@ type Validator interface {
 	Struct(any) error
 }
 
-// NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
-	s := &Server{
-		logger:   logger,
-		methods:  make(map[string]Method),
-		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener: &SelectiveListener{},
-	}
-
-	return s
-}
-
-// NewServerWithPool instantiates a JSONRPC server with pool
-func NewServerWithPool(pool *pool.Pool, logger log.StructuredLogger) *Server {
+// NewServer instantiates a JSONRPC server with pool
+func NewServer(pool *pool.Pool, logger log.StructuredLogger) *Server {
 	s := &Server{
 		logger:   logger,
 		methods:  make(map[string]Method),

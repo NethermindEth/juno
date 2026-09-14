@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -218,8 +219,7 @@ var parseErrorTests = map[string]struct {
 }
 
 func TestHandleParseError(t *testing.T) {
-	server := jsonrpc.NewServer(1, log.NewNopZapLogger())
-
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	for desc, test := range parseErrorTests {
 		t.Run(desc, func(t *testing.T) {
 			res, httpHeader, err := server.HandleReader(t.Context(), strings.NewReader(test.req))

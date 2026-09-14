@@ -12,13 +12,15 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
 	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // The caller is responsible for closing the connection.
 func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, listener jsonrpc.EventListener) *websocket.Conn {
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger()).WithListener(listener)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
+		WithListener(listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
@@ -114,7 +116,7 @@ func TestWebsocketRequestTimeout(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(echo, block))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -158,7 +160,7 @@ func TestWebsocketBatchRequestSharesDeadline(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(2, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(2), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(echo, block))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -195,7 +197,7 @@ func TestWebsocketRequestTimeoutDisabled(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(hasDeadline))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithRequestTimeout(0)
 	srv := httptest.NewServer(ws)
@@ -237,7 +239,7 @@ func TestWebsocketConnOutlivesRequest(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(method))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -265,7 +267,7 @@ func TestWebsocketConnOutlivesRequest(t *testing.T) {
 func TestWebsocketConnectionLimit(t *testing.T) {
 	t.Parallel()
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithMaxConnections(2)
 	httpSrv := httptest.NewServer(ws)
 	defer httpSrv.Close()

@@ -29,6 +29,7 @@ import (
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -2239,7 +2240,7 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	}()
 	time.Sleep(50 * time.Millisecond)
 
-	server := jsonrpc.NewServer(1, logger)
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 	methods, _ := handler.methods()
 	require.NoError(t, server.RegisterMethods(methods...))
 
