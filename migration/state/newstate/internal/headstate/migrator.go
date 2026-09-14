@@ -70,38 +70,39 @@ func migrateContracts(
 	batch := database.NewBatchWithSize(common.BatchByteSize)
 	completed := 0
 
-	write := func() error {
+	flush := func() error {
 		size := uint64(batch.Size())
 		if err := batch.Write(); err != nil {
-			return err
+			return fmt.Errorf("writing batch: %w", err)
 		}
 		counter.Log(size, completed, 0)
 		completed = 0
-		batch = database.NewBatchWithSize(common.BatchByteSize)
 		return nil
 	}
 
-	for pc := range contracts {
+	for contract := range contracts {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		addr := (*felt.Felt)(&pc.addr)
-		if err := state.WriteContract(batch, addr, pc.nonce, pc.classHash, pc.height); err != nil {
-			return fmt.Errorf("WriteContract(%s): %w", &pc.addr, err)
+		addr := (*felt.Felt)(&contract.addr)
+		if err := state.WriteContract(batch, addr, contract.nonce, contract.classHash, contract.height); err != nil {
+			return fmt.Errorf("writing contract %s: %w", addr, err)
 		}
 		completed++
 
 		if batch.Size() >= common.TargetBatchByteSize {
-			if err := write(); err != nil {
+			if err := flush(); err != nil {
 				return err
 			}
+			batch = database.NewBatchWithSize(common.BatchByteSize)
 		}
 	}
 
 	if err := sourceErr(); err != nil {
 		return err
 	}
-	return write()
+
+	return flush()
 }
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {

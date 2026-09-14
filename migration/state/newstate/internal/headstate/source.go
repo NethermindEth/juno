@@ -35,7 +35,11 @@ func newCursor(r db.KeyValueReader, bucket db.Bucket) (*cursor, error) {
 	}
 	c := &cursor{it: it, prefix: prefix, bucket: bucket}
 	c.set(it.First())
-	return c, c.err
+	if c.err != nil {
+		it.Close()
+		return nil, c.err
+	}
+	return c, nil
 }
 
 func (c *cursor) set(valid bool) {
@@ -67,12 +71,12 @@ func (c *cursor) advanceTo(target []byte) bool {
 }
 
 // resolve assembles the record for the address the driver sits on.
-func resolve(driver, nonces, heights *cursor, addr []byte) (*pendingContract, error) {
-	rec := &pendingContract{addr: felt.FromBytes[felt.Address](addr)}
+func resolve(driver, nonces, heights *cursor, addr []byte) (pendingContract, error) {
+	rec := pendingContract{addr: felt.FromBytes[felt.Address](addr)}
 
 	raw, err := driver.it.UncopiedValue()
 	if err != nil {
-		return nil, fmt.Errorf("reading class hash for %s: %w", &rec.addr, err)
+		return rec, fmt.Errorf("reading class hash for %s: %w", &rec.addr, err)
 	}
 	rec.classHash.SetBytes(raw)
 
@@ -80,17 +84,20 @@ func resolve(driver, nonces, heights *cursor, addr []byte) (*pendingContract, er
 	if nonces.advanceTo(addr) {
 		raw, err := nonces.it.UncopiedValue()
 		if err != nil {
-			return nil, fmt.Errorf("reading nonce for %s: %w", &rec.addr, err)
+			return rec, fmt.Errorf("reading nonce for %s: %w", &rec.addr, err)
 		}
 		rec.nonce.SetBytes(raw)
 	}
 
 	if !heights.advanceTo(addr) {
-		return nil, fmt.Errorf("no deployment height for %s", &rec.addr)
+		if heights.err != nil {
+			return rec, heights.err
+		}
+		return rec, fmt.Errorf("no deployment height for %s", &rec.addr)
 	}
 	raw, err = heights.it.UncopiedValue()
 	if err != nil {
-		return nil, fmt.Errorf("reading deployment height for %s: %w", &rec.addr, err)
+		return rec, fmt.Errorf("reading deployment height for %s: %w", &rec.addr, err)
 	}
 	rec.height = binary.BigEndian.Uint64(raw)
 
@@ -100,10 +107,10 @@ func resolve(driver, nonces, heights *cursor, addr []byte) (*pendingContract, er
 // pendingContracts walks the deprecated buckets and Contract in lockstep. All
 // four are keyed by address, so one sequential pass replaces every point read.
 // ContractClassHash drives: it defines the contract set.
-func pendingContracts(r db.KeyValueReader) (iter.Seq[*pendingContract], func() error) {
+func pendingContracts(r db.KeyValueReader) (iter.Seq[pendingContract], func() error) {
 	var iterErr error
 
-	seq := func(yield func(*pendingContract) bool) {
+	seq := func(yield func(pendingContract) bool) {
 		cursors := make([]*cursor, 0, 4)
 		defer func() {
 			for _, c := range cursors {
