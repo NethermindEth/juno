@@ -58,11 +58,11 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 			(*felt.TransactionHash)(transactions[i].Hash()),
 		).Return(header.Number, uint64(i), nil).AnyTimes()
 	}
-	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil)
+	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil).Times(2)
 	reader.EXPECT().StateAtBlockHash(header.ParentHash).
-		Return(state, func() error { return nil }, nil).Times(2)
-	reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(2)
-	// v8 executes the full block; other versions reuse it, then initial reads replay once.
+		Return(state, func() error { return nil }, nil).Times(3)
+	reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(3)
+	// v8 and v9 extend the prefix; initial reads replay the complete block.
 	calls := 0
 	runner.EXPECT().Trace(
 		gomock.Any(),
@@ -80,8 +80,12 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 		opts vm.TraceOptions,
 	) (vm.ExecutionResults, error) {
 		calls++
-		require.Equal(t, transactions, txs)
-		require.Equal(t, calls == 2, opts.ReturnInitialReads)
+		if calls <= 2 {
+			require.Equal(t, transactions[calls-1:calls], txs)
+		} else {
+			require.Equal(t, transactions, txs)
+		}
+		require.Equal(t, calls == 3, opts.ReturnInitialReads)
 		result := vm.ExecutionResults{
 			Traces:      make([]vm.TransactionTrace, len(txs)),
 			GasConsumed: make([]core.GasConsumed, len(txs)),
@@ -98,7 +102,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 			result.InitialReads = &vm.InitialReads{}
 		}
 		return result, nil
-	}).Times(2)
+	}).Times(3)
 	h := rpc.New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
 	methods := registeredTraceMethods(t, h)
 	first, steps, err := methods.transaction8(t.Context(), *transactions[0].Hash())
@@ -109,7 +113,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 		t.Context(), (*felt.TransactionHash)(transactions[1].Hash()),
 	)
 	require.Nil(t, err)
-	require.Equal(t, "0", steps.Get(rpcv9.ExecutionStepsHeader))
+	require.Equal(t, "11", steps.Get(rpcv9.ExecutionStepsHeader))
 	require.Equal(t, uint64(2), second.ExecutionResources.L1Gas)
 	id10 := rpcv10.BlockIDFromHash(header.Hash)
 	withReads, _, err := methods.block10(
@@ -125,7 +129,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	_, steps, err = methods.transaction8(t.Context(), *transactions[0].Hash())
 	require.Nil(t, err)
 	require.Equal(t, "0", steps.Get(rpcv8.ExecutionStepsHeader))
-	require.Equal(t, 2, calls)
+	require.Equal(t, 3, calls)
 }
 
 func TestSharedFeederTraceCachePreservesVersionShapes(t *testing.T) {
@@ -472,6 +476,93 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 	}
 }
 
+func TestProgressiveTraceEachVersionExtends(t *testing.T) {
+	for first := range 3 {
+		t.Run(fmt.Sprintf("first=%d", first), func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			reader := mocks.NewMockReader(ctrl)
+			runner := mocks.NewMockVM(ctrl)
+			state := mocks.NewMockStateReader(ctrl)
+			header := &core.Header{
+				Hash:            felt.NewFromUint64[felt.Felt](100),
+				ParentHash:      felt.NewFromUint64[felt.Felt](99),
+				ProtocolVersion: "0.14.0",
+			}
+			txs := make([]core.Transaction, 3)
+			for i := range txs {
+				txs[i] = &core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](uint64(i + 1))}
+				reader.EXPECT().Receipt(txs[i].Hash()).Return(nil, header.Hash, header.Number, nil).AnyTimes()
+				reader.EXPECT().BlockNumberAndIndexByTxHash(
+					(*felt.TransactionHash)(txs[i].Hash()),
+				).Return(header.Number, uint64(i), nil).AnyTimes()
+			}
+			reader.EXPECT().BlockByHash(header.Hash).
+				Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
+			reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
+			reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
+			reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil).Times(2)
+			reader.EXPECT().StateAtBlockHash(header.ParentHash).
+				Return(state, func() error { return nil }, nil).Times(3)
+			reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(3)
+			calls := 0
+			runner.EXPECT().Trace(
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+				vm.TraceOptions{},
+			).DoAndReturn(func(
+				actual []core.Transaction,
+				_ []core.ClassDefinition,
+				_ []*felt.Felt,
+				_ *vm.BlockInfo,
+				_ core.StateReader,
+				_ vm.TraceOptions,
+			) (vm.ExecutionResults, error) {
+				require.Equal(t, txs[calls:calls+1], actual)
+				calls++
+				return vm.ExecutionResults{
+					Traces:      []vm.TransactionTrace{{Type: vm.TxnInvoke, StateDiff: &vm.StateDiff{}}},
+					GasConsumed: []core.GasConsumed{{}},
+					NumSteps:    1,
+				}, nil
+			}).Times(3)
+			h := rpc.New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
+			methods := registeredTraceMethods(t, h)
+			request := func(version, index int) {
+				var steps http.Header
+				var rpcErr *jsonrpc.Error
+				switch version {
+				case 0:
+					_, steps, rpcErr = methods.transaction8(t.Context(), *txs[index].Hash())
+				case 1:
+					_, steps, rpcErr = methods.transaction9(
+						t.Context(), (*felt.TransactionHash)(txs[index].Hash()),
+					)
+				case 2:
+					_, steps, rpcErr = methods.transaction10(
+						t.Context(), (*felt.TransactionHash)(txs[index].Hash()),
+					)
+				}
+				require.Nil(t, rpcErr)
+				expected := "1"
+				if index == 0 && calls == 3 {
+					expected = "0"
+				}
+				require.Equal(t, expected, steps.Get(rpcv10.ExecutionStepsHeader))
+			}
+			for i := range 3 {
+				request((first+i)%3, i)
+			}
+			for version := range 3 {
+				request(version, 0)
+			}
+			require.Equal(t, 3, calls)
+		})
+	}
+}
+
 type traceMethods struct {
 	block8 func(context.Context, *rpcv8.BlockID) (
 		[]rpcv8.TracedBlockTransaction,
@@ -498,6 +589,11 @@ type traceMethods struct {
 		http.Header,
 		*jsonrpc.Error,
 	)
+	transaction10 func(context.Context, *felt.TransactionHash) (
+		rpcv10.TransactionTrace,
+		http.Header,
+		*jsonrpc.Error,
+	)
 }
 
 func registeredTraceMethods(t *testing.T, h *rpc.Handler) traceMethods {
@@ -511,6 +607,7 @@ func registeredTraceMethods(t *testing.T, h *rpc.Handler) traceMethods {
 	bindTraceMethod(t, v10, "starknet_traceBlockTransactions", &methods.block10)
 	bindTraceMethod(t, v8, "starknet_traceTransaction", &methods.transaction8)
 	bindTraceMethod(t, v9, "starknet_traceTransaction", &methods.transaction9)
+	bindTraceMethod(t, v10, "starknet_traceTransaction", &methods.transaction10)
 	return methods
 }
 

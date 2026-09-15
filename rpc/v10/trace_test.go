@@ -1410,7 +1410,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 				OverallFees:      []*felt.Felt{&felt.Zero},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
-				Traces:           []vm.TransactionTrace{{}},
+				Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
 				NumSteps:         100,
 				InitialReads:     test.initialReads,
 			}, nil)
@@ -1496,7 +1496,7 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 			OverallFees:      []*felt.Felt{&felt.Zero},
 			DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 			GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
-			Traces:           []vm.TransactionTrace{{}},
+			Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
 			NumSteps:         100,
 			InitialReads:     reads,
 		}
