@@ -1,4 +1,4 @@
-package rpc
+package rpc_test
 
 import (
 	"fmt"
@@ -9,6 +9,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/tracecache"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
@@ -34,8 +37,10 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
 	header := &core.Header{
-		Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99),
-		ProtocolVersion: "0.14.0", TransactionCount: 2,
+		Hash:             felt.NewFromUint64[felt.Felt](100),
+		ParentHash:       felt.NewFromUint64[felt.Felt](99),
+		ProtocolVersion:  "0.14.0",
+		TransactionCount: 2,
 	}
 	txs := []core.Transaction{
 		&core.InvokeTransaction{
@@ -92,26 +97,26 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 		record, err = tracecache.FromVM(txs, &result, false)
 	}
 	require.NoError(t, err)
-	h := New(reader, nil, nil, "test", log.NewNopZapLogger(), &networks.Mainnet)
 	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](1)
-	h.rpcv8Handler.WithTraceCache(cache)
-	h.rpcv9Handler.WithTraceCache(cache)
-	h.rpcv10Handler.WithTraceCache(cache)
+	logger := log.NewNopZapLogger()
+	h8 := rpcv8.New(reader, nil, nil, logger).WithTraceCache(cache)
+	h9 := rpcv9.New(reader, nil, nil, logger).WithTraceCache(cache)
+	h10 := rpcv10.New(reader, nil, nil, logger).WithTraceCache(cache)
 	_, lease, err := cache.Acquire(t.Context(), header.Hash, nil)
 	require.NoError(t, err)
 	lease.Publish(record)
 	return func() {
 		switch version {
 		case 8:
-			trace, _, rpcErr := h.rpcv8Handler.TraceTransaction(t.Context(), *hash)
+			trace, _, rpcErr := h8.TraceTransaction(t.Context(), *hash)
 			require.Nil(t, rpcErr)
 			require.Equal(t, uint64(7), trace.ExecutionResources.L1Gas)
 		case 9:
-			trace, _, rpcErr := h.rpcv9Handler.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
+			trace, _, rpcErr := h9.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
 			require.Nil(t, rpcErr)
 			require.Equal(t, uint64(7), trace.ExecutionResources.L1Gas)
 		case 10:
-			trace, _, rpcErr := h.rpcv10Handler.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
+			trace, _, rpcErr := h10.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
 			require.Nil(t, rpcErr)
 			require.Equal(t, uint64(7), trace.ExecutionResources.L1Gas)
 		}
