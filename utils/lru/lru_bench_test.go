@@ -15,9 +15,9 @@ import (
 //   - bloomKey {u64, u64}   blockchain.EventFiltersCacheKey
 //   - feltKey  [4]uint64    the trace cache's felt.Felt key (underlies as [4]uint64)
 //
-// Sizes mirror production:
+// Sizes cover current and historical production capacities:
 //   - 16   AggregatedBloomFilterCacheSize
-//   - 128  TraceCacheSize
+//   - 128  former per-version trace-cache capacity
 //   - 8192 stress
 //
 // Run with: go test -bench=. -benchmem -count=10 ./utils/lru/

@@ -12,7 +12,6 @@ import (
 const (
 	MaxEventChunkSize             = 10240
 	MaxEventFilterKeys            = 1024
-	TraceCacheSize                = 128
 	ThrottledVMErr                = "VM throughput limit reached"
 	ThrottledCompilerErr          = "Compiler throughput limit reached"
 	MaxBlocksBack                 = 1024

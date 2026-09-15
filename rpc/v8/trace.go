@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
@@ -126,7 +127,9 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 		return nil, header, traceBlockErr
 	}
 
-	return traceResults[txIndex].TraceRoot, header, nil
+	var trace TransactionTrace
+	adaptCachedTrace(&traceResults.Traces[txIndex], &trace)
+	return &trace, header, nil
 }
 
 func (h *Handler) TraceBlockTransactions(
@@ -137,21 +140,29 @@ func (h *Handler) TraceBlockTransactions(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	return h.traceBlockTransactions(ctx, block)
+	traces, httpHeader, rpcErr := h.traceBlockTransactions(ctx, block)
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
+	}
+	return adaptCachedTraces(traces), httpHeader, nil
 }
 
-// traceBlockTransactions gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+// traceBlockTransactions caches local or feeder traces; pending blocks bypass the cache.
 func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block,
-) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	isPending := block.Hash == nil
+	var lease *tracecache.Lease[felt.Felt, *tracecache.BlockTrace]
 	if !isPending {
-		// Check if it was already traced
-		traces, hit := h.blockTraceCache.Get(*block.Hash)
-		if hit {
-			return traces, defaultExecutionHeader(), nil
+		cached, acquiredLease, err := h.blockTraceCache.Acquire(ctx, block.Hash, nil)
+		if err != nil {
+			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
+		if acquiredLease == nil {
+			return cached, defaultExecutionHeader(), nil
+		}
+		lease = acquiredLease
+		defer lease.Abort()
 
 		// Check if the trace should be provided by the feeder gateway
 		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
@@ -175,17 +186,23 @@ func (h *Handler) traceBlockTransactions(
 			if err != nil {
 				return nil, defaultExecutionHeader(), err
 			}
-			h.blockTraceCache.Add(*block.Hash, traces)
+			lease.Publish(traces)
 			return traces, defaultExecutionHeader(), nil
 		}
 	}
 
-	return h.traceBlockTransactionWithVM(block)
+	traces, httpHeader, rpcErr := h.traceBlockTransactionWithVM(block)
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
+	}
+	if lease != nil {
+		lease.Publish(traces)
+	}
+	return traces, httpHeader, nil
 }
 
-// `traceBlockTransactionWithVM` traces a block and stores it in the block cache
 func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
-	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
+	*tracecache.BlockTrace, http.Header, *jsonrpc.Error,
 ) {
 	httpHeader := defaultExecutionHeader()
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
@@ -199,7 +216,6 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 		headStateCloser blockchain.StateCloser
 	)
 
-	isPending := block.Hash == nil
 	headState, headStateCloser, err = h.bcReader.HeadState()
 	if err != nil {
 		return nil, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -248,35 +264,16 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, len(executionResult.Traces))
-	// Adapt every vm transaction trace to rpc v8 trace and add root level execution resources
-	for index := range executionResult.Traces {
-		trace := new(AdaptVMTransactionTrace(&executionResult.Traces[index]))
-
-		trace.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
-				L1Gas: executionResult.GasConsumed[index].L1Gas,
-				L2Gas: executionResult.GasConsumed[index].L2Gas,
-			},
-			L1DataGas: executionResult.GasConsumed[index].L1DataGas,
-		}
-
-		result[index] = TracedBlockTransaction{
-			TraceRoot:       trace,
-			TransactionHash: block.Transactions[index].Hash(),
-		}
+	result, packErr := tracecache.FromVM(block.Transactions, &executionResult, false)
+	if packErr != nil {
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(packErr.Error())
 	}
-
-	if !isPending {
-		h.blockTraceCache.Add(*block.Hash, result)
-	}
-
 	return result, httpHeader, nil
 }
 
 func (h *Handler) fetchTracesFromFeederGateway(
 	ctx context.Context, block *core.Block,
-) ([]TracedBlockTransaction, *jsonrpc.Error) {
+) (*tracecache.BlockTrace, *jsonrpc.Error) {
 	// todo(rdr): this feels unnatural, why if I have the `core.Block` should I still
 	// try to go for the rpcBlock? Ideally we extract all the info directly from `core.Block`
 	blockID := BlockIDFromHash(block.Hash)
@@ -294,51 +291,16 @@ func (h *Handler) fetchTracesFromFeederGateway(
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, err := AdaptFeederBlockTrace(rpcBlock, &blockTrace)
+	kinds := make([]vm.TransactionType, len(rpcBlock.Transactions))
+	for i := range rpcBlock.Transactions {
+		kinds[i] = vm.TransactionType(rpcBlock.Transactions[i].Type)
+	}
+	traces, err := tracecache.FromFeeder(kinds, block.Receipts, &blockTrace)
 	if err != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces = fillFeederGatewayData(traces, block.Receipts)
-
 	return traces, nil
-}
-
-// `fillFeederGatewayData` mutates the `traces` argument and fill it with the data from `receipts` which
-// the Feeder Gateway doesn't provide by default
-func fillFeederGatewayData(
-	traces []TracedBlockTransaction, receipts []*core.TransactionReceipt,
-) []TracedBlockTransaction {
-	totalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(receipts))
-	for _, re := range receipts {
-		if re.ExecutionResources == nil {
-			continue
-		}
-
-		if reGasConsumed := re.ExecutionResources.TotalGasConsumed; reGasConsumed != nil {
-			tgs := core.GasConsumed{
-				L1Gas:     reGasConsumed.L1Gas,
-				L1DataGas: reGasConsumed.L1DataGas,
-				L2Gas:     reGasConsumed.L2Gas,
-			}
-			totalGasConsumed[*re.TransactionHash] = tgs
-		}
-	}
-
-	// For every trace in block, add execution resources on root level
-	for index, trace := range traces {
-		tgs := totalGasConsumed[*trace.TransactionHash]
-
-		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
-				L1Gas: tgs.L1Gas,
-				L2Gas: tgs.L2Gas,
-			},
-			L1DataGas: tgs.L1DataGas,
-		}
-	}
-
-	return traces
 }
 
 func defaultExecutionHeader() http.Header {

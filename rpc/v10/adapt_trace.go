@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -439,4 +440,50 @@ func adaptFeederTransactionTrace(
 	}
 
 	return trace
+}
+
+func adaptCachedTrace(source *tracecache.TransactionTrace, result *TransactionTrace) {
+	if feeder := source.FeederTrace(); feeder != nil {
+		*result = adaptFeederTransactionTrace(TransactionType(source.Type), feeder)
+	} else {
+		*result = AdaptVMTransactionTrace(source.VMTrace())
+	}
+	if result.ExecutionResources == nil {
+		result.ExecutionResources = new(ExecutionResources)
+	}
+	*result.ExecutionResources = ExecutionResources{
+		InnerExecutionResources: InnerExecutionResources{
+			L1Gas: source.Gas.L1Gas,
+			L2Gas: source.Gas.L2Gas,
+		},
+		L1DataGas: source.Gas.L1DataGas,
+	}
+}
+
+func adaptCachedTraces(result *tracecache.BlockTrace) []TracedBlockTransaction {
+	traces := make([]TracedBlockTransaction, len(result.Traces))
+	roots := make([]TransactionTrace, len(result.Traces))
+	for i := range result.Traces {
+		adaptCachedTrace(&result.Traces[i], &roots[i])
+		traces[i] = TracedBlockTransaction{
+			TraceRoot:       &roots[i],
+			TransactionHash: &result.Traces[i].Hash,
+		}
+	}
+	return traces
+}
+
+func adaptCachedBlock(
+	result *tracecache.BlockTrace, returnInitialReads bool,
+) TraceBlockTransactionsResponse {
+	response := TraceBlockTransactionsResponse{Traces: adaptCachedTraces(result)}
+	if returnInitialReads {
+		if result.Source == tracecache.Feeder {
+			response.InitialReads = &InitialReads{}
+		} else if result.InitialReads != nil {
+			reads := adaptVMInitialReads(result.InitialReads)
+			response.InitialReads = &reads
+		}
+	}
+	return response
 }
