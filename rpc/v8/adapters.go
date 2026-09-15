@@ -253,40 +253,7 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
-		trace := TransactionTrace{
-			Type: block.Transactions[index].Type,
-		}
-
-		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = new(
-				adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
-			)
-		}
-
-		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = new(
-				adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
-			)
-		}
-
-		var fnInvocation *FunctionInvocation
-		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation = new(adaptFeederFunctionInvocation(fct))
-		}
-
-		switch trace.Type {
-		case TxnDeploy, TxnDeployAccount:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnInvoke:
-			trace.ExecuteInvocation = new(ExecuteInvocation)
-			if feederTrace.RevertError != "" {
-				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-			} else {
-				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
-			}
-		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
-		}
+		trace := adaptFeederTransactionTrace(block.Transactions[index].Type, feederTrace)
 
 		adaptedTraces[index] = TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
@@ -380,4 +347,45 @@ func DefaultL1HandlerFunctionInvocation() FunctionInvocation {
 		Messages:   []OrderedL2toL1Message{},
 		Result:     []felt.Felt{},
 	}
+}
+
+func adaptFeederTransactionTrace(
+	kind TransactionType, feederTrace *starknet.TransactionTrace,
+) TransactionTrace {
+	trace := TransactionTrace{
+		Type: kind,
+	}
+
+	if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
+		trace.FeeTransferInvocation = new(
+			adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+		)
+	}
+
+	if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
+		trace.ValidateInvocation = new(
+			adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+		)
+	}
+
+	var fnInvocation *FunctionInvocation
+	if fct := feederTrace.FunctionInvocation; fct != nil {
+		fnInvocation = new(adaptFeederFunctionInvocation(fct))
+	}
+
+	switch trace.Type {
+	case TxnDeploy, TxnDeployAccount:
+		trace.ConstructorInvocation = fnInvocation
+	case TxnInvoke:
+		trace.ExecuteInvocation = new(ExecuteInvocation)
+		if feederTrace.RevertError != "" {
+			trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
+		} else {
+			trace.ExecuteInvocation.FunctionInvocation = fnInvocation
+		}
+	case TxnL1Handler:
+		trace.FunctionInvocation = fnInvocation
+	}
+
+	return trace
 }
