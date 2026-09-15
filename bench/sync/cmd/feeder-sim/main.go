@@ -25,6 +25,10 @@ func main() {
 }
 
 func newRootCommand() *cobra.Command {
+	return newCommand(run)
+}
+
+func newCommand(run func(ctx context.Context, config *config) error) *cobra.Command {
 	config := &config{}
 	command := &cobra.Command{
 		Use:          "feeder-sim",
