@@ -348,7 +348,9 @@ func (h *Handler) traceFinalisedBlock(
 	returnInitialReads bool,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	cached, lease, err := h.blockTraceCache.Acquire(
-		ctx, header.Hash, func(b *tracecache.BlockTrace) bool {
+		ctx,
+		header.Hash,
+		func(b *tracecache.BlockTrace) bool {
 			return b.Covers(returnInitialReads)
 		},
 	)

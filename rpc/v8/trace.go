@@ -154,14 +154,14 @@ func (h *Handler) traceBlockTransactions(
 	isPending := block.Hash == nil
 	var lease *tracecache.Lease[felt.Felt, *tracecache.BlockTrace]
 	if !isPending {
-		cached, work, err := h.blockTraceCache.Acquire(ctx, block.Hash, nil)
+		cached, acquiredLease, err := h.blockTraceCache.Acquire(ctx, block.Hash, nil)
 		if err != nil {
 			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
-		if work == nil {
+		if acquiredLease == nil {
 			return cached, defaultExecutionHeader(), nil
 		}
-		lease = work
+		lease = acquiredLease
 		defer lease.Abort()
 
 		// Check if the trace should be provided by the feeder gateway
