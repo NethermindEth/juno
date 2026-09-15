@@ -85,6 +85,7 @@ type Reader interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
+	TrieStateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
@@ -462,6 +463,14 @@ func (b *Blockchain) StateAtBlockHash(
 ) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	return b.stateBackend.StateAtBlockHash(blockHash)
+}
+
+// TrieStateAtBlockNumber returns a StateReader with trie access at the given block number.
+func (b *Blockchain) TrieStateAtBlockNumber(
+	blockNumber uint64,
+) (core.StateReader, StateCloser, error) {
+	b.listener.OnRead("TrieStateAtBlockNumber")
+	return b.stateBackend.TrieStateAtBlockNumber(blockNumber)
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

@@ -77,6 +77,25 @@ func (b *stateBackend) StateAtBlockHash(
 	return &history, NoopStateCloser, nil
 }
 
+func (b *stateBackend) TrieStateAtBlockNumber(
+	blockNumber uint64,
+) (core.StateReader, StateCloser, error) {
+	stateRoot, err := pruner.StateRootIfStateRetainedByBlockNumber(
+		b.database,
+		b.retentionFloor,
+		blockNumber,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	st, err := state.NewStateReader(stateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return st, NoopStateCloser, nil
+}
+
 func (b *stateBackend) Store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
