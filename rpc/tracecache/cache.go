@@ -7,19 +7,19 @@ import (
 	"github.com/NethermindEth/juno/utils/lru"
 )
 
-// `Cache` shares immutable results across requests, using a `Lease` to coordinate
+// Cache shares immutable results across requests, using a [Lease] to coordinate
 // one producer per key while keeping existing results available to readers.
-// See the usage example in `Cache.Acquire`.
+// See the usage example in [Cache.Acquire].
 type Cache[K comparable, V any] struct {
 	mu      sync.Mutex
 	records *lru.SimpleCache[K, V]
 	flights map[K]chan struct{}
 }
 
-// `Lease` represents a caller's exclusive right to produce and publish a result
-// for one `Cache` key. It coordinates replacement of the cached value without
+// Lease represents a caller's exclusive right to produce and publish a result
+// for one [Cache] key. It coordinates replacement of the cached value without
 // blocking requests that the existing value already satisfies.
-// See the usage example in `Cache.Acquire`.
+// See the usage example in [Cache.Acquire].
 type Lease[K comparable, V any] struct {
 	cache  *Cache[K, V]
 	key    K
@@ -49,20 +49,20 @@ func New[K comparable, V any](limit int) *Cache[K, V] {
 }
 
 // Acquire returns a cached value, grants a lease, or waits:
-//   - A cached value exists and `accepts` is nil or returns true: return it without a lease.
+//   - A cached value exists and accepts is nil or returns true: return it without a lease.
 //   - No cached value and no lease exists: return a lease with the zero value.
-//   - `accepts` returns false and no lease exists: return a lease with the cached value.
+//   - accepts returns false and no lease exists: return a lease with the cached value.
 //   - A lease exists and no cached value meets the request: wait for its release and retry.
 //
 // Caller responsibilities:
 //   - Cached values aren't deep-copied (as traces can be very large); callers must not
 //     mutate shared data they reference.
-//   - Callers must defer Abort on returned leases and call Publish on success.
-//   - `accepts` must be brief, read-only, and must not call back into this cache.
-//   - `key` must be non-nil (nil panics); callers must not mutate the value it
+//   - Callers must defer [Lease.Abort] on returned leases and call [Lease.Publish] on success.
+//   - accepts must be brief, read-only, and must not call back into this cache.
+//   - key must be non-nil (nil panics); callers must not mutate the value it
 //     points to until Acquire returns.
 //
-// `lookupOrStart` and `accepts` briefly hold the cache mutex.
+// lookupOrStart and accepts briefly hold the cache mutex.
 // Waiting and caller execution happen outside the mutex.
 // Cancellation only stops this caller's wait.
 //
