@@ -145,6 +145,23 @@ func populateAggregatedBloomDeterministic(
 	return filters
 }
 
+// filtersToViews marshals decoded filters into the raw-blob views the cache stores.
+func filtersToViews(
+	t *testing.T,
+	filters []*core.AggregatedBloomFilter,
+) []*core.AggregatedBloomFilterView {
+	t.Helper()
+	views := make([]*core.AggregatedBloomFilterView, len(filters))
+	for i, filter := range filters {
+		blob, err := filter.MarshalBinary()
+		require.NoError(t, err)
+		var view core.AggregatedBloomFilterView
+		require.NoError(t, view.UnmarshalBinary(blob))
+		views[i] = &view
+	}
+	return views
+}
+
 func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	numEvents := 64
 	numAggregatedBloomFilters := uint64(16)
@@ -160,7 +177,7 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	testDB := memory.New()
 	// Create cache and insert filters
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
-	cache.SetMany(filters)
+	cache.SetMany(filtersToViews(t, filters))
 	runningFilterStart := numAggregatedBloomFilters * blocksPerFilter
 	innerFilter := core.NewAggregatedFilter(runningFilterStart)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
@@ -197,7 +214,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	filters := populateAggregatedBloomDeterministic(t, numAggregatedBloomFilters, test, core.NumBlocksPerFilter, uint64(emmitedEvery))
 
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
-	cache.SetMany(filters)
+	cache.SetMany(filtersToViews(t, filters))
 
 	testDB := memory.New()
 	var maxScannedLimit uint64 = 0
