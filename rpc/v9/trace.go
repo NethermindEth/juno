@@ -214,20 +214,6 @@ func traceTransactionsWithState(
 	executionState core.StateReader,
 	classLookupState core.StateReader,
 	blockInfo *vm.BlockInfo,
-) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	result, httpHeader, rpcErr := traceTransactionsNeutral(runner, transactions, executionState, classLookupState, blockInfo)
-	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
-	}
-	return adaptCachedTraces(result), httpHeader, nil
-}
-
-func traceTransactionsNeutral(
-	runner vm.VM,
-	transactions []core.Transaction,
-	executionState core.StateReader,
-	classLookupState core.StateReader,
-	blockInfo *vm.BlockInfo,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
@@ -378,7 +364,9 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		if rpcErr != nil {
 			return TransactionTrace{}, httpHeader, rpcErr
 		}
-		return *traces[0].TraceRoot, httpHeader, nil
+		var trace TransactionTrace
+		adaptCachedTrace(&traces.Traces[0], &trace)
+		return trace, httpHeader, nil
 	}
 	return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 }
@@ -387,12 +375,12 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		Block Tracing Helpers
 *****************************************************/
 
-// traceFinalisedBlock gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+// traceFinalisedBlock caches local or feeder traces by block hash.
+// See shouldFetchTracesFromFeederGateway for feeder trace edge cases.
 func (h *Handler) traceFinalisedBlock(
 	ctx context.Context, header *core.Header,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
-	cached, lease, err := h.blockTraceCache.Acquire(ctx, *header.Hash, nil)
+	cached, lease, err := h.blockTraceCache.Acquire(ctx, header.Hash, nil)
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
@@ -432,7 +420,7 @@ func (h *Handler) traceFinalisedBlock(
 	return traces, httpHeader, nil
 }
 
-// traceBlockWithVM traces a block using the local VM. Caching is the caller's responsibility.
+// traceBlockWithVM traces a block using the local VM.
 func (h *Handler) traceBlockWithVM(
 	header *core.Header,
 	transactions []core.Transaction,
@@ -465,18 +453,13 @@ func (h *Handler) traceBlockWithVM(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	traces, httpHeader, rpcErr := traceTransactionsNeutral(
+	return traceTransactionsWithState(
 		h.vm,
 		transactions,
 		state,
 		headState,
 		&blockInfo,
 	)
-	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
-	}
-
-	return traces, httpHeader, nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway

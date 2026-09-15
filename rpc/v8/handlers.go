@@ -44,7 +44,8 @@ type Handler struct {
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
 
-	blockTraceCache            *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]
+	blockTraceCache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]
+	// Sharing the trace cache's LRU policy would allow eviction before the submission TTL expires.
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -82,8 +83,10 @@ func New(
 		preConfirmedFeed: feed.New[*pendingpkg.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: tracecache.New[felt.Felt, *tracecache.BlockTrace](tracecache.DefaultCapacity),
-		filterLimit:     math.MaxUint,
+		blockTraceCache: tracecache.New[felt.Felt, *tracecache.BlockTrace](
+			tracecache.DefaultBlockCapacity,
+		),
+		filterLimit: math.MaxUint,
 	}
 }
 
@@ -322,8 +325,9 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_8"
 }
 
-// WithTraceCache must be called before serving requests.
-func (h *Handler) WithTraceCache(cache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]) *Handler {
+func (h *Handler) WithTraceCache(
+	cache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace],
+) *Handler {
 	h.blockTraceCache = cache
 	return h
 }

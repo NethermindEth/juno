@@ -147,15 +147,14 @@ func (h *Handler) TraceBlockTransactions(
 	return adaptCachedTraces(traces), httpHeader, nil
 }
 
-// traceBlockTransactions gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+// traceBlockTransactions caches local or feeder traces; pending blocks bypass the cache.
 func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 	var lease *tracecache.Lease[felt.Felt, *tracecache.BlockTrace]
 	if !isPending {
-		cached, work, err := h.blockTraceCache.Acquire(ctx, *block.Hash, nil)
+		cached, work, err := h.blockTraceCache.Acquire(ctx, block.Hash, nil)
 		if err != nil {
 			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
@@ -202,7 +201,6 @@ func (h *Handler) traceBlockTransactions(
 	return traces, httpHeader, nil
 }
 
-// traceBlockTransactionWithVM traces a block; the caller owns caching and adaptation.
 func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	*tracecache.BlockTrace, http.Header, *jsonrpc.Error,
 ) {
