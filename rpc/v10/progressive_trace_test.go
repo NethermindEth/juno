@@ -1,20 +1,24 @@
-package rpcv10
+package rpcv10_test
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/rpc/tracecache"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -50,12 +54,19 @@ func progressiveResult(txs []core.Transaction) vm.ExecutionResults {
 	return result
 }
 
-func progressiveHandler(
-	t *testing.T, runner vm.VM,
-) (*Handler, *core.Header, []core.Transaction, *mocks.MockStateReader) {
+type progressiveFixture struct {
+	handler *rpcv10.Handler
+	blockID rpcv10.BlockID
+	txs     []core.Transaction
+	head    *mocks.MockStateReader
+	reader  *mocks.MockReader
+}
+
+func progressiveHandler(t *testing.T, runner vm.VM) progressiveFixture {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
+	syncReader := mocks.NewMockSyncReader(ctrl)
 	parent := mocks.NewMockStateReader(ctrl)
 	head := mocks.NewMockStateReader(ctrl)
 	header := &core.Header{
@@ -66,13 +77,25 @@ func progressiveHandler(
 	txs := make([]core.Transaction, 3)
 	for i := range txs {
 		txs[i] = &core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](uint64(i + 1))}
+		reader.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(txs[i].Hash()),
+		).Return(header.Number, uint64(i), nil).AnyTimes()
 	}
+	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil).AnyTimes()
 	reader.EXPECT().StateAtBlockHash(header.ParentHash).
 		Return(parent, func() error { return nil }, nil).AnyTimes()
 	reader.EXPECT().HeadState().Return(head, func() error { return nil }, nil).AnyTimes()
-	return New(reader, nil, runner, log.NewNopZapLogger()), header, txs, head
+	syncReader.EXPECT().PreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).AnyTimes()
+	return progressiveFixture{
+		handler: rpcv10.New(reader, syncReader, runner, log.NewNopZapLogger()),
+		blockID: rpcv10.BlockIDFromNumber(header.Number),
+		txs:     txs,
+		head:    head,
+		reader:  reader,
+	}
 }
 
 func TestProgressiveFailureRetainsPrefixAndOffsetsError(t *testing.T) {
@@ -88,56 +111,73 @@ func TestProgressiveFailureRetainsPrefixAndOffsetsError(t *testing.T) {
 		require.Len(t, txs, 1)
 		return progressiveResult(txs), nil
 	}}
-	h, header, txs, _ := progressiveHandler(t, runner)
-	first := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
-	second := &tracecache.TransactionTarget{Index: 1, Hash: txs[1].Hash()}
-	prefix, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, first)
+	f := progressiveHandler(t, runner)
+	first := (*felt.TransactionHash)(f.txs[0].Hash())
+	second := (*felt.TransactionHash)(f.txs[1].Hash())
+	prefix, _, rpcErr := f.handler.TraceTransaction(t.Context(), first)
 	require.Nil(t, rpcErr)
-	_, steps, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, second)
+	_, steps, rpcErr := f.handler.TraceBlockTransactions(t.Context(), &f.blockID, nil)
 	require.NotNil(t, rpcErr)
 	require.Contains(t, rpcErr.Data, "transaction #1")
-	require.Equal(t, "9", steps.Get(ExecutionStepsHeader))
-	hit, steps, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, first)
+	require.Equal(t, "9", steps.Get(rpcv10.ExecutionStepsHeader))
+	hit, steps, rpcErr := f.handler.TraceTransaction(t.Context(), first)
 	require.Nil(t, rpcErr)
 	require.Equal(t, prefix, hit)
-	require.Equal(t, "0", steps.Get(ExecutionStepsHeader))
-	next, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, second)
+	require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
+	next, _, rpcErr := f.handler.TraceTransaction(t.Context(), second)
 	require.Nil(t, rpcErr)
-	require.Len(t, next.Traces, 2)
+	require.Equal(t, uint64(2), next.ExecutionResources.L1Gas)
 	require.Equal(t, uint64(3), calls.Load())
 }
 
 func TestProgressiveWaiterCancellation(t *testing.T) {
-	entered, release := make(chan struct{}), make(chan struct{})
-	var calls atomic.Uint64
-	runner := &progressiveVM{run: func(
-		txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
-	) (vm.ExecutionResults, error) {
-		calls.Add(1)
-		close(entered)
-		<-release
-		return progressiveResult(txs), nil
-	}}
-	h, header, txs, _ := progressiveHandler(t, runner)
-	target := &tracecache.TransactionTarget{Index: 1, Hash: txs[1].Hash()}
-	done := make(chan *jsonrpc.Error, 1)
-	go func() {
-		_, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
-		done <- rpcErr
-	}()
-	<-entered
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	_, _, rpcErr := h.traceFinalisedBlock(ctx, header, false, target)
-	require.NotNil(t, rpcErr)
-	require.Contains(t, rpcErr.Data, context.Canceled.Error())
-	close(release)
-	require.Nil(t, <-done)
-	result, steps, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
-	require.Nil(t, rpcErr)
-	require.Len(t, result.Traces, 2)
-	require.Equal(t, "0", steps.Get(ExecutionStepsHeader))
-	require.Equal(t, uint64(1), calls.Load())
+	synctest.Test(t, func(t *testing.T) {
+		entered, release := make(chan struct{}), make(chan struct{})
+		releaseProducer := sync.OnceFunc(func() { close(release) })
+		defer releaseProducer()
+		var calls atomic.Uint64
+		runner := &progressiveVM{run: func(
+			txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+		) (vm.ExecutionResults, error) {
+			if calls.Add(1) == 1 {
+				close(entered)
+			}
+			<-release
+			return progressiveResult(txs), nil
+		}}
+		f := progressiveHandler(t, runner)
+		target := (*felt.TransactionHash)(f.txs[1].Hash())
+		owner := make(chan *jsonrpc.Error, 1)
+		go func() {
+			_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
+			owner <- rpcErr
+		}()
+		<-entered
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		waiter := make(chan *jsonrpc.Error, 1)
+		go func() {
+			_, _, rpcErr := f.handler.TraceTransaction(ctx, target)
+			waiter <- rpcErr
+		}()
+		synctest.Wait()
+		require.Empty(t, waiter, "request must wait for the producer")
+		require.Equal(t, uint64(1), calls.Load())
+		cancel()
+		synctest.Wait()
+		require.Len(t, waiter, 1, "cancellation must wake the waiter")
+		rpcErr := <-waiter
+		require.NotNil(t, rpcErr)
+		require.Contains(t, rpcErr.Data, context.Canceled.Error())
+		require.Empty(t, owner, "cancellation must leave the producer running")
+		releaseProducer()
+		require.Nil(t, <-owner)
+		result, steps, rpcErr := f.handler.TraceTransaction(t.Context(), target)
+		require.Nil(t, rpcErr)
+		require.Equal(t, uint64(2), result.ExecutionResources.L1Gas)
+		require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
+		require.Equal(t, uint64(1), calls.Load())
+	})
 }
 
 func TestProgressivePanicAndMalformedResultsDoNotPublish(t *testing.T) {
@@ -163,10 +203,10 @@ func TestProgressivePanicAndMalformedResultsDoNotPublish(t *testing.T) {
 				}
 				return result, nil
 			}}
-			h, header, txs, _ := progressiveHandler(t, runner)
-			target := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
+			f := progressiveHandler(t, runner)
+			target := (*felt.TransactionHash)(f.txs[0].Hash())
 			request := func() {
-				_, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
+				_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 				require.NotNil(t, rpcErr)
 			}
 			if failure == "panic" {
@@ -174,66 +214,76 @@ func TestProgressivePanicAndMalformedResultsDoNotPublish(t *testing.T) {
 			} else {
 				request()
 			}
-			result, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
+			result, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 			require.Nil(t, rpcErr)
-			require.Len(t, result.Traces, 1)
+			require.Equal(t, uint64(1), result.ExecutionResources.L1Gas)
 			require.Equal(t, 2, calls)
 		})
 	}
 }
 
 func TestProgressiveInitialReadsReplayPreservesPrefix(t *testing.T) {
-	entered, release := make(chan struct{}), make(chan struct{})
-	var calls atomic.Uint64
-	runner := &progressiveVM{run: func(
-		txs []core.Transaction, _ core.StateReader, opts vm.TraceOptions,
-	) (vm.ExecutionResults, error) {
-		call := calls.Add(1)
-		result := progressiveResult(txs)
-		if call == 1 {
-			require.Len(t, txs, 1)
-			require.False(t, opts.ReturnInitialReads)
-		} else {
-			require.Len(t, txs, 3)
-			require.True(t, opts.ReturnInitialReads)
+	synctest.Test(t, func(t *testing.T) {
+		entered, release := make(chan struct{}), make(chan struct{})
+		releaseProducer := sync.OnceFunc(func() { close(release) })
+		defer releaseProducer()
+		var calls atomic.Uint64
+		type execution struct {
+			transactions []core.Transaction
+			initialReads bool
+		}
+		observed := make(chan execution, 3)
+		runner := &progressiveVM{run: func(
+			txs []core.Transaction, _ core.StateReader, opts vm.TraceOptions,
+		) (vm.ExecutionResults, error) {
+			call := calls.Add(1)
+			observed <- execution{transactions: txs, initialReads: opts.ReturnInitialReads}
+			result := progressiveResult(txs)
 			if call == 2 {
 				close(entered)
 				<-release
-			} else {
+			} else if call > 2 {
 				result.InitialReads = &vm.InitialReads{}
 			}
+			return result, nil
+		}}
+		f := progressiveHandler(t, runner)
+		target := (*felt.TransactionHash)(f.txs[0].Hash())
+		prefix, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
+		require.Nil(t, rpcErr)
+		require.Equal(t, execution{transactions: f.txs[:1]}, <-observed)
+		flags := []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag}
+		done := make(chan *jsonrpc.Error, 1)
+		go func() {
+			_, _, rpcErr := f.handler.TraceBlockTransactions(t.Context(), &f.blockID, flags)
+			done <- rpcErr
+		}()
+		<-entered
+		require.Equal(t, execution{transactions: f.txs, initialReads: true}, <-observed)
+		hit, steps, rpcErr := f.handler.TraceTransaction(t.Context(), target)
+		require.Nil(t, rpcErr)
+		require.Equal(t, prefix, hit)
+		require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
+		releaseProducer()
+		rpcErr = <-done
+		require.NotNil(t, rpcErr)
+		require.Contains(t, rpcErr.Data, "VM omitted initial reads")
+		hit, _, rpcErr = f.handler.TraceTransaction(t.Context(), target)
+		require.Nil(t, rpcErr)
+		require.Equal(t, prefix, hit)
+		full, _, rpcErr := f.handler.TraceBlockTransactions(t.Context(), &f.blockID, flags)
+		require.Nil(t, rpcErr)
+		require.Equal(t, execution{transactions: f.txs, initialReads: true}, <-observed)
+		require.Len(t, full.Traces, len(f.txs))
+		require.NotNil(t, full.InitialReads)
+		for i := range full.Traces {
+			require.Equal(t, f.txs[i].Hash(), full.Traces[i].TransactionHash)
 		}
-		return result, nil
-	}}
-	h, header, txs, _ := progressiveHandler(t, runner)
-	target := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
-	prefix, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
-	require.Nil(t, rpcErr)
-	done := make(chan *jsonrpc.Error, 1)
-	go func() {
-		_, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, true, nil)
-		done <- rpcErr
-	}()
-	<-entered
-	hit, steps, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
-	require.Nil(t, rpcErr)
-	require.Equal(t, prefix, hit)
-	require.Equal(t, "0", steps.Get(ExecutionStepsHeader))
-	close(release)
-	rpcErr = <-done
-	require.NotNil(t, rpcErr)
-	require.Contains(t, rpcErr.Data, "VM omitted initial reads")
-	hit, _, rpcErr = h.traceFinalisedBlock(t.Context(), header, false, target)
-	require.Nil(t, rpcErr)
-	require.Equal(t, prefix, hit)
-	full, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, true, nil)
-	require.Nil(t, rpcErr)
-	require.Len(t, full.Traces, 3)
-	require.NotNil(t, full.InitialReads)
-	_, steps, rpcErr = h.traceFinalisedBlock(t.Context(), header, true, nil)
-	require.Nil(t, rpcErr)
-	require.Equal(t, "0", steps.Get(ExecutionStepsHeader))
-	require.Equal(t, uint64(3), calls.Load())
+		_, steps, rpcErr = f.handler.TraceBlockTransactions(t.Context(), &f.blockID, flags)
+		require.Nil(t, rpcErr)
+		require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
+		require.Equal(t, uint64(3), calls.Load())
+	})
 }
 
 func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
@@ -263,14 +313,14 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 		}
 		return result, nil
 	}}
-	h, header, txs, head := progressiveHandler(t, runner)
-	head.EXPECT().Class(&classHash).Return(&core.DeclaredClassDefinition{Class: definition}, nil)
-	_, _, rpcErr := h.traceFinalisedBlock(
-		t.Context(), header, false, &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()},
+	f := progressiveHandler(t, runner)
+	f.head.EXPECT().Class(&classHash).Return(&core.DeclaredClassDefinition{Class: definition}, nil)
+	_, _, rpcErr := f.handler.TraceTransaction(
+		t.Context(), (*felt.TransactionHash)(f.txs[0].Hash()),
 	)
 	require.Nil(t, rpcErr)
-	_, _, rpcErr = h.traceFinalisedBlock(
-		t.Context(), header, false, &tracecache.TransactionTarget{Index: 1, Hash: txs[1].Hash()},
+	_, _, rpcErr = f.handler.TraceTransaction(
+		t.Context(), (*felt.TransactionHash)(f.txs[1].Hash()),
 	)
 	require.Nil(t, rpcErr)
 	require.Equal(t, 2, calls)
@@ -284,21 +334,23 @@ func TestProgressiveTargetIdentityBeforeExecutionAndOnHit(t *testing.T) {
 		calls++
 		return progressiveResult(txs), nil
 	}}
-	h, header, txs, _ := progressiveHandler(t, runner)
-	bad := &tracecache.TransactionTarget{Index: 0, Hash: felt.NewFromUint64[felt.Felt](999)}
-	_, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, bad)
+	f := progressiveHandler(t, runner)
+	bad := felt.NewFromUint64[felt.TransactionHash](999)
+	f.reader.EXPECT().BlockNumberAndIndexByTxHash(bad).
+		Return(f.blockID.Number(), uint64(0), nil).Times(2)
+	_, _, rpcErr := f.handler.TraceTransaction(t.Context(), bad)
 	require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	require.Zero(t, calls)
-	_, _, rpcErr = h.traceFinalisedBlock(
-		t.Context(), header, false, &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()},
+	_, _, rpcErr = f.handler.TraceTransaction(
+		t.Context(), (*felt.TransactionHash)(f.txs[0].Hash()),
 	)
 	require.Nil(t, rpcErr)
-	_, _, rpcErr = h.traceFinalisedBlock(t.Context(), header, false, bad)
+	_, _, rpcErr = f.handler.TraceTransaction(t.Context(), bad)
 	require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	require.Equal(t, 1, calls)
-	_, _, rpcErr = h.traceFinalisedBlock(
-		t.Context(), header, false, &tracecache.TransactionTarget{Index: 3, Hash: txs[0].Hash()},
-	)
+	f.reader.EXPECT().BlockNumberAndIndexByTxHash(bad).
+		Return(f.blockID.Number(), uint64(len(f.txs)), nil)
+	_, _, rpcErr = f.handler.TraceTransaction(t.Context(), bad)
 	require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	require.Equal(t, 1, calls)
 }
@@ -314,18 +366,18 @@ func TestProgressiveCheckpointReadFailurePreservesPrefix(t *testing.T) {
 		result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.Felt{&classHash}
 		return result, nil
 	}}
-	h, header, txs, head := progressiveHandler(t, runner)
-	head.EXPECT().Class(&classHash).Return(nil, errors.New("class read failed"))
-	target := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
-	_, _, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
+	f := progressiveHandler(t, runner)
+	f.head.EXPECT().Class(&classHash).Return(nil, errors.New("class read failed"))
+	target := (*felt.TransactionHash)(f.txs[0].Hash())
+	_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 	require.Nil(t, rpcErr)
-	_, _, rpcErr = h.traceFinalisedBlock(
-		t.Context(), header, false, &tracecache.TransactionTarget{Index: 1, Hash: txs[1].Hash()},
+	_, _, rpcErr = f.handler.TraceTransaction(
+		t.Context(), (*felt.TransactionHash)(f.txs[1].Hash()),
 	)
 	require.NotNil(t, rpcErr)
 	require.Equal(t, jsonrpc.InternalError, rpcErr.Code)
-	_, steps, rpcErr := h.traceFinalisedBlock(t.Context(), header, false, target)
+	_, steps, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0", steps.Get(ExecutionStepsHeader))
+	require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
 	require.Equal(t, 1, calls)
 }
