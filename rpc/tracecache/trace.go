@@ -20,7 +20,8 @@ const (
 
 const DefaultBlockCapacity = 256
 
-// TransactionTrace holds one source trace and its RPC adaptation metadata.
+// TransactionTrace holds a vm.TransactionTrace or starknet.TransactionTrace
+// with its RPC adaptation metadata.
 type TransactionTrace struct {
 	Hash felt.Felt
 	Type vm.TransactionType // Set by [FromFeeder]; VM traces carry their own type.
@@ -47,12 +48,19 @@ type BlockTrace struct {
 	InitialReads *vm.InitialReads
 }
 
-// Covers checks requested read coverage, allowing unavailable feeder reads.
+// Covers checks complete-block and requested InitialReads coverage.
+// Feeder traces satisfy coverage even though they cannot provide InitialReads.
 func (b *BlockTrace) Covers(initialReads bool) bool {
 	return b.CoversTarget(nil, initialReads)
 }
 
-// CoversTarget checks whether the traces cover the requested target and initial reads.
+// CoversTarget is a cache-acceptance predicate: it reports whether the cached result
+// supplies the requested coverage.
+//
+// A nil target requires a complete block.
+// Feeder traces are accepted even when InitialReads are unavailable.
+//
+// Before serving a target, use ValidateTarget separately to verify its identity and bounds.
 func (b *BlockTrace) CoversTarget(target *TransactionTarget, initialReads bool) bool {
 	if !b.Complete && (target == nil || target.Index >= uint64(len(b.Traces))) {
 		return false
