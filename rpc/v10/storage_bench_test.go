@@ -151,7 +151,7 @@ func (f *storageProofBenchmarkFixture) setup(
 	mockReader.EXPECT().Height().Return(f.blockNumber, nil).AnyTimes()
 	mockReader.EXPECT().BlockHeaderHashByNumber(f.blockNumber).Return(f.blkHash, nil).AnyTimes()
 	mockReader.EXPECT().
-		StateAtBlockNumber(f.blockNumber).
+		TrieStateAtBlockNumber(f.blockNumber).
 		Return(mockState, func() error { return nil }, nil).
 		AnyTimes()
 

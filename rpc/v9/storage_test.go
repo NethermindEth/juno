@@ -352,7 +352,7 @@ func TestStorageProof(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().
-		StateAtBlockNumber(blockNumber).
+		TrieStateAtBlockNumber(blockNumber).
 		Return(mockState, func() error { return nil }, nil).
 		AnyTimes()
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()

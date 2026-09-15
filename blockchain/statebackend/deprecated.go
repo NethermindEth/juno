@@ -63,6 +63,30 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 	), NoopStateCloser, nil
 }
 
+func (b *deprecatedStateBackend) TrieStateAtBlockNumber(
+	blockNumber uint64,
+) (core.StateReader, StateCloser, error) {
+	if err := pruner.RequireStateRetainedByBlockNumber(
+		b.database,
+		b.retentionFloor,
+		blockNumber,
+	); err != nil {
+		return nil, nil, err
+	}
+
+	//nolint:staticcheck,nolintlint // used by old state
+	txn := b.database.NewIndexedBatch()
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+	if height != blockNumber {
+		return nil, nil, db.ErrKeyNotFound
+	}
+
+	return deprecatedstate.New(txn), NoopStateCloser, nil
+}
+
 func (b *deprecatedStateBackend) Store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
