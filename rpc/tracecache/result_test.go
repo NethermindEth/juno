@@ -1,10 +1,11 @@
-package tracecache
+package tracecache_test
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ func TestVMResult(t *testing.T) {
 		GasConsumed: []core.GasConsumed{{L2Gas: 7}},
 	}
 	t.Run("metadata", func(t *testing.T) {
-		block, err := FromVM(txs, &valid, false)
+		block, err := tracecache.FromVM(txs, &valid, false)
 		require.NoError(t, err)
 		require.Same(t, &valid.Traces[0], block.Traces[0].VMTrace())
 		require.Nil(t, block.Traces[0].FeederTrace())
@@ -28,13 +29,13 @@ func TestVMResult(t *testing.T) {
 	})
 	t.Run("initial reads", func(t *testing.T) {
 		result := valid
-		_, err := FromVM(txs, &result, true)
+		_, err := tracecache.FromVM(txs, &result, true)
 		require.EqualError(t, err, "VM omitted initial reads for block trace")
 		result.InitialReads = &vm.InitialReads{}
-		block, err := FromVM(txs, &result, true)
+		block, err := tracecache.FromVM(txs, &result, true)
 		require.NoError(t, err)
 		require.True(t, block.Covers(true))
-		block, err = FromVM(txs, &result, false)
+		block, err = tracecache.FromVM(txs, &result, false)
 		require.NoError(t, err)
 		require.Nil(t, block.InitialReads)
 	})
@@ -46,12 +47,12 @@ func TestVMResult(t *testing.T) {
 		{"gas count", vm.ExecutionResults{Traces: valid.Traces}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := FromVM(txs, &test.result, false)
+			_, err := tracecache.FromVM(txs, &test.result, false)
 			require.Error(t, err)
 		})
 	}
 	t.Run("empty block", func(t *testing.T) {
-		empty, err := FromVM(nil, &vm.ExecutionResults{}, false)
+		empty, err := tracecache.FromVM(nil, &vm.ExecutionResults{}, false)
 		require.NoError(t, err)
 		require.NotNil(t, empty.Traces)
 		require.Empty(t, empty.Traces)
@@ -59,12 +60,12 @@ func TestVMResult(t *testing.T) {
 		require.True(t, empty.Covers(false))
 		require.False(t, empty.Covers(true))
 
-		empty, err = FromVM(nil, &vm.ExecutionResults{}, true)
+		empty, err = tracecache.FromVM(nil, &vm.ExecutionResults{}, true)
 		require.EqualError(t, err, "VM omitted initial reads for block trace")
 		require.Nil(t, empty)
 
 		reads := &vm.InitialReads{}
-		empty, err = FromVM(nil, &vm.ExecutionResults{InitialReads: reads}, true)
+		empty, err = tracecache.FromVM(nil, &vm.ExecutionResults{InitialReads: reads}, true)
 		require.NoError(t, err)
 		require.NotNil(t, empty.Traces)
 		require.Empty(t, empty.Traces)
@@ -84,7 +85,7 @@ func TestFeederMetadataAndReadCoverage(t *testing.T) {
 			TotalGasConsumed: &core.GasConsumed{L1Gas: 5},
 		},
 	}
-	block, err := FromFeeder(
+	block, err := tracecache.FromFeeder(
 		[]vm.TransactionType{vm.TxnDeploy, vm.TxnL1Handler},
 		[]*core.TransactionReceipt{receipt},
 		&source,
@@ -101,6 +102,10 @@ func TestFeederMetadataAndReadCoverage(t *testing.T) {
 	require.Zero(t, block.Traces[1].Gas.L1Gas)
 	receipt.ExecutionResources.TotalGasConsumed.L1Gas = 9
 	require.Equal(t, uint64(5), block.Traces[0].Gas.L1Gas)
-	_, err = FromFeeder(nil, nil, &source)
-	require.EqualError(t, err, "mismatched number of txs and traces")
+	_, err = tracecache.FromFeeder(nil, nil, &source)
+	require.EqualError(
+		t,
+		err,
+		"feeder returned an unexpected number of transaction traces: expected 0, received 2",
+	)
 }

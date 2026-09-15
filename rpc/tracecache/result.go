@@ -2,6 +2,7 @@ package tracecache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,10 +17,18 @@ func FromVM(
 	initialReads bool,
 ) (*BlockTrace, error) {
 	if len(result.Traces) != len(transactions) {
-		return nil, errors.New("VM returned an unexpected number of transaction traces")
+		return nil, fmt.Errorf(
+			"VM returned an unexpected number of transaction traces: expected %d, received %d",
+			len(transactions),
+			len(result.Traces),
+		)
 	}
 	if len(result.GasConsumed) != len(result.Traces) {
-		return nil, errors.New("VM returned an unexpected number of gas results")
+		return nil, fmt.Errorf(
+			"VM returned an unexpected number of gas results: expected %d, received %d",
+			len(result.Traces),
+			len(result.GasConsumed),
+		)
 	}
 	if initialReads && result.InitialReads == nil {
 		return nil, errors.New("VM omitted initial reads for block trace")
@@ -45,7 +54,11 @@ func FromFeeder(
 	source *starknet.BlockTrace,
 ) (*BlockTrace, error) {
 	if len(kinds) != len(source.Traces) {
-		return nil, errors.New("mismatched number of txs and traces")
+		return nil, fmt.Errorf(
+			"feeder returned an unexpected number of transaction traces: expected %d, received %d",
+			len(kinds),
+			len(source.Traces),
+		)
 	}
 	gas := make(map[felt.Felt]*core.GasConsumed, len(receipts))
 	for _, receipt := range receipts {

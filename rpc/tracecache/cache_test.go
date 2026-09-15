@@ -1,95 +1,119 @@
-package tracecache
+package tracecache_test
 
 import (
 	"context"
-	"sync"
 	"testing"
+	"testing/synctest"
 
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCacheSingleOwnerAndPublication(t *testing.T) {
-	cache := New[string, string](1)
-	key := "key"
-	owner := cache.lookupOrStart(&key, nil)
-	key = "other" // The lease retains its own key.
-	require.Equal(t, cacheLoad, owner.kind)
+	synctest.Test(t, func(t *testing.T) {
+		cache := tracecache.New[string, string](1)
+		key := "key"
+		value, owner, err := cache.Acquire(t.Context(), &key, nil)
+		require.NoError(t, err)
+		require.NotNil(t, owner)
+		defer owner.Abort()
+		require.Empty(t, value)
+		key = "other" // The lease retains its own key.
 
-	const count = 16
-	lookups := make([]cacheLookup[string, string], count)
-	var group sync.WaitGroup
-	for index := range count {
-		group.Go(func() { lookups[index] = cache.lookupOrStart(new("key"), nil) })
-	}
-	group.Wait()
-	for _, lookup := range lookups {
-		require.Equal(t, cacheWait, lookup.kind)
-		require.True(t, owner.work.flight == lookup.done)
-	}
-	owner.work.Publish("value")
-	for _, lookup := range lookups {
-		select {
-		case <-lookup.done:
-		default:
-			t.Fatal("publication must release waiters")
+		const count = 16
+		waiters := make([]<-chan acquireResult, count)
+		for i := range waiters {
+			waiters[i] = acquireAsync(t.Context(), cache, new("key"), nil)
 		}
-	}
-	hit := cache.lookupOrStart(new("key"), nil)
-	require.Equal(t, cacheHit, hit.kind)
-	require.Equal(t, "value", hit.value)
+		synctest.Wait()
+		for _, waiter := range waiters {
+			require.Empty(t, waiter, "requests must wait for publication")
+		}
+		owner.Publish("value")
+		for _, waiter := range waiters {
+			result := <-waiter
+			require.NoError(t, result.err)
+			require.Nil(t, result.lease)
+			require.Equal(t, "value", result.value)
+		}
+	})
 }
 
 func TestCacheReplacementPreservesAcceptedValue(t *testing.T) {
-	cache := New[string, string](1)
-	cache.lookupOrStart(new("key"), nil).work.Publish("old")
-	wantsNew := func(value string) bool { return value == "new" }
-	owner := cache.lookupOrStart(new("key"), wantsNew)
-	require.Equal(t, cacheLoad, owner.kind)
-	require.Equal(t, "old", owner.value)
-	hit := cache.lookupOrStart(new("key"), nil)
-	require.Equal(t, cacheHit, hit.kind)
-	require.Equal(t, "old", hit.value)
-	waiting := cache.lookupOrStart(new("key"), wantsNew)
-	require.Equal(t, cacheWait, waiting.kind)
-	owner.work.Abort()
-	select {
-	case <-waiting.done:
-	default:
-		t.Fatal("abort must release waiters")
-	}
-	require.Equal(t, "old", cache.lookupOrStart(new("key"), nil).value)
+	synctest.Test(t, func(t *testing.T) {
+		cache := tracecache.New[string, string](1)
+		key := new("key")
+		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		seed.Publish("old")
+		wantsNew := func(value string) bool { return value == "new" }
+		value, owner, err := cache.Acquire(t.Context(), key, wantsNew)
+		require.NoError(t, err)
+		require.NotNil(t, owner)
+		defer owner.Abort()
+		require.Equal(t, "old", value)
+		value, lease, err := cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		require.Nil(t, lease)
+		require.Equal(t, "old", value)
 
-	next := cache.lookupOrStart(new("key"), wantsNew)
-	require.Equal(t, cacheLoad, next.kind)
-	// A released owner cannot overwrite the value or release its successor's waiters.
-	owner.work.Publish("stale")
-	owner.work.Abort()
-	require.Equal(t, "old", cache.lookupOrStart(new("key"), nil).value)
-	select {
-	case <-next.work.flight:
-		t.Fatal("stale owner released its successor")
-	default:
-	}
-	next.work.Publish("new")
-	next.work.Abort() // The normal deferred abort after publication is harmless.
-	require.Equal(t, "new", cache.lookupOrStart(new("key"), wantsNew).value)
+		waiting := acquireAsync(t.Context(), cache, key, wantsNew)
+		synctest.Wait()
+		require.Empty(t, waiting)
+		owner.Abort()
+		next := <-waiting
+		require.NoError(t, next.err)
+		require.NotNil(t, next.lease)
+		defer next.lease.Abort()
+		require.Equal(t, "old", next.value)
+
+		waiting = acquireAsync(t.Context(), cache, key, wantsNew)
+		synctest.Wait()
+		require.Empty(t, waiting)
+		// A released lease cannot overwrite the value or release its successor's waiters.
+		owner.Publish("stale")
+		owner.Abort()
+		synctest.Wait()
+		require.Empty(t, waiting)
+		value, lease, err = cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		require.Nil(t, lease)
+		require.Equal(t, "old", value)
+
+		next.lease.Publish("new")
+		next.lease.Abort() // The normal deferred abort after publication is harmless.
+		result := <-waiting
+		require.NoError(t, result.err)
+		require.Nil(t, result.lease)
+		require.Equal(t, "new", result.value)
+	})
 }
 
 func TestCacheEvictionDoesNotReleaseOwner(t *testing.T) {
-	cache := New[string, string](1)
-	cache.lookupOrStart(new("key"), nil).work.Publish("old")
-	owner := cache.lookupOrStart(new("key"), func(string) bool { return false })
-	cache.lookupOrStart(new("other"), nil).work.Publish("other value")
-	require.Equal(t, "old", owner.value, "the caller retains the evicted value")
-	waiting := cache.lookupOrStart(new("key"), nil)
-	require.Equal(t, cacheWait, waiting.kind)
-	owner.work.Publish("new")
-	require.Equal(t, "new", cache.lookupOrStart(new("key"), nil).value)
-	select {
-	case <-waiting.done:
-	default:
-		t.Fatal("publication after eviction must release waiters")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		cache := tracecache.New[string, string](1)
+		key := new("key")
+		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		seed.Publish("old")
+		value, owner, err := cache.Acquire(t.Context(), key, func(string) bool { return false })
+		require.NoError(t, err)
+		require.NotNil(t, owner)
+		defer owner.Abort()
+		_, other, err := cache.Acquire(t.Context(), new("other"), nil)
+		require.NoError(t, err)
+		other.Publish("other value")
+		require.Equal(t, "old", value, "the caller retains the evicted value")
+
+		waiting := acquireAsync(t.Context(), cache, key, nil)
+		synctest.Wait()
+		require.Empty(t, waiting)
+		owner.Publish("new")
+		result := <-waiting
+		require.NoError(t, result.err)
+		require.Nil(t, result.lease)
+		require.Equal(t, "new", result.value)
+	})
 }
 
 func TestCacheInstancesAndKeysAreIndependent(t *testing.T) {
@@ -97,24 +121,31 @@ func TestCacheInstancesAndKeysAreIndependent(t *testing.T) {
 		revision    uint64
 		transaction string
 	}
-	first, second := New[key, *int](2), New[key, *int](2)
+	first, second := tracecache.New[key, *int](2), tracecache.New[key, *int](2)
 	original := key{revision: 1, transaction: "tx"}
 	revised := key{revision: 2, transaction: "tx"}
 	// Even a zero value is a valid published entry; presence is independent of value.
-	first.lookupOrStart(&original, nil).work.Publish(nil)
-	hit := first.lookupOrStart(&original, nil)
-	require.Equal(t, cacheHit, hit.kind)
-	require.Nil(t, hit.value)
-	for _, lookup := range []cacheLookup[key, *int]{
-		first.lookupOrStart(&revised, nil), second.lookupOrStart(&original, nil),
-	} {
-		require.Equal(t, cacheLoad, lookup.kind)
-		lookup.work.Abort()
-	}
+	_, owner, err := first.Acquire(t.Context(), &original, nil)
+	require.NoError(t, err)
+	owner.Publish(nil)
+	value, lease, err := first.Acquire(t.Context(), &original, nil)
+	require.NoError(t, err)
+	require.Nil(t, lease)
+	require.Nil(t, value)
+	value, lease, err = first.Acquire(t.Context(), &revised, nil)
+	require.NoError(t, err)
+	require.NotNil(t, lease)
+	defer lease.Abort()
+	require.Nil(t, value)
+	value, lease, err = second.Acquire(t.Context(), &original, nil)
+	require.NoError(t, err)
+	require.NotNil(t, lease)
+	defer lease.Abort()
+	require.Nil(t, value)
 }
 
 func TestAcquireCancellation(t *testing.T) {
-	cache := New[string, string](1)
+	cache := tracecache.New[string, string](1)
 	_, owner, err := cache.Acquire(t.Context(), new("key"), nil)
 	require.NoError(t, err)
 	defer owner.Abort()
@@ -131,44 +162,55 @@ func TestAcquireCancellation(t *testing.T) {
 }
 
 func TestAcquireRetryAfterAbort(t *testing.T) {
-	cache := New[string, string](1)
-	cache.lookupOrStart(new("key"), nil).work.Publish("old")
-	wantsNew := func(value string) bool { return value == "new" }
-	_, upgrade, err := cache.Acquire(t.Context(), new("key"), wantsNew)
-	require.NoError(t, err)
-	defer upgrade.Abort()
-	waiting := &waitContext{Context: t.Context(), entered: make(chan struct{})}
-	type result struct {
-		value string
-		err   error
-	}
-	done := make(chan result, 1)
+	synctest.Test(t, func(t *testing.T) {
+		cache := tracecache.New[string, string](1)
+		key := new("key")
+		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		seed.Publish("old")
+		wantsNew := func(value string) bool { return value == "new" }
+		_, upgrade, err := cache.Acquire(t.Context(), key, wantsNew)
+		require.NoError(t, err)
+		defer upgrade.Abort()
+		done := make(chan acquireResult, 1)
+		go func() {
+			value, lease, acquireErr := cache.Acquire(t.Context(), key, wantsNew)
+			if lease != nil {
+				defer lease.Abort()
+				lease.Publish("new")
+			}
+			done <- acquireResult{value: value, lease: lease, err: acquireErr}
+		}()
+		synctest.Wait()
+		require.Empty(t, done)
+		upgrade.Abort()
+		outcome := <-done
+		require.NoError(t, outcome.err)
+		require.NotNil(t, outcome.lease)
+		require.Equal(t, "old", outcome.value)
+		value, lease, err := cache.Acquire(t.Context(), key, nil)
+		require.NoError(t, err)
+		require.Nil(t, lease)
+		require.Equal(t, "new", value)
+	})
+}
+
+type acquireResult struct {
+	value string
+	lease *tracecache.Lease[string, string]
+	err   error
+}
+
+func acquireAsync(
+	ctx context.Context,
+	cache *tracecache.Cache[string, string],
+	key *string,
+	accepts func(string) bool,
+) <-chan acquireResult {
+	done := make(chan acquireResult, 1)
 	go func() {
-		value, work, acquireErr := cache.Acquire(waiting, new("key"), wantsNew)
-		if work != nil {
-			defer work.Abort()
-			work.Publish("new")
-		}
-		done <- result{value: value, err: acquireErr}
+		value, lease, err := cache.Acquire(ctx, key, accepts)
+		done <- acquireResult{value: value, lease: lease, err: err}
 	}()
-	<-waiting.entered
-	upgrade.Abort()
-	outcome := <-done
-	require.NoError(t, outcome.err)
-	require.Equal(t, "old", outcome.value)
-	value, lease, err := cache.Acquire(t.Context(), new("key"), nil)
-	require.NoError(t, err)
-	require.Nil(t, lease)
-	require.Equal(t, "new", value)
-}
-
-type waitContext struct {
-	context.Context
-	entered chan struct{}
-	once    sync.Once
-}
-
-func (c *waitContext) Done() <-chan struct{} {
-	c.once.Do(func() { close(c.entered) })
-	return c.Context.Done()
+	return done
 }
