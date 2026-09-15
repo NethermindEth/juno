@@ -45,7 +45,7 @@ type Handler struct {
 	subscriptions stdsync.Map // map[string]*subscription
 
 	blockTraceCache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]
-	// todo(rdr): Can this cache be genericified and can it be applied to the `blockTraceCache`
+	// Sharing the trace cache's LRU policy would allow eviction before the submission TTL expires.
 	submittedTransactionsCache *rpccore.TransactionCache
 
 	filterLimit  uint
@@ -83,8 +83,10 @@ func New(
 		preConfirmedFeed: feed.New[*pending.PreConfirmed](),
 		l1Heads:          feed.New[*core.L1Head](),
 
-		blockTraceCache: tracecache.New[felt.Felt, *tracecache.BlockTrace](tracecache.DefaultCapacity),
-		filterLimit:     math.MaxUint,
+		blockTraceCache: tracecache.New[felt.Felt, *tracecache.BlockTrace](
+			tracecache.DefaultBlockCapacity,
+		),
+		filterLimit: math.MaxUint,
 	}
 }
 
@@ -368,8 +370,9 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_9"
 }
 
-// WithTraceCache must be called before serving requests.
-func (h *Handler) WithTraceCache(cache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace]) *Handler {
+func (h *Handler) WithTraceCache(
+	cache *tracecache.Cache[felt.Felt, *tracecache.BlockTrace],
+) *Handler {
 	h.blockTraceCache = cache
 	return h
 }

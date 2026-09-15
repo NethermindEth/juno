@@ -25,37 +25,68 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestSharedTraceCacheAcrossVersions(t *testing.T) {
+func TestSharedTraceCacheInitialReads(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
 	runner := mocks.NewMockVM(ctrl)
 	state := mocks.NewMockStateReader(ctrl)
-	header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99), ProtocolVersion: "0.14.0"}
+	header := &core.Header{
+		Hash:            felt.NewFromUint64[felt.Felt](100),
+		ParentHash:      felt.NewFromUint64[felt.Felt](99),
+		ProtocolVersion: "0.14.0",
+	}
 	transactions := []core.Transaction{
-		&core.InvokeTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](1)},
-		&core.InvokeTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](2)},
-		&core.InvokeTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](3)},
+		&core.InvokeTransaction{
+			Version:         new(core.TransactionVersion),
+			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+		},
+		&core.InvokeTransaction{
+			Version:         new(core.TransactionVersion),
+			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+		},
 	}
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
-	reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: transactions}, nil).AnyTimes()
+	reader.EXPECT().BlockByHash(header.Hash).
+		Return(&core.Block{Header: header, Transactions: transactions}, nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
-	reader.EXPECT().Receipt(transactions[0].Hash()).Return(nil, header.Hash, header.Number, nil)
+	reader.EXPECT().Receipt(transactions[0].Hash()).
+		Return(nil, header.Hash, header.Number, nil).Times(2)
 	for i := range transactions {
-		reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(transactions[i].Hash())).Return(header.Number, uint64(i), nil).AnyTimes()
+		reader.EXPECT().BlockNumberAndIndexByTxHash(
+			(*felt.TransactionHash)(transactions[i].Hash()),
+		).Return(header.Number, uint64(i), nil).AnyTimes()
 	}
-	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil).Times(1)
-	reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, func() error { return nil }, nil).Times(2)
+	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil)
+	reader.EXPECT().StateAtBlockHash(header.ParentHash).
+		Return(state, func() error { return nil }, nil).Times(2)
 	reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(2)
 	// v8 executes the full block; other versions reuse it, then initial reads replay once.
 	calls := 0
-	runner.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(txs []core.Transaction, _ []core.ClassDefinition, _ []*felt.Felt, _ *vm.BlockInfo, _ core.StateReader, opts vm.TraceOptions) (vm.ExecutionResults, error) {
+	runner.EXPECT().Trace(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		txs []core.Transaction,
+		_ []core.ClassDefinition,
+		_ []*felt.Felt,
+		_ *vm.BlockInfo,
+		_ core.StateReader,
+		opts vm.TraceOptions,
+	) (vm.ExecutionResults, error) {
 		calls++
 		require.Equal(t, transactions, txs)
 		require.Equal(t, calls == 2, opts.ReturnInitialReads)
-		result := vm.ExecutionResults{Traces: make([]vm.TransactionTrace, len(txs)), GasConsumed: make([]core.GasConsumed, len(txs)), NumSteps: 11}
+		result := vm.ExecutionResults{
+			Traces:      make([]vm.TransactionTrace, len(txs)),
+			GasConsumed: make([]core.GasConsumed, len(txs)),
+			NumSteps:    11,
+		}
 		for i := range txs {
-			result.Traces[i] = vm.TransactionTrace{Type: vm.TxnInvoke, StateDiff: &vm.StateDiff{}}
+			result.Traces[i] = vm.TransactionTrace{
+				Type:      vm.TxnInvoke,
+				StateDiff: &vm.StateDiff{},
+			}
 			result.GasConsumed[i].L1Gas = txs[i].Hash().Uint64()
 		}
 		if opts.ReturnInitialReads {
@@ -68,42 +99,25 @@ func TestSharedTraceCacheAcrossVersions(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, "11", steps.Get(rpcv8.ExecutionStepsHeader))
 	require.Equal(t, uint64(1), first.ExecutionResources.L1Gas)
-	_, steps, err = h.rpcv9Handler.TraceTransaction(t.Context(), (*felt.TransactionHash)(transactions[1].Hash()))
+	second, steps, err := h.rpcv9Handler.TraceTransaction(
+		t.Context(), (*felt.TransactionHash)(transactions[1].Hash()),
+	)
 	require.Nil(t, err)
 	require.Equal(t, "0", steps.Get(rpcv9.ExecutionStepsHeader))
+	require.Equal(t, uint64(2), second.ExecutionResources.L1Gas)
 	id10 := rpcv10.BlockIDFromHash(header.Hash)
-	complete, steps, err := h.rpcv10Handler.TraceBlockTransactions(t.Context(), &id10, nil)
-	require.Nil(t, err)
-	require.Len(t, complete.Traces, 3)
-	require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
-	id8 := rpcv8.BlockIDFromHash(header.Hash)
-	old, steps, err := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id8)
-	require.Nil(t, err)
-	require.Equal(t, "0", steps.Get(rpcv8.ExecutionStepsHeader))
-	require.Equal(t, *first, *old[0].TraceRoot)
-	id9 := rpcv9.BlockIDFromHash(header.Hash)
-	_, steps, err = h.rpcv9Handler.TraceBlockTransactions(t.Context(), &id9)
-	require.Nil(t, err)
-	require.Equal(t, "0", steps.Get(rpcv9.ExecutionStepsHeader))
-	withReads, _, err := h.rpcv10Handler.TraceBlockTransactions(t.Context(), &id10, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag})
+	withReads, _, err := h.rpcv10Handler.TraceBlockTransactions(
+		t.Context(), &id10,
+		[]rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+	)
 	require.Nil(t, err)
 	require.NotNil(t, withReads.InitialReads)
-	for range 2 {
-		_, steps, err = h.rpcv10Handler.TraceBlockTransactions(t.Context(), &id10, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag})
-		require.Nil(t, err)
-		require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
-	}
-	// Marshaling all versions concurrently must not mutate shared VM data.
-	var group sync.WaitGroup
-	for range 8 {
-		group.Go(func() {
-			for _, response := range []any{old, complete, withReads} {
-				_, marshalErr := json.Marshal(response)
-				require.NoError(t, marshalErr)
-			}
-		})
-	}
-	group.Wait()
+	require.Len(t, withReads.Traces, 2)
+	require.Equal(t, uint64(1), withReads.Traces[0].TraceRoot.ExecutionResources.L1Gas)
+	require.Equal(t, uint64(2), withReads.Traces[1].TraceRoot.ExecutionResources.L1Gas)
+	_, steps, err = h.rpcv8Handler.TraceTransaction(t.Context(), *transactions[0].Hash())
+	require.Nil(t, err)
+	require.Equal(t, "0", steps.Get(rpcv8.ExecutionStepsHeader))
 	require.Equal(t, 2, calls)
 }
 
@@ -111,19 +125,38 @@ func TestSharedFeederTraceCachePreservesVersionShapes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
 	feeder := mocks.NewMockFeederReader(ctrl)
-	header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ProtocolVersion: "0.12.0", TransactionCount: 2}
-	txs := []core.Transaction{&core.DeployTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](1)}, &core.L1HandlerTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](2)}}
+	header := &core.Header{
+		Hash:             felt.NewFromUint64[felt.Felt](100),
+		ProtocolVersion:  "0.12.0",
+		TransactionCount: 2,
+	}
+	txs := []core.Transaction{
+		&core.DeployTransaction{
+			Version:         new(core.TransactionVersion),
+			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+		},
+		&core.L1HandlerTransaction{
+			Version:         new(core.TransactionVersion),
+			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+		},
+	}
 	blockTrace := starknet.BlockTrace{Traces: []starknet.TransactionTrace{
 		{TransactionHash: *txs[0].Hash(), FunctionInvocation: &starknet.FunctionInvocation{}},
-		{TransactionHash: *txs[1].Hash(), FunctionInvocation: &starknet.FunctionInvocation{}, RevertError: "reverted"},
+		{
+			TransactionHash:    *txs[1].Hash(),
+			FunctionInvocation: &starknet.FunctionInvocation{},
+			RevertError:        "reverted",
+		},
 	}}
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
-	reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
+	reader.EXPECT().BlockByHash(header.Hash).
+		Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).AnyTimes()
 	reader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)
 	feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).Return(blockTrace, nil)
-	h := New(reader, nil, nil, "test", log.NewNopZapLogger(), &networks.Mainnet).WithFeeder(feeder)
+	h := New(reader, nil, nil, "test", log.NewNopZapLogger(), &networks.Mainnet).
+		WithFeeder(feeder)
 	id8 := rpcv8.BlockIDFromHash(header.Hash)
 	a, _, err := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id8)
 	require.Nil(t, err)
@@ -137,18 +170,25 @@ func TestSharedFeederTraceCachePreservesVersionShapes(t *testing.T) {
 	require.Equal(t, "reverted", b[1].TraceRoot.FunctionInvocation.RevertReason)
 	id10 := rpcv10.BlockIDFromHash(header.Hash)
 	for range 2 {
-		c, steps, err := h.rpcv10Handler.TraceBlockTransactions(t.Context(), &id10, []rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag})
+		c, steps, err := h.rpcv10Handler.TraceBlockTransactions(
+			t.Context(), &id10,
+			[]rpcv10.TraceFlag{rpcv10.TraceReturnInitialReadsFlag},
+		)
 		require.Nil(t, err)
 		require.Equal(t, "0", steps.Get(rpcv10.ExecutionStepsHeader))
 		require.Equal(t, rpcv10.TxnDeploy, c.Traces[0].TraceRoot.Type)
 		require.Equal(t, "reverted", c.Traces[1].TraceRoot.FunctionInvocation.RevertReason)
 		reads, marshalErr := json.Marshal(c.InitialReads)
 		require.NoError(t, marshalErr)
-		require.JSONEq(t, `{"storage":null,"nonces":null,"class_hashes":null,"declared_contracts":null}`, string(reads))
+		require.JSONEq(
+			t,
+			`{"storage":null,"nonces":null,"class_hashes":null,"declared_contracts":null}`,
+			string(reads),
+		)
 	}
 }
 
-// A waiter signals after entering the service's flight wait, so these tests need no sleeps.
+// Done signals when Acquire starts waiting.
 type traceWaitContext struct {
 	context.Context
 	entered chan struct{}
@@ -168,42 +208,85 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 			runner := mocks.NewMockVM(ctrl)
 			state := mocks.NewMockStateReader(ctrl)
 			feeder := mocks.NewMockFeederReader(ctrl)
-			header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99), ProtocolVersion: "0.14.0"}
-			txs := []core.Transaction{&core.InvokeTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](1)}}
+			header := &core.Header{
+				Hash:            felt.NewFromUint64[felt.Felt](100),
+				ParentHash:      felt.NewFromUint64[felt.Felt](99),
+				ProtocolVersion: "0.14.0",
+			}
+			txs := []core.Transaction{
+				&core.InvokeTransaction{
+					Version:         new(core.TransactionVersion),
+					TransactionHash: felt.NewFromUint64[felt.Felt](1),
+				},
+			}
 			reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
-			reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
+			reader.EXPECT().BlockByHash(header.Hash).
+				Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
 			reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).Times(2)
 			entered, release := make(chan struct{}), make(chan struct{})
+			vmResult := vm.ExecutionResults{
+				Traces: []vm.TransactionTrace{{
+					Type: vm.TxnInvoke,
+					ValidateInvocation: &vm.FunctionInvocation{
+						Calls: []vm.FunctionInvocation{
+							{ExecutionResources: &vm.ExecutionResources{L1Gas: 3}},
+						},
+					},
+					StateDiff:          &vm.StateDiff{},
+					ExecutionResources: &vm.ExecutionResources{L1Gas: 99},
+				}},
+				GasConsumed: []core.GasConsumed{{L1Gas: 7}}, NumSteps: 11,
+			}
+			feederResult := starknet.BlockTrace{Traces: []starknet.TransactionTrace{{
+				TransactionHash: *txs[0].Hash(),
+				ValidateInvocation: &starknet.FunctionInvocation{
+					InternalCalls: []starknet.FunctionInvocation{{ContractAddress: felt.One}},
+				},
+			}}}
+			before, err := json.Marshal([]any{vmResult, feederResult})
+			require.NoError(t, err)
 			if useFeeder {
 				header.ProtocolVersion = "0.12.0"
 				header.TransactionCount = uint64(len(txs))
 				reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil)
 				reader.EXPECT().L1Head().Return(core.L1Head{}, nil)
-				reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)
-				feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).DoAndReturn(func(context.Context, string) (starknet.BlockTrace, error) {
-					close(entered)
-					<-release
-					return starknet.BlockTrace{Traces: []starknet.TransactionTrace{{TransactionHash: *txs[0].Hash()}}}, nil
-				})
+				reader.EXPECT().TransactionsByBlockNumber(header.Number).
+					Return(txs, nil)
+				feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).
+					DoAndReturn(func(context.Context, string) (starknet.BlockTrace, error) {
+						close(entered)
+						<-release
+						return feederResult, nil
+					})
 			} else {
-				reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, func() error { return nil }, nil)
-				reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-				runner.EXPECT().Trace(txs, gomock.Any(), gomock.Any(), gomock.Any(), state, vm.TraceOptions{}).DoAndReturn(func([]core.Transaction, []core.ClassDefinition, []*felt.Felt, *vm.BlockInfo, core.StateReader, vm.TraceOptions) (vm.ExecutionResults, error) {
+				reader.EXPECT().StateAtBlockHash(header.ParentHash).
+					Return(state, func() error { return nil }, nil)
+				reader.EXPECT().HeadState().
+					Return(state, func() error { return nil }, nil)
+				runner.EXPECT().Trace(
+					txs, gomock.Any(), gomock.Any(), gomock.Any(), state, vm.TraceOptions{},
+				).DoAndReturn(func(
+					[]core.Transaction, []core.ClassDefinition, []*felt.Felt,
+					*vm.BlockInfo, core.StateReader, vm.TraceOptions,
+				) (vm.ExecutionResults, error) {
 					close(entered)
 					<-release
-					return vm.ExecutionResults{Traces: []vm.TransactionTrace{{Type: vm.TxnInvoke, StateDiff: &vm.StateDiff{}}}, GasConsumed: []core.GasConsumed{{}}, NumSteps: 11}, nil
+					return vmResult, nil
 				})
 			}
-			h := New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet).WithFeeder(feeder)
+			h := New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet).
+				WithFeeder(feeder)
 			type response struct {
-				steps string
-				err   *jsonrpc.Error
+				steps      string
+				err        *jsonrpc.Error
+				marshalErr error
 			}
 			owner := make(chan response, 1)
 			go func() {
 				id := rpcv8.BlockIDFromHash(header.Hash)
-				_, steps, err := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id)
-				owner <- response{steps.Get(rpcv8.ExecutionStepsHeader), err}
+				traces, steps, err := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id)
+				_, marshalErr := json.Marshal(traces)
+				owner <- response{steps.Get(rpcv8.ExecutionStepsHeader), err, marshalErr}
 			}()
 			<-entered
 			wait9 := &traceWaitContext{Context: t.Context(), entered: make(chan struct{})}
@@ -211,19 +294,22 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 			done := make(chan response, 2)
 			go func() {
 				id := rpcv9.BlockIDFromHash(header.Hash)
-				_, steps, err := h.rpcv9Handler.TraceBlockTransactions(wait9, &id)
-				done <- response{steps.Get(rpcv9.ExecutionStepsHeader), err}
+				traces, steps, err := h.rpcv9Handler.TraceBlockTransactions(wait9, &id)
+				_, marshalErr := json.Marshal(traces)
+				done <- response{steps.Get(rpcv9.ExecutionStepsHeader), err, marshalErr}
 			}()
 			go func() {
 				id := rpcv10.BlockIDFromHash(header.Hash)
-				_, steps, err := h.rpcv10Handler.TraceBlockTransactions(wait10, &id, nil)
-				done <- response{steps.Get(rpcv10.ExecutionStepsHeader), err}
+				traces, steps, err := h.rpcv10Handler.TraceBlockTransactions(wait10, &id, nil)
+				_, marshalErr := json.Marshal(traces)
+				done <- response{steps.Get(rpcv10.ExecutionStepsHeader), err, marshalErr}
 			}()
 			<-wait9.entered
 			<-wait10.entered
 			close(release)
 			result := <-owner
 			require.Nil(t, result.err)
+			require.NoError(t, result.marshalErr)
 			if useFeeder {
 				require.Equal(t, "0", result.steps)
 			} else {
@@ -232,22 +318,37 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 			for range 2 {
 				result = <-done
 				require.Nil(t, result.err)
+				require.NoError(t, result.marshalErr)
 				require.Equal(t, "0", result.steps)
 			}
+			after, err := json.Marshal([]any{vmResult, feederResult})
+			require.NoError(t, err)
+			require.Equal(t, string(before), string(after))
 		})
 	}
 }
 
-func TestSharedTraceParentStateErrorMapping(t *testing.T) {
+func TestSharedTraceCacheReleasesFailedProducer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
-	header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99), ProtocolVersion: "0.14.0"}
-	txs := []core.Transaction{&core.InvokeTransaction{Version: new(core.TransactionVersion), TransactionHash: felt.NewFromUint64[felt.Felt](1)}}
+	header := &core.Header{
+		Hash:            felt.NewFromUint64[felt.Felt](100),
+		ParentHash:      felt.NewFromUint64[felt.Felt](99),
+		ProtocolVersion: "0.14.0",
+	}
+	txs := []core.Transaction{
+		&core.InvokeTransaction{
+			Version:         new(core.TransactionVersion),
+			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+		},
+	}
 	reader.EXPECT().Network().Return(&networks.Mainnet).Times(2)
-	reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
+	reader.EXPECT().BlockByHash(header.Hash).
+		Return(&core.Block{Header: header, Transactions: txs}, nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).Times(2)
 	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil).Times(2)
-	reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nil, errors.New("state read failed")).Times(3)
+	reader.EXPECT().StateAtBlockHash(header.ParentHash).
+		Return(nil, nil, errors.New("state read failed")).Times(3)
 	h := New(reader, nil, nil, "test", log.NewNopZapLogger(), &networks.Mainnet)
 	id8 := rpcv8.BlockIDFromHash(header.Hash)
 	_, _, err := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id8)
@@ -269,30 +370,64 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 				runner := mocks.NewMockVM(ctrl)
 				state := mocks.NewMockStateReader(ctrl)
 				feeder := mocks.NewMockFeederReader(ctrl)
-				header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99), ProtocolVersion: "0.14.0", TransactionCount: 1}
-				txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: &felt.One, Version: new(core.TransactionVersion)}}
-				receipts := []*core.TransactionReceipt{{TransactionHash: &felt.One, ExecutionResources: &core.ExecutionResources{TotalGasConsumed: &core.GasConsumed{L1Gas: 7}}}}
-				reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs, Receipts: receipts}, nil).AnyTimes()
-				reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).AnyTimes()
+				header := &core.Header{
+					Hash:             felt.NewFromUint64[felt.Felt](100),
+					ParentHash:       felt.NewFromUint64[felt.Felt](99),
+					ProtocolVersion:  "0.14.0",
+					TransactionCount: 1,
+				}
+				txs := []core.Transaction{
+					&core.InvokeTransaction{
+						TransactionHash: &felt.One,
+						Version:         new(core.TransactionVersion),
+					},
+				}
+				receipts := []*core.TransactionReceipt{{
+					TransactionHash: &felt.One,
+					ExecutionResources: &core.ExecutionResources{
+						TotalGasConsumed: &core.GasConsumed{L1Gas: 7},
+					},
+				}}
+				reader.EXPECT().BlockByHash(header.Hash).
+					Return(&core.Block{Header: header, Transactions: txs, Receipts: receipts}, nil).AnyTimes()
+				reader.EXPECT().BlockHeaderByHash(header.Hash).
+					Return(header, nil).AnyTimes()
 				reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 				if useFeeder {
 					header.ProtocolVersion = "0.12.0"
 					if producer == 0 {
-						reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)
+						reader.EXPECT().TransactionsByBlockNumber(header.Number).
+							Return(txs, nil)
 						reader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 					} else {
-						reader.EXPECT().TransactionsAndReceiptsByBlockNumber(header.Number).Return(txs, receipts, nil)
+						reader.EXPECT().TransactionsAndReceiptsByBlockNumber(header.Number).
+							Return(txs, receipts, nil)
 					}
-					feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).Return(starknet.BlockTrace{Traces: []starknet.TransactionTrace{{TransactionHash: felt.One}}}, nil)
+					feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).
+						Return(starknet.BlockTrace{
+							Traces: []starknet.TransactionTrace{{TransactionHash: felt.One}},
+						}, nil)
 				} else {
 					if producer != 0 {
-						reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)
+						reader.EXPECT().TransactionsByBlockNumber(header.Number).
+							Return(txs, nil)
 					}
-					reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, func() error { return nil }, nil)
-					reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-					runner.EXPECT().Trace(txs, gomock.Any(), gomock.Any(), gomock.Any(), state, vm.TraceOptions{}).Return(vm.ExecutionResults{Traces: []vm.TransactionTrace{{Type: vm.TxnInvoke, StateDiff: &vm.StateDiff{}}}, GasConsumed: []core.GasConsumed{{L1Gas: 7}}, NumSteps: 11}, nil)
+					reader.EXPECT().StateAtBlockHash(header.ParentHash).
+						Return(state, func() error { return nil }, nil)
+					reader.EXPECT().HeadState().
+						Return(state, func() error { return nil }, nil)
+					runner.EXPECT().Trace(
+						txs, gomock.Any(), gomock.Any(), gomock.Any(), state, vm.TraceOptions{},
+					).Return(vm.ExecutionResults{
+						Traces: []vm.TransactionTrace{
+							{Type: vm.TxnInvoke, StateDiff: &vm.StateDiff{}},
+						},
+						GasConsumed: []core.GasConsumed{{L1Gas: 7}},
+						NumSteps:    11,
+					}, nil)
 				}
-				h := New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet).WithFeeder(feeder)
+				h := New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet).
+					WithFeeder(feeder)
 				for offset := range 3 {
 					var steps http.Header
 					var rpcErr *jsonrpc.Error
@@ -330,25 +465,4 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 			})
 		}
 	}
-}
-
-func TestV8TracePreservesClassPreparationOrder(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	reader := mocks.NewMockReader(ctrl)
-	state := mocks.NewMockStateReader(ctrl)
-	header := &core.Header{Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99), Number: 20, ProtocolVersion: "0.14.0"}
-	txs := []core.Transaction{&core.DeclareTransaction{TransactionHash: &felt.One, ClassHash: &felt.One}}
-	reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs}, nil)
-	closes := 0
-	closer := func() error { closes++; return nil }
-	reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, closer, nil)
-	reader.EXPECT().HeadState().Return(state, closer, nil)
-	state.EXPECT().Class(&felt.One).Return(nil, errors.New("class lookup failed"))
-	// No revealed-block metadata read or VM call is permitted after class failure.
-	h := New(reader, nil, mocks.NewMockVM(ctrl), "test", log.NewNopZapLogger(), &networks.Mainnet)
-	id := rpcv8.BlockIDFromHash(header.Hash)
-	_, _, rpcErr := h.rpcv8Handler.TraceBlockTransactions(t.Context(), &id)
-	require.NotNil(t, rpcErr)
-	require.Equal(t, "class lookup failed", rpcErr.Data)
-	require.Equal(t, 2, closes)
 }

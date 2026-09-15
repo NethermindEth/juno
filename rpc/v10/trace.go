@@ -159,7 +159,7 @@ func (h *Handler) TraceBlockTransactions(
 //
 // Parameters:
 //
-//   - vm: The virtual machine used for execution
+//   - runner: The virtual machine used for execution
 //
 //   - transactions: The transactions to trace
 //
@@ -172,23 +172,6 @@ func (h *Handler) TraceBlockTransactions(
 //
 //   - returnInitialReads: Whether to return initial reads in the response
 func traceTransactionsWithState(
-	runner vm.VM,
-	transactions []core.Transaction,
-	executionState core.StateReader,
-	classLookupState core.StateReader,
-	blockInfo *vm.BlockInfo,
-	returnInitialReads bool,
-) ([]TracedBlockTransaction, *vm.InitialReads, http.Header, *jsonrpc.Error) {
-	result, httpHeader, rpcErr := traceTransactionsNeutral(
-		runner, transactions, executionState, classLookupState, blockInfo, returnInitialReads,
-	)
-	if rpcErr != nil {
-		return nil, nil, httpHeader, rpcErr
-	}
-	return adaptCachedTraces(result), result.InitialReads, httpHeader, nil
-}
-
-func traceTransactionsNeutral(
 	runner vm.VM,
 	transactions []core.Transaction,
 	executionState core.StateReader,
@@ -335,7 +318,7 @@ func (h *Handler) findAndTraceInPreConfirmed(
 			return TransactionTrace{}, defaultExecutionHeader(), rpcErr
 		}
 
-		traces, _, httpHeader, rpcErr := traceTransactionsWithState(
+		traces, httpHeader, rpcErr := traceTransactionsWithState(
 			h.vm,
 			[]core.Transaction{transaction},
 			state, // execution state
@@ -346,7 +329,9 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		if rpcErr != nil {
 			return TransactionTrace{}, httpHeader, rpcErr
 		}
-		return *traces[0].TraceRoot, httpHeader, nil
+		var trace TransactionTrace
+		adaptCachedTrace(&traces.Traces[0], &trace)
+		return trace, httpHeader, nil
 	}
 	return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 }
@@ -355,16 +340,18 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		Block Tracing Helpers
 *****************************************************/
 
-// traceFinalisedBlock gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
+// traceFinalisedBlock caches local or feeder traces by block hash.
+// See shouldFetchTracesFromFeederGateway for feeder trace edge cases.
 func (h *Handler) traceFinalisedBlock(
 	ctx context.Context,
 	header *core.Header,
 	returnInitialReads bool,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
-	cached, lease, err := h.blockTraceCache.Acquire(ctx, *header.Hash, func(b *tracecache.BlockTrace) bool {
-		return b.Covers(returnInitialReads)
-	})
+	cached, lease, err := h.blockTraceCache.Acquire(
+		ctx, header.Hash, func(b *tracecache.BlockTrace) bool {
+			return b.Covers(returnInitialReads)
+		},
+	)
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
@@ -449,7 +436,7 @@ func (h *Handler) traceBlockWithVM(
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	traces, httpHeader, rpcErr := traceTransactionsNeutral(
+	return traceTransactionsWithState(
 		h.vm,
 		transactions,
 		state,
@@ -457,11 +444,6 @@ func (h *Handler) traceBlockWithVM(
 		&blockInfo,
 		returnInitialReads,
 	)
-	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
-	}
-
-	return traces, httpHeader, nil
 }
 
 // fetchTracesFromFeederGateway fetches block traces from the feeder gateway

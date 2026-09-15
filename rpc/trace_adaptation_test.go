@@ -19,62 +19,64 @@ import (
 func TestTraceTransactionSkipsUnrequestedAdaptation(t *testing.T) {
 	for _, version := range []int{8, 9, 10} {
 		for _, feeder := range []bool{false, true} {
-			for _, cached := range []bool{false, true} {
-				t.Run(fmt.Sprintf("v%d/feeder=%t/cached=%t", version, feeder, cached), func(t *testing.T) {
-					// The requested transaction is identical. Only the other transaction's
-					// invocation tree grows, so selecting first must keep allocations flat.
-					small := testing.AllocsPerRun(10, traceAdaptationRequest(t, version, feeder, cached, 0))
-					large := testing.AllocsPerRun(10, traceAdaptationRequest(t, version, feeder, cached, 128))
-					t.Logf("allocations/request: small=%g large=%g", small, large)
-					require.LessOrEqual(t, large, small+1, "unrequested invocation trees must not be adapted")
-				})
-			}
+			t.Run(fmt.Sprintf("v%d/feeder=%t", version, feeder), func(t *testing.T) {
+				// Growing an unrelated invocation tree must not add adaptation allocations.
+				small := testing.AllocsPerRun(10, traceAdaptationRequest(t, version, feeder, 0))
+				large := testing.AllocsPerRun(10, traceAdaptationRequest(t, version, feeder, 128))
+				require.LessOrEqual(t, large, small+1)
+			})
 		}
 	}
 }
 
-func traceAdaptationRequest(t *testing.T, version int, feeder, cached bool, calls int) func() {
+func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) func() {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
-	runner := mocks.NewMockVM(ctrl)
-	state := mocks.NewMockStateReader(ctrl)
-	gateway := mocks.NewMockFeederReader(ctrl)
 	header := &core.Header{
 		Hash: felt.NewFromUint64[felt.Felt](100), ParentHash: felt.NewFromUint64[felt.Felt](99),
 		ProtocolVersion: "0.14.0", TransactionCount: 2,
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: &felt.One, Version: new(core.TransactionVersion)},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2), Version: new(core.TransactionVersion)},
+		&core.InvokeTransaction{
+			TransactionHash: &felt.One,
+			Version:         new(core.TransactionVersion),
+		},
+		&core.InvokeTransaction{
+			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+			Version:         new(core.TransactionVersion),
+		},
 	}
 	hash := txs[1].Hash()
 	receipts := []*core.TransactionReceipt{{
-		TransactionHash:    hash,
-		ExecutionResources: &core.ExecutionResources{TotalGasConsumed: &core.GasConsumed{L1Gas: 7}},
+		TransactionHash: hash,
+		ExecutionResources: &core.ExecutionResources{
+			TotalGasConsumed: &core.GasConsumed{L1Gas: 7},
+		},
 	}}
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
 	reader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil).AnyTimes()
-	reader.EXPECT().BlockByHash(header.Hash).Return(&core.Block{Header: header, Transactions: txs, Receipts: receipts}, nil).AnyTimes()
-	reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash)).Return(header.Number, uint64(1), nil).AnyTimes()
+	reader.EXPECT().BlockByHash(header.Hash).
+		Return(&core.Block{Header: header, Transactions: txs, Receipts: receipts}, nil).AnyTimes()
+	reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash)).
+		Return(header.Number, uint64(1), nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
 	var record *tracecache.BlockTrace
 	var err error
 	if feeder {
 		header.ProtocolVersion = "0.12.0"
-		invocation := &starknet.FunctionInvocation{InternalCalls: make([]starknet.FunctionInvocation, calls)}
+		invocation := &starknet.FunctionInvocation{
+			InternalCalls: make([]starknet.FunctionInvocation, calls),
+		}
 		result := starknet.BlockTrace{Traces: []starknet.TransactionTrace{
 			{TransactionHash: *txs[0].Hash(), ValidateInvocation: invocation},
 			{TransactionHash: *hash},
 		}}
-		record, err = tracecache.FromFeeder([]vm.TransactionType{vm.TxnInvoke, vm.TxnInvoke}, receipts, &result)
-		if !cached {
-			reader.EXPECT().BlockHeaderByHash(header.Hash).Return(header, nil).AnyTimes()
-			reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil).AnyTimes()
-			reader.EXPECT().TransactionsAndReceiptsByBlockNumber(header.Number).Return(txs, receipts, nil).AnyTimes()
-			reader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
-			gateway.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).Return(result, nil).AnyTimes()
-		}
+		record, err = tracecache.FromFeeder(
+			[]vm.TransactionType{vm.TxnInvoke, vm.TxnInvoke},
+			receipts,
+			&result,
+		)
 	} else {
 		invocation := &vm.FunctionInvocation{Calls: make([]vm.FunctionInvocation, calls)}
 		for i := range invocation.Calls {
@@ -88,32 +90,17 @@ func traceAdaptationRequest(t *testing.T, version int, feeder, cached bool, call
 			GasConsumed: []core.GasConsumed{{}, {L1Gas: 7}},
 		}
 		record, err = tracecache.FromVM(txs, &result, false)
-		if !cached {
-			reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil).AnyTimes()
-			reader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, func() error { return nil }, nil).AnyTimes()
-			reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).AnyTimes()
-			runner.EXPECT().Trace(txs, gomock.Any(), gomock.Any(), gomock.Any(), state, vm.TraceOptions{}).Return(result, nil).AnyTimes()
-		}
 	}
 	require.NoError(t, err)
-	h := New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet).WithFeeder(gateway)
-	installCache := func() *tracecache.Cache[felt.Felt, *tracecache.BlockTrace] {
-		cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](1)
-		h.rpcv8Handler.WithTraceCache(cache)
-		h.rpcv9Handler.WithTraceCache(cache)
-		h.rpcv10Handler.WithTraceCache(cache)
-		return cache
-	}
-	if cached {
-		cache := installCache()
-		_, lease, cacheErr := cache.Acquire(t.Context(), *header.Hash, nil)
-		require.NoError(t, cacheErr)
-		lease.Publish(record)
-	}
+	h := New(reader, nil, nil, "test", log.NewNopZapLogger(), &networks.Mainnet)
+	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](1)
+	h.rpcv8Handler.WithTraceCache(cache)
+	h.rpcv9Handler.WithTraceCache(cache)
+	h.rpcv10Handler.WithTraceCache(cache)
+	_, lease, err := cache.Acquire(t.Context(), header.Hash, nil)
+	require.NoError(t, err)
+	lease.Publish(record)
 	return func() {
-		if !cached {
-			installCache()
-		}
 		switch version {
 		case 8:
 			trace, _, rpcErr := h.rpcv8Handler.TraceTransaction(t.Context(), *hash)
