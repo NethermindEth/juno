@@ -209,37 +209,37 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(tr core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
-	switch t := tr.(type) {
+func getClassProof(trieReader core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
+	switch stateTrie := trieReader.(type) {
 	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
-		if err := t.ProveMulti(classes, classProof); err != nil {
+		if err := stateTrie.ProveMulti(classes, classProof); err != nil {
 			return nil, err
 		}
 		return adaptDeprecatedTrieProofNodes(classProof), nil
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
-		if err := t.ProveMulti(classes, classProof); err != nil {
+		if err := stateTrie.ProveMulti(classes, classProof); err != nil {
 			return nil, err
 		}
 		return adaptTrieProofNodes(classProof)
 	default:
-		return nil, fmt.Errorf("unknown trie type: %T", tr)
+		return nil, fmt.Errorf("unknown trie type: %T", trieReader)
 	}
 }
 
 func getContractProof(
-	tr core.TrieReader,
+	trieReader core.TrieReader,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
-	switch t := tr.(type) {
+	switch stateTrie := trieReader.(type) {
 	case *trie.Trie:
-		return getContractProofWithDeprecatedTrie(t, state, contracts)
+		return getContractProofWithDeprecatedTrie(stateTrie, state, contracts)
 	case *trie2.Trie:
-		return getContractProofWithTrie(t, state, contracts)
+		return getContractProofWithTrie(stateTrie, state, contracts)
 	default:
-		return nil, fmt.Errorf("unknown trie type: %T", tr)
+		return nil, fmt.Errorf("unknown trie type: %T", trieReader)
 	}
 }
 
@@ -318,13 +318,13 @@ func buildContractLeavesDataFromMetadata(
 }
 
 func getContractProofWithDeprecatedTrie(
-	tr *trie.Trie,
+	contractTrie *trie.Trie,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 
-	if err := tr.ProveMulti(contracts, contractProof); err != nil {
+	if err := contractTrie.ProveMulti(contracts, contractProof); err != nil {
 		return nil, err
 	}
 
@@ -340,13 +340,13 @@ func getContractProofWithDeprecatedTrie(
 }
 
 func getContractProofWithTrie(
-	tr *trie2.Trie,
+	contractTrie *trie2.Trie,
 	state core.StateReader,
 	contracts []felt.Felt,
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 
-	if err := tr.ProveMulti(contracts, contractProof); err != nil {
+	if err := contractTrie.ProveMulti(contracts, contractProof); err != nil {
 		return nil, err
 	}
 
@@ -377,16 +377,16 @@ func getContractStorageProof(
 			return nil, err
 		}
 
-		switch t := contractStorageTrie.(type) {
+		switch storageTrie := contractStorageTrie.(type) {
 		case *trie.Trie:
 			contractStorageProof := trie.NewProofNodeSet()
-			if err := t.ProveMulti(storageKey.Keys, contractStorageProof); err != nil {
+			if err := storageTrie.ProveMulti(storageKey.Keys, contractStorageProof); err != nil {
 				return nil, err
 			}
 			contractStorageRes[i] = adaptDeprecatedTrieProofNodes(contractStorageProof)
 		case *trie2.Trie:
 			contractStorageProof := trie2.NewProofNodeSet()
-			if err := t.ProveMulti(storageKey.Keys, contractStorageProof); err != nil {
+			if err := storageTrie.ProveMulti(storageKey.Keys, contractStorageProof); err != nil {
 				return nil, err
 			}
 			nodes, err := adaptTrieProofNodes(contractStorageProof)
