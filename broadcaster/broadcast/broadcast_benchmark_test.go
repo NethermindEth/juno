@@ -103,3 +103,77 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 	benchmarkPublisherThroughput(b, payloadBig, "big_struct_value", bufferSizes)
 	benchmarkPublisherThroughput(b, &payloadBig, "big_struct_ptr", bufferSizes)
 }
+
+// BenchmarkBroadcastMultiPublisherThroughput has several publishers sending into one
+// ring at once, pointer payload, capacity 1024; b.N sends are split across publishers.
+func BenchmarkBroadcastMultiPublisherThroughput(b *testing.B) {
+	payload := 10
+	const bufSize = 1024
+	for _, nPubs := range []int{1, 2, 4, 8} {
+		for _, nSubs := range []int{1, 32} {
+			b.Run(fmt.Sprintf("pubs=%d/subs=%d", nPubs, nSubs), func(b *testing.B) {
+				bc := broadcast.New[*int](bufSize)
+				subbable := bc.NewSubscribable()
+
+				unsubs := make([]func(), nSubs)
+				var readers sync.WaitGroup
+				readers.Add(nSubs)
+				type counts struct {
+					recvd uint64
+					lag   uint64
+				}
+				countCh := make(chan counts, nSubs)
+				for i := range nSubs {
+					sub := subbable.Subscribe()
+					unsubs[i] = sub.Unsubscribe
+					go func() {
+						defer readers.Done()
+						var c counts
+						for ev := range sub.Recv() {
+							if ev.IsEvent() {
+								c.recvd++
+							} else if ev.IsLag() {
+								c.lag++
+							}
+						}
+						countCh <- c
+					}()
+				}
+
+				perPub := b.N / nPubs
+				var writers sync.WaitGroup
+				b.ResetTimer()
+				start := time.Now()
+				for range nPubs {
+					pub := bc.NewPublisher()
+					writers.Go(func() {
+						for range perPub {
+							pub.Send(&payload)
+						}
+					})
+				}
+				writers.Wait()
+				b.StopTimer()
+				duration := time.Since(start).Seconds()
+
+				for _, unsub := range unsubs {
+					unsub()
+				}
+				readers.Wait()
+				close(countCh)
+				var totalRecvd, totalLag uint64
+				for c := range countCh {
+					totalRecvd += c.recvd
+					totalLag += c.lag
+				}
+
+				sent := float64(perPub * nPubs)
+				b.ReportMetric(sent/duration, "msgs_sent_per_sec")
+				b.ReportMetric(float64(totalRecvd)/duration, "msgs_recv_per_sec")
+				b.ReportMetric(float64(totalRecvd)/float64(nSubs), "avg_msgs_recv_per_sub")
+				b.ReportMetric(float64(totalLag)/float64(nSubs), "avg_lag_per_sub")
+				b.ReportMetric(float64(totalRecvd)/(sent*float64(nSubs)), "delivered_fraction")
+			})
+		}
+	}
+}

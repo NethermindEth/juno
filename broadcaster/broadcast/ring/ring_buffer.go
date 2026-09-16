@@ -1,6 +1,6 @@
 // Package ring implements the MPMC overwrite-on-full ring buffer that backs the
-// broadcast package: writers publish under one mutex, readers block only on the
-// per-slot lock of the slot they need and are told when they have been lapped.
+// broadcast package: writers claim a sequence with one atomic increment, readers block
+// only on the per-slot lock of the slot they need and are told when they have been lapped.
 package ring
 
 import (
@@ -17,15 +17,15 @@ import (
 // observes a lag notification rather than stale data.
 //
 // Every message gets a monotonically increasing sequence number and lands in slot
-// seq & mask. Writes are serialised by mu so the tail read, slot write and tail
-// increment are one atomic step; that is the only global lock, and readers never
-// take it. Readers wait on the per-slot condition variable of the slot they need
-// (see Iterator and Slot.waitForSequence), so a Write only wakes readers of the
-// slot it filled.
+// seq & mask. Write claims its sequence with an atomic increment and then fills the
+// slot under that slot's lock; there is no global lock. A slot keeps the newest sequence
+// it has seen, so a writer that was lapped before it stored is dropped, which
+// overwrite-on-full already implies. Readers wait on the per-slot condition variable
+// of the slot they need (see Iterator and Slot.waitForSequence), so a Write only wakes
+// readers of the slot it filled.
 //
 // Fields:
 //   - buffer:   ring of slots.
-//   - mu:       serialises Write calls.
 //   - tail:     sequence of the last published message (0 before the first Write).
 //   - capacity: ring capacity, a power of two rounded up from the requested value.
 //   - mask:     capacity-1 for index masking.
@@ -34,7 +34,6 @@ import (
 // that reader; nothing ends the ring (see wakeWaiters).
 type RingBuffer[T any] struct {
 	buffer   []Slot[T]
-	mu       sync.Mutex // serializes Write calls
 	tail     atomic.Uint64
 	capacity uint64
 	mask     uint64
@@ -56,15 +55,12 @@ func NewRingBuffer[T any](capacity uint64) *RingBuffer[T] {
 	}
 }
 
-// Write publishes msg at sequence Tail()+1, overwriting whatever the slot held, and
-// returns that sequence. Concurrent calls are serialised by rb.mu.
-func (rb *RingBuffer[T]) Write(msg T) uint64 {
-	rb.mu.Lock()
-	defer rb.mu.Unlock()
-
-	tail := rb.tail.Add(1)
-	rb.Slot(tail).Write(msg, tail)
-	return tail
+// Write publishes msg at the next sequence. Writers are safe to run in parallel: each
+// claims its sequence atomically and Slot.Write never stores over a newer one, so a
+// writer lapped before it stored is dropped.
+func (rb *RingBuffer[T]) Write(msg T) {
+	seq := rb.tail.Add(1)
+	rb.Slot(seq).Write(msg, seq)
 }
 
 // Slot returns the slot that holds, or will hold, the given sequence.
@@ -90,11 +86,10 @@ func (rb *RingBuffer[T]) Capacity() uint64 {
 // and waitForSequence checks ctx.Err under the slot lock right before Wait, so once this
 // runs no reader can start sleeping. A reader already asleep when the tail t is read sits
 // on some slot k <= t+1, because nextSeq never exceeds tail+1. k == t+1 is woken here.
-// k <= t belongs to a Write that has already bumped the tail and broadcasts slot k as its
-// next step. Either way the reader wakes, re-checks ctx.Err and returns.
-//
-// Taking rb.mu here would freeze the tail and simplify the argument, but it would stall
-// the producer once per unsubscribe; readers and this hook only ever take slot locks.
+// k <= t belongs to a Write that has already claimed its sequence and broadcasts slot k
+// as its next step, unless a newer write landed there first, whose broadcast already woke
+// the reader. Either way the reader wakes, re-checks ctx.Err and returns. Readers and this
+// hook only ever take slot locks.
 func (rb *RingBuffer[T]) wakeWaiters() {
 	rb.Slot(rb.Tail() + 1).wakeWaiters()
 }

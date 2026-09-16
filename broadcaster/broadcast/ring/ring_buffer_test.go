@@ -36,17 +36,15 @@ func TestNewRingBuffer(t *testing.T) {
 }
 
 func TestRingBufferWrite(t *testing.T) {
-	t.Run("write returns sequence numbers", func(t *testing.T) {
+	t.Run("write advances the tail by one", func(t *testing.T) {
 		rb := ring.NewRingBuffer[int](8)
 		msg := 42
 
-		seq1 := rb.Write(msg)
-		require.Equal(t, uint64(1), seq1, "first write should return seq 1")
+		rb.Write(msg)
+		require.Equal(t, uint64(1), rb.Tail(), "first write should be seq 1")
 
-		seq2 := rb.Write(msg)
-		require.Equal(t, uint64(2), seq2, "second write should return seq 2")
-
-		require.Equal(t, uint64(2), rb.Tail(), "tail should be 2")
+		rb.Write(msg)
+		require.Equal(t, uint64(2), rb.Tail(), "second write should be seq 2")
 	})
 
 	t.Run("write stores message in correct slot", func(t *testing.T) {
@@ -54,16 +52,16 @@ func TestRingBufferWrite(t *testing.T) {
 		msg1 := 10
 		msg2 := 20
 
-		seq1 := rb.Write(msg1)
-		seq2 := rb.Write(msg2)
+		rb.Write(msg1)
+		rb.Write(msg2)
 
-		data1, slotSeq1 := rb.Slot(seq1).Read()
+		data1, slotSeq1 := rb.Slot(1).Read()
 		require.Equal(t, 10, data1)
-		require.Equal(t, seq1, slotSeq1)
+		require.Equal(t, uint64(1), slotSeq1)
 
-		data2, slotSeq2 := rb.Slot(seq2).Read()
+		data2, slotSeq2 := rb.Slot(2).Read()
 		require.Equal(t, 20, data2)
-		require.Equal(t, seq2, slotSeq2)
+		require.Equal(t, uint64(2), slotSeq2)
 	})
 }
 
@@ -86,12 +84,12 @@ func TestRingBufferSlot(t *testing.T) {
 		rb := ring.NewRingBuffer[int](8)
 		msg := 42
 
-		seq := rb.Write(msg)
-		slot := rb.Slot(seq)
+		rb.Write(msg)
+		slot := rb.Slot(rb.Tail())
 
 		data, slotSeq := slot.Read()
 		require.Equal(t, 42, data)
-		require.Equal(t, seq, slotSeq)
+		require.Equal(t, rb.Tail(), slotSeq)
 	})
 }
 
@@ -549,5 +547,49 @@ func TestIteratorConcurrentReadWrite(t *testing.T) {
 		// Good, all iterators completed
 	case <-time.After(2 * time.Second):
 		t.Fatal("iterators should complete")
+	}
+}
+
+// TestSlotWriteKeepsNewerSequence pins the rule that lets Write run without a global lock:
+// a writer that arrives after a later sequence has landed in its slot must not regress it.
+func TestSlotWriteKeepsNewerSequence(t *testing.T) {
+	rb := ring.NewRingBuffer[int](4)
+	slot := rb.Slot(1)
+
+	slot.Write(10, 5)
+	slot.Write(20, 1) // lapped writer, same slot, older sequence
+
+	data, seq := slot.Read()
+	require.Equal(t, uint64(5), seq)
+	require.Equal(t, 10, data)
+}
+
+// TestParallelWritersNeverRegressSlots runs many writers with no coordination and checks
+// that every slot ends up holding the highest sequence assigned to it.
+func TestParallelWritersNeverRegressSlots(t *testing.T) {
+	const (
+		capacity        = uint64(8)
+		writers         = 8
+		writesPerWriter = 20000
+		total           = uint64(writers * writesPerWriter)
+	)
+	rb := ring.NewRingBuffer[int](capacity)
+
+	var wg sync.WaitGroup
+	for w := range writers {
+		wg.Go(func() {
+			for range writesPerWriter {
+				rb.Write(w)
+			}
+		})
+	}
+	wg.Wait()
+
+	require.Equal(t, total, rb.Tail())
+	for i := range capacity {
+		_, seq := rb.Slot(i).Read()
+		// highest k <= total with k % capacity == i
+		want := total - (total-i)%capacity
+		require.Equal(t, want, seq, "slot %d", i)
 	}
 }

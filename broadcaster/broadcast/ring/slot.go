@@ -39,9 +39,15 @@ func (s *Slot[T]) Read() (T, uint64) {
 	return s.data, s.seq
 }
 
+// Write stores msg under seq and wakes waiters. A lapped writer, whose slot already holds
+// a newer sequence, is dropped without a broadcast: the newer write already woke everyone,
+// and any reader wanting the dropped sequence observes the lap instead of sleeping.
 func (s *Slot[T]) Write(msg T, seq uint64) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
+	if seq <= s.seq {
+		return
+	}
 	s.data = msg
 	s.seq = seq
 	s.cond.Broadcast()

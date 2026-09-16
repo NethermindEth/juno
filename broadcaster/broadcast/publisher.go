@@ -14,5 +14,5 @@ type Publisher[T any] struct {
 // T is passed by value: callers use pointer or interface element types (e.g.
 // *core.Block), so this is a single-word copy and avoids a pointer-to-pointer.
 func (p Publisher[T]) Send(msg T) {
-	_ = p.ring.Write(msg)
+	p.ring.Write(msg)
 }
