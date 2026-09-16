@@ -5,7 +5,7 @@
 // lag notification (LaggedError) indicating where to resume.
 //
 // Architecture:
-//   - ring.RingBuffer: storage, write serialisation and the cancellable read iterator
+//   - ring.RingBuffer: slot storage, sequence allocation and the cancellable read iterator
 //   - Broadcast (this file): owns the ring and mints the two handles below
 //   - Publisher (publisher.go): write handle, Send
 //   - Subscribable / Subscription (subscription.go): read handles that pump the ring
@@ -22,17 +22,18 @@
 //
 //	What's not replaceable (performance-critical):
 //	  - Storage backend (RingBuffer's slot structure)
-//	  - Write serialization (tightly coupled to atomic operations)
+//	  - Write path (atomic sequence claim, then the slot's own lock)
 //	  - Reading logic (RingBuffer.Iterator, tightly coupled to slot structure)
 //
 //	For different storage or delivery patterns, consider implementing a different
-//	Broadcaster (see broadcaster/feed for a channel-based alternative).
+//	Broadcaster (see the feed package for a channel-based alternative).
 //
 // Notes:
-//   - Producers are serialised by RingBuffer.mu, so producer-side throughput
-//     is effectively single-writer (MPMC-safe but not truly parallel on Send).
+//   - Producers run in parallel: Send claims a sequence with one atomic increment and
+//     takes only the lock of the slot it fills. A producer lapped before it stored is
+//     dropped, which overwrite-on-full already implies.
 //   - The ring is bounded and overwriting; backpressure to producers does not apply,
-//     except that producers can stall when wrapping to a slot currently being read.
+//     except that a producer can stall briefly on a slot lock held by a reader.
 package broadcast
 
 import (
