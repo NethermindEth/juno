@@ -64,7 +64,6 @@ func LagPolicyLog[T any](logger log.StructuredLogger) LagPolicy[T] {
 					continue
 				}
 				if lag, ok := ev.AsLag(); ok {
-					// TODO(ege): add context identifying which subscriber lagged.
 					logger.Warn("broadcaster subscriber lagged",
 						zap.Uint64("missedSeq", lag.MissedSeq),
 						zap.Uint64("nextSeq", lag.NextSeq),

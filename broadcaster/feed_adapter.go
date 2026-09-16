@@ -19,22 +19,14 @@ func (a *FeedAdapter[T]) NewPublisher() Publisher[T] {
 	return &feedPublisher[T]{feed: a.feed}
 }
 
-// NewSubscribable returns a fan-out view Tee'd from the producer feed: it opens a
-// single upstream subscription and re-fans-out to this Subscribable's own
-// subscribers through an internal feed, keeping the producer's Send O(1) in
-// subscriber count (the O(N) fan-out runs on the Tee goroutine).
-//
-// Each call creates its own Tee and upstream subscription, so a caller that wants
-// one upstream subscription must reuse the returned Subscribable across its
-// consumers rather than calling NewSubscribable per consumer.
+// NewSubscribable returns a view over the producer feed itself; every Subscribe is a
+// direct keep-last subscription, so drops are per client and nothing runs in between.
 //
 // lagPolicy is ignored: feed.Feed has no lag-or-event envelope to transform. The
 // parameter exists only to satisfy the unified BroadcastHub interface so callers
 // wired against KindBroadcast can be repointed at KindFeed without code changes.
 func (a *FeedAdapter[T]) NewSubscribable(_ LagPolicy[T]) Subscribable[T] {
-	internal := feed.New[T]()
-	feed.Tee(a.feed.SubscribeKeepLast(), internal)
-	return &feedSubscribable[T]{feed: internal}
+	return &feedSubscribable[T]{feed: a.feed}
 }
 
 type feedPublisher[T any] struct {
