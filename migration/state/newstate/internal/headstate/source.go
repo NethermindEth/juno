@@ -80,14 +80,17 @@ func resolve(driver, nonces, heights *cursor, addr []byte) (pendingContract, err
 	}
 	rec.classHash.SetBytes(raw)
 
-	// A missing nonce means the contract was never updated.
-	if nonces.advanceTo(addr) {
-		raw, err := nonces.it.UncopiedValue()
-		if err != nil {
-			return rec, fmt.Errorf("reading nonce for %s: %w", &rec.addr, err)
+	if !nonces.advanceTo(addr) {
+		if nonces.err != nil {
+			return rec, nonces.err
 		}
-		rec.nonce.SetBytes(raw)
+		return rec, fmt.Errorf("no nonce for %s", &rec.addr)
 	}
+	raw, err = nonces.it.UncopiedValue()
+	if err != nil {
+		return rec, fmt.Errorf("reading nonce for %s: %w", &rec.addr, err)
+	}
+	rec.nonce.SetBytes(raw)
 
 	if !heights.advanceTo(addr) {
 		if heights.err != nil {
@@ -139,6 +142,10 @@ func pendingContracts(r db.KeyValueReader) (iter.Seq[pendingContract], func() er
 			if migrated.advanceTo(addr) {
 				driver.next()
 				continue
+			}
+			if migrated.err != nil {
+				iterErr = migrated.err
+				return
 			}
 
 			rec, err := resolve(driver, nonces, heights, addr)

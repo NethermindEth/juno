@@ -3,6 +3,7 @@ package headstate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
@@ -12,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 	"github.com/NethermindEth/juno/utils/log"
+	"go.uber.org/zap"
 )
 
 var (
@@ -65,35 +67,32 @@ func migrateContracts(
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
 ) error {
+	start := time.Now()
 	contracts, sourceErr := pendingContracts(database)
 	counter := common.NewCounter(logger, common.TimeLogRate, "")
 	batch := database.NewBatchWithSize(common.BatchByteSize)
-	completed := 0
-
-	flush := func() error {
-		size := uint64(batch.Size())
-		if err := batch.Write(); err != nil {
-			return fmt.Errorf("writing batch: %w", err)
-		}
-		counter.Log(size, completed, 0)
-		completed = 0
-		return nil
-	}
+	total, sinceLog := 0, 0
 
 	for contract := range contracts {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		addr := (*felt.Felt)(&contract.addr)
-		if err := state.WriteContract(batch, addr, contract.nonce, contract.classHash, contract.height); err != nil {
+		if err := state.WriteContract(
+			batch, addr, contract.nonce, contract.classHash, contract.height,
+		); err != nil {
 			return fmt.Errorf("writing contract %s: %w", addr, err)
 		}
-		completed++
+		total++
+		sinceLog++
 
 		if batch.Size() >= common.TargetBatchByteSize {
-			if err := flush(); err != nil {
-				return err
+			size := uint64(batch.Size())
+			if err := batch.Write(); err != nil {
+				return fmt.Errorf("writing batch: %w", err)
 			}
+			counter.Log(size, sinceLog, 0)
+			sinceLog = 0
 			batch = database.NewBatchWithSize(common.BatchByteSize)
 		}
 	}
@@ -101,8 +100,15 @@ func migrateContracts(
 	if err := sourceErr(); err != nil {
 		return err
 	}
+	if err := batch.Write(); err != nil {
+		return fmt.Errorf("writing batch: %w", err)
+	}
 
-	return flush()
+	logger.Info("Migrated head state contracts",
+		zap.Int("contracts", total),
+		zap.Duration("took", time.Since(start)),
+	)
+	return nil
 }
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {
