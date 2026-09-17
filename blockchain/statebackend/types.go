@@ -15,6 +15,7 @@ type StateBackend interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
+	TrieStateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	Store(
 		block *core.Block,
 		commitments *core.BlockCommitments,
