@@ -7,10 +7,10 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

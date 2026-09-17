@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	_ "github.com/NethermindEth/juno/encoder/registry" // register transaction CBOR tags
+	_ "github.com/NethermindEth/juno/utils/cbor/registry" // register transaction CBOR tags
 	"github.com/stretchr/testify/require"
 )
 
