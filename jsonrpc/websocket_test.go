@@ -316,7 +316,7 @@ func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
 		Handler: func(msg string) (string, *jsonrpc.Error) { return msg, nil },
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(block, echo))
 	gate := jsonrpc.NewGate(1, 10)
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithGate(gate)
