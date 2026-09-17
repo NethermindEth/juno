@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/migration"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/cbor/v1"
 	bloom "github.com/bits-and-blooms/bloom/v3"
@@ -75,6 +76,46 @@ func goldenCases() []struct {
 		{"Header, populated", populatedHeader()},
 		{"InvokeTransaction, populated", populatedInvokeTransaction()},
 		{"TransactionReceipt, populated", populatedReceipt()},
+		{"StateUpdate, populated", populatedStateUpdate()},
+		{"L1Head", core.L1Head{
+			BlockNumber: 8,
+			BlockHash:   felt.NewFromUint64[felt.Felt](9),
+			StateRoot:   felt.NewFromUint64[felt.Felt](10),
+		}},
+		{"BlockCommitments", core.BlockCommitments{
+			TransactionCommitment: felt.NewFromUint64[felt.Felt](12),
+			EventCommitment:       felt.NewFromUint64[felt.Felt](13),
+			ReceiptCommitment:     felt.NewFromUint64[felt.Felt](14),
+			StateDiffCommitment:   felt.NewFromUint64[felt.Felt](15),
+			StateDiffLength:       16,
+		}},
+		{"BlockTransactionsIndexes", core.BlockTransactionsIndexes{
+			Transactions: []int{0, 2, 6},
+			Receipts:     []int{10, 12, 15},
+		}},
+		{"SchemaMetadata", migration.SchemaMetadata{
+			CurrentVersion:    17,
+			LastTargetVersion: 18,
+		}},
+		{"DeclareTransaction, populated", populatedDeclareTransaction()},
+		{"DeployTransaction, populated", populatedDeployTransaction()},
+		{"L1HandlerTransaction, populated", populatedL1HandlerTransaction()},
+		{"DeployAccountTransaction, populated", populatedDeployAccountTransaction()},
+		{"DeprecatedCairoClass, populated", populatedDeprecatedCairoClass()},
+		{"DiffJournal, populated", pathdb.DiffJournal{
+			Root:       felt.FromUint64[felt.StateRootHash](41),
+			Block:      42,
+			EncNodeset: []byte{43, 44},
+		}},
+		{"DiskJournal, populated", pathdb.DiskJournal{
+			Root:       felt.FromUint64[felt.StateRootHash](45),
+			ID:         46,
+			EncNodeset: []byte{47, 48},
+		}},
+		{"DBJournal, populated", pathdb.DBJournal{
+			Version:   49,
+			EncLayers: []byte{50, 51},
+		}},
 	}
 }
 
@@ -91,6 +132,115 @@ func populatedDeclaredClassDefinition() core.DeclaredClassDefinition {
 				Constructor: []core.SierraEntryPoint{{Index: 0, Selector: felt.NewFromUint64[felt.Felt](5)}},
 				External:    []core.SierraEntryPoint{{Index: 1, Selector: felt.NewFromUint64[felt.Felt](6)}},
 				L1Handler:   []core.SierraEntryPoint{{Index: 2, Selector: felt.NewFromUint64[felt.Felt](7)}},
+			},
+		},
+	}
+}
+
+func populatedDeclareTransaction() core.DeclareTransaction {
+	version := core.TransactionVersion(felt.FromUint64[felt.Felt](3))
+	return core.DeclareTransaction{
+		TransactionHash:       felt.NewFromUint64[felt.Felt](1),
+		ClassHash:             felt.NewFromUint64[felt.Felt](2),
+		SenderAddress:         felt.NewFromUint64[felt.Felt](3),
+		MaxFee:                felt.NewFromUint64[felt.Felt](4),
+		TransactionSignature:  felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](5)},
+		Nonce:                 felt.NewFromUint64[felt.Felt](6),
+		Version:               &version,
+		CompiledClassHash:     felt.NewFromUint64[felt.Felt](7),
+		Tip:                   8,
+		PaymasterData:         felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](9)},
+		AccountDeploymentData: felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](10)},
+		NonceDAMode:           core.DAModeL1,
+		FeeDAMode:             core.DAModeL2,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {MaxAmount: 11, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](12)},
+		},
+	}
+}
+
+func populatedDeployTransaction() core.DeployTransaction {
+	version := core.TransactionVersion(felt.FromUint64[felt.Felt](0))
+	return core.DeployTransaction{
+		TransactionHash:     felt.NewFromUint64[felt.Felt](13),
+		ContractAddressSalt: felt.NewFromUint64[felt.Felt](14),
+		ContractAddress:     felt.NewFromUint64[felt.Felt](15),
+		ClassHash:           felt.NewFromUint64[felt.Felt](16),
+		ConstructorCallData: felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](17)},
+		Version:             &version,
+	}
+}
+
+func populatedL1HandlerTransaction() core.L1HandlerTransaction {
+	version := core.TransactionVersion(felt.FromUint64[felt.Felt](0))
+	return core.L1HandlerTransaction{
+		TransactionHash:    felt.NewFromUint64[felt.Felt](18),
+		ContractAddress:    felt.NewFromUint64[felt.Felt](19),
+		EntryPointSelector: felt.NewFromUint64[felt.Felt](20),
+		Nonce:              felt.NewFromUint64[felt.Felt](21),
+		CallData:           felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](22)},
+		Version:            &version,
+	}
+}
+
+func populatedDeployAccountTransaction() core.DeployAccountTransaction {
+	return core.DeployAccountTransaction{
+		DeployTransaction:    populatedDeployTransaction(),
+		MaxFee:               felt.NewFromUint64[felt.Felt](23),
+		TransactionSignature: felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](24)},
+		Nonce:                felt.NewFromUint64[felt.Felt](25),
+		Tip:                  26,
+		PaymasterData:        felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](27)},
+		NonceDAMode:          core.DAModeL2,
+		FeeDAMode:            core.DAModeL1,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL2Gas: {MaxAmount: 28, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](29)},
+		},
+	}
+}
+
+func populatedDeprecatedCairoClass() core.DeprecatedCairoClass {
+	return core.DeprecatedCairoClass{
+		Abi:     json.RawMessage(`{"abi":1}`),
+		Program: "some program",
+		Externals: []core.DeprecatedEntryPoint{
+			{Selector: felt.NewFromUint64[felt.Felt](30), Offset: felt.NewFromUint64[felt.Felt](31)},
+		},
+		L1Handlers: []core.DeprecatedEntryPoint{
+			{Selector: felt.NewFromUint64[felt.Felt](32), Offset: felt.NewFromUint64[felt.Felt](33)},
+		},
+		Constructors: []core.DeprecatedEntryPoint{
+			{Selector: felt.NewFromUint64[felt.Felt](34), Offset: felt.NewFromUint64[felt.Felt](35)},
+		},
+	}
+}
+
+func populatedStateUpdate() core.StateUpdate {
+	return core.StateUpdate{
+		BlockHash: felt.NewFromUint64[felt.Felt](23),
+		NewRoot:   felt.NewFromUint64[felt.Felt](24),
+		OldRoot:   felt.NewFromUint64[felt.Felt](25),
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Felt](26): {
+					felt.FromUint64[felt.Felt](27): felt.NewFromUint64[felt.Felt](28),
+				},
+			},
+			Nonces: map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Felt](29): felt.NewFromUint64[felt.Felt](30),
+			},
+			DeployedContracts: map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Felt](31): felt.NewFromUint64[felt.Felt](32),
+			},
+			DeclaredV0Classes: []*felt.Felt{felt.NewFromUint64[felt.Felt](33)},
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Felt](34): felt.NewFromUint64[felt.Felt](35),
+			},
+			ReplacedClasses: map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Felt](36): felt.NewFromUint64[felt.Felt](37),
+			},
+			MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+				felt.FromUint64[felt.SierraClassHash](38): felt.FromUint64[felt.CasmClassHash](39),
 			},
 		},
 	}
