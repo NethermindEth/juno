@@ -57,11 +57,8 @@ func (c *Cache[K, V]) Acquire(ctx context.Context, key *K) (V, *Lease[K, V], err
 // AcquireWithCondition returns a cached value, grants a lease, or waits.
 //
 // Parameters:
-//
 //   - ctx: controls cancellation while waiting for another lease to be released.
-//
 //   - key: identifies the cached value; must be non-nil.
-//
 //   - accepts: a brief, read-only function that reports whether the cached value
 //     satisfies this request. Returning true accepts the value without a lease;
 //     returning false requests a replacement lease or waits for the current owner.
