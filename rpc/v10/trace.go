@@ -347,7 +347,7 @@ func (h *Handler) traceFinalisedBlock(
 	header *core.Header,
 	returnInitialReads bool,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
-	cached, lease, err := h.blockTraceCache.Acquire(
+	cached, lease, err := h.blockTraceCache.AcquireWithCondition(
 		ctx,
 		header.Hash,
 		func(b *tracecache.BlockTrace) bool {
@@ -360,7 +360,7 @@ func (h *Handler) traceFinalisedBlock(
 	if lease == nil {
 		return cached, defaultExecutionHeader(), nil
 	}
-	defer lease.Abort()
+	defer lease.Release()
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
 	if err != nil {

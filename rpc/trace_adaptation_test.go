@@ -102,7 +102,7 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	h8 := rpcv8.New(reader, nil, nil, logger).WithTraceCache(cache)
 	h9 := rpcv9.New(reader, nil, nil, logger).WithTraceCache(cache)
 	h10 := rpcv10.New(reader, nil, nil, logger).WithTraceCache(cache)
-	_, lease, err := cache.Acquire(t.Context(), header.Hash, nil)
+	_, lease, err := cache.Acquire(t.Context(), header.Hash)
 	require.NoError(t, err)
 	lease.Publish(record)
 	return func() {

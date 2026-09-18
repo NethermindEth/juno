@@ -380,14 +380,14 @@ func (h *Handler) findAndTraceInPreConfirmed(
 func (h *Handler) traceFinalisedBlock(
 	ctx context.Context, header *core.Header,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
-	cached, lease, err := h.blockTraceCache.Acquire(ctx, header.Hash, nil)
+	cached, lease, err := h.blockTraceCache.Acquire(ctx, header.Hash)
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 	if lease == nil {
 		return cached, defaultExecutionHeader(), nil
 	}
-	defer lease.Abort()
+	defer lease.Release()
 
 	fetchFromFeederGW, err := shouldFetchTracesFromFeederGateway(header, h.bcReader.Network())
 	if err != nil {
