@@ -14,24 +14,16 @@ import (
 // transactions. Cached vm.StateDiff values provide the checkpoint the VM needs to continue.
 // The handler owns execution, state-reader lifetime, and cache publication.
 //
-// # Lifecycle
-//
+// Lifecycle:
 // A handler uses it when [Cache.AcquireWithCondition] grants a lease for an unsatisfied request:
-//
-//  1. Plan the work with PlanRange for the requested transaction or block.
-//
-//  2. Prepare the starting state with ResumeState.
-//
-//  3. Execute transactions[Start:End] against that state. Keep both bounds unchanged.
-//     Use OffsetExecutionError with Start when reporting VM errors to the RPC caller.
-//
-//  4. Package the suffix with FromVM and pass it to Combine to obtain a cacheable
-//     trace prefix. It is complete when it covers every transaction in the block.
-//
+//  1. Plan the work with [PlanRange] for the requested transaction or block.
+//  2. Prepare the starting state with [Range.ResumeState].
+//  3. Execute transactions[Start:End] against that state.
+//     Use [OffsetExecutionError] with Start when reporting VM errors to the RPC caller.
+//  4. Package the suffix with [FromVM] and pass it to [Range.Combine] to join the cached prefix.
 //  5. Call [Lease.Publish] on success, or [Lease.Release] on failure.
 //
-// # Example
-//
+// Example Workflow:
 // A six-transaction block has two traces cached. A request arrives for transaction 4:
 //   - Work needed: transactions [2, 5).
 //   - Starting state: if the cached transactions changed a nonce from 6 to 7 to 8,
@@ -39,27 +31,26 @@ import (
 //   - Result: the cache now covers transactions 0 through 4. A later request can
 //     extend it to include transaction 5.
 //
-// # Ownership
-//
-// Keep borrowed state and class definitions usable through execution.
-//
-// Cached and combined traces share referenced data.
-// That data must remain unchanged while in use.
+// See [Cache] for the mutability contract for published traces.
 type Range struct {
 	Start, End uint64
 	prefix     []TransactionTrace
 	total      uint64
 }
 
-// PlanRange plans execution through a [TransactionTarget], or the block's end for nil.
+// PlanRange determines which block transactions need execution.
+// The returned range uses an inclusive Start and exclusive End.
 //
-// Supply the full ordered block as transactions. If cached is provided, it must
-// be a LocalVM prefix of that block with non-nil vm.TransactionTrace.StateDiff
-// fields (as produced by Combine).
-// Prefix identity and diffs are the caller's responsibility.
-//
-// Collecting InitialReads requires full replay to observe reads from every transaction.
-// Set target to nil and request InitialReads from the VM and FromVM as well.
+// Parameters:
+//   - cached: the block trace returned alongside the lease by
+//     [Cache.AcquireWithCondition].
+//   - transactions: the full ordered transaction list loaded for the block,
+//     including transactions already covered by cached.
+//   - target: the requested transaction's index and hash, assembled by the
+//     RPC handler. Nil requests execution through the block's end.
+//   - initialReads: when true, the entire block must be replayed from the beginning.
+//     The target must be nil or the last transaction.
+//     Request initial reads from the VM and pass true to [FromVM].
 func PlanRange(
 	cached *BlockTrace,
 	transactions []core.Transaction,
@@ -70,7 +61,7 @@ func PlanRange(
 		!transactions[target.Index].Hash().Equal(target.Hash)) {
 		return nil, ErrTargetNotFound
 	}
-	if target != nil && initialReads {
+	if initialReads && target != nil && target.Index+1 != uint64(len(transactions)) {
 		return nil, errors.New("initial reads require a full block trace")
 	}
 	plan := &Range{End: uint64(len(transactions)), total: uint64(len(transactions))}
@@ -94,14 +85,15 @@ func PlanRange(
 	return plan, nil
 }
 
-// ResumeState provides the VM's starting state for this range in blockNumber.
+// ResumeState provides the VM's starting state for this range.
+// Reconstructs the state after the cached prefix so that the VM can execute
+// the remaining transactions without replaying that prefix.
 //
-// Both core.StateReader arguments are borrowed:
-//   - parent must read the state before the block.
-//   - classes must resolve classes declared in the cached prefix.
-//     These classes may not exist in the parent yet.
-//
-// With no prefix, execution starts directly from parent.
+// Parameters:
+//   - parent: the state reader for the state immediately before the block.
+//   - classes: the state reader used to load classes declared in the cached
+//     prefix, typically the chain's head state.
+//   - blockNumber: the number of the block being traced.
 func (r *Range) ResumeState(
 	parent, classes core.StateReader,
 	blockNumber uint64,
@@ -117,14 +109,14 @@ func (r *Range) ResumeState(
 	return pending.NewState(&checkpoint, declared, parent, blockNumber), nil
 }
 
-// Combine joins the executed suffix with the cached prefix into a BlockTrace
-// ready for publication.
+// Combine joins the executed suffix with the cached prefix into a new [BlockTrace].
 //
-// executed must contain VM traces for exactly transactions[Start:End],
-// in block order, with non-nil vm.TransactionTrace.StateDiff fields.
+// Parameters:
+//   - executed: the VM result packaged by [FromVM] after executing
+//     transactions[Start:End]. It must contain one trace per transaction,
+//     in block order, with a non-nil state diff in each trace.
 //
-// The result is complete only if this range reaches the block's end.
-// Referenced trace data remains shared and must not be mutated while in use.
+// The result is marked complete only if this range reaches the block's end.
 func (r *Range) Combine(executed *BlockTrace) (*BlockTrace, error) {
 	if executed.Source != LocalVM {
 		return nil, errors.New("cannot combine non-VM traces")
@@ -165,6 +157,8 @@ func OffsetExecutionError(err error, offset uint64) error {
 	return transactionErr
 }
 
+// loadCheckpointClasses loads definitions for classes declared in the cached
+// prefix so ResumeState can make them available to the remaining transactions.
 func loadCheckpointClasses(
 	diff *core.StateDiff,
 	classLookup core.StateReader,
@@ -191,7 +185,6 @@ func loadCheckpointClasses(
 
 // checkpointFromTraces rebuilds a core.StateDiff checkpoint from cached
 // vm.StateDiff values, avoiding a duplicate cumulative diff in the cache.
-// Combine ensures newly appended traces have non-nil vm.TransactionTrace.StateDiff fields.
 func checkpointFromTraces(traces []TransactionTrace) core.StateDiff {
 	result := core.EmptyStateDiff()
 	for index := range traces {

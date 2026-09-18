@@ -215,20 +215,35 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 	require.True(t, complete.Complete)
 	require.True(t, complete.Covers(false))
 	require.False(t, complete.Covers(true))
-	replay, err := tracecache.PlanRange(prefix, txs, nil, true)
-	require.NoError(t, err)
-	require.Zero(t, replay.Start)
-	require.Equal(t, uint64(3), replay.End)
-	state, err = replay.ResumeState(parent, nil, 10)
-	require.NoError(t, err)
-	require.Same(t, parent, state)
+	for _, replayTarget := range []*tracecache.TransactionTarget{
+		nil,
+		{Index: 2, Hash: txs[2].Hash()},
+	} {
+		replay, replayErr := tracecache.PlanRange(prefix, txs, replayTarget, true)
+		require.NoError(t, replayErr)
+		require.Zero(t, replay.Start)
+		require.Equal(t, uint64(3), replay.End)
+		state, err = replay.ResumeState(parent, nil, 10)
+		require.NoError(t, err)
+		require.Same(t, parent, state)
+		executed := execute(txs)
+		executed.InitialReads = &vm.InitialReads{}
+		replayed, combineErr := replay.Combine(executed)
+		require.NoError(t, combineErr)
+		require.Len(t, replayed.Traces, len(txs))
+		require.True(t, replayed.Complete)
+		require.True(t, replayed.Covers(true))
+	}
 	for _, bad := range []*tracecache.TransactionTarget{
 		{Index: 3, Hash: &felt.One},
 		{Index: 0, Hash: &felt.Zero},
 		{Index: 0},
+		{Index: 2, Hash: &felt.Zero},
 	} {
 		require.ErrorIs(t, complete.ValidateTarget(bad), tracecache.ErrTargetNotFound)
 		_, err := tracecache.PlanRange(nil, txs, bad, false)
+		require.ErrorIs(t, err, tracecache.ErrTargetNotFound)
+		_, err = tracecache.PlanRange(nil, txs, bad, true)
 		require.ErrorIs(t, err, tracecache.ErrTargetNotFound)
 	}
 	bad := execute(txs[1:])

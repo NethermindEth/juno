@@ -196,6 +196,7 @@ func (h *Handler) traceBlockTransactions(
 		return nil, httpHeader, rpcErr
 	}
 	if lease != nil {
+		traces.Complete = true
 		lease.Publish(traces)
 	}
 	return traces, httpHeader, nil

@@ -10,11 +10,8 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-// FromVM retains Traces and GasConsumed from vm.ExecutionResults.
-// Requested InitialReads must be non-nil, even for empty blocks.
-//
-// It assumes the supplied transactions cover the full block and sets BlockTrace.Complete to true.
-// For range execution, use Combine on the [Range] before publication.
+// FromVM retains traces and gas. Requested initial reads must be non-nil, even for empty blocks.
+// For range execution, use [Range.Combine] before publication.
 func FromVM(
 	transactions []core.Transaction,
 	result *vm.ExecutionResults,
@@ -37,7 +34,7 @@ func FromVM(
 	if initialReads && result.InitialReads == nil {
 		return nil, errors.New("VM omitted initial reads for block trace")
 	}
-	block := &BlockTrace{Complete: true, Traces: make([]TransactionTrace, len(transactions))}
+	block := &BlockTrace{Traces: make([]TransactionTrace, len(transactions))}
 	for i := range transactions {
 		block.Traces[i] = TransactionTrace{
 			Hash:    *transactions[i].Hash(),
@@ -51,7 +48,7 @@ func FromVM(
 	return block, nil
 }
 
-// FromFeeder converts a starknet.BlockTrace using kinds and gas from receipts.
+// FromFeeder pairs source traces with supplied types and receipt gas.
 func FromFeeder(
 	kinds []vm.TransactionType,
 	receipts []*core.TransactionReceipt,
