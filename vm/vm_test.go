@@ -371,7 +371,7 @@ func TestExecute(t *testing.T) {
 			ChainID:           networks.Mainnet.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		_, err := New(&chainInfo, false, nil).(*vm).
+		result, err := New(&chainInfo, false, nil).(*vm).
 			execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
 				Header: &core.Header{
 					Timestamp: 1666877926,
@@ -381,8 +381,9 @@ func TestExecute(t *testing.T) {
 					L1GasPriceETH:  &felt.Zero,
 					L1GasPriceSTRK: &felt.Zero,
 				},
-			}, state, executeOptions{})
+			}, state, executeOptions{ReturnInitialReads: true})
 		require.NoError(t, err)
+		require.NotNil(t, result.InitialReads)
 	})
 	t.Run("zero data", func(t *testing.T) {
 		feeTokens := networks.DefaultFeeTokenAddresses
