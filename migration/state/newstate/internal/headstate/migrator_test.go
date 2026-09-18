@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/migration/state/headstate"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/headstate"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +19,7 @@ import (
 type contractData struct {
 	addr      felt.Felt
 	classHash felt.Felt
-	nonce     felt.Felt // felt.Zero means "do not write nonce entry"
+	nonce     felt.Felt
 	height    uint64
 }
 
@@ -28,9 +28,7 @@ func seedDeprecated(t *testing.T, memDB db.KeyValueStore, seeds []contractData) 
 	for i := range seeds {
 		s := &seeds[i]
 		require.NoError(t, core.WriteContractClassHash(memDB, &s.addr, &s.classHash))
-		if !s.nonce.IsZero() {
-			require.NoError(t, core.WriteContractNonce(memDB, &s.addr, &s.nonce))
-		}
+		require.NoError(t, core.WriteContractNonce(memDB, &s.addr, &s.nonce))
 		require.NoError(t, core.WriteContractDeploymentHeight(memDB, &s.addr, s.height))
 	}
 }
@@ -205,5 +203,66 @@ func TestMigrate_Idempotent(t *testing.T) {
 		got, err := state.GetContract(memDB, &s.addr)
 		require.NoError(t, err)
 		assert.Equal(t, s.classHash, got.ClassHash)
+	}
+}
+
+func TestMigrate_MissingSecondaryRowMidRunIsAnError(t *testing.T) {
+	gap := felt.FromUint64[felt.Felt](20)
+	gapClassHash := felt.FromUint64[felt.Felt](120)
+	gapNonce := felt.FromUint64[felt.Felt](22)
+
+	tests := []struct {
+		name     string
+		writeGap func(t *testing.T, memDB db.KeyValueStore)
+		wantErr  string
+	}{
+		{
+			name: "no nonce",
+			writeGap: func(t *testing.T, memDB db.KeyValueStore) {
+				require.NoError(t, core.WriteContractClassHash(memDB, &gap, &gapClassHash))
+				require.NoError(t, core.WriteContractDeploymentHeight(memDB, &gap, 200))
+			},
+			wantErr: "no nonce",
+		},
+		{
+			name: "no deployment height",
+			writeGap: func(t *testing.T, memDB db.KeyValueStore) {
+				require.NoError(t, core.WriteContractClassHash(memDB, &gap, &gapClassHash))
+				require.NoError(t, core.WriteContractNonce(memDB, &gap, &gapNonce))
+			},
+			wantErr: "deployment height",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			memDB := memory.New()
+			t.Cleanup(func() { memDB.Close() })
+
+			seedDeprecated(t, memDB, []contractData{
+				{
+					addr:      felt.FromUint64[felt.Felt](10),
+					classHash: felt.FromUint64[felt.Felt](110),
+					nonce:     felt.FromUint64[felt.Felt](11),
+					height:    100,
+				},
+				{
+					addr:      felt.FromUint64[felt.Felt](30),
+					classHash: felt.FromUint64[felt.Felt](130),
+					nonce:     felt.FromUint64[felt.Felt](33),
+					height:    300,
+				},
+			})
+			tt.writeGap(t, memDB)
+
+			_, err := headstate.Migrator{}.Migrate(
+				context.Background(),
+				memDB,
+				&networks.Sepolia,
+				log.NewNopZapLogger(),
+			)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
 	}
 }
