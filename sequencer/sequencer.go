@@ -233,6 +233,6 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 	return sync.NewHeadSubscription{Subscription: s.subNewHeads.Subscribe()}
 }
 
-func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
-	return sync.PreConfirmedDataSubscription{Subscription: s.subPreConfirmed.Subscribe()}
+func (s *Sequencer) SubscribePreConfirmed() preconfirmed.Subscription {
+	return preconfirmed.Subscription{Subscription: s.subPreConfirmed.Subscribe()}
 }

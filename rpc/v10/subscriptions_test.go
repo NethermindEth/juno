@@ -87,8 +87,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedDataSubscription {
-	return sync.PreConfirmedDataSubscription{Subscription: fs.preConfirmed.Subscribe()}
+func (fs *fakeSyncer) SubscribePreConfirmed() preconfirmed.Subscription {
+	return preconfirmed.Subscription{Subscription: fs.preConfirmed.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {

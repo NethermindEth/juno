@@ -1,5 +1,6 @@
 ---
 title: Running a Juno P2P Node
+description: "Run Juno's experimental peer-to-peer synchronisation."
 ---
 
 # Running a Juno P2P Node

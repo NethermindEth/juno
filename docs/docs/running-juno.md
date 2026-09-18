@@ -1,5 +1,6 @@
 ---
 title: Installation
+description: "Start a Juno node with Docker, a prebuilt binary, or a source build, on mainnet or Sepolia."
 ---
 
 # Running Juno

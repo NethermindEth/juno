@@ -22,6 +22,7 @@ extern "C" {
     pub fn JunoStateGetCompiledClass(
         reader_handle: usize,
         class_hash: *const c_uchar,
+        declared_at: *mut u64,
     ) -> *const c_char;
     pub fn JunoStateGetCompiledClassHash(
         reader_handle: usize,

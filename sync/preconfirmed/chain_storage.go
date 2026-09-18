@@ -54,6 +54,7 @@ func NewChain(entries ...*pending.PreConfirmed) (ChainReader, error) {
 			return ChainReader{}, fmt.Errorf("entry %d is nil", index)
 		}
 
+		//nolint:gosec // G602 false positive: index > 0 guards entries[index-1]
 		if index > 0 && entry.Block.Number != entries[index-1].Block.Number+1 {
 			return ChainReader{}, fmt.Errorf(
 				"non-contiguous block numbers at index %d (%d after %d)",

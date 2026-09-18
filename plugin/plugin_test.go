@@ -51,9 +51,7 @@ func TestPlugin(t *testing.T) {
 		bc,
 		dataSource,
 		log.NewNopZapLogger(),
-		0,
-		false,
-		nil,
+		sync.WithPreConfirmedPollInterval(0),
 	).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -90,9 +88,7 @@ func TestPlugin(t *testing.T) {
 			bc,
 			dataSource,
 			log.NewNopZapLogger(),
-			0,
-			false,
-			nil,
+			sync.WithPreConfirmedPollInterval(0),
 		).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))

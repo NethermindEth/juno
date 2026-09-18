@@ -233,15 +233,15 @@ func NewZapLoggerWithCore(core zapcore.Core) *ZapLogger {
 }
 
 func (l *ZapLogger) Infof(msg string, args ...any) {
-	l.sugared.Infof(msg, args)
+	l.sugared.Infof(msg, args...)
 }
 
 func (l *ZapLogger) Errorf(msg string, args ...any) {
-	l.sugared.Infof(msg, args)
+	l.sugared.Errorf(msg, args...)
 }
 
 func (l *ZapLogger) Fatalf(msg string, args ...any) {
-	l.sugared.Fatalf(msg, args)
+	l.sugared.Fatalf(msg, args...)
 }
 
 func (l *ZapLogger) Debug(msg string, fields ...zap.Field) {

@@ -4,11 +4,12 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 )
+
+// NOTE(RDR): Delete this file once we drop support for RPC v8
 
 // makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
@@ -78,45 +79,4 @@ func MakeEmptyPendingForParent(
 		NewClasses: make(map[felt.Felt]core.ClassDefinition, 0),
 	}
 	return pending, nil
-}
-
-func MakeEmptyPreConfirmedForParent(
-	bcReader blockchain.Reader,
-	latestHeader *core.Header,
-) (pending.PreConfirmed, error) {
-	receipts := make([]*core.TransactionReceipt, 0)
-	preConfirmedBlock := &core.Block{
-		// pre_confirmed block does not have parent hash
-		Header: &core.Header{
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(bcReader, latestHeader.Number+1)
-	if err != nil {
-		return pending.PreConfirmed{}, err
-	}
-
-	preConfirmed := pending.PreConfirmed{
-		Block: preConfirmedBlock,
-		StateUpdate: &core.StateUpdate{
-			StateDiff: stateDiff,
-		},
-		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
-		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
-	}
-
-	return preConfirmed, nil
 }

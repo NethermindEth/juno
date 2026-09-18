@@ -1,5 +1,6 @@
 ---
 title: Plugins
+description: "Extend Juno with Go plugins that receive new and reverted blocks through the JunoPlugin interface."
 ---
 
 Juno supports plugins that satisfy the `JunoPlugin` interface, enabling developers to extend and customize Juno's behaviour and functionality by dynamically loading external plugins during runtime.

@@ -12,13 +12,15 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/coder/websocket"
 	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // The caller is responsible for closing the connection.
 func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, listener jsonrpc.EventListener) *websocket.Conn {
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger()).WithListener(listener)
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
+		WithListener(listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
@@ -114,7 +116,7 @@ func TestWebsocketRequestTimeout(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(echo, block))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -158,7 +160,7 @@ func TestWebsocketBatchRequestSharesDeadline(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(2, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(2), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(echo, block))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -195,7 +197,7 @@ func TestWebsocketRequestTimeoutDisabled(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(hasDeadline))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithRequestTimeout(0)
 	srv := httptest.NewServer(ws)
@@ -237,7 +239,7 @@ func TestWebsocketConnOutlivesRequest(t *testing.T) {
 		},
 	}
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(method))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
 		WithRequestTimeout(50 * time.Millisecond)
@@ -265,7 +267,7 @@ func TestWebsocketConnOutlivesRequest(t *testing.T) {
 func TestWebsocketConnectionLimit(t *testing.T) {
 	t.Parallel()
 
-	rpc := jsonrpc.NewServer(1, log.NewNopZapLogger())
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithMaxConnections(2)
 	httpSrv := httptest.NewServer(ws)
 	defer httpSrv.Close()
@@ -295,4 +297,68 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp4.StatusCode)
 	require.NoError(t, conn4.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketGateRejectsWhenBusy(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	block := jsonrpc.Method{
+		Name: "test_block",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			close(started)
+			<-release
+			return 0, nil
+		},
+	}
+	echo := jsonrpc.Method{
+		Name:    "test_echo",
+		Params:  []jsonrpc.Parameter{{Name: "msg"}},
+		Handler: func(msg string) (string, *jsonrpc.Error) { return msg, nil },
+	}
+
+	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
+	require.NoError(t, rpc.RegisterMethods(block, echo))
+	gate := jsonrpc.NewGate(1, 10)
+	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).WithGate(gate)
+	srv := httptest.NewServer(ws)
+	t.Cleanup(srv.Close)
+
+	connA, respA, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes it
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, respA.StatusCode)
+	defer connA.Close(websocket.StatusNormalClosure, "")
+	require.NoError(t, connA.Write(t.Context(), websocket.MessageText,
+		[]byte(`{"jsonrpc":"2.0","method":"test_block","params":[],"id":1}`)))
+	<-started
+
+	connB, respB, err := websocket.Dial(t.Context(), srv.URL, nil) //nolint:bodyclose // lib closes it
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, respB.StatusCode)
+	defer connB.Close(websocket.StatusNormalClosure, "")
+	require.NoError(t, connB.Write(t.Context(), websocket.MessageText,
+		[]byte(`{"jsonrpc":"2.0","method":"test_echo","params":["hi"],"id":2}`)))
+	_, got, err := connB.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t,
+		`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":2}`,
+		string(got))
+
+	require.NoError(t, connB.Write(t.Context(), websocket.MessageText,
+		[]byte(`[{"jsonrpc":"2.0","method":"test_echo","params":["hi"],"id":3}]`)))
+	_, got, err = connB.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t,
+		`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":null}`,
+		string(got))
+
+	close(release)
+	_, _, err = connA.Read(t.Context())
+	require.NoError(t, err)
+	require.Eventually(t, func() bool { return gate.Running() == 0 }, time.Second, 5*time.Millisecond)
+
+	require.NoError(t, connB.Write(t.Context(), websocket.MessageText,
+		[]byte(`{"jsonrpc":"2.0","method":"test_echo","params":["hi"],"id":3}`)))
+	_, got, err = connB.Read(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, `{"jsonrpc":"2.0","result":"hi","id":3}`, string(got))
 }

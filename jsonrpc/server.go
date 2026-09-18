@@ -32,6 +32,9 @@ const (
 	// ResponseTooLarge marks a call that was not executed because the batch had
 	// already reached its response size limit.
 	ResponseTooLarge = -32003
+	// ServerBusy marks a request that was not executed because the server had no
+	// free capacity
+	ServerBusy = -32004
 )
 
 var (
@@ -103,6 +106,8 @@ func Err(code int, data any) *Error {
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
 	case ResponseTooLarge:
 		return &Error{Code: ResponseTooLarge, Message: "Response too large", Data: data}
+	case ServerBusy:
+		return &Error{Code: ServerBusy, Message: ErrServerBusy.Error(), Data: data}
 	default:
 		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}
@@ -177,20 +182,8 @@ type Validator interface {
 	Struct(any) error
 }
 
-// NewServer instantiates a JSONRPC server
-func NewServer(poolMaxGoroutines int, logger log.StructuredLogger) *Server {
-	s := &Server{
-		logger:   logger,
-		methods:  make(map[string]Method),
-		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		listener: &SelectiveListener{},
-	}
-
-	return s
-}
-
-// NewServerWithPool instantiates a JSONRPC server with pool
-func NewServerWithPool(pool *pool.Pool, logger log.StructuredLogger) *Server {
+// NewServer instantiates a JSONRPC server with pool
+func NewServer(pool *pool.Pool, logger log.StructuredLogger) *Server {
 	s := &Server{
 		logger:   logger,
 		methods:  make(map[string]Method),

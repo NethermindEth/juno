@@ -107,12 +107,12 @@ func makeHTTPMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeHTTPGateMetrics(gate *jsonrpc.Gate) {
+func makeRPCGateMetrics(gate *jsonrpc.Gate) {
 	active := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "rpc",
 		Subsystem: subsystemHTTP,
 		Name:      "active_requests",
-		Help:      "Number of HTTP RPC requests currently being processed",
+		Help:      "Number of RPC requests currently being processed, over HTTP and websocket",
 	}, func() float64 {
 		return float64(gate.Running())
 	})
@@ -120,7 +120,7 @@ func makeHTTPGateMetrics(gate *jsonrpc.Gate) {
 		Namespace: "rpc",
 		Subsystem: subsystemHTTP,
 		Name:      "queued_requests",
-		Help:      "Number of HTTP RPC requests waiting for a processing slot",
+		Help:      "Number of HTTP RPC requests waiting for a processing slot.",
 	}, func() float64 {
 		return float64(gate.Queued())
 	})
@@ -128,7 +128,7 @@ func makeHTTPGateMetrics(gate *jsonrpc.Gate) {
 		Namespace: "rpc",
 		Subsystem: subsystemHTTP,
 		Name:      "rejected_requests",
-		Help:      "Total number of HTTP RPC requests rejected because the server was busy",
+		Help:      "Total number of RPC requests rejected because the server was busy.",
 	}, func() float64 {
 		return float64(gate.Rejected())
 	})

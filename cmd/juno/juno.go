@@ -20,6 +20,7 @@ import (
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
@@ -135,7 +136,7 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
+	defaultPreConfirmedPollInterval           = sync.DefaultPreConfirmedPollInterval
 	defaultDisableSync                        = false
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
@@ -274,9 +275,10 @@ const (
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
-	rpcMaxConcurrentRequestsUsage = "Maximum concurrent HTTP RPC requests; 0 disables the limit."
-	rpcMaxRequestQueueUsage       = "Maximum number of HTTP RPC requests to queue after " +
-		"reaching rpc-max-concurrent-requests limit."
+	rpcMaxConcurrentRequestsUsage = "Maximum concurrent RPC requests, over HTTP and websocket " +
+		"together; 0 disables the limit."
+	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
+		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
