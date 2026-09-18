@@ -30,6 +30,13 @@ func NewCommitter(
 	}
 }
 
+// SetProgress forwards to the counter, turning on percentage reporting and
+// naming the work unit. Call it before the pipeline starts.
+func (c *Committer) SetProgress(unit string, allUnits, allEntries uint64) *Committer {
+	c.counter.SetProgress(unit, allUnits, allEntries)
+	return c
+}
+
 func (c *Committer) Run(_ int, t Task, _ chan<- struct{}) error {
 	defer c.batchSemaphore.Put()
 
