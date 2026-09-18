@@ -6,11 +6,11 @@ import (
 	syncLock "sync"
 	"time"
 
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
@@ -37,13 +37,25 @@ type Sequencer struct {
 	blockTime        time.Duration
 	mempool          *mempool.SequencerMempool
 
-	subNewHeads     *feed.Feed[*core.WithBloom[*core.Block]]
-	subPreConfirmed *feed.Feed[*core.WithBloom[*pending.PreConfirmed]]
-	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
+	newHeadsHub     broadcaster.BroadcastHub[*core.WithBloom[*core.Block]]
+	newHeadsPub     broadcaster.Publisher[*core.WithBloom[*core.Block]]
+	preConfirmedHub broadcaster.BroadcastHub[*core.WithBloom[*pending.PreConfirmed]]
+	preConfirmedPub broadcaster.Publisher[*core.WithBloom[*pending.PreConfirmed]]
+	reorgHub        broadcaster.BroadcastHub[*sync.ReorgBlockRange]
+	reorgPub        broadcaster.Publisher[*sync.ReorgBlockRange]
 	plugin          plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
+
+// Stream capacities bound each hub on the ring backend (KindBroadcast); ignored
+// by KindFeed. Pre-confirmed updates are cumulative snapshots that supersede one
+// another, so a lagged consumer wants the tip rather than history.
+const (
+	newHeadsCapacity     = 64
+	preConfirmedCapacity = 8
+	reorgsCapacity       = 16
+)
 
 func New(
 	b *builder.Builder,
@@ -52,7 +64,21 @@ func New(
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
 	logger log.Logger,
+	broadcasterKind broadcaster.Kind,
 ) Sequencer {
+	newHeadsHub := broadcaster.New[*core.WithBloom[*core.Block]](
+		broadcaster.WithKind(broadcasterKind), broadcaster.WithCapacity(newHeadsCapacity),
+	)
+	preConfirmedHub := broadcaster.New[*core.WithBloom[*pending.PreConfirmed]](
+		broadcaster.WithKind(broadcasterKind), broadcaster.WithCapacity(preConfirmedCapacity),
+	)
+	reorgHub := broadcaster.New[*sync.ReorgBlockRange](
+		broadcaster.WithKind(broadcasterKind), broadcaster.WithCapacity(reorgsCapacity),
+	)
+	newHeadsPub := newHeadsHub.NewPublisher()
+	preConfirmedPub := preConfirmedHub.NewPublisher()
+	reorgPub := reorgHub.NewPublisher()
+
 	return Sequencer{
 		builder:          b,
 		buildState:       &builder.BuildState{},
@@ -61,9 +87,12 @@ func New(
 		privKey:          privKey,
 		logger:           logger,
 		blockTime:        blockTime,
-		subNewHeads:      feed.New[*core.WithBloom[*core.Block]](),
-		subPreConfirmed:  feed.New[*core.WithBloom[*pending.PreConfirmed]](),
-		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
+		newHeadsHub:      newHeadsHub,
+		newHeadsPub:      newHeadsPub,
+		preConfirmedHub:  preConfirmedHub,
+		preConfirmedPub:  preConfirmedPub,
+		reorgHub:         reorgHub,
+		reorgPub:         reorgPub,
 	}
 }
 
@@ -122,8 +151,8 @@ func (s *Sequencer) Run(ctx context.Context) error {
 					s.logger.Error("error sending new block to plugin", zap.Error(err))
 				}
 			}
-			// push the new head to the feed
-			s.subNewHeads.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
+			// push the new head to subscribers
+			s.newHeadsPub.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
 
 			if err := s.initPreConfirmedBlock(); err != nil {
 				return err
@@ -165,10 +194,10 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 			}
 		}
 
-		// push the preconfirmed block to the feed
+		// push the preconfirmed block to subscribers
 		preconfirmed := pending.NewPreConfirmed(s.buildState.PreConfirmedBlock(), nil, nil, "")
 		preConfirmedWithBloom := pending.NewPreConfirmedWithBloom(&preconfirmed)
-		s.subPreConfirmed.Send(&preConfirmedWithBloom)
+		s.preConfirmedPub.Send(&preConfirmedWithBloom)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -239,14 +268,14 @@ func (s *Sequencer) StartingBlockHeader() (*core.Header, error) {
 }
 
 // The builder has no reorg logic (centralised sequencer that can't reorg)
-func (s *Sequencer) SubscribeReorg() sync.ReorgSubscription {
-	return sync.ReorgSubscription{Subscription: s.subReorgFeed.Subscribe()}
+func (s *Sequencer) ReorgsSource() broadcaster.SubscribableSource[*sync.ReorgBlockRange] {
+	return s.reorgHub
 }
 
-func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
-	return sync.NewHeadSubscription{Subscription: s.subNewHeads.Subscribe()}
+func (s *Sequencer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] {
+	return s.newHeadsHub
 }
 
-func (s *Sequencer) SubscribePreConfirmed() preconfirmed.Subscription {
-	return preconfirmed.Subscription{Subscription: s.subPreConfirmed.Subscribe()}
+func (s *Sequencer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] {
+	return s.preConfirmedHub
 }

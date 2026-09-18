@@ -48,8 +48,8 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 			s.logger.Error("error sending new block to plugin", zap.Error(err))
 		}
 	}
-	// push the new head to the feed
-	s.subNewHeads.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
+	// push the new head to subscribers
+	s.newHeadsPub.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
 
 	if err := s.initPreConfirmedBlock(); err != nil {
 		return nil, err
