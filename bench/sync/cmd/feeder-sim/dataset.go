@@ -49,17 +49,13 @@ func writeTemporary(target string, data []byte) (name string, err error) {
 		}
 	}()
 
-	if err = writeAndSync(file, data); err != nil {
+	if _, err = file.Write(data); err != nil {
+		return "", err
+	}
+	if err = file.Sync(); err != nil {
 		return "", err
 	}
 	return file.Name(), nil
-}
-
-func writeAndSync(file *os.File, data []byte) error {
-	if _, err := file.Write(data); err != nil {
-		return err
-	}
-	return file.Sync()
 }
 
 func gzipBytes(body []byte) ([]byte, error) {
