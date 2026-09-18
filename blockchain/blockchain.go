@@ -7,18 +7,18 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/blockchain/statebackend"
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/pruner"
 )
 
-type L1HeadSubscription struct {
-	*feed.Subscription[*core.L1Head]
-}
+// l1HeadsCapacity bounds the l1-head hub on the ring backend (KindBroadcast);
+// ignored by KindFeed.
+const l1HeadsCapacity = 4
 
 // PreConfirmedReader is the subset of the preconfirmed.ChainReader API the
 // blockchain's EventFilter needs. Declared here to keep blockchain free of a
@@ -36,7 +36,7 @@ type Reader interface {
 
 	Head() (head *core.Block, err error)
 	L1Head() (core.L1Head, error)
-	SubscribeL1Head() L1HeadSubscription
+	L1HeadsSource() broadcaster.SubscribableSource[*core.L1Head]
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
@@ -112,7 +112,8 @@ type Blockchain struct {
 	network       *networks.Network
 	database      db.KeyValueStore
 	listener      EventListener
-	l1HeadFeed    *feed.Feed[*core.L1Head]
+	l1HeadHub     broadcaster.BroadcastHub[*core.L1Head]
+	l1HeadPub     broadcaster.Publisher[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
 	stateBackend  statebackend.StateBackend
@@ -124,10 +125,17 @@ type options struct {
 	stateVersion            bool
 	runningFilterInitialize core.RunningEventFilterInitializer
 	retentionFloor          *pruner.RetentionFloor
+	broadcasterKind         broadcaster.Kind
 }
 
 // Option is a functional option for configuring Blockchain options.
 type Option func(*options)
+
+// WithBroadcasterKind selects the backend for the blockchain's event hubs.
+// Defaults to broadcaster.KindFeed.
+func WithBroadcasterKind(kind broadcaster.Kind) Option {
+	return func(o *options) { o.broadcasterKind = kind }
+}
 
 // WithListener sets the event listener for the blockchain.
 func WithListener(listener EventListener) Option {
@@ -179,11 +187,18 @@ func New(database db.KeyValueStore, network *networks.Network, opts ...Option) *
 
 	runningFilter := core.NewRunningEventFilterLazy(database, o.runningFilterInitialize)
 
+	l1HeadHub := broadcaster.New[*core.L1Head](
+		broadcaster.WithKind(o.broadcasterKind),
+		broadcaster.WithCapacity(l1HeadsCapacity),
+	)
+	l1HeadPub := l1HeadHub.NewPublisher()
+
 	return &Blockchain{
 		database:      database,
 		network:       network,
 		listener:      o.listener,
-		l1HeadFeed:    feed.New[*core.L1Head](),
+		l1HeadHub:     l1HeadHub,
+		l1HeadPub:     l1HeadPub,
 		cachedFilters: cachedFilters,
 		runningFilter: runningFilter,
 		stateBackend: statebackend.New(
@@ -392,8 +407,8 @@ func (b *Blockchain) TransactionExecutionStatusByBlockNumberAndIndex(
 	return core.GetTransactionExecutionStatusByBlockAndIndex(b.database, blockNumber, index)
 }
 
-func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
-	return L1HeadSubscription{b.l1HeadFeed.Subscribe()}
+func (b *Blockchain) L1HeadsSource() broadcaster.SubscribableSource[*core.L1Head] {
+	return b.l1HeadHub
 }
 
 func (b *Blockchain) L1Head() (core.L1Head, error) {
@@ -402,7 +417,7 @@ func (b *Blockchain) L1Head() (core.L1Head, error) {
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
-	b.l1HeadFeed.Send(update)
+	b.l1HeadPub.Send(update)
 	return core.WriteL1Head(b.database, update)
 }
 

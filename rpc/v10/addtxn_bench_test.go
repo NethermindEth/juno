@@ -9,8 +9,9 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
@@ -125,7 +126,9 @@ func newMempoolHandler(b *testing.B, c compiler.Compiler) *Handler {
 	return New(mockReader, nil, nil, log.NewNopZapLogger()).
 		WithCompiler(c).
 		WithMempool(noopMempool{}).
-		WithReceivedTransactionFeed(feed.New[core.Transaction]())
+		WithReceivedTransactionHub(
+			broadcaster.New[core.Transaction](broadcaster.WithKind(broadcastertestutils.Kind())),
+		)
 }
 
 // newGatewayHandler wires a Handler that takes the pushToFeederGateway branch
@@ -146,7 +149,9 @@ func newGatewayHandler(b *testing.B, c compiler.Compiler) *Handler {
 	return New(mockReader, nil, nil, log.NewNopZapLogger()).
 		WithCompiler(c).
 		WithGateway(mockGateway).
-		WithReceivedTransactionFeed(feed.New[core.Transaction]())
+		WithReceivedTransactionHub(
+			broadcaster.New[core.Transaction](broadcaster.WithKind(broadcastertestutils.Kind())),
+		)
 }
 
 // ------------------------------------------------------------------

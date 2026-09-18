@@ -121,6 +121,7 @@ const (
 	maxCompilationCPUTimeF              = "max-compilation-cpu-time"
 	disableReceivedTxnStreamF           = "disable-received-txn-stream"
 	newStateF                           = "new-state"
+	useBroadcastF                       = "use-broadcast"
 	pruneModeF                          = node.PruneModeFlag
 	pruneMinAgeF                        = node.PruneMinAgeFlag
 
@@ -175,6 +176,7 @@ const (
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 	defaultNewState                           = false
+	defaultUseBroadcast                       = false
 	defaultDisableRPCBatchRequests            = false
 	defaultDBCompactionConcurrency            = ""
 	defaultDBMemtableSize                     = 256
@@ -330,7 +332,9 @@ const (
 		"submitted through this node — these transactions are local to the node " +
 		"and are not sourced from the network. When this flag is enabled, the " +
 		"node will no longer notify subscribers about transactions submitted through it."
-	newStateUsage = "EXPERIMENTAL: Use the new state package implementation"
+	newStateUsage     = "EXPERIMENTAL: Use the new state package implementation"
+	useBroadcastUsage = "EXPERIMENTAL: Route event streams through the ring-buffer broadcaster " +
+		"instead of feeds"
 )
 
 var Version string
@@ -738,7 +742,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
-	setCategory(junoCmd, catMisc, configF, pluginPathF, newStateF)
+	junoCmd.Flags().Bool(useBroadcastF, defaultUseBroadcast, useBroadcastUsage)
+	setCategory(junoCmd, catMisc, configF, pluginPathF, newStateF, useBroadcastF)
 
 	junoCmd.SetUsageFunc(writeGroupedUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), CompileSierraCmd())

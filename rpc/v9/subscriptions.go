@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -91,16 +91,19 @@ type subscriber struct {
 	onReceivedTransaction on[core.Transaction]
 }
 
-func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
-	if callback != nil && feed != nil {
-		sub := feed.SubscribeKeepLast()
-		recv := sub.Recv()
-		return sub, recv
+// openSubscription opens a per-client Subscription off a handler-owned Subscribable.
+// Returns nil when the caller has no callback for the stream or the stream is unwired.
+func openSubscription[T any](
+	callback on[T], subscribable broadcaster.Subscribable[T],
+) (broadcaster.Subscription[T], <-chan T) {
+	if callback == nil || subscribable == nil {
+		return nil, nil
 	}
-	return nil, nil
+	sub := subscribable.Subscribe()
+	return sub, sub.Recv()
 }
 
-func unsubscribeFeedSubscription[T any](sub *feed.Subscription[T]) {
+func unsubscribeBroadcastSubscription[T any](sub broadcaster.Subscription[T]) {
 	if sub != nil {
 		sub.Unsubscribe()
 	}
@@ -120,23 +123,24 @@ func (h *Handler) subscribe(
 	}
 	h.subscriptions.Store(id, sub)
 
-	reorgSub, reorgRecv := getSubscription(subscriber.onReorg, h.reorgs)
-	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
-	preConfirmedSub, preConfirmedRecv := getSubscription(subscriber.onPreConfirmed, h.preConfirmedFeed)
-	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
-	receivedTransactionSub, receivedTransactionRecv := getSubscription(
-		subscriber.onReceivedTransaction,
-		h.receivedTransactionFeed,
+	reorgSub, reorgRecv := openSubscription(subscriber.onReorg, h.reorgSubscribable)
+	newHeadsSub, newHeadsRecv := openSubscription(subscriber.onNewHead, h.newHeadsSubscribable)
+	preConfirmedSub, preConfirmedRecv := openSubscription(
+		subscriber.onPreConfirmed, h.preConfirmedSubscribable,
+	)
+	l1HeadSub, l1HeadRecv := openSubscription(subscriber.onL1Head, h.l1HeadSubscribable)
+	receivedTransactionSub, receivedTransactionRecv := openSubscription(
+		subscriber.onReceivedTransaction, h.receivedTransactionSubscribable,
 	)
 
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			unsubscribeFeedSubscription(reorgSub)
-			unsubscribeFeedSubscription(l1HeadSub)
-			unsubscribeFeedSubscription(newHeadsSub)
-			unsubscribeFeedSubscription(preConfirmedSub)
-			unsubscribeFeedSubscription(receivedTransactionSub)
+			unsubscribeBroadcastSubscription(reorgSub)
+			unsubscribeBroadcastSubscription(l1HeadSub)
+			unsubscribeBroadcastSubscription(newHeadsSub)
+			unsubscribeBroadcastSubscription(preConfirmedSub)
+			unsubscribeBroadcastSubscription(receivedTransactionSub)
 		}()
 
 		if subscriber.onStart != nil {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -276,7 +277,13 @@ func setup(
 	t.Cleanup(wg.Wait)
 	t.Cleanup(cancel)
 	wg.Go(func() {
-		synchronizer := sync.New(blockchain, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(
+			blockchain,
+			dataSource,
+			logger,
+			sync.WithPreConfirmedPollInterval(0),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
+		)
 		require.NoError(t, synchronizer.Run(ctx))
 	})
 

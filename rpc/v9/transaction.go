@@ -712,13 +712,13 @@ func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction
 		h.submittedTransactionsCache.Add(res.TransactionHash)
 	}
 
-	if h.receivedTransactionFeed != nil {
+	if h.receivedTransactionPub != nil {
 		adaptedTxn, _, aErr := AdaptBroadcastedTransaction(ctx, h.compiler, tx, h.bcReader.Network())
 		if aErr != nil {
 			// Log error but don't fail the transaction submission
 			h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
 		} else {
-			h.receivedTransactionFeed.Send(adaptedTxn)
+			h.receivedTransactionPub.Send(adaptedTxn)
 		}
 	}
 

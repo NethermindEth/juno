@@ -12,13 +12,14 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -1645,8 +1646,11 @@ func TestAddTransaction(t *testing.T) {
 		n := &networks.Sepolia
 		mockReader.EXPECT().Network().Return(n).AnyTimes()
 
-		receivedTxFeed := feed.New[core.Transaction]()
-		sub := receivedTxFeed.SubscribeKeepLast()
+		receivedTxHub := broadcaster.New[core.Transaction](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		)
+		subscribable := receivedTxHub.NewSubscribable(broadcaster.LagPolicyDrop[core.Transaction])
+		sub := subscribable.Subscribe()
 		defer sub.Unsubscribe()
 
 		gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -1674,7 +1678,7 @@ func TestAddTransaction(t *testing.T) {
 
 		handler := rpc.New(mockReader, nil, nil, log.NewNopZapLogger()).
 			WithGateway(mockGateway).
-			WithReceivedTransactionFeed(receivedTxFeed)
+			WithReceivedTransactionHub(receivedTxHub)
 
 		_, rpcErr := handler.AddTransaction(t.Context(), &broadcastedTxn)
 		require.Nil(t, rpcErr)
