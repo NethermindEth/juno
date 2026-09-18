@@ -12,7 +12,9 @@ package mocks
 import (
 	reflect "reflect"
 
+	broadcaster "github.com/NethermindEth/juno/broadcaster"
 	core "github.com/NethermindEth/juno/core"
+	pending "github.com/NethermindEth/juno/core/pending"
 	sync "github.com/NethermindEth/juno/sync"
 	preconfirmed "github.com/NethermindEth/juno/sync/preconfirmed"
 	gomock "go.uber.org/mock/gomock"
@@ -56,6 +58,20 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
+// NewHeadsSource mocks base method.
+func (m *MockSyncReader) NewHeadsSource() broadcaster.SubscribableSource[*core.Block] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewHeadsSource")
+	ret0, _ := ret[0].(broadcaster.SubscribableSource[*core.Block])
+	return ret0
+}
+
+// NewHeadsSource indicates an expected call of NewHeadsSource.
+func (mr *MockSyncReaderMockRecorder) NewHeadsSource() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewHeadsSource", reflect.TypeOf((*MockSyncReader)(nil).NewHeadsSource))
+}
+
 // PreConfirmedChain mocks base method.
 func (m *MockSyncReader) PreConfirmedChain() (preconfirmed.ChainReader, error) {
 	m.ctrl.T.Helper()
@@ -71,6 +87,34 @@ func (mr *MockSyncReaderMockRecorder) PreConfirmedChain() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedChain", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedChain))
 }
 
+// PreConfirmedSource mocks base method.
+func (m *MockSyncReader) PreConfirmedSource() broadcaster.SubscribableSource[*pending.PreConfirmed] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreConfirmedSource")
+	ret0, _ := ret[0].(broadcaster.SubscribableSource[*pending.PreConfirmed])
+	return ret0
+}
+
+// PreConfirmedSource indicates an expected call of PreConfirmedSource.
+func (mr *MockSyncReaderMockRecorder) PreConfirmedSource() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedSource", reflect.TypeOf((*MockSyncReader)(nil).PreConfirmedSource))
+}
+
+// ReorgsSource mocks base method.
+func (m *MockSyncReader) ReorgsSource() broadcaster.SubscribableSource[*sync.ReorgBlockRange] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReorgsSource")
+	ret0, _ := ret[0].(broadcaster.SubscribableSource[*sync.ReorgBlockRange])
+	return ret0
+}
+
+// ReorgsSource indicates an expected call of ReorgsSource.
+func (mr *MockSyncReaderMockRecorder) ReorgsSource() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReorgsSource", reflect.TypeOf((*MockSyncReader)(nil).ReorgsSource))
+}
+
 // StartingBlockHeader mocks base method.
 func (m *MockSyncReader) StartingBlockHeader() (*core.Header, error) {
 	m.ctrl.T.Helper()
@@ -84,46 +128,4 @@ func (m *MockSyncReader) StartingBlockHeader() (*core.Header, error) {
 func (mr *MockSyncReaderMockRecorder) StartingBlockHeader() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockHeader))
-}
-
-// SubscribeNewHeads mocks base method.
-func (m *MockSyncReader) SubscribeNewHeads() sync.NewHeadSubscription {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeNewHeads")
-	ret0, _ := ret[0].(sync.NewHeadSubscription)
-	return ret0
-}
-
-// SubscribeNewHeads indicates an expected call of SubscribeNewHeads.
-func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
-}
-
-// SubscribePreConfirmed mocks base method.
-func (m *MockSyncReader) SubscribePreConfirmed() preconfirmed.Subscription {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribePreConfirmed")
-	ret0, _ := ret[0].(preconfirmed.Subscription)
-	return ret0
-}
-
-// SubscribePreConfirmed indicates an expected call of SubscribePreConfirmed.
-func (mr *MockSyncReaderMockRecorder) SubscribePreConfirmed() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreConfirmed", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreConfirmed))
-}
-
-// SubscribeReorg mocks base method.
-func (m *MockSyncReader) SubscribeReorg() sync.ReorgSubscription {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeReorg")
-	ret0, _ := ret[0].(sync.ReorgSubscription)
-	return ret0
-}
-
-// SubscribeReorg indicates an expected call of SubscribeReorg.
-func (mr *MockSyncReaderMockRecorder) SubscribeReorg() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeReorg", reflect.TypeOf((*MockSyncReader)(nil).SubscribeReorg))
 }

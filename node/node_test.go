@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/pebblev2"
@@ -167,6 +168,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 				feederClient,
 				logger,
 				sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+				sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 			).WithListener(&sync.SelectiveListener{
 				OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.

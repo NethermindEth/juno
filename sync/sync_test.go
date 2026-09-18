@@ -10,6 +10,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -67,7 +69,12 @@ func TestSyncBlocks(t *testing.T) {
 		)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 		synchronizer := sync.New(
-			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			bc,
+			dataSource,
+			gw,
+			logger,
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
@@ -92,7 +99,12 @@ func TestSyncBlocks(t *testing.T) {
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 		synchronizer := sync.New(
-			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			bc,
+			dataSource,
+			gw,
+			logger,
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
@@ -112,7 +124,12 @@ func TestSyncBlocks(t *testing.T) {
 
 		dataSource := &unreliableDataSource{DataSource: sync.NewFeederGatewayDataSource(bc, gw)}
 		synchronizer := sync.New(
-			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			bc,
+			dataSource,
+			gw,
+			logger,
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
@@ -347,6 +364,7 @@ func TestReorg(t *testing.T) {
 		sepoliaGw,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -375,8 +393,12 @@ func TestReorg(t *testing.T) {
 			mainGw,
 			log.NewNopZapLogger(),
 			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		)
-		sub := synchronizer.SubscribeReorg()
+		reorgSource := synchronizer.ReorgsSource().NewSubscribable(
+			broadcaster.LagPolicyDrop[*sync.ReorgBlockRange],
+		)
+		sub := reorgSource.Subscribe()
 		// Use a generous timeout with early cancellation once the expected block is stored.
 		// The reorg flow (detect mismatch → revert → re-sync 3 blocks) needs more than 1s on slow CI.
 		ctx, cancel = context.WithTimeout(t.Context(), 30*time.Second)
@@ -427,10 +449,16 @@ func TestSubscribeNewHeads(t *testing.T) {
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
 	syncer := sync.New(
-		chain, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		chain,
+		dataSource,
+		gw,
+		logger,
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 	)
 
-	sub := syncer.SubscribeNewHeads()
+	newHeadsSource := syncer.NewHeadsSource().NewSubscribable(broadcaster.LagPolicyDrop[*core.Block])
+	sub := newHeadsSource.Subscribe()
 
 	// Receive on new block.
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -438,7 +466,10 @@ func TestSubscribeNewHeads(t *testing.T) {
 	cancel()
 	got, ok := <-sub.Recv()
 	require.True(t, ok)
-	want, err := gw.BlockByNumber(t.Context(), 0)
+	// The subscription keeps the last delivered head, so which block number
+	// surfaces depends on delivery timing; assert it is the correct canonical
+	// block for whatever height was received.
+	want, err := gw.BlockByNumber(t.Context(), got.Number)
 	require.NoError(t, err)
 
 	require.Equal(t, want, got)

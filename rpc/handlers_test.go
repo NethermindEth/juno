@@ -6,17 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
@@ -38,24 +37,19 @@ func TestRun(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	l1Sub := feed.New[*core.L1Head]()
-	newHeadsSub := feed.New[*core.Block]()
-	reorgSub := feed.New[*sync.ReorgBlockRange]()
-	preConfirmedSub := feed.New[*pending.PreConfirmed]()
-
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockBcReader.EXPECT().SubscribeL1Head().Return(
-		blockchain.L1HeadSubscription{Subscription: l1Sub.Subscribe()},
+	mockBcReader.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
-	mockSyncReader.EXPECT().SubscribeNewHeads().Return(
-		sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()},
+	mockSyncReader.EXPECT().NewHeadsSource().Return(
+		broadcaster.New[*core.Block](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
-	mockSyncReader.EXPECT().SubscribeReorg().Return(
-		sync.ReorgSubscription{Subscription: reorgSub.Subscribe()},
+	mockSyncReader.EXPECT().ReorgsSource().Return(
+		broadcaster.New[*sync.ReorgBlockRange](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
-	mockSyncReader.EXPECT().SubscribePreConfirmed().Return(
-		preconfirmed.Subscription{Subscription: preConfirmedSub.Subscribe()},
+	mockSyncReader.EXPECT().PreConfirmedSource().Return(
+		broadcaster.New[*pending.PreConfirmed](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
 
 	handler := &Handler{

@@ -10,9 +10,12 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -170,8 +173,25 @@ func wirePoller(
 		preconfirmed.WithStaleAfter(staleAfter),
 		preconfirmed.WithOnDemandWait(onDemandWait),
 	}, opts...)
-	p := preconfirmed.NewPoller(ds, bc, highest, log.NewNopZapLogger(), opts...)
+	p := preconfirmed.NewPoller(
+		ds,
+		bc,
+		broadcastertestutils.Kind(),
+		highest,
+		log.NewNopZapLogger(),
+		opts...,
+	)
 	return harness{poller: p, highest: highest}
+}
+
+// subscribe opens a lag-dropping subscription to the poller's output, closed at test end.
+func (h harness) subscribe(t *testing.T) broadcaster.Subscription[*pending.PreConfirmed] {
+	t.Helper()
+	sub := h.poller.Source().
+		NewSubscribable(broadcaster.LagPolicyDrop[*pending.PreConfirmed]).
+		Subscribe()
+	t.Cleanup(sub.Unsubscribe)
+	return sub
 }
 
 // readChain reads the poller's current pre-confirmed view the way any consumer does.
@@ -1157,8 +1177,7 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		sub := h.poller.Subscribe()
-		t.Cleanup(sub.Unsubscribe)
+		sub := h.subscribe(t)
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()
@@ -1197,8 +1216,7 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
-		sub := h.poller.Subscribe()
-		t.Cleanup(sub.Unsubscribe)
+		sub := h.subscribe(t)
 
 		go h.poller.Run(t.Context())
 		synctest.Wait()

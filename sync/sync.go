@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -40,18 +40,12 @@ const (
 	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
-// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type NewHeadSubscription struct {
-	*feed.Subscription[*core.Block]
-}
-
-type ReorgSubscription struct {
-	*feed.Subscription[*ReorgBlockRange]
-}
-
-type PendingTxSubscription struct {
-	*feed.Subscription[[]core.Transaction]
-}
+// Stream capacities bound each hub on the ring backend (KindBroadcast); ignored
+// by KindFeed.
+const (
+	newHeadsCapacity = 64
+	reorgsCapacity   = 16
+)
 
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
@@ -71,9 +65,9 @@ type ReorgBlockRange struct {
 type Reader interface {
 	StartingBlockHeader() (*core.Header, error)
 	HighestBlockHeader() *core.Header
-	SubscribeNewHeads() NewHeadSubscription
-	SubscribeReorg() ReorgSubscription
-	SubscribePreConfirmed() preconfirmed.Subscription
+	NewHeadsSource() broadcaster.SubscribableSource[*core.Block]
+	ReorgsSource() broadcaster.SubscribableSource[*ReorgBlockRange]
+	PreConfirmedSource() broadcaster.SubscribableSource[*pending.PreConfirmed]
 	PreConfirmedChain() (preconfirmed.ChainReader, error)
 }
 
@@ -88,16 +82,18 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (n *NoopSynchronizer) SubscribeNewHeads() NewHeadSubscription {
-	return NewHeadSubscription{feed.New[*core.Block]().Subscribe()}
+func (n *NoopSynchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.Block] {
+	return broadcaster.New[*core.Block]()
 }
 
-func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
-	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
+func (n *NoopSynchronizer) ReorgsSource() broadcaster.SubscribableSource[*ReorgBlockRange] {
+	return broadcaster.New[*ReorgBlockRange]()
 }
 
-func (n *NoopSynchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
-	return preconfirmed.Subscription{Subscription: feed.New[*pending.PreConfirmed]().Subscribe()}
+func (n *NoopSynchronizer) PreConfirmedSource() (
+	source broadcaster.SubscribableSource[*pending.PreConfirmed],
+) {
+	return broadcaster.New[*pending.PreConfirmed]()
 }
 
 func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
@@ -108,6 +104,13 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 type options struct {
 	preConfirmed       []preconfirmed.Option
 	readOnlyBlockchain bool
+	broadcasterKind    broadcaster.Kind
+}
+
+// WithBroadcasterKind selects the backend for the synchronizer's event hubs.
+// Defaults to broadcaster.KindFeed.
+func WithBroadcasterKind(kind broadcaster.Kind) Option {
+	return func(o *options) { o.broadcasterKind = kind }
 }
 
 // Option is a functional option for configuring a Synchronizer.
@@ -132,8 +135,10 @@ type Synchronizer struct {
 	startingBlockNumber atomic.Pointer[uint64]
 	startingBlockHeader atomic.Pointer[core.Header]
 	highestBlockHeader  atomic.Pointer[core.Header]
-	newHeads            *feed.Feed[*core.Block]
-	reorgFeed           *feed.Feed[*ReorgBlockRange]
+	newHeadsHub         broadcaster.BroadcastHub[*core.Block]
+	newHeadsPub         broadcaster.Publisher[*core.Block]
+	reorgHub            broadcaster.BroadcastHub[*ReorgBlockRange]
+	reorgPub            broadcaster.Publisher[*ReorgBlockRange]
 
 	logger   log.StructuredLogger
 	listener EventListener
@@ -158,12 +163,20 @@ func New(
 		opt(&cfg)
 	}
 
+	newHeadsHub := broadcaster.New[*core.Block](
+		broadcaster.WithKind(cfg.broadcasterKind), broadcaster.WithCapacity(newHeadsCapacity),
+	)
+	reorgHub := broadcaster.New[*ReorgBlockRange](
+		broadcaster.WithKind(cfg.broadcasterKind), broadcaster.WithCapacity(reorgsCapacity),
+	)
 	s := &Synchronizer{
 		blockchain:         blockchain,
 		readOnlyBlockchain: cfg.readOnlyBlockchain,
 		dataSource:         dataSource,
-		newHeads:           feed.New[*core.Block](),
-		reorgFeed:          feed.New[*ReorgBlockRange](),
+		newHeadsHub:        newHeadsHub,
+		newHeadsPub:        newHeadsHub.NewPublisher(),
+		reorgHub:           reorgHub,
+		reorgPub:           reorgHub.NewPublisher(),
 
 		logger:   logger,
 		listener: &SelectiveListener{},
@@ -172,6 +185,7 @@ func New(
 	poller := preconfirmed.NewPoller(
 		preConfirmedSource,
 		blockchain,
+		cfg.broadcasterKind,
 		&s.highestBlockHeader,
 		s.logger,
 		cfg.preConfirmed...,
@@ -421,11 +435,11 @@ func (s *Synchronizer) storeTask(
 	}
 
 	if s.currReorg != nil {
-		s.reorgFeed.Send(s.currReorg)
+		s.reorgPub.Send(s.currReorg)
 		s.currReorg = nil // reset the reorg data
 	}
 
-	s.newHeads.Send(block)
+	s.newHeadsPub.Send(block)
 	s.logger.Info(
 		"Stored Block",
 		zap.Uint64("number", block.Number),
@@ -617,16 +631,16 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
 }
 
-func (s *Synchronizer) SubscribeNewHeads() NewHeadSubscription {
-	return NewHeadSubscription{s.newHeads.Subscribe()}
+func (s *Synchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.Block] {
+	return s.newHeadsHub
 }
 
-func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
-	return ReorgSubscription{s.reorgFeed.Subscribe()}
+func (s *Synchronizer) ReorgsSource() broadcaster.SubscribableSource[*ReorgBlockRange] {
+	return s.reorgHub
 }
 
-func (s *Synchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
-	return s.preConfirmedPoller.Subscribe()
+func (s *Synchronizer) PreConfirmedSource() broadcaster.SubscribableSource[*pending.PreConfirmed] {
+	return s.preConfirmedPoller.Source()
 }
 
 func (s *Synchronizer) pollLatest(ctx context.Context) {
