@@ -16,7 +16,7 @@ import (
 //
 // # Lifecycle
 //
-// A handler uses it when Cache.Acquire grants a lease for an unsatisfied request:
+// A handler uses it when [Cache.AcquireWithCondition] grants a lease for an unsatisfied request:
 //
 //  1. Plan the work with PlanRange for the requested transaction or block.
 //
@@ -28,8 +28,7 @@ import (
 //  4. Package the suffix with FromVM and pass it to Combine to obtain a cacheable
 //     trace prefix. It is complete when it covers every transaction in the block.
 //
-//  5. Call Lease.Publish on success.
-//     Defer Lease.Abort to release it on failure.
+//  5. Call [Lease.Publish] on success, or [Lease.Release] on failure.
 //
 // # Example
 //
