@@ -46,6 +46,9 @@ type State[I, O any] interface {
 	Done(index int, outputs chan<- O) error
 }
 
+// New fans input out to concurrency workers. Worth it only when the per-item
+// work outweighs the channel handoff and the goroutine wake-ups it costs: a
+// sequential source feeding cheap writes is faster without it
 func New[I, O any, S State[I, O]](
 	inputs Pipeline[I],
 	concurrency int,
