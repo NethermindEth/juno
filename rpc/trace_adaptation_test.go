@@ -97,6 +97,7 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 		record, err = tracecache.FromVM(txs, &result, false)
 	}
 	require.NoError(t, err)
+	record.Complete = true
 	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](1)
 	logger := log.NewNopZapLogger()
 	h8 := rpcv8.New(reader, nil, nil, logger).WithTraceCache(cache)

@@ -24,7 +24,8 @@ func TestVMResult(t *testing.T) {
 		require.Nil(t, block.Traces[0].FeederTrace())
 		require.Equal(t, felt.One, block.Traces[0].Hash)
 		require.Equal(t, uint64(7), block.Traces[0].Gas.L2Gas)
-		require.True(t, block.Covers(false))
+		require.False(t, block.Complete)
+		require.False(t, block.Covers(false))
 		require.False(t, block.Covers(true))
 	})
 	t.Run("initial reads", func(t *testing.T) {
@@ -34,7 +35,8 @@ func TestVMResult(t *testing.T) {
 		result.InitialReads = &vm.InitialReads{}
 		block, err := tracecache.FromVM(txs, &result, true)
 		require.NoError(t, err)
-		require.True(t, block.Covers(true))
+		require.Same(t, result.InitialReads, block.InitialReads)
+		require.False(t, block.Covers(true))
 		block, err = tracecache.FromVM(txs, &result, false)
 		require.NoError(t, err)
 		require.Nil(t, block.InitialReads)
@@ -57,7 +59,7 @@ func TestVMResult(t *testing.T) {
 		require.NotNil(t, empty.Traces)
 		require.Empty(t, empty.Traces)
 		require.Nil(t, empty.InitialReads)
-		require.True(t, empty.Covers(false))
+		require.False(t, empty.Covers(false))
 		require.False(t, empty.Covers(true))
 
 		empty, err = tracecache.FromVM(nil, &vm.ExecutionResults{}, true)
@@ -70,7 +72,7 @@ func TestVMResult(t *testing.T) {
 		require.NotNil(t, empty.Traces)
 		require.Empty(t, empty.Traces)
 		require.Same(t, reads, empty.InitialReads)
-		require.True(t, empty.Covers(true))
+		require.False(t, empty.Covers(true))
 	})
 }
 
