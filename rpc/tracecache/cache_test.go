@@ -13,10 +13,10 @@ func TestCacheSingleOwnerAndPublication(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cache := tracecache.New[string, string](1)
 		key := "key"
-		value, owner, err := cache.Acquire(t.Context(), &key, nil)
+		value, owner, err := cache.Acquire(t.Context(), &key)
 		require.NoError(t, err)
 		require.NotNil(t, owner)
-		defer owner.Abort()
+		defer owner.Release()
 		require.Empty(t, value)
 		key = "other" // The lease retains its own key.
 
@@ -43,16 +43,16 @@ func TestCacheReplacementPreservesAcceptedValue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cache := tracecache.New[string, string](1)
 		key := new("key")
-		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		_, seed, err := cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		seed.Publish("old")
 		wantsNew := func(value string) bool { return value == "new" }
-		value, owner, err := cache.Acquire(t.Context(), key, wantsNew)
+		value, owner, err := cache.AcquireWithCondition(t.Context(), key, wantsNew)
 		require.NoError(t, err)
 		require.NotNil(t, owner)
-		defer owner.Abort()
+		defer owner.Release()
 		require.Equal(t, "old", value)
-		value, lease, err := cache.Acquire(t.Context(), key, nil)
+		value, lease, err := cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		require.Nil(t, lease)
 		require.Equal(t, "old", value)
@@ -60,11 +60,11 @@ func TestCacheReplacementPreservesAcceptedValue(t *testing.T) {
 		waiting := acquireAsync(t.Context(), cache, key, wantsNew)
 		synctest.Wait()
 		require.Empty(t, waiting)
-		owner.Abort()
+		owner.Release()
 		next := <-waiting
 		require.NoError(t, next.err)
 		require.NotNil(t, next.lease)
-		defer next.lease.Abort()
+		defer next.lease.Release()
 		require.Equal(t, "old", next.value)
 
 		waiting = acquireAsync(t.Context(), cache, key, wantsNew)
@@ -72,16 +72,16 @@ func TestCacheReplacementPreservesAcceptedValue(t *testing.T) {
 		require.Empty(t, waiting)
 		// A released lease cannot overwrite the value or release its successor's waiters.
 		owner.Publish("stale")
-		owner.Abort()
+		owner.Release()
 		synctest.Wait()
 		require.Empty(t, waiting)
-		value, lease, err = cache.Acquire(t.Context(), key, nil)
+		value, lease, err = cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		require.Nil(t, lease)
 		require.Equal(t, "old", value)
 
 		next.lease.Publish("new")
-		next.lease.Abort() // The normal deferred abort after publication is harmless.
+		next.lease.Release() // The normal deferred release after publication is harmless.
 		result := <-waiting
 		require.NoError(t, result.err)
 		require.Nil(t, result.lease)
@@ -93,14 +93,18 @@ func TestCacheEvictionDoesNotReleaseOwner(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cache := tracecache.New[string, string](1)
 		key := new("key")
-		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		_, seed, err := cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		seed.Publish("old")
-		value, owner, err := cache.Acquire(t.Context(), key, func(string) bool { return false })
+		value, owner, err := cache.AcquireWithCondition(
+			t.Context(),
+			key,
+			func(string) bool { return false },
+		)
 		require.NoError(t, err)
 		require.NotNil(t, owner)
-		defer owner.Abort()
-		_, other, err := cache.Acquire(t.Context(), new("other"), nil)
+		defer owner.Release()
+		_, other, err := cache.Acquire(t.Context(), new("other"))
 		require.NoError(t, err)
 		other.Publish("other value")
 		require.Equal(t, "old", value, "the caller retains the evicted value")
@@ -125,70 +129,70 @@ func TestCacheInstancesAndKeysAreIndependent(t *testing.T) {
 	original := key{revision: 1, transaction: "tx"}
 	revised := key{revision: 2, transaction: "tx"}
 	// Even a zero value is a valid published entry; presence is independent of value.
-	_, owner, err := first.Acquire(t.Context(), &original, nil)
+	_, owner, err := first.Acquire(t.Context(), &original)
 	require.NoError(t, err)
 	owner.Publish(nil)
-	value, lease, err := first.Acquire(t.Context(), &original, nil)
+	value, lease, err := first.Acquire(t.Context(), &original)
 	require.NoError(t, err)
 	require.Nil(t, lease)
 	require.Nil(t, value)
-	value, lease, err = first.Acquire(t.Context(), &revised, nil)
+	value, lease, err = first.Acquire(t.Context(), &revised)
 	require.NoError(t, err)
 	require.NotNil(t, lease)
-	defer lease.Abort()
+	defer lease.Release()
 	require.Nil(t, value)
-	value, lease, err = second.Acquire(t.Context(), &original, nil)
+	value, lease, err = second.Acquire(t.Context(), &original)
 	require.NoError(t, err)
 	require.NotNil(t, lease)
-	defer lease.Abort()
+	defer lease.Release()
 	require.Nil(t, value)
 }
 
 func TestAcquireCancellation(t *testing.T) {
 	cache := tracecache.New[string, string](1)
-	_, owner, err := cache.Acquire(t.Context(), new("key"), nil)
+	_, owner, err := cache.Acquire(t.Context(), new("key"))
 	require.NoError(t, err)
-	defer owner.Abort()
+	defer owner.Release()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, lease, err := cache.Acquire(ctx, new("key"), nil)
+	_, lease, err := cache.Acquire(ctx, new("key"))
 	require.ErrorIs(t, err, context.Canceled)
 	require.Nil(t, lease)
 	owner.Publish("old")
-	value, lease, err := cache.Acquire(t.Context(), new("key"), nil)
+	value, lease, err := cache.Acquire(t.Context(), new("key"))
 	require.NoError(t, err)
 	require.Nil(t, lease)
 	require.Equal(t, "old", value)
 }
 
-func TestAcquireRetryAfterAbort(t *testing.T) {
+func TestAcquireRetryAfterRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cache := tracecache.New[string, string](1)
 		key := new("key")
-		_, seed, err := cache.Acquire(t.Context(), key, nil)
+		_, seed, err := cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		seed.Publish("old")
 		wantsNew := func(value string) bool { return value == "new" }
-		_, upgrade, err := cache.Acquire(t.Context(), key, wantsNew)
+		_, upgrade, err := cache.AcquireWithCondition(t.Context(), key, wantsNew)
 		require.NoError(t, err)
-		defer upgrade.Abort()
+		defer upgrade.Release()
 		done := make(chan acquireResult, 1)
 		go func() {
-			value, lease, acquireErr := cache.Acquire(t.Context(), key, wantsNew)
+			value, lease, acquireErr := cache.AcquireWithCondition(t.Context(), key, wantsNew)
 			if lease != nil {
-				defer lease.Abort()
+				defer lease.Release()
 				lease.Publish("new")
 			}
 			done <- acquireResult{value: value, lease: lease, err: acquireErr}
 		}()
 		synctest.Wait()
 		require.Empty(t, done)
-		upgrade.Abort()
+		upgrade.Release()
 		outcome := <-done
 		require.NoError(t, outcome.err)
 		require.NotNil(t, outcome.lease)
 		require.Equal(t, "old", outcome.value)
-		value, lease, err := cache.Acquire(t.Context(), key, nil)
+		value, lease, err := cache.Acquire(t.Context(), key)
 		require.NoError(t, err)
 		require.Nil(t, lease)
 		require.Equal(t, "new", value)
@@ -209,8 +213,13 @@ func acquireAsync(
 ) <-chan acquireResult {
 	done := make(chan acquireResult, 1)
 	go func() {
-		value, lease, err := cache.Acquire(ctx, key, accepts)
-		done <- acquireResult{value: value, lease: lease, err: err}
+		var result acquireResult
+		if accepts == nil {
+			result.value, result.lease, result.err = cache.Acquire(ctx, key)
+		} else {
+			result.value, result.lease, result.err = cache.AcquireWithCondition(ctx, key, accepts)
+		}
+		done <- result
 	}()
 	return done
 }

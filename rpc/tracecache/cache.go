@@ -9,7 +9,7 @@ import (
 
 // Cache shares immutable results across requests, using a [Lease] to coordinate
 // one producer per key while keeping existing results available to readers.
-// See the usage example in [Cache.Acquire].
+// See the usage example in [Cache.AcquireWithCondition].
 type Cache[K comparable, V any] struct {
 	mu      sync.Mutex
 	records *lru.SimpleCache[K, V]
@@ -19,7 +19,7 @@ type Cache[K comparable, V any] struct {
 // Lease represents a caller's exclusive right to produce and publish a result
 // for one [Cache] key. It coordinates replacement of the cached value without
 // blocking requests that the existing value already satisfies.
-// See the usage example in [Cache.Acquire].
+// See the usage example in [Cache.AcquireWithCondition].
 type Lease[K comparable, V any] struct {
 	cache  *Cache[K, V]
 	key    K
@@ -48,7 +48,27 @@ func New[K comparable, V any](limit int) *Cache[K, V] {
 	}
 }
 
-// Acquire returns a cached value, grants a lease, or waits:
+// Acquire returns any cached value or a lease to produce one.
+// See [Cache.AcquireWithCondition] for ownership and cancellation requirements.
+func (c *Cache[K, V]) Acquire(ctx context.Context, key *K) (V, *Lease[K, V], error) {
+	return c.acquire(ctx, key, nil)
+}
+
+// AcquireWithCondition returns a cached value, grants a lease, or waits.
+//
+// Parameters:
+//
+//   - ctx: controls cancellation while waiting for another lease to be released.
+//
+//   - key: identifies the cached value; must be non-nil.
+//
+//   - accepts: a brief, read-only function that reports whether the cached value
+//     satisfies this request. Returning true accepts the value without a lease;
+//     returning false requests a replacement lease or waits for the current owner.
+//     If accepts is nil, any cached value is accepted.
+//     It must not call back into this cache.
+//
+// Outcomes:
 //   - A cached value exists and accepts is nil or returns true: return it without a lease.
 //   - No cached value and no lease exists: return a lease with the zero value.
 //   - accepts returns false and no lease exists: return a lease with the cached value.
@@ -57,18 +77,12 @@ func New[K comparable, V any](limit int) *Cache[K, V] {
 // Caller responsibilities:
 //   - Cached values aren't deep-copied (as traces can be very large); callers must not
 //     mutate shared data they reference.
-//   - Callers must defer [Lease.Abort] on returned leases and call [Lease.Publish] on success.
-//   - accepts must be brief, read-only, and must not call back into this cache.
-//   - key must be non-nil (nil panics); callers must not mutate the value it
-//     points to until Acquire returns.
-//
-// lookupOrStart and accepts briefly hold the cache mutex.
-// Waiting and caller execution happen outside the mutex.
-// Cancellation only stops this caller's wait.
+//   - Call [Lease.Release] to relinquish ownership without changing the cached value,
+//     or [Lease.Publish] to store a value and release ownership.
 //
 // Example usage:
 //
-//	cached, lease, err := cache.Acquire(ctx, &key, accepts)
+//	cached, lease, err := cache.AcquireWithCondition(ctx, &key, accepts)
 //	if err != nil {
 //	    return nil, err
 //	}
@@ -76,16 +90,24 @@ func New[K comparable, V any](limit int) *Cache[K, V] {
 //	    return cached, nil
 //	}
 //
-//	defer lease.Abort()
+//	defer lease.Release()
 //
-//	// produce must leave shared cached data unchanged.
-//	result, err := produce(cached)
+//	// buildValue must leave shared cached data unchanged.
+//	result, err := buildValue(cached)
 //	if err != nil {
 //	    return nil, err
 //	}
 //	lease.Publish(result)
 //	return result, nil
-func (c *Cache[K, V]) Acquire(
+func (c *Cache[K, V]) AcquireWithCondition(
+	ctx context.Context,
+	key *K,
+	accepts func(V) bool,
+) (V, *Lease[K, V], error) {
+	return c.acquire(ctx, key, accepts)
+}
+
+func (c *Cache[K, V]) acquire(
 	ctx context.Context,
 	key *K,
 	accepts func(V) bool,
@@ -145,8 +167,8 @@ func (l *Lease[K, V]) Publish(value V) {
 	cache.finishLocked(&l.key, l.flight)
 }
 
-// Abort releases ownership without changing the value. Repeated calls are safe.
-func (l *Lease[K, V]) Abort() {
+// Release releases ownership without changing the value. Repeated calls are safe.
+func (l *Lease[K, V]) Release() {
 	cache := l.cache
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
