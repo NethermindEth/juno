@@ -677,7 +677,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			vm.TraceOptions{}).Return(vm.ExecutionResults{
 			OverallFees:      nil,
 			DataAvailability: []core.DataAvailability{{}, {}},
-			GasConsumed:      []core.GasConsumed{{}, {}},
+			GasConsumed:      []core.GasConsumed{{}},
 			Traces:           []vm.TransactionTrace{vmTrace},
 			NumSteps:         stepsUsed,
 		}, nil)
