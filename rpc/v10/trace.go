@@ -394,6 +394,7 @@ func (h *Handler) traceFinalisedBlock(
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
+	response.Complete = true
 	lease.Publish(response)
 
 	return response, httpHeader, nil

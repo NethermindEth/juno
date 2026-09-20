@@ -11,6 +11,7 @@ import (
 )
 
 // FromVM retains traces and gas. Requested initial reads must be non-nil, even for empty blocks.
+// For range execution, use [Range.Combine] before publication.
 func FromVM(
 	transactions []core.Transaction,
 	result *vm.ExecutionResults,
@@ -66,7 +67,7 @@ func FromFeeder(
 			gas[*receipt.TransactionHash] = receipt.ExecutionResources.TotalGasConsumed
 		}
 	}
-	block := &BlockTrace{Source: Feeder, Traces: make([]TransactionTrace, len(kinds))}
+	block := &BlockTrace{Complete: true, Source: Feeder, Traces: make([]TransactionTrace, len(kinds))}
 	for i, kind := range kinds {
 		sourceTrace := &source.Traces[i]
 		block.Traces[i] = TransactionTrace{

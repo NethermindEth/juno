@@ -410,6 +410,9 @@ func (h *Handler) traceFinalisedBlock(
 			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(txErr)
 		}
 		traces, httpHeader, rpcErr = h.traceBlockWithVM(header, transactions)
+		if rpcErr == nil {
+			traces.Complete = true
+		}
 	}
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
