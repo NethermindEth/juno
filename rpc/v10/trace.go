@@ -144,7 +144,7 @@ func (h *Handler) TraceBlockTransactions(
 	}
 
 	returnInitialReads := slices.Contains(traceFlags, TraceReturnInitialReadsFlag)
-	traces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header, returnInitialReads)
+	traces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header, returnInitialReads, nil)
 	if rpcErr != nil {
 		return TraceBlockTransactionsResponse{}, httpHeader, rpcErr
 	}
@@ -178,6 +178,7 @@ func traceTransactionsWithState(
 	classLookupState core.StateReader,
 	blockInfo *vm.BlockInfo,
 	returnInitialReads bool,
+	errorIndexOffset uint64,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
@@ -198,6 +199,7 @@ func traceTransactionsWithState(
 		vm.TraceOptions{ReturnInitialReads: returnInitialReads},
 	)
 
+	vmErr = tracecache.OffsetExecutionError(vmErr, errorIndexOffset)
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if vmErr != nil {
@@ -263,7 +265,9 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(ctx, header, false)
+	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(
+		ctx, header, false, &tracecache.TransactionTarget{Index: txIndex, Hash: (*felt.Felt)(hash)},
+	)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
 	}
@@ -325,6 +329,7 @@ func (h *Handler) findAndTraceInPreConfirmed(
 			state, // class lookup state (same for preconfirmed)
 			&blockInfo,
 			false, // returnInitialReads
+			0,
 		)
 		if rpcErr != nil {
 			return TransactionTrace{}, httpHeader, rpcErr
@@ -346,18 +351,22 @@ func (h *Handler) traceFinalisedBlock(
 	ctx context.Context,
 	header *core.Header,
 	returnInitialReads bool,
+	target *tracecache.TransactionTarget,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	cached, lease, err := h.blockTraceCache.Acquire(
 		ctx,
 		header.Hash,
 		func(b *tracecache.BlockTrace) bool {
-			return b.Covers(returnInitialReads)
+			return b.CoversTarget(target, returnInitialReads)
 		},
 	)
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 	if lease == nil {
+		if cached.ValidateTarget(target) != nil {
+			return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+		}
 		return cached, defaultExecutionHeader(), nil
 	}
 	defer lease.Release()
@@ -375,6 +384,9 @@ func (h *Handler) traceFinalisedBlock(
 			return nil, defaultExecutionHeader(), rpcErr
 		}
 
+		if traces.ValidateTarget(target) != nil {
+			return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+		}
 		lease.Publish(traces)
 		return traces, defaultExecutionHeader(), nil
 	}
@@ -390,11 +402,22 @@ func (h *Handler) traceFinalisedBlock(
 			rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	response, httpHeader, rpcErr := h.traceBlockWithVM(header, transactions, returnInitialReads)
+	plan, planErr := tracecache.PlanRange(cached, transactions, target, returnInitialReads)
+	if planErr != nil {
+		if errors.Is(planErr, tracecache.ErrTargetNotFound) {
+			return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
+		}
+		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(planErr.Error())
+	}
+	response, httpHeader, rpcErr := h.traceBlockWithVM(header, transactions, returnInitialReads, plan)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
-	response.Complete = true
+	combined, combineErr := plan.Combine(response)
+	if combineErr != nil {
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(combineErr.Error())
+	}
+	response = combined
 	lease.Publish(response)
 
 	return response, httpHeader, nil
@@ -405,7 +428,9 @@ func (h *Handler) traceBlockWithVM(
 	header *core.Header,
 	transactions []core.Transaction,
 	returnInitialReads bool,
+	plan *tracecache.Range,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
+	transactions = transactions[plan.Start:plan.End]
 	// Prepare execution state
 	state, closer, err := h.bcReader.StateAtBlockHash(header.ParentHash)
 	if err != nil {
@@ -433,6 +458,10 @@ func (h *Handler) traceBlockWithVM(
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
+	state, err = plan.ResumeState(state, headState, header.Number)
+	if err != nil {
+		return nil, defaultExecutionHeader(), jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
 	// Create block info
 	blockInfo, rpcErr := h.buildBlockInfo(header)
 	if rpcErr != nil {
@@ -446,6 +475,7 @@ func (h *Handler) traceBlockWithVM(
 		headState,
 		&blockInfo,
 		returnInitialReads,
+		plan.Start,
 	)
 }
 
