@@ -3124,5 +3124,11 @@
     "block_target": 800000,
     "duration_seconds": 49501.584576,
     "timestamp": "2026-09-13T16:45:21.284253+00:00"
+  },
+  {
+    "version": "v0.16.6-rc.2-51-gaeaef2327",
+    "block_target": 800000,
+    "duration_seconds": 46441.518962,
+    "timestamp": "2026-09-20T15:54:22.373697+00:00"
   }
 ]
