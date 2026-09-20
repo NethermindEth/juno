@@ -7,10 +7,12 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/rpc/tracecache"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
@@ -44,9 +46,10 @@ type Handler struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger log.Logger, network *networks.Network,
 ) *Handler {
+	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](tracecache.DefaultBlockCapacity)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger)
+	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger).WithTraceCache(cache)
+	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger).WithTraceCache(cache)
 
 	return &Handler{
 		rpcv8Handler:  handlerv8,

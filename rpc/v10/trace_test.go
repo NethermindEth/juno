@@ -731,7 +731,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
-				GasConsumed:      []core.GasConsumed{{}, {}},
+				GasConsumed:      []core.GasConsumed{{}},
 				Traces:           []vm.TransactionTrace{vmTrace},
 				NumSteps:         stepsUsed,
 			}, nil)
@@ -1424,6 +1424,11 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 				test.traceFlags,
 			)
 
+			if returnInitialReads && test.initialReads == nil {
+				require.NotNil(t, err)
+				require.Equal(t, "VM omitted initial reads for block trace", err.Data)
+				return
+			}
 			require.Nil(t, err)
 
 			require.Equal(t, test.expectedInitialReads, traces.InitialReads)
