@@ -70,7 +70,7 @@ func New(
 	virtualMachine vm.VM,
 	logger log.Logger,
 ) *Handler {
-	h := &Handler{
+	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
 		logger:     logger,
@@ -88,7 +88,6 @@ func New(
 		](rpccore.TraceCacheSize),
 		filterLimit: math.MaxUint,
 	}
-	return h
 }
 
 // initSubscribables binds one Subscribable per stream to its lag policy. Called from
