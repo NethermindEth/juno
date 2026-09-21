@@ -87,7 +87,9 @@ func TestBroadcastablePrefix(t *testing.T) {
 
 func TestTxTypesRejectsUnknownType(t *testing.T) {
 	err := corpusGenError(t, "estimateFee", "--tx-types", "INVOKE_FUNCTION")
-	require.Contains(t, err, `--tx-types must be INVOKE, DECLARE or DEPLOY_ACCOUNT (got "INVOKE_FUNCTION")`)
+	require.Contains(
+		t, err, `--tx-types must be INVOKE, DECLARE or DEPLOY_ACCOUNT (got "INVOKE_FUNCTION")`,
+	)
 }
 
 func TestTxTypesRejectsL1Handler(t *testing.T) {
