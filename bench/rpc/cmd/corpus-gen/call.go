@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -56,8 +57,8 @@ func multicallCalls(calldata []string) []functionCall {
 	if len(calldata) == 0 {
 		return nil
 	}
-	count, ok := feltToUint(calldata[0])
-	if !ok || count > uint64((len(calldata)-1)/callHeaderFields) {
+	count, ok := feltToLength(calldata[0])
+	if !ok || count > (len(calldata)-1)/callHeaderFields {
 		return nil
 	}
 
@@ -67,12 +68,12 @@ func multicallCalls(calldata []string) []functionCall {
 		if len(calldata)-next < callHeaderFields {
 			return nil
 		}
-		args, ok := feltToUint(calldata[next+2])
-		if !ok || args > uint64(len(calldata)) {
+		args, ok := feltToLength(calldata[next+2])
+		if !ok {
 			return nil
 		}
 		start := next + callHeaderFields
-		end := start + int(args)
+		end := start + args
 		if end > len(calldata) {
 			return nil
 		}
@@ -105,7 +106,12 @@ func invokeCalls(txs []broadcastedTx) []functionCall {
 	return calls
 }
 
-func feltToUint(value string) (uint64, bool) {
+// feltToLength parses a felt as a calldata length, and rejects anything above
+// MaxInt32, so that the result always fits an int.
+func feltToLength(value string) (int, bool) {
 	parsed, err := strconv.ParseUint(value, 0, 64)
-	return parsed, err == nil
+	if err != nil || parsed > math.MaxInt32 {
+		return 0, false
+	}
+	return int(parsed), true
 }
