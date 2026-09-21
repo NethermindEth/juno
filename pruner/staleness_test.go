@@ -7,36 +7,42 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
 
-// startStalenessPruner spins up a Pruner with an empty pebble DB and feeds,
-// returning a counter for OnL1Stale invocations and the L1 feed (for tests
-// that need to reset the staleness ticker mid-flight). Run is launched in a
-// goroutine inside the synctest bubble; t.Cleanup cancels it.
+// startStalenessPruner spins up a Pruner with an empty pebble DB and its two
+// trigger streams, returning a counter for OnL1Stale invocations and the L1
+// head publisher (for tests that need to reset the staleness ticker
+// mid-flight). Run is launched in a goroutine inside the synctest bubble;
+// t.Cleanup cancels it.
 //
 // The DB is left empty deliberately: with no chain height stored,
 // onNewL1Head short-circuits on db.ErrKeyNotFound, so L1 events become
 // pure ticker-reset triggers and never enter pruneUpto.
-func startStalenessPruner(t *testing.T) (*atomic.Int64, *feed.Feed[*core.L1Head]) {
+func startStalenessPruner(t *testing.T) (*atomic.Int64, broadcaster.Publisher[*core.L1Head]) {
 	t.Helper()
 
 	database := testutils.NewPebbleTestDB(t)
-	l1Feed := feed.New[*core.L1Head]()
-	l2Feed := feed.New[*core.Block]()
+	l1HeadHub := broadcaster.New[*core.L1Head](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
+	newHeadHub := broadcaster.New[*core.Block](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
 
 	staleCount := &atomic.Int64{}
 	p := pruner.New(
 		database,
 		&pruner.RetentionFloor{},
 		64,
-		l2Feed.Subscribe(),
-		l1Feed.Subscribe(),
+		newHeadHub.NewSubscribable(broadcaster.LagPolicyDrop[*core.Block]).Subscribe(),
+		l1HeadHub.NewSubscribable(broadcaster.LagPolicyDrop[*core.L1Head]).Subscribe(),
 		log.NewNopZapLogger(),
 		pruner.WithListener(&pruner.SelectiveListener{
 			OnL1StaleCb: func() { staleCount.Add(1) },
@@ -60,7 +66,7 @@ func startStalenessPruner(t *testing.T) (*atomic.Int64, *feed.Feed[*core.L1Head]
 	// time advance, otherwise the bubble could try to advance the clock
 	// before the ticker exists.
 	synctest.Wait()
-	return staleCount, l1Feed
+	return staleCount, l1HeadHub.NewPublisher()
 }
 
 func TestStalenessFiresAfter24Hours(t *testing.T) {
@@ -79,12 +85,12 @@ func TestStalenessFiresAfter24Hours(t *testing.T) {
 
 func TestStalenessSilentWhenL1HeadArrivesInTime(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		staleCount, l1Feed := startStalenessPruner(t)
+		staleCount, l1HeadPub := startStalenessPruner(t)
 
 		time.Sleep(23 * time.Hour)
 		synctest.Wait()
 
-		l1Feed.Send(&core.L1Head{BlockNumber: 1})
+		l1HeadPub.Send(&core.L1Head{BlockNumber: 1})
 		synctest.Wait()
 
 		// 23h more — 46h since start, but only 23h since the reset.
