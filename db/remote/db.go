@@ -89,12 +89,17 @@ func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 func (d *DB) Write(fn func(w db.Batch) error) error {
 	defer d.listener.OnCommit(time.Now())
 
-	batch := d.NewBatch()
-	if err := fn(batch); err != nil {
-		return errors.Join(err, batch.Close())
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return err
 	}
 
-	return errors.Join(batch.Write(), batch.Close())
+	defer discardTxnOnPanic(txn)
+	if err := fn(txn); err != nil {
+		return errors.Join(err, txn.Close())
+	}
+
+	return errors.Join(txn.Write(), txn.Close())
 }
 
 func (d *DB) Close() error {

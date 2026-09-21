@@ -138,6 +138,8 @@ func (b *deprecatedStateBackend) RevertHead() error {
 func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
 	//nolint:staticcheck,nolintlint // used by old state
 	txn := b.database.NewIndexedBatch()
+	defer txn.Close()
+
 	blockNum, err := core.GetChainHeight(txn)
 	if err != nil {
 		return core.StateDiff{}, err

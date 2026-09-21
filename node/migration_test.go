@@ -47,3 +47,9 @@ func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
 	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
 	require.ErrorContains(t, err, "fetching L1 head for pruning")
 }
+
+func TestMigrateIfNeeded_SkipsMigrationsForRemoteDB(t *testing.T) {
+	cfg := &Config{RemoteDB: "localhost:6064"}
+	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
+	require.NoError(t, err)
+}
