@@ -7,6 +7,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/deprecatedstate"
@@ -1582,8 +1584,11 @@ func TestSubscribeL1Head(t *testing.T) {
 		memory.New(),
 		&networks.Mainnet,
 		blockchain.WithNewState(statetestutils.UseNewState()),
+		blockchain.WithBroadcasterKind(broadcastertestutils.Kind()),
 	)
-	sub := chain.SubscribeL1Head()
+	src := chain.L1HeadsSource()
+	subbl := src.NewSubscribable(broadcaster.LagPolicyDrop[*core.L1Head])
+	sub := subbl.Subscribe()
 	t.Cleanup(sub.Unsubscribe)
 
 	require.NoError(t, chain.SetL1Head(l1Head))

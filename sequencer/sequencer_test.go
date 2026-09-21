@@ -8,9 +8,12 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
@@ -19,6 +22,7 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -46,7 +50,9 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 
 	executor := builder.NewExecutor(bc, mockVM, logger, false, false)
 	testBuilder := builder.New(bc, executor)
-	return sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, logger), bc
+	return sequencer.New(
+		&testBuilder, p, seqAddr, privKey, blockTime, logger, broadcastertestutils.Kind(),
+	), bc
 }
 
 // Sequencer contains prefunded accounts.
@@ -162,9 +168,10 @@ func getGenesisSequencer(
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
-	rpcHandler := rpc.New(bc, nil, nil, log.NewNopZapLogger()).WithMempool(txnPool)
+	rpcHandler := rpc.New(bc, &sync.NoopSynchronizer{}, nil, log.NewNopZapLogger()).
+		WithMempool(txnPool)
 	return sequencer.New(
-		&testBuilder, txnPool, seqAddr, privKey, blockTime, logger,
+		&testBuilder, txnPool, seqAddr, privKey, blockTime, logger, broadcastertestutils.Kind(),
 	), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
 
@@ -283,15 +290,16 @@ func TestHelpers(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, header)
 
-	reorgSub := seq.SubscribeReorg()
+	reorgSource := seq.ReorgsSource().NewSubscribable(broadcaster.LagPolicyDrop[*sync.ReorgBlockRange])
+	reorgSub := reorgSource.Subscribe()
 	require.NotNil(t, reorgSub)
-	require.NotNil(t, reorgSub.Subscription)
 
-	newHeadsSub := seq.SubscribeNewHeads()
+	newHeadsSource := seq.NewHeadsSource().NewSubscribable(broadcaster.LagPolicyDrop[*core.Block])
+	newHeadsSub := newHeadsSource.Subscribe()
 	require.NotNil(t, newHeadsSub)
-	require.NotNil(t, newHeadsSub.Subscription)
 
-	preConfirmedSub := seq.SubscribePreConfirmed()
+	preConfirmedSource := seq.PreConfirmedSource().
+		NewSubscribable(broadcaster.LagPolicyDrop[*pending.PreConfirmed])
+	preConfirmedSub := preConfirmedSource.Subscribe()
 	require.NotNil(t, preConfirmedSub)
-	require.NotNil(t, preConfirmedSub.Subscription)
 }

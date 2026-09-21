@@ -1393,7 +1393,12 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		logger,
+		sync.WithPreConfirmedPollInterval(0),
+	)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))

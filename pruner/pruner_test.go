@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	_ "github.com/NethermindEth/juno/encoder/registry"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/NethermindEth/juno/utils/log"
@@ -23,15 +24,15 @@ type pruneEvent struct {
 	count  uint64
 }
 
-// servicePruner runs a Pruner via Pruner.Run as a real service and exposes
-// the two trigger feeds plus a barrier channel that fires on every prune
+// servicePruner runs a Pruner via Pruner.Run as a real service and exposes a
+// publisher per trigger stream plus a barrier channel that fires on every prune
 // dispatch (including no-op prunes where blocksPruned == 0). t.Cleanup
 // cancels Run and waits for it to exit.
 type servicePruner struct {
-	l1Feed *feed.Feed[*core.L1Head]
-	l2Feed *feed.Feed[*core.Block]
-	pruned chan pruneEvent
-	floor  *pruner.RetentionFloor
+	l1HeadPub  broadcaster.Publisher[*core.L1Head]
+	newHeadPub broadcaster.Publisher[*core.Block]
+	pruned     chan pruneEvent
+	floor      *pruner.RetentionFloor
 }
 
 func startPrunerService(
@@ -41,8 +42,12 @@ func startPrunerService(
 	extraOpts ...pruner.Option,
 ) *servicePruner {
 	t.Helper()
-	l1Feed := feed.New[*core.L1Head]()
-	l2Feed := feed.New[*core.Block]()
+	l1HeadHub := broadcaster.New[*core.L1Head](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
+	newHeadHub := broadcaster.New[*core.Block](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
 	pruned := make(chan pruneEvent, 16)
 
 	opts := append([]pruner.Option{
@@ -64,8 +69,8 @@ func startPrunerService(
 		database,
 		floor,
 		retention,
-		l2Feed.Subscribe(),
-		l1Feed.Subscribe(),
+		newHeadHub.NewSubscribable(broadcaster.LagPolicyDrop[*core.Block]).Subscribe(),
+		l1HeadHub.NewSubscribable(broadcaster.LagPolicyDrop[*core.L1Head]).Subscribe(),
 		log.NewNopZapLogger(),
 		opts...,
 	)
@@ -81,14 +86,19 @@ func startPrunerService(
 		}
 	})
 
-	return &servicePruner{l1Feed: l1Feed, l2Feed: l2Feed, pruned: pruned, floor: floor}
+	return &servicePruner{
+		l1HeadPub:  l1HeadHub.NewPublisher(),
+		newHeadPub: newHeadHub.NewPublisher(),
+		pruned:     pruned,
+		floor:      floor,
+	}
 }
 
 // sendL1AndAwait broadcasts an L1 head to the pruner and waits for the
 // resulting prune dispatch. Blocks until OnPrune fires (5s timeout).
 func (sp *servicePruner) sendL1AndAwait(t *testing.T, blockNum uint64) pruneEvent {
 	t.Helper()
-	sp.l1Feed.Send(&core.L1Head{BlockNumber: blockNum})
+	sp.l1HeadPub.Send(&core.L1Head{BlockNumber: blockNum})
 	select {
 	case ev := <-sp.pruned:
 		return ev
@@ -119,7 +129,7 @@ func (sp *servicePruner) sendL2WithTimestampAndAwait(
 	timestamp uint64,
 ) pruneEvent {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}})
+	sp.newHeadPub.Send(&core.Block{Header: &core.Header{Number: blockNum, Timestamp: timestamp}})
 	select {
 	case ev := <-sp.pruned:
 		return ev
@@ -138,7 +148,7 @@ const noOpQuietWindow = 200 * time.Millisecond
 // fire OnPrune and so provide no listener barrier.
 func (sp *servicePruner) sendL1AndExpectNoOp(t *testing.T, blockNum uint64) {
 	t.Helper()
-	sp.l1Feed.Send(&core.L1Head{BlockNumber: blockNum})
+	sp.l1HeadPub.Send(&core.L1Head{BlockNumber: blockNum})
 	select {
 	case ev := <-sp.pruned:
 		t.Fatalf("unexpected prune after L1 head %d: %+v", blockNum, ev)
@@ -151,7 +161,7 @@ func (sp *servicePruner) sendL1AndExpectNoOp(t *testing.T, blockNum uint64) {
 // short-circuit before reaching pruneUpto.
 func (sp *servicePruner) sendL2AndExpectNoOp(t *testing.T, blockNum uint64) {
 	t.Helper()
-	sp.l2Feed.Send(&core.Block{Header: &core.Header{Number: blockNum}})
+	sp.newHeadPub.Send(&core.Block{Header: &core.Header{Number: blockNum}})
 	select {
 	case ev := <-sp.pruned:
 		t.Fatalf("unexpected prune after L2 head %d: %+v", blockNum, ev)

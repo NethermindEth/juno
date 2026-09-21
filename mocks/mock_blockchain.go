@@ -14,6 +14,7 @@ import (
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	networks "github.com/NethermindEth/juno/blockchain/networks"
+	broadcaster "github.com/NethermindEth/juno/broadcaster"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	eth "github.com/NethermindEth/juno/l1/eth"
@@ -286,6 +287,20 @@ func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1Head", reflect.TypeOf((*MockReader)(nil).L1Head))
 }
 
+// L1HeadsSource mocks base method.
+func (m *MockReader) L1HeadsSource() broadcaster.SubscribableSource[*core.L1Head] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "L1HeadsSource")
+	ret0, _ := ret[0].(broadcaster.SubscribableSource[*core.L1Head])
+	return ret0
+}
+
+// L1HeadsSource indicates an expected call of L1HeadsSource.
+func (mr *MockReaderMockRecorder) L1HeadsSource() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1HeadsSource", reflect.TypeOf((*MockReader)(nil).L1HeadsSource))
+}
+
 // Network mocks base method.
 func (m *MockReader) Network() *networks.Network {
 	m.ctrl.T.Helper()
@@ -377,20 +392,6 @@ func (m *MockReader) StateUpdateByNumber(number uint64) (*core.StateUpdate, erro
 func (mr *MockReaderMockRecorder) StateUpdateByNumber(number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).StateUpdateByNumber), number)
-}
-
-// SubscribeL1Head mocks base method.
-func (m *MockReader) SubscribeL1Head() blockchain.L1HeadSubscription {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeL1Head")
-	ret0, _ := ret[0].(blockchain.L1HeadSubscription)
-	return ret0
-}
-
-// SubscribeL1Head indicates an expected call of SubscribeL1Head.
-func (mr *MockReaderMockRecorder) SubscribeL1Head() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeL1Head", reflect.TypeOf((*MockReader)(nil).SubscribeL1Head))
 }
 
 // TransactionAndReceiptByBlockNumberAndIndex mocks base method.

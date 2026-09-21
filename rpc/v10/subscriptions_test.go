@@ -9,19 +9,19 @@ import (
 	"net"
 	"slices"
 	"strconv"
-	stdsync "sync"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -65,30 +65,50 @@ func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
 
+// fakeSyncer implements sync.Reader over broadcaster hubs. Tests inject events by
+// publishing through the newHeads/reorgs/preConfirmed publishers; the handler
+// subscribes to the matching Source hub in initSubscribables.
 type fakeSyncer struct {
-	newHeads     *feed.Feed[*core.Block]
-	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmed *feed.Feed[*pending.PreConfirmed]
+	newHeadsHub     broadcaster.BroadcastHub[*core.Block]
+	reorgsHub       broadcaster.BroadcastHub[*sync.ReorgBlockRange]
+	preConfirmedHub broadcaster.BroadcastHub[*pending.PreConfirmed]
+
+	newHeads     broadcaster.Publisher[*core.Block]
+	reorgs       broadcaster.Publisher[*sync.ReorgBlockRange]
+	preConfirmed broadcaster.Publisher[*pending.PreConfirmed]
 }
 
 func newFakeSyncer() *fakeSyncer {
+	newHeadsHub := broadcaster.New[*core.Block](broadcaster.WithKind(broadcastertestutils.Kind()))
+	reorgsHub := broadcaster.New[*sync.ReorgBlockRange](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
+	preConfirmedHub := broadcaster.New[*pending.PreConfirmed](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
+	newHeads := newHeadsHub.NewPublisher()
+	reorgs := reorgsHub.NewPublisher()
+	preConfirmed := preConfirmedHub.NewPublisher()
 	return &fakeSyncer{
-		newHeads:     feed.New[*core.Block](),
-		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		preConfirmed: feed.New[*pending.PreConfirmed](),
+		newHeadsHub:     newHeadsHub,
+		reorgsHub:       reorgsHub,
+		preConfirmedHub: preConfirmedHub,
+		newHeads:        newHeads,
+		reorgs:          reorgs,
+		preConfirmed:    preConfirmed,
 	}
 }
 
-func (fs *fakeSyncer) SubscribeNewHeads() sync.NewHeadSubscription {
-	return sync.NewHeadSubscription{Subscription: fs.newHeads.Subscribe()}
+func (fs *fakeSyncer) NewHeadsSource() broadcaster.SubscribableSource[*core.Block] {
+	return fs.newHeadsHub
 }
 
-func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
-	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
+func (fs *fakeSyncer) ReorgsSource() broadcaster.SubscribableSource[*sync.ReorgBlockRange] {
+	return fs.reorgsHub
 }
 
-func (fs *fakeSyncer) SubscribePreConfirmed() preconfirmed.Subscription {
-	return preconfirmed.Subscription{Subscription: fs.preConfirmed.Subscribe()}
+func (fs *fakeSyncer) PreConfirmedSource() broadcaster.SubscribableSource[*pending.PreConfirmed] {
+	return fs.preConfirmedHub
 }
 
 func (fs *fakeSyncer) StartingBlockHeader() (*core.Header, error) {
@@ -343,15 +363,19 @@ func TestSubscribeEvents(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+	syncer := newFakeSyncer()
 	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().AnyTimes()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
 
-	handler := New(mockChain, mockSyncer, nil, logger)
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	type stepInfo struct {
 		description   string
@@ -393,21 +417,21 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{},
 			},
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{},
 			},
 			{
 				description: "on new head",
 				notify: func() {
-					handler.newHeads.Send(b2)
+					syncer.newHeads.Send(b2)
 				},
 				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
@@ -439,7 +463,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "pre_confirmed tip delivered via feed after handoff",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedPartialEmitted,
@@ -448,7 +472,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmitted[len(b2PreConfirmedPartialEmitted):],
@@ -457,7 +481,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on new head",
 				notify: func() {
-					handler.newHeads.Send(b2)
+					syncer.newHeads.Send(b2)
 				},
 				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
@@ -569,7 +593,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmittedByAddr[len(b2PreConfirmedPartialEmittedByAddr):],
@@ -578,7 +602,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on new head",
 				notify: func() {
-					handler.newHeads.Send(b2)
+					syncer.newHeads.Send(b2)
 				},
 				expect: [][]SubscriptionEmittedEvent{b2EmittedByAddr},
 			},
@@ -612,7 +636,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmittedByAddrAndKey[len(b2PreConfirmedPartialEmittedByAddrAndKey):],
@@ -621,7 +645,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on new head",
 				notify: func() {
-					handler.newHeads.Send(b2)
+					syncer.newHeads.Send(b2)
 				},
 				expect: [][]SubscriptionEmittedEvent{b2EmittedByAddrAndKey},
 			},
@@ -650,7 +674,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "pre_confirmed tip delivered via feed after handoff",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b2PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedPartialEmitted,
@@ -659,7 +683,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on pre_confirmed block update, without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b2PreConfirmedExtended)
+					syncer.preConfirmed.Send(&b2PreConfirmedExtended)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b2PreConfirmedExtendedEmitted[len(b2PreConfirmedPartialEmitted):],
@@ -668,21 +692,21 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "new pre_confirmed block",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b3PreConfirmedPartial)
+					syncer.preConfirmed.Send(&b3PreConfirmedPartial)
 				},
 				expect: [][]SubscriptionEmittedEvent{b3PreConfirmedPartialEmitted},
 			},
 			{
 				description: "pre_confirmed becomes head",
 				notify: func() {
-					handler.newHeads.Send(b2)
+					syncer.newHeads.Send(b2)
 				},
 				expect: [][]SubscriptionEmittedEvent{b2Emitted},
 			},
 			{
 				description: "pre_confirmed update - without duplicates",
 				notify: func() {
-					handler.preConfirmedFeed.Send(&b3PreConfirmedFull)
+					syncer.preConfirmed.Send(&b3PreConfirmedFull)
 				},
 				expect: [][]SubscriptionEmittedEvent{
 					b3PreConfirmedFullEmitted[len(b3PreConfirmedPartialEmitted):],
@@ -719,7 +743,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "on reorg event",
 				notify: func() {
-					handler.reorgs.Send(&reorg)
+					syncer.reorgs.Send(&reorg)
 				},
 				expectedReorg: &ReorgEvent{
 					StartBlockHash: reorg.StartBlockHash,
@@ -731,7 +755,7 @@ func TestSubscribeEvents(t *testing.T) {
 			{
 				description: "events from incoming block after reorg",
 				notify: func() {
-					handler.newHeads.Send(b1)
+					syncer.newHeads.Send(b1)
 				},
 				expect: [][]SubscriptionEmittedEvent{b1Emitted},
 			},
@@ -898,6 +922,23 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
+		newHeadsHub := broadcaster.New[*core.Block](broadcaster.WithKind(broadcastertestutils.Kind()))
+		reorgsHub := broadcaster.New[*sync.ReorgBlockRange](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		)
+		preConfirmedHub := broadcaster.New[*pending.PreConfirmed](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		)
+		l1Hub := broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind()))
+		mockSyncer.EXPECT().NewHeadsSource().Return(newHeadsHub).AnyTimes()
+		mockSyncer.EXPECT().ReorgsSource().Return(reorgsHub).AnyTimes()
+		mockSyncer.EXPECT().PreConfirmedSource().Return(preConfirmedHub).AnyTimes()
+		mockChain.EXPECT().L1HeadsSource().Return(l1Hub).AnyTimes()
+		handler.initSubscribables()
+		newHeadsPub := newHeadsHub.NewPublisher()
+		preConfirmedPub := preConfirmedHub.NewPublisher()
+		l1Pub := l1Hub.NewPublisher()
+
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 1164621)
 		require.NoError(t, err)
 
@@ -961,7 +1002,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 		mockSyncer.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, preConfirmed), nil).Times(1)
-		handler.preConfirmedFeed.Send(preConfirmed)
+		preConfirmedPub.Send(preConfirmed)
 		assertNextTxnStatus(
 			t,
 			conn,
@@ -997,7 +1038,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
-		handler.newHeads.Send(block)
+		newHeadsPub.Send(block)
 		assertNextTxnStatus(
 			t,
 			conn,
@@ -1021,7 +1062,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			RevertReason: block.Receipts[0].RevertReason,
 		}, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
-		handler.l1Heads.Send(&l1Head)
+		l1Pub.Send(&l1Head)
 		assertNextTxnStatus(
 			t,
 			conn,
@@ -1041,6 +1082,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		adapterFeeder := adaptfeeder.New(client)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(nil, mockSyncer, nil, logger)
+		// bcReader is nil here, so we wire only the reorg subscribable directly
+		// instead of calling initSubscribables (which touches bcReader).
+		reorgsHub := broadcaster.New[*sync.ReorgBlockRange](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		)
+		handler.reorgSubscribable = reorgsHub.NewSubscribable(
+			broadcaster.LagPolicyDrop[*sync.ReorgBlockRange],
+		)
+		reorgPub := reorgsHub.NewPublisher()
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
@@ -1083,7 +1133,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			),
 			EndBlockNum: 2,
 		}
-		handler.reorgs.Send(&reorg)
+		reorgPub.Send(&reorg)
 		expectedReorgEvent := ReorgEvent{
 			StartBlockHash: reorg.StartBlockHash,
 			StartBlockNum:  reorg.StartBlockNum,
@@ -1184,7 +1234,12 @@ func TestSubscribeNewHeads(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, logger)
+	syncer := newFakeSyncer()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	mockChain.EXPECT().Height().Return(block1.Number, nil)
 
@@ -1203,13 +1258,13 @@ func TestSubscribeNewHeads(t *testing.T) {
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil)
 
-	handler.newHeads.Send(block2)
+	syncer.newHeads.Send(block2)
 	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 	// Receive new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
 
-	handler.newHeads.Send(block3)
+	syncer.newHeads.Send(block3)
 	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
@@ -1228,7 +1283,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, logger)
+	syncer := newFakeSyncer()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	mockChain.EXPECT().Height().Return(block2.Number, nil)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil)
@@ -1254,7 +1314,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	mockChain.EXPECT().BlockCommitmentsByNumber(block3.Number).Return(commitments3, nil)
 
 	// Receive new block
-	handler.newHeads.Send(block3)
+	syncer.newHeads.Send(block3)
 	adaptedHeader3 := AdaptBlockHeader(block3.Header, commitments3)
 	assertNextHead(t, conn, subID, &adaptedHeader3)
 }
@@ -1271,7 +1331,12 @@ func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, logger)
+	syncer := newFakeSyncer()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	mockChain.EXPECT().Height().Return(block2.Number, nil)
 	mockChain.EXPECT().BlockNumberByHash(block1.Hash).Return(block1.Number, nil)
@@ -1307,7 +1372,12 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, logger)
+	syncer := newFakeSyncer()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	mockChain.EXPECT().Height().Return(block1.Number, nil)
 
@@ -1331,7 +1401,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 		EndBlockHash:   block1.Hash,
 		EndBlockNum:    block1.Number,
 	}
-	handler.reorgs.Send(&reorg)
+	syncer.reorgs.Send(&reorg)
 	expectedReorgEvent := ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
@@ -1342,7 +1412,7 @@ func TestSubscribeNewHeadsReturnsReorgNotification(t *testing.T) {
 
 	// Keep receiving incoming heads
 	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil)
-	handler.newHeads.Send(block1)
+	syncer.newHeads.Send(block1)
 	adaptedHeader2 := AdaptBlockHeader(block1.Header, commitments1)
 	assertNextHead(t, conn, subID, &adaptedHeader2)
 }
@@ -1360,7 +1430,12 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
-	handler := New(mockChain, nil, nil, logger)
+	syncer := newFakeSyncer()
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	handler := New(mockChain, syncer, nil, logger)
+	handler.initSubscribables()
 
 	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(2)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
@@ -1378,7 +1453,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Both subscribers receives new block
 	mockChain.EXPECT().BlockCommitmentsByNumber(block2.Number).Return(commitments2, nil).Times(2)
-	handler.newHeads.Send(block2)
+	syncer.newHeads.Send(block2)
 
 	adaptedHeader2 := AdaptBlockHeader(block2.Header, commitments2)
 	assertNextHead(t, conn1, subID1, &adaptedHeader2)
@@ -1402,22 +1477,16 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
-	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(
-		blockchain.L1HeadSubscription{
-			Subscription: l1Feed.Subscribe(),
-		},
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
+	receivedTxHub := broadcaster.New[core.Transaction](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
 	)
-	receivedTxFeed := feed.New[core.Transaction]()
+	receivedTxPub := receivedTxHub.NewPublisher()
 	handler := New(mockChain, syncer, nil, log.NewNopZapLogger()).
-		WithReceivedTransactionFeed(receivedTxFeed)
-	handlerCtx, handlerCancel := context.WithCancel(t.Context())
-	var handlerWg stdsync.WaitGroup
-	handlerWg.Go(func() {
-		require.NoError(t, handler.Run(handlerCtx))
-	})
-	defer handlerWg.Wait()
-	defer handlerCancel()
+		WithReceivedTransactionHub(receivedTxHub)
+	handler.initSubscribables()
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -1580,7 +1649,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on receiving new transaction",
 				notify: func() {
-					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+					receivedTxPub.Send(newHead2.Transactions[0])
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -1679,7 +1748,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			{
 				description: "on receiving new transaction",
 				notify: func() {
-					handler.receivedTransactionFeed.Send(newHead2.Transactions[0])
+					receivedTxPub.Send(newHead2.Transactions[0])
 				},
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
@@ -2022,20 +2091,11 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
-	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(
-		blockchain.L1HeadSubscription{
-			Subscription: l1Feed.Subscribe(),
-		},
-	)
+	mockChain.EXPECT().L1HeadsSource().Return(
+		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
+	).AnyTimes()
 	handler := New(mockChain, syncer, nil, log.NewNopZapLogger())
-	handlerCtx, handlerCancel := context.WithCancel(t.Context())
-	var handlerWg stdsync.WaitGroup
-	handlerWg.Go(func() {
-		require.NoError(t, handler.Run(handlerCtx))
-	})
-	defer handlerWg.Wait()
-	defer handlerCancel()
+	handler.initSubscribables()
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)

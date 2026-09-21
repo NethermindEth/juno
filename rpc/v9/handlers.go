@@ -9,11 +9,11 @@ import (
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -35,11 +35,14 @@ type Handler struct {
 	logger        log.Logger
 	memPool       mempool.Pool
 
-	newHeads                *feed.Feed[*core.Block]
-	reorgs                  *feed.Feed[*sync.ReorgBlockRange]
-	preConfirmedFeed        *feed.Feed[*pending.PreConfirmed]
-	l1Heads                 *feed.Feed[*core.L1Head]
-	receivedTransactionFeed *feed.Feed[core.Transaction]
+	// One Subscribable per stream, per handler; each WebSocket client opens its own
+	// Subscription off them.
+	newHeadsSubscribable            broadcaster.Subscribable[*core.Block]
+	reorgSubscribable               broadcaster.Subscribable[*sync.ReorgBlockRange]
+	preConfirmedSubscribable        broadcaster.Subscribable[*pending.PreConfirmed]
+	l1HeadSubscribable              broadcaster.Subscribable[*core.L1Head]
+	receivedTransactionSubscribable broadcaster.Subscribable[core.Transaction]
+	receivedTransactionPub          broadcaster.Publisher[core.Transaction]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -78,10 +81,6 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:         feed.New[*core.Block](),
-		reorgs:           feed.New[*sync.ReorgBlockRange](),
-		preConfirmedFeed: feed.New[*pending.PreConfirmed](),
-		l1Heads:          feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.New[
 			felt.Felt,
@@ -89,6 +88,23 @@ func New(
 		](rpccore.TraceCacheSize),
 		filterLimit: math.MaxUint,
 	}
+}
+
+// initSubscribables binds one Subscribable per stream to its lag policy. Called from
+// Run() so New() stays free of side effects on its readers.
+func (h *Handler) initSubscribables() {
+	h.newHeadsSubscribable = h.syncReader.NewHeadsSource().NewSubscribable(
+		broadcaster.LagPolicyBlockReplay(h.bcReader, h.logger),
+	)
+	h.reorgSubscribable = h.syncReader.ReorgsSource().NewSubscribable(
+		broadcaster.LagPolicyLog[*sync.ReorgBlockRange](h.logger),
+	)
+	h.preConfirmedSubscribable = h.syncReader.PreConfirmedSource().NewSubscribable(
+		broadcaster.LagPolicyLog[*pending.PreConfirmed](h.logger),
+	)
+	h.l1HeadSubscribable = h.bcReader.L1HeadsSource().NewSubscribable(
+		broadcaster.LagPolicyDrop[*core.L1Head],
+	)
 }
 
 func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
@@ -142,26 +158,18 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache
 	return h
 }
 
-func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction]) *Handler {
-	h.receivedTransactionFeed = feed
+func (h *Handler) WithReceivedTransactionHub(
+	hub broadcaster.BroadcastHub[core.Transaction],
+) *Handler {
+	h.receivedTransactionPub = hub.NewPublisher()
+	h.receivedTransactionSubscribable = hub.NewSubscribable(
+		broadcaster.LagPolicyLog[core.Transaction](h.logger),
+	)
 	return h
 }
 
-// Currently only used for testing
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
-	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
-	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
-	defer newHeadsSub.Unsubscribe()
-	defer reorgsSub.Unsubscribe()
-	defer preConfirmedSub.Unsubscribe()
-	defer l1HeadsSub.Unsubscribe()
-	feed.Tee(newHeadsSub, h.newHeads)
-	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
-	feed.Tee(l1HeadsSub, h.l1Heads)
-
+	h.initSubscribables()
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {
 		sub := value.(*subscription)

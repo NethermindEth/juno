@@ -15,6 +15,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -23,7 +24,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
@@ -152,12 +152,26 @@ type Config struct {
 	NodeMemoryReserve     uint `mapstructure:"node-memory-reserve"`      // megabytes
 	MaxCompilationCPUTime uint `mapstructure:"max-compilation-cpu-time"` // CPU seconds
 	NewState              bool `mapstructure:"new-state"`
+	UseBroadcast          bool `mapstructure:"use-broadcast"`
 
 	// Prune is true when --prune-mode was provided (any value, including 0
 	// or absent). Set in cmd PreRunE; not bound via mapstructure.
 	Prune          bool
 	RetainedBlocks uint64        `mapstructure:"prune-mode"`
 	PruneMinAge    time.Duration `mapstructure:"prune-min-age"`
+}
+
+// receivedTransactionsCapacity bounds the received-transaction hub when it runs
+// on the ring backend (KindBroadcast); ignored by KindFeed.
+const receivedTransactionsCapacity = 128
+
+// BroadcasterKind maps the UseBroadcast flag to the broadcaster backend used for
+// every hub the node wires.
+func (c *Config) BroadcasterKind() broadcaster.Kind {
+	if c.UseBroadcast {
+		return broadcaster.KindBroadcast
+	}
+	return broadcaster.KindFeed
 }
 
 type Node struct {
@@ -274,6 +288,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		opts,
 		blockchain.WithNewState(cfg.NewState),
 		blockchain.WithRetentionFloor(retentionFloor),
+		blockchain.WithBroadcasterKind(cfg.BroadcasterKind()),
 	)
 	if cfg.Prune {
 		opts = append(
@@ -371,7 +386,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
-			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
+			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger, cfg.BroadcasterKind())
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
 			WithCompiler(throttledCompiler).
@@ -386,12 +401,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			}
 
 			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
+			l1HeadSub := chain.L1HeadsSource().
+				NewSubscribable(broadcaster.LagPolicyDrop[*core.L1Head]).Subscribe()
+			newHeadSub := seq.NewHeadsSource().
+				NewSubscribable(broadcaster.LagPolicyDrop[*core.Block]).Subscribe()
 			p := pruner.New(
 				database,
 				retentionFloor,
 				cfg.RetainedBlocks,
-				seq.SubscribeNewHeads().Subscription,
-				chain.SubscribeL1Head().Subscription,
+				newHeadSub,
+				l1HeadSub,
 				logger,
 				prunerOpts...,
 			)
@@ -450,6 +469,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				logger,
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
+				sync.WithBroadcasterKind(cfg.BroadcasterKind()),
 			)
 			synchronizer.WithPlugin(junoPlugin)
 		}
@@ -506,8 +526,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 
 		if !cfg.DisableReceivedTxnStream {
-			receivedTxFeed := feed.New[core.Transaction]()
-			rpcHandler = rpcHandler.WithReceivedTransactionFeed(receivedTxFeed)
+			receivedTxHub := broadcaster.New[core.Transaction](
+				broadcaster.WithKind(cfg.BroadcasterKind()),
+				broadcaster.WithCapacity(receivedTransactionsCapacity),
+			)
+			rpcHandler = rpcHandler.WithReceivedTransactionHub(receivedTxHub)
 		}
 		if synchronizer != nil {
 			services = append(services, synchronizer)
@@ -518,12 +541,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				}
 
 				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
+				l1HeadSub := chain.L1HeadsSource().
+					NewSubscribable(broadcaster.LagPolicyDrop[*core.L1Head]).Subscribe()
+				newHeadSub := synchronizer.NewHeadsSource().
+					NewSubscribable(broadcaster.LagPolicyDrop[*core.Block]).Subscribe()
 				p := pruner.New(
 					database,
 					retentionFloor,
 					cfg.RetainedBlocks,
-					synchronizer.SubscribeNewHeads().Subscription,
-					chain.SubscribeL1Head().Subscription,
+					newHeadSub,
+					l1HeadSub,
 					logger,
 					prunerOpts...,
 				)

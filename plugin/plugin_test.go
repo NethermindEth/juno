@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
@@ -52,6 +53,7 @@ func TestPlugin(t *testing.T) {
 		dataSource,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
+		sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 	).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -89,6 +91,7 @@ func TestPlugin(t *testing.T) {
 			dataSource,
 			log.NewNopZapLogger(),
 			sync.WithPreConfirmedPollInterval(0),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
