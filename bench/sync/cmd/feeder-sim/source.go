@@ -7,20 +7,23 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 
+type api interface {
+	newRequest(ctx context.Context, resource resource) (*http.Request, error)
+	decode(dataset dataset, resource resource, body []byte, encoding string) ([]byte, error)
+}
+
 type source struct {
-	feederURL  *url.URL
 	client     *http.Client
-	apiKey     string
 	retries    int
 	retryDelay time.Duration
 	logger     *log.ZapLogger
+	api        api
 }
 
 type statusError struct {
@@ -43,32 +46,46 @@ func capture(ctx context.Context, dataset dataset, config *config, logger *log.Z
 		zap.Uint64("to", config.to),
 	)
 	walker := &walker{
-		fetcher:     newSource(config, logger),
+		feeder: newSource(
+			newClient(config),
+			config,
+			logger,
+			&feederAPI{url: config.network.FeederURL, apiKey: config.apiKey},
+		),
 		dataset:     dataset,
 		config:      config,
 		concurrency: config.concurrency,
 		logger:      logger,
 	}
+
 	blocks, err := walker.walk(ctx)
 	if err != nil {
 		return err
 	}
+
 	logger.Info("capture complete", zap.Int("blocks", len(blocks)))
 	return nil
 }
 
-func newSource(config *config, logger *log.ZapLogger) *source {
+func newClient(config *config) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DisableCompression = true
 	transport.MaxIdleConnsPerHost = config.concurrency
+	return &http.Client{Transport: transport, Timeout: config.captureTimeout}
+}
 
+func newSource(
+	client *http.Client,
+	config *config,
+	logger *log.ZapLogger,
+	api api,
+) *source {
 	return &source{
-		feederURL:  config.network.FeederURL,
-		client:     &http.Client{Transport: transport, Timeout: config.captureTimeout},
-		apiKey:     config.apiKey,
+		client:     client,
 		retries:    config.captureRetries,
 		retryDelay: config.captureRetryDelay,
 		logger:     logger,
+		api:        api,
 	}
 }
 
@@ -85,34 +102,55 @@ func (source *source) fetch(
 		return nil, err
 	}
 
-	body, err = source.download(ctx, resource.url(source.feederURL))
+	body, err = source.download(ctx, dataset, resource)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", resource.file, err)
 	}
+
 	if err := dataset.write(resource.file, body); err != nil {
 		return nil, err
 	}
+
 	return body, nil
 }
 
-func (source *source) download(ctx context.Context, requestURL *url.URL) ([]byte, error) {
-	body, err := source.downloadOnce(ctx, requestURL)
+func (source *source) download(
+	ctx context.Context,
+	dataset dataset,
+	resource resource,
+) ([]byte, error) {
+	body, encoding, err := source.retrieve(ctx, resource)
+	if err != nil {
+		return nil, err
+	}
+
+	return source.api.decode(dataset, resource, body, encoding)
+}
+
+func (source *source) retrieve(
+	ctx context.Context,
+	resource resource,
+) ([]byte, string, error) {
+	body, encoding, err := source.retrieveOnce(ctx, resource)
 	for attempt := 1; attempt <= source.retries && retryable(err); attempt++ {
 		source.logger.Debug(
 			"retrying capture request",
-			zap.Stringer("url", requestURL),
+			zap.String("resource", resource.file),
 			zap.Int("attempt", attempt),
 			zap.Error(err),
 		)
 		if err := source.waitRetry(ctx); err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		body, err = source.downloadOnce(ctx, requestURL)
+
+		body, encoding, err = source.retrieveOnce(ctx, resource)
 	}
+
 	if retryable(err) {
-		return nil, fmt.Errorf("after %d attempts: %w", source.retries+1, err)
+		return nil, "", fmt.Errorf("after %d attempts: %w", source.retries+1, err)
 	}
-	return body, err
+
+	return body, encoding, err
 }
 
 func retryable(err error) bool {
@@ -130,49 +168,34 @@ func (source *source) waitRetry(ctx context.Context) error {
 	}
 }
 
-func (source *source) downloadOnce(ctx context.Context, requestURL *url.URL) ([]byte, error) {
-	request, err := source.newRequest(ctx, requestURL)
+func (source *source) retrieveOnce(
+	ctx context.Context,
+	resource resource,
+) ([]byte, string, error) {
+	request, err := source.api.newRequest(ctx, resource)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
+	request.Header.Set("Accept-Encoding", "gzip")
 	response, err := source.client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
 	defer response.Body.Close()
 	return readBody(response)
 }
 
-func (source *source) newRequest(ctx context.Context, requestURL *url.URL) (*http.Request, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), http.NoBody)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Accept-Encoding", "gzip")
-	if source.apiKey != "" {
-		request.Header.Set("X-Throttling-Bypass", source.apiKey)
-	}
-	return request, nil
-}
-
-func readBody(response *http.Response) ([]byte, error) {
+func readBody(response *http.Response) (body []byte, encoding string, err error) {
 	if response.StatusCode != http.StatusOK {
-		return nil, &statusError{code: response.StatusCode}
+		return nil, "", &statusError{code: response.StatusCode}
 	}
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	return ensureGzipped(body, response.Header.Get("Content-Encoding"))
-}
 
-func ensureGzipped(body []byte, contentEncoding string) ([]byte, error) {
-	switch contentEncoding {
-	case "gzip":
-		return body, nil
-	case "", "identity":
-		return gzipBytes(body)
-	default:
-		return nil, fmt.Errorf("unsupported Content-Encoding %q", contentEncoding)
+	body, err = io.ReadAll(response.Body)
+	if err != nil {
+		return nil, "", err
 	}
+
+	return body, response.Header.Get("Content-Encoding"), nil
 }

@@ -32,16 +32,18 @@ func loadStore(
 	)
 	store := &store{bodies: make(map[string][]byte)}
 	walker := &walker{
-		fetcher:     store,
+		feeder:      store,
 		dataset:     dataset,
 		config:      config,
 		concurrency: runtime.GOMAXPROCS(0),
 		logger:      logger,
 	}
+
 	blocks, err := walker.walk(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	store.blocks = blocks
 	logger.Info(
 		"dataset loaded",
@@ -59,6 +61,7 @@ func (store *store) fetch(_ context.Context, dataset dataset, resource resource)
 	if err != nil {
 		return nil, err
 	}
+
 	store.mutex.Lock()
 	store.bodies[resource.file] = body
 	store.mutex.Unlock()

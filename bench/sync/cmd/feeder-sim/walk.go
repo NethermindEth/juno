@@ -18,7 +18,7 @@ type fetcher interface {
 }
 
 type walker struct {
-	fetcher     fetcher
+	feeder      fetcher
 	dataset     dataset
 	config      *config
 	concurrency int
@@ -37,10 +37,11 @@ func (walker *walker) walk(ctx context.Context) ([]blockInfo, error) {
 }
 
 func (walker *walker) walkContractAddresses(ctx context.Context) error {
-	body, err := walker.visit(ctx, contractAddresses, struct{}{})
+	body, err := walker.visit(ctx, walker.feeder, contractAddresses, struct{}{})
 	if err != nil {
 		return err
 	}
+
 	expected := walker.config.network
 	if expected == nil {
 		return nil
@@ -50,13 +51,18 @@ func (walker *walker) walkContractAddresses(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	if coreContract != expected.CoreContractAddress {
 		return fmt.Errorf(
 			"%s holds core contract %s, not --%s %s's %s",
-			walker.dataset.root, hexAddress(coreContract),
-			networkFlag, expected.Name, hexAddress(expected.CoreContractAddress),
+			walker.dataset.root,
+			hexAddress(coreContract),
+			networkFlag,
+			expected.Name,
+			hexAddress(expected.CoreContractAddress),
 		)
 	}
+
 	return nil
 }
 
@@ -71,13 +77,15 @@ func (walker *walker) walkBlocks(ctx context.Context) ([]blockInfo, error) {
 
 func (walker *walker) walkBlock(ctx context.Context, number uint64) (blockInfo, error) {
 	key := blockKey{BlockNumber: number}
-	if _, err := walker.visit(ctx, block, key); err != nil {
+	if _, err := walker.visit(ctx, walker.feeder, block, key); err != nil {
 		return blockInfo{}, err
 	}
-	body, err := walker.visit(ctx, stateUpdate, key)
+
+	body, err := walker.visit(ctx, walker.feeder, stateUpdate, key)
 	if err != nil {
 		return blockInfo{}, err
 	}
+
 	return newBlockInfo(body, number)
 }
 
@@ -89,20 +97,23 @@ func (walker *walker) walkClasses(ctx context.Context, hashes []string) error {
 
 func (walker *walker) walkClass(ctx context.Context, hash string) error {
 	key := classKey{ClassHash: hash}
-	class, err := walker.visit(ctx, classByHash, key)
+	class, err := walker.visit(ctx, walker.feeder, classByHash, key)
 	if err != nil {
 		return err
 	}
+
 	sierra, err := isSierra(class, hash)
 	if err != nil || !sierra {
 		return err
 	}
-	_, err = walker.visit(ctx, compiledClass, key)
+
+	_, err = walker.visit(ctx, walker.feeder, compiledClass, key)
 	return err
 }
 
 func (walker *walker) visit[K, F comparable](
 	ctx context.Context,
+	fetcher fetcher,
 	endpoint *endpoint[K, F],
 	key K,
 ) ([]byte, error) {
@@ -110,7 +121,8 @@ func (walker *walker) visit[K, F comparable](
 	if err != nil {
 		return nil, err
 	}
-	return walker.fetcher.fetch(ctx, walker.dataset, resource)
+
+	return fetcher.fetch(ctx, walker.dataset, resource)
 }
 
 func (walker *walker) each(
@@ -134,10 +146,12 @@ func (walker *walker) each(
 			if err := visit(ctx, index); err != nil {
 				return err
 			}
+
 			done.Add(1)
 			return nil
 		})
 	}
+
 	return workers.Wait()
 }
 
