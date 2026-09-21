@@ -1,4 +1,4 @@
-package main
+package main_test
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	corpusgen "github.com/NethermindEth/juno/bench/rpc/cmd/corpus-gen"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,20 +27,14 @@ const (
 		"signature": ["0x3"],
 		"calldata": ["0x1", "0xa", "0xb", "0x0"]
 	}`
-	fakeDeclareTx = `{
-		"transaction_hash": "0x5",
-		"type": "DECLARE",
-		"version": "0x3",
-		"nonce": "0x8",
-		"sender_address": "0x2",
-		"signature": ["0x3"],
-		"class_hash": "0x9",
-		"compiled_class_hash": "0xc"
-	}`
 	fakeL1HandlerTx = `{"transaction_hash":"0x4","type":"L1_HANDLER","version":"0x0"}`
-
-	fakeContractClass = `{"sierra_program":["0x1"],"contract_class_version":"0.1.0"}`
 )
+
+type functionCall struct {
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	Calldata           []string `json:"calldata"`
+}
 
 type corpusEntry struct {
 	Method string          `json:"method"`
@@ -47,9 +42,6 @@ type corpusEntry struct {
 }
 
 type corpusFile struct {
-	Meta struct {
-		Sampling json.RawMessage `json:"sampling"`
-	} `json:"meta"`
 	Requests []corpusEntry `json:"requests"`
 }
 
@@ -57,7 +49,7 @@ func runCorpusGen(t *testing.T, args ...string) corpusFile {
 	t.Helper()
 
 	var out bytes.Buffer
-	cmd := newRootCmd()
+	cmd := corpusgen.NewRootCmd()
 	cmd.SetArgs(args)
 	cmd.SetOut(&out)
 	cmd.SetErr(io.Discard)
@@ -71,7 +63,7 @@ func runCorpusGen(t *testing.T, args ...string) corpusFile {
 func corpusGenError(t *testing.T, args ...string) string {
 	t.Helper()
 
-	cmd := newRootCmd()
+	cmd := corpusgen.NewRootCmd()
 	cmd.SetArgs(args)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -86,11 +78,11 @@ func corpusGenError(t *testing.T, args ...string) string {
 type fakeNode struct {
 	txs []string
 
-	mu       sync.Mutex
-	blocks   []uint64
-	flags    []string
-	classes  []string
-	verified int
+	mu           sync.Mutex
+	blocks       []uint64
+	flags        []string
+	verified     int
+	stateUpdates int
 }
 
 func newFakeNode(txs ...string) *fakeNode {
@@ -105,7 +97,6 @@ func (n *fakeNode) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				BlockNumber uint64 `json:"block_number"`
 			} `json:"block_id"`
 			ResponseFlags []string `json:"response_flags"`
-			ClassHash     string   `json:"class_hash"`
 		} `json:"params"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -122,9 +113,9 @@ func (n *fakeNode) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "starknet_getBlockWithTxs":
 		n.recordBlock(req.Params.BlockID.BlockNumber, req.Params.ResponseFlags)
 		result = `{"transactions":[` + strings.Join(n.txs, ",") + `]}`
-	case "starknet_getClass":
-		n.recordClass(req.Params.ClassHash)
-		result = fakeContractClass
+	case "starknet_getStateUpdate":
+		n.recordStateUpdate()
+		result = `{"state_diff":{"storage_diffs":[],"nonces":[]}}`
 	case "starknet_estimateFee", "starknet_simulateTransactions":
 		n.recordVerification()
 		result = `[]`
@@ -147,28 +138,28 @@ func (n *fakeNode) recordBlock(blockNumber uint64, flags []string) {
 	n.flags = append(n.flags, flags...)
 }
 
-func (n *fakeNode) recordClass(classHash string) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.classes = append(n.classes, classHash)
-}
-
 func (n *fakeNode) recordVerification() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.verified++
 }
 
+func (n *fakeNode) recordStateUpdate() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.stateUpdates++
+}
+
+func (n *fakeNode) stateUpdatesAsked() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.stateUpdates
+}
+
 func (n *fakeNode) blocksAsked() []uint64 {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return slices.Clone(n.blocks)
-}
-
-func (n *fakeNode) classesAsked() []string {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return slices.Clone(n.classes)
 }
 
 func (n *fakeNode) proofFactsFlags() []string {

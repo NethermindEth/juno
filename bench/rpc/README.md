@@ -32,34 +32,16 @@ Method-specific flags:
 
 ### Execution methods
 
-`estimateFee`, `simulateTransactions` and `call` sample a block N, then build the
-request from the transactions of block N+1, which ran on the state of block N:
+`estimateFee`, `simulateTransactions` and `call` build each request for block N
+from the transactions of block N+1.
 
-- `estimateFee` and `simulateTransactions` send a leading run of block N+1's
-  transactions. Real transactions keep their nonces and signatures valid, so
-  `SKIP_VALIDATE` stays optional. The run stops at the first transaction with a
-  version below `0x3` or a type outside `--tx-types`. A block whose run is
-  shorter than `--num-txs` is skipped.
-- `call` takes one call out of an account multicall in block N+1.
 - `--block-id latest` is not supported, because block N+1 must exist.
-- `--block-start` defaults to 10000 blocks below `--block-end`. Older ranges need
-  a node that keeps their state, and blocks before the Starknet 0.13.0 upgrade
-  carry no `0x3` transactions at all.
-- `--verify` keeps the corpus clean: `run.js` counts a JSON-RPC error as a
-  failure, and a real transaction can still revert or run short of resources
-  when it replays against the gas prices of block N. Generation therefore runs
-  execution work on the source node, and `--batch N` multiplies it by N. The
-  check only covers the source node: another node can still reject a request
-  that `--source-url` accepted.
-- `--tx-types` selects the cost class under measurement: `INVOKE` executes,
-  `DEPLOY_ACCOUNT` also runs `__validate_deploy__` and a deployment, `DECLARE`
-  compiles. It is not a filter over the block: a transaction of any other type
-  ends the run, so a narrow list draws more blocks per entry. Watch the
-  `sampling attempts` line that generation prints. `L1_HANDLER` and `DEPLOY`
-  are rejected, since the execution methods do not take them.
-- `DECLARE` sends a full contract class per transaction, which the node compiles
-  on every request. The corpus grows by ~100KB-1MB per entry, and the benchmark
-  then measures compilation instead of execution.
+- `--block-start` defaults to 10000 blocks below `--block-end`. The source node
+  must keep the state of the sampled blocks.
+- `--verify` runs each sample on the source node, and `--batch N` multiplies
+  that work by N.
+- `DECLARE` in `--tx-types` adds a full contract class to each transaction. The
+  benchmark then measures compilation, not execution.
 
 ## Use
 

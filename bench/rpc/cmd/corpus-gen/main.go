@@ -31,7 +31,8 @@ type rootConfig struct {
 	concurrency int
 }
 
-func newRootCmd() *cobra.Command {
+// NewRootCmd returns the corpus-gen root command.
+func NewRootCmd() *cobra.Command {
 	cfg := &rootConfig{}
 
 	cmd := &cobra.Command{
@@ -112,7 +113,7 @@ func newRootCmd() *cobra.Command {
 const methodsGroupID = "methods"
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	if err := NewRootCmd().Execute(); err != nil {
 		os.Exit(1)
 	}
 }

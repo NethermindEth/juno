@@ -1,4 +1,4 @@
-package main
+package main_test
 
 import (
 	"encoding/json"
@@ -28,6 +28,6 @@ func TestSimulateTransactionsCorpus(t *testing.T) {
 	require.NoError(t, json.Unmarshal(entry.Params, &params))
 
 	require.Len(t, params.Transactions, 1)
-	require.Equal(t, []string{skipFeeChargeFlag}, params.SimulationFlags)
+	require.Equal(t, []string{"SKIP_FEE_CHARGE"}, params.SimulationFlags)
 	require.Equal(t, 1, node.verifications())
 }

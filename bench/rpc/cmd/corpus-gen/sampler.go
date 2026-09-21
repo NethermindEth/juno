@@ -108,8 +108,10 @@ func resample[R any](fn func() (R, error)) (R, error) {
 		}
 		last = err
 	}
+	// %v drops errResample from the chain, so an outer resample does not retry
+	// a draw that is already out of attempts.
 	return zero, fmt.Errorf(
-		"no candidate found after %d attempts: %w", maxResampleAttempts, last,
+		"no candidate found after %d attempts: %v", maxResampleAttempts, last,
 	)
 }
 
