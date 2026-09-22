@@ -1,267 +1,153 @@
 package feeder
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
-	"sync"
+	"net/url"
 	"testing"
-	"time"
 
-	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTimeoutString(t *testing.T) {
-	tests := []*struct {
-		name  string
-		input Timeouts
-		want  string
-	}{
-		{
-			name: "empty timeouts",
-			input: Timeouts{
-				timeouts: []time.Duration{},
-			},
-			want: "",
-		},
-		{
-			name: "single timeout",
-			input: Timeouts{
-				timeouts: []time.Duration{5 * time.Second},
-			},
-			want: "5s",
-		},
-		{
-			name: "multiple timeouts",
-			input: Timeouts{
-				timeouts: []time.Duration{5 * time.Second, 10 * time.Second, 20 * time.Second},
-			},
-			want: "5s,10s,20s",
-		},
-		{
-			name: "mixed duration units",
-			input: Timeouts{
-				timeouts: []time.Duration{5 * time.Second, 2 * time.Minute, 1 * time.Hour},
-			},
-			want: "5s,2m0s,1h0m0s",
-		},
+func newTimeoutClients(t *testing.T, initialTimeouts []string) []timeout.Client {
+	t.Helper()
+	clients := make([]timeout.Client, len(initialTimeouts))
+	for i, initial := range initialTimeouts {
+		durations, fixed, err := timeout.ParseTimeouts(initial)
+		require.NoError(t, err)
+		clients[i] = NewClient(&url.URL{}, WithTimeouts(durations, fixed))
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.input.String()
-			assert.Equal(t, tt.want, got)
-		})
-	}
+	return clients
 }
 
-func TestParseTimeouts(t *testing.T) {
-	type want struct {
-		timeouts []time.Duration
-		fixed    bool
-	}
+func TestHTTPTimeoutsSettings(t *testing.T) {
+	const (
+		fiveSecondTimeouts = "5s,10s,20s,40s,1m20s,2m0s,2m24s,2m53s,3m28s,4m10s,5m0s," +
+			"6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s," +
+			"53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s,2h40m26s"
+		twoSecondTimeouts = "2s,4s,8s,16s,32s,1m4s,1m36s,2m24s,2m53s,3m28s,4m10s,5m0s," +
+			"6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s," +
+			"53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s"
+		fixedTimeouts = "7s,9s"
+	)
 
 	tests := []struct {
-		name    string
-		input   string
-		want    want
-		wantErr bool
+		name            string
+		method          string
+		target          string
+		initialTimeouts []string
+		wantCode        int
+		wantBody        string
+		wantTimeouts    []string
 	}{
 		{
-			name:    "empty input",
-			input:   "",
-			wantErr: true,
+			name:            "GET expands a single value",
+			method:          http.MethodGet,
+			target:          "/feeder/timeouts",
+			initialTimeouts: []string{timeout.DefaultTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        fiveSecondTimeouts + "\n",
+			wantTimeouts:    []string{fiveSecondTimeouts},
 		},
 		{
-			name:  "single value",
-			input: "5s",
-			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
+			name:            "GET keeps a fixed list",
+			method:          http.MethodGet,
+			target:          "/feeder/timeouts",
+			initialTimeouts: []string{fixedTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        fixedTimeouts + "\n",
+			wantTimeouts:    []string{fixedTimeouts},
 		},
 		{
-			name:    "single value with trailing comma",
-			input:   "5s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
-			wantErr: false,
+			name:            "GET reports the first client",
+			method:          http.MethodGet,
+			target:          "/feeder/timeouts",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        fiveSecondTimeouts + "\n",
+			wantTimeouts:    []string{fiveSecondTimeouts, fixedTimeouts},
 		},
 		{
-			name:  "multiple values",
-			input: "5s,7s,10s",
-			want:  want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			name:            "PUT without timeouts parameter leaves every client untouched",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusBadRequest,
+			wantBody:        "missing timeouts query parameter\n",
+			wantTimeouts:    []string{fiveSecondTimeouts, fixedTimeouts},
 		},
 		{
-			name:    "multiple values with trailing comma",
-			input:   "5s,7s,10s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
-			wantErr: false,
+			name:            "PUT single value updates every client",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts?timeouts=2s",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        "Replaced timeouts with '2s' successfully\n",
+			wantTimeouts:    []string{twoSecondTimeouts, twoSecondTimeouts},
 		},
 		{
-			name:    "invalid duration",
-			input:   "5s,invalid,10s",
-			wantErr: true,
+			name:            "PUT single value with trailing comma fixes every client",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts?timeouts=2s,",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        "Replaced timeouts with '2s,' successfully\n",
+			wantTimeouts:    []string{"2s", "2s"},
 		},
 		{
-			name:    "empty timeouts",
-			input:   "",
-			wantErr: true,
+			name:            "PUT list updates every client",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts?timeouts=5s,7s,10s",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusOK,
+			wantBody:        "Replaced timeouts with '5s,7s,10s' successfully\n",
+			wantTimeouts:    []string{"5s,7s,10s", "5s,7s,10s"},
 		},
 		{
-			name:    "random order input",
-			input:   "10s,5s,7s",
-			wantErr: true,
+			name:            "PUT invalid value leaves every client untouched",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts?timeouts=invalid",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusBadRequest,
+			wantBody:        "parsing timeout parameter number 1: time: invalid duration \"invalid\"\n",
+			wantTimeouts:    []string{fiveSecondTimeouts, fixedTimeouts},
 		},
 		{
-			name:    "random order input with trailing comma",
-			input:   "10s,5s,7s,",
-			wantErr: true,
+			name:            "PUT unordered values leaves every client untouched",
+			method:          http.MethodPut,
+			target:          "/feeder/timeouts?timeouts=10s,5s,7s",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusBadRequest,
+			wantBody:        "timeout values must be in ascending order, got 5s <= 10s\n",
+			wantTimeouts:    []string{fiveSecondTimeouts, fixedTimeouts},
 		},
 		{
-			name:    "max amount of timeouts exceeded",
-			input:   "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s,16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
-			wantErr: true,
+			name:            "POST is not allowed",
+			method:          http.MethodPost,
+			target:          "/feeder/timeouts",
+			initialTimeouts: []string{timeout.DefaultTimeouts, fixedTimeouts},
+			wantCode:        http.StatusMethodNotAllowed,
+			wantBody:        "Method not allowed\n",
+			wantTimeouts:    []string{fiveSecondTimeouts, fixedTimeouts},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, fixed, err := ParseTimeouts(tt.input)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
+			clients := newTimeoutClients(t, tt.initialTimeouts)
+			req, err := http.NewRequestWithContext(t.Context(), tt.method, tt.target, http.NoBody)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want.timeouts, got)
-			assert.Equal(t, tt.want.fixed, fixed)
+			rr := httptest.NewRecorder()
+
+			timeout.HTTPTimeoutsSettings(rr, req, clients...)
+
+			assert.Equal(t, tt.wantCode, rr.Code)
+			assert.Equal(t, tt.wantBody, rr.Body.String())
+			for i, client := range clients {
+				assert.Equal(t, tt.wantTimeouts[i], client.Timeouts(), "client %d", i)
+			}
 		})
 	}
-}
-
-//nolint:dupl
-func TestGetDynamicTimeouts(t *testing.T) {
-	input := 5 * time.Second
-	want := Timeouts{
-		curTimeout: 0,
-		timeouts: []time.Duration{
-			5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
-			120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
-			300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
-			748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
-			1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
-			4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
-		},
-		mu: sync.RWMutex{},
-	}
-
-	got := getDynamicTimeouts(input)
-	assert.Equal(t, want.curTimeout, got.curTimeout)
-	assert.Equal(t, want.timeouts, got.timeouts)
-}
-
-func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {
-	req, err := http.NewRequestWithContext(ctx, method, path, http.NoBody)
-	require.NoError(t, err)
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HTTPTimeoutsSettings(w, r, client)
-	})
-
-	handler.ServeHTTP(rr, req)
-	return rr
-}
-
-//nolint:dupl
-func TestHTTPTimeoutsSettings(t *testing.T) {
-	timeouts, fixed, err := ParseTimeouts(DefaultTimeouts)
-	require.NoError(t, err)
-	client := NewTestClient(t, &networks.Mainnet, WithMaxRetries(4), WithTimeouts(timeouts, fixed))
-	ctx := t.Context()
-
-	t.Run("GET current timeouts", func(t *testing.T) {
-		timeouts, fixed, err := ParseTimeouts(DefaultTimeouts)
-		require.NoError(t, err)
-		client := NewTestClient(t, &networks.Mainnet, WithMaxRetries(4), WithTimeouts(timeouts, fixed))
-		ctx := t.Context()
-		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
-		assert.Equal(t, http.StatusOK, rr.Code)
-		expected := "5s,10s,20s,40s,1m20s,2m0s,2m24s,2m53s,3m28s,4m10s,5m0s,6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s,53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s,2h40m26s\n"
-		assert.Equal(t, expected, rr.Body.String())
-	})
-
-	t.Run("GET current timeouts single value", func(t *testing.T) {
-		timeouts, fixed, err := ParseTimeouts("5s")
-		require.NoError(t, err)
-		client := NewTestClient(t, &networks.Mainnet, WithMaxRetries(4), WithTimeouts(timeouts, fixed))
-		ctx := t.Context()
-		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "5s,10s,20s,40s,1m20s,2m0s,2m24s,2m53s,3m28s,4m10s,5m0s,6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s,53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s,2h40m26s\n", rr.Body.String())
-	})
-
-	t.Run("PUT update timeouts with missing parameter", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts", client)
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "missing timeouts query parameter\n", rr.Body.String())
-	})
-
-	t.Run("PUT update single value timeout", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=2s", client)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
-		timeouts := client.timeouts.Load()
-		assert.Equal(t, []time.Duration{
-			2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second,
-			64 * time.Second, 96 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
-			250 * time.Second, 300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second,
-			623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
-			1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
-			3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
-		}, timeouts.timeouts)
-	})
-
-	t.Run("PUT update single value timeout with trailing comma", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=2s,", client)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "Replaced timeouts with '2s,' successfully\n", rr.Body.String())
-		timeouts := client.timeouts.Load()
-		assert.Equal(t, []time.Duration{
-			2 * time.Second,
-		}, timeouts.timeouts)
-	})
-
-	t.Run("PUT update timeouts list", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=5s,7s,10s", client)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
-
-		timeouts := client.timeouts.Load()
-		assert.Equal(t, []time.Duration{
-			5 * time.Second, 7 * time.Second, 10 * time.Second,
-		}, timeouts.timeouts)
-	})
-
-	t.Run("PUT update timeouts with invalid value", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=invalid", client)
-
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "parsing timeout parameter number 1: time: invalid duration \"invalid\"\n", rr.Body.String())
-	})
-
-	t.Run("PUT update timeouts with invalid order", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=10s,5s,7s", client)
-
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "timeout values must be in ascending order, got 5s <= 10s\n", rr.Body.String())
-	})
-
-	t.Run("Method not allowed", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPost, "/feeder/timeouts", client)
-
-		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
-		assert.Equal(t, "Method not allowed\n", rr.Body.String())
-	})
 }

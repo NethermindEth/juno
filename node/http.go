@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -189,15 +189,17 @@ func makeHTTPUpdateService(
 	host string,
 	port uint16,
 	logLevel *log.Level,
-	feederClient *feeder.Client,
+	clients ...timeout.Client,
 ) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		log.HTTPLogSettings(w, r, logLevel)
 	})
-	mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
-		feeder.HTTPTimeoutsSettings(w, r, feederClient)
-	})
+	if len(clients) > 0 {
+		mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
+			timeout.HTTPTimeoutsSettings(w, r, clients...)
+		})
+	}
 	var handler http.Handler = mux
 	return makeHTTPService(host, port, handler)
 }
