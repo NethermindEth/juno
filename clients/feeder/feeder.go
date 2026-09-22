@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -55,7 +56,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   atomic.Pointer[Timeouts]
+	timeouts   atomic.Pointer[timeout.Timeouts]
 }
 
 //go:generate mockgen -destination=../../mocks/mock_feeder.go -mock_names Reader=MockFeederReader -package=mocks github.com/NethermindEth/juno/clients/feeder Reader
@@ -107,7 +108,7 @@ func NopBackoff(d time.Duration) time.Duration {
 }
 
 func NewClient(clientURL *url.URL, opts ...Option) *Client {
-	defaultTimeouts := getDefaultFixedTimeouts()
+	defaultTimeouts := timeout.Default()
 	o := options{
 		httpClient: http.DefaultClient,
 		backoff:    ExponentialBackoff,
@@ -138,10 +139,14 @@ func NewClient(clientURL *url.URL, opts ...Option) *Client {
 	return client
 }
 
+func (c *Client) Timeouts() string {
+	return c.timeouts.Load().String()
+}
+
 // SetTimeouts atomically replaces the timeouts of a live client.
 // It is used by the PUT /feeder/timeouts endpoint.
 func (c *Client) SetTimeouts(timeouts []time.Duration, fixed bool) {
-	c.timeouts.Store(makeTimeouts(timeouts, fixed))
+	c.timeouts.Store(timeout.New(timeouts, fixed))
 }
 
 // buildRequest constructs the GET request for queryURL with the client's
@@ -179,14 +184,14 @@ func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser
 }
 
 // logRetry reports a failed attempt, promoting the retries from debug to warn
-// once the adaptive timeout has grown past mediumGrowThreshold.
+// once the adaptive timeout has grown past timeout.MediumGrowThreshold.
 func (c *Client) logRetry(
 	reqURL string,
 	wait time.Duration,
 	err error,
 	currentTimeout time.Duration,
 ) {
-	if currentTimeout >= mediumGrowThreshold {
+	if currentTimeout >= timeout.MediumGrowThreshold {
 		c.logger.Warn("Failed query to feeder, retrying...",
 			zap.String("req", log.SanitizeString(reqURL)),
 			zap.String("retryAfter", wait.String()),

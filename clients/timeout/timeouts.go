@@ -1,8 +1,7 @@
 // timeouts.go implements adaptive timeout management for HTTP requests to Starknet nodes.
 // This file handles dynamic timeout adjustments based on request performance, automatically
 // scaling timeouts up or down depending on success/failure rates.
-
-package feeder
+package timeout
 
 import (
 	"fmt"
@@ -18,9 +17,9 @@ const (
 	growthFactorMedium  = 1.5
 	growthFactorSlow    = 1.2
 	fastGrowThreshold   = 1 * time.Minute
-	mediumGrowThreshold = 2 * time.Minute
 	timeoutsCount       = 30
 	DefaultTimeouts     = "5s"
+	MediumGrowThreshold = 2 * time.Minute
 )
 
 type Timeouts struct {
@@ -83,7 +82,7 @@ func increaseDuration(prev time.Duration) time.Duration {
 	if prev < fastGrowThreshold {
 		seconds := math.Ceil(float64(prev.Seconds()) * growthFactorFast)
 		return time.Duration(seconds) * time.Second
-	} else if prev < mediumGrowThreshold {
+	} else if prev < MediumGrowThreshold {
 		seconds := math.Ceil(float64(prev.Seconds()) * growthFactorMedium)
 		return time.Duration(seconds) * time.Second
 	} else {
@@ -107,12 +106,12 @@ func getFixedTimeouts(timeouts []time.Duration) Timeouts {
 	}
 }
 
-func getDefaultFixedTimeouts() Timeouts {
+func Default() Timeouts {
 	timeouts, _, _ := ParseTimeouts(DefaultTimeouts)
 	return getFixedTimeouts(timeouts)
 }
 
-func makeTimeouts(timeouts []time.Duration, fixed bool) *Timeouts {
+func New(timeouts []time.Duration, fixed bool) *Timeouts {
 	var t Timeouts
 	if len(timeouts) > 1 || fixed {
 		t = getFixedTimeouts(timeouts)
@@ -166,11 +165,15 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 	return timeouts, false, nil
 }
 
-func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client) {
+type Client interface {
+	Timeouts() string
+	SetTimeouts(timeouts []time.Duration, fixed bool)
+}
+
+func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, clients ...Client) {
 	switch r.Method {
 	case http.MethodGet:
-		timeouts := client.timeouts.Load()
-		fmt.Fprintf(w, "%s\n", timeouts.String())
+		fmt.Fprintf(w, "%s\n", clients[0].Timeouts())
 	case http.MethodPut:
 		timeoutsStr := r.URL.Query().Get("timeouts")
 		if timeoutsStr == "" {
@@ -183,7 +186,9 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		client.SetTimeouts(newTimeouts, fixed)
+		for _, client := range clients {
+			client.SetTimeouts(newTimeouts, fixed)
+		}
 		//nolint:gosec // G705: `timeoutsStr` was validated by `ParseTimeouts`
 		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
 	default:
