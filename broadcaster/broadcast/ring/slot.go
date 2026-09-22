@@ -27,12 +27,6 @@ type Slot[T any] struct {
 	data T
 }
 
-func NewSlot[T any]() *Slot[T] {
-	slot := &Slot[T]{}
-	slot.cond = *sync.NewCond(&slot.mu)
-	return slot
-}
-
 func (s *Slot[T]) Read() (T, uint64) {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
