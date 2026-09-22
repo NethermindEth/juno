@@ -64,8 +64,10 @@ func (b *BlockTrace) CoversTarget(target *TransactionTarget, initialReads bool) 
 
 // ValidateTarget checks that the target index identifies a trace with the requested hash.
 func (b *BlockTrace) ValidateTarget(target *TransactionTarget) error {
-	if target != nil && (target.Hash == nil || target.Index >= uint64(len(b.Traces)) ||
-		!b.Traces[target.Index].Hash.Equal(target.Hash)) {
+	invalidTarget := target != nil && (target.Hash == nil ||
+		target.Index >= uint64(len(b.Traces)) ||
+		!b.Traces[target.Index].Hash.Equal(target.Hash))
+	if invalidTarget {
 		return ErrTargetNotFound
 	}
 	return nil

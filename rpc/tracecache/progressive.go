@@ -33,9 +33,10 @@ import (
 //
 // See [Cache] for the mutability contract for published traces.
 type Range struct {
-	Start, End uint64
-	prefix     []TransactionTrace
-	total      uint64
+	Start  uint64
+	End    uint64
+	prefix []TransactionTrace
+	total  uint64
 }
 
 // PlanRange determines which block transactions need execution.
@@ -56,27 +57,29 @@ func PlanRange(
 	transactions []core.Transaction,
 	target *TransactionTarget,
 	initialReads bool,
-) (*Range, error) {
-	if target != nil && (target.Hash == nil || target.Index >= uint64(len(transactions)) ||
-		!transactions[target.Index].Hash().Equal(target.Hash)) {
-		return nil, ErrTargetNotFound
+) (Range, error) {
+	invalidTarget := target != nil && (target.Hash == nil ||
+		target.Index >= uint64(len(transactions)) ||
+		!transactions[target.Index].Hash().Equal(target.Hash))
+	if invalidTarget {
+		return Range{}, ErrTargetNotFound
 	}
 	if initialReads && target != nil && target.Index+1 != uint64(len(transactions)) {
-		return nil, errors.New("initial reads require a full block trace")
+		return Range{}, errors.New("initial reads require a full block trace")
 	}
-	plan := &Range{End: uint64(len(transactions)), total: uint64(len(transactions))}
+	plan := Range{End: uint64(len(transactions)), total: uint64(len(transactions))}
 	if target != nil {
 		plan.End = target.Index + 1
 	}
 	if cached != nil && !initialReads {
 		if cached.Source != LocalVM {
-			return nil, errors.New("cannot extend a feeder trace")
+			return Range{}, errors.New("cannot extend a feeder trace")
 		}
 		plan.prefix = cached.Traces
 		plan.Start = uint64(len(plan.prefix))
 	}
 	if plan.Start > plan.End {
-		return nil, fmt.Errorf(
+		return Range{}, fmt.Errorf(
 			"cached trace prefix [0, %d) exceeds requested range [0, %d)",
 			plan.Start,
 			plan.End,
@@ -95,7 +98,8 @@ func PlanRange(
 //     prefix, typically the chain's head state.
 //   - blockNumber: the number of the block being traced.
 func (r *Range) ResumeState(
-	parent, classes core.StateReader,
+	parent core.StateReader,
+	classes core.StateReader,
 	blockNumber uint64,
 ) (core.StateReader, error) {
 	if r.Start == 0 {
