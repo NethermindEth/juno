@@ -866,7 +866,15 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
 		arityTest(t, proof, 0, 3, 1, 0)
-		require.Nil(t, proof.ContractsProof.LeavesData[0])
+		require.Equal(t, rpc.LeafData{}, proof.ContractsProof.LeavesData[0])
+
+		leavesJSON, err := json.Marshal(proof.ContractsProof.LeavesData)
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`[{"nonce":"0x0","class_hash":"0x0","storage_root":"0x0"}]`,
+			string(leavesJSON),
+		)
 
 		verifyIf(t, &trieRoot, noSuchKey, nil, proof.ContractsProof.Nodes, classTrie.HashFn())
 	})
@@ -885,10 +893,9 @@ func TestStorageProof(t *testing.T) {
 		require.NotNil(t, proof)
 		arityTest(t, proof, 0, 3, 1, 0)
 
-		require.NotNil(t, proof.ContractsProof.LeavesData[0])
 		ld := proof.ContractsProof.LeavesData[0]
-		require.Equal(t, nonce, ld.Nonce)
-		require.Equal(t, classHash, ld.ClassHash)
+		require.Equal(t, *nonce, ld.Nonce)
+		require.Equal(t, *classHash, ld.ClassHash)
 
 		verifyIf(t, &trieRoot, key, value, proof.ContractsProof.Nodes, classTrie.HashFn())
 	})
@@ -922,11 +929,10 @@ func TestStorageProof(t *testing.T) {
 			require.Nil(t, rpcErr)
 			require.NotNil(t, proof)
 
-			require.NotNil(t, proof.ContractsProof.LeavesData[0])
 			ld := proof.ContractsProof.LeavesData[0]
-			require.Equal(t, nonce, ld.Nonce)
-			require.Equal(t, classHash, ld.ClassHash)
-			require.Equal(t, &expectedStorageRoot, ld.StorageRoot,
+			require.Equal(t, *nonce, ld.Nonce)
+			require.Equal(t, *classHash, ld.ClassHash)
+			require.Equal(t, expectedStorageRoot, ld.StorageRoot,
 				"StorageRoot should be the contract's storage trie root, not the global contracts trie root")
 		},
 	)
@@ -1017,21 +1023,21 @@ func TestStorageProof_VerifyPathfinderResponse(t *testing.T) {
 	result := rpc.StorageProofResult{
 		ClassesProof: []*rpc.HashToNode{},
 		ContractsProof: &rpc.ContractProof{
-			LeavesData: []*rpc.LeafData{
+			LeavesData: []rpc.LeafData{
 				{
-					Nonce: felt.NewUnsafeFromString[felt.Felt](
+					Nonce: *felt.NewUnsafeFromString[felt.Felt](
 						"0x0",
 					),
-					ClassHash: felt.NewUnsafeFromString[felt.Felt](
+					ClassHash: *felt.NewUnsafeFromString[felt.Felt](
 						"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
 					),
 					// TODO: get the storage root
 				},
 				{
-					Nonce: felt.NewUnsafeFromString[felt.Felt](
+					Nonce: *felt.NewUnsafeFromString[felt.Felt](
 						"0x0",
 					),
-					ClassHash: felt.NewUnsafeFromString[felt.Felt](
+					ClassHash: *felt.NewUnsafeFromString[felt.Felt](
 						"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
 					),
 					// TODO: get the storage root
@@ -1487,15 +1493,15 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 			ClassesProof:           []*rpc.HashToNode{},
 			ContractsStorageProofs: [][]*rpc.HashToNode{},
 			ContractsProof: &rpc.ContractProof{
-				LeavesData: []*rpc.LeafData{
+				LeavesData: []rpc.LeafData{
 					{
-						Nonce: felt.NewUnsafeFromString[felt.Felt](
+						Nonce: *felt.NewUnsafeFromString[felt.Felt](
 							"0x0",
 						),
-						ClassHash: felt.NewUnsafeFromString[felt.Felt](
+						ClassHash: *felt.NewUnsafeFromString[felt.Felt](
 							"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
 						),
-						StorageRoot: felt.NewUnsafeFromString[felt.Felt](
+						StorageRoot: *felt.NewUnsafeFromString[felt.Felt](
 							"0x1aa6adf86b97c95ed275c627f39ee62d26314a05bc8fc8b85669dec1f088211",
 						),
 					},
