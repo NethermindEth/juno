@@ -50,6 +50,7 @@ func TestPlugin(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		dataSource,
+		integGw,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 	).WithPlugin(plugin)
@@ -87,6 +88,7 @@ func TestPlugin(t *testing.T) {
 		synchronizer = sync.New(
 			bc,
 			dataSource,
+			mainGw,
 			log.NewNopZapLogger(),
 			sync.WithPreConfirmedPollInterval(0),
 		).WithPlugin(plugin)

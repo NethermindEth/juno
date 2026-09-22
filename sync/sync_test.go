@@ -70,7 +70,7 @@ func TestSyncBlocks(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -93,7 +93,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -157,7 +157,7 @@ func TestSyncBlocks(t *testing.T) {
 			}).AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, dataSource, mockSNData, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -189,6 +189,7 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		dataSource,
+		nil,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
@@ -230,6 +231,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		dataSource,
+		gw,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 	)
@@ -275,6 +277,7 @@ func TestStartingBlockHeaderNotRunning(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		newTestBlockDataSource(),
+		nil,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
@@ -299,6 +302,7 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		dataSource,
+		nil,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 		sync.WithReadOnlyBlockchain(true),
@@ -340,6 +344,7 @@ func TestReorg(t *testing.T) {
 	synchronizer := sync.New(
 		bc,
 		dataSource,
+		sepoliaGw,
 		log.NewNopZapLogger(),
 		sync.WithPreConfirmedPollInterval(0),
 	)
@@ -367,6 +372,7 @@ func TestReorg(t *testing.T) {
 		synchronizer = sync.New(
 			bc,
 			dataSource,
+			mainGw,
 			log.NewNopZapLogger(),
 			sync.WithPreConfirmedPollInterval(0),
 		)
@@ -420,7 +426,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
+	syncer := sync.New(chain, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -461,7 +467,7 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(bc, nil, nil, logger, sync.WithPreConfirmedPollInterval(0))
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
