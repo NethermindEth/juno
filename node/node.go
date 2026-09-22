@@ -444,10 +444,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		if !cfg.DisableSync {
-			feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+			gw := adaptfeeder.New(client)
 			synchronizer = sync.New(
 				chain,
-				feederGatewayDataSource,
+				sync.NewFeederGatewayDataSource(chain, gw),
+				gw,
 				logger,
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
