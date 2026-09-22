@@ -83,54 +83,93 @@ type BlockByNumberReader interface {
 // LagPolicyBlockReplay forwards live blocks and, on a lag notification, recovers
 // the dropped blocks from durable storage.
 //
-// Stateful per subscription. A lag before any event has been delivered is skipped.
+// Stateful per subscription. Lag is mapped onto block numbers from the last delivered
+// block; a lag before any event is held and replayed in front of the first block,
+// whose number then anchors the range.
+//
+// Reorgs: the live path is unaffected, since the next block re-anchors the mapping and
+// the reorg itself is announced on the sync's reorg feed. A lag before the first block
+// replays the canonical chain from the database and is reorg-safe; its range is clamped
+// at genesis because the missed count exceeds the height gap by the reorg depth. A lag
+// after the anchor maps missed sequences onto numbers above the old anchor: numbers past
+// the new head are logged and skipped, and the replacement blocks between the fork point
+// and the anchor are not re-sent.
 func LagPolicyBlockReplay(
 	reader BlockByNumberReader, logger log.StructuredLogger,
 ) LagPolicy[*core.Block] {
 	return func(seq iter.Seq[ring.EventOrLag[*core.Block]]) iter.Seq[*core.Block] {
-		var lastNumber uint64
-		yielded := false
+		var lastDeliveredNumber uint64
+		anchored := false
+		// Missed count accumulated from lags seen before the first block anchors us.
+		var pendingMissed uint64
 		return func(yield func(*core.Block) bool) {
-			for ev := range seq {
-				if block, ok := ev.AsEvent(); ok {
+			for event := range seq {
+				if block, ok := event.AsEvent(); ok {
+					if !anchored && pendingMissed > 0 {
+						// The missed count exceeds the height gap by the depth of any reorg in
+						// it, so clamp at genesis instead of underflowing.
+						fromBlock := block.Number - min(pendingMissed, block.Number)
+						if !replayBlocks(reader, logger, fromBlock, block.Number, yield) {
+							return
+						}
+						pendingMissed = 0
+					}
 					if !yield(block) {
 						return
 					}
-					lastNumber, yielded = block.Number, true
+					lastDeliveredNumber, anchored = block.Number, true
 					continue
 				}
 
-				lag, _ := ev.AsLag()
+				lag, _ := event.AsLag()
 				logger.Warn("broadcaster subscriber lagged; recovering missed blocks from db",
 					zap.Uint64("missedSeq", lag.MissedSeq),
 					zap.Uint64("nextSeq", lag.NextSeq),
 				)
-				// No anchor yet, or a degenerate range: nothing to map onto.
-				if !yielded || lag.NextSeq <= lag.MissedSeq {
+				// The ring guarantees NextSeq > MissedSeq: a slot is only overwritten a
+				// full capacity later, so the resume point is past the missed sequence.
+				missed := lag.NextSeq - lag.MissedSeq
+				if !anchored {
+					pendingMissed += missed
 					continue
 				}
-
-				dropped := lag.NextSeq - lag.MissedSeq
-				for offset := range dropped {
-					number := lastNumber + 1 + offset
-					recovered, err := reader.BlockByNumber(number)
-					if err != nil {
-						// Block not yet persisted (chain head runs ahead of commit) or a
-						// read error: log and skip; the live stream still flows.
-						logger.Warn("block replay could not recover block",
-							zap.Uint64("number", number),
-							zap.Error(err),
-						)
-						continue
-					}
-					if !yield(recovered) {
-						return
-					}
+				fromBlock := lastDeliveredNumber + 1
+				toBlockExclusive := fromBlock + missed
+				if !replayBlocks(reader, logger, fromBlock, toBlockExclusive, yield) {
+					return
 				}
-				// Advance by the full dropped count even if some fetches failed, so the
+				// Advance past the whole missed range even if some fetches failed, so the
 				// next live block (delivered at NextSeq) stays aligned.
-				lastNumber += dropped
+				lastDeliveredNumber = toBlockExclusive - 1
 			}
 		}
 	}
+}
+
+// replayBlocks yields blocks from fromBlock up to but not including toBlockExclusive,
+// skipping any it cannot read; it returns false once the consumer stops.
+func replayBlocks(
+	reader BlockByNumberReader,
+	logger log.StructuredLogger,
+	fromBlock,
+	toBlockExclusive uint64,
+	yield func(*core.Block) bool,
+) bool {
+	for number := fromBlock; number < toBlockExclusive; number++ {
+		block, err := reader.BlockByNumber(number)
+		if err != nil {
+			// Producers commit before they broadcast, so a miss means the chain reorged
+			// across the lag (the number is above the new head) or the read failed;
+			// log and skip, the live stream still flows.
+			logger.Warn("block replay could not recover block",
+				zap.Uint64("number", number),
+				zap.Error(err),
+			)
+			continue
+		}
+		if !yield(block) {
+			return false
+		}
+	}
+	return true
 }

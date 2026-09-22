@@ -143,10 +143,32 @@ func TestLagPolicyBlockReplay(t *testing.T) {
 			want:      []uint64{0, 1, 2, 3},
 		},
 		{
-			name:      "lag before first event is skipped",
+			name:      "lag before first event is anchored on that event",
 			stream:    []ring.EventOrLag[*core.Block]{lagEvent(1, 6), blockEvent(6), blockEvent(7)},
 			available: []uint64{1, 2, 3, 4, 5},
-			want:      []uint64{6, 7},
+			want:      []uint64{1, 2, 3, 4, 5, 6, 7},
+		},
+		{
+			name: "back to back lags before first event accumulate",
+			stream: []ring.EventOrLag[*core.Block]{
+				lagEvent(1, 3), lagEvent(3, 5), blockEvent(5),
+			},
+			available: []uint64{1, 2, 3, 4},
+			want:      []uint64{1, 2, 3, 4, 5},
+		},
+		{
+			name:      "reorg in pre-anchor gap clamps replay to genesis",
+			stream:    []ring.EventOrLag[*core.Block]{lagEvent(1, 10), blockEvent(3)},
+			available: []uint64{0, 1, 2},
+			want:      []uint64{0, 1, 2, 3},
+		},
+		{
+			name: "pending lag then later lag both recovered",
+			stream: []ring.EventOrLag[*core.Block]{
+				lagEvent(1, 3), blockEvent(3), lagEvent(4, 6), blockEvent(6),
+			},
+			available: []uint64{1, 2, 4, 5},
+			want:      []uint64{1, 2, 3, 4, 5, 6},
 		},
 		{
 			name:      "unrecoverable block skipped, alignment preserved",
@@ -161,11 +183,6 @@ func TestLagPolicyBlockReplay(t *testing.T) {
 			},
 			available: []uint64{6, 7, 8, 9},
 			want:      []uint64{5, 6, 7, 8, 9, 10},
-		},
-		{
-			name:   "empty lag range recovers nothing",
-			stream: []ring.EventOrLag[*core.Block]{blockEvent(5), lagEvent(6, 6), blockEvent(6)},
-			want:   []uint64{5, 6},
 		},
 	}
 
