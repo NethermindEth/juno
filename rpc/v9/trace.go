@@ -383,10 +383,14 @@ func (h *Handler) findAndTraceInPreConfirmed(
 // traceFinalisedBlock caches local or feeder traces by block hash.
 // See shouldFetchTracesFromFeederGateway for feeder trace edge cases.
 func (h *Handler) traceFinalisedBlock(
-	ctx context.Context, header *core.Header, target *tracecache.TransactionTarget,
+	ctx context.Context,
+	header *core.Header,
+	target *tracecache.TransactionTarget,
 ) (*tracecache.BlockTrace, http.Header, *jsonrpc.Error) {
 	cached, lease, err := h.blockTraceCache.Acquire(
-		ctx, header.Hash, func(b *tracecache.BlockTrace) bool {
+		ctx,
+		header.Hash,
+		func(b *tracecache.BlockTrace) bool {
 			return b.CoversTarget(target, false)
 		},
 	)
@@ -428,7 +432,7 @@ func (h *Handler) traceFinalisedBlock(
 			}
 			return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(planErr.Error())
 		}
-		traces, httpHeader, rpcErr = h.traceBlockWithVM(header, transactions, plan)
+		traces, httpHeader, rpcErr = h.traceBlockWithVM(header, transactions, &plan)
 		if rpcErr == nil {
 			combined, combineErr := plan.Combine(traces)
 			if combineErr != nil {

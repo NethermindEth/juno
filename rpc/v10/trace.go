@@ -409,7 +409,7 @@ func (h *Handler) traceFinalisedBlock(
 		}
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(planErr.Error())
 	}
-	response, httpHeader, rpcErr := h.traceBlockWithVM(header, transactions, returnInitialReads, plan)
+	response, httpHeader, rpcErr := h.traceBlockWithVM(header, transactions, returnInitialReads, &plan)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}

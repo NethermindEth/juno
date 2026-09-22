@@ -101,7 +101,9 @@ func progressiveHandler(t *testing.T, runner vm.VM) progressiveFixture {
 func TestProgressiveFailureRetainsPrefixAndOffsetsError(t *testing.T) {
 	var calls atomic.Uint64
 	runner := &progressiveVM{run: func(
-		txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+		txs []core.Transaction,
+		_ core.StateReader,
+		_ vm.TraceOptions,
 	) (vm.ExecutionResults, error) {
 		if calls.Add(1) == 2 {
 			return vm.ExecutionResults{NumSteps: 9}, fmt.Errorf(
@@ -137,7 +139,9 @@ func TestProgressiveWaiterCancellation(t *testing.T) {
 		defer releaseProducer()
 		var calls atomic.Uint64
 		runner := &progressiveVM{run: func(
-			txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+			txs []core.Transaction,
+			_ core.StateReader,
+			_ vm.TraceOptions,
 		) (vm.ExecutionResults, error) {
 			if calls.Add(1) == 1 {
 				close(entered)
@@ -185,7 +189,9 @@ func TestProgressivePanicAndMalformedResultsDoNotPublish(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			calls := 0
 			runner := &progressiveVM{run: func(
-				txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+				txs []core.Transaction,
+				_ core.StateReader,
+				_ vm.TraceOptions,
 			) (vm.ExecutionResults, error) {
 				calls++
 				result := progressiveResult(txs)
@@ -234,7 +240,9 @@ func TestProgressiveInitialReadsReplayPreservesPrefix(t *testing.T) {
 		}
 		observed := make(chan execution, 3)
 		runner := &progressiveVM{run: func(
-			txs []core.Transaction, _ core.StateReader, opts vm.TraceOptions,
+			txs []core.Transaction,
+			_ core.StateReader,
+			opts vm.TraceOptions,
 		) (vm.ExecutionResults, error) {
 			call := calls.Add(1)
 			observed <- execution{transactions: txs, initialReads: opts.ReturnInitialReads}
@@ -293,7 +301,9 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 	definition := &core.DeprecatedCairoClass{}
 	calls := 0
 	runner := &progressiveVM{run: func(
-		txs []core.Transaction, state core.StateReader, _ vm.TraceOptions,
+		txs []core.Transaction,
+		state core.StateReader,
+		_ vm.TraceOptions,
 	) (vm.ExecutionResults, error) {
 		calls++
 		result := progressiveResult(txs)
@@ -329,7 +339,9 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 func TestProgressiveTargetIdentityBeforeExecutionAndOnHit(t *testing.T) {
 	calls := 0
 	runner := &progressiveVM{run: func(
-		txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+		txs []core.Transaction,
+		_ core.StateReader,
+		_ vm.TraceOptions,
 	) (vm.ExecutionResults, error) {
 		calls++
 		return progressiveResult(txs), nil
@@ -359,7 +371,9 @@ func TestProgressiveCheckpointReadFailurePreservesPrefix(t *testing.T) {
 	classHash := felt.FromUint64[felt.Felt](44)
 	calls := 0
 	runner := &progressiveVM{run: func(
-		txs []core.Transaction, _ core.StateReader, _ vm.TraceOptions,
+		txs []core.Transaction,
+		_ core.StateReader,
+		_ vm.TraceOptions,
 	) (vm.ExecutionResults, error) {
 		calls++
 		result := progressiveResult(txs)
