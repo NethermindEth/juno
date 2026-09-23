@@ -60,7 +60,10 @@ func writeTemporary(target string, data []byte) (name string, err error) {
 
 func gzipBytes(body []byte) ([]byte, error) {
 	var buffer bytes.Buffer
-	writer := gzip.NewWriter(&buffer)
+	writer, err := gzip.NewWriterLevel(&buffer, gzip.BestSpeed)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := writer.Write(body); err != nil {
 		return nil, err
 	}

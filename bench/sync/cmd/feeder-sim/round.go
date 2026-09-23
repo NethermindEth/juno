@@ -11,13 +11,13 @@ import (
 const preConfirmedStatus = "PRE_CONFIRMED"
 
 type blockHeader struct {
-	Version          json.RawMessage `json:"starknet_version"`
-	Timestamp        json.RawMessage `json:"timestamp"`
-	SequencerAddress json.RawMessage `json:"sequencer_address"`
-	L1GasPrice       json.RawMessage `json:"l1_gas_price"`
-	L2GasPrice       json.RawMessage `json:"l2_gas_price"`
-	L1DataGasPrice   json.RawMessage `json:"l1_data_gas_price"`
-	L1DAMode         json.RawMessage `json:"l1_da_mode"`
+	Version          json.RawMessage `json:"starknet_version,omitempty"`
+	Timestamp        json.RawMessage `json:"timestamp,omitempty"`
+	SequencerAddress json.RawMessage `json:"sequencer_address,omitempty"`
+	L1GasPrice       json.RawMessage `json:"l1_gas_price,omitempty"`
+	L2GasPrice       json.RawMessage `json:"l2_gas_price,omitempty"`
+	L1DataGasPrice   json.RawMessage `json:"l1_data_gas_price,omitempty"`
+	L1DAMode         json.RawMessage `json:"l1_da_mode,omitempty"`
 }
 
 type retained struct {
@@ -110,6 +110,68 @@ func validateRound(body []byte) error {
 	}
 
 	return nil
+}
+
+func decodeRound(gz []byte) (*round, error) {
+	body, err := gunzip(gz)
+	if err != nil {
+		return nil, err
+	}
+
+	var round round
+	if err := json.Unmarshal(body, &round); err != nil {
+		return nil, err
+	}
+
+	transactions := len(round.Transactions)
+	receipts, diffs := len(round.Receipts), len(round.StateDiffs)
+	if transactions != receipts || transactions != diffs {
+		return nil, fmt.Errorf(
+			"%d transactions, %d receipts, %d state diffs",
+			transactions,
+			receipts,
+			diffs,
+		)
+	}
+
+	round.Transactions = orEmpty(round.Transactions)
+	round.Receipts = orEmpty(round.Receipts)
+	round.StateDiffs = orEmpty(round.StateDiffs)
+	return &round, nil
+}
+
+func orEmpty[T any](list []T) []T {
+	if list == nil {
+		return []T{}
+	}
+
+	return list
+}
+
+func (round *round) reply(known, shown uint64, blockNumber *uint64) ([]byte, error) {
+	reply := *round
+	reply.BlockNumber = blockNumber
+	if known > 0 {
+		reply.Status = ""
+		reply.blockHeader = blockHeader{}
+	}
+	reply.slice(known, shown)
+	return reply.encode()
+}
+
+func (round *round) slice(from, to uint64) {
+	round.Transactions = round.Transactions[from:to]
+	round.Receipts = round.Receipts[from:to]
+	round.StateDiffs = round.StateDiffs[from:to]
+}
+
+func (round *round) encode() ([]byte, error) {
+	body, err := json.Marshal(round)
+	if err != nil {
+		return nil, err
+	}
+
+	return gzipBytes(body)
 }
 
 type (
