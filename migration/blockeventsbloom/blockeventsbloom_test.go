@@ -138,6 +138,28 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		}
 	})
 
+	t.Run("a gap in the header bucket is an error", func(t *testing.T) {
+		database := memory.New()
+		for _, n := range []uint64{0, 1, 2, 4, 5} {
+			writeLegacyHeader(t, database, n)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 5))
+
+		_, err := (&Migrator{}).Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
+		require.ErrorContains(t, err, "missing block header 3")
+	})
+
+	t.Run("a header bucket ending before the chain height is an error", func(t *testing.T) {
+		database := memory.New()
+		for n := range uint64(3) {
+			writeLegacyHeader(t, database, n)
+		}
+		require.NoError(t, core.WriteChainHeight(database, 5))
+
+		_, err := (&Migrator{}).Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
+		require.ErrorContains(t, err, "missing block header 3")
+	})
+
 	t.Run("bounds the scan to the retained window", func(t *testing.T) {
 		database := memory.New()
 		const height = uint64(10)

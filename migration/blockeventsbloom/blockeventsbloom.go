@@ -4,31 +4,30 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"runtime"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/progresslogger"
-	"github.com/NethermindEth/juno/migration/semaphore"
-	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
-	// batchSize is the number of blocks migrated per source chunk.
-	batchSize = 100
-
-	// batchByteSize is the initially allocated size of a batch.
+	// batchByteSize is the initially allocated size of the write batch.
 	batchByteSize = 128 * db.Megabyte
 
-	// targetBatchByteSize is the threshold at which a batch is flushed to disk.
+	// targetBatchByteSize is the threshold at which the write batch is flushed to disk.
 	targetBatchByteSize = 96 * db.Megabyte
+
+	// commitQueueSize is how many full batches may wait for the committer before the walk blocks.
+	commitQueueSize = 4
 
 	// progressLogInterval is how often migration progress (percentage) is logged.
 	progressLogInterval = 30 * time.Second
@@ -37,61 +36,11 @@ const (
 	migrationName = "block events bloom"
 )
 
-// migrateBlockRange migrates [firstBlock, chainHeight] and returns the next
-// block that still needs migrating. When the range completes this is
-// chainHeight+1; when the run is interrupted (context cancelled) it is the
-// block the source stopped at. Because the pipeline uses unbuffered channels
-// and flushes pending batches on Done, every block before the returned value
-// is committed before this returns, so it is a safe resume point.
-func migrateBlockRange(
-	ctx context.Context,
-	database db.KeyValueStore,
-	logger log.StructuredLogger,
-	tracker *progresslogger.BlockProgressTracker,
-	firstBlock,
-	chainHeight uint64,
-) (uint64, error) {
-	loggerCancel := progresslogger.CallEveryInterval(ctx, progressLogInterval, tracker.LogProgress)
-	defer loggerCancel()
-
-	ingestorCount := runtime.GOMAXPROCS(0)
-	batchSemaphore := semaphore.New(
-		ingestorCount+1,
-		func() db.Batch {
-			return database.NewBatchWithSize(batchByteSize)
-		},
-	)
-
-	nextStartBlock := firstBlock
-	blockNumberSource := pipeline.Source(func(yield func(uint64) bool) {
-		for ; nextStartBlock <= chainHeight; nextStartBlock += batchSize {
-			if !yield(nextStartBlock) {
-				return
-			}
-		}
-	})
-
-	ingestorPipeline := pipeline.New(
-		blockNumberSource,
-		ingestorCount,
-		newIngestor(database, chainHeight, batchSemaphore, tracker, ingestorCount),
-	)
-
-	committerPipeline := pipeline.New(
-		ingestorPipeline,
-		1,
-		newCommitter(logger, batchSemaphore),
-	)
-
-	_, wait := committerPipeline.Run(ctx)
-	return nextStartBlock, wait().Err
-}
-
 var _ migration.Migration = (*Migrator)(nil)
 
-// Migrator strips each block's event bloom filter out of the block header,
-// rewriting the header without the bloom. The bloom is discarded — it is
-// reconstructable on demand from the block's receipts.
+// Migrator rewrites every block header without its embedded event bloom filter: event
+// lookups go through the aggregated bloom filter, and a per-block bloom is rebuilt from
+// receipts on demand.
 type Migrator struct {
 	// startFrom is the block to resume migrating from, restored from the
 	// intermediate state of a previous interrupted run.
@@ -117,38 +66,121 @@ func (m *Migrator) Migrate(
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
 
-	// Start at the retention floor so pruning nodes don't scan block numbers
-	// whose data (and headers) have been pruned away. On non-pruning nodes this
-	// is genesis (0). A resume point from a previous run takes precedence when
-	// it is ahead of the floor.
-	firstBlock, err := pruner.OldestRetainedBlock(database)
+	if m.startFrom > 0 {
+		logger.Info("Resuming block events bloom migration", zap.Uint64("fromBlock", m.startFrom))
+	}
+
+	nextBlock, err := stripHeaders(ctx, database, logger, m.startFrom, chainHeight)
 	if err != nil {
 		return nil, err
 	}
-	startFrom := max(firstBlock, m.startFrom)
-
-	if startFrom > firstBlock {
-		logger.Info("Resuming block events bloom migration", zap.Uint64("fromBlock", startFrom))
-	}
-
-	// totalBlocks spans [0, chainHeight]; startFrom seeds the completed count so
-	// the percentage stays meaningful across resumes and on pruning nodes.
-	tracker := progresslogger.NewBlockProgressTracker(migrationName, logger, chainHeight, startFrom)
-
-	resumeFrom, err := migrateBlockRange(ctx, database, logger, tracker, startFrom, chainHeight)
-	if err != nil {
-		return nil, err
-	}
-	tracker.LogProgress()
 	// Not all blocks reached: the run was interrupted. Persist the resume
-	// point so the next run continues instead of rescanning from the floor.
-	if resumeFrom <= chainHeight {
-		return encodeIntermediateState(resumeFrom), nil
+	// point so the next run continues instead of rescanning from the start.
+	if nextBlock <= chainHeight {
+		return encodeIntermediateState(nextBlock), nil
 	}
 	return nil, nil
+}
+
+// stripHeaders walks the header bucket from startFrom to chainHeight in one sequential
+// pass, rewriting each header without its bloom, and returns the next block still to
+// migrate: chainHeight+1 when the walk completes, or the block it stopped at when the
+// context was cancelled. Every block before the returned value is committed. On a
+// pruning node the walk starts at the first retained header, whatever startFrom is;
+// from there the headers must be contiguous, and a gap is an error.
+func stripHeaders(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+	startFrom,
+	chainHeight uint64,
+) (nextBlock uint64, err error) {
+	it, err := database.NewIterator(db.BlockHeadersByNumber.Key(), true)
+	if err != nil {
+		return 0, fmt.Errorf("opening block header iterator: %w", err)
+	}
+	defer it.Close()
+
+	if !it.Seek(db.BlockHeaderByNumberKey(startFrom)) {
+		return chainHeight + 1, nil
+	}
+	firstBlock := blockNumberFromKey(it.Key())
+
+	tracker := progresslogger.NewBlockProgressTracker(migrationName, logger, chainHeight-firstBlock+1, 0)
+	stopLog := progresslogger.CallEveryInterval(ctx, progressLogInterval, tracker.LogProgress)
+	defer stopLog()
+	defer tracker.LogProgress()
+
+	// A committer failure cancels walkCtx so the walk stops on its next header. Closing
+	// the queue stops the committer; every exit path then waits for it and joins its
+	// error with the walk's.
+	commitQueue := make(chan db.Batch, commitQueueSize)
+	committer, walkCtx := errgroup.WithContext(ctx)
+	committer.Go(func() error { return commitBatches(logger, commitQueue) })
+	defer func() {
+		close(commitQueue)
+		err = errors.Join(err, committer.Wait())
+	}()
+
+	batch := database.NewBatchWithSize(batchByteSize)
+	nextBlock = firstBlock
+	for valid := true; valid && walkCtx.Err() == nil; valid = it.Next() {
+		blockNumber := blockNumberFromKey(it.Key())
+		if blockNumber != nextBlock {
+			return 0, fmt.Errorf("missing block header %d: next stored header is %d", nextBlock, blockNumber)
+		}
+
+		value, err := it.UncopiedValue()
+		if err != nil {
+			return 0, fmt.Errorf("reading block header %d: %w", blockNumber, err)
+		}
+		// Decoding into the bloom-less core.Header drops the legacy bloom field.
+		var header core.Header
+		if err := encoder.Unmarshal(value, &header); err != nil {
+			return 0, fmt.Errorf("decoding block header %d: %w", blockNumber, err)
+		}
+		if err := core.WriteBlockHeaderByNumber(batch, &header); err != nil {
+			return 0, fmt.Errorf("writing block header %d: %w", blockNumber, err)
+		}
+		nextBlock = blockNumber + 1
+		tracker.IncrementCompletedBlocks(1)
+
+		if batch.Size() >= targetBatchByteSize {
+			commitQueue <- batch // blocks once the queue is full
+			batch = database.NewBatchWithSize(batchByteSize)
+		}
+	}
+
+	commitQueue <- batch
+	if walkCtx.Err() == nil && nextBlock <= chainHeight {
+		return 0, fmt.Errorf("missing block header %d: header bucket ends before chain height %d", nextBlock, chainHeight)
+	}
+	return nextBlock, nil
+}
+
+// commitBatches writes each queued batch in order until the queue closes. After a failure
+// it keeps draining so the walk never blocks, and returns the first error.
+func commitBatches(logger log.StructuredLogger, commitQueue <-chan db.Batch) error {
+	var firstErr error
+	for batch := range commitQueue {
+		if firstErr != nil {
+			continue
+		}
+		logger.Debug("Writing batch", zap.Int("batchSize", batch.Size()))
+		if err := batch.Write(); err != nil {
+			firstErr = fmt.Errorf("writing block header batch: %w", err)
+		}
+	}
+	return firstErr
+}
+
+// blockNumberFromKey extracts the block number from a BlockHeadersByNumber key, which
+// the prefix-bounded iterator guarantees is the bucket byte followed by 8 big-endian bytes.
+func blockNumberFromKey(key []byte) uint64 {
+	return binary.BigEndian.Uint64(key[1:])
 }
 
 func encodeIntermediateState(nextBlock uint64) []byte {
