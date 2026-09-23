@@ -115,7 +115,7 @@ func migrateAddresses(
 func pendingAddresses(r db.KeyValueReader) (iter.Seq[felt.Address], func() error) {
 	var iterErr error
 	seq := func(yield func(felt.Address) bool) {
-		prefix := db.ContractClassHash.Key()
+		prefix := db.DeprecatedContractClassHash.Key() //nolint:staticcheck,nolintlint // old state layout
 		it, err := r.NewIterator(prefix, true)
 		if err != nil {
 			iterErr = err
@@ -144,9 +144,9 @@ func pendingAddresses(r db.KeyValueReader) (iter.Seq[felt.Address], func() error
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {
 	for _, bucket := range []db.Bucket{
-		db.ContractClassHash,
-		db.ContractNonce,
-		db.ContractDeploymentHeight,
+		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 	} {
 		start := bucket.Key()
 		end := dbutils.UpperBound(start)

@@ -47,7 +47,8 @@ func (l TransactionLayout) TransactionByBlockAndIndex(
 			Number: blockNumber,
 			Index:  index,
 		}
-		return core.TransactionsByBlockNumberAndIndexBucket.Get(r, key)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		return core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Get(r, key)
 
 	default:
 		return nil, fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)
@@ -69,7 +70,8 @@ func (l TransactionLayout) ReceiptByBlockAndIndex(
 			Number: blockNumber,
 			Index:  index,
 		}
-		receipt, err := core.ReceiptsByBlockNumberAndIndexBucket.Get(r, key)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		receipt, err := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Get(r, key)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +93,8 @@ func (l TransactionLayout) TransactionsByBlockNumber(
 
 	case TransactionLayoutPerTx:
 		var transactions []core.Transaction
-		iterator := core.TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		iterator := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
 		for entry, err := range iterator {
 			if err != nil {
 				return nil, err
@@ -122,7 +125,8 @@ func (l TransactionLayout) TransactionsByBlockNumberIter(
 
 	case TransactionLayoutPerTx:
 		return func(yield func(core.Transaction, error) bool) {
-			iterator := core.TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
+			//nolint:staticcheck,nolintlint // old transaction layout
+			iterator := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
 			for entry, err := range iterator {
 				if !yield(entry.Value, err) {
 					return
@@ -148,7 +152,8 @@ func (l TransactionLayout) ReceiptsByBlockNumber(
 
 	case TransactionLayoutPerTx:
 		var receipts []*core.TransactionReceipt
-		iterator := core.ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		iterator := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).Scan(r)
 		for entry, err := range iterator {
 			if err != nil {
 				return nil, err
@@ -224,10 +229,14 @@ func (l TransactionLayout) WriteTransactionsAndReceipts(
 				Index:  uint64(index),
 			}
 
-			if err := core.TransactionsByBlockNumberAndIndexBucket.Put(w, key, &tx); err != nil {
+			//nolint:staticcheck,nolintlint // old transaction layout
+			err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Put(w, key, &tx)
+			if err != nil {
 				return err
 			}
-			if err := core.ReceiptsByBlockNumberAndIndexBucket.Put(w, key, receipts[index]); err != nil {
+			//nolint:staticcheck,nolintlint // old transaction layout
+			err = core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Put(w, key, receipts[index])
+			if err != nil {
 				return err
 			}
 		}
@@ -269,11 +278,19 @@ func (l TransactionLayout) DeleteTxsAndReceipts(
 		return core.BlockTransactionsBucket.Delete(writer, blockNum)
 
 	case TransactionLayoutPerTx:
-		err := core.TransactionsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.
+			Prefix().
+			Add(blockNum).
+			DeletePrefix(writer)
 		if err != nil {
 			return err
 		}
-		return core.ReceiptsByBlockNumberAndIndexBucket.Prefix().Add(blockNum).DeletePrefix(writer)
+		//nolint:staticcheck,nolintlint // old transaction layout
+		return core.DeprecatedReceiptsByBlockNumberAndIndexBucket.
+			Prefix().
+			Add(blockNum).
+			DeletePrefix(writer)
 
 	default:
 		return fmt.Errorf("%w: %d", ErrUnknownTransactionLayout, l)

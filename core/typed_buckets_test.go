@@ -104,7 +104,7 @@ func TestTypedBuckets(t *testing.T) {
 	)
 	runTest(
 		t,
-		core.TransactionsByBlockNumberAndIndexBucket.Bucket,
+		core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Bucket,
 		testCase( // 0x6e22f4f235c78dd2ca4e286ca355b21f7aa171567ada192be4cb06cf115cbd1
 			db.BlockNumIndexKey{Number: 929647, Index: 22},
 			"0a00000000000e2f6f0000000000000016",
@@ -126,7 +126,7 @@ func TestTypedBuckets(t *testing.T) {
 	)
 	runTest(
 		t,
-		core.ReceiptsByBlockNumberAndIndexBucket.Bucket,
+		core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Bucket,
 		testCase( // 0x6e22f4f235c78dd2ca4e286ca355b21f7aa171567ada192be4cb06cf115cbd1
 			db.BlockNumIndexKey{Number: 929647, Index: 22},
 			"0b00000000000e2f6f0000000000000016",

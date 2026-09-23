@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
+	//nolint:staticcheck,nolintlint // old state layout
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
@@ -75,12 +76,12 @@ func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
 		return nil
 	}
 
-	classHash, err := core.GetContractClassHash(c.database, addrFelt)
+	classHash, err := deprecatedstate.GetContractClassHash(c.database, addrFelt)
 	if err != nil {
 		return fmt.Errorf("GetContractClassHash(%s): %w", addr, err)
 	}
 
-	nonce, err := core.GetContractNonce(c.database, addrFelt)
+	nonce, err := deprecatedstate.GetContractNonce(c.database, addrFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return fmt.Errorf("GetContractNonce(%s): %w", addr, err)
@@ -88,7 +89,7 @@ func (c *ingestor) ingestAddress(batch db.Batch, addr *felt.Address) error {
 		nonce = felt.Zero
 	}
 
-	height, err := core.GetContractDeploymentHeight(c.database, addrFelt)
+	height, err := deprecatedstate.GetContractDeploymentHeight(c.database, addrFelt)
 	if err != nil {
 		return fmt.Errorf("GetContractDeploymentHeight(%s): %w", addr, err)
 	}

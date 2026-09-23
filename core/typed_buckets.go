@@ -13,9 +13,10 @@ import (
 // TODO: Bucket 1 is peer bucket, needs to write marshaler.
 
 // Bucket 2: Contract class (Address) -> Contract class hash (ClassHash)
-// TODO: Integrate this bucket
-var ContractClassHashBucket = typed.NewBucket(
-	db.ContractClassHash,
+//
+// Deprecated: old state layout.
+var DeprecatedContractClassHashBucket = typed.NewBucket(
+	db.DeprecatedContractClassHash, //nolint:staticcheck,nolintlint // old state layout
 	key.Address,
 	value.ClassHash,
 )
@@ -29,9 +30,10 @@ var ClassBucket = typed.NewBucket(
 )
 
 // Bucket 5: Contract address (Address) -> Contract nonce (Felt)
-// TODO: Integrate this bucket
-var ContractNonceBucket = typed.NewBucket(
-	db.ContractNonce,
+//
+// Deprecated: old state layout.
+var DeprecatedContractNonceBucket = typed.NewBucket(
+	db.DeprecatedContractNonce, //nolint:staticcheck,nolintlint // old state layout
 	key.Address,
 	value.Felt,
 )
@@ -68,9 +70,12 @@ var TransactionBlockNumbersAndIndicesByHashBucket = typed.NewBucket(
 )
 
 // Bucket 10: Block number (uint64) -> Transaction index (uint64) -> Transaction
-var TransactionsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
+//
+// Deprecated: old transaction layout.
+var DeprecatedTransactionsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 	typed.NewBucket(
-		db.TransactionsByBlockNumberAndIndex,
+		//nolint:staticcheck,nolintlint // old transaction layout
+		db.DeprecatedTransactionsByBlockNumberAndIndex,
 		key.Marshal[db.BlockNumIndexKey](),
 		value.Cbor[Transaction](),
 	),
@@ -78,9 +83,12 @@ var TransactionsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 )
 
 // Bucket 11: Block number (uint64) -> Transaction index (uint64) -> TransactionReceipt
-var ReceiptsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
+//
+// Deprecated: old transaction layout.
+var DeprecatedReceiptsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 	typed.NewBucket(
-		db.ReceiptsByBlockNumberAndIndex,
+		//nolint:staticcheck,nolintlint // old transaction layout
+		db.DeprecatedReceiptsByBlockNumberAndIndex,
 		key.Marshal[db.BlockNumIndexKey](),
 		value.Cbor[TransactionReceipt](),
 	),
@@ -98,9 +106,10 @@ var StateUpdatesByBlockNumberBucket = typed.NewBucket(
 // TODO: Bucket 13 -> 16 are trie 1 / state 1 buckets.
 
 // Bucket 17: Contract address (Address) -> Deployment height (uint64)
-// TODO: Integrate this bucket
-var ContractDeploymentHeightBucket = typed.NewBucket(
-	db.ContractDeploymentHeight,
+//
+// Deprecated: old state layout.
+var DeprecatedContractDeploymentHeightBucket = typed.NewBucket(
+	db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 	key.Address,
 	value.Uint64,
 )

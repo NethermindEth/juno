@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // deletes old history rows
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
@@ -171,30 +172,41 @@ func StoreBlockWithTimestamp(
 		core.WriteL1HandlerTxnHashByMsgHash(database, msgHash, l1HandlerTx.TransactionHash),
 	)
 
-	// Write state history entries (buckets 14, 15, 16).
-	for addr, slots := range storageDiffs {
-		for slot := range slots {
-			require.NoError(
-				t,
-				core.WriteDeprecatedContractStorageHistory(database, &addr, &slot, oldValue, blockNum),
-			)
-		}
-	}
-	for addr := range nonces {
-		require.NoError(t, core.WriteDeprecatedContractNonceHistory(database, &addr, oldValue, blockNum))
-	}
-	for addr := range replacedClasses {
-		require.NoError(
-			t,
-			core.WriteDeprecatedContractClassHashHistory(database, &addr, oldValue, blockNum),
-		)
-	}
+	writeDeprecatedHistory(t, database, blockNum, oldValue, stateUpdate.StateDiff)
 
 	return &StoredBlock{
 		Header:             header,
 		TxHashes:           txHashes,
 		L1HandlerMsgHashes: [][]byte{msgHash},
 		StateUpdate:        stateUpdate,
+	}
+}
+
+// writeDeprecatedHistory seeds the old pre-value history rows (buckets 14, 15, 16) for one block.
+func writeDeprecatedHistory(
+	t *testing.T,
+	database db.KeyValueStore,
+	blockNum uint64,
+	oldValue *felt.Felt,
+	diff *core.StateDiff,
+) {
+	t.Helper()
+	for addr, slots := range diff.StorageDiffs {
+		for slot := range slots {
+			require.NoError(
+				t,
+				deprecatedstate.WriteContractStorageHistory(database, &addr, &slot, oldValue, blockNum),
+			)
+		}
+	}
+	for addr := range diff.Nonces {
+		require.NoError(t, deprecatedstate.WriteContractNonceHistory(database, &addr, oldValue, blockNum))
+	}
+	for addr := range diff.ReplacedClasses {
+		require.NoError(
+			t,
+			deprecatedstate.WriteContractClassHashHistory(database, &addr, oldValue, blockNum),
+		)
 	}
 }
 
