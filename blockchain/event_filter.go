@@ -286,6 +286,10 @@ func (e *EventFilter) canonicalEvents(
 			return nil, ContinuationToken{}, err
 		}
 
+		// The token's processedEvents are scoped to fromBlock; any other block starts clean.
+		if curBlockNum != fromBlock {
+			skippedEvents = 0
+		}
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromTransactionEvents(
 			matchedEvents,
@@ -305,9 +309,6 @@ func (e *EventFilter) canonicalEvents(
 			}
 			return nil, ContinuationToken{}, err
 		}
-
-		// Skipped events are processed, so we can reset the counter
-		skippedEvents = 0
 	}
 
 	// If max scans exhausted end of block
@@ -357,6 +358,10 @@ func (e *EventFilter) preConfirmedEvents(
 			break
 		}
 
+		// The token's processedEvents are scoped to fromBlock; any other block starts clean.
+		if blockNumber != fromBlock {
+			skippedEvents = 0
+		}
 		if !e.matcher.TestBloom(entryWithBloom.Bloom) {
 			continue
 		}
@@ -380,7 +385,6 @@ func (e *EventFilter) preConfirmedEvents(
 			}
 			return nil, ContinuationToken{}, err
 		}
-		skippedEvents = 0
 	}
 
 	return matchedEvents, ContinuationToken{}, nil

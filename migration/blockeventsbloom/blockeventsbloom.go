@@ -109,7 +109,9 @@ func stripHeaders(
 	}
 	firstBlock := blockNumberFromKey(it.Key())
 
-	tracker := progresslogger.NewBlockProgressTracker(migrationName, logger, chainHeight-firstBlock+1, 0)
+	tracker := progresslogger.NewBlockProgressTracker(
+		migrationName, logger, chainHeight-firstBlock+1, 0,
+	)
 	stopLog := progresslogger.CallEveryInterval(ctx, progressLogInterval, tracker.LogProgress)
 	defer stopLog()
 	defer tracker.LogProgress()
@@ -156,7 +158,9 @@ func stripHeaders(
 
 	commitQueue <- batch
 	if walkCtx.Err() == nil && nextBlock <= chainHeight {
-		return 0, fmt.Errorf("missing block header %d: header bucket ends before chain height %d", nextBlock, chainHeight)
+		return 0, fmt.Errorf(
+			"missing block header %d: header bucket ends before chain height %d", nextBlock, chainHeight,
+		)
 	}
 	return nextBlock, nil
 }
