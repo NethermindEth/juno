@@ -349,6 +349,22 @@ func (mr *MockReaderMockRecorder) StateAtBlockNumber(blockNumber any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).StateAtBlockNumber), blockNumber)
 }
 
+// TrieStateAtBlockNumber mocks base method.
+func (m *MockReader) TrieStateAtBlockNumber(blockNumber uint64) (core.StateReader, blockchain.StateCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TrieStateAtBlockNumber", blockNumber)
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(blockchain.StateCloser)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TrieStateAtBlockNumber indicates an expected call of TrieStateAtBlockNumber.
+func (mr *MockReaderMockRecorder) TrieStateAtBlockNumber(blockNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieStateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).TrieStateAtBlockNumber), blockNumber)
+}
+
 // StateUpdateByHash mocks base method.
 func (m *MockReader) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
