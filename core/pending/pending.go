@@ -7,6 +7,15 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// NewPreConfirmedWithBloom pairs a pre_confirmed with its event bloom filter,
+// built from the pre_confirmed block's receipts.
+func NewPreConfirmedWithBloom(preConfirmed *PreConfirmed) core.WithBloom[*PreConfirmed] {
+	return core.WithBloom[*PreConfirmed]{
+		Value: preConfirmed,
+		Bloom: core.EventsBloom(preConfirmed.Block.Receipts),
+	}
+}
+
 var (
 	ErrPreConfirmedNotFound        = errors.New("pre_confirmed not found")
 	ErrTransactionNotFound         = errors.New("pre_confirmed: transaction not found")

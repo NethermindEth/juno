@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/event"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/header"
@@ -26,7 +25,6 @@ func AdaptEvent(e *event.Event) *core.Event {
 
 func AdaptBlockHeader(
 	h *header.SignedBlockHeader,
-	eventsBloom *bloom.BloomFilter,
 ) (*core.Header, error) {
 	l1DataGasPrice, err := adaptDA(h.L1DataAvailabilityMode)
 	if err != nil {
@@ -43,7 +41,6 @@ func AdaptBlockHeader(
 		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
-		EventsBloom:      eventsBloom,
 		L1GasPriceETH:    AdaptUint128(h.L1GasPriceWei),
 		Signatures:       utils.Map(h.Signatures, adaptSignature),
 		L1GasPriceSTRK:   AdaptUint128(h.L1GasPriceFri),

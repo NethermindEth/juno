@@ -315,7 +315,6 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 	strippedBlockHeader.GlobalStateRoot = nil
 	strippedBlockHeader.TransactionCount = 0
 	strippedBlockHeader.EventCount = 0
-	strippedBlockHeader.EventsBloom = nil
 	strippedBlockHeader.Signatures = nil
 	return builder.BuildState{
 		PreConfirmed: &pending.PreConfirmed{

@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 )
 
 // discardedCBOR is a no-op unmarshaler for fields a partial projection does not want.
@@ -49,7 +48,6 @@ type discardedHeaderSkeleton struct {
 	EventCount       discardedCBOR
 	Timestamp        discardedCBOR
 	ProtocolVersion  discardedCBOR
-	EventsBloom      discardedCBOR
 	L1GasPriceETH    discardedCBOR `cbor:"gasprice"`
 	Signatures       discardedCBOR
 	L1GasPriceSTRK   discardedCBOR `cbor:"gaspricestrk"`
@@ -76,11 +74,6 @@ type headerTransactionCountProjection struct {
 type headerTimestampProjection struct {
 	discardedHeaderSkeleton
 	Timestamp *uint64
-}
-
-type headerEventsBloomProjection struct {
-	discardedHeaderSkeleton
-	EventsBloom *bloom.BloomFilter
 }
 
 type headerHashAndStateRootProjection struct {

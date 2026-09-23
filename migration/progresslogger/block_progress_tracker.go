@@ -1,6 +1,7 @@
 package progresslogger
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -49,7 +50,7 @@ func (t *BlockProgressTracker) LogProgress() {
 	t.logger.Info(
 		"Migration progress",
 		zap.String("name", t.name),
-		zap.Float64("percentage", percentage),
+		zap.String("percentage", fmt.Sprintf("%.2f", percentage)),
 		zap.Duration("elapsed", t.Elapsed()),
 	)
 }

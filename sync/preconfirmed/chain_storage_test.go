@@ -111,6 +111,7 @@ func TestChainStorageApplyUpdate(t *testing.T) {
 	t.Run("reorg: pre-reorg snapshot walks the old chain", testApplyUpdateReorgPreSnapshotIntact)
 	t.Run("replace-tip: delta swaps tip with a fresh node carrying merged txs",
 		testApplyUpdateDeltaAtTip)
+	t.Run("delta: merges appended events into the tip's bloom", testApplyUpdateDeltaMergesBloom)
 	t.Run("delta: at non-tip is rejected", testApplyUpdateDeltaAtNonTipRejected)
 	t.Run("delta: wrong baseTxCount returns mismatch err", testApplyUpdateDeltaWrongBaseTxCount)
 	t.Run(
@@ -431,6 +432,28 @@ func testApplyUpdateDeltaAtTip(t *testing.T) {
 	// 2 base + 3 appended via delta.
 	view := s.SnapshotForBlock(oldestPreConf)
 	assertChain(t, &view, entry(1, &seed, &delta))
+}
+
+func testApplyUpdateDeltaMergesBloom(t *testing.T) {
+	oldestPreConf := oldestPreConfFor(0)
+	s := preconfirmed.NewChainStorage()
+	const round = "round-1"
+	seed := makeTestPreConfirmedBlock(round, 2)
+	seed.Receipts[0].Events = []*starknet.Event{{From: felt.NewFromUint64[felt.Felt](11)}}
+	seeded, err := s.ApplyUpdate(seed, 1, 0, oldestPreConf, nil)
+	require.NoError(t, err)
+	seedBloom := seeded.Bloom.Copy()
+
+	delta := makeTestDelta(round, 1)
+	delta.Receipts[0].Events = []*starknet.Event{{
+		From: felt.NewFromUint64[felt.Felt](22),
+		Keys: []felt.Felt{felt.FromUint64[felt.Felt](33)},
+	}}
+	applied, err := s.ApplyUpdate(delta, 1, 2, oldestPreConf, nil)
+	require.NoError(t, err)
+
+	require.True(t, applied.Bloom.Equal(core.EventsBloom(applied.Value.Block.Receipts)))
+	require.True(t, seeded.Bloom.Equal(seedBloom), "prior tip's bloom must stay untouched")
 }
 
 func testApplyUpdateDeltaAtNonTipRejected(t *testing.T) {
@@ -774,6 +797,13 @@ func testChainReaderIteratorsAllocFree(t *testing.T) {
 		}
 	})
 	require.Equal(t, 0.0, oldestAllocs, "OldestFirst must be alloc-free")
+
+	oldestWithBloomAllocs := testing.AllocsPerRun(50, func() {
+		for entry := range c.OldestFirstWithBloom() {
+			sink += entry.Value.Block.Number
+		}
+	})
+	require.Equal(t, 0.0, oldestWithBloomAllocs, "OldestFirstWithBloom must be alloc-free")
 	_ = sink
 }
 
@@ -1521,10 +1551,7 @@ func testAllocsApplyNoChange(t *testing.T) {
 }
 
 // testAllocsApplyDelta and testAllocsApplyExtend pin the apply cost via
-// build/with-apply subtraction. The constants below capture the total cost
-// (sn2core adapter + storage's own node + ChainReader + escaped pending.PreConfirmed)
-// observed on Go 1.24/Opus-test infra; if either changes the test breaks loud
-// so the dev makes a conscious bump rather than absorbing a silent regression.
+// build/with-apply subtraction.
 func testAllocsApplyDelta(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	const expectedDeltaCost = 29

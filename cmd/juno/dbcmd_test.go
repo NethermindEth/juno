@@ -104,7 +104,13 @@ func prepareDB(t *testing.T, network *networks.Network, syncToBlock uint64) stri
 		stateUpdate, err := gw.StateUpdate(t.Context(), blockNumber)
 		require.NoError(t, err)
 
-		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			stateUpdate,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 	}
 	require.NoError(t, testDB.Close())
 

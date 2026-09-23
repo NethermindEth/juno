@@ -192,7 +192,12 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, "")
+		preConfirmed := pending.NewPreConfirmed(
+			&core.Block{Header: &core.Header{}},
+			update21656,
+			nil,
+			"",
+		)
 		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := blockIDPreConfirmed(t)
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)

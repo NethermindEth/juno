@@ -345,7 +345,8 @@ func (e *EventFilter) preConfirmedEvents(
 	}
 
 	var err error
-	for entry := range preConfirmed.OldestFirst() {
+	for entryWithBloom := range preConfirmed.OldestFirstWithBloom() {
+		entry := entryWithBloom.Value
 		blockNumber := entry.Block.Number
 		// Skip blocks below the resume point. The canonical scan stops at the head
 		// this chain was built on, so the ranges cannot overlap.
@@ -356,11 +357,7 @@ func (e *EventFilter) preConfirmedEvents(
 			break
 		}
 
-		header := entry.GetHeader()
-		if !e.matcher.TestBloom(header.EventsBloom) {
-			// Skipped events are scoped to the resume block; once we step past
-			// it, reset so later blocks aren't under-counted.
-			skippedEvents = 0
+		if !e.matcher.TestBloom(entryWithBloom.Bloom) {
 			continue
 		}
 
@@ -368,7 +365,7 @@ func (e *EventFilter) preConfirmedEvents(
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromReceipts(
 			matchedEvents,
 			blockNumber,
-			header.Hash,
+			nil,
 			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
