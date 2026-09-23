@@ -149,10 +149,7 @@ func (t *Trie) proveMultiFrom(
 		return nil
 	}
 
-	var leftHash *felt.Felt
-	if binary != nil {
-		leftHash = binary.LeftHash
-	}
+	leftHash := binary.LeftHash
 	if err := t.proveMultiFrom(
 		node.Left,
 		currentKey,
@@ -164,10 +161,7 @@ func (t *Trie) proveMultiFrom(
 		return err
 	}
 
-	var rightHash *felt.Felt
-	if binary != nil {
-		rightHash = binary.RightHash
-	}
+	rightHash := binary.RightHash
 	return t.proveMultiFrom(node.Right, currentKey, rightKeys, rightHash, rightNode, proof)
 }
 
@@ -258,7 +252,7 @@ func (t *Trie) addProofNode(
 	carriedHash *felt.Felt,
 	proof *ProofNodeSet,
 	leftNode, rightNode *Node,
-) (*Binary, error) {
+) (Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode.key) {
 		edgePath := path(sNode.key, parentKey)
@@ -271,18 +265,18 @@ func (t *Trie) addProofNode(
 		if edge != nil { // Leaf Edge
 			proof.Put(edgeHash(edge, carriedHash, t.hash), edge)
 		}
-		return nil, nil
+		return Binary{}, nil
 	}
 
 	binary, err := createBinaryProofNode(t, sNode, leftNode, rightNode)
 	if err != nil {
-		return nil, err
+		return Binary{}, err
 	}
 
 	if edge != nil { // Internal Edge
 		proof.Put(edgeHash(edge, carriedHash, t.hash), edge)
 	}
-	proof.Put(*sNode.node.Value, binary)
+	proof.Put(*sNode.node.Value, &binary)
 
 	return binary, nil
 }
@@ -550,7 +544,7 @@ func createBinaryProofNode(
 	trie *Trie,
 	sNode StorageNode,
 	leftNode, rightNode *Node,
-) (*Binary, error) {
+) (Binary, error) {
 	childHash := func(childKey *BitArray, child *Node) (*felt.Felt, error) {
 		if child == nil {
 			var err error
@@ -570,14 +564,14 @@ func createBinaryProofNode(
 
 	leftHash, err := childHash(sNode.node.Left, leftNode)
 	if err != nil {
-		return nil, err
+		return Binary{}, err
 	}
 	rightHash, err := childHash(sNode.node.Right, rightNode)
 	if err != nil {
-		return nil, err
+		return Binary{}, err
 	}
 
-	return &Binary{LeftHash: leftHash, RightHash: rightHash}, nil
+	return Binary{LeftHash: leftHash, RightHash: rightHash}, nil
 }
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
