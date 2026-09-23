@@ -2,6 +2,7 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"errors"
 
 	"github.com/NethermindEth/juno/db"
@@ -21,13 +22,23 @@ var (
 
 type transaction struct {
 	client gen.KV_TxClient
+	cancel context.CancelFunc
 	logger log.StructuredLogger
 }
 
-func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {
-	err := t.client.Send(&gen.Cursor{
-		Op: gen.Op_OPEN,
-	})
+func (t *transaction) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	// The remote iterator has to be created with the same bounds as a local one,
+	// otherwise it scans the whole database and First returns a foreign key.
+	// BucketName carries the prefix and a non-empty V asks for the upper bound.
+	cursor := &gen.Cursor{
+		Op:         gen.Op_OPEN,
+		BucketName: prefix,
+	}
+	if withUpperBound {
+		cursor.V = []byte{1}
+	}
+
+	err := t.client.Send(cursor)
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +55,13 @@ func (t *transaction) NewIterator(_ []byte, _ bool) (db.Iterator, error) {
 	}, nil
 }
 
+// Discard releases the stream. Closing the send side lets the server return and
+// drop the batch it holds open; the cancel releases the client side, which
+// otherwise waits for the response stream to be drained to EOF.
 func (t *transaction) Discard() error {
-	return t.client.CloseSend()
+	err := t.client.CloseSend()
+	t.cancel()
+	return err
 }
 
 func (t *transaction) Commit() error {
@@ -101,4 +117,4 @@ func (t *transaction) Put(key, val []byte) error {
 func (t *transaction) Size() int    { return 0 }
 func (t *transaction) Reset()       {}
 func (t *transaction) Write() error { return nil }
-func (t *transaction) Close() error { return t.client.CloseSend() }
+func (t *transaction) Close() error { return t.Discard() }
