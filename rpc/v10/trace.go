@@ -266,7 +266,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	}
 
 	blockTraces, httpHeader, rpcErr := h.traceFinalisedBlock(
-		ctx, header, false, &tracecache.TransactionTarget{Index: txIndex, Hash: (*felt.Felt)(hash)},
+		ctx, header, false, &tracecache.TransactionTarget{Index: txIndex, Hash: hash},
 	)
 	if rpcErr != nil {
 		return TransactionTrace{}, nil, rpcErr
@@ -357,6 +357,9 @@ func (h *Handler) traceFinalisedBlock(
 		ctx,
 		header.Hash,
 		func(b *tracecache.BlockTrace) bool {
+			if target == nil {
+				return b.Covers(returnInitialReads)
+			}
 			return b.CoversTarget(target, returnInitialReads)
 		},
 	)
@@ -364,7 +367,7 @@ func (h *Handler) traceFinalisedBlock(
 		return nil, defaultExecutionHeader(), rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 	if lease == nil {
-		if cached.ValidateTarget(target) != nil {
+		if !cached.ValidTarget(target) {
 			return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 		}
 		return cached, defaultExecutionHeader(), nil
@@ -384,7 +387,7 @@ func (h *Handler) traceFinalisedBlock(
 			return nil, defaultExecutionHeader(), rpcErr
 		}
 
-		if traces.ValidateTarget(target) != nil {
+		if !traces.ValidTarget(target) {
 			return nil, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 		}
 		lease.Publish(traces)
@@ -413,7 +416,7 @@ func (h *Handler) traceFinalisedBlock(
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
-	combined, combineErr := plan.Combine(response)
+	combined, combineErr := response.Combine(&plan)
 	if combineErr != nil {
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(combineErr.Error())
 	}
