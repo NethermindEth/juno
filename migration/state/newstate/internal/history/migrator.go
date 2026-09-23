@@ -188,7 +188,7 @@ func runPhase(
 	})
 	// The drain that follows cancellation is silent and can take a while; say so.
 	stopLog := context.AfterFunc(ctx, func() {
-		logger.Info("Cancelled, finishing the contracts already handed out",
+		logger.Info("Cancelled, finishing the contracts already handed out; this can take a while",
 			zap.String("phase", p.name),
 		)
 	})
