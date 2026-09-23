@@ -66,11 +66,12 @@ func (b *deprecatedStateBackend) StateAtBlockHash(
 func (b *deprecatedStateBackend) TrieStateAtBlockNumber(
 	blockNumber uint64,
 ) (core.StateReader, StateCloser, error) {
-	if err := pruner.RequireStateRetainedByBlockNumber(
+	err := pruner.RequireStateRetainedByBlockNumber(
 		b.database,
 		b.retentionFloor,
 		blockNumber,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, nil, err
 	}
 
