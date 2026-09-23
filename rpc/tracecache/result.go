@@ -11,7 +11,7 @@ import (
 )
 
 // FromVM retains traces and gas. Requested initial reads must be non-nil, even for empty blocks.
-// For range execution, use [Range.Combine] before publication.
+// For range execution, use [BlockTrace.Combine] before publication.
 func FromVM(
 	transactions []core.Transaction,
 	result *vm.ExecutionResults,

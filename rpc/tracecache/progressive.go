@@ -20,7 +20,7 @@ import (
 //  2. Prepare the starting state with [Range.ResumeState].
 //  3. Execute transactions[Start:End] against that state.
 //     Use [OffsetExecutionError] with Start when reporting VM errors to the RPC caller.
-//  4. Package the suffix with [FromVM] and pass it to [Range.Combine] to join the cached prefix.
+//  4. Package the suffix with [FromVM] and call [BlockTrace.Combine] with the range.
 //  5. Call [Lease.Publish] on success, or [Lease.Release] on failure.
 //
 // Example Workflow:
@@ -60,7 +60,7 @@ func PlanRange(
 ) (Range, error) {
 	invalidTarget := target != nil && (target.Hash == nil ||
 		target.Index >= uint64(len(transactions)) ||
-		!transactions[target.Index].Hash().Equal(target.Hash))
+		!transactions[target.Index].Hash().Equal((*felt.Felt)(target.Hash)))
 	if invalidTarget {
 		return Range{}, ErrTargetNotFound
 	}
@@ -113,38 +113,36 @@ func (r *Range) ResumeState(
 	return pending.NewState(&checkpoint, declared, parent, blockNumber), nil
 }
 
-// Combine joins the executed suffix with the cached prefix into a new [BlockTrace].
+// Combine prepends the range's cached prefix to b's executed suffix and returns b.
 //
 // Parameters:
-//   - executed: the VM result packaged by [FromVM] after executing
-//     transactions[Start:End]. It must contain one trace per transaction,
-//     in block order, with a non-nil state diff in each trace.
+//   - r: the non-nil range used to execute transactions[r.Start:r.End].
 //
-// The result is marked complete only if this range reaches the block's end.
-func (r *Range) Combine(executed *BlockTrace) (*BlockTrace, error) {
-	if executed.Source != LocalVM {
+// The receiver is marked complete only if the range reaches the block's end.
+func (b *BlockTrace) Combine(r *Range) (*BlockTrace, error) {
+	if b.Source != LocalVM {
 		return nil, errors.New("cannot combine non-VM traces")
 	}
-	if uint64(len(executed.Traces)) != r.End-r.Start {
+	if uint64(len(b.Traces)) != r.End-r.Start {
 		return nil, fmt.Errorf(
 			"VM returned an unexpected trace range: expected [%d, %d) (%d traces), received %d traces",
 			r.Start,
 			r.End,
 			r.End-r.Start,
-			len(executed.Traces),
+			len(b.Traces),
 		)
 	}
-	for index := range executed.Traces {
-		if executed.Traces[index].vmTrace == nil || executed.Traces[index].vmTrace.StateDiff == nil {
+	for index := range b.Traces {
+		if b.Traces[index].vmTrace == nil || b.Traces[index].vmTrace.StateDiff == nil {
 			return nil, fmt.Errorf("VM omitted state diff for transaction trace %d", r.Start+uint64(index))
 		}
 	}
-	result := *executed
-	result.Traces = make([]TransactionTrace, len(r.prefix)+len(executed.Traces))
-	copy(result.Traces, r.prefix)
-	copy(result.Traces[len(r.prefix):], executed.Traces)
-	result.Complete = r.End == r.total
-	return &result, nil
+	traces := make([]TransactionTrace, len(r.prefix)+len(b.Traces))
+	copy(traces, r.prefix)
+	copy(traces[len(r.prefix):], b.Traces)
+	b.Traces = traces
+	b.Complete = r.End == r.total
+	return b, nil
 }
 
 // OffsetExecutionError converts a vm.TransactionExecutionError index from

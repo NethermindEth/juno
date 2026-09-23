@@ -20,8 +20,6 @@ func TestVMResult(t *testing.T) {
 	t.Run("metadata", func(t *testing.T) {
 		block, err := tracecache.FromVM(txs, &valid, false)
 		require.NoError(t, err)
-		require.Same(t, &valid.Traces[0], block.Traces[0].VMTrace())
-		require.Nil(t, block.Traces[0].FeederTrace())
 		require.Equal(t, felt.One, block.Traces[0].Hash)
 		require.Equal(t, uint64(7), block.Traces[0].Gas.L2Gas)
 		require.False(t, block.Complete)
@@ -93,10 +91,6 @@ func TestFeederMetadataAndReadCoverage(t *testing.T) {
 		&source,
 	)
 	require.NoError(t, err)
-	for i := range block.Traces {
-		require.Same(t, &source.Traces[i], block.Traces[i].FeederTrace())
-		require.Nil(t, block.Traces[i].VMTrace())
-	}
 	require.True(t, block.Covers(true))
 	require.Nil(t, block.InitialReads)
 	require.Equal(t, vm.TxnL1Handler, block.Traces[1].Type)

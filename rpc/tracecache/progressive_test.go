@@ -167,7 +167,7 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 	require.Equal(t, felt.FromUint64[felt.Felt](2), nonce)
 }
 
-func TestRangeCoverageAndImmutableCombination(t *testing.T) {
+func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 	txs := []core.Transaction{
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](1)},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
@@ -185,7 +185,7 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 		require.NoError(t, err)
 		return block
 	}
-	target := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
+	target := &tracecache.TransactionTarget{Index: 0, Hash: (*felt.TransactionHash)(txs[0].Hash())}
 	first, err := tracecache.PlanRange(nil, txs, target, false)
 	require.NoError(t, err)
 	require.Zero(t, first.Start)
@@ -194,8 +194,10 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 	state, err := first.ResumeState(parent, nil, 10)
 	require.NoError(t, err)
 	require.Same(t, parent, state)
-	prefix, err := first.Combine(execute(txs[:1]))
+	initial := execute(txs[:1])
+	prefix, err := initial.Combine(&first)
 	require.NoError(t, err)
+	require.Same(t, initial, prefix)
 	require.False(t, prefix.Complete)
 	require.False(t, prefix.Covers(false))
 	require.True(t, prefix.CoversTarget(target, false))
@@ -207,17 +209,25 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), final.Start)
 	require.Equal(t, uint64(3), final.End)
-	complete, err := final.Combine(execute(txs[1:]))
+	executed := execute(txs[1:])
+	complete, err := executed.Combine(&final)
 	require.NoError(t, err)
+	require.Same(t, executed, complete)
 	require.Len(t, prefix.Traces, 1)
+	require.False(t, prefix.Complete)
+	require.Equal(t, *txs[0].Hash(), prefix.Traces[0].Hash)
 	require.Nil(t, backing[1].VMTrace())
+	require.Nil(t, backing[2].VMTrace())
 	require.Len(t, complete.Traces, 3)
+	for i := range txs {
+		require.Equal(t, *txs[i].Hash(), complete.Traces[i].Hash)
+	}
 	require.True(t, complete.Complete)
 	require.True(t, complete.Covers(false))
 	require.False(t, complete.Covers(true))
 	for _, replayTarget := range []*tracecache.TransactionTarget{
 		nil,
-		{Index: 2, Hash: txs[2].Hash()},
+		{Index: 2, Hash: (*felt.TransactionHash)(txs[2].Hash())},
 	} {
 		replay, replayErr := tracecache.PlanRange(prefix, txs, replayTarget, true)
 		require.NoError(t, replayErr)
@@ -228,19 +238,22 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 		require.Same(t, parent, state)
 		executed := execute(txs)
 		executed.InitialReads = &vm.InitialReads{}
-		replayed, combineErr := replay.Combine(executed)
+		reads := executed.InitialReads
+		replayed, combineErr := executed.Combine(&replay)
 		require.NoError(t, combineErr)
+		require.Same(t, executed, replayed)
+		require.Same(t, reads, replayed.InitialReads)
 		require.Len(t, replayed.Traces, len(txs))
 		require.True(t, replayed.Complete)
 		require.True(t, replayed.Covers(true))
 	}
 	for _, bad := range []*tracecache.TransactionTarget{
-		{Index: 3, Hash: &felt.One},
-		{Index: 0, Hash: &felt.Zero},
+		{Index: 3, Hash: (*felt.TransactionHash)(&felt.One)},
+		{Index: 0, Hash: (*felt.TransactionHash)(&felt.Zero)},
 		{Index: 0},
-		{Index: 2, Hash: &felt.Zero},
+		{Index: 2, Hash: (*felt.TransactionHash)(&felt.Zero)},
 	} {
-		require.ErrorIs(t, complete.ValidateTarget(bad), tracecache.ErrTargetNotFound)
+		require.False(t, complete.ValidTarget(bad))
 		_, err := tracecache.PlanRange(nil, txs, bad, false)
 		require.ErrorIs(t, err, tracecache.ErrTargetNotFound)
 		_, err = tracecache.PlanRange(nil, txs, bad, true)
@@ -248,14 +261,18 @@ func TestRangeCoverageAndImmutableCombination(t *testing.T) {
 	}
 	bad := execute(txs[1:])
 	bad.Traces[0].VMTrace().StateDiff = nil
-	_, err = final.Combine(bad)
+	before := *bad
+	_, err = bad.Combine(&final)
 	require.EqualError(t, err, "VM omitted state diff for transaction trace 1")
+	require.Equal(t, before, *bad)
 	_, err = tracecache.PlanRange(nil, txs, target, true)
 	require.Error(t, err)
 	empty, err := tracecache.PlanRange(nil, nil, nil, false)
 	require.NoError(t, err)
-	result, err := empty.Combine(execute(nil))
+	emptyResult := execute(nil)
+	result, err := emptyResult.Combine(&empty)
 	require.NoError(t, err)
+	require.Same(t, emptyResult, result)
 	require.True(t, result.Complete)
 	require.NotNil(t, result.Traces)
 	require.Nil(t, result.InitialReads)

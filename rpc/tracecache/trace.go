@@ -50,32 +50,31 @@ type BlockTrace struct {
 // Covers checks requested read coverage, allowing unavailable feeder reads.
 // It also requires complete block coverage.
 func (b *BlockTrace) Covers(initialReads bool) bool {
-	return b.CoversTarget(nil, initialReads)
-}
-
-// CoversTarget checks coverage through the requested transaction and requested initial reads.
-// A nil target requires complete block coverage.
-func (b *BlockTrace) CoversTarget(target *TransactionTarget, initialReads bool) bool {
-	if !b.Complete && (target == nil || target.Index >= uint64(len(b.Traces))) {
+	if !b.Complete {
 		return false
 	}
 	return !initialReads || b.InitialReads != nil || b.Source == Feeder
 }
 
-// ValidateTarget checks that the target index identifies a trace with the requested hash.
-func (b *BlockTrace) ValidateTarget(target *TransactionTarget) error {
-	invalidTarget := target != nil && (target.Hash == nil ||
-		target.Index >= uint64(len(b.Traces)) ||
-		!b.Traces[target.Index].Hash.Equal(target.Hash))
-	if invalidTarget {
-		return ErrTargetNotFound
+// CoversTarget checks coverage through the requested transaction and requested initial reads.
+// The target must be non-nil. Use [BlockTrace.Covers] for whole-block coverage.
+func (b *BlockTrace) CoversTarget(target *TransactionTarget, initialReads bool) bool {
+	if target.Index >= uint64(len(b.Traces)) && !b.Complete {
+		return false
 	}
-	return nil
+	return !initialReads || b.InitialReads != nil || b.Source == Feeder
+}
+
+// ValidTarget reports whether the target index identifies a trace with the requested hash.
+func (b *BlockTrace) ValidTarget(target *TransactionTarget) bool {
+	return target == nil || (target.Hash != nil &&
+		target.Index < uint64(len(b.Traces)) &&
+		b.Traces[target.Index].Hash.Equal((*felt.Felt)(target.Hash)))
 }
 
 // TransactionTarget identifies the transaction to trace.
 // A nil target requests a full block trace.
 type TransactionTarget struct {
 	Index uint64
-	Hash  *felt.Felt
+	Hash  *felt.TransactionHash
 }
