@@ -72,7 +72,7 @@ func (server *server) routes() *http.ServeMux {
 	server.serve(mux, classByHash)
 	server.serve(mux, compiledClass)
 	server.serve(mux, contractAddresses)
-	mux.Handle(feederPrefix+preConfirmedBlockRoute, server.handler(notInWindow))
+	mux.Handle(feederPrefix+preConfirmedBlock.name, server.handler(notInWindow))
 	mux.Handle("/", server.handler(server.logged(unknown)))
 	return mux
 }

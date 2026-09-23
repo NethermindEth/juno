@@ -18,11 +18,12 @@ type fetcher interface {
 }
 
 type walker struct {
-	feeder      fetcher
-	dataset     dataset
-	config      *config
-	concurrency int
-	logger      *log.ZapLogger
+	feeder       fetcher
+	preConfirmed fetcher
+	dataset      dataset
+	config       *config
+	concurrency  int
+	logger       *log.ZapLogger
 }
 
 func (walker *walker) walk(ctx context.Context) ([]blockInfo, error) {
@@ -84,6 +85,12 @@ func (walker *walker) walkBlock(ctx context.Context, number uint64) (blockInfo, 
 	body, err := walker.visit(ctx, walker.feeder, stateUpdate, key)
 	if err != nil {
 		return blockInfo{}, err
+	}
+
+	if walker.preConfirmed != nil {
+		if _, err := walker.visit(ctx, walker.preConfirmed, preConfirmedBlock, key); err != nil {
+			return blockInfo{}, err
+		}
 	}
 
 	return newBlockInfo(body, number)

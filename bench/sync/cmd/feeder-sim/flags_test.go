@@ -70,6 +70,31 @@ func TestValidateRejects(t *testing.T) {
 		},
 		{"nothing to do", append(required, "--listen", "off"), "nothing to do"},
 		{"bad log level", append(required, "--log-level", "loud"), "invalid argument"},
+		{
+			"rpc url without scheme",
+			append(required, "--rpc-url", "node:6060"),
+			`--rpc-url "node:6060" must be an http or https URL`,
+		},
+		{
+			"rpc url with other scheme",
+			append(required, "--rpc-url", "ftp://node:6060"),
+			`--rpc-url "ftp://node:6060" must be an http or https URL`,
+		},
+		{
+			"rpc url without host",
+			append(required, "--rpc-url", "http://"),
+			`--rpc-url "http://" must be an http or https URL`,
+		},
+		{
+			"unparsable rpc url",
+			append(required, "--rpc-url", "://node"),
+			`--rpc-url "://node": parse "://node": missing protocol scheme`,
+		},
+		{
+			"preconfirmed capture without rpc url",
+			append(required, "--network", "sepolia", "--preconfirmed"),
+			"--preconfirmed with --network requires --rpc-url",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -130,4 +155,39 @@ func TestValidateCaptureDefaults(t *testing.T) {
 	require.Equal(t, defaultCaptureRetryDelay, parsed.captureRetryDelay)
 	require.Equal(t, time.Duration(0), parsed.latency)
 	require.Equal(t, "info", parsed.logLevel.String())
+}
+
+func TestValidatePreConfirmed(t *testing.T) {
+	required := []string{"--data", "d", "--from", "1", "--to", "3"}
+	tests := []struct {
+		name             string
+		args             []string
+		wantPreconfirmed bool
+		wantRPC          string
+	}{
+		{"defaults", required, false, ""},
+		{"serve rounds offline", append(required, "--preconfirmed"), true, ""},
+		{
+			"capture rounds",
+			append(required, "--network", "sepolia", "--listen", "off", "--preconfirmed", "--rpc-url", "http://node:6060"),
+			true, "http://node:6060",
+		},
+		{
+			"rpc url alone",
+			append(required, "--rpc-url", "https://node.example/rpc/v0_10"),
+			false, "https://node.example/rpc/v0_10",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, err := parseConfig(t, test.args...)
+			require.NoError(t, err)
+			require.Equal(t, test.wantPreconfirmed, parsed.preconfirmed)
+			if test.wantRPC == "" {
+				require.Nil(t, parsed.rpc)
+				return
+			}
+			require.Equal(t, test.wantRPC, parsed.rpc.String())
+		})
+	}
 }

@@ -11,6 +11,7 @@ build/feeder-sim --data ./data/mainnet --network mainnet --from 1500000 --to 150
 build/feeder-sim --data ./data/mainnet --from 1500000 --to 1501000                # serve, 2s cadence
 build/feeder-sim --data ./data/mainnet --from 1500000 --to 1501000 --speed 1      # serve, captured block times
 build/feeder-sim --data ./data/mainnet --from 1500000 --to 1501000 --tip 1501000  # serve everything at once
+build/feeder-sim --data ./data/mainnet --network mainnet --rpc-url http://node:6060 --from 1500000 --to 1501000 --listen off --preconfirmed  # capture pre-confirmed too
 ```
 
 Capture is resumable. A 400 from the FGW usually means `--to` is above the tip. One `--data`
@@ -19,23 +20,28 @@ directory per network, checked via `get_contract_addresses`. Without `--network`
 
 ## Flags
 
-| Flag                | Meaning                                                                    | Default          |
-| ------------------- | -------------------------------------------------------------------------- | ---------------- |
-| `--data`            | dataset directory (required)                                               |                  |
-| `--from`, `--to`    | block range, inclusive (required)                                          |                  |
-| `--network`         | capture source: `mainnet`, `sepolia`, `sepolia-integration`                | offline          |
-| `--listen`          | `host:port`; `:7070` binds all interfaces; `off` = capture only            | `127.0.0.1:7070` |
-| `--tip`             | initial tip, in `[from, to]`                                               | `from`           |
-| `--interval`        | advance the tip by one block every interval                                | `2s`             |
-| `--speed`           | replay captured block timestamps at this multiplier; excludes `--interval` | unset            |
-| `--latency`         | fixed delay added to every response, no jitter                             | `0`              |
-| `--api-key`         | `X-Throttling-Bypass` header during capture                                |                  |
-| `--concurrency`     | parallel capture requests                                                  | `8`              |
-| `--capture-timeout` | per-request timeout during capture                                         | `30s`            |
-| `--capture-retries` | retries per request during capture                                         | `5`              |
-| `--log-level`       | `debug`, `info`, `warn`, `error`                                           | `info`           |
+| Flag                    | Meaning                                                                             | Default          |
+| ----------------------- | ----------------------------------------------------------------------------------- | ---------------- |
+| `--data`                | dataset directory (required)                                                        |                  |
+| `--from`, `--to`        | block range, inclusive (required)                                                   |                  |
+| `--network`             | capture source: `mainnet`, `sepolia`, `sepolia-integration`                         | offline          |
+| `--listen`              | `host:port`; `:7070` binds all interfaces; `off` = capture only                     | `127.0.0.1:7070` |
+| `--tip`                 | initial tip, in `[from, to]`                                                        | `from`           |
+| `--interval`            | advance the tip by one block every interval                                         | `2s`             |
+| `--speed`               | replay captured block timestamps at this multiplier; excludes `--interval`          | unset            |
+| `--latency`             | fixed delay added to every response, no jitter                                      | `0`              |
+| `--api-key`             | `X-Throttling-Bypass` header during capture                                         |                  |
+| `--concurrency`         | parallel capture requests                                                           | `8`              |
+| `--capture-timeout`     | per-request timeout during capture                                                  | `30s`            |
+| `--capture-retries`     | retries per request during capture                                                  | `5`              |
+| `--preconfirmed`        | capture `get_preconfirmed_block`                                                    | off              |
+| `--rpc-url`             | JSON-RPC node with `starknet_traceBlockTransactions`; `--preconfirmed` capture only |                  |
+| `--log-level`           | `debug`, `info`, `warn`, `error`                                                    | `info`           |
 
 `blockNumber=latest` resolves to the tip. Blocks above the tip get 400 (debug log). Classes are not tip-gated.
+
+`--preconfirmed` capture builds each round from the state update plus `starknet_traceBlockTransactions` from
+`--rpc-url`. Blocks before Starknet 0.13.1 lack `l2_gas_price` and fail capture.
 
 ## Juno
 
@@ -64,6 +70,7 @@ One gzipped file per FGW response:
   get_state_update/<N>.json.gz                    # includeBlock=true&includeSignature=true
   get_class_by_hash/<hash>.json.gz                # blockNumber=latest
   get_compiled_class_by_class_hash/<hash>.json.gz # blockNumber=latest
+  get_preconfirmed_block/<N>.json.gz              # --preconfirmed; completed round, diffs from --rpc-url
 ```
 
 Timestamps, class lists and completeness are derived from the state updates at startup.

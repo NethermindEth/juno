@@ -45,17 +45,24 @@ func capture(ctx context.Context, dataset dataset, config *config, logger *log.Z
 		zap.Uint64("from", config.from),
 		zap.Uint64("to", config.to),
 	)
+	client := newClient(config)
+	var preConfirmed fetcher
+	if config.preconfirmed {
+		preConfirmed = newSource(client, config, logger, &traceAPI{url: config.rpc})
+	}
+
 	walker := &walker{
 		feeder: newSource(
-			newClient(config),
+			client,
 			config,
 			logger,
 			&feederAPI{url: config.network.FeederURL, apiKey: config.apiKey},
 		),
-		dataset:     dataset,
-		config:      config,
-		concurrency: config.concurrency,
-		logger:      logger,
+		preConfirmed: preConfirmed,
+		dataset:      dataset,
+		config:       config,
+		concurrency:  config.concurrency,
+		logger:       logger,
 	}
 
 	blocks, err := walker.walk(ctx)

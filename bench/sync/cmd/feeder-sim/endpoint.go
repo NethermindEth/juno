@@ -29,9 +29,8 @@ var (
 		name:  "get_compiled_class_by_class_hash",
 		fixed: atLatest{BlockNumber: latestBlock},
 	}
+	preConfirmedBlock = &endpoint[blockKey, struct{}]{name: "get_preconfirmed_block"}
 )
-
-const preConfirmedBlockRoute = "get_preconfirmed_block"
 
 type resource struct {
 	name  string
