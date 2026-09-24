@@ -1077,6 +1077,39 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 	}
 }
 
+func TestRPCSyncURLValidation(t *testing.T) {
+	tests := map[string]struct {
+		url       string
+		errSubstr string
+	}{
+		"http":         {url: "http://rpc.host/rpc/v0_10"},
+		"https":        {url: "https://rpc.host/rpc/v0_10"},
+		"ws":           {url: "ws://rpc.host/rpc/v0_10/ws"},
+		"wss":          {url: "wss://rpc.host/rpc/v0_10/ws"},
+		"bad scheme":   {url: "ftp://rpc.host", errSubstr: "invalid --rpc-sync-url"},
+		"no scheme":    {url: "rpc.host", errSubstr: "invalid --rpc-sync-url"},
+		"missing host": {url: "http:///rpc", errSubstr: "invalid --rpc-sync-url"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			cmd.SetArgs([]string{"--rpc-sync-url", tc.url})
+
+			err := cmd.ExecuteContext(t.Context())
+
+			if tc.errSubstr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tc.errSubstr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.url, config.RPCSyncURL)
+		})
+	}
+}
+
 // TestCompilationLimitExplicitDetection guarantees that the *Explicit flags
 // reflect whether each compilation-sizing flag was actually provided: absent
 // means false (derive), present means true (use as-is), independently per flag.

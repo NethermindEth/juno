@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/starknetrpc"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -27,6 +28,17 @@ const (
 	namespacePruner = "pruner"
 	subsystemHTTP   = "http"
 )
+
+func newClientRequestLatency(namespace, help string) *prometheus.HistogramVec {
+	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: "client",
+		Name:      "request_latency",
+		Help:      help,
+	}, []string{labelMethod, "status"})
+	prometheus.MustRegister(requestLatencies)
+	return requestLatencies
+}
 
 func makeDBMetrics() db.EventListener {
 	latencyBuckets := []float64{
@@ -332,13 +344,7 @@ func registerL1Metrics(provider l1.L1StateProvider) {
 }
 
 func makeFeederMetrics() feeder.EventListener {
-	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "feeder",
-		Subsystem: "client",
-		Name:      "request_latency",
-		Help:      "Feeder client request latency in seconds",
-	}, []string{labelMethod, "status"})
-	prometheus.MustRegister(requestLatencies)
+	requestLatencies := newClientRequestLatency("feeder", "Feeder client request latency in seconds")
 	return &feeder.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
 			statusString := strconv.FormatInt(int64(status), 10)
@@ -347,14 +353,20 @@ func makeFeederMetrics() feeder.EventListener {
 	}
 }
 
+func makeRPCSyncMetrics() starknetrpc.EventListener {
+	requestLatencies := newClientRequestLatency(
+		"rpcsync",
+		"RPC sync client request latency in seconds",
+	)
+	return &starknetrpc.SelectiveListener{
+		OnResponseCb: func(method, outcome string, took time.Duration) {
+			requestLatencies.WithLabelValues(method, outcome).Observe(took.Seconds())
+		},
+	}
+}
+
 func makeGatewayMetrics() gateway.EventListener {
-	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "gateway",
-		Subsystem: "client",
-		Name:      "request_latency",
-		Help:      "Gateway client request latency in seconds",
-	}, []string{labelMethod, "status"})
-	prometheus.MustRegister(requestLatencies)
+	requestLatencies := newClientRequestLatency("gateway", "Gateway client request latency in seconds")
 	return &gateway.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
 			statusString := strconv.FormatInt(int64(status), 10)
