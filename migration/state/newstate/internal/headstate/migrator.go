@@ -3,7 +3,6 @@ package headstate
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core/felt"
@@ -67,15 +66,16 @@ func migrateContracts(
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
 ) error {
-	start := time.Now()
 	contracts, sourceErr := pendingContracts(database)
 	counter := common.NewCounter(logger, common.TimeLogRate, "")
 	batch := database.NewBatchWithSize(common.BatchByteSize)
 	total, sinceLog := 0, 0
 
 	for contract := range contracts {
-		if err := ctx.Err(); err != nil {
-			return err
+		// Stop handing out contracts but keep the batch: it is written below, so
+		// cancelling never throws away work already done.
+		if ctx.Err() != nil {
+			break
 		}
 		addr := (*felt.Felt)(&contract.addr)
 		if err := state.WriteContract(
@@ -104,11 +104,8 @@ func migrateContracts(
 		return fmt.Errorf("writing batch: %w", err)
 	}
 
-	logger.Info("Migrated head state contracts",
-		zap.Int("contracts", total),
-		zap.Duration("took", time.Since(start)),
-	)
-	return nil
+	logger.Info("Migrated head state contracts", zap.Int("contracts", total))
+	return ctx.Err()
 }
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {

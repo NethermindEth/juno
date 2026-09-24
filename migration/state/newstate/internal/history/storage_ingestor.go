@@ -2,7 +2,6 @@ package history
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/deprecatedstate"
@@ -10,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
@@ -23,11 +21,10 @@ type storageIngestor struct {
 var _ pipeline.State[felt.Address, common.Task] = (*storageIngestor)(nil)
 
 func newStorageIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *storageIngestor {
-	return &storageIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
+	return &storageIngestor{BaseIngestor: common.NewBaseIngestor(sem, database)}
 }
 
 // Run migrates the per-slot storage history of a single contract.
@@ -73,7 +70,7 @@ func newStorageIngestor(
 //	[slotC, B₁]        ──→   [slotC] = headC   [slotC, B₁] = headC
 //
 // Contracts with no deprecated storage history are skipped; deprecated
-// rows are deleted at the end of the run via DeleteRange.
+// rows are wiped with the whole bucket once the phase completes.
 func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
 	addrFelt := (*felt.Felt)(&addr)
 	t := &i.Tasks[index]
@@ -152,9 +149,6 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 		}
 	}
 
-	if err := t.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix)); err != nil {
-		return fmt.Errorf("storage: DeleteRange deprecated(%s): %w", addrFelt, err)
-	}
 	t.CompletedAddrs++
 	return nil
 }

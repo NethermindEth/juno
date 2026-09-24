@@ -1,13 +1,11 @@
 package history
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
@@ -20,11 +18,10 @@ type nonceIngestor struct {
 var _ pipeline.State[felt.Address, common.Task] = (*nonceIngestor)(nil)
 
 func newNonceIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *nonceIngestor {
-	return &nonceIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
+	return &nonceIngestor{BaseIngestor: common.NewBaseIngestor(sem, database)}
 }
 
 // Run migrates the nonce history of a single contract.
@@ -46,7 +43,7 @@ func newNonceIngestor(
 //	                            record for any block past the last change
 //
 // Contracts with no deprecated nonce history are skipped. Deprecated rows
-// are deleted at the end of the run.
+// are wiped with the whole bucket once the phase completes.
 func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
 	addrFelt := (*felt.Felt)(&addr)
 
@@ -92,11 +89,6 @@ func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.
 		if !hasNext {
 			break
 		}
-	}
-
-	err = curTask.Batch.DeleteRange(deprecatedPrefix, dbutils.UpperBound(deprecatedPrefix))
-	if err != nil {
-		return fmt.Errorf("nonce: DeleteRange deprecated(%s): %w", addrFelt, err)
 	}
 
 	curTask.CompletedAddrs++
