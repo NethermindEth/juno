@@ -204,14 +204,14 @@ In case you want to change the log level in runtime without the need to restart 
 
 To enable this feature, use the following configuration options:
 
-- `log-host`: The interface to listen for requests. Defaults to `localhost`.
-- `log-port`: The port to listen for requests.  REQUIRED
+- `http-update-host`: The interface to listen for requests. Defaults to `localhost`.
+- `http-update-port`: The port to listen for requests. REQUIRED
 
 Examples:
 
 ```console
 # Start juno specifying the log port
-juno --log-port=6789 --log-level=error ...
+juno --http-update-port=6789 --log-level=error ...
 
 # Get current level
 curl -X GET 'localhost:6789/log/level'
