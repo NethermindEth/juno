@@ -35,6 +35,7 @@ func newSimulator(t *testing.T, config *config) *simulator {
 		config: config,
 		logger: logger,
 	}
+
 	httpServer := httptest.NewServer(server.routes())
 	t.Cleanup(httpServer.Close)
 	return &simulator{server: server, Server: httpServer, fixtures: all}
@@ -69,7 +70,8 @@ func (simulator *simulator) feederClient(t *testing.T) *feeder.Client {
 	return feeder.NewClient(feederURL, feeder.WithMaxRetries(0), feeder.WithBackoff(feeder.NopBackoff))
 }
 
-// routeCase expects the fixture body wantFile on success, or a gateway error otherwise.
+// routeCase expects the fixture body wantFile on success, a gateway error when
+// wantCode is set, and a plain HTTP 500 otherwise.
 type routeCase struct {
 	name        string
 	query       string
@@ -119,7 +121,6 @@ func blockRouteCases() []routeCase {
 		{
 			name:        "below from",
 			query:       "blockNumber=56376&headerOnly=true",
-			wantCode:    malformedRequest,
 			wantMessage: "block 56376 is below --from 56377; Juno's DB is probably not at 56376",
 		},
 		{
@@ -199,7 +200,6 @@ func classRouteCases() []routeCase {
 		{
 			name:        "unknown",
 			query:       "classHash=0x1&blockNumber=latest",
-			wantCode:    malformedRequest,
 			wantMessage: "get_class_by_hash/0x1.json.gz: not in dataset",
 		},
 	}
@@ -215,7 +215,6 @@ func compiledClassRouteCases() []routeCase {
 		{
 			name:        "deprecated",
 			query:       "classHash=" + deprecatedHash + "&blockNumber=latest",
-			wantCode:    malformedRequest,
 			wantMessage: "not in dataset",
 		},
 	}
@@ -279,10 +278,16 @@ func (simulator *simulator) check(t *testing.T, path string, test *routeCase) {
 		acceptEncoding = "gzip"
 	}
 	reply := simulator.get(t, path, test.query, acceptEncoding)
-	require.Equal(t, "application/json", reply.header.Get("Content-Type"))
 
-	if test.wantFile == "" {
+	switch {
+	case test.wantFile == "" && test.wantCode == "":
+		require.Equal(t, http.StatusInternalServerError, reply.status)
+		require.Empty(t, reply.header.Get("Content-Encoding"), "errors are never compressed")
+		require.Contains(t, string(reply.body), test.wantMessage)
+		return
+	case test.wantFile == "":
 		require.Equal(t, http.StatusBadRequest, reply.status)
+		require.Equal(t, "application/json", reply.header.Get("Content-Type"))
 		require.Empty(t, reply.header.Get("Content-Encoding"), "errors are never compressed")
 		var failure gateway.Error
 		require.NoError(t, json.Unmarshal(reply.body, &failure))
@@ -292,6 +297,7 @@ func (simulator *simulator) check(t *testing.T, path string, test *routeCase) {
 	}
 
 	require.Equal(t, http.StatusOK, reply.status)
+	require.Equal(t, "application/json", reply.header.Get("Content-Type"))
 	body := reply.body
 	if test.gzip {
 		require.Equal(t, "gzip", reply.header.Get("Content-Encoding"))

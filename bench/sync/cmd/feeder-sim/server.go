@@ -84,10 +84,14 @@ func (server *server) handler(respond responder) http.HandlerFunc {
 		body, err := respond(request.URL)
 		status := http.StatusOK
 
+		var failure gateway.Error
 		switch {
-		case err != nil:
+		case errors.As(err, &failure):
 			status = http.StatusBadRequest
-			body, err = json.Marshal(gatewayError(err))
+			body, err = json.Marshal(failure)
+		case err != nil:
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		case strings.Contains(request.Header.Get("Accept-Encoding"), "gzip"):
 			writer.Header().Set("Content-Encoding", "gzip")
 		default:
@@ -112,7 +116,8 @@ func (server *server) logged(respond responder) responder {
 		body, err := respond(requestURL)
 		if err != nil {
 			logRejection := server.logger.Error
-			if errors.As(err, new(gateway.Error)) {
+			var failure gateway.Error
+			if errors.As(err, &failure) && failure.Code == blockNotFound {
 				logRejection = server.logger.Debug
 			}
 			logRejection("rejected request", zap.Stringer("url", requestURL), zap.Error(err))
@@ -154,11 +159,11 @@ func (server *server) serve[K, F comparable](
 }
 
 func unknown(requestURL *url.URL) ([]byte, error) {
-	return nil, fmt.Errorf("unknown endpoint %s", requestURL.Path)
+	return nil, malformedf("unknown endpoint %s", requestURL.Path)
 }
 
 func notInWindow(*url.URL) ([]byte, error) {
-	return nil, notFound("No pre-confirmed block.")
+	return nil, notFoundf("No pre-confirmed block.")
 }
 
 func (server *server) lookup[K, F comparable](endpoint *endpoint[K, F], key K) ([]byte, error) {
@@ -176,7 +181,7 @@ func (server *server) lookup[K, F comparable](endpoint *endpoint[K, F], key K) (
 
 func (server *server) checkTip(key blockKey) error {
 	if key.BlockNumber > server.clock.tip() {
-		return notFound(fmt.Sprintf("Block number %d was not found.", key.BlockNumber))
+		return notFoundf("Block number %d was not found.", key.BlockNumber)
 	}
 	if key.BlockNumber < server.config.from {
 		return fmt.Errorf(
@@ -187,14 +192,10 @@ func (server *server) checkTip(key blockKey) error {
 	return nil
 }
 
-func notFound(message string) gateway.Error {
-	return gateway.Error{Code: blockNotFound, Message: message}
+func notFoundf(format string, args ...any) gateway.Error {
+	return gateway.Error{Code: blockNotFound, Message: fmt.Sprintf(format, args...)}
 }
 
-func gatewayError(err error) gateway.Error {
-	var failure gateway.Error
-	if errors.As(err, &failure) {
-		return failure
-	}
-	return gateway.Error{Code: malformedRequest, Message: err.Error()}
+func malformedf(format string, args ...any) gateway.Error {
+	return gateway.Error{Code: malformedRequest, Message: fmt.Sprintf(format, args...)}
 }
