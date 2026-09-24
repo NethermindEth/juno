@@ -14,6 +14,7 @@ const sidebars = {
         "configuring",
         "updating",
         "snapshots",
+        "remote-database",
       ],
     },
     {
