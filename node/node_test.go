@@ -233,11 +233,39 @@ func TestNewRejectsModesThatRequireSynchronization(t *testing.T) {
 			config:    node.Config{RemoteDB: "localhost:6064"},
 			errString: "remote-db cannot be combined with --disable-sync",
 		},
+		"rpc sync": {
+			config:    node.Config{RPCSyncURL: "http://rpc.host"},
+			errString: "rpc-sync-url requires synchronization",
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			test.config.DisableSync = true
+			_, err := node.New(&test.config, "test", log.NewLevel(log.INFO))
+			require.ErrorContains(t, err, test.errString)
+		})
+	}
+}
+
+func TestNewRejectsModesThatBypassRPCSync(t *testing.T) {
+	tests := map[string]struct {
+		config    node.Config
+		errString string
+	}{
+		"sequencer": {
+			config:    node.Config{Sequencer: true},
+			errString: "rpc-sync-url has no effect in sequencer mode",
+		},
+		"p2p": {
+			config:    node.Config{P2P: true},
+			errString: "rpc-sync-url cannot be combined with --p2p",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			test.config.RPCSyncURL = "http://rpc.host"
 			_, err := node.New(&test.config, "test", log.NewLevel(log.INFO))
 			require.ErrorContains(t, err, test.errString)
 		})
