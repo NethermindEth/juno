@@ -63,7 +63,7 @@ func (b *blockIDType) String() string {
 	case number:
 		return "number"
 	default:
-		panic(fmt.Sprintf("Unknown blockIdType: %d", b))
+		panic(fmt.Sprintf("Unknown blockIdType: %d", *b))
 	}
 }
 
