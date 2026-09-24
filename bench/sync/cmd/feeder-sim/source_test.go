@@ -10,8 +10,8 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
@@ -69,10 +69,9 @@ func (scripted *scripted) source(t *testing.T, retries int, apiKey string) *sour
 	require.NoError(t, err)
 
 	config := testConfig(0, 0, 0)
-	config.network = &networks.Network{FeederURL: feederURL}
 	config.captureRetries = retries
-	config.apiKey = apiKey
-	return newSource(config, log.NewNopZapLogger())
+	feeder := &feederAPI{url: feederURL, apiKey: apiKey}
+	return newSource(newClient(config), config, log.NewNopZapLogger(), feeder)
 }
 
 func TestRetryable(t *testing.T) {
@@ -91,34 +90,6 @@ func TestRetryable(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			require.Equal(t, test.want, retryable(test.err))
-		})
-	}
-}
-
-func TestEnsureGzipped(t *testing.T) {
-	plain := []byte(`{"block_number": 1}`)
-	tests := []struct {
-		name     string
-		body     []byte
-		encoding string
-		wantErr  string
-	}{
-		{"gzip kept as is", gzipped(t, plain), "gzip", ""},
-		{"identity compressed", plain, "identity", ""},
-		{"unset compressed", plain, "", ""},
-		{"brotli rejected", plain, "br", `unsupported Content-Encoding "br"`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := ensureGzipped(test.body, test.encoding)
-			if test.wantErr != "" {
-				require.ErrorContains(t, err, test.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			unzipped, err := gunzip(got)
-			require.NoError(t, err)
-			require.Equal(t, plain, unzipped)
 		})
 	}
 }
@@ -191,6 +162,7 @@ func TestDownload(t *testing.T) {
 			wantErrIs: context.Canceled,
 		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			server := newScripted(t, test.statuses, test.body, test.encoding)
@@ -202,7 +174,8 @@ func TestDownload(t *testing.T) {
 				ctx, cancel = context.WithCancel(ctx)
 				cancel()
 			}
-			got, err := source.download(ctx, source.feederURL.JoinPath("get_block"))
+
+			got, err := source.download(ctx, dataset{}, mustResource(t, block, blockKey{BlockNumber: 5}))
 			require.Equal(t, test.wantRequests, server.count())
 
 			switch {
@@ -229,12 +202,14 @@ func TestDownloadHeaders(t *testing.T) {
 		{"without api key", "", nil},
 		{"with api key", "secret", []string{"secret"}},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			server := newScripted(t, []int{http.StatusOK}, []byte("{}"), "")
 			source := server.source(t, 0, test.apiKey)
 
-			_, err := source.download(t.Context(), source.feederURL.JoinPath("get_block"))
+			resource := mustResource(t, block, blockKey{BlockNumber: 5})
+			_, err := source.download(t.Context(), dataset{}, resource)
 			require.NoError(t, err)
 
 			headers := server.headers()
@@ -321,19 +296,19 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-func TestNewSourceUsesConfiguredNetwork(t *testing.T) {
+func TestNewSource(t *testing.T) {
 	feederURL, err := url.Parse("http://feeder.example/feeder_gateway/")
 	require.NoError(t, err)
 	config := testConfig(0, 0, 0)
-	config.network = &networks.Network{FeederURL: feederURL}
 	config.concurrency = 3
 	config.captureRetries = 7
-	config.apiKey = "k"
+	config.captureRetryDelay = time.Second
+	feeder := &feederAPI{url: feederURL}
 
-	source := newSource(config, log.NewNopZapLogger())
-	require.Same(t, feederURL, source.feederURL)
+	source := newSource(newClient(config), config, log.NewNopZapLogger(), feeder)
+	require.Same(t, feeder, source.api)
 	require.Equal(t, 7, source.retries)
-	require.Equal(t, "k", source.apiKey)
+	require.Equal(t, time.Second, source.retryDelay)
 	require.Equal(t, defaultCaptureTimeout, source.client.Timeout)
 
 	transport, ok := source.client.Transport.(*http.Transport)

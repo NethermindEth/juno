@@ -41,6 +41,7 @@ func (server *server) run(ctx context.Context, listen string) error {
 		Handler:           server.routes(),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
+
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		<-ctx.Done()
@@ -49,6 +50,7 @@ func (server *server) run(ctx context.Context, listen string) error {
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	})
+
 	group.Go(func() error {
 		server.logger.Info("serving", zap.String("listen", listen), zap.Uint64("tip", server.clock.tip()))
 
@@ -56,8 +58,10 @@ func (server *server) run(ctx context.Context, listen string) error {
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
+
 		return err
 	})
+
 	return group.Wait()
 }
 
@@ -128,7 +132,7 @@ func (server *server) serve[K, F comparable](
 			return nil, err
 		}
 
-		if query.Get("blockNumber") == "latest" {
+		if query.Get("blockNumber") == latestBlock {
 			query.Set("blockNumber", strconv.FormatUint(server.clock.tip(), 10))
 		}
 
@@ -142,6 +146,7 @@ func (server *server) serve[K, F comparable](
 				return nil, err
 			}
 		}
+
 		return server.lookup(endpoint, key)
 	}
 

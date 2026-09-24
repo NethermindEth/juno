@@ -5,6 +5,8 @@ import (
 	"net/url"
 )
 
+const latestBlock = "latest"
+
 type endpoint[K, F comparable] struct {
 	name  string
 	fixed F
@@ -22,11 +24,11 @@ var (
 	}
 	classByHash = &endpoint[classKey, atLatest]{
 		name:  "get_class_by_hash",
-		fixed: atLatest{BlockNumber: "latest"},
+		fixed: atLatest{BlockNumber: latestBlock},
 	}
 	compiledClass = &endpoint[classKey, atLatest]{
 		name:  "get_compiled_class_by_class_hash",
-		fixed: atLatest{BlockNumber: "latest"},
+		fixed: atLatest{BlockNumber: latestBlock},
 	}
 )
 

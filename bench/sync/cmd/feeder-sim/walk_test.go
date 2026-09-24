@@ -97,7 +97,7 @@ func TestWalkVisitsEachResourceOnce(t *testing.T) {
 	all := fixtures(t)
 	recorder := &recorder{}
 	walker := &walker{
-		fetcher:     recorder,
+		feeder:      recorder,
 		dataset:     writeDataset(t, all),
 		config:      fixtureConfig(),
 		concurrency: 1,
@@ -112,5 +112,6 @@ func TestWalkVisitsEachResourceOnce(t *testing.T) {
 	for _, fixture := range all {
 		want = append(want, fixture.resource.file)
 	}
+
 	require.ElementsMatch(t, want, recorder.visited)
 }
