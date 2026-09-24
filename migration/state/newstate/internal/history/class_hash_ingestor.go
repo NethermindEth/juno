@@ -1,13 +1,11 @@
 package history
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
@@ -20,11 +18,10 @@ type classHashIngestor struct {
 var _ pipeline.State[felt.Address, common.Task] = (*classHashIngestor)(nil)
 
 func newClassHashIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) *classHashIngestor {
-	return &classHashIngestor{BaseIngestor: common.NewBaseIngestor(ctx, sem, database)}
+	return &classHashIngestor{BaseIngestor: common.NewBaseIngestor(sem, database)}
 }
 
 // Run migrates the class-hash history of a single contract.
@@ -50,8 +47,8 @@ func newClassHashIngestor(
 //
 // If the deprecated history is empty (no replaces ever), the single deploy
 // entry is written with contract.ClassHash directly. Deprecated rows are
-// deleted at the end of the run. Resume-safe: empty-deprecated + existing
-// deploy entry → no-op.
+// wiped with the whole bucket once the phase completes. Resume-safe:
+// empty-deprecated + existing deploy entry → no-op.
 func (i *classHashIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
 	addrFelt := (*felt.Felt)(&addr)
 	t := &i.Tasks[index]
@@ -156,9 +153,6 @@ func (i *classHashIngestor) writeShiftedHistory(
 		}
 	}
 
-	if err := t.Batch.DeleteRange(prefix, dbutils.UpperBound(prefix)); err != nil {
-		return fmt.Errorf("class-hash: DeleteRange deprecated(%s): %w", addr, err)
-	}
 	t.CompletedAddrs++
 	return nil
 }

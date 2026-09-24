@@ -3,6 +3,7 @@ package newstate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
@@ -76,6 +77,7 @@ func (m *Migrator) Migrate(
 			zap.String("progress", fmt.Sprintf("%d/%d", i+1, len(m.phases))),
 		)
 
+		phaseStart := time.Now()
 		next, err := p.m.Migrate(ctx, database, network, logger)
 		if err != nil {
 			return checkpoint(i, next), fmt.Errorf("newstate: %s: %w", p.name, err)
@@ -83,6 +85,11 @@ func (m *Migrator) Migrate(
 		if next != nil {
 			return checkpoint(i, next), nil
 		}
+
+		logger.Info("Applied new state migration phase",
+			zap.String("phase", p.name),
+			zap.Duration("elapsed", time.Since(phaseStart)),
+		)
 	}
 
 	return nil, nil

@@ -1,8 +1,6 @@
 package common
 
 import (
-	"context"
-
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
@@ -10,7 +8,6 @@ import (
 type BaseIngestor struct {
 	Database       db.KeyValueReader
 	Tasks          []Task
-	ctx            context.Context
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
 }
 
@@ -19,7 +16,6 @@ type BaseIngestor struct {
 // acquires cannot block — using GetBlocking keeps the constructor signature
 // error-free.
 func NewBaseIngestor(
-	ctx context.Context,
 	sem semaphore.ResourceSemaphore[db.Batch],
 	database db.KeyValueReader,
 ) BaseIngestor {
@@ -30,34 +26,30 @@ func NewBaseIngestor(
 	return BaseIngestor{
 		Database:       database,
 		Tasks:          tasks,
-		ctx:            ctx,
 		batchSemaphore: sem,
 	}
 }
 
 // Flush emits the current task downstream when its batch hits target size and
-// acquires a fresh batch. The ctx-aware select on the channel send is the
-// snappy cancellation point. The semaphore acquire uses GetBlocking — it is
-// guaranteed to unblock within one committer iteration because the committer's
-// deferred Put always runs.
+// acquires a fresh batch.
+//
+// It deliberately does not watch for cancellation. When the context ends the
+// source stops handing out addresses, but every address already handed out is
+// finished and committed; that is what makes the source's position an exact
+// resume point. The semaphore acquire uses GetBlocking — it is guaranteed to
+// unblock within one committer iteration because the committer's deferred Put
+// always runs.
 func (b *BaseIngestor) Flush(t *Task, outputs chan<- Task) error {
 	if t.Batch.Size() < TargetBatchByteSize {
 		return nil
 	}
-	select {
-	case <-b.ctx.Done():
-		return b.ctx.Err()
-	case outputs <- *t:
-	}
+	outputs <- *t
 	*t = Task{Batch: b.batchSemaphore.GetBlocking()}
 	return nil
 }
 
+// Done hands the worker's final, partial task to the committer.
 func (b *BaseIngestor) Done(index int, outputs chan<- Task) error {
-	select {
-	case <-b.ctx.Done():
-		return b.ctx.Err()
-	case outputs <- b.Tasks[index]:
-	}
+	outputs <- b.Tasks[index]
 	return nil
 }
