@@ -196,6 +196,14 @@ func TestNew_RejectsPruneWithoutL1Verification(t *testing.T) {
 	require.ErrorContains(t, err, "prune-mode requires L1 verification")
 }
 
+func TestNew_RejectsPruneWithNewState(t *testing.T) {
+	_, err := node.New(&node.Config{
+		Prune:    true,
+		NewState: true,
+	}, "test", log.NewLevel(log.INFO))
+	require.ErrorContains(t, err, "--prune-mode and --new-state are mutually exclusive")
+}
+
 func TestNewRejectsModesThatRequireSynchronization(t *testing.T) {
 	tests := map[string]struct {
 		config    node.Config

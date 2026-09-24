@@ -221,6 +221,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			"remove --disable-l1-verification or disable --prune-mode")
 	}
 
+	if cfg.Prune && cfg.NewState {
+		return nil, errors.New("--prune-mode and --new-state are mutually exclusive; " +
+			"remove one of them")
+	}
+
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {

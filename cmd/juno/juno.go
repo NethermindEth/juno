@@ -313,7 +313,7 @@ const (
 		"window cannot be recovered without re-syncing. Changing this value " +
 		"across restarts is safe: the window grows or shrinks accordingly. " +
 		"Growth is gradual — pruning pauses until the pivot advances enough to " +
-		"reach the new floor."
+		"reach the new floor. Cannot be combined with --new-state."
 	pruneMinAgeUsage = "Protect blocks whose on-chain timestamp is " +
 		"younger than this duration from being pruned. Acts as an " +
 		"additional floor on top of --prune-mode: a block is retained " +
@@ -330,7 +330,8 @@ const (
 		"submitted through this node — these transactions are local to the node " +
 		"and are not sourced from the network. When this flag is enabled, the " +
 		"node will no longer notify subscribers about transactions submitted through it."
-	newStateUsage = "EXPERIMENTAL: Use the new state package implementation"
+	newStateUsage = "EXPERIMENTAL: Use the new state package implementation. " +
+		"Cannot be combined with --prune-mode."
 )
 
 var Version string
