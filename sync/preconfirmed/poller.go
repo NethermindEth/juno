@@ -60,6 +60,7 @@ type Poller struct {
 
 	preConfirmedChain *ChainStorage
 	req               chan chan struct{}
+	running           atomic.Bool
 }
 
 func NewPoller(
@@ -79,6 +80,7 @@ func NewPoller(
 
 		preConfirmedChain: NewChainStorage(),
 		req:               make(chan chan struct{}, 1),
+		running:           atomic.Bool{},
 	}
 }
 
@@ -115,7 +117,11 @@ func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 }
 
 func (p *Poller) requestChainUpdate() {
-	ctx, cancelCtx := context.WithTimeout(context.Background(), 2*time.Second)
+	if !p.running.Load() {
+		return
+	}
+
+	ctx, cancelCtx := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelCtx()
 
 	rec := make(chan struct{}, 1)
@@ -132,10 +138,10 @@ func (p *Poller) requestChainUpdate() {
 	}
 }
 
-func (p *Poller) processChainUpdateRequest(ctx context.Context, rec chan struct{}) {
+func (p *Poller) processChainUpdateRequest(rec chan struct{}) {
 	select {
-	case <-ctx.Done():
 	case rec <- struct{}{}:
+	default:
 	}
 	close(rec)
 }
@@ -164,6 +170,11 @@ func (p *Poller) Run(ctx context.Context) {
 		}
 	}
 
+	p.running.Store(true)
+	defer func() {
+		p.running.Store(false)
+	}()
+
 	lastSuccessfulPoll := time.Now()
 	const freshness = 100 * time.Millisecond
 	for {
@@ -173,17 +184,17 @@ func (p *Poller) Run(ctx context.Context) {
 
 		case rec := <-p.req:
 			if time.Since(lastSuccessfulPoll) <= freshness {
-				p.processChainUpdateRequest(ctx, rec)
+				p.processChainUpdateRequest(rec)
 				continue
 			}
 
 			if err := p.poll(ctx); err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
-				p.processChainUpdateRequest(ctx, rec)
+				p.processChainUpdateRequest(rec)
 				continue
 			}
 			lastSuccessfulPoll = time.Now()
-			p.processChainUpdateRequest(ctx, rec)
+			p.processChainUpdateRequest(rec)
 			ticker.Reset(p.interval)
 
 		case <-ticker.C:
