@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -95,23 +96,45 @@ func (recorder *recorder) fetch(
 
 func TestWalkVisitsEachResourceOnce(t *testing.T) {
 	all := fixtures(t)
-	recorder := &recorder{}
-	walker := &walker{
-		feeder:      recorder,
-		dataset:     writeDataset(t, all),
-		config:      fixtureConfig(),
-		concurrency: 1,
-		logger:      log.NewNopZapLogger(),
+	rounds := preConfirmedFixtures(t)
+	dataset := writeDataset(t, slices.Concat(all, rounds))
+
+	tests := []struct {
+		name         string
+		preconfirmed bool
+		wantRounds   []fixture
+	}{
+		{"feeder only", false, nil},
+		{"with pre-confirmed", true, rounds},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeder := &recorder{}
+			preConfirmed := &recorder{}
+			walker := &walker{
+				feeder:      feeder,
+				dataset:     dataset,
+				config:      fixtureConfig(),
+				concurrency: 1,
+				logger:      log.NewNopZapLogger(),
+			}
+			if test.preconfirmed {
+				walker.preConfirmed = preConfirmed
+			}
 
-	blocks, err := walker.walk(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, fixtureBlocks, blocks)
+			blocks, err := walker.walk(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, fixtureBlocks, blocks)
+			require.ElementsMatch(t, files(all), feeder.visited)
+			require.ElementsMatch(t, files(test.wantRounds), preConfirmed.visited)
+		})
+	}
+}
 
-	want := make([]string, 0, len(all))
+func files(all []fixture) []string {
+	files := make([]string, 0, len(all))
 	for _, fixture := range all {
-		want = append(want, fixture.resource.file)
+		files = append(files, fixture.resource.file)
 	}
-
-	require.ElementsMatch(t, want, recorder.visited)
+	return files
 }

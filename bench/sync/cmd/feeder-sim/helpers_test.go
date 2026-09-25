@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -160,4 +161,145 @@ func (upstream *upstream) network(t *testing.T) *networks.Network {
 	network := networks.Sepolia
 	network.FeederURL = upstream.feederURL(t)
 	return &network
+}
+
+// rpcStateDiffJSON is a starknet_traceBlockTransactions state diff with every field kind set.
+const rpcStateDiffJSON = `{
+	"storage_diffs": [{
+		"address": "0xa1",
+		"storage_entries": [{"key": "0x1", "value": "0x10"}, {"key": "0x2", "value": "0x20"}]
+	}],
+	"nonces": [{"contract_address": "0xa1", "nonce": "0x5"}],
+	"deployed_contracts": [{"address": "0xa2", "class_hash": "0xc1"}],
+	"deprecated_declared_classes": ["0xc0"],
+	"declared_classes": [{"class_hash": "0xc1", "compiled_class_hash": "0xd1"}],
+	"replaced_classes": [{"contract_address": "0xa3", "class_hash": "0xc2"}],
+	"migrated_compiled_classes": [{"class_hash": "0xc3", "compiled_class_hash": "0xd3"}]
+}`
+
+const rpcBlockNotFound = `{"jsonrpc": "2.0", "id": 1, ` +
+	`"error": {"code": 24, "message": "Block not found"}}`
+
+// traceFixture is a real starknet_traceBlockTransactions result for Sepolia block 3, whose
+// pre-0.13.1 header lacks the gas prices a pre-confirmed block needs.
+var traceFixture = filepath.Join(
+	"..", "..", "..", "..", "rpc", "v10", "testdata", "traces", "sepolia_block_3.json",
+)
+
+func rpcResult(result []byte) []byte {
+	return []byte(`{"jsonrpc": "2.0", "id": 1, "result": ` + string(result) + `}`)
+}
+
+func fixtureBlock(t *testing.T, number uint64) *confirmedBlock {
+	t.Helper()
+	var response rawBlock
+	file := strconv.FormatUint(number, 10) + ".json"
+	require.NoError(t, json.Unmarshal(readFixture(t, "state_update_with_block", file), &response))
+	require.NotNil(t, response.Block)
+	return response.Block
+}
+
+// syntheticTraces is the starknet_traceBlockTransactions result for a fixture block: the full
+// diff on the first transaction, an empty one on the second and null on the rest.
+func syntheticTraces(t *testing.T, block *confirmedBlock) []byte {
+	t.Helper()
+	traces := make([]json.RawMessage, 0, len(block.Transactions))
+	for index, transaction := range block.Transactions {
+		var fields struct {
+			Hash string `json:"transaction_hash"`
+		}
+		require.NoError(t, json.Unmarshal(transaction, &fields))
+
+		diff := "null"
+		switch index {
+		case 0:
+			diff = rpcStateDiffJSON
+		case 1:
+			diff = "{}"
+		}
+		trace := fmt.Sprintf(
+			`{"transaction_hash": %q, "trace_root": {"state_diff": %s}}`,
+			fields.Hash,
+			diff,
+		)
+		traces = append(traces, json.RawMessage(trace))
+	}
+
+	result, err := json.Marshal(traces)
+	require.NoError(t, err)
+	return result
+}
+
+func decodeTraceResult(t *testing.T, result []byte) []tracedTransaction {
+	t.Helper()
+	var traces []tracedTransaction
+	require.NoError(t, json.Unmarshal(result, &traces))
+	return traces
+}
+
+func fixtureTraces(t *testing.T) map[uint64][]byte {
+	t.Helper()
+	traces := make(map[uint64][]byte, fixtureTo-fixtureFrom+1)
+	for number := fixtureFrom; number <= fixtureTo; number++ {
+		traces[number] = syntheticTraces(t, fixtureBlock(t, number))
+	}
+	return traces
+}
+
+// preConfirmedFixtures are the rounds --preconfirmed capture builds for the fixture blocks.
+func preConfirmedFixtures(t *testing.T) []fixture {
+	t.Helper()
+	all := make([]fixture, 0, fixtureTo-fixtureFrom+1)
+	for number := fixtureFrom; number <= fixtureTo; number++ {
+		block := fixtureBlock(t, number)
+		round, err := buildRound(number, block, decodeTraceResult(t, syntheticTraces(t, block)))
+		require.NoError(t, err)
+		plain, err := gunzip(round)
+		require.NoError(t, err)
+		resource := mustResource(t, preConfirmedBlock, blockKey{BlockNumber: number})
+		all = append(all, fixture{resource, plain})
+	}
+	return all
+}
+
+// rpcUpstream stands in for the JSON-RPC node during --preconfirmed capture. It answers
+// starknet_traceBlockTransactions from traces keyed by block number, uncompressed, and
+// everything else with a JSON-RPC "Block not found" error.
+type rpcUpstream struct {
+	*httptest.Server
+	requests atomic.Int64
+	traces   map[uint64][]byte
+}
+
+func newRPCUpstream(t *testing.T, traces map[uint64][]byte) *rpcUpstream {
+	t.Helper()
+	upstream := &rpcUpstream{traces: traces}
+	upstream.Server = httptest.NewServer(http.HandlerFunc(upstream.handle))
+	t.Cleanup(upstream.Close)
+	return upstream
+}
+
+func (upstream *rpcUpstream) handle(writer http.ResponseWriter, request *http.Request) {
+	upstream.requests.Add(1)
+	var call traceRequest
+	if err := json.NewDecoder(request.Body).Decode(&call); err != nil {
+		http.Error(writer, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	body := []byte(rpcBlockNotFound)
+	result, ok := upstream.traces[call.Params.BlockID.BlockNumber]
+	if ok && call.Method == "starknet_traceBlockTransactions" {
+		body = rpcResult(result)
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Write(body) //nolint:errcheck // test server
+}
+
+func (upstream *rpcUpstream) url(t *testing.T) *url.URL {
+	t.Helper()
+	rpcURL, err := url.Parse(upstream.URL)
+	require.NoError(t, err)
+	return rpcURL
 }
