@@ -711,6 +711,17 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 	require.NotNil(t, header)
 }
 
+// uncappedTransport hands HandleReadWriter a stream with no subscription cap,
+// which these tests have no use for. The cap is part of jsonrpc.Transport so
+// that a real transport cannot forget it, and saying so here is the price.
+type uncappedTransport struct {
+	net.Conn
+}
+
+func (uncappedTransport) TryAcquireSubscription() bool { return true }
+
+func (uncappedTransport) ReleaseSubscription() {}
+
 type fakeConn struct {
 	ctx context.Context
 }
@@ -726,6 +737,10 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
+
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
 
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
@@ -755,7 +770,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), 0, serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, uncappedTransport{serverConn})
 		require.NoError(t, err)
 	})
 
@@ -792,7 +807,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), 0, serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, uncappedTransport{serverConn})
 		require.ErrorIs(t, err, io.ErrClosedPipe)
 	})
 
