@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/headstate"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/history"
+	"github.com/NethermindEth/juno/migration/state/newstate/internal/trie"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -35,6 +36,7 @@ func New() *Migrator {
 	return &Migrator{phases: []phase{
 		{name: "headstate", m: &headstate.Migrator{}},
 		{name: "history", m: &history.Migrator{}},
+		{name: "trie", m: &trie.Migrator{}},
 	}}
 }
 
