@@ -69,51 +69,10 @@ func (e *Edge) String() string {
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
 // Proof hashes come from stored node values: call Hash after the last write.
+// Prove is kept as a compatibility wrapper for existing single-key callers.
+// New multi-key proof generation should use ProveMulti.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
-	if err := t.ensureNoUnhashedWrites(); err != nil {
-		return err
-	}
-
-	k := t.FeltToKey(key)
-
-	nodesFromRoot, err := t.nodesFromRoot(&k)
-	if err != nil {
-		return err
-	}
-
-	var parentKey *BitArray
-	// Hash of the current node as seen by its parent; nil for the root.
-	var carriedHash *felt.Felt
-
-	// Proof entries alias node felts, so the nodes cannot go back to nodePool.
-	for i, sNode := range nodesFromRoot {
-		isLeaf := sNode.key.len == t.height
-
-		var onPathChild *StorageNode
-		if !isLeaf && i+1 < len(nodesFromRoot) {
-			onPathChild = &nodesFromRoot[i+1]
-		}
-		sNodeBinary, err := t.addProofNode(parentKey, sNode, carriedHash, proof, onPathChild)
-		if err != nil {
-			return err
-		}
-
-		if isLeaf {
-			break // binary leaf; nothing to add
-		}
-
-		// Carry the on-path child's hash; a nil carry only costs a recomputation.
-		carriedHash = nil
-		switch {
-		case onPathChild == nil:
-		case onPathChild.key.Equal(sNode.node.Left):
-			carriedHash = sNodeBinary.LeftHash
-		case onPathChild.key.Equal(sNode.node.Right):
-			carriedHash = sNodeBinary.RightHash
-		}
-		parentKey = sNode.key
-	}
-	return nil
+	return t.ProveMulti([]felt.Felt{*key}, proof)
 }
 
 // ProveMulti generates Merkle proofs for multiple keys with a shared trie traversal.
@@ -148,49 +107,47 @@ func (t *Trie) ProveMulti(keys []felt.Felt, proof *ProofNodeSet) error {
 	return t.proveMultiFrom(t.rootKey, nil, dedupedKeys, nil, nil, proof)
 }
 
-func (t *Trie) ensureNoUnhashedWrites() error {
-	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
-		return errors.New("cannot prove a trie with unhashed writes")
-	}
-	return nil
-}
-
 func (t *Trie) proveMultiFrom(
-	cur, parentKey *BitArray,
+	currentKey *BitArray,
+	parentKey *BitArray,
 	keys []BitArray,
 	carriedHash *felt.Felt,
 	knownNode *Node,
 	proof *ProofNodeSet,
 ) error {
-	if shouldSkipMultiProofNode(cur, parentKey, keys) {
+	if isEndOfBranchReached(currentKey, parentKey, keys) {
 		return nil
 	}
 
-	node, err := t.proofNode(cur, knownNode)
+	node, err := t.readProofNode(currentKey, knownNode)
 	if err != nil {
 		return err
 	}
 
-	continuingKeys := multiProofKeysForNode(cur, keys)
-	leftKeys, rightKeys := splitKeysByBit(continuingKeys, cur.Len())
+	continuingKeys := multiProofKeysForNode(currentKey, keys)
+	leftKeys, rightKeys := splitKeysByBit(continuingKeys, currentKey.Len())
 
-	knownChildren, leftNode, rightNode, err := t.readKnownProofChildren(node, leftKeys, rightKeys)
+	knownStorageNodes, leftNode, rightNode, err := t.readKnownProofChildren(
+		node,
+		leftKeys,
+		rightKeys,
+	)
 	if err != nil {
 		return err
 	}
 
 	binary, err := t.addProofNode(
 		parentKey,
-		StorageNode{key: cur, node: node},
+		StorageNode{key: currentKey, node: node},
 		carriedHash,
 		proof,
-		knownChildren...,
+		knownStorageNodes...,
 	)
 	if err != nil {
 		return err
 	}
 
-	if cur.Len() >= t.height || len(continuingKeys) == 0 {
+	if currentKey.Len() >= t.height || len(continuingKeys) == 0 {
 		return nil
 	}
 
@@ -198,7 +155,14 @@ func (t *Trie) proveMultiFrom(
 	if binary != nil {
 		leftHash = binary.LeftHash
 	}
-	if err := t.proveMultiFrom(node.Left, cur, leftKeys, leftHash, leftNode, proof); err != nil {
+	if err := t.proveMultiFrom(
+		node.Left,
+		currentKey,
+		leftKeys,
+		leftHash,
+		leftNode,
+		proof,
+	); err != nil {
 		return err
 	}
 
@@ -206,28 +170,32 @@ func (t *Trie) proveMultiFrom(
 	if binary != nil {
 		rightHash = binary.RightHash
 	}
-	return t.proveMultiFrom(node.Right, cur, rightKeys, rightHash, rightNode, proof)
+	return t.proveMultiFrom(node.Right, currentKey, rightKeys, rightHash, rightNode, proof)
 }
 
-func shouldSkipMultiProofNode(cur, parentKey *BitArray, keys []BitArray) bool {
-	if cur == nil || len(keys) == 0 {
+func isEndOfBranchReached(
+	currentKey *BitArray,
+	parentKey *BitArray,
+	keys []BitArray,
+) bool {
+	if currentKey == nil || len(keys) == 0 {
 		return true
 	}
 	// Proof nodes set "nil" nodes to zero. This mirrors nodesFromRoot for non-root children.
-	return parentKey != nil && cur.len == 0
+	return parentKey != nil && currentKey.len == 0
 }
 
-func (t *Trie) proofNode(cur *BitArray, knownNode *Node) (*Node, error) {
+func (t *Trie) readProofNode(currentKey *BitArray, knownNode *Node) (*Node, error) {
 	if knownNode != nil {
 		return knownNode, nil
 	}
-	return t.readStorage.Get(cur)
+	return t.readStorage.Get(currentKey)
 }
 
-func multiProofKeysForNode(cur *BitArray, keys []BitArray) []BitArray {
+func multiProofKeysForNode(currentKey *BitArray, keys []BitArray) []BitArray {
 	continuingKeys := keys[:0]
 	for i := range keys {
-		if cur.Len() < keys[i].Len() && keys[i].EqualMSBs(cur) {
+		if currentKey.Len() < keys[i].Len() && keys[i].EqualMSBs(currentKey) {
 			continuingKeys = append(continuingKeys, keys[i])
 		}
 	}
@@ -247,27 +215,28 @@ func splitKeysByBit(keys []BitArray, bitIndex uint8) ([]BitArray, []BitArray) {
 
 func (t *Trie) readKnownProofChildren(
 	node *Node,
-	leftKeys, rightKeys []BitArray,
+	leftKeys []BitArray,
+	rightKeys []BitArray,
 ) ([]*StorageNode, *Node, *Node, error) {
-	var knownChildren []*StorageNode
+	var knownStorageNodes []*StorageNode
 
-	leftNode, leftChild, err := t.readKnownProofChild(leftKeys, node.Left)
+	leftNode, leftStorageNode, err := t.readKnownProofChild(leftKeys, node.Left)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if leftChild != nil {
-		knownChildren = append(knownChildren, leftChild)
+	if leftStorageNode != nil {
+		knownStorageNodes = append(knownStorageNodes, leftStorageNode)
 	}
 
-	rightNode, rightChild, err := t.readKnownProofChild(rightKeys, node.Right)
+	rightNode, rightStorageNode, err := t.readKnownProofChild(rightKeys, node.Right)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if rightChild != nil {
-		knownChildren = append(knownChildren, rightChild)
+	if rightStorageNode != nil {
+		knownStorageNodes = append(knownStorageNodes, rightStorageNode)
 	}
 
-	return knownChildren, leftNode, rightNode, nil
+	return knownStorageNodes, leftNode, rightNode, nil
 }
 
 func (t *Trie) readKnownProofChild(
@@ -286,12 +255,19 @@ func (t *Trie) readKnownProofChild(
 	return node, &StorageNode{key: childKey, node: node}, nil
 }
 
+func (t *Trie) ensureNoUnhashedWrites() error {
+	if t.rootKeyIsDirty || len(t.dirtyNodes) > 0 {
+		return errors.New("cannot prove a trie with unhashed writes")
+	}
+	return nil
+}
+
 func (t *Trie) addProofNode(
 	parentKey *BitArray,
 	sNode StorageNode,
 	carriedHash *felt.Felt,
 	proof *ProofNodeSet,
-	knownChildren ...*StorageNode,
+	knownStorageNodes ...*StorageNode,
 ) (*Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode.key) {
@@ -308,7 +284,7 @@ func (t *Trie) addProofNode(
 		return nil, nil
 	}
 
-	binary, err := binaryProofNode(t, sNode, knownChildren...)
+	binary, err := createBinaryProofNode(t, sNode, knownStorageNodes...)
 	if err != nil {
 		return nil, err
 	}
@@ -576,24 +552,26 @@ func isEdge(parentKey, childKey *BitArray) bool {
 	return childKey.len-parentKey.len > 1
 }
 
-// binaryProofNode builds the Binary proof node of an internal StorageNode.
+// createBinaryProofNode builds the Binary proof node of an internal StorageNode.
 // Juno trie nodes are Binary AND Edge; the protocol requires Binary XOR Edge.
-// knownChildren were already read by the traversal, so they don't cost another
+// knownStorageNodes were already read by the traversal, so they don't cost another
 // database lookup.
-func binaryProofNode(
-	tri *Trie, sNode StorageNode, knownChildren ...*StorageNode,
+func createBinaryProofNode(
+	trie *Trie,
+	sNode StorageNode,
+	knownStorageNodes ...*StorageNode,
 ) (*Binary, error) {
 	childHash := func(childKey *BitArray) (*felt.Felt, error) {
 		var child *Node
-		for _, knownChild := range knownChildren {
-			if knownChild != nil && childKey.Equal(knownChild.key) {
-				child = knownChild.node
+		for _, knownStorageNode := range knownStorageNodes {
+			if knownStorageNode != nil && childKey.Equal(knownStorageNode.key) {
+				child = knownStorageNode.node
 				break
 			}
 		}
 		if child == nil {
 			var err error
-			if child, err = tri.GetNodeFromKey(childKey); err != nil {
+			if child, err = trie.GetNodeFromKey(childKey); err != nil {
 				return nil, err
 			}
 		}
@@ -601,7 +579,7 @@ func binaryProofNode(
 		// Node.HashFromParent would cost an allocation per non-edge child.
 		if isEdge(sNode.key, childKey) {
 			edgePath := path(childKey, sNode.key)
-			wrapped := child.Hash(&edgePath, tri.hash)
+			wrapped := child.Hash(&edgePath, trie.hash)
 			return &wrapped, nil
 		}
 		return child.Value, nil

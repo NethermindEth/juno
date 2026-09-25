@@ -22,61 +22,10 @@ func NewProofNodeSet() *ProofNodeSet {
 // The result contains the proof nodes on the path from the root to the leaf.
 // The value is included in the proof if the key is present in the trie.
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
+// Prove is kept as a compatibility wrapper for existing single-key callers.
+// New multi-key proof generation should use ProveMulti.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
-	if t.committed {
-		return ErrCommitted
-	}
-
-	path := trieutils.FeltToPath(key, t.height)
-
-	var (
-		nodes    []trienode.Node
-		prefix   = new(Path)
-		rootNode = t.root
-	)
-
-	for path.Len() > 0 && rootNode != nil {
-		switch n := rootNode.(type) {
-		case *trienode.EdgeNode:
-			if !n.PathMatches(&path) {
-				rootNode = nil // Trie doesn't contain the key
-			} else {
-				rootNode = n.Child
-				prefix.Append(prefix, n.Path)
-				(&path).LSBs(&path, n.Path.Len())
-			}
-			nodes = append(nodes, n)
-		case *trienode.BinaryNode:
-			bit := (&path).MSB()
-			rootNode = n.Children[bit]
-			prefix.AppendBit(prefix, bit)
-			(&path).LSBs(&path, 1)
-			nodes = append(nodes, n)
-		case *trienode.HashNode:
-			resolved, err := t.resolveNode(n, *prefix)
-			if err != nil {
-				return err
-			}
-			rootNode = resolved
-		default:
-			panic(fmt.Sprintf("key: %s, unknown node type: %T", key.String(), n))
-		}
-	}
-
-	hasher := newHasher(t.hashFn, false)
-	for i, n := range nodes {
-		var hn trienode.Node
-		n, hn = hasher.proofHash(n)
-		if hash, ok := hn.(*trienode.HashNode); ok || i == 0 {
-			if !ok {
-				hashVal := n.Hash(hasher.hashFn)
-				hash = (*trienode.HashNode)(&hashVal)
-			}
-			proof.Put(felt.Felt(*hash), n)
-		}
-	}
-
-	return nil
+	return t.ProveMulti([]felt.Felt{*key}, proof)
 }
 
 // ProveMulti generates Merkle proofs for multiple keys with a shared trie traversal.
