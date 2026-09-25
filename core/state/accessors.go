@@ -56,6 +56,21 @@ func WriteContract(
 	return writeContract(w, addr, &contract)
 }
 
+// WriteContractStorageRoot sets the storage root of an existing contract.
+func WriteContractStorageRoot(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	addr *felt.Felt,
+	root *felt.Felt,
+) error {
+	contract, err := GetContract(r, addr)
+	if err != nil {
+		return err
+	}
+	contract.StorageRoot = *root
+	return writeContract(w, addr, &contract)
+}
+
 func writeContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
