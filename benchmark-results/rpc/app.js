@@ -226,22 +226,22 @@ function recencyColor(index, total) {
   );
 }
 
-function statusColors(values, color) {
-  return values.map((value) =>
-    value.status === "failed" ? "#b42318" : color
-  );
+// Keep failed cases in their run slots, but leave their measurements as gaps.
+function measurement(value, read) {
+  return value?.status === "passed" ? read(value) ?? null : null;
 }
 
-function chartDataset(label, data, color, colors = color, showLine = true) {
+function chartDataset(label, data, color, showLine = true) {
   return {
     label,
     data,
     borderColor: color,
     backgroundColor: color,
-    pointBackgroundColor: colors,
+    pointBackgroundColor: color,
     pointRadius: 5,
     pointHoverRadius: 7,
     showLine,
+    spanGaps: false,
     cubicInterpolationMode: "monotone"
   };
 }
@@ -249,9 +249,8 @@ function chartDataset(label, data, color, colors = color, showLine = true) {
 function latencyDatasets(values, showLine = true) {
   return latencySeries.map(({label, metric, color}) => chartDataset(
     label,
-    values.map((value) => value.latencyMs?.[metric]),
+    values.map((value) => measurement(value, (item) => item.latencyMs?.[metric])),
     color,
-    statusColors(values, color),
     showLine
   ));
 }
@@ -305,9 +304,8 @@ function createThroughputChart(canvas, endpoint, points) {
       labels: points.map((point) => pointLabel(point, counts)),
       datasets: [chartDataset(
         "Requests/second",
-        values.map((value) => value.requests?.rate),
-        "#08783e",
-        statusColors(values, "#08783e")
+        values.map((value) => measurement(value, (item) => item.requests?.rate)),
+        "#08783e"
       )]
     },
     options: chartOptions(`${endpoint} throughput`)
@@ -333,8 +331,11 @@ function populateLatest(latest, endpoint) {
   addCard("Overall run", latest.summary.run.status, latest.summary.run.status);
   if (endpoint) {
     addCard("Endpoint status", latest.value.status, latest.value.status);
-    addCard("Latest p95", `${formatNumber(latest.value.latencyMs?.p95)} ms`);
-    addCard("Requests/s", formatNumber(latest.value.requests?.rate));
+    const p95 = measurement(latest.value, (item) => item.latencyMs?.p95);
+    addCard("Latest p95", p95 === null ? "n/a" : `${formatNumber(p95)} ms`);
+    addCard("Requests/s", formatNumber(
+      measurement(latest.value, (item) => item.requests?.rate)
+    ));
     addCard(
       "Failure rate",
       typeof latest.value.requests?.failureRate === "number"
@@ -437,7 +438,7 @@ function panelOptions(endpoint, xTicks, tooltipTitles) {
   return options;
 }
 
-// One dataset per run, so a run missing this case leaves a gap instead of
+// One dataset per run, so a missing or failed case leaves a gap instead of
 // shifting the colors of the runs that do have it.
 function profileDatasets(points, endpoint, counts) {
   return points.map((point, index) => {
@@ -446,9 +447,10 @@ function profileDatasets(points, endpoint, counts) {
     return {
       ...chartDataset(
         pointLabel(point, counts),
-        percentileSeries.map(({metric}) => value?.latencyMs?.[metric] ?? null),
-        color,
-        value ? statusColors(percentileSeries.map(() => value), color) : color
+        percentileSeries.map(({metric}) =>
+          measurement(value, (item) => item.latencyMs?.[metric])
+        ),
+        color
       ),
       borderWidth: 2
     };
