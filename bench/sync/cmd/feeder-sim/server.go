@@ -31,6 +31,7 @@ type responder func(requestURL *url.URL) ([]byte, error)
 type server struct {
 	store  *store
 	clock  *clock
+	window *window
 	config *config
 	logger *log.ZapLogger
 }
@@ -52,7 +53,22 @@ func (server *server) run(ctx context.Context, listen string) error {
 	})
 
 	group.Go(func() error {
-		server.logger.Info("serving", zap.String("listen", listen), zap.Uint64("tip", server.clock.tip()))
+		fields := []zap.Field{
+			zap.String("listen", listen),
+			zap.Uint64("tip", server.clock.tip()),
+			zap.Bool("preconfirmed", server.config.preconfirmed),
+		}
+
+		if server.config.preconfirmed {
+			fields = append(
+				fields,
+				zap.Uint64("lead", server.config.lead),
+				zap.Uint64("keep", server.config.keep),
+				zap.Uint64("stages", server.config.stages),
+			)
+		}
+
+		server.logger.Info("serving", fields...)
 
 		err := httpServer.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
@@ -72,7 +88,12 @@ func (server *server) routes() *http.ServeMux {
 	server.serve(mux, classByHash)
 	server.serve(mux, compiledClass)
 	server.serve(mux, contractAddresses)
-	mux.Handle(feederPrefix+preConfirmedBlock.name, server.handler(notInWindow))
+	preConfirmedResponder := notInWindow
+	if server.config.preconfirmed {
+		preConfirmedResponder = server.logged(server.preConfirmedReply)
+	}
+
+	mux.Handle(feederPrefix+preConfirmedBlock.name, server.handler(preConfirmedResponder))
 	mux.Handle("/", server.handler(server.logged(unknown)))
 	return mux
 }

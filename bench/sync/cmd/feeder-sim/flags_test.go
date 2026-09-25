@@ -95,6 +95,7 @@ func TestValidateRejects(t *testing.T) {
 			append(required, "--network", "sepolia", "--preconfirmed"),
 			"--preconfirmed with --network requires --rpc-url",
 		},
+		{"zero lead", append(required, "--preconfirmed-lead", "0"), "--preconfirmed-lead must be >= 1"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -159,23 +160,37 @@ func TestValidateCaptureDefaults(t *testing.T) {
 
 func TestValidatePreConfirmed(t *testing.T) {
 	required := []string{"--data", "d", "--from", "1", "--to", "3"}
+	defaults := []uint64{defaultPreConfirmedLead, defaultPreConfirmedKeep, defaultPreConfirmedStages}
 	tests := []struct {
 		name             string
 		args             []string
 		wantPreconfirmed bool
 		wantRPC          string
+		wantWindow       []uint64 // lead, keep, stages
 	}{
-		{"defaults", required, false, ""},
-		{"serve rounds offline", append(required, "--preconfirmed"), true, ""},
+		{"defaults", required, false, "", defaults},
+		{"serve rounds offline", append(required, "--preconfirmed"), true, "", defaults},
 		{
 			"capture rounds",
 			append(required, "--network", "sepolia", "--listen", "off", "--preconfirmed", "--rpc-url", "http://node:6060"),
-			true, "http://node:6060",
+			true, "http://node:6060", defaults,
 		},
 		{
 			"rpc url alone",
 			append(required, "--rpc-url", "https://node.example/rpc/v0_10"),
-			false, "https://node.example/rpc/v0_10",
+			false, "https://node.example/rpc/v0_10", defaults,
+		},
+		{
+			"custom window",
+			append(
+				required,
+				"--preconfirmed",
+				"--preconfirmed-lead", "1",
+				"--preconfirmed-keep", "0",
+				"--preconfirmed-stages", "0",
+			),
+			true, "",
+			[]uint64{1, 0, 0},
 		},
 	}
 	for _, test := range tests {
@@ -183,6 +198,7 @@ func TestValidatePreConfirmed(t *testing.T) {
 			parsed, err := parseConfig(t, test.args...)
 			require.NoError(t, err)
 			require.Equal(t, test.wantPreconfirmed, parsed.preconfirmed)
+			require.Equal(t, test.wantWindow, []uint64{parsed.lead, parsed.keep, parsed.stages})
 			if test.wantRPC == "" {
 				require.Nil(t, parsed.rpc)
 				return

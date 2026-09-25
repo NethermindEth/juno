@@ -14,29 +14,38 @@ import (
 
 func TestJunoFlags(t *testing.T) {
 	tests := []struct {
-		name    string
-		network *networks.Network
-		listen  string
-		want    string
+		name         string
+		network      *networks.Network
+		listen       string
+		preconfirmed bool
+		want         string
 	}{
 		{
-			"sepolia on default listen", &networks.Sepolia, "",
+			"sepolia on default listen", &networks.Sepolia, "", false,
 			"--cn-name sepolia --cn-feeder-url http://127.0.0.1:7070/feeder_gateway/ " +
 				"--cn-gateway-url http://127.0.0.1:7070/gateway/ --cn-l2-chain-id SN_SEPOLIA --cn-l1-chain-id 11155111 " +
 				"--cn-core-contract-address 0xe2bb56ee936fd6433dc0f6e7e3b8365c906aa057 " +
 				"--cn-unverifiable-range 0,0 --preconfirmed-poll-interval 0",
 		},
 		{
-			"mainnet on all interfaces", &networks.Mainnet, ":9000",
+			"mainnet on all interfaces", &networks.Mainnet, ":9000", false,
 			"--cn-name mainnet --cn-feeder-url http://:9000/feeder_gateway/ " +
 				"--cn-gateway-url http://:9000/gateway/ --cn-l2-chain-id SN_MAIN --cn-l1-chain-id 1 " +
 				"--cn-core-contract-address 0xc662c410c0ecf747543f5ba90660f6abebd9c8c4 " +
 				"--cn-unverifiable-range 0,0 --preconfirmed-poll-interval 0",
 		},
+		{
+			"sepolia with pre-confirmed", &networks.Sepolia, "", true,
+			"--cn-name sepolia --cn-feeder-url http://127.0.0.1:7070/feeder_gateway/ " +
+				"--cn-gateway-url http://127.0.0.1:7070/gateway/ --cn-l2-chain-id SN_SEPOLIA --cn-l1-chain-id 11155111 " +
+				"--cn-core-contract-address 0xe2bb56ee936fd6433dc0f6e7e3b8365c906aa057 " +
+				"--cn-unverifiable-range 0,0",
+		},
 	}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.want, junoFlags(test.network, test.listen))
+			require.Equal(t, test.want, junoFlags(test.network, test.listen, test.preconfirmed))
 		})
 	}
 }
@@ -148,21 +157,32 @@ func TestRunCaptureOnly(t *testing.T) {
 }
 
 func TestServeStopsOnCancel(t *testing.T) {
-	config := fixtureConfig()
-	config.listen = "127.0.0.1:0"
-	config.interval = time.Hour
-	ctx, cancel := context.WithCancel(t.Context())
+	dataset := writeDataset(t, slices.Concat(fixtures(t), preConfirmedFixtures(t)))
+	tests := []struct {
+		name   string
+		config *config
+	}{
+		{"feeder only", fixtureConfig()},
+		{"with pre-confirmed", preConfirmedConfig(fixtureFrom)},
+	}
 
-	dataset := fixtureDataset(t)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := test.config
+			config.listen = "127.0.0.1:0"
+			config.interval = time.Hour
+			ctx, cancel := context.WithCancel(t.Context())
 
-	done := make(chan error, 1)
-	go func() { done <- serve(ctx, dataset, config, log.NewNopZapLogger()) }()
-	time.AfterFunc(200*time.Millisecond, cancel)
+			done := make(chan error, 1)
+			go func() { done <- serve(ctx, dataset, config, log.NewNopZapLogger()) }()
+			time.AfterFunc(200*time.Millisecond, cancel)
 
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	case <-time.After(10 * time.Second):
-		t.Fatal("serve did not stop after cancellation")
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(10 * time.Second):
+				t.Fatal("serve did not stop after cancellation")
+			}
+		})
 	}
 }

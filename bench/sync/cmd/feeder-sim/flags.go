@@ -31,8 +31,11 @@ const (
 	speedFlag    = "speed"
 	latencyFlag  = "latency"
 
-	preConfirmedFlag = "preconfirmed"
-	rpcURLFlag       = "rpc-url"
+	preConfirmedFlag       = "preconfirmed"
+	rpcURLFlag             = "rpc-url"
+	preConfirmedLeadFlag   = "preconfirmed-lead"
+	preConfirmedKeepFlag   = "preconfirmed-keep"
+	preConfirmedStagesFlag = "preconfirmed-stages"
 
 	logLevelFlag = "log-level"
 )
@@ -46,6 +49,10 @@ const (
 	defaultListen   = "127.0.0.1:7070"
 	listenOff       = "off"
 	defaultInterval = 2 * time.Second
+
+	defaultPreConfirmedLead   uint64 = 3
+	defaultPreConfirmedKeep   uint64 = 5
+	defaultPreConfirmedStages uint64 = 3
 )
 
 type config struct {
@@ -70,6 +77,9 @@ type config struct {
 	preconfirmed bool
 	rpcURL       string
 	rpc          *url.URL
+	lead         uint64
+	keep         uint64
+	stages       uint64
 
 	logLevel *log.Level
 }
@@ -158,7 +168,7 @@ func (config *config) registerPreConfirmed(flags *pflag.FlagSet) {
 		&config.preconfirmed,
 		preConfirmedFlag,
 		false,
-		"Capture get_preconfirmed_block for the range.",
+		"Capture and serve get_preconfirmed_block for the window [tip-keep, tip+lead].",
 	)
 	flags.StringVar(
 		&config.rpcURL,
@@ -166,6 +176,24 @@ func (config *config) registerPreConfirmed(flags *pflag.FlagSet) {
 		"",
 		"JSON-RPC node with starknet_traceBlockTransactions for the range; needed to capture with --"+
 			preConfirmedFlag+".",
+	)
+	flags.Uint64Var(
+		&config.lead,
+		preConfirmedLeadFlag,
+		defaultPreConfirmedLead,
+		"Pre-confirmed blocks served above the tip; the highest one fills over the interval.",
+	)
+	flags.Uint64Var(
+		&config.keep,
+		preConfirmedKeepFlag,
+		defaultPreConfirmedKeep,
+		"Pre-confirmed blocks kept below the tip.",
+	)
+	flags.Uint64Var(
+		&config.stages,
+		preConfirmedStagesFlag,
+		defaultPreConfirmedStages,
+		"Steps in which the filling block reveals its transactions; 0 reveals all on entry.",
 	)
 }
 
@@ -283,6 +311,10 @@ func (config *config) validatePreConfirmed() error {
 
 	if config.preconfirmed && config.network != nil && config.rpcURL == "" {
 		return fmt.Errorf("--%s with --%s requires --%s", preConfirmedFlag, networkFlag, rpcURLFlag)
+	}
+
+	if config.lead < 1 {
+		return fmt.Errorf("--%s must be >= 1", preConfirmedLeadFlag)
 	}
 
 	return nil

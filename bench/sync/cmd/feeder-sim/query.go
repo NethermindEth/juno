@@ -24,6 +24,11 @@ type (
 	atLatest struct {
 		BlockNumber string `mapstructure:"blockNumber"`
 	}
+	preConfirmedQuery struct {
+		BlockNumber           string `mapstructure:"blockNumber"`
+		BlockIdentifier       string `mapstructure:"blockIdentifier"`
+		KnownTransactionCount uint64 `mapstructure:"knownTransactionCount"`
+	}
 )
 
 func decode[T any](values url.Values) (T, error) {

@@ -184,3 +184,84 @@ func checkRoundAdapts(t *testing.T, round []byte, number uint64, block *confirme
 func asFelt(hex string) felt.Felt {
 	return felt.UnsafeFromString[felt.Felt](hex)
 }
+
+func TestDecodeRound(t *testing.T) {
+	round := preConfirmedFixtures(t)[0].body
+	tests := []struct {
+		name             string
+		gzipped          []byte
+		wantTransactions int
+		wantErr          string
+	}{
+		{"fixture round", gzipped(t, round), 45, ""},
+		{"no transactions", gzipped(t, []byte(`{"changed": true, "block_identifier": "0x1"}`)), 0, ""},
+		{"not gzip", round, 0, "gzip: invalid header"},
+		{"not json", gzipped(t, []byte("<html>")), 0, "invalid character"},
+		{
+			"transactions without receipts and diffs", gzipped(t, []byte(`{"transactions": [{}]}`)), 0,
+			"1 transactions, 0 receipts, 0 state diffs",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := decodeRound(test.gzipped)
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+				require.Nil(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, got.Transactions, test.wantTransactions)
+			require.NotNil(t, got.Transactions, "replies encode [], not null")
+			require.NotNil(t, got.Receipts, "replies encode [], not null")
+			require.NotNil(t, got.StateDiffs, "replies encode [], not null")
+		})
+	}
+}
+
+func TestRoundReply(t *testing.T) {
+	stored := gzipped(t, preConfirmedFixtures(t)[0].body)
+	decoded := decodedRounds(t)[fixtureFrom]
+	number := fixtureFrom
+
+	tests := []struct {
+		name         string
+		known, shown uint64
+		blockNumber  *uint64
+		want         replyKind
+	}{
+		{"whole block", 0, 45, nil, wantFull},
+		{"revealed part with number", 0, 15, &number, wantFull},
+		{"nothing revealed", 0, 0, nil, wantFull},
+		{"delta", 15, 30, nil, wantDelta},
+		{"delta with number", 30, 45, &number, wantDelta},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			round, err := decodeRound(stored)
+			require.NoError(t, err)
+
+			body, err := round.reply(test.known, test.shown, test.blockNumber)
+			require.NoError(t, err)
+			plain, err := gunzip(body)
+			require.NoError(t, err)
+			envelope, err := starknet.DecodePreConfirmedUpdate(bytes.NewReader(plain))
+			require.NoError(t, err)
+			require.NoError(t, envelope.Validate())
+			require.Equal(t, wantUpdate(decoded, test.want, test.known, test.shown), envelope.Update)
+
+			var wantNumber uint64
+			if test.blockNumber != nil {
+				wantNumber = *test.blockNumber
+			}
+			require.Equal(t, wantNumber, envelope.BlockNumber)
+
+			untouched, err := decodeRound(stored)
+			require.NoError(t, err)
+			require.Equal(t, untouched, round, "the window reuses a round across replies")
+		})
+	}
+}
