@@ -174,8 +174,13 @@ func (i *ingestor) migrateTrie(
 	return computeEdgeHash(&rootHash, &seg, desc.HashFn), nil
 }
 
-// writeStorageRoot sets the trie's root on its contract; a trie without a contract is unreachable and skipped.
-func writeStorageRoot(r db.KeyValueReader, w db.KeyValueWriter, owner *felt.Address, root *felt.Felt) error {
+// writeStorageRoot sets the trie's root on its contract; a trie without one is skipped.
+func writeStorageRoot(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	owner *felt.Address,
+	root *felt.Felt,
+) error {
 	err := state.WriteContractStorageRoot(r, w, (*felt.Felt)(owner), root)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return nil
