@@ -224,8 +224,9 @@ func TestMigrationWritesContractStorageRoot(t *testing.T) {
 			require.NoError(t, state.WriteContract(memDB, &addr, nonce, classHash, 5))
 
 			ownerBytes := addr.Bytes()
-			wantRoot := buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen,
-				db.ContractStorage.Key(ownerBytes[:]))
+			//nolint:staticcheck // the deprecated buckets are this migration's input
+			storagePrefix := db.DeprecatedContractStorage.Key(ownerBytes[:])
+			wantRoot := buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, storagePrefix)
 
 			_, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
 			require.NoError(t, err)
