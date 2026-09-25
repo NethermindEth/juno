@@ -81,7 +81,8 @@ func TestMigrateTrieWaitsForInFlightHashesOnError(t *testing.T) {
 	outputs := make(chan common.Task, common.IngestorCount)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- ing.migrateTrie(&ing.Tasks[0], desc, outputs)
+		_, err := ing.migrateTrie(&ing.Tasks[0], desc, outputs)
+		errCh <- err
 	}()
 
 	select {

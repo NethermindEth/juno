@@ -1,9 +1,11 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
@@ -43,8 +45,14 @@ func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- common.Task) err
 		return i.Flush(t, outputs)
 	}
 
-	if err := i.migrateTrie(t, desc, outputs); err != nil {
+	root, err := i.migrateTrie(t, desc, outputs)
+	if err != nil {
 		return err
+	}
+	if desc.TrieBucket == db.ContractTrieStorage {
+		if err := writeStorageRoot(i.Database, t.Batch, &desc.Owner, &root); err != nil {
+			return err
+		}
 	}
 
 	t.CompletedAddrs++
@@ -135,9 +143,13 @@ func (i *ingestor) Run(index int, desc TrieDesc, outputs chan<- common.Task) err
 //
 // In-flight batches flush at target size; cancellation is observed at
 // every flush and every channel send.
-func (i *ingestor) migrateTrie(t *common.Task, desc TrieDesc, outputs chan<- common.Task) error {
+func (i *ingestor) migrateTrie(
+	t *common.Task,
+	desc TrieDesc,
+	outputs chan<- common.Task,
+) (felt.Felt, error) {
 	if desc.NodeCount == 0 {
-		return nil
+		return felt.Zero, nil
 	}
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
 	prefix := deprecatedTriePrefix(desc)
@@ -147,15 +159,34 @@ func (i *ingestor) migrateTrie(t *common.Task, desc TrieDesc, outputs chan<- com
 
 	rootHash, err := i.traverse(t, outputs, prefix, *desc.RootPath, sched)
 	if err != nil {
-		return err
+		return felt.Felt{}, err
 	}
 	if err := sched.sync(t.Batch); err != nil {
-		return err
+		return felt.Felt{}, err
 	}
-	if desc.RootPath.Len() > 0 {
-		if err := writeRootEdgeNode(desc.RootPath, rootHash, sched, t.Batch); err != nil {
-			return err
-		}
+	if desc.RootPath.Len() == 0 {
+		return rootHash, nil
+	}
+	if err := writeRootEdgeNode(desc.RootPath, rootHash, sched, t.Batch); err != nil {
+		return felt.Felt{}, err
+	}
+	seg := toNewPath(desc.RootPath)
+	return computeEdgeHash(&rootHash, &seg, desc.HashFn), nil
+}
+
+// writeStorageRoot sets the trie's root on its contract; a trie without one is skipped.
+func writeStorageRoot(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	owner *felt.Address,
+	root *felt.Felt,
+) error {
+	err := state.WriteContractStorageRoot(r, w, (*felt.Felt)(owner), root)
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("writing storage root of %x: %w", owner, err)
 	}
 	return nil
 }

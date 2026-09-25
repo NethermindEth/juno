@@ -2,10 +2,12 @@ package trie_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/triedb/rawdb"
@@ -183,6 +185,42 @@ func TestMigrationEndToEnd(t *testing.T) {
 			assert.Equal(t,
 				allKeysUnder(t, nativeDB, c.tc.newBucket),
 				allKeysUnder(t, migratedDB, c.tc.newBucket))
+		})
+	}
+}
+
+func TestMigrationWritesContractStorageRoot(t *testing.T) {
+	one := felt.FromUint64[felt.Felt](1)
+	topBit := new(felt.Felt).Exp(felt.NewFromUint64[felt.Felt](2), big.NewInt(250))
+	cases := map[string]leafMap{
+		// Root path covers all 251 bits down to the leaf
+		"single slot": {felt.FromUint64[felt.Felt](5): one},
+		// Root path is the 250-bit shared prefix above a binary node
+		"shared prefix": {felt.FromUint64[felt.Felt](2): one, felt.FromUint64[felt.Felt](3): one},
+		// Keys split on the first bit, so the root path is empty
+		"branches at root": {felt.FromUint64[felt.Felt](1): one, *topBit: one},
+		"many slots":       randomLeaves(1000),
+	}
+	for name, leaves := range cases {
+		t.Run(name, func(t *testing.T) {
+			memDB := memory.New()
+			addr := felt.FromUint64[felt.Felt](42)
+			nonce, classHash := felt.FromUint64[felt.Felt](3), felt.FromUint64[felt.Felt](7)
+			require.NoError(t, state.WriteContract(memDB, &addr, nonce, classHash, 5))
+
+			ownerBytes := addr.Bytes()
+			wantRoot := buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen,
+				db.ContractStorage.Key(ownerBytes[:]))
+
+			_, err := (&trielib.Migrator{}).Migrate(context.Background(), memDB, nil, log.NewNopZapLogger())
+			require.NoError(t, err)
+
+			contract, err := state.GetContract(memDB, &addr)
+			require.NoError(t, err)
+			assert.Equal(t, wantRoot, contract.StorageRoot)
+			assert.Equal(t, nonce, contract.Nonce)
+			assert.Equal(t, classHash, contract.ClassHash)
+			assert.Equal(t, uint64(5), contract.DeployedHeight)
 		})
 	}
 }
