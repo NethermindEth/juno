@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,7 +89,6 @@ func TestHeaderProjectionsCoverEveryWireKey(t *testing.T) {
 		&headerGlobalStateRootProjection{},
 		&headerTransactionCountProjection{},
 		&headerTimestampProjection{},
-		&headerEventsBloomProjection{},
 		&headerHashAndStateRootProjection{},
 	)
 }
@@ -102,7 +100,6 @@ func TestHeaderProjectionsCoverEveryKey(t *testing.T) {
 		reflect.TypeFor[headerGlobalStateRootProjection](),
 		reflect.TypeFor[headerTransactionCountProjection](),
 		reflect.TypeFor[headerTimestampProjection](),
-		reflect.TypeFor[headerEventsBloomProjection](),
 		reflect.TypeFor[headerHashAndStateRootProjection](),
 	)
 }
@@ -201,14 +198,6 @@ func headerProjectionCases() []headerProjectionCase {
 			func(d []byte) { var h headerTimestampProjection; _ = encoder.Unmarshal(d, &h) },
 		},
 		{
-			"events_bloom",
-			func(d []byte) {
-				var h struct{ EventsBloom *bloom.BloomFilter }
-				_ = encoder.Unmarshal(d, &h)
-			},
-			func(d []byte) { var h headerEventsBloomProjection; _ = encoder.Unmarshal(d, &h) },
-		},
-		{
 			"hash_and_state_root",
 			func(d []byte) {
 				var h struct {
@@ -241,8 +230,6 @@ func TestDiscardReducesReadAllocations(t *testing.T) {
 // sampleHeader is a fully populated Header (production-size EventsBloom) with small distinct
 // values, so its encoding exercises all 16 keys and decode assertions can check them.
 func sampleHeader() *Header {
-	eventsBloom := bloom.New(EventsBloomLength, EventsBloomHashFuncs)
-	eventsBloom.Add([]byte("sample-event"))
 	return &Header{
 		Hash:             felt.NewFromUint64[felt.Felt](1),
 		ParentHash:       felt.NewFromUint64[felt.Felt](2),
@@ -253,7 +240,6 @@ func sampleHeader() *Header {
 		EventCount:       50,
 		Timestamp:        123456,
 		ProtocolVersion:  "0.13.2",
-		EventsBloom:      eventsBloom,
 		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](5),
 		Signatures:       [][]*felt.Felt{{felt.NewFromUint64[felt.Felt](6)}},
 		L1GasPriceSTRK:   felt.NewFromUint64[felt.Felt](7),
@@ -302,12 +288,6 @@ func TestProjectionsDecodeShadowedField(t *testing.T) {
 	require.NoError(t, encoder.Unmarshal(data, &timestamp))
 	require.NotNil(t, timestamp.Timestamp, shadowMsg)
 	require.Equal(t, header.Timestamp, *timestamp.Timestamp, shadowMsg)
-
-	var eventsBloom headerEventsBloomProjection
-	require.NoError(t, encoder.Unmarshal(data, &eventsBloom))
-	require.NotNil(t, eventsBloom.EventsBloom, shadowMsg)
-	require.True(t, eventsBloom.EventsBloom.Test([]byte("sample-event")),
-		"decoded bloom must carry the added element, not be a fresh empty filter")
 
 	var hashAndRoot headerHashAndStateRootProjection
 	require.NoError(t, encoder.Unmarshal(data, &hashAndRoot))

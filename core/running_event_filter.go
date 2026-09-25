@@ -336,7 +336,8 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilte
 }
 
 // fillRunningEventFilter walks [from, latest] and Inserts each block's
-// EventsBloom into rf. Errors if any header in the range is missing.
+// event bloom filter into rf, reconstructing the bloom from the block's
+// receipts. Errors if any block's receipts in the range are missing.
 func fillRunningEventFilter(
 	database db.KeyValueStore,
 	rf *RunningEventFilter,
@@ -344,11 +345,11 @@ func fillRunningEventFilter(
 	latest uint64,
 ) error {
 	for blockNum := from; blockNum <= latest; blockNum++ {
-		eventsBloom, err := GetBlockHeaderEventsBloomByNumber(database, blockNum)
+		receipts, err := GetReceiptsByBlockNumber(database, blockNum)
 		if err != nil {
-			return fmt.Errorf("getting events bloom for block %d: %w", blockNum, err)
+			return fmt.Errorf("getting receipts by block number %d: %w", blockNum, err)
 		}
-		if err := rf.Insert(eventsBloom, blockNum); err != nil {
+		if err := rf.Insert(EventsBloom(receipts), blockNum); err != nil {
 			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
 		}
 	}

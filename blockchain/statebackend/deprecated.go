@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/pruner"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 type deprecatedStateBackend struct {
@@ -97,6 +98,7 @@ func (b *deprecatedStateBackend) Store(
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
+	eventsBloom *bloom.BloomFilter,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
 	return b.database.Update(func(txn db.IndexedBatch) error {
@@ -126,7 +128,7 @@ func (b *deprecatedStateBackend) Store(
 			return err
 		}
 
-		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(txn, eventsBloom, block.Number)
 	})
 }
 
@@ -229,6 +231,7 @@ func (b *deprecatedStateBackend) Finalise(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.ClassDefinition,
 	sign core.BlockSignFunc,
+	eventsBloom *bloom.BloomFilter,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
 	return b.database.Update(func(txn db.IndexedBatch) error {
@@ -262,7 +265,7 @@ func (b *deprecatedStateBackend) Finalise(
 			return err
 		}
 
-		return b.runningFilter.InsertWithBatch(txn, block.EventsBloom, block.Number)
+		return b.runningFilter.InsertWithBatch(txn, eventsBloom, block.Number)
 	})
 }
 

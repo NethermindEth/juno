@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/migration/blockeventsbloom"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration/historyprunner"
@@ -30,7 +31,8 @@ func registerMigrations(cfg *Config) *migration.Registry {
 			PruneModeFlag,
 		).
 		WithOptional(&headstate.Migrator{}, cfg.NewState, "new-state").
-		With(&statedifflength.Migrator{})
+		With(&statedifflength.Migrator{}).
+		With(&blockeventsbloom.Migrator{})
 
 	return registry
 }

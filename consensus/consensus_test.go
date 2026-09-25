@@ -203,7 +203,13 @@ func writeBlock(
 		case committedBlock := <-commitListener.Listen():
 			commitments, err := bc.SanityCheckNewHeight(committedBlock.Block, committedBlock.StateUpdate, committedBlock.NewClasses)
 			require.NoError(t, err)
-			require.NoError(t, bc.Store(committedBlock.Block, commitments, committedBlock.StateUpdate, committedBlock.NewClasses))
+			require.NoError(t, bc.Store(
+				committedBlock.Block,
+				commitments,
+				committedBlock.StateUpdate,
+				committedBlock.NewClasses,
+				core.EventsBloom(committedBlock.Block.Receipts),
+			))
 
 			committedBlock.Persisted <- nil
 

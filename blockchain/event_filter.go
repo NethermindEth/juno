@@ -286,6 +286,10 @@ func (e *EventFilter) canonicalEvents(
 			return nil, ContinuationToken{}, err
 		}
 
+		// The token's processedEvents are scoped to fromBlock; any other block starts clean.
+		if curBlockNum != fromBlock {
+			skippedEvents = 0
+		}
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromTransactionEvents(
 			matchedEvents,
@@ -305,9 +309,6 @@ func (e *EventFilter) canonicalEvents(
 			}
 			return nil, ContinuationToken{}, err
 		}
-
-		// Skipped events are processed, so we can reset the counter
-		skippedEvents = 0
 	}
 
 	// If max scans exhausted end of block
@@ -345,7 +346,8 @@ func (e *EventFilter) preConfirmedEvents(
 	}
 
 	var err error
-	for entry := range preConfirmed.OldestFirst() {
+	for entryWithBloom := range preConfirmed.OldestFirstWithBloom() {
+		entry := entryWithBloom.Value
 		blockNumber := entry.Block.Number
 		// Skip blocks below the resume point. The canonical scan stops at the head
 		// this chain was built on, so the ranges cannot overlap.
@@ -356,11 +358,11 @@ func (e *EventFilter) preConfirmedEvents(
 			break
 		}
 
-		header := entry.GetHeader()
-		if !e.matcher.TestBloom(header.EventsBloom) {
-			// Skipped events are scoped to the resume block; once we step past
-			// it, reset so later blocks aren't under-counted.
+		// The token's processedEvents are scoped to fromBlock; any other block starts clean.
+		if blockNumber != fromBlock {
 			skippedEvents = 0
+		}
+		if !e.matcher.TestBloom(entryWithBloom.Bloom) {
 			continue
 		}
 
@@ -368,7 +370,7 @@ func (e *EventFilter) preConfirmedEvents(
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEventsFromReceipts(
 			matchedEvents,
 			blockNumber,
-			header.Hash,
+			nil,
 			entry.Block.Receipts,
 			skippedEvents,
 			chunkSize,
@@ -383,7 +385,6 @@ func (e *EventFilter) preConfirmedEvents(
 			}
 			return nil, ContinuationToken{}, err
 		}
-		skippedEvents = 0
 	}
 
 	return matchedEvents, ContinuationToken{}, nil

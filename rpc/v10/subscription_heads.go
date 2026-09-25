@@ -67,8 +67,9 @@ func (s *headsSubscriberState) onNewHead(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	head *core.Block,
+	headWithBloom *core.WithBloom[*core.Block],
 ) error {
+	head := headWithBloom.Value
 	commitments, err := s.handler.bcReader.BlockCommitmentsByNumber(head.Number)
 	if err != nil {
 		return err

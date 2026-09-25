@@ -42,7 +42,13 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, err)
 
 		if b.Number < 6 {
-			require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
+			require.NoError(t, chain.Store(
+				b,
+				&core.BlockCommitments{},
+				s,
+				nil,
+				core.EventsBloom(b.Receipts),
+			))
 		}
 	}
 
