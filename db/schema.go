@@ -11,20 +11,23 @@ func PeerKey(peerID []byte) []byte {
 	return Peer.Key(peerID)
 }
 
-func ContractClassHashKey(addr *felt.Felt) []byte {
-	return ContractClassHash.Key(addr.Marshal())
+// Deprecated: old state layout key.
+func DeprecatedContractClassHashKey(addr *felt.Felt) []byte {
+	return DeprecatedContractClassHash.Key(addr.Marshal())
 }
 
-func ContractStorageKey(addr *felt.Felt, key []byte) []byte {
-	return ContractStorage.Key(addr.Marshal(), key)
+// Deprecated: old state layout key.
+func DeprecatedContractStorageKey(addr *felt.Felt, key []byte) []byte {
+	return DeprecatedContractStorage.Key(addr.Marshal(), key)
 }
 
 func ClassKey(classHash *felt.Felt) []byte {
 	return Class.Key(classHash.Marshal())
 }
 
-func ContractNonceKey(addr *felt.Felt) []byte {
-	return ContractNonce.Key(addr.Marshal())
+// Deprecated: old state layout key.
+func DeprecatedContractNonceKey(addr *felt.Felt) []byte {
+	return DeprecatedContractNonce.Key(addr.Marshal())
 }
 
 func BlockHeaderNumbersByHashKey(hash *felt.Felt) []byte {
@@ -68,14 +71,17 @@ func StateUpdateByBlockNumKey(num uint64) []byte {
 	return StateUpdatesByBlockNumber.Key(b[:])
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
 	return DeprecatedContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractNonceHistoryKey(addr *felt.Felt) []byte {
 	return DeprecatedContractNonceHistory.Key(addr.Marshal())
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractClassHashHistoryKey(addr *felt.Felt) []byte {
 	return DeprecatedContractClassHashHistory.Key(addr.Marshal())
 }
@@ -92,8 +98,9 @@ func ContractClassHashHistoryKey(addr *felt.Felt) []byte {
 	return ContractClassHashHistory.Key(addr.Marshal())
 }
 
-func ContractDeploymentHeightKey(addr *felt.Felt) []byte {
-	return ContractDeploymentHeight.Key(addr.Marshal())
+// Deprecated: old state layout key.
+func DeprecatedContractDeploymentHeightKey(addr *felt.Felt) []byte {
+	return DeprecatedContractDeploymentHeight.Key(addr.Marshal())
 }
 
 func BlockCommitmentsKey(blockNum uint64) []byte {
@@ -113,16 +120,19 @@ func ContractKey(addr *felt.Felt) []byte {
 	return Contract.Key(addr.Marshal())
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractNonceHistory.Key(addr.Marshal(), b[:])
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
+// Deprecated: old state layout key.
 func DeprecatedContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])

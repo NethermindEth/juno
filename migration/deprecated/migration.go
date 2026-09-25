@@ -78,22 +78,35 @@ func (f MigrationFunc) Before(_ []byte) error { return nil }
 
 // defaultMigrations contains a set of migrations that can be applied to a database.
 // After making breaking changes to the DB layout, add new migrations to this list.
+//
+//nolint:staticcheck,nolintlint // old state layout
 var defaultMigrations = []Migration{
 	MigrationFunc(migration0000),
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
 	MigrationFunc(calculateBlockCommitments),
-	NewBucketMigrator(db.ClassesTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ClassesTrie)),
-	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
-	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
-	NewBucketMigrator(db.ClassesTrie, migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)).WithKeyFilter(nodesFilter(db.ClassesTrie)),
-	NewBucketMover(db.Temporary, db.ClassesTrie),
-	NewBucketMigrator(db.StateTrie, migrateTrieNodesFromBitsetToTrieKey(db.StateTrie)).WithKeyFilter(nodesFilter(db.StateTrie)),
-	NewBucketMover(db.Temporary, db.StateTrie),
-	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
-		WithKeyFilter(nodesFilter(db.ContractStorage)),
-	NewBucketMover(db.Temporary, db.ContractStorage),
+	NewBucketMigrator(db.DeprecatedClassesTrie, migrateTrieRootKeysFromBitsetToTrieKeys).
+		WithKeyFilter(rootKeysFilter(db.DeprecatedClassesTrie)),
+	NewBucketMigrator(db.DeprecatedStateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).
+		WithKeyFilter(rootKeysFilter(db.DeprecatedStateTrie)),
+	NewBucketMigrator(db.DeprecatedContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).
+		WithKeyFilter(rootKeysFilter(db.DeprecatedContractStorage)),
+	NewBucketMigrator(
+		db.DeprecatedClassesTrie,
+		migrateTrieNodesFromBitsetToTrieKey(db.DeprecatedClassesTrie),
+	).WithKeyFilter(nodesFilter(db.DeprecatedClassesTrie)),
+	NewBucketMover(db.Temporary, db.DeprecatedClassesTrie),
+	NewBucketMigrator(
+		db.DeprecatedStateTrie,
+		migrateTrieNodesFromBitsetToTrieKey(db.DeprecatedStateTrie),
+	).WithKeyFilter(nodesFilter(db.DeprecatedStateTrie)),
+	NewBucketMover(db.Temporary, db.DeprecatedStateTrie),
+	NewBucketMigrator(
+		db.DeprecatedContractStorage,
+		migrateTrieNodesFromBitsetToTrieKey(db.DeprecatedContractStorage),
+	).WithKeyFilter(nodesFilter(db.DeprecatedContractStorage)),
+	NewBucketMover(db.Temporary, db.DeprecatedContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
@@ -309,7 +322,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *networks.Network) e
 			return errors.New("prefix not found")
 		}
 
-		if err := txn.Put(db.ContractStorage.Key(contractAddress), value); err != nil {
+		if err := txn.Put(db.DeprecatedContractStorage.Key(contractAddress), value); err != nil {
 			return err
 		}
 		if err := txn.Delete(oldKeyBytes); err != nil {
@@ -359,16 +372,16 @@ func (m *changeTrieNodeEncoding) Before(_ []byte) error {
 		seekTo  []byte
 		skipLen int
 	}{
-		db.ClassesTrie: {
-			seekTo:  db.ClassesTrie.Key(),
+		db.DeprecatedClassesTrie: { //nolint:staticcheck,nolintlint // old state layout
+			seekTo:  db.DeprecatedClassesTrie.Key(), //nolint:staticcheck,nolintlint // old state layout
 			skipLen: 1,
 		},
-		db.StateTrie: {
-			seekTo:  db.StateTrie.Key(),
+		db.DeprecatedStateTrie: { //nolint:staticcheck,nolintlint // old state layout
+			seekTo:  db.DeprecatedStateTrie.Key(), //nolint:staticcheck,nolintlint // old state layout
 			skipLen: 1,
 		},
-		db.ContractStorage: {
-			seekTo:  db.ContractStorage.Key(),
+		db.DeprecatedContractStorage: { //nolint:staticcheck,nolintlint // old state layout
+			seekTo:  db.DeprecatedContractStorage.Key(), //nolint:staticcheck,nolintlint // old state layout
 			skipLen: 1 + felt.Bytes,
 		},
 	}
@@ -628,9 +641,9 @@ func migrateTrieRootKeysFromBitsetToTrieKeys(
 }
 
 var rootKeysLen = map[db.Bucket]int{
-	db.ClassesTrie:     1,
-	db.StateTrie:       1,
-	db.ContractStorage: 1 + felt.Bytes,
+	db.DeprecatedClassesTrie:     1,              //nolint:staticcheck,nolintlint // old state layout
+	db.DeprecatedStateTrie:       1,              //nolint:staticcheck,nolintlint // old state layout
+	db.DeprecatedContractStorage: 1 + felt.Bytes, //nolint:staticcheck,nolintlint // old state layout
 }
 
 func rootKeysFilter(target db.Bucket) BucketMigratorKeyFilter {

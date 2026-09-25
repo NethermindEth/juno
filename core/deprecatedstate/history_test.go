@@ -255,7 +255,8 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 		},
 	}, nil, true))
 
-	require.NoError(t, txn.Delete(db.ContractDeploymentHeightKey(addr)))
+	//nolint:staticcheck,nolintlint // old state layout
+	require.NoError(t, txn.Delete(db.DeprecatedContractDeploymentHeightKey(addr)))
 
 	t.Run("value from history entry", func(t *testing.T) {
 		snapshot := deprecatedstate.NewHistory(state, deployedHeight)

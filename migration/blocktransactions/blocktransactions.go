@@ -61,11 +61,13 @@ var (
 
 	// We recreated the buckets to avoid the overhead of unmarshalling the transactions and receipts.
 	rawTransactions = prefix.NewPrefixedBucket(
-		core.TransactionsByBlockNumberAndIndexBucket.RawValue(),
+		//nolint:staticcheck,nolintlint // old transaction layout
+		core.DeprecatedTransactionsByBlockNumberAndIndexBucket.RawValue(),
 		prefix.Prefix(key.Uint64, prefix.Prefix(key.Uint64, prefix.End[[]byte]())),
 	)
 	rawReceipts = prefix.NewPrefixedBucket(
-		core.ReceiptsByBlockNumberAndIndexBucket.RawValue(),
+		//nolint:staticcheck,nolintlint // old transaction layout
+		core.DeprecatedReceiptsByBlockNumberAndIndexBucket.RawValue(),
 		prefix.Prefix(key.Uint64, prefix.Prefix(key.Uint64, prefix.End[[]byte]())),
 	)
 )

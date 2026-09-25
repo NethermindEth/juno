@@ -13,14 +13,16 @@ func getFirstBlockToMigrate(
 	database db.KeyValueReader,
 ) (firstBlock uint64, shouldMigrate bool, err error) {
 	transactions, hasTransactions, err := getFirstBlockInBucket(
-		core.TransactionsByBlockNumberAndIndexBucket.Prefix().Scan(database),
+		//nolint:staticcheck,nolintlint // old transaction layout
+		core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Scan(database),
 	)
 	if err != nil {
 		return 0, false, err
 	}
 
 	receipts, hasReceipts, err := getFirstBlockInBucket(
-		core.ReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(database),
+		//nolint:staticcheck,nolintlint // old transaction layout
+		core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(database),
 	)
 	if err != nil {
 		return 0, false, err
@@ -62,10 +64,12 @@ func getFirstBlockInBucket[A any](items iter.Seq2[prefix.Entry[A], error]) (uint
 }
 
 func clearOldBuckets(database db.KeyValueStore) error {
-	err := core.TransactionsByBlockNumberAndIndexBucket.Prefix().DeletePrefix(database)
+	//nolint:staticcheck,nolintlint // old transaction layout
+	err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().DeletePrefix(database)
 	if err != nil {
 		return err
 	}
 
-	return core.ReceiptsByBlockNumberAndIndexBucket.Prefix().DeletePrefix(database)
+	//nolint:staticcheck,nolintlint // old transaction layout
+	return core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().DeletePrefix(database)
 }
