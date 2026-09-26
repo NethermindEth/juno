@@ -264,7 +264,7 @@ docker run -d \
 
 **Prerequisites**
 
-- [Golang 1.26](https://go.dev/doc/install) or later
+- [Golang 1.27](https://go.dev/doc/install) or later
 - [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
@@ -450,6 +450,8 @@ Below is a list of all configuration options available in Juno, along with their
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
+| `rpc-max-concurrent-requests` | `256000` | Maximum concurrent HTTP RPC requests; 0 disables the limit |
+| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests before rejecting incoming requests |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC
@@ -473,6 +475,7 @@ Below is a list of all configuration options available in Juno, along with their
 
 | Config Option | Default Value | Description |
 | - | - | - |
+| `disable-sync` | `false` | Disables L2 synchronization |
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
@@ -521,7 +524,7 @@ Below is a list of all configuration options available in Juno, along with their
 | `db-cache-size` | `1024` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
 | `db-compaction-concurrency` |  | DB compaction concurrency range. Format: N (lower=1, upper=N) or M,N (lower=M, upper=N). Default: 1,GOMAXPROCS/2 |
 | `db-compression` | `zstd` | Database compression profile. Options: zstd, snappy, minlz. Use zstd for low storage |
-| `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
+| `db-max-handles` | `half of process fd limit (min 1024, max 1048576)` | A soft limit on the number of open files that can be used by the DB. When not set, defaults to half of the process fd limit (min 1024, max 1048576) |
 | `db-memtable-count` | `2` | Determines the number of memtables the database can queue before stalling writes |
 | `db-memtable-size` | `256` | Determines the amount of memory (in MBs) allocated for database memtables |
 | `db-path` | `juno` | Location of the database files |
@@ -2356,6 +2359,11 @@ readinessProbe:
   failureThreshold: 3
 ```
 
+### `/ready/rpc` endpoint
+
+The `/ready/rpc` endpoint returns `200 OK` once the database has a canonical head and RPC requests can be served.
+Use it as the readiness probe for tests or benchmarks started with `--disable-sync` and a preloaded database.
+
 ### Configuring readiness criteria
 
 You can configure what "synced" means for the `/ready` endpoint using the `readiness-block-tolerance` configuration option:
@@ -2513,13 +2521,17 @@ A larger cache reduces disk reads and improves query performance. On systems wit
 
 ## Sierra Compilation Limits
 
+Juno compiles Sierra classes to CASM in isolated child processes. The flags below cap the resources each compilation uses and how many run at once.
+
+### Per-compilation limits
+
 :::warning
 These limits are enforced by the kernel and only on **Linux**. On other operating systems they have no effect.
 :::
 
-Juno compiles Sierra classes to CASM in isolated child processes. Two flags cap the resources each compilation process may use, protecting the node from pathological or malicious classes that would otherwise consume CPU and memory without bound:
+Two flags cap the resources each compilation process may use, protecting the node from malicious classes that would otherwise consume CPU and memory without bound:
 
-- `--max-compilation-memory` (default: 4096 MB): Maximum memory a single compilation process may use. A compilation exceeding it is aborted.
+- `--max-compilation-memory` (default: 4096 MB): Maximum virtual memory (address space) a single compilation process may use. A compilation exceeding it is aborted.
 - `--max-compilation-cpu-time` (default: 10 seconds): Maximum CPU time a single compilation process may consume. A compilation exceeding it is killed.
 
 Setting either flag to `0` disables that limit. The defaults are generous for legitimate classes and only need raising if genuine compilations are being aborted.
@@ -2528,7 +2540,21 @@ Setting either flag to `0` disables that limit. The defaults are generous for le
 The CPU time limit counts seconds of CPU actually consumed by the compilation process, not elapsed wall-clock time, so it is unaffected by how busy the rest of the machine is.
 :::
 
-Up to `--max-concurrent-compilations` (default: one per available CPU core) processes can run at once, so the worst-case memory that compilations can claim is the product of that flag and `--max-compilation-memory`. Lower either value on memory-constrained machines.
+### Compilation concurrency
+
+- `--max-concurrent-compilations`(default: unset): controls how many compilations run at once. Any non-negative integer is used directly (`0` disables compilations). Left unset (the default), Juno derives a safe value so concurrent compilations cannot exhaust RAM:
+
+```
+limit = min((available_memory - node_memory_reserve) / max_compilation_memory, cpu_cores), at least 1.
+```
+ 
+- `--max-compilation-queue` (default: unset): How many requests wait once the concurrency limit is reached before new ones are rejected. Unset uses twice the concurrency limit (`0` disables the queue).
+
+- `--node-memory-reserve` (default: 4096 MB): Memory kept for the rest of the node, excluded from the compilation budget.
+
+The available memory respects container limits (cgroups), so inside a memory-capped container the value reflects the container, not the host. On non-Linux, where the per-compilation memory limit does not apply, the limit is simply the CPU core count.
+
+The default limit is always at least 1: on a memory-tight node compilations, it runs one at a time rather than the node refusing to start.
 
 ---
 
