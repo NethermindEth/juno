@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -28,6 +31,12 @@ jobs:
         working-directory: docs
       - name: Run tests
         run: npm test
+        working-directory: docs
+      - name: Check the generated config table is up to date
+        run: |
+          node generate-config.js
+          git diff --exit-code docs/_config-options.md \
+            || { echo "::error::docs/docs/_config-options.md is stale. Run 'node generate-config.js' in docs/ and commit the result."; exit 1; }
         working-directory: docs
       - name: Build website
         run: npm run build
