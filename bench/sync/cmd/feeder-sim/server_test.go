@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -24,18 +24,11 @@ type simulator struct {
 
 func newSimulator(t *testing.T, config *config) *simulator {
 	t.Helper()
-	all := fixtures(t)
-	logger := log.NewNopZapLogger()
-	store, err := loadStore(t.Context(), writeDataset(t, all), config, logger)
+	all := slices.Concat(fixtures(t), preConfirmedFixtures(t))
+	store, err := loadStore(t.Context(), writeDataset(t, all), config, log.NewNopZapLogger())
 	require.NoError(t, err)
 
-	server := &server{
-		store:  store,
-		clock:  newClock(store.blocks, config, logger),
-		config: config,
-		logger: logger,
-	}
-
+	server := newTestServer(t, store, config)
 	httpServer := httptest.NewServer(server.routes())
 	t.Cleanup(httpServer.Close)
 	return &simulator{server: server, Server: httpServer, fixtures: all}
@@ -65,9 +58,7 @@ func (simulator *simulator) get(t *testing.T, path, query, acceptEncoding string
 
 func (simulator *simulator) feederClient(t *testing.T) *feeder.Client {
 	t.Helper()
-	feederURL, err := url.Parse(simulator.URL + feederPrefix)
-	require.NoError(t, err)
-	return feeder.NewClient(feederURL, feeder.WithMaxRetries(0), feeder.WithBackoff(feeder.NopBackoff))
+	return newFeederClient(t, simulator.URL, simulator.Client())
 }
 
 // routeCase expects the fixture body wantFile on success, a gateway error when
@@ -405,4 +396,56 @@ func TestServerWithFeederClient(t *testing.T) {
 		_, err := client.FeeTokenAddresses(ctx)
 		require.NoError(t, err)
 	})
+}
+
+func TestPreConfirmedRoutes(t *testing.T) {
+	simulator := newSimulator(t, preConfirmedConfig(fixtureFrom))
+	tests := []routeCase{
+		{
+			name:     "full block",
+			query:    "blockNumber=56377&blockIdentifier=0x0&knownTransactionCount=0",
+			wantFile: "get_preconfirmed_block/56377.json.gz",
+		},
+		{
+			name:     "full block gzipped",
+			query:    "blockNumber=56377&blockIdentifier=0x0&knownTransactionCount=0",
+			gzip:     true,
+			wantFile: "get_preconfirmed_block/56377.json.gz",
+		},
+		{
+			name:     "known count defaults to 0",
+			query:    "blockNumber=56377&blockIdentifier=0x0",
+			wantFile: "get_preconfirmed_block/56377.json.gz",
+		},
+		{
+			name:        "without blockIdentifier",
+			query:       "blockNumber=56377&knownTransactionCount=0",
+			wantCode:    malformedRequest,
+			wantMessage: "Field blockIdentifier is required.",
+		},
+		{
+			name:        "without blockNumber",
+			query:       "blockIdentifier=0x0",
+			wantCode:    malformedRequest,
+			wantMessage: "Field blockNumber is required.",
+		},
+		{
+			name:        "bad known count",
+			query:       "blockNumber=56377&blockIdentifier=0x0&knownTransactionCount=x",
+			wantCode:    malformedRequest,
+			wantMessage: "cannot parse 'knownTransactionCount' as uint",
+		},
+		{
+			name:        "above the window",
+			query:       "blockNumber=56380&blockIdentifier=0x0",
+			wantCode:    blockNotFound,
+			wantMessage: "Pre-confirmed block with number 56380 was not found.",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			simulator.check(t, feederPrefix+preConfirmedBlock.name, &test)
+		})
+	}
 }

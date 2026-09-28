@@ -37,7 +37,7 @@ func (err *statusError) Error() string {
 func capture(ctx context.Context, dataset dataset, config *config, logger *log.ZapLogger) error {
 	logger.Info(
 		"Juno flags for this dataset",
-		zap.String("flags", junoFlags(config.network, config.listen)),
+		zap.String("flags", junoFlags(config.network, config.listen, config.preconfirmed)),
 	)
 	logger.Info(
 		"capturing",
