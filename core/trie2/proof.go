@@ -125,11 +125,6 @@ func (t *Trie) proveMultiFrom(
 		return nil
 	}
 
-	continuingPaths := nonEmptyPaths(paths)
-	if len(continuingPaths) == 0 {
-		return nil
-	}
-
 	rootNode, err := t.resolveProofNode(rootNode, prefix)
 	if err != nil {
 		return err
@@ -137,22 +132,12 @@ func (t *Trie) proveMultiFrom(
 
 	switch n := rootNode.(type) {
 	case *trienode.EdgeNode:
-		return t.proveMultiFromEdge(n, prefix, continuingPaths, isRoot, hasher, proof)
+		return t.proveMultiFromEdge(n, prefix, paths, isRoot, hasher, proof)
 	case *trienode.BinaryNode:
-		return t.proveMultiFromBinary(n, prefix, continuingPaths, isRoot, hasher, proof)
+		return t.proveMultiFromBinary(n, prefix, paths, isRoot, hasher, proof)
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
-}
-
-func nonEmptyPaths(paths []Path) []Path {
-	continuingPaths := paths[:0]
-	for i := range paths {
-		if paths[i].Len() > 0 {
-			continuingPaths = append(continuingPaths, paths[i])
-		}
-	}
-	return continuingPaths
 }
 
 func (t *Trie) resolveProofNode(rootNode trienode.Node, prefix Path) (trienode.Node, error) {
