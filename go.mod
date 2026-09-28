@@ -34,6 +34,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/starknet-io/starknet-p2p-specs v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.12.1
+	github.com/ugorji/go/codec v1.2.14
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.28.0
