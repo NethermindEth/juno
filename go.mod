@@ -24,7 +24,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.17.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.16.1
-	github.com/olekukonko/tablewriter v1.1.4
+	github.com/olekukonko/tablewriter v1.1.5
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/cors v1.11.1
