@@ -51,7 +51,7 @@ jobs:
 
       - name: Claude review
         uses: anthropics/claude-code-action@d75b94d5ad426cb8546e6628b6f5f19b84e5cce1 # v1.0.216
-        timeout-minutes: 20
+        timeout-minutes: 30
         env:
           ANTHROPIC_BASE_URL: https://litellm.nethermind.dev # org LiteLLM gateway
         with:
