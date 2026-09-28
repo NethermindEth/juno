@@ -662,7 +662,7 @@ func GetAggregatedBloomFilterView(
 ) (AggregatedBloomFilterView, error) {
 	var view AggregatedBloomFilterView
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBlock), func(data []byte) error {
-		return encoder.Unmarshal(data, &view)
+		return cbor.Unmarshal(data, &view)
 	})
 	if err != nil {
 		return AggregatedBloomFilterView{}, err
