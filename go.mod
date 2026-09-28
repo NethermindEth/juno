@@ -14,7 +14,7 @@ require (
 	github.com/consensys/gnark-crypto v0.21.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.17.5
-	github.com/fxamacker/cbor/v2 v2.9.3
+	github.com/fxamacker/cbor/v2 v2.9.4
 	github.com/go-playground/validator/v10 v10.30.4
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/klauspost/compress v1.20.0
