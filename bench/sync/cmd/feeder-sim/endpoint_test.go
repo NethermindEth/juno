@@ -42,6 +42,11 @@ func TestResource(t *testing.T) {
 			"get_compiled_class_by_class_hash", "get_compiled_class_by_class_hash/0xabc.json.gz",
 			"blockNumber=latest&classHash=0xabc",
 		},
+		{
+			"pre-confirmed block",
+			func() (resource, error) { return preConfirmedBlock.resource(blockKey{BlockNumber: 5}) },
+			"get_preconfirmed_block", "get_preconfirmed_block/5.json.gz", "blockNumber=5",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -31,6 +31,7 @@ type responder func(requestURL *url.URL) ([]byte, error)
 type server struct {
 	store  *store
 	clock  *clock
+	window *window
 	config *config
 	logger *log.ZapLogger
 }
@@ -41,6 +42,7 @@ func (server *server) run(ctx context.Context, listen string) error {
 		Handler:           server.routes(),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
+
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		<-ctx.Done()
@@ -49,15 +51,33 @@ func (server *server) run(ctx context.Context, listen string) error {
 		defer cancel()
 		return httpServer.Shutdown(shutdownCtx)
 	})
+
 	group.Go(func() error {
-		server.logger.Info("serving", zap.String("listen", listen), zap.Uint64("tip", server.clock.tip()))
+		fields := []zap.Field{
+			zap.String("listen", listen),
+			zap.Uint64("tip", server.clock.tip()),
+			zap.Bool("preconfirmed", server.config.preconfirmed),
+		}
+
+		if server.config.preconfirmed {
+			fields = append(
+				fields,
+				zap.Uint64("lead", server.config.lead),
+				zap.Uint64("keep", server.config.keep),
+				zap.Uint64("stages", server.config.stages),
+			)
+		}
+
+		server.logger.Info("serving", fields...)
 
 		err := httpServer.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
+
 		return err
 	})
+
 	return group.Wait()
 }
 
@@ -68,7 +88,12 @@ func (server *server) routes() *http.ServeMux {
 	server.serve(mux, classByHash)
 	server.serve(mux, compiledClass)
 	server.serve(mux, contractAddresses)
-	mux.Handle(feederPrefix+preConfirmedBlockRoute, server.handler(notInWindow))
+	preConfirmedResponder := notInWindow
+	if server.config.preconfirmed {
+		preConfirmedResponder = server.logged(server.preConfirmedReply)
+	}
+
+	mux.Handle(feederPrefix+preConfirmedBlock.name, server.handler(preConfirmedResponder))
 	mux.Handle("/", server.handler(server.logged(unknown)))
 	return mux
 }
@@ -80,10 +105,14 @@ func (server *server) handler(respond responder) http.HandlerFunc {
 		body, err := respond(request.URL)
 		status := http.StatusOK
 
+		var failure gateway.Error
 		switch {
-		case err != nil:
+		case errors.As(err, &failure):
 			status = http.StatusBadRequest
-			body, err = json.Marshal(gatewayError(err))
+			body, err = json.Marshal(failure)
+		case err != nil:
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		case strings.Contains(request.Header.Get("Accept-Encoding"), "gzip"):
 			writer.Header().Set("Content-Encoding", "gzip")
 		default:
@@ -108,7 +137,8 @@ func (server *server) logged(respond responder) responder {
 		body, err := respond(requestURL)
 		if err != nil {
 			logRejection := server.logger.Error
-			if errors.As(err, new(gateway.Error)) {
+			var failure gateway.Error
+			if errors.As(err, &failure) && failure.Code == blockNotFound {
 				logRejection = server.logger.Debug
 			}
 			logRejection("rejected request", zap.Stringer("url", requestURL), zap.Error(err))
@@ -128,7 +158,7 @@ func (server *server) serve[K, F comparable](
 			return nil, err
 		}
 
-		if query.Get("blockNumber") == "latest" {
+		if query.Get("blockNumber") == latestBlock {
 			query.Set("blockNumber", strconv.FormatUint(server.clock.tip(), 10))
 		}
 
@@ -142,6 +172,7 @@ func (server *server) serve[K, F comparable](
 				return nil, err
 			}
 		}
+
 		return server.lookup(endpoint, key)
 	}
 
@@ -149,11 +180,11 @@ func (server *server) serve[K, F comparable](
 }
 
 func unknown(requestURL *url.URL) ([]byte, error) {
-	return nil, fmt.Errorf("unknown endpoint %s", requestURL.Path)
+	return nil, malformedf("unknown endpoint %s", requestURL.Path)
 }
 
 func notInWindow(*url.URL) ([]byte, error) {
-	return nil, notFound("No pre-confirmed block.")
+	return nil, notFoundf("No pre-confirmed block.")
 }
 
 func (server *server) lookup[K, F comparable](endpoint *endpoint[K, F], key K) ([]byte, error) {
@@ -171,7 +202,7 @@ func (server *server) lookup[K, F comparable](endpoint *endpoint[K, F], key K) (
 
 func (server *server) checkTip(key blockKey) error {
 	if key.BlockNumber > server.clock.tip() {
-		return notFound(fmt.Sprintf("Block number %d was not found.", key.BlockNumber))
+		return notFoundf("Block number %d was not found.", key.BlockNumber)
 	}
 	if key.BlockNumber < server.config.from {
 		return fmt.Errorf(
@@ -182,14 +213,10 @@ func (server *server) checkTip(key blockKey) error {
 	return nil
 }
 
-func notFound(message string) gateway.Error {
-	return gateway.Error{Code: blockNotFound, Message: message}
+func notFoundf(format string, args ...any) gateway.Error {
+	return gateway.Error{Code: blockNotFound, Message: fmt.Sprintf(format, args...)}
 }
 
-func gatewayError(err error) gateway.Error {
-	var failure gateway.Error
-	if errors.As(err, &failure) {
-		return failure
-	}
-	return gateway.Error{Code: malformedRequest, Message: err.Error()}
+func malformedf(format string, args ...any) gateway.Error {
+	return gateway.Error{Code: malformedRequest, Message: fmt.Sprintf(format, args...)}
 }

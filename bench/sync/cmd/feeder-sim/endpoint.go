@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"net/url"
 )
+
+const latestBlock = "latest"
 
 type endpoint[K, F comparable] struct {
 	name  string
@@ -22,15 +23,14 @@ var (
 	}
 	classByHash = &endpoint[classKey, atLatest]{
 		name:  "get_class_by_hash",
-		fixed: atLatest{BlockNumber: "latest"},
+		fixed: atLatest{BlockNumber: latestBlock},
 	}
 	compiledClass = &endpoint[classKey, atLatest]{
 		name:  "get_compiled_class_by_class_hash",
-		fixed: atLatest{BlockNumber: "latest"},
+		fixed: atLatest{BlockNumber: latestBlock},
 	}
+	preConfirmedBlock = &endpoint[blockKey, struct{}]{name: "get_preconfirmed_block"}
 )
-
-const preConfirmedBlockRoute = "get_preconfirmed_block"
 
 type resource struct {
 	name  string
@@ -69,10 +69,10 @@ func (resource resource) url(feederURL *url.URL) *url.URL {
 func (endpoint *endpoint[K, F]) checkFixed(values url.Values) error {
 	fixed, err := decode[F](values)
 	if err != nil {
-		return fmt.Errorf("%s: %w", endpoint.name, err)
+		return malformedf("%s: %v", endpoint.name, err)
 	}
 	if fixed != endpoint.fixed {
-		return fmt.Errorf("%s: unsupported query %q", endpoint.name, values.Encode())
+		return malformedf("%s: unsupported query %q", endpoint.name, values.Encode())
 	}
 	return nil
 }
@@ -80,7 +80,7 @@ func (endpoint *endpoint[K, F]) checkFixed(values url.Values) error {
 func (endpoint *endpoint[K, F]) key(values url.Values) (K, error) {
 	key, err := decode[K](values)
 	if err != nil {
-		return key, fmt.Errorf("%s: %w", endpoint.name, err)
+		return key, malformedf("%s: %v", endpoint.name, err)
 	}
 	return key, nil
 }

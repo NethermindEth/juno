@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",
+    "@docusaurus/faster": "3.10.2",
     "@docusaurus/plugin-client-redirects": "3.10.2",
     "@docusaurus/preset-classic": "3.10.2",
     "@easyops-cn/docusaurus-search-local": "^0.40.1",
@@ -28,7 +29,6 @@
     "semver": "^7.5.4"
   },
   "devDependencies": {
-    "@docusaurus/faster": "3.10.2",
     "@docusaurus/module-type-aliases": "3.2.1",
     "@docusaurus/tsconfig": "3.2.1",
     "typescript": "^5.3.3"

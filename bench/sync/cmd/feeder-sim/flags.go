@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -30,6 +31,12 @@ const (
 	speedFlag    = "speed"
 	latencyFlag  = "latency"
 
+	preConfirmedFlag       = "preconfirmed"
+	rpcURLFlag             = "rpc-url"
+	preConfirmedLeadFlag   = "preconfirmed-lead"
+	preConfirmedKeepFlag   = "preconfirmed-keep"
+	preConfirmedStagesFlag = "preconfirmed-stages"
+
 	logLevelFlag = "log-level"
 )
 
@@ -42,6 +49,10 @@ const (
 	defaultListen   = "127.0.0.1:7070"
 	listenOff       = "off"
 	defaultInterval = 2 * time.Second
+
+	defaultPreConfirmedLead   uint64 = 3
+	defaultPreConfirmedKeep   uint64 = 5
+	defaultPreConfirmedStages uint64 = 3
 )
 
 type config struct {
@@ -63,6 +74,13 @@ type config struct {
 	speed    float64
 	latency  time.Duration
 
+	preconfirmed bool
+	rpcURL       string
+	rpc          *url.URL
+	lead         uint64
+	keep         uint64
+	stages       uint64
+
 	logLevel *log.Level
 }
 
@@ -71,6 +89,7 @@ func (config *config) register(command *cobra.Command) {
 	config.registerRange(flags)
 	config.registerCapture(flags)
 	config.registerServe(flags)
+	config.registerPreConfirmed(flags)
 	config.logLevel = log.NewLevel(log.INFO)
 	flags.Var(config.logLevel, logLevelFlag, "Log level: debug, info, warn or error.")
 	command.MarkFlagsMutuallyExclusive(intervalFlag, speedFlag)
@@ -144,20 +163,62 @@ func (config *config) registerServe(flags *pflag.FlagSet) {
 	flags.DurationVar(&config.latency, latencyFlag, 0, "Fixed delay added to every response.")
 }
 
+func (config *config) registerPreConfirmed(flags *pflag.FlagSet) {
+	flags.BoolVar(
+		&config.preconfirmed,
+		preConfirmedFlag,
+		false,
+		"Capture and serve get_preconfirmed_block for the window [tip-keep, tip+lead].",
+	)
+	flags.StringVar(
+		&config.rpcURL,
+		rpcURLFlag,
+		"",
+		"JSON-RPC node with starknet_traceBlockTransactions for the range; needed to capture with --"+
+			preConfirmedFlag+".",
+	)
+	flags.Uint64Var(
+		&config.lead,
+		preConfirmedLeadFlag,
+		defaultPreConfirmedLead,
+		"Pre-confirmed blocks served above the tip; the highest one fills over the interval.",
+	)
+	flags.Uint64Var(
+		&config.keep,
+		preConfirmedKeepFlag,
+		defaultPreConfirmedKeep,
+		"Pre-confirmed blocks kept below the tip.",
+	)
+	flags.Uint64Var(
+		&config.stages,
+		preConfirmedStagesFlag,
+		defaultPreConfirmedStages,
+		"Steps in which the filling block reveals its transactions; 0 reveals all on entry.",
+	)
+}
+
 func (config *config) validate(flags *pflag.FlagSet) error {
 	if err := config.validateRange(flags); err != nil {
 		return err
 	}
+
 	if err := config.validateCapture(); err != nil {
 		return err
 	}
+
 	if err := config.validateTip(flags); err != nil {
 		return err
 	}
+
 	if err := config.validatePacing(flags); err != nil {
 		return err
 	}
-	return config.resolveMode()
+
+	if err := config.resolveMode(); err != nil {
+		return err
+	}
+
+	return config.validatePreConfirmed()
 }
 
 func (config *config) validateRange(flags *pflag.FlagSet) error {
@@ -231,5 +292,30 @@ func (config *config) resolveMode() error {
 	if config.network == nil && config.listen == "" {
 		return errors.New("nothing to do: set --network to capture, --listen to serve, or both")
 	}
+	return nil
+}
+
+func (config *config) validatePreConfirmed() error {
+	if config.rpcURL != "" {
+		rpc, err := url.Parse(config.rpcURL)
+		if err != nil {
+			return fmt.Errorf("--%s %q: %w", rpcURLFlag, config.rpcURL, err)
+		}
+
+		if (rpc.Scheme != "http" && rpc.Scheme != "https") || rpc.Host == "" {
+			return fmt.Errorf("--%s %q must be an http or https URL", rpcURLFlag, config.rpcURL)
+		}
+
+		config.rpc = rpc
+	}
+
+	if config.preconfirmed && config.network != nil && config.rpcURL == "" {
+		return fmt.Errorf("--%s with --%s requires --%s", preConfirmedFlag, networkFlag, rpcURLFlag)
+	}
+
+	if config.lead < 1 {
+		return fmt.Errorf("--%s must be >= 1", preConfirmedLeadFlag)
+	}
+
 	return nil
 }

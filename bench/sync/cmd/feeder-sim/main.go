@@ -68,18 +68,30 @@ func serve(ctx context.Context, dataset dataset, config *config, logger *log.Zap
 	if err != nil {
 		return err
 	}
+
 	clock := newClock(store.blocks, config, logger)
-	server := &server{store: store, clock: clock, config: config, logger: logger}
+
+	var window *window
+	if config.preconfirmed {
+		if window, err = newWindow(store, config, logger, clock.position()); err != nil {
+			return err
+		}
+	}
+
+	server := &server{store: store, clock: clock, window: window, config: config, logger: logger}
 
 	group, ctx := errgroup.WithContext(ctx)
+	if window != nil {
+		group.Go(func() error { window.run(ctx, clock.advanced); return nil })
+	}
 	group.Go(func() error { clock.run(ctx); return nil })
 	group.Go(func() error { return server.run(ctx, config.listen) })
 	return group.Wait()
 }
 
-func junoFlags(network *networks.Network, listen string) string {
+func junoFlags(network *networks.Network, listen string, preconfirmed bool) string {
 	base := "http://" + cmp.Or(listen, defaultListen)
-	return strings.Join([]string{
+	flags := []string{
 		"--cn-name", network.Name,
 		"--cn-feeder-url", base + feederPrefix,
 		"--cn-gateway-url", base + "/gateway/",
@@ -87,6 +99,11 @@ func junoFlags(network *networks.Network, listen string) string {
 		"--cn-l1-chain-id", network.L1ChainID.String(),
 		"--cn-core-contract-address", hexAddress(network.CoreContractAddress),
 		"--cn-unverifiable-range", "0,0",
-		"--preconfirmed-poll-interval", "0",
-	}, " ")
+	}
+
+	if !preconfirmed {
+		flags = append(flags, "--preconfirmed-poll-interval", "0")
+	}
+
+	return strings.Join(flags, " ")
 }

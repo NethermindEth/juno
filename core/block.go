@@ -284,28 +284,28 @@ func post0134Hash(
 	)
 
 	return crypto.PoseidonElems(
-			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-			starknetBlockHash1,
-			new(felt.Felt).SetUint64(b.Number),    // block number
-			b.GlobalStateRoot,                     // global state root
-			b.SequencerAddress,                    // sequencer address
-			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			&concatCounts,
-			&sdCommitment,
-			&txCommitment, // transaction commitment
-			&eCommitment,  // event commitment
-			&rCommitment,  // receipt commitment
-			&pricesHash,   // gas prices hash
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-			&felt.Zero,   // reserved: extra data
-			b.ParentHash, // parent block hash
-		), &BlockCommitments{
-			TransactionCommitment: &txCommitment,
-			EventCommitment:       &eCommitment,
-			ReceiptCommitment:     &rCommitment,
-			StateDiffCommitment:   &sdCommitment,
-			StateDiffLength:       sdLength,
-		}, nil
+		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
+		starknetBlockHash1,
+		new(felt.Felt).SetUint64(b.Number),    // block number
+		b.GlobalStateRoot,                     // global state root
+		b.SequencerAddress,                    // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		&concatCounts,
+		&sdCommitment,
+		&txCommitment, // transaction commitment
+		&eCommitment,  // event commitment
+		&rCommitment,  // receipt commitment
+		&pricesHash,   // gas prices hash
+		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		&felt.Zero,   // reserved: extra data
+		b.ParentHash, // parent block hash
+	), &BlockCommitments{
+		TransactionCommitment: &txCommitment,
+		EventCommitment:       &eCommitment,
+		ReceiptCommitment:     &rCommitment,
+		StateDiffCommitment:   &sdCommitment,
+		StateDiffLength:       sdLength,
+	}, nil
 }
 
 func Post0132Hash(
@@ -370,31 +370,31 @@ func Post0132Hash(
 	}
 
 	return crypto.PoseidonElems(
-			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-			starknetBlockHash0,
-			new(felt.Felt).SetUint64(b.Number),    // block number
-			b.GlobalStateRoot,                     // global state root
-			seqAddr,                               // sequencer address
-			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			&concatCounts,
-			&sdCommitment,
-			&txCommitment,   // transaction commitment
-			&eCommitment,    // event commitment
-			&rCommitment,    // receipt commitment
-			b.L1GasPriceETH, // gas price in wei
-			gasPriceStrk,    // gas price in fri
-			l1DataGasPriceInWei,
-			l1DataGasPriceInFri,
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-			&felt.Zero,   // reserved: extra data
-			b.ParentHash, // parent block hash
-		), &BlockCommitments{
-			TransactionCommitment: &txCommitment,
-			EventCommitment:       &eCommitment,
-			ReceiptCommitment:     &rCommitment,
-			StateDiffCommitment:   &sdCommitment,
-			StateDiffLength:       sdLength,
-		}, nil
+		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
+		starknetBlockHash0,
+		new(felt.Felt).SetUint64(b.Number),    // block number
+		b.GlobalStateRoot,                     // global state root
+		seqAddr,                               // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		&concatCounts,
+		&sdCommitment,
+		&txCommitment,   // transaction commitment
+		&eCommitment,    // event commitment
+		&rCommitment,    // receipt commitment
+		b.L1GasPriceETH, // gas price in wei
+		gasPriceStrk,    // gas price in fri
+		l1DataGasPriceInWei,
+		l1DataGasPriceInFri,
+		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		&felt.Zero,   // reserved: extra data
+		b.ParentHash, // parent block hash
+	), &BlockCommitments{
+		TransactionCommitment: &txCommitment,
+		EventCommitment:       &eCommitment,
+		ReceiptCommitment:     &rCommitment,
+		StateDiffCommitment:   &sdCommitment,
+		StateDiffLength:       sdLength,
+	}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
@@ -451,24 +451,24 @@ func post07Hash(
 	// - number of events
 	// - event commitment
 	return crypto.PedersenElems(
-			//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-			felt.NewFromUint64[felt.Felt](b.Number), // block number
-			b.GlobalStateRoot,                       // global state root
-			seqAddr,                                 // sequencer address
-			felt.NewFromUint64[felt.Felt](b.Timestamp),        // block timestamp
-			felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
-			&txCommitment, // transaction commitment
-			felt.NewFromUint64[felt.Felt](b.EventCount), // number of events
-			&eCommitment, // event commitment
-			&felt.Zero,   // reserved: protocol version
-			&felt.Zero,   // reserved: extra data
-			b.ParentHash, // parent block hash
-		), &BlockCommitments{
-			TransactionCommitment: &txCommitment,
-			EventCommitment:       &eCommitment,
-			ReceiptCommitment:     &rCommitment,
-			StateDiffLength:       sdLength,
-		}, nil
+		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
+		felt.NewFromUint64[felt.Felt](b.Number), // block number
+		b.GlobalStateRoot,                       // global state root
+		seqAddr,                                 // sequencer address
+		felt.NewFromUint64[felt.Felt](b.Timestamp),        // block timestamp
+		felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
+		&txCommitment, // transaction commitment
+		felt.NewFromUint64[felt.Felt](b.EventCount), // number of events
+		&eCommitment, // event commitment
+		&felt.Zero,   // reserved: protocol version
+		&felt.Zero,   // reserved: extra data
+		b.ParentHash, // parent block hash
+	), &BlockCommitments{
+		TransactionCommitment: &txCommitment,
+		EventCommitment:       &eCommitment,
+		ReceiptCommitment:     &rCommitment,
+		StateDiffLength:       sdLength,
+	}, nil
 }
 
 func MarshalBlockNumber(blockNumber uint64) []byte {

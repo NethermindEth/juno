@@ -31,17 +31,25 @@ func loadStore(
 		zap.Uint64("to", config.to),
 	)
 	store := &store{bodies: make(map[string][]byte)}
-	walker := &walker{
-		fetcher:     store,
-		dataset:     dataset,
-		config:      config,
-		concurrency: runtime.GOMAXPROCS(0),
-		logger:      logger,
+	var preConfirmed fetcher
+	if config.preconfirmed {
+		preConfirmed = store
 	}
+
+	walker := &walker{
+		feeder:       store,
+		preConfirmed: preConfirmed,
+		dataset:      dataset,
+		config:       config,
+		concurrency:  runtime.GOMAXPROCS(0),
+		logger:       logger,
+	}
+
 	blocks, err := walker.walk(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	store.blocks = blocks
 	logger.Info(
 		"dataset loaded",
@@ -54,11 +62,17 @@ func loadStore(
 func (store *store) fetch(_ context.Context, dataset dataset, resource resource) ([]byte, error) {
 	body, err := dataset.read(resource.file)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("%s: missing; run with --%s to capture", resource.file, networkFlag)
+		capture := "--" + networkFlag
+		if resource.name == preConfirmedBlock.name {
+			capture += " and --" + rpcURLFlag
+		}
+
+		return nil, fmt.Errorf("%s: missing; run with %s to capture", resource.file, capture)
 	}
 	if err != nil {
 		return nil, err
 	}
+
 	store.mutex.Lock()
 	store.bodies[resource.file] = body
 	store.mutex.Unlock()
