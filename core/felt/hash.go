@@ -1,5 +1,7 @@
 package felt
 
+import "encoding/json/jsontext"
+
 type Hash Felt
 
 func (h *Hash) Bytes() [32]byte {
@@ -10,8 +12,8 @@ func (h *Hash) String() string {
 	return (*Felt)(h).String()
 }
 
-func (h *Hash) UnmarshalJSON(data []byte) error {
-	return (*Felt)(h).UnmarshalJSON(data)
+func (h *Hash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*Felt)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h Hash) MarshalText() ([]byte, error) {
@@ -40,8 +42,8 @@ func (h *ClassHash) String() string {
 	return (*Hash)(h).String()
 }
 
-func (h *ClassHash) UnmarshalJSON(data []byte) error {
-	return (*Hash)(h).UnmarshalJSON(data)
+func (h *ClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*Hash)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h ClassHash) MarshalText() ([]byte, error) {
@@ -70,8 +72,8 @@ func (h *SierraClassHash) String() string {
 	return (*ClassHash)(h).String()
 }
 
-func (h *SierraClassHash) UnmarshalJSON(data []byte) error {
-	return (*ClassHash)(h).UnmarshalJSON(data)
+func (h *SierraClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*ClassHash)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h SierraClassHash) MarshalText() ([]byte, error) {
@@ -100,8 +102,8 @@ func (h *CasmClassHash) String() string {
 	return (*ClassHash)(h).String()
 }
 
-func (h *CasmClassHash) UnmarshalJSON(data []byte) error {
-	return (*ClassHash)(h).UnmarshalJSON(data)
+func (h *CasmClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*ClassHash)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h CasmClassHash) MarshalText() ([]byte, error) {
@@ -130,8 +132,8 @@ func (h *TransactionHash) String() string {
 	return (*Hash)(h).String()
 }
 
-func (h *TransactionHash) UnmarshalJSON(data []byte) error {
-	return (*Hash)(h).UnmarshalJSON(data)
+func (h *TransactionHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*Hash)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h TransactionHash) MarshalText() ([]byte, error) {
@@ -160,8 +162,8 @@ func (h *StateRootHash) String() string {
 	return (*Hash)(h).String()
 }
 
-func (h *StateRootHash) UnmarshalJSON(data []byte) error {
-	return (*Hash)(h).UnmarshalJSON(data)
+func (h *StateRootHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return (*Hash)(h).UnmarshalJSONFrom(dec)
 }
 
 func (h StateRootHash) MarshalText() ([]byte, error) {
