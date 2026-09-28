@@ -1,6 +1,6 @@
 package key
 
-import "github.com/NethermindEth/juno/utils/cbor/v1"
+import "github.com/NethermindEth/juno/utils/cbor"
 
 type cborSerializer[K any] struct{}
 

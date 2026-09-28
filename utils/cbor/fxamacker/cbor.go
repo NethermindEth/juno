@@ -1,4 +1,4 @@
-package cbor
+package fxamacker
 
 import (
 	"io"
@@ -49,7 +49,7 @@ func newStrictMode() fxcbor.DecMode {
 }
 
 // RegisterType gives a unique CBOR tag to a type.
-// Only call this from encoder/registry's init().
+// Used by the CBOR entry point during utils/cbor/registry initialization.
 func RegisterType(rType reflect.Type) error {
 	if err := ts.Add(
 		fxcbor.TagOptions{EncTag: fxcbor.EncTagRequired, DecTag: fxcbor.DecTagRequired},

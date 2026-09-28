@@ -1,4 +1,4 @@
-package cbor
+package fxamacker
 
 // cborNull is what the generic encoder emits for a nil slice.
 const cborNull = 0xf6

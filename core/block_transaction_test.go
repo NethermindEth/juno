@@ -8,8 +8,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/indexed"
 	"github.com/NethermindEth/juno/db/typed/partial"
+	"github.com/NethermindEth/juno/utils/cbor"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
 	"github.com/stretchr/testify/require"
 )
 

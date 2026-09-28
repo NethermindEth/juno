@@ -3,7 +3,7 @@ package p2p
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/multiformats/go-multiaddr"
 )
 

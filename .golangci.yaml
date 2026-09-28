@@ -46,7 +46,7 @@ linters:
               desc: use github.com/NethermindEth/juno/utils for logging
         cbor:
           files:
-            - "!**/utils/cbor/*/*.go"
+            - "!**/utils/cbor/fxamacker/*.go"
           deny:
             - pkg: github.com/fxamacker/cbor/v2
               desc: use github.com/NethermindEth/juno/utils/cbor, do not import any other CBOR library directly

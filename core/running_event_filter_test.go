@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"

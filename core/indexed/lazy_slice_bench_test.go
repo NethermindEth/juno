@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/indexed"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 type benchItem struct {

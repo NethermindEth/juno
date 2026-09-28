@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )

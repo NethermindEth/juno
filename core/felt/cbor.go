@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 

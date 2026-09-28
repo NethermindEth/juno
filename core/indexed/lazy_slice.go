@@ -5,7 +5,7 @@ import (
 	"iter"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 // Items are stored contiguously in a data slice, with an indexes slice marking each

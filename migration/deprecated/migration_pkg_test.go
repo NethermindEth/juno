@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"

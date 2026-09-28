@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 const (

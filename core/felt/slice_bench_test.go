@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 func BenchmarkSliceVsFeltArrayCBOR(b *testing.B) {

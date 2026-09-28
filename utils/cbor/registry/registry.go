@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 var once sync.Once

@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto/blake2s"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 var (

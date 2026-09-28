@@ -1,4 +1,4 @@
-package cbor
+package fxamacker
 
 // SelfEncoder is the hook a type implements to write its own encoding.
 type SelfEncoder interface {

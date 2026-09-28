@@ -10,7 +10,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/NethermindEth/juno/utils/cbor/v1"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 type Slice[F FeltLike] []F
