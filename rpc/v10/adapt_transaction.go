@@ -148,7 +148,7 @@ func AdaptReceipt(
 	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = MsgToL1{
-			To:      msg.To,
+			To:      felt.FromBytes[felt.Felt](msg.To.Bytes()),
 			Payload: msg.Payload,
 			From:    msg.From,
 		}
