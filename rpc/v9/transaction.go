@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
@@ -304,7 +303,7 @@ type TransactionStatus struct {
 
 type MsgToL1 struct {
 	From    *felt.Felt            `json:"from_address,omitempty"`
-	To      eth.Address           `json:"to_address"`
+	To      felt.Felt             `json:"to_address"`
 	Payload felt.Slice[felt.Felt] `json:"payload"`
 }
 
@@ -1065,7 +1064,7 @@ func AdaptReceipt(
 	messages := make([]MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = MsgToL1{
-			To:      msg.To,
+			To:      felt.FromBytes[felt.Felt](msg.To.Bytes()),
 			Payload: msg.Payload,
 			From:    msg.From,
 		}
