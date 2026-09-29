@@ -62,14 +62,18 @@ type Poller struct {
 	requestSync       *RequestSync
 }
 
+// NewPoller builds a poller that ticks every `interval`. Additionally it polls on request based
+// on whenever there is a call to `[Poller.PreConfirmedChain] based  on the `staleAfter`
+// and `onDemandWait` variables.
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
 	highestBlockHeader *atomic.Pointer[core.Header],
 	interval time.Duration,
+	staleAfter time.Duration,
+	onDemandWait time.Duration,
 	logger log.StructuredLogger,
 ) *Poller {
-	const freshness = 100 * time.Millisecond
 	return &Poller{
 		dataSource:         dataSource,
 		blockchain:         blockchain,
@@ -79,7 +83,7 @@ func NewPoller(
 		logger:             logger,
 
 		preConfirmedChain: NewChainStorage(),
-		requestSync:       NewRequestSync(freshness),
+		requestSync:       NewRequestSync(staleAfter, onDemandWait),
 	}
 }
 
@@ -87,8 +91,10 @@ func (p *Poller) Subscribe() Subscription {
 	return Subscription{p.feed.Subscribe()}
 }
 
-// PreConfirmedChain returns the pre-confirmed chain above the canonical head. While the poller
-// runs, it first waits for a new poll unless the last successful one is still fresh.
+// PreConfirmedChain returns the pre-confirmed chain. If current chain is older than
+// [RequestSync.requestWaitTime], a new poll will return and it will block until the work is
+// done. In case the works take longer than [RequestSync.dataFreshnessTime], it will stop waiting
+// for the poll result (without interrupting) and return the current available chain.
 func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 	p.requestSync.Request()
 
