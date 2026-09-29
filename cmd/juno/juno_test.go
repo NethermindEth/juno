@@ -69,6 +69,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
+	defaultPreConfirmedStaleAfter := 100 * time.Millisecond
+	defaultPreConfirmedOnDemandWait := time.Second
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxConcurrentRequests := uint(256000)
 	defaultRPCMaxRequestQueue := uint(256000)
@@ -121,6 +123,8 @@ func TestConfigPrecedence(t *testing.T) {
 		PprofPort:                          defaultPprofPort,
 		Colour:                             defaultColour,
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+		PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+		PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -173,6 +177,8 @@ func TestConfigPrecedence(t *testing.T) {
 		MetricsPort:                        defaultMetricsPort,
 		Colour:                             defaultColour,
 		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+		PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+		PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -334,6 +340,8 @@ pprof: true
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -392,6 +400,8 @@ http-port: 4576
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -464,6 +474,8 @@ http-port: 4576
 				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
 				HTTPUpdatePort:                     0,
@@ -506,6 +518,8 @@ http-port: 4576
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -558,6 +572,8 @@ pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
 preconfirmed-poll-interval: 1s
+preconfirmed-stale-after: 1s
+preconfirmed-on-demand-wait: 2s
 db-cache-size: 1024
 `,
 			inputArgs: []string{
@@ -565,6 +581,7 @@ db-cache-size: 1024
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof",
 				"--preconfirmed-poll-interval", time.Millisecond.String(), "--db-cache-size", "9",
+				"--preconfirmed-stale-after", "10ms", "--preconfirmed-on-demand-wait", "20ms",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:                           "error",
@@ -587,6 +604,8 @@ db-cache-size: 1024
 				PprofPort:                          6064,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           time.Millisecond,
+				PreConfirmedStaleAfter:             10 * time.Millisecond,
+				PreConfirmedOnDemandWait:           20 * time.Millisecond,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -647,6 +666,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -703,6 +724,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -757,6 +780,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -812,6 +837,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -867,6 +894,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
@@ -921,6 +950,8 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
+				PreConfirmedStaleAfter:             defaultPreConfirmedStaleAfter,
+				PreConfirmedOnDemandWait:           defaultPreConfirmedOnDemandWait,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
