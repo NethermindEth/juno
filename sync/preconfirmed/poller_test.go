@@ -25,7 +25,11 @@ import (
 
 var feltOne = &felt.One
 
-const tickInterval = 100 * time.Millisecond
+const (
+	tickInterval = 100 * time.Millisecond
+	staleAfter   = 100 * time.Millisecond
+	onDemandWait = time.Second
+)
 
 // makeTestPreConfirmedBlock returns a starknet.PreConfirmedBlock carrying
 // `txCount` synthesised invoke transactions with matching receipts and per-tx
@@ -159,7 +163,9 @@ func wirePoller(
 	highest := &atomic.Pointer[core.Header]{}
 	highest.Store(head)
 
-	p := preconfirmed.NewPoller(ds, bc, highest, tickInterval, log.NewNopZapLogger())
+	p := preconfirmed.NewPoller(
+		ds, bc, highest, tickInterval, staleAfter, onDemandWait, log.NewNopZapLogger(),
+	)
 	return harness{poller: p, highest: highest}
 }
 
