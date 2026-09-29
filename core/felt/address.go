@@ -16,6 +16,10 @@ func (a *Address) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*Felt)(a).UnmarshalJSONFrom(dec)
 }
 
+func (a *Address) UnmarshalText(text []byte) error {
+	return (*Felt)(a).UnmarshalText(text)
+}
+
 func (a Address) MarshalText() ([]byte, error) {
 	return Felt(a).MarshalText()
 }

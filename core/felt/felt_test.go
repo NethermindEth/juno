@@ -346,6 +346,7 @@ func TestFeltsWrappers(t *testing.T) {
 	type textCodec interface {
 		encoding.TextMarshaler
 		encoding.TextAppender
+		encoding.TextUnmarshaler
 		jsonv2.UnmarshalerFrom
 	}
 
@@ -374,6 +375,12 @@ func TestFeltsWrappers(t *testing.T) {
 
 			require.ErrorContains(t, json.Unmarshal([]byte(`"0xerror"`), w), "couldn't decode hex value")
 			require.ErrorContains(t, json.Unmarshal([]byte(`null`), w), "expected a quoted 0x hex string")
+
+			require.NoError(t, w.UnmarshalText([]byte("0xC0DE")))
+			got, err = w.MarshalText()
+			require.NoError(t, err)
+			assert.Equal(t, "0xc0de", string(got))
+			require.ErrorContains(t, w.UnmarshalText([]byte("c0de")), "expected hex string starting with 0x")
 		})
 	}
 }
@@ -435,5 +442,42 @@ func FuzzFeltUnmarshal(f *testing.F) {
 		var roundTrip felt.Felt
 		require.NoError(t, json.Unmarshal(marshalled, &roundTrip))
 		assert.True(t, decoded.Equal(&roundTrip))
+	})
+}
+
+func TestJSONMapKey(t *testing.T) {
+	one := felt.FromUint64[felt.Felt](1)
+	big := felt.NewUnsafeFromString[felt.Felt](
+		"0x7cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+	)
+
+	t.Run("v1 round trip", func(t *testing.T) {
+		in := map[felt.Felt]int{one: 1, *big: 2}
+		data, err := json.Marshal(in)
+		require.NoError(t, err)
+		assert.JSONEq(t,
+			`{"0x1":1,"0x7cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789":2}`,
+			string(data),
+		)
+
+		var out map[felt.Felt]int
+		require.NoError(t, json.Unmarshal(data, &out))
+		assert.Equal(t, in, out)
+	})
+
+	t.Run("v2 round trip", func(t *testing.T) {
+		in := map[felt.Address]string{felt.Address(one): "a"}
+		data, err := jsonv2.Marshal(in)
+		require.NoError(t, err)
+
+		var out map[felt.Address]string
+		require.NoError(t, jsonv2.Unmarshal(data, &out))
+		assert.Equal(t, in, out)
+	})
+
+	t.Run("invalid key", func(t *testing.T) {
+		var out map[felt.Felt]int
+		err := json.Unmarshal([]byte(`{"abc":1}`), &out)
+		require.ErrorContains(t, err, "expected hex string starting with 0x")
 	})
 }

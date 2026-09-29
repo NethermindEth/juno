@@ -64,6 +64,12 @@ func (z *Felt) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return z.setHex(value[1 : len(value)-1])
 }
 
+// UnmarshalText sets z from an unquoted 0x-prefixed hex string, as map keys and text
+// decoders pass it.
+func (z *Felt) UnmarshalText(text []byte) error {
+	return z.setHex(text)
+}
+
 // setHex parses a 0x-prefixed hex string (without surrounding quotes) into z.
 // It is shared by Felt and Slice JSON decoding.
 func (z *Felt) setHex(data []byte) error {

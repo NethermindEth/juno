@@ -16,6 +16,10 @@ func (h *Hash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*Felt)(h).UnmarshalJSONFrom(dec)
 }
 
+func (h *Hash) UnmarshalText(text []byte) error {
+	return (*Felt)(h).UnmarshalText(text)
+}
+
 func (h Hash) MarshalText() ([]byte, error) {
 	return Felt(h).MarshalText()
 }
@@ -44,6 +48,10 @@ func (h *ClassHash) String() string {
 
 func (h *ClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*Hash)(h).UnmarshalJSONFrom(dec)
+}
+
+func (h *ClassHash) UnmarshalText(text []byte) error {
+	return (*Hash)(h).UnmarshalText(text)
 }
 
 func (h ClassHash) MarshalText() ([]byte, error) {
@@ -76,6 +84,10 @@ func (h *SierraClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*ClassHash)(h).UnmarshalJSONFrom(dec)
 }
 
+func (h *SierraClassHash) UnmarshalText(text []byte) error {
+	return (*ClassHash)(h).UnmarshalText(text)
+}
+
 func (h SierraClassHash) MarshalText() ([]byte, error) {
 	return ClassHash(h).MarshalText()
 }
@@ -104,6 +116,10 @@ func (h *CasmClassHash) String() string {
 
 func (h *CasmClassHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*ClassHash)(h).UnmarshalJSONFrom(dec)
+}
+
+func (h *CasmClassHash) UnmarshalText(text []byte) error {
+	return (*ClassHash)(h).UnmarshalText(text)
 }
 
 func (h CasmClassHash) MarshalText() ([]byte, error) {
@@ -136,6 +152,10 @@ func (h *TransactionHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*Hash)(h).UnmarshalJSONFrom(dec)
 }
 
+func (h *TransactionHash) UnmarshalText(text []byte) error {
+	return (*Hash)(h).UnmarshalText(text)
+}
+
 func (h TransactionHash) MarshalText() ([]byte, error) {
 	return Hash(h).MarshalText()
 }
@@ -164,6 +184,10 @@ func (h *StateRootHash) String() string {
 
 func (h *StateRootHash) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return (*Hash)(h).UnmarshalJSONFrom(dec)
+}
+
+func (h *StateRootHash) UnmarshalText(text []byte) error {
+	return (*Hash)(h).UnmarshalText(text)
 }
 
 func (h StateRootHash) MarshalText() ([]byte, error) {
