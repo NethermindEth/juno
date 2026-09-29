@@ -41,6 +41,7 @@
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
+| `rpc-sync-url` |  | Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) to sync committed blocks from instead of the feeder gateway. Pre-confirmed data still comes from the feeder gateway |
 
 ### Gateway
 
