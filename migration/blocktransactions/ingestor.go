@@ -181,7 +181,8 @@ func extractValues(
 }
 
 func deleteOldBlockRangeData(batch db.KeyValueRangeDeleter, startBlock, endBlock uint64) error {
-	err := core.TransactionsByBlockNumberAndIndexBucket.Prefix().DeleteRange(
+	//nolint:staticcheck,nolintlint // old transaction layout
+	err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().DeleteRange(
 		batch,
 		startBlock,
 		endBlock+1,
@@ -190,7 +191,8 @@ func deleteOldBlockRangeData(batch db.KeyValueRangeDeleter, startBlock, endBlock
 		return err
 	}
 
-	return core.ReceiptsByBlockNumberAndIndexBucket.Prefix().DeleteRange(
+	//nolint:staticcheck,nolintlint // old transaction layout
+	return core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().DeleteRange(
 		batch,
 		startBlock,
 		endBlock+1,

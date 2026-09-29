@@ -22,32 +22,6 @@ State-related accessors
 
 **/
 
-func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
-	var classHash felt.Felt
-	err := r.Get(db.ContractClassHashKey(addr), func(data []byte) error {
-		classHash.SetBytes(data)
-		return nil
-	})
-	return classHash, err
-}
-
-func WriteContractClassHash(w db.KeyValueWriter, addr, classHash *felt.Felt) error {
-	return w.Put(db.ContractClassHashKey(addr), classHash.Marshal())
-}
-
-func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
-	var nonce felt.Felt
-	err := r.Get(db.ContractNonceKey(addr), func(data []byte) error {
-		nonce.SetBytes(data)
-		return nil
-	})
-	return nonce, err
-}
-
-func WriteContractNonce(w db.KeyValueWriter, addr, nonce *felt.Felt) error {
-	return w.Put(db.ContractNonceKey(addr), nonce.Marshal())
-}
-
 func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 	return r.Has(db.ClassKey(classHash))
 }
@@ -71,24 +45,6 @@ func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassD
 
 func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
 	return w.Delete(db.ClassKey(classHash))
-}
-
-func WriteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt, height uint64) error {
-	enc := MarshalBlockNumber(height)
-	return w.Put(db.ContractDeploymentHeightKey(addr), enc)
-}
-
-func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Felt) (uint64, error) {
-	var height uint64
-	err := r.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
-		height = binary.BigEndian.Uint64(data)
-		return nil
-	})
-	return height, err
-}
-
-func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt) error {
-	return w.Delete(db.ContractDeploymentHeightKey(addr))
 }
 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdate, error) {
@@ -125,71 +81,6 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 	}
 
 	return GetStateUpdateByBlockNum(r, blockNum)
-}
-
-// WriteDeprecatedContractStorageHistory writes the old value of a storage location
-// for the given contract which changed on height `height`.
-func WriteDeprecatedContractStorageHistory(
-	w db.KeyValueWriter,
-	contractAddress,
-	storageLocation,
-	oldValue *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
-	return w.Put(key, oldValue.Marshal())
-}
-
-// DeleteDeprecatedContractStorageHistory deletes the history at the given height
-func DeleteDeprecatedContractStorageHistory(
-	w db.KeyValueWriter,
-	contractAddress,
-	storageLocation *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractStorageHistoryAtBlockKey(contractAddress, storageLocation, height)
-	return w.Delete(key)
-}
-
-// WriteDeprecatedContractNonceHistory writes the old value of a nonce
-// for the given contract which changed on height `height`
-func WriteDeprecatedContractNonceHistory(
-	w db.KeyValueWriter,
-	contractAddress,
-	oldValue *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractNonceHistoryAtBlockKey(contractAddress, height)
-	return w.Put(key, oldValue.Marshal())
-}
-
-// DeleteDeprecatedContractNonceHistory deletes the history at the given height
-func DeleteDeprecatedContractNonceHistory(
-	w db.KeyValueWriter,
-	contractAddress *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractNonceHistoryAtBlockKey(contractAddress, height)
-	return w.Delete(key)
-}
-
-func WriteDeprecatedContractClassHashHistory(
-	w db.KeyValueWriter,
-	contractAddress,
-	oldValue *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractClassHashHistoryAtBlockKey(contractAddress, height)
-	return w.Put(key, oldValue.Marshal())
-}
-
-func DeleteDeprecatedContractClassHashHistory(
-	w db.KeyValueWriter,
-	contractAddress *felt.Felt,
-	height uint64,
-) error {
-	key := db.DeprecatedContractClassHashHistoryAtBlockKey(contractAddress, height)
-	return w.Delete(key)
 }
 
 /**

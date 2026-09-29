@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/core"
+	//nolint:staticcheck,nolintlint // old state layout
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -70,15 +70,17 @@ var fixture = contractFixture{
 func seedDeprecated(t *testing.T, memDB db.KeyValueStore) {
 	t.Helper()
 
-	require.NoError(t, core.WriteContractClassHash(memDB, &fixture.addr, &fixture.headClassHash))
-	require.NoError(t, core.WriteContractNonce(memDB, &fixture.addr, &fixture.headNonce))
-	require.NoError(t, core.WriteContractDeploymentHeight(memDB, &fixture.addr, deployHeight))
+	require.NoError(t, deprecatedstate.WriteContractClassHash(
+		memDB, &fixture.addr, &fixture.headClassHash))
+	require.NoError(t, deprecatedstate.WriteContractNonce(memDB, &fixture.addr, &fixture.headNonce))
+	require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(
+		memDB, &fixture.addr, deployHeight))
 
-	require.NoError(t, core.WriteDeprecatedContractClassHashHistory(
+	require.NoError(t, deprecatedstate.WriteContractClassHashHistory(
 		memDB, &fixture.addr, &fixture.deployClassHash, replaceHeight))
-	require.NoError(t, core.WriteDeprecatedContractNonceHistory(
+	require.NoError(t, deprecatedstate.WriteContractNonceHistory(
 		memDB, &fixture.addr, &fixture.preNonce, nonceHeight))
-	require.NoError(t, core.WriteDeprecatedContractStorageHistory(
+	require.NoError(t, deprecatedstate.WriteContractStorageHistory(
 		memDB, &fixture.addr, &fixture.slot, &fixture.preSlotValue, storeHeight))
 
 	seedDeprecatedStorageTrie(t, memDB, fixture.addr, map[felt.Felt]felt.Felt{
@@ -97,7 +99,8 @@ func seedDeprecatedStorageTrie(
 	txn := memDB.NewIndexedBatch()
 	tr, err := trie.NewTriePedersen(
 		txn,
-		db.ContractStorage.Key(addr.Marshal()),
+		//nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractStorage.Key(addr.Marshal()),
 		deprecatedstate.ContractStorageTrieHeight,
 	)
 	require.NoError(t, err)
@@ -160,9 +163,9 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 		"storage at the change block must come from the deprecated head trie")
 
 	for _, bucket := range []db.Bucket{
-		db.ContractClassHash,
-		db.ContractNonce,
-		db.ContractDeploymentHeight,
+		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 		db.DeprecatedContractClassHashHistory,
 		db.DeprecatedContractNonceHistory,
 		db.DeprecatedContractStorageHistory,
@@ -221,7 +224,8 @@ func TestBeforeResumesAtNamedPhase(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, res)
 
-	assert.NotZero(t, bucketKeyCount(t, memDB, db.ContractClassHash),
+	//nolint:staticcheck,nolintlint // old state layout
+	assert.NotZero(t, bucketKeyCount(t, memDB, db.DeprecatedContractClassHash),
 		"the headstate phase must not have run")
 	assert.Zero(t, bucketKeyCount(t, memDB, db.Contract),
 		"no Contract record can exist when the headstate phase is skipped")

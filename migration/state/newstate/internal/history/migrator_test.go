@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/core"
+	//nolint:staticcheck,nolintlint // old state layout
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -37,7 +37,7 @@ func seedDeprecatedClassHashHistory(
 	oldValue felt.Felt,
 ) {
 	t.Helper()
-	require.NoError(t, core.WriteDeprecatedContractClassHashHistory(w, &addr, &oldValue, block))
+	require.NoError(t, deprecatedstate.WriteContractClassHashHistory(w, &addr, &oldValue, block))
 }
 
 func seedDeprecatedNonceHistory(
@@ -48,7 +48,7 @@ func seedDeprecatedNonceHistory(
 	oldValue felt.Felt,
 ) {
 	t.Helper()
-	require.NoError(t, core.WriteDeprecatedContractNonceHistory(w, &addr, &oldValue, block))
+	require.NoError(t, deprecatedstate.WriteContractNonceHistory(w, &addr, &oldValue, block))
 }
 
 func seedDeprecatedStorageHistory(
@@ -59,7 +59,7 @@ func seedDeprecatedStorageHistory(
 	oldValue felt.Felt,
 ) {
 	t.Helper()
-	require.NoError(t, core.WriteDeprecatedContractStorageHistory(w, &addr, &slot, &oldValue, block))
+	require.NoError(t, deprecatedstate.WriteContractStorageHistory(w, &addr, &slot, &oldValue, block))
 }
 
 func seedDeprecatedStorageTrie(
@@ -73,7 +73,8 @@ func seedDeprecatedStorageTrie(
 	txn := memDB.NewIndexedBatch()
 	tr, err := trie.NewTriePedersen(
 		txn,
-		db.ContractStorage.Key(addr.Marshal()),
+		//nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractStorage.Key(addr.Marshal()),
 		deprecatedstate.ContractStorageTrieHeight,
 	)
 	require.NoError(t, err)

@@ -1,3 +1,4 @@
+// Deprecated: superseded by core/state; only migrations and the old state backend should use it.
 package deprecatedstate
 
 import (
@@ -52,7 +53,7 @@ func (s *State) putNewContract(
 		return err
 	}
 
-	if err = core.WriteContractDeploymentHeight(s.txn, addr, blockNumber); err != nil {
+	if err = WriteContractDeploymentHeight(s.txn, addr, blockNumber); err != nil {
 		return err
 	}
 
@@ -61,12 +62,12 @@ func (s *State) putNewContract(
 
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	return core.GetContractClassHash(s.txn, addr)
+	return GetContractClassHash(s.txn, addr)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
 func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	return core.GetContractNonce(s.txn, addr)
+	return GetContractNonce(s.txn, addr)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
@@ -148,11 +149,13 @@ func (s *State) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func (s *State) storage() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
+	//nolint:staticcheck,nolintlint // old state layout
+	return s.globalTrie(db.DeprecatedStateTrie, trie.NewTriePedersen)
 }
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
-	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
+	//nolint:staticcheck,nolintlint // old state layout
+	return s.globalTrie(db.DeprecatedClassesTrie, trie.NewTriePoseidon)
 }
 
 func (s *State) globalTrie(
@@ -296,7 +299,7 @@ func (s *State) updateContracts(
 		}
 
 		if logChanges {
-			if err = core.WriteDeprecatedContractClassHashHistory(
+			if err = WriteContractClassHashHistory(
 				s.txn, &addr, &oldClassHash, blockNumber,
 			); err != nil {
 				return err
@@ -312,7 +315,7 @@ func (s *State) updateContracts(
 		}
 
 		if logChanges {
-			err = core.WriteDeprecatedContractNonceHistory(s.txn, &addr, &oldNonce, blockNumber)
+			err = WriteContractNonceHistory(s.txn, &addr, &oldNonce, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -332,7 +335,7 @@ func (s *State) replaceContract(
 	return s.updateContract(
 		stateTrie,
 		addr,
-		core.GetContractClassHash,
+		GetContractClassHash,
 		func(c *ContractUpdater) error {
 			return c.Replace(classHash)
 		},
@@ -397,7 +400,7 @@ func (s *State) updateStorageBuffered(
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
 		if logChanges {
-			return core.WriteDeprecatedContractStorageHistory(
+			return WriteContractStorageHistory(
 				bufferedState.txn,
 				contractAddr,
 				location,
@@ -502,7 +505,7 @@ func (s *State) updateContractNonce(
 	addr,
 	nonce *felt.Felt,
 ) (felt.Felt, error) {
-	return s.updateContract(stateTrie, addr, core.GetContractNonce, func(c *ContractUpdater) error {
+	return s.updateContract(stateTrie, addr, GetContractNonce, func(c *ContractUpdater) error {
 		return c.UpdateNonce(nonce)
 	})
 }
@@ -544,12 +547,12 @@ func (s *State) updateContractCommitment(
 		return err
 	}
 
-	cHash, err := core.GetContractClassHash(s.txn, contract.Address)
+	cHash, err := GetContractClassHash(s.txn, contract.Address)
 	if err != nil {
 		return err
 	}
 
-	nonce, err := core.GetContractNonce(s.txn, contract.Address)
+	nonce, err := GetContractNonce(s.txn, contract.Address)
 	if err != nil {
 		return err
 	}
@@ -601,7 +604,7 @@ func (s *State) updateDeclaredClassesTrie(
 
 // ContractDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
-	deployedAt, err := core.GetContractDeploymentHeight(s.txn, addr)
+	deployedAt, err := GetContractDeploymentHeight(s.txn, addr)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
@@ -750,7 +753,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if err = core.DeleteContractDeploymentHeight(s.txn, addr); err != nil {
+	if err = DeleteContractDeploymentHeight(s.txn, addr); err != nil {
 		return err
 	}
 
@@ -821,7 +824,7 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *core.StateDiff) 
 	// storage diffs
 	for addr, storageDiffs := range diff.StorageDiffs {
 		for key := range storageDiffs {
-			err := core.DeleteDeprecatedContractStorageHistory(s.txn, &addr, &key, blockNumber)
+			err := DeleteContractStorageHistory(s.txn, &addr, &key, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -830,14 +833,14 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *core.StateDiff) 
 
 	// nonces
 	for addr := range diff.Nonces {
-		if err := core.DeleteDeprecatedContractNonceHistory(s.txn, &addr, blockNumber); err != nil {
+		if err := DeleteContractNonceHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}
 
 	// replaced classes
 	for addr := range diff.ReplacedClasses {
-		if err := core.DeleteDeprecatedContractClassHashHistory(s.txn, &addr, blockNumber); err != nil {
+		if err := DeleteContractClassHashHistory(s.txn, &addr, blockNumber); err != nil {
 			return err
 		}
 	}

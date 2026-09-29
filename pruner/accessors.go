@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // deletes old history rows
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/typed/key"
@@ -280,7 +281,7 @@ func pruneStateHistoryFromUpdate(
 ) error {
 	for addr, storageChanges := range stateUpdate.StateDiff.StorageDiffs {
 		for slot := range storageChanges {
-			err := core.DeleteDeprecatedContractStorageHistory(w, &addr, &slot, blockNumber)
+			err := deprecatedstate.DeleteContractStorageHistory(w, &addr, &slot, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -288,14 +289,14 @@ func pruneStateHistoryFromUpdate(
 	}
 
 	for addr := range stateUpdate.StateDiff.Nonces {
-		err := core.DeleteDeprecatedContractNonceHistory(w, &addr, blockNumber)
+		err := deprecatedstate.DeleteContractNonceHistory(w, &addr, blockNumber)
 		if err != nil {
 			return err
 		}
 	}
 
 	for addr := range stateUpdate.StateDiff.ReplacedClasses {
-		err := core.DeleteDeprecatedContractClassHashHistory(w, &addr, blockNumber)
+		err := deprecatedstate.DeleteContractClassHashHistory(w, &addr, blockNumber)
 		if err != nil {
 			return err
 		}

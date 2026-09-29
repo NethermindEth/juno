@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/core"
+	//nolint:staticcheck,nolintlint // old state layout
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
@@ -27,9 +28,9 @@ func seedDeprecated(t *testing.T, memDB db.KeyValueStore, seeds []contractData) 
 	t.Helper()
 	for i := range seeds {
 		s := &seeds[i]
-		require.NoError(t, core.WriteContractClassHash(memDB, &s.addr, &s.classHash))
-		require.NoError(t, core.WriteContractNonce(memDB, &s.addr, &s.nonce))
-		require.NoError(t, core.WriteContractDeploymentHeight(memDB, &s.addr, s.height))
+		require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &s.addr, &s.classHash))
+		require.NoError(t, deprecatedstate.WriteContractNonce(memDB, &s.addr, &s.nonce))
+		require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(memDB, &s.addr, s.height))
 	}
 }
 
@@ -105,9 +106,9 @@ func TestMigrate_ConsolidatesAddresses(t *testing.T) {
 	}
 
 	for _, bucket := range []db.Bucket{
-		db.ContractClassHash,
-		db.ContractNonce,
-		db.ContractDeploymentHeight,
+		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 	} {
 		assert.Equal(t, 0, bucketKeyCount(t, memDB, bucket), "old bucket %v must be empty", bucket)
 	}
@@ -125,16 +126,16 @@ func TestMigrate_SkipsAlreadyMigrated(t *testing.T) {
 	doneNonce := felt.FromUint64[felt.Felt](57005)
 
 	require.NoError(t, state.WriteContract(memDB, &addrDone, doneNonce, doneClassHash, 111))
-	require.NoError(t, core.WriteContractClassHash(memDB, &addrDone, &doneClassHash))
-	require.NoError(t, core.WriteContractDeploymentHeight(memDB, &addrDone, 111))
+	require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &addrDone, &doneClassHash))
+	require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(memDB, &addrDone, 111))
 
 	addrPending := felt.FromUint64[felt.Felt](2)
 	pendingClassHash := felt.FromUint64[felt.Felt](187)
 	pendingNonce := felt.FromUint64[felt.Felt](9)
 
-	require.NoError(t, core.WriteContractClassHash(memDB, &addrPending, &pendingClassHash))
-	require.NoError(t, core.WriteContractNonce(memDB, &addrPending, &pendingNonce))
-	require.NoError(t, core.WriteContractDeploymentHeight(memDB, &addrPending, 222))
+	require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &addrPending, &pendingClassHash))
+	require.NoError(t, deprecatedstate.WriteContractNonce(memDB, &addrPending, &pendingNonce))
+	require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(memDB, &addrPending, 222))
 
 	res, err := headstate.Migrator{}.Migrate(
 		context.Background(),
@@ -159,9 +160,9 @@ func TestMigrate_SkipsAlreadyMigrated(t *testing.T) {
 	assert.Equal(t, uint64(222), pending.DeployedHeight)
 
 	for _, bucket := range []db.Bucket{
-		db.ContractClassHash,
-		db.ContractNonce,
-		db.ContractDeploymentHeight,
+		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 	} {
 		assert.Equal(t, 0, bucketKeyCount(t, memDB, bucket), "old bucket %v must be empty", bucket)
 	}
@@ -219,16 +220,16 @@ func TestMigrate_MissingSecondaryRowMidRunIsAnError(t *testing.T) {
 		{
 			name: "no nonce",
 			writeGap: func(t *testing.T, memDB db.KeyValueStore) {
-				require.NoError(t, core.WriteContractClassHash(memDB, &gap, &gapClassHash))
-				require.NoError(t, core.WriteContractDeploymentHeight(memDB, &gap, 200))
+				require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &gap, &gapClassHash))
+				require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(memDB, &gap, 200))
 			},
 			wantErr: "no nonce",
 		},
 		{
 			name: "no deployment height",
 			writeGap: func(t *testing.T, memDB db.KeyValueStore) {
-				require.NoError(t, core.WriteContractClassHash(memDB, &gap, &gapClassHash))
-				require.NoError(t, core.WriteContractNonce(memDB, &gap, &gapNonce))
+				require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &gap, &gapClassHash))
+				require.NoError(t, deprecatedstate.WriteContractNonce(memDB, &gap, &gapNonce))
 			},
 			wantErr: "deployment height",
 		},

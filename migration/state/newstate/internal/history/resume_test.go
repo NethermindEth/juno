@@ -6,7 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
+	//nolint:staticcheck,nolintlint // old state layout
+	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
@@ -95,7 +96,7 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 		require.NoError(t, state.WriteContract(
 			memDB, &addrs[i], felt.FromUint64[felt.Felt](7), felt.Zero, 1,
 		))
-		require.NoError(t, core.WriteDeprecatedContractNonceHistory(memDB, &addrs[i], &felt.Zero, 200))
+		require.NoError(t, deprecatedstate.WriteContractNonceHistory(memDB, &addrs[i], &felt.Zero, 200))
 	}
 	logger := log.NewNopZapLogger()
 
