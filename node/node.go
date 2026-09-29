@@ -85,6 +85,8 @@ type Config struct {
 	PprofPort                uint16           `mapstructure:"pprof-port"`
 	Colour                   bool             `mapstructure:"colour"`
 	PreConfirmedPollInterval time.Duration    `mapstructure:"preconfirmed-poll-interval"`
+	PreConfirmedStaleAfter   time.Duration    `mapstructure:"preconfirmed-stale-after"`
+	PreConfirmedOnDemandWait time.Duration    `mapstructure:"preconfirmed-on-demand-wait"`
 	RemoteDB                 string           `mapstructure:"remote-db"`
 	VersionedConstantsFile   string           `mapstructure:"versioned-constants-file"`
 
@@ -449,6 +451,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				feederGatewayDataSource,
 				logger,
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
+				sync.WithPreConfirmedStaleAfter(cfg.PreConfirmedStaleAfter),
+				sync.WithPreConfirmedOnDemandWait(cfg.PreConfirmedOnDemandWait),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
 			)
 			synchronizer.WithPlugin(junoPlugin)
