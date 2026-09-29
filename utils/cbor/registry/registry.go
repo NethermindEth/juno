@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/ugorji"
 )
 
 var once sync.Once
@@ -44,5 +45,9 @@ func init() {
 				panic(err)
 			}
 		}
+
+		// Headers and state updates read faster with Ugorji.
+		cbor.RegisterDecoder(reflect.TypeFor[core.Header](), ugorji.Unmarshal)
+		cbor.RegisterDecoder(reflect.TypeFor[core.StateUpdate](), ugorji.Unmarshal)
 	})
 }
