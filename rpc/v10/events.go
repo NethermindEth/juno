@@ -1,7 +1,8 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -44,20 +45,25 @@ type EventFilter struct {
 // or a list of addresses. It also removes duplicates from the list.
 type AddressList []felt.Address
 
-func (a *AddressList) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" || string(data) == "[]" {
+func (a *AddressList) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	switch dec.PeekKind() {
+	case 'n':
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
 		*a = make([]felt.Address, 0)
 		return nil
-	}
-
-	var single felt.Address
-	if err := json.Unmarshal(data, &single); err == nil {
+	case '"':
+		var single felt.Address
+		if err := json.UnmarshalDecode(dec, &single); err != nil {
+			return err
+		}
 		*a = []felt.Address{single}
 		return nil
 	}
 
 	var list []felt.Address
-	if err := json.Unmarshal(data, &list); err != nil {
+	if err := json.UnmarshalDecode(dec, &list); err != nil {
 		return err
 	}
 
