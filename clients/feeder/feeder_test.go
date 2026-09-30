@@ -948,6 +948,52 @@ func TestBadRequestRetryPolicy(t *testing.T) {
 	})
 }
 
+func TestRateLimitRetryPolicy(t *testing.T) {
+	maxRetries := 3
+	callCount := make(map[string]int)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount[r.URL.Path]++
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(srv.Close)
+	feederURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	client := feeder.NewClient(
+		feederURL,
+		feeder.WithBackoff(feeder.NopBackoff),
+		feeder.WithMaxRetries(maxRetries),
+		feeder.WithUserAgent(ua),
+	)
+
+	t.Run("pre-confirmed queries fail fast", func(t *testing.T) {
+		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+		assert.EqualError(t, err, "429 Too Many Requests")
+		assert.NotErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+
+		var statusErr *feeder.StatusError
+		require.ErrorAs(t, err, &statusErr)
+		assert.Equal(t, http.StatusTooManyRequests, statusErr.Code)
+
+		_, err = client.PreConfirmedBlockWithIdentifier(t.Context(), "10", "", 0)
+		require.ErrorAs(t, err, &statusErr)
+		assert.Equal(t, http.StatusTooManyRequests, statusErr.Code)
+
+		assert.Equal(t, 2, callCount["/get_preconfirmed_block"],
+			"a 429 on a pre-confirmed query must not be retried")
+	})
+
+	t.Run("other endpoints keep the full retry budget on 429", func(t *testing.T) {
+		_, err := client.Block(t.Context(), strconv.Itoa(0))
+		assert.EqualError(t, err, "429 Too Many Requests")
+
+		var statusErr *feeder.StatusError
+		require.ErrorAs(t, err, &statusErr)
+		assert.Equal(t, http.StatusTooManyRequests, statusErr.Code)
+
+		assert.Equal(t, maxRetries+1, callCount["/get_block"])
+	})
+}
+
 func TestCompiledClassDefinition(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
