@@ -18,9 +18,9 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/l1/eth"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/assert"
@@ -162,7 +162,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 			for i := range 5 {
 				n.Value = new(felt.Felt).SetUint64(uint64(i))
 
-				encodedNode, err := encoder.Marshal(n)
+				encodedNode, err := cbor.Marshal(n)
 				if err != nil {
 					return err
 				}
@@ -341,7 +341,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		},
 	} {
 		expectedDeclared.Class.Compiled = json.RawMessage(test.compiledJSON)
-		classBytes, err := encoder.Marshal(expectedDeclared)
+		classBytes, err := cbor.Marshal(expectedDeclared)
 		require.NoError(t, err)
 		err = txn.Put(key, classBytes)
 		require.NoError(t, err)
@@ -350,7 +350,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 
 		var actualDeclared core.DeclaredClassDefinition
 		err = txn.Get(key, func(data []byte) error {
-			return encoder.Unmarshal(data, &actualDeclared)
+			return cbor.Unmarshal(data, &actualDeclared)
 		})
 		require.NoError(t, err)
 
@@ -678,7 +678,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 				ReplacedClasses:   []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x13"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x14")}},
 			},
 		}
-		su0Bytes, err := encoder.Marshal(su0)
+		su0Bytes, err := cbor.Marshal(su0)
 		require.NoError(t, err)
 		require.NoError(t, txn.Put(su0Key, su0Bytes))
 
@@ -703,7 +703,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 				ReplacedClasses:   []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x28"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x29")}},
 			},
 		}
-		su1Bytes, err := encoder.Marshal(su1)
+		su1Bytes, err := cbor.Marshal(su1)
 		require.NoError(t, err)
 		require.NoError(t, txn.Put(su1Key, su1Bytes))
 		return nil
@@ -798,7 +798,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 		value, err := iter.Value()
 		require.NoError(t, err)
 		got := new(core.StateUpdate)
-		require.NoError(t, encoder.Unmarshal(value, got))
+		require.NoError(t, cbor.Unmarshal(value, got))
 		require.Equal(t, update.want, got)
 	}
 	require.False(t, iter.Next())

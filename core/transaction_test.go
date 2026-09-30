@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -126,11 +126,11 @@ func TestTransactionEncoding(t *testing.T) {
 func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 	t.Helper()
 
-	data, err := encoder.Marshal(input)
+	data, err := cbor.Marshal(input)
 	require.NoError(t, err)
 
 	var txn core.Transaction
-	require.NoError(t, encoder.Unmarshal(data, &txn))
+	require.NoError(t, cbor.Unmarshal(data, &txn))
 
 	switch v := txn.(type) {
 	case *core.DeclareTransaction:

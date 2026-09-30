@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 // Contains the set of trie nodes for all the trie types
@@ -195,7 +195,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 		nodes = append(nodes, entry)
 	}
 
-	enc, err := encoder.Marshal(&JournalNodeSet{Nodes: nodes})
+	enc, err := cbor.Marshal(&JournalNodeSet{Nodes: nodes})
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 // Decodes the journal nodeset from the encoded bytes
 func (s *nodeSet) decode(data []byte) error {
 	var encoded JournalNodeSet
-	if err := encoder.Unmarshal(data, &encoded); err != nil {
+	if err := cbor.Unmarshal(data, &encoded); err != nil {
 		return err
 	}
 	s.classNodes = make(classNodesMap)

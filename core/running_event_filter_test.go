@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
@@ -525,11 +525,11 @@ func TestMarshalling(t *testing.T) {
 	err := rf.Insert(testBloomWithRandomKeys(t, 1), core.NumBlocksPerFilter)
 	require.NoError(t, err)
 
-	rfBytes, err := encoder.Marshal(rf)
+	rfBytes, err := cbor.Marshal(rf)
 	require.NoError(t, err)
 
 	var decoded core.RunningEventFilter
-	require.NoError(t, encoder.Unmarshal(rfBytes, &decoded))
+	require.NoError(t, cbor.Unmarshal(rfBytes, &decoded))
 
 	rfInner, err := rf.InnerFilter()
 	require.NoError(t, err)
