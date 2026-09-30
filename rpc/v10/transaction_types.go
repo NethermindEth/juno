@@ -242,9 +242,9 @@ type ResourceBoundsMap struct {
 }
 
 // MarshalJSONTo writes the bounds with zero L1 data gas when a pre-0.13.4 transaction has none.
-func (r *ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
 	type alias ResourceBoundsMap
-	bounds := alias(*r)
+	bounds := alias(r)
 	if bounds.L1DataGas.MaxAmount == nil && bounds.L1DataGas.MaxPricePerUnit == nil {
 		bounds.L1DataGas = ResourceBounds{
 			MaxAmount:       &felt.Zero,

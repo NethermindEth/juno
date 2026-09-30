@@ -210,4 +210,42 @@ func TestClassDefinitionUnmarshal(t *testing.T) {
 		var class ClassDefinition
 		require.Error(t, json.Unmarshal([]byte(`[]`), &class))
 	})
+
+	t.Run("array holding the sierra key is not a sierra class", func(t *testing.T) {
+		var class ClassDefinition
+		require.Error(t, json.Unmarshal([]byte(`["sierra_program", 1]`), &class))
+		assert.Nil(t, class.Sierra)
+	})
+
+	t.Run("duplicate member names are tolerated like encoding/json", func(t *testing.T) {
+		var class ClassDefinition
+		require.NoError(t, json.Unmarshal([]byte(`{
+			"abi":[],
+			"abi":[],
+			"entry_points_by_type":{"CONSTRUCTOR":[],"EXTERNAL":[],"L1_HANDLER":[]},
+			"program":{}
+		}`), &class))
+		require.NotNil(t, class.DeprecatedCairo)
+	})
+}
+
+func TestIsDeprecatedCompiledClassDefinition(t *testing.T) {
+	tests := map[string]struct {
+		json       string
+		deprecated bool
+	}{
+		"cairo 0 program":           {`{"program":{"data":[]},"entry_points_by_type":{}}`, true},
+		"null program still counts": {`{"program":null}`, true},
+		"duplicate keys":            {`{"program":{},"program":{}}`, true},
+		"casm":                      {`{"bytecode":[],"prime":"0x1","hints":[]}`, false},
+		"null":                      {`null`, false},
+		"array":                     {`[]`, false},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			deprecated, err := IsDeprecatedCompiledClassDefinition(json.RawMessage(tc.json))
+			require.NoError(t, err)
+			assert.Equal(t, tc.deprecated, deprecated)
+		})
+	}
 }

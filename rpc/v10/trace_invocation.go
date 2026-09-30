@@ -37,8 +37,8 @@ type FunctionInvocation struct {
 }
 
 type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	RevertReason string `json:"revert_reason"`
+	*FunctionInvocation
 }
 
 // MarshalJSONTo writes the invocation itself, or only the revert reason when the call reverted.

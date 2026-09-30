@@ -93,7 +93,7 @@ func (c *ClassDefinition) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 
-	isSierra, err := hasTopLevelKey(value, "sierra_program")
+	isSierra, err := hasTopLevelKey(value, "sierra_program", dec.Options())
 	if err != nil {
 		return err
 	}
@@ -106,10 +106,15 @@ func (c *ClassDefinition) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // hasTopLevelKey scans the keys of a JSON object without decoding its values.
-func hasTopLevelKey(value jsontext.Value, key string) (bool, error) {
-	dec := jsontext.NewDecoder(bytes.NewBuffer(value))
-	if _, err := dec.ReadToken(); err != nil {
+// A value that is not an object has no keys.
+func hasTopLevelKey(value jsontext.Value, key string, opts jsontext.Options) (bool, error) {
+	dec := jsontext.NewDecoder(bytes.NewBuffer(value), opts)
+	open, err := dec.ReadToken()
+	if err != nil {
 		return false, err
+	}
+	if open.Kind() != '{' {
+		return false, nil
 	}
 	for dec.PeekKind() == '"' {
 		name, err := dec.ReadToken()
@@ -166,10 +171,8 @@ type CompiledEntryPoint struct {
 	Builtins []string   `json:"builtins"`
 }
 
+// IsDeprecatedCompiledClassDefinition reports whether a compiled class is Cairo 0,
+// which has a program key.
 func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
-	var classMap map[string]json.RawMessage
-	if err := json.Unmarshal(definition, &classMap); err != nil {
-		return false, err
-	}
-	return len(classMap["program"]) > 0, nil
+	return hasTopLevelKey(definition, "program", json.DefaultOptionsV1())
 }
