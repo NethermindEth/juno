@@ -1,10 +1,8 @@
-package fxamacker_test
+package cbor_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -14,18 +12,19 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
-const goldenFile = "testdata/on_disk_bytes.json"
+const goldenFile = "testdata/golden_bytes.json"
 
-func loadGoldenBytes(t *testing.T, path string) map[string]string {
+// goldenBytes is each record's hex, keyed by name.
+// It is how the records were written, so it is byte for byte what a database holds.
+func goldenBytes(t *testing.T) map[string]string {
 	t.Helper()
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(goldenFile)
 	require.NoError(t, err)
 
 	var vectors map[string]string
@@ -33,7 +32,7 @@ func loadGoldenBytes(t *testing.T, path string) map[string]string {
 	return vectors
 }
 
-// goldenCases pins the bytes the node writes today.
+// goldenCases is the record set each codec implementation is checked against.
 func goldenCases() []struct {
 	name  string
 	value any
@@ -71,7 +70,6 @@ func goldenCases() []struct {
 			felt.FromUint64[felt.Felt](8),
 		}},
 		{"felt.Slice nil", felt.Slice[felt.Felt](nil)},
-		{"cbor.RawMessage", fxamacker.RawMessage{0x83, 0x01, 0x02, 0x03}},
 		{"DeclaredClassDefinition, a Sierra class", populatedDeclaredClassDefinition()},
 		{"Header, populated", populatedHeader()},
 		{"InvokeTransaction, populated", populatedInvokeTransaction()},
@@ -326,27 +324,4 @@ func populatedReceipt() core.TransactionReceipt {
 			TotalGasConsumed:       &core.GasConsumed{L1Gas: 13, L1DataGas: 14},
 		},
 	}
-}
-
-func TestGoldenBytes(t *testing.T) {
-	golden := loadGoldenBytes(t, goldenFile)
-
-	for _, c := range goldenCases() {
-		t.Run(c.name, func(t *testing.T) {
-			b, err := fxamacker.Marshal(c.value)
-			require.NoError(t, err)
-
-			want, ok := golden[c.name]
-			require.Truef(t, ok, "no vector for %q, the encoder wrote %s", c.name, hex.EncodeToString(b))
-			require.Equal(t, want, hex.EncodeToString(b))
-
-			stored, err := hex.DecodeString(want)
-			require.NoError(t, err)
-
-			back := reflect.New(reflect.TypeOf(c.value))
-			require.NoError(t, fxamacker.Unmarshal(stored, back.Interface()))
-			require.Equal(t, c.value, back.Elem().Interface())
-		})
-	}
-	require.Equal(t, len(goldenCases()), len(golden), "a case lost its vector")
 }
