@@ -92,8 +92,8 @@ func (p *Poller) Subscribe() Subscription {
 }
 
 // PreConfirmedChain returns the pre-confirmed chain. If current chain is older than
-// [RequestSync.requestWaitTime], a new poll will return and it will block until the work is
-// done. In case the works take longer than [RequestSync.dataFreshnessTime], it will stop waiting
+// [RequestSync.dataFreshnessTime], a new poll will return and it will block until the work is
+// done. In case the works take longer than [RequestSync.requestWaitTime], it will stop waiting
 // for the poll result (without interrupting) and return the current available chain.
 func (p *Poller) PreConfirmedChain() (ChainReader, error) {
 	p.requestSync.Request()
