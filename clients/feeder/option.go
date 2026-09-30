@@ -67,6 +67,7 @@ func WithTimeouts(timeouts []time.Duration, fixed bool) Option {
 // requestConfig holds per-request overrides of the client's retry behavior.
 type requestConfig struct {
 	failFastOnBadRequest bool
+	failFastOnRateLimit  bool
 }
 
 // requestOption is a functional option applied to a single request.
@@ -76,4 +77,12 @@ type requestOption func(*requestConfig)
 // burning the retry budget. A 400 is deterministic — retrying cannot help.
 func failFastOnBadRequest() requestOption {
 	return func(c *requestConfig) { c.failFastOnBadRequest = true }
+}
+
+// failFastOnRateLimit makes get return an HTTP 429 immediately instead of
+// backing off and retrying. It suits callers that poll on their own schedule:
+// their next poll comes soon enough, while retrying here would only keep
+// hitting a gateway that is already throttling us.
+func failFastOnRateLimit() requestOption {
+	return func(c *requestConfig) { c.failFastOnRateLimit = true }
 }

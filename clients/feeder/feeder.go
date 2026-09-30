@@ -250,6 +250,9 @@ func (c *Client) get(
 			if cfg.failFastOnBadRequest && code == http.StatusBadRequest {
 				return nil, err
 			}
+			if cfg.failFastOnRateLimit && code == http.StatusTooManyRequests {
+				return nil, err
+			}
 
 			// 429 and 400 don't indicate a slow gateway, so they don't grow the timeout.
 			if code != http.StatusTooManyRequests && code != http.StatusBadRequest {
@@ -460,7 +463,11 @@ func (c *Client) fetchPreConfirmedUpdate(
 	// pre-confirmed window. That is deterministic, so the request fails fast
 	// instead of burning the retry budget, and the 400 surfaces as
 	// ErrPreConfirmedBlockNotFound for callers to match on.
-	body, err := c.get(ctx, queryURL, failFastOnBadRequest())
+	//
+	// A 429 fails fast as well. The poller asks again on its next tick or on the
+	// next stale read, so retrying here would only keep hitting a gateway that is
+	// already throttling us while the poller sits blocked in the fetch.
+	body, err := c.get(ctx, queryURL, failFastOnBadRequest(), failFastOnRateLimit())
 	if err != nil {
 		var statusErr *StatusError
 		if errors.As(err, &statusErr) && statusErr.Code == http.StatusBadRequest {
