@@ -22,7 +22,7 @@ import (
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
 type Subscription struct {
-	*feed.Subscription[*pending.PreConfirmed]
+	*feed.Subscription[*core.WithBloom[*pending.PreConfirmed]]
 }
 
 // DataSource is the narrow surface the Poller needs from the wire side. Any
@@ -54,7 +54,7 @@ type Poller struct {
 	dataSource         DataSource
 	preConfirmedChain  *ChainStorage
 	blockchain         *blockchain.Blockchain
-	feed               *feed.Feed[*pending.PreConfirmed]
+	feed               *feed.Feed[*core.WithBloom[*pending.PreConfirmed]]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
 	logger             log.StructuredLogger
@@ -71,7 +71,7 @@ func NewPoller(
 		dataSource:         dataSource,
 		preConfirmedChain:  NewChainStorage(),
 		blockchain:         blockchain,
-		feed:               feed.New[*pending.PreConfirmed](),
+		feed:               feed.New[*core.WithBloom[*pending.PreConfirmed]](),
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
 		logger:             logger,
@@ -409,7 +409,6 @@ func makeEmptyPreConfirmedForParent(
 			Number:           latestHeader.Number + 1,
 			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    latestHeader.L1GasPriceETH,
 			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
 			L2GasPrice:       latestHeader.L2GasPrice,

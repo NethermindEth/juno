@@ -102,7 +102,7 @@ func (s *txStatusSubscriberState) onNewHead(
 	ctx context.Context,
 	id string,
 	sub *subscription,
-	_ *core.Block,
+	_ *core.WithBloom[*core.Block],
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }
@@ -111,7 +111,7 @@ func (s *txStatusSubscriberState) onPreConfirmed(
 	ctx context.Context,
 	id string,
 	sub *subscription,
-	_ *pending.PreConfirmed,
+	_ *core.WithBloom[*pending.PreConfirmed],
 ) error {
 	return s.checkTxStatusIfPending(ctx, id, sub)
 }

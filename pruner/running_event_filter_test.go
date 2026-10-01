@@ -30,19 +30,28 @@ func testBloomWithKeys(t *testing.T, keys [][]byte) *bloom.BloomFilter {
 	return filter
 }
 
-// storeBlockWithBloom writes a full block via testutils.StoreBlock and then
-// overlays EventsBloom on its header so the rebuild path actually inserts
-// data into the running filter when it visits the block.
-func storeBlockWithBloom(
+// storeBlockWithEvent writes a full block via testutils.StoreBlock and then
+// re-writes its receipts to carry a single event emitted from `from`, so
+// fillRunningEventFilter reconstructs a bloom that matches a BlocksForKeys
+// query on from.Bytes() when it visits the block. Transactions are not needed
+// by these tests.
+func storeBlockWithEvent(
 	t *testing.T,
 	database db.KeyValueStore,
 	blockNum uint64,
-	bloomFilter *bloom.BloomFilter,
+	from *felt.Felt,
 ) {
 	t.Helper()
-	block := testutils.StoreBlock(t, database, blockNum)
-	block.Header.EventsBloom = bloomFilter
-	require.NoError(t, core.WriteBlockHeaderByNumber(database, block.Header))
+	testutils.StoreBlock(t, database, blockNum)
+	receipts := []*core.TransactionReceipt{{Events: []*core.Event{{From: from}}}}
+	require.NoError(t, core.WriteTransactionsAndReceipts(database, blockNum, nil, receipts))
+}
+
+// eventQueryKey returns the BlocksForKeys probe key that EventsBloom derives
+// for an event emitted from `from`.
+func eventQueryKey(from *felt.Felt) []byte {
+	b := from.Bytes()
+	return b[:]
 }
 
 func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
@@ -65,8 +74,9 @@ func TestRunningEventFilter_LazyInitialization_CaughtUp(t *testing.T) {
 	database := testutils.NewPebbleTestDB(t)
 
 	sharedBloom := testBloomWithRandomKey(t)
+	eventFrom := felt.NewRandom[felt.Felt]()
 	for i := uint64(0); i <= latest; i++ {
-		storeBlockWithBloom(t, database, i, sharedBloom)
+		storeBlockWithEvent(t, database, i, eventFrom)
 	}
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
@@ -101,13 +111,14 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 	)
 	database := testutils.NewPebbleTestDB(t)
 
-	retainedKeys := [][]byte{{0xEE}}
+	retainedFrom := felt.NewRandom[felt.Felt]()
+	retainedKeys := [][]byte{eventQueryKey(retainedFrom)}
 	for blockNum := uint64(0); blockNum <= latest; blockNum++ {
-		b := testBloomWithRandomKey(t)
+		from := felt.NewRandom[felt.Felt]()
 		if blockNum >= pruneTo {
-			b = testBloomWithKeys(t, retainedKeys)
+			from = retainedFrom
 		}
-		storeBlockWithBloom(t, database, blockNum, b)
+		storeBlockWithEvent(t, database, blockNum, from)
 	}
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
@@ -149,24 +160,23 @@ func setupSameWindowResume(
 	t.Helper()
 	database := testutils.NewPebbleTestDB(t)
 
-	// Two orthogonal probe tags. headerKeys is stamped into on-disk
-	// headers (fill path sets these bits); snapshotKeys is stamped into
-	// the persisted snapshot (resume path preserves these bits). Distinct
+	// Two orthogonal probe tags. headerKeys is reconstructed from on-disk
+	// receipts (fill path sets these bits) so it must be event-derived;
+	// snapshotKeys is stamped directly into the persisted snapshot bitmap
+	// (resume path preserves these bits) so it can be any raw key. Distinct
 	// values so each assertion isolates one path.
-	headerKeys = [][]byte{{0xAA, 0xBB}}
+	headerFrom := felt.NewRandom[felt.Felt]()
+	headerKeys = [][]byte{eventQueryKey(headerFrom)}
 	snapshotKeys = [][]byte{{0x11, 0x22}}
 
-	// Headers at and past snapshotNext carry headerKeys so an unclamped
-	// fill would deterministically set bits in [snapshotNext, pruneTo).
+	// Receipts at and past snapshotNext carry an event from headerFrom so an
+	// unclamped fill would deterministically set bits in [snapshotNext, pruneTo).
 	for i := uint64(0); i <= latest; i++ {
-		var b *bloom.BloomFilter
-		if i >= snapshotNext {
-			b = testBloomWithKeys(t, headerKeys)
-		} else {
-			b = testBloomWithRandomKey(t)
+		from := headerFrom
+		if i < snapshotNext {
+			from = felt.NewRandom[felt.Felt]()
 		}
-
-		storeBlockWithBloom(t, database, i, b)
+		storeBlockWithEvent(t, database, i, from)
 	}
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
@@ -272,24 +282,25 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	latest := core.NumBlocksPerFilter + 5
 	database := testutils.NewPebbleTestDB(t)
 
-	headerKeys := [][]byte{{0xEE}}
-	sharedBloom := testBloomWithKeys(t, headerKeys)
+	eventFrom := felt.NewRandom[felt.Felt]()
+	headerKeys := [][]byte{eventQueryKey(eventFrom)}
 	// Full block fixture only for blocks PruneUpto will iterate; the
 	// per-block sweep reads hash-keyed data so it needs the full shape.
 	for i := uint64(0); i <= pruneTo; i++ {
-		storeBlockWithBloom(t, database, i, sharedBloom)
+		storeBlockWithEvent(t, database, i, eventFrom)
 	}
-	// Past pruneTo, only the header (for rebuild fill) and the
+	// Past pruneTo, only the header + its receipts (for rebuild fill) and the
 	// commitment (so OldestRetainedBlock keeps reflecting retained
 	// state) are written.
 	batch := database.NewBatch()
 	for i := pruneTo + 1; i <= latest; i++ {
 		header := &core.Header{
-			Number:      i,
-			Hash:        felt.NewRandom[felt.Felt](),
-			EventsBloom: sharedBloom,
+			Number: i,
+			Hash:   felt.NewRandom[felt.Felt](),
 		}
 		require.NoError(t, core.WriteBlockHeaderByNumber(batch, header))
+		receipts := []*core.TransactionReceipt{{Events: []*core.Event{{From: eventFrom}}}}
+		require.NoError(t, core.WriteTransactionsAndReceipts(batch, i, nil, receipts))
 		require.NoError(t, core.WriteBlockCommitment(batch, i, &core.BlockCommitments{}))
 		if batch.Size() >= testTargetBatchByteSize {
 			require.NoError(t, batch.Write())
