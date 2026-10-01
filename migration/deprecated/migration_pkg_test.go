@@ -10,16 +10,15 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/bits-and-blooms/bitset"
@@ -91,29 +90,37 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New(
-		testDB,
-		&networks.Mainnet,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
-	for i := range uint64(3) {
-		b := adaptfeedertest.Block(t, client, i)
-		su := adaptfeedertest.StateUpdate(t, client, i)
+	blocks := make([]*core.Block, 3)
+	require.NoError(t, testDB.Write(func(txn db.Batch) error {
+		for i := range uint64(len(blocks)) {
+			b := adaptfeedertest.Block(t, client, i)
+			blocks[i] = b
 
-		b.EventsBloom = nil
-		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
-	}
+			// Seed what the migration reads: receipts in the legacy per-transaction
+			// layout, and a bloom-less header. The current core.Header shares the
+			// deprecated header's field-keyed CBOR layout, so getDeprecatedBlockHeader
+			// reads it back with EventsBloom unset — the pre-migration state.
+			require.NoError(t, txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
+				txn, i, b.Transactions, b.Receipts,
+			))
+			require.NoError(t, core.WriteBlockHeaderByNumber(txn, b.Header))
+		}
+		return nil
+	}))
 
+	// recalculateBloomFilters recomputes each header's embedded bloom from
+	// receipts and writes it back in the legacy (bloom-carrying) layout, since
+	// it runs before the bloom is stripped out of headers.
 	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
 		return recalculateBloomFilters(txn, &networks.Mainnet)
 	}))
 
-	for i := range uint64(3) {
-		b, err := chain.BlockByNumber(i)
+	for i := range uint64(len(blocks)) {
+		header, err := getDeprecatedBlockHeader(testDB, i)
 		require.NoError(t, err)
-		assert.Equal(t, core.EventsBloom(b.Receipts), b.EventsBloom)
+		assert.Equal(t, core.EventsBloom(blocks[i].Receipts), header.EventsBloom)
 	}
 }
 

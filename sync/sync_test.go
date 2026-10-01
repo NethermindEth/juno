@@ -81,7 +81,13 @@ func TestSyncBlocks(t *testing.T) {
 		)
 		b0 := adaptfeedertest.Block(t, client, 0)
 		s0 := adaptfeedertest.StateUpdate(t, client, 0)
-		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+		require.NoError(t, bc.Store(
+			b0,
+			&core.BlockCommitments{},
+			s0,
+			nil,
+			core.EventsBloom(b0.Receipts),
+		))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
 		synchronizer := sync.New(
@@ -432,7 +438,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.True(t, ok)
 	want := adaptfeedertest.Block(t, feeder, 0)
 
-	require.Equal(t, want, got)
+	require.Equal(t, want, got.Value)
 	sub.Unsubscribe()
 }
 
@@ -455,7 +461,13 @@ func TestPreConfirmed(t *testing.T) {
 		)
 		b0 := adaptfeedertest.Block(t, client, 0)
 		s0 := adaptfeedertest.StateUpdate(t, client, 0)
-		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+		require.NoError(t, bc.Store(
+			b0,
+			&core.BlockCommitments{},
+			s0,
+			nil,
+			core.EventsBloom(b0.Receipts),
+		))
 
 		synchronizer := sync.New(
 			bc, nil, nil, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),

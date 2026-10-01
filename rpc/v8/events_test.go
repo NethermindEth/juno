@@ -39,7 +39,13 @@ func TestEvents(t *testing.T) {
 		s := adaptfeedertest.StateUpdate(t, client, uint64(i))
 
 		if b.Number < 6 {
-			require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
+			require.NoError(t, chain.Store(
+				b,
+				&core.BlockCommitments{},
+				s,
+				nil,
+				core.EventsBloom(b.Receipts),
+			))
 		}
 	}
 

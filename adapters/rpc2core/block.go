@@ -102,7 +102,6 @@ func adaptHeader(
 		EventCount:       eventCount,
 		Timestamp:        header.Timestamp,
 		ProtocolVersion:  header.StarknetVersion,
-		EventsBloom:      core.EventsBloom(receipts),
 		L1GasPriceETH:    header.L1GasPrice.InWei,
 		L1GasPriceSTRK:   header.L1GasPrice.InFri,
 		L1DAMode:         l1DAMode,
