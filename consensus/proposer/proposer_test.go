@@ -378,6 +378,7 @@ func commit(
 		result.SimulateResult.BlockCommitments,
 		result.PreConfirmed.StateUpdate,
 		result.PreConfirmed.NewClasses,
+		core.EventsBloom(result.PreConfirmed.Block.Receipts),
 	))
 
 	proposer.OnCommit(t.Context(), height, committedValue)

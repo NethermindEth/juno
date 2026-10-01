@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -133,10 +134,11 @@ func (s *eventSubscriberState) onNewHead(
 	ctx context.Context,
 	id string,
 	_ *subscription,
-	head *core.Block,
+	headWithBloom *core.WithBloom[*core.Block],
 ) error {
+	head := headWithBloom.Value
 	// Canonical blocks bypass the deduper: they are published once.
-	for event := range matchingEvents(&s.eventMatcher, head) {
+	for event := range matchingEvents(&s.eventMatcher, head, headWithBloom.Bloom) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -152,12 +154,13 @@ func (s *eventSubscriberState) onPreConfirmed(
 	ctx context.Context,
 	id string,
 	_ *subscription,
-	preConfirmed *pending.PreConfirmed,
+	preConfirmedWithBloom *core.WithBloom[*pending.PreConfirmed],
 ) error {
+	preConfirmed := preConfirmedWithBloom.Value
 	block := preConfirmed.GetBlock()
 	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
 	// events. A same-height round replacement changes BlockIdentifier and re-emits.
-	for event := range matchingEvents(&s.eventMatcher, block) {
+	for event := range matchingEvents(&s.eventMatcher, block, preConfirmedWithBloom.Bloom) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -181,13 +184,15 @@ func (s *eventSubscriberState) onPreConfirmed(
 }
 
 // matchingEvents yields each event in the block that passes the matcher's
-// address/key filter, as a FilteredEvent ready to emit.
+// address/key filter, as a FilteredEvent ready to emit. eventsBloom is the
+// block's event bloom filter, used as a fast pre-check before scanning receipts.
 func matchingEvents(
 	matcher *blockchain.EventMatcher,
 	block *core.Block,
+	eventsBloom *bloom.BloomFilter,
 ) iter.Seq[*blockchain.FilteredEvent] {
 	return func(yield func(*blockchain.FilteredEvent) bool) {
-		if isMatch := matcher.TestBloom(block.EventsBloom); !isMatch {
+		if isMatch := matcher.TestBloom(eventsBloom); !isMatch {
 			return
 		}
 
