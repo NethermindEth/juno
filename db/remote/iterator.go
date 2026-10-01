@@ -70,7 +70,10 @@ func (i *iterator) First() bool {
 }
 
 func (i *iterator) Prev() bool {
-	panic("not implemented")
+	if err := i.doOpAndUpdate(gen.Op_PREV, nil); err != nil {
+		i.logger.Debug("Error", zap.Stringer("op", gen.Op_PREV), zap.Error(err))
+	}
+	return len(i.currentK) > 0 || len(i.currentV) > 0
 }
 
 func (i *iterator) Next() bool {

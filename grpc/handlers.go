@@ -117,6 +117,11 @@ func (h Handler) handleTxCursor(
 			responsePair.K = it.Key()
 			responsePair.V, err = it.Value()
 		}
+	case gen.Op_PREV:
+		if it.Prev() {
+			responsePair.K = it.Key()
+			responsePair.V, err = it.Value()
+		}
 	case gen.Op_CURRENT:
 		if it.Valid() {
 			responsePair.K = it.Key()

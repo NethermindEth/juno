@@ -168,4 +168,14 @@ func TestRemoteIteratorBounds(t *testing.T) {
 		found = append(found, slices.Clone(it.Key()))
 	}
 	assert.Equal(t, [][]byte{{0x01, 0x00}, {0x01, 0x01}, {0x01, 0x02}}, found)
+
+	// Prev after an out-of-range Seek lands on the last key within the bounds,
+	// then walks back and stops at the lower bound.
+	require.False(t, it.Seek([]byte{0x01, 0xFF}))
+	found = nil
+	for valid := it.Prev(); valid; valid = it.Prev() {
+		found = append(found, slices.Clone(it.Key()))
+	}
+	assert.Equal(t, [][]byte{{0x01, 0x02}, {0x01, 0x01}, {0x01, 0x00}}, found)
+	assert.False(t, it.Valid())
 }
