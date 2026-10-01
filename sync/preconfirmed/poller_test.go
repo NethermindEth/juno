@@ -554,74 +554,93 @@ func TestPollerNotAtTipSkipsAllWork(t *testing.T) {
 	})
 }
 
+// pollFailures are data source errors that fail a pre-confirmed poll.
+var pollFailures = []struct {
+	name string
+	err  error
+}{
+	{name: "wire error", err: errors.New("wire boom")},
+	{name: "rate limited", err: fmt.Errorf("querying: %w", feeder.ErrRateLimited)},
+}
+
 // PreConfirmedBlockLatest errors: tick aborts immediately, no backfill or apply;
 // nothing is stored, so the next tick retries from scratch.
 func TestPollerLatestErrorSkipsApply(t *testing.T) {
 	t.Parallel()
-	fx := newChainFixture(t)
+	for _, tc := range pollFailures {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := newChainFixture(t)
 
-	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
-	// Once for the tick and once for reading the chain: the failed tick leaves the chain
-	// outdated, so the read asks for a new poll, which fails the same way.
-	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, uint64(0), errors.New("wire boom")).
-		Times(2)
+			ctrl := gomock.NewController(t)
+			ds := mocks.NewMockStarknetData(ctrl)
+			// Once for the tick and once for reading the chain: the failed tick leaves the
+			// chain outdated, so the read asks for a new poll, which fails the same way.
+			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(nil, uint64(0), tc.err).
+				Times(2)
 
-	synctest.Test(t, func(t *testing.T) {
-		h := wirePoller(t, fx.bc, fx.head, ds)
-		go h.poller.Run(t.Context())
-		synctest.Wait()
+			synctest.Test(t, func(t *testing.T) {
+				h := wirePoller(t, fx.bc, fx.head, ds)
+				go h.poller.Run(t.Context())
+				synctest.Wait()
 
-		time.Sleep(tickInterval)
-		synctest.Wait()
+				time.Sleep(tickInterval)
+				synctest.Wait()
 
-		// A latest error must not produce any chain state.
-		view := h.readChain(t)
-		assertChain(t, &view, blankEntry(1))
-	})
+				// A latest error must not produce any chain state.
+				view := h.readChain(t)
+				assertChain(t, &view, blankEntry(1))
+			})
+		})
+	}
 }
 
 // backfill's per-block poll errors mid-gap: tick aborts before the final apply
 // at target, so nothing is stored (next tick reconciles).
 func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 	t.Parallel()
-	fx := newChainFixture(t)
+	for _, tc := range pollFailures {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := newChainFixture(t)
 
-	latestReply := makeTestPreConfirmedBlock("r3", 0)
+			latestReply := makeTestPreConfirmedBlock("r3", 0)
 
-	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
-	gomock.InOrder(
-		// Tick 1.
-		ds.EXPECT().
-			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(latestReply, uint64(3), nil),
-		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("backfill boom")),
-		// Reading the chain: the failed tick leaves it outdated, so the read asks for a new
-		// poll, which fails the same way.
-		ds.EXPECT().
-			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(latestReply, uint64(3), nil),
-		ds.EXPECT().
-			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil, errors.New("backfill boom")),
-	)
+			ctrl := gomock.NewController(t)
+			ds := mocks.NewMockStarknetData(ctrl)
+			gomock.InOrder(
+				// Tick 1.
+				ds.EXPECT().
+					PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(latestReply, uint64(3), nil),
+				ds.EXPECT().
+					PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, tc.err),
+				// Reading the chain: the failed tick leaves it outdated, so the read asks for a
+				// new poll, which fails the same way.
+				ds.EXPECT().
+					PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(latestReply, uint64(3), nil),
+				ds.EXPECT().
+					PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, tc.err),
+			)
 
-	synctest.Test(t, func(t *testing.T) {
-		h := wirePoller(t, fx.bc, fx.head, ds)
-		go h.poller.Run(t.Context())
-		synctest.Wait()
+			synctest.Test(t, func(t *testing.T) {
+				h := wirePoller(t, fx.bc, fx.head, ds)
+				go h.poller.Run(t.Context())
+				synctest.Wait()
 
-		time.Sleep(tickInterval)
-		synctest.Wait()
+				time.Sleep(tickInterval)
+				synctest.Wait()
 
-		// The tick aborts before any apply when backfill errors.
-		view := h.readChain(t)
-		assertChain(t, &view, blankEntry(1))
-	})
+				// The tick aborts before any apply when backfill errors.
+				view := h.readChain(t)
+				assertChain(t, &view, blankEntry(1))
+			})
+		})
+	}
 }
 
 // The gateway answering 400 to a pre-confirmed poll surfaces as

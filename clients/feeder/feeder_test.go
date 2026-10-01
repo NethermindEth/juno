@@ -903,49 +903,69 @@ func TestBackoffFailure(t *testing.T) {
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
 
-func TestBadRequestRetryPolicy(t *testing.T) {
-	maxRetries := 3
-	callCount := make(map[string]int)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount[r.URL.Path]++
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	t.Cleanup(srv.Close)
-	feederURL, err := url.Parse(srv.URL)
-	require.NoError(t, err)
-	client := feeder.NewClient(
-		feederURL,
-		feeder.WithBackoff(feeder.NopBackoff),
-		feeder.WithMaxRetries(maxRetries),
-		feeder.WithUserAgent(ua),
-	)
+func TestFailFastRetryPolicy(t *testing.T) {
+	tests := []struct {
+		status    int
+		domainErr error
+		plainErr  string
+	}{
+		{
+			status:    http.StatusBadRequest,
+			domainErr: feeder.ErrPreConfirmedBlockNotFound,
+			plainErr:  "400 Bad Request",
+		},
+		{
+			status:    http.StatusTooManyRequests,
+			domainErr: feeder.ErrRateLimited,
+			plainErr:  "429 Too Many Requests",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(http.StatusText(tc.status), func(t *testing.T) {
+			maxRetries := 3
+			callCount := make(map[string]int)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				callCount[r.URL.Path]++
+				w.WriteHeader(tc.status)
+			}))
+			t.Cleanup(srv.Close)
+			feederURL, err := url.Parse(srv.URL)
+			require.NoError(t, err)
+			client := feeder.NewClient(
+				feederURL,
+				feeder.WithBackoff(feeder.NopBackoff),
+				feeder.WithMaxRetries(maxRetries),
+				feeder.WithUserAgent(ua),
+			)
 
-	t.Run("pre-confirmed queries fail fast with a domain error", func(t *testing.T) {
-		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
-		require.ErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+			t.Run("pre-confirmed queries fail fast with a domain error", func(t *testing.T) {
+				_, _, err := client.PreConfirmedBlockLatest(t.Context(), "", 0)
+				require.ErrorIs(t, err, tc.domainErr)
 
-		var statusErr *feeder.StatusError
-		require.ErrorAs(t, err, &statusErr)
-		assert.Equal(t, http.StatusBadRequest, statusErr.Code)
+				var statusErr *feeder.StatusError
+				require.ErrorAs(t, err, &statusErr)
+				assert.Equal(t, tc.status, statusErr.Code)
 
-		_, err = client.PreConfirmedBlockWithIdentifier(t.Context(), "10", "", 0)
-		require.ErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+				_, err = client.PreConfirmedBlockWithIdentifier(t.Context(), "10", "", 0)
+				require.ErrorIs(t, err, tc.domainErr)
 
-		assert.Equal(t, 2, callCount["/get_preconfirmed_block"],
-			"a 400 on a pre-confirmed query must not be retried")
-	})
+				assert.Equal(t, 2, callCount["/get_preconfirmed_block"],
+					"a %d on a pre-confirmed query must not be retried", tc.status)
+			})
 
-	t.Run("other endpoints keep the full retry budget on 400", func(t *testing.T) {
-		_, err := client.Block(t.Context(), strconv.Itoa(0))
-		assert.EqualError(t, err, "400 Bad Request")
-		assert.NotErrorIs(t, err, feeder.ErrPreConfirmedBlockNotFound)
+			t.Run("other endpoints keep the full retry budget", func(t *testing.T) {
+				_, err := client.Block(t.Context(), strconv.Itoa(0))
+				assert.EqualError(t, err, tc.plainErr)
+				assert.NotErrorIs(t, err, tc.domainErr)
 
-		var statusErr *feeder.StatusError
-		require.ErrorAs(t, err, &statusErr)
-		assert.Equal(t, http.StatusBadRequest, statusErr.Code)
+				var statusErr *feeder.StatusError
+				require.ErrorAs(t, err, &statusErr)
+				assert.Equal(t, tc.status, statusErr.Code)
 
-		assert.Equal(t, maxRetries+1, callCount["/get_block"])
-	})
+				assert.Equal(t, maxRetries+1, callCount["/get_block"])
+			})
+		})
+	}
 }
 
 func TestCompiledClassDefinition(t *testing.T) {

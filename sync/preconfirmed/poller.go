@@ -157,7 +157,7 @@ func (p *Poller) Run(ctx context.Context) {
 
 		case respCh := <-p.requestSync.ListenRequests():
 			if err := p.poll(ctx); err != nil {
-				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				p.logPollError(err)
 				p.requestSync.SignalFailure(respCh)
 				continue
 			}
@@ -167,7 +167,7 @@ func (p *Poller) Run(ctx context.Context) {
 		case <-ticker.C:
 			respCh := p.requestSync.SelfRequest()
 			if err := p.poll(ctx); err != nil {
-				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				p.logPollError(err)
 				p.requestSync.SignalFailure(respCh)
 				continue
 			}
@@ -497,4 +497,15 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		*new(felt.Felt).SetUint64(targetBlock): blockHash,
 	}
 	return stateDiff, nil
+}
+
+func (p *Poller) logPollError(err error) {
+	if errors.Is(err, feeder.ErrRateLimited) {
+		p.logger.Debug(
+			"Pre-confirmed polling rate limited; retrying next tick", zap.Error(err),
+		)
+		return
+	}
+
+	p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
 }
