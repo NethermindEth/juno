@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,10 @@ var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 // the gateway answers 400, meaning the requested block is not (or no longer)
 // in the pre-confirmed window.
 var ErrPreConfirmedBlockNotFound = errors.New("pre-confirmed block not found")
+
+// ErrRateLimited is returned by the pre-confirmed queries when the gateway answers 429.
+// Pre-confirmed data is polled, so they return it right away instead of retrying.
+var ErrRateLimited = errors.New("rate limited by the feeder gateway")
 
 // StatusError reports a non-OK HTTP status from the feeder gateway.
 type StatusError struct {
@@ -242,12 +247,11 @@ func (c *Client) get(
 			}
 
 			code := 0
-			var statusErr *StatusError
-			if errors.As(err, &statusErr) {
+			if statusErr, ok := errors.AsType[*StatusError](err); ok {
 				code = statusErr.Code
 			}
 
-			if cfg.failFastOnBadRequest && code == http.StatusBadRequest {
+			if slices.Contains(cfg.failFastCodes, code) {
 				return nil, err
 			}
 
@@ -459,12 +463,17 @@ func (c *Client) fetchPreConfirmedUpdate(
 	// The gateway answers 400 (never 404) when the queried block is not in the
 	// pre-confirmed window. That is deterministic, so the request fails fast
 	// instead of burning the retry budget, and the 400 surfaces as
-	// ErrPreConfirmedBlockNotFound for callers to match on.
-	body, err := c.get(ctx, queryURL, failFastOnBadRequest())
+	// ErrPreConfirmedBlockNotFound for callers to match on. A 429 fails fast too
+	// and surfaces as ErrRateLimited, since the next poll is the retry.
+	body, err := c.get(ctx, queryURL, failFastOn(http.StatusBadRequest, http.StatusTooManyRequests))
 	if err != nil {
-		var statusErr *StatusError
-		if errors.As(err, &statusErr) && statusErr.Code == http.StatusBadRequest {
-			return nil, fmt.Errorf("%w: %w", ErrPreConfirmedBlockNotFound, err)
+		if statusErr, ok := errors.AsType[*StatusError](err); ok {
+			switch statusErr.Code {
+			case http.StatusBadRequest:
+				return nil, fmt.Errorf("%w: %w", ErrPreConfirmedBlockNotFound, err)
+			case http.StatusTooManyRequests:
+				return nil, fmt.Errorf("%w: %w", ErrRateLimited, err)
+			}
 		}
 		return nil, err
 	}
