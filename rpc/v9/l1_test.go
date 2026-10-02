@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -12,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )

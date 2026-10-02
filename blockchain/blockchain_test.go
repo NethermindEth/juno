@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -19,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/pruner"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -4,12 +4,12 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
