@@ -409,6 +409,41 @@ func TestRequestSyncStop(t *testing.T) {
 			requireRequestDone(t, reqDone)
 		})
 	})
+
+	t.Run("signal after stop is safe and doesn't mark fresh", func(t *testing.T) {
+		// Stop releases the requests waiting on an in-flight work and closes its response channel.
+		// If the worker then finishes the (now abandoned) work and signals it, the old code closed
+		// the already-closed channel and panicked. It must instead be a no-op, and must not count
+		// the abandoned work as a success (which would wrongly mark the data fresh).
+		synctest.Test(t, func(t *testing.T) {
+			reqSync := preconfirmed.NewRequestSync(freshnessTime, requestWaitTime)
+			reqSync.Start()
+
+			// The worker picks up the first request and is in the middle of the work.
+			reqDone := request(reqSync)
+			respCh := requireQueuedRequest(t, reqSync)
+			requireRequestNotDone(t, reqDone)
+
+			// Stop releases the waiting requests, abandoning the work.
+			reqSync.Stop()
+			requireRequestDone(t, reqDone)
+
+			// The worker finishes the abandoned work and signals it. This must not panic
+			// (double close with Stop) nor count the abandoned work as a success.
+			require.NotPanics(t, func() {
+				reqSync.SignalSuccess(respCh)
+			})
+
+			// The data is still outdated, so the next request asks for new work, which the
+			// worker completes successfully.
+			reqSync.Start()
+			nextReq := request(reqSync)
+			nextRespCh := requireQueuedRequest(t, reqSync)
+			requireRequestNotDone(t, nextReq)
+			reqSync.SignalSuccess(nextRespCh)
+			requireRequestDone(t, nextReq)
+		})
+	})
 }
 
 func TestRequestSyncRequestsStopWaitingForLongWork(t *testing.T) {

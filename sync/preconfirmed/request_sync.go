@@ -29,7 +29,12 @@ type RequestSync struct {
 
 	requestCh  chan chan struct{}
 	responseCh chan struct{}
-	mu         sync.Mutex
+	// responseChClosed guards the close of responseCh. It is set when responseCh is closed,
+	// either by SignalSuccess/SignalFailure completing a work or by Stop releasing an
+	// in-flight (abandoned) work. It is reset to false whenever a fresh responseCh is created,
+	// so the channel is closed exactly once.
+	responseChClosed bool
+	mu               sync.Mutex
 }
 
 // NewRequestSync creates a new [RequestSync] that is meant to be shared by many requesting Go
@@ -52,7 +57,9 @@ func NewRequestSync(dataFreshnessTime, requestWaitTime time.Duration) *RequestSy
 
 		requestCh:  make(chan chan struct{}, 1),
 		responseCh: respCh,
-		mu:         sync.Mutex{},
+		// the initial responseCh is created already closed in NewRequestSync
+		responseChClosed: true,
+		mu:               sync.Mutex{},
 	}
 	// stored after construction because an atomic.Value must not be copied after first use
 	rs.lastSuccessfulRequest.Store(time.Time{})
@@ -76,15 +83,18 @@ func (rs *RequestSync) Stop() {
 	select {
 	case respCh := <-rs.requestCh:
 		close(respCh)
+		rs.responseChClosed = true
 		return
 	default:
 	}
 
 	// Finally, if `Stop()` was called while handling a request and before signaling success/failure,
 	// requesting Go routines whose requestWaitTime hasn't passed yet are still waiting for the
-	// signal. Make sure to release those as well.
-	if isChannelOpen(rs.responseCh) {
+	// signal. Make sure to release those as well. Mark the channel closed so a concurrent
+	// SignalSuccess/SignalFailure for the abandoned work doesn't close it again (panic).
+	if !rs.responseChClosed {
 		close(rs.responseCh)
+		rs.responseChClosed = true
 	}
 }
 
@@ -110,6 +120,7 @@ func (rs *RequestSync) SelfRequest() chan struct{} {
 	// Otherwise, create a new one that future concurrent requests can join.
 	respCh := make(chan struct{})
 	rs.responseCh = respCh
+	rs.responseChClosed = false
 	return respCh
 }
 
@@ -121,15 +132,37 @@ func (rs *RequestSync) ListenRequests() <-chan chan struct{} {
 // SignalSuccess notifies to a waiting Go routine that its request is done
 // and updates the last successful time.
 func (rs *RequestSync) SignalSuccess(respCh chan struct{}) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
+	// Stop may have already closed this channel to release the waiting requests for a work that
+	// was abandoned (e.g. on shutdown), before the worker signalled its outcome. Don't close it
+	// again, which would panic, and don't count the abandoned work as a success: doing so would
+	// wrongly mark the data fresh and skip the next work.
+	if rs.responseCh != respCh || rs.responseChClosed {
+		return
+	}
+
 	// The time must be updated before closing respCh: [RequestSync.Request] relies on it to not
 	// ask for new work right after a successful one.
 	rs.lastSuccessfulRequest.Store(time.Now())
-	rs.signal(respCh)
+	close(respCh)
+	rs.responseChClosed = true
 }
 
 // SignalFailure notifies to a waiting go routine that its request is done.
 func (rs *RequestSync) SignalFailure(respCh chan struct{}) {
-	rs.signal(respCh)
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
+	// Same reasoning as [RequestSync.SignalSuccess]: if Stop already released this work, don't
+	// close the channel a second time.
+	if rs.responseCh != respCh || rs.responseChClosed {
+		return
+	}
+
+	close(respCh)
+	rs.responseChClosed = true
 }
 
 // Request asks the worker to do its work and waits for it to be done, successfully or not, for
@@ -163,6 +196,7 @@ func (rs *RequestSync) Request() {
 
 		respCh = make(chan struct{})
 		rs.responseCh = respCh
+		rs.responseChClosed = false
 		rs.requestCh <- respCh
 	}
 	rs.mu.Unlock()
@@ -172,10 +206,6 @@ func (rs *RequestSync) Request() {
 	case <-respCh:
 	case <-time.After(rs.requestWaitTime):
 	}
-}
-
-func (rs *RequestSync) signal(respCh chan struct{}) {
-	close(respCh)
 }
 
 func (rs *RequestSync) isDataFresh() bool {
