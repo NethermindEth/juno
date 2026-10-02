@@ -126,7 +126,7 @@ func WithReadOnlyBlockchain(readOnly bool) Option {
 	return func(o *options) { o.readOnlyBlockchain = readOnly }
 }
 
-// Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
+// Synchronizer fetches blocks from its DataSource and stores them in the blockchain
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
 	readOnlyBlockchain  bool

@@ -229,7 +229,7 @@ func TestPollerColdBootstrapNoGap(t *testing.T) {
 	block1 := makeTestPreConfirmedBlock("r0", 1)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 		Return(block1, uint64(1), nil)
 
@@ -256,7 +256,7 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 	block3 := makeTestPreConfirmedBlock("r3", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		ds.EXPECT().
 			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -304,7 +304,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 	block1 := makeTestPreConfirmedBlock("r0", 1)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	// Registered before the bubble starts: gomock expectations must not be added
 	// while the poller goroutine is live (Return writes the call unlocked, which
 	// the race detector flags). Times(1) by default, so a poll before genesis
@@ -348,7 +348,7 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 	seed := makeTestPreConfirmedBlock("r0", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed the chain through the wire.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -389,7 +389,7 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 	delta := makeTestDelta("r0", 2)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed the chain through the wire.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -431,7 +431,7 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 	block2 := makeTestPreConfirmedBlock("r1", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed block 1.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -481,7 +481,7 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 	block4 := makeTestPreConfirmedBlock("r4", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed block 1.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -531,7 +531,7 @@ func TestPollerNotAtTipSkipsAllWork(t *testing.T) {
 	fx := newChainFixture(t)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	// No expectations set: any wire call fails the test.
 
 	synctest.Test(t, func(t *testing.T) {
@@ -555,7 +555,7 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 	fx := newChainFixture(t)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, uint64(0), errors.New("wire boom"))
 
@@ -582,7 +582,7 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 	latestReply := makeTestPreConfirmedBlock("r3", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		ds.EXPECT().
 			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -617,7 +617,7 @@ func TestPollerLatestNotFoundSkipsTickAndRecovers(t *testing.T) {
 	block1 := makeTestPreConfirmedBlock("r1", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 			Return(nil, uint64(0), fmt.Errorf("querying: %w", feeder.ErrPreConfirmedBlockNotFound)),
@@ -657,7 +657,7 @@ func TestPollerBackfillNotFoundSkipsApplyAndRecovers(t *testing.T) {
 	latestReply := makeTestPreConfirmedBlock("r3", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	// Exactly-once, in-order expectations double as a behavioral pin: a tick
 	// that kept backfilling past the not-found would consume tick 2's
 	// expectations early and fail the script.
@@ -718,7 +718,7 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 	block3 := makeTestPreConfirmedBlock("r3", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	// Script every wire call across the three ticks in chronological order.
 	// Finalise polls return the same block already at that slot so
 	// shouldPreserveSlot keeps the entry instead of replacing it.
@@ -781,7 +781,7 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 	seed2 := makeTestPreConfirmedBlock("r2", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed blocks 1 and 2 (latest at 2, backfill walks 1).
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -836,7 +836,7 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 	replacement := makeTestPreConfirmedBlock("rZ", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed blocks 1..3 (latest at 3, backfill walks 1 and 2).
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -888,7 +888,7 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 	replacement := makeTestPreConfirmedBlock("rZ", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed blocks 1..3 (latest at 3, backfill walks 1 and 2).
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -961,7 +961,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)
-		ds := mocks.NewMockStarknetData(ctrl)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 		gomock.InOrder(
 			// Tick 1: seed the old tip.
 			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -1016,7 +1016,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)
-		ds := mocks.NewMockStarknetData(ctrl)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 		gomock.InOrder(
 			// Tick 1: seed the old tip. The tick's apply of the latest does not
 			// fetch classes, so storedClass is only resolved by the re-poll below.
@@ -1069,7 +1069,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)
-		ds := mocks.NewMockStarknetData(ctrl)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 		gomock.InOrder(
 			// Tick 1: seed the old tip.
 			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -1109,7 +1109,7 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 	block1 := makeTestPreConfirmedBlock("r0", 1)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 		Return(block1, uint64(1), nil)
 
@@ -1143,7 +1143,7 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 	seed := makeTestPreConfirmedBlock("r0", 0)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// Tick 1: seed the chain through the wire.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
