@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -399,9 +400,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 	} else {
 		if cfg.GatewayTimeouts == "" {
-			cfg.GatewayTimeouts = feeder.DefaultTimeouts
+			cfg.GatewayTimeouts = timeout.DefaultTimeouts
 		}
-		timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
+		timeouts, fixed, err := timeout.ParseTimeouts(cfg.GatewayTimeouts)
 		if err != nil {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
@@ -443,10 +444,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		if !cfg.DisableSync {
-			feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+			gw := adaptfeeder.New(client)
 			synchronizer = sync.New(
 				chain,
-				feederGatewayDataSource,
+				sync.NewFeederGatewayDataSource(chain, gw),
+				gw,
 				logger,
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
@@ -638,12 +640,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		logger.Info(
-			"Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
-				cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) +
-				"/log/level and /feeder/timeouts",
+		timeoutClients := make([]timeout.Client, 0, 1)
+		if client != nil {
+			timeoutClients = append(timeoutClients, client)
+		}
+		httpUpdateAddr := cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort)
+		if len(timeoutClients) > 0 {
+			logger.Info("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+				httpUpdateAddr + "/log/level and /feeder/timeouts")
+		} else {
+			logger.Info("Log level can be changed via HTTP PUT request to " + httpUpdateAddr + "/log/level")
+		}
+		earlyServices = append(
+			earlyServices,
+			makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, timeoutClients...),
 		)
-		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
