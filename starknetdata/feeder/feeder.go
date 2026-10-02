@@ -11,10 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/starknetdata"
 )
-
-var _ starknetdata.StarknetData = (*Feeder)(nil)
 
 const latestID = "latest"
 

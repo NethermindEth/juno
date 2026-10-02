@@ -114,7 +114,7 @@ func TestPollerRequestPollsOnDemand(t *testing.T) {
 	delta := makeTestDelta("r0", 1)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// The first read, with the chain still empty.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -161,7 +161,7 @@ func TestPollerRequestReusesFreshData(t *testing.T) {
 		delta := makeTestDelta("r0", 1)
 
 		ctrl := gomock.NewController(t)
-		ds := mocks.NewMockStarknetData(ctrl)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 		gomock.InOrder(
 			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 				Return(block1, uint64(1), nil),
@@ -210,7 +210,7 @@ func TestPollerRequestReusesFreshData(t *testing.T) {
 		tick := 10 * staleAfter
 
 		ctrl := gomock.NewController(t)
-		ds := mocks.NewMockStarknetData(ctrl)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 		gomock.InOrder(
 			// The first read.
 			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -257,7 +257,7 @@ func TestPollerRequestRepollsAfterFailure(t *testing.T) {
 	delta := makeTestDelta("r0", 1)
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		// The first read fails to bootstrap the chain; the read right after it tries again.
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
@@ -322,7 +322,7 @@ func TestPollerRequestStopsWaitingForSlowPoll(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	ds := mocks.NewMockStarknetData(ctrl)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
 	gomock.InOrder(
 		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
 			Return(block1, uint64(1), nil),
