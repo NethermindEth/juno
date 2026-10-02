@@ -50,10 +50,12 @@ pass through.
 into the config's folder, sampling `<node>` via `--source-url`; per-entry
 flags win.
 
-`run-all.sh`: `run.js` once per corpus against `<node>`. Writes
+`run-all.sh`: `run.js` once per corpus against `<node>`, in config order when
+`<corpus>.json` exists (corpora it doesn't list follow A-Z), else A-Z. A
+listed corpus missing from the folder counts as failed. Writes
 `<corpus>/<node>/` (overwritten per re-run): `<method>.html` (dashboard, live
-at `:5665`), `<method>.json` (summary), `report.md`. Failures don't stop the
-sweep.
+at `:5665`), `<method>.json` (summary), `report.md` (rows in run order).
+Failures don't stop the sweep.
 
 ### corpus-gen
 
