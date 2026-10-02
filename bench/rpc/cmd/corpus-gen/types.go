@@ -142,3 +142,36 @@ type receiptsBlock struct {
 		} `json:"receipt"`
 	} `json:"transactions"`
 }
+
+// Both execution methods take simulation_flags as a required param, so the
+// flag lists below marshal even when they are empty.
+type estimateFeeParams struct {
+	Request         []broadcastedTx `json:"request"`
+	SimulationFlags []string        `json:"simulation_flags"`
+	BlockID         blockID         `json:"block_id"`
+}
+
+type simulateTxsParams struct {
+	BlockID         blockID         `json:"block_id"`
+	Transactions    []broadcastedTx `json:"transactions"`
+	SimulationFlags []string        `json:"simulation_flags"`
+}
+
+type callParams struct {
+	Request functionCall `json:"request"`
+	BlockID blockID      `json:"block_id"`
+}
+
+type functionCall struct {
+	ContractAddress    string   `json:"contract_address"`
+	EntryPointSelector string   `json:"entry_point_selector"`
+	Calldata           []string `json:"calldata"`
+}
+
+// broadcastedTx is a sampled transaction kept as raw fields, so that felts
+// reach the node exactly as the source served them.
+type broadcastedTx map[string]json.RawMessage
+
+type fullTxsBlock struct {
+	Transactions []broadcastedTx `json:"transactions"`
+}

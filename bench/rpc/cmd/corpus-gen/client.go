@@ -174,3 +174,28 @@ func (c *rpcClient) blockWithReceipts(
 		blockIDParams{BlockID: blockNumberID{blockNumber}},
 	)
 }
+
+// blockWithTxs asks for proof facts as well, since they feed the invoke
+// transaction hash that validation checks.
+func (c *rpcClient) blockWithTxs(ctx context.Context, blockNumber uint64) (fullTxsBlock, error) {
+	return c.rpcCall[fullTxsBlock](
+		ctx,
+		"starknet_getBlockWithTxs",
+		blockIDParams{
+			BlockID:       blockNumberID{blockNumber},
+			ResponseFlags: []string{includeProofFactsFlag},
+		},
+	)
+}
+
+func (c *rpcClient) rawClassAt(
+	ctx context.Context,
+	blockNumber uint64,
+	classHash string,
+) (json.RawMessage, error) {
+	return c.rpcCall[json.RawMessage](
+		ctx,
+		"starknet_getClass",
+		classAtBlockParams{BlockID: blockNumberID{blockNumber}, ClassHash: classHash},
+	)
+}

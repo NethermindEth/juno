@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"strings"
+	"sync/atomic"
 
 	"github.com/spf13/cobra"
 )
@@ -18,6 +19,7 @@ type samplerInput[T any] struct {
 	rng    *rand.Rand
 	args   *T
 	cache  *sierraCache
+	method string
 }
 
 type sampler[T, R any] func(input samplerInput[T]) (R, error)
@@ -34,6 +36,7 @@ func (input samplerInput[T]) rebindArgs[U any](args *U) samplerInput[U] {
 		rng:    input.rng,
 		args:   args,
 		cache:  input.cache,
+		method: input.method,
 	}
 }
 
@@ -60,6 +63,7 @@ func (cfg *rootConfig) newSampledCmd[T any, PT interface {
 	PT(args).bind(cmd, client)
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		cache := newSierraCache()
+		var attempts atomic.Int64
 		gen := func(ctx context.Context, rng *rand.Rand) (any, error) {
 			input := samplerInput[T]{
 				ctx:    ctx,
@@ -67,14 +71,22 @@ func (cfg *rootConfig) newSampledCmd[T any, PT interface {
 				rng:    rng,
 				args:   args,
 				cache:  cache,
+				method: method,
 			}
-			result, err := resample(func() (R, error) { return sample(input) })
+			result, err := resample(func() (R, error) {
+				attempts.Add(1)
+				return sample(input)
+			})
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", method, err)
 			}
 			return result, nil
 		}
-		return runCorpus(cmd, cfg, client, method, args, gen)
+		if err := runCorpus(cmd, cfg, client, method, args, gen); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(cmd.ErrOrStderr(), "sampling attempts: %d\n", attempts.Load())
+		return err
 	}
 	return cmd
 }
@@ -85,6 +97,7 @@ var errResample = errors.New("resample")
 // resample retries fn until it succeeds or fails with a non-errResample error.
 func resample[R any](fn func() (R, error)) (R, error) {
 	var zero R
+	var last error
 	for range maxResampleAttempts {
 		result, err := fn()
 		if err == nil {
@@ -93,8 +106,11 @@ func resample[R any](fn func() (R, error)) (R, error) {
 		if !errors.Is(err, errResample) {
 			return zero, err
 		}
+		last = err
 	}
-	return zero, fmt.Errorf("no candidate found after %d attempts", maxResampleAttempts)
+	return zero, fmt.Errorf(
+		"no candidate found after %d attempts: %w", maxResampleAttempts, last,
+	)
 }
 
 func commandName(method string) string {
