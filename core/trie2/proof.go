@@ -86,7 +86,7 @@ func (t *Trie) ProveMulti(keys []felt.Felt, proof *ProofNodeSet) error {
 		return ErrCommitted
 	}
 
-	if len(keys) == 0 {
+	if len(keys) == 0 || t.height == 0 {
 		return nil
 	}
 
