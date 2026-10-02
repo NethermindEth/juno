@@ -32,15 +32,14 @@ func goldenBytes(t *testing.T) map[string]string {
 	return vectors
 }
 
-// goldenCases is the record set each codec implementation is checked against.
-func goldenCases() []struct {
+type goldenCase struct {
 	name  string
 	value any
-} {
-	return []struct {
-		name  string
-		value any
-	}{
+}
+
+// goldenCases is the record set each codec implementation is checked against.
+func goldenCases() []goldenCase {
+	return []goldenCase{
 		{"DeclareTransaction", core.DeclareTransaction{}},
 		{"DeployTransaction", core.DeployTransaction{}},
 		{"InvokeTransaction", core.InvokeTransaction{}},
