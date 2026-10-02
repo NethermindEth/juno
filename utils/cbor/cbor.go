@@ -1,5 +1,5 @@
-// Package cbor provides Juno's CBOR API. Encoding and decoding currently use
-// the fxamacker adapter.
+// Package cbor is Juno's CBOR API. It encodes with fxamacker and decodes with a
+// type's registered decoder, falling back to fxamacker.
 package cbor
 
 import (
@@ -29,9 +29,48 @@ func Marshal(v any) ([]byte, error) {
 	return fxamacker.Marshal(v)
 }
 
-// Unmarshal decodes a CBOR value from data into v.
+// route pairs a destination type with its registered decoder.
+type route struct {
+	t      reflect.Type
+	decode func([]byte, any) error
+}
+
+// routes holds the *T and **T destinations of each registered decoder.
+var routes []route
+
+// RegisterDecoder routes reads of t to decode, which must read exactly one CBOR
+// value and fail wherever its result would differ from fxamacker's.
+// Call it only from utils/cbor/registry's init.
+func RegisterDecoder(t reflect.Type, decode func(data []byte, v any) error) {
+	// Storage accessors use **T; typed serializers use *T.
+	p := reflect.PointerTo(t)
+	routes = append(routes, route{p, decode}, route{reflect.PointerTo(p), decode})
+}
+
+// Unmarshal decodes data into v. Zero destinations of a registered type use its
+// decoder and fall back to fxamacker if it fails; other reads use fxamacker.
 func Unmarshal(data []byte, v any) error {
+	if decode := registeredDecoder(v); decode != nil {
+		if decode(data, v) == nil {
+			return nil
+		}
+		// Discard the partial result before falling back.
+		reflect.ValueOf(v).Elem().SetZero()
+	}
 	return fxamacker.Unmarshal(data, v)
+}
+
+func registeredDecoder(v any) func([]byte, any) error {
+	t := reflect.TypeOf(v)
+	for i := range routes {
+		if routes[i].t == t {
+			if rv := reflect.ValueOf(v); rv.IsNil() || !rv.Elem().IsZero() {
+				return nil
+			}
+			return routes[i].decode
+		}
+	}
+	return nil
 }
 
 // UnmarshalFirst decodes the first CBOR item and returns the remaining bytes.

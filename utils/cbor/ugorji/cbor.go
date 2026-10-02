@@ -15,7 +15,7 @@ var (
 	handle = func() *codec.CborHandle {
 		h := &codec.CborHandle{}
 		h.TypeInfos = codec.NewTypeInfos([]string{"cbor"})
-		// Fail on field names from older records rather than drop them, e.g. "GasPrice".
+		// Reject unknown fields rather than silently dropping them.
 		h.ErrorIfNoField = true
 		h.ValidateUnicode = true
 		// Limit nesting to 32 levels; keep Ugorji's copying ownership.
