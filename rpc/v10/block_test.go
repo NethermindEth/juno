@@ -1,6 +1,7 @@
 package rpcv10_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -1471,5 +1472,33 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 				)
 			}
 		})
+	})
+}
+
+func TestL1DAModeJSON(t *testing.T) {
+	tests := []struct {
+		mode rpc.L1DAMode
+		data string
+	}{
+		{rpc.Blob, `"BLOB"`},
+		{rpc.Calldata, `"CALLDATA"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.data, func(t *testing.T) {
+			data, err := json.Marshal(test.mode)
+			require.NoError(t, err)
+			assert.Equal(t, test.data, string(data))
+
+			var decoded rpc.L1DAMode
+			require.NoError(t, json.Unmarshal(data, &decoded))
+			assert.Equal(t, test.mode, decoded)
+		})
+	}
+
+	t.Run("unknown", func(t *testing.T) {
+		var decoded rpc.L1DAMode
+		err := json.Unmarshal([]byte(`"VOLATILE"`), &decoded)
+		require.ErrorContains(t, err, `unknown L1DAMode "VOLATILE"`)
 	})
 }
