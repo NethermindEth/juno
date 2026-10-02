@@ -70,7 +70,8 @@ func (e *Edge) String() string {
 // If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
 // Proof hashes come from stored node values: call Hash after the last write.
 // Prove is kept as a compatibility wrapper for existing single-key callers.
-// New multi-key proof generation should use ProveMulti.
+//
+// Deprecated: Use ProveMulti instead.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	return t.ProveMulti([]felt.Felt{*key}, proof)
 }
