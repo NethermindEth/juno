@@ -20,7 +20,7 @@ jobs:
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/')
-    uses: NethermindEth/github-workflows/.github/workflows/ai-review-command.yaml@80ac29b7f614d73430a6936cc5ea85c68f45ed20 # v2.3.0
+    uses: NethermindEth/github-workflows/.github/workflows/ai-review-command.yaml@e0fad164abb5ef88a6aa54b21e84996fa62b5e19 # v2.5.0
     with:
       secret_path: /apps/litellm/juno-ai-reviewer
       # Keep in sync with extra_instructions in ai-review.yml.
