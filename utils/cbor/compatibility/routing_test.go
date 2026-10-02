@@ -38,8 +38,9 @@ func TestAccessorsUseUgorji(t *testing.T) {
 }
 
 // legacyHeader rewrites a header with field names older databases still hold:
-// "GasPrice" and "GasPriceSTRK" before #2335, and "ExtraData" before #1498.
-func legacyHeader(t *testing.T, header *core.Header, extraData bool) []byte {
+// "GasPrice" and "GasPriceSTRK" before #2335. A non-nil entry is appended to
+// the map.
+func legacyHeader(t *testing.T, header *core.Header, entry []byte) []byte {
 	t.Helper()
 	data, err := cbor.Marshal(header)
 	require.NoError(t, err)
@@ -49,26 +50,45 @@ func legacyHeader(t *testing.T, header *core.Header, extraData bool) []byte {
 		require.Equal(t, 1, bytes.Count(data, current), rename[0])
 		data = bytes.Replace(data, current, legacy, 1)
 	}
-	if extraData {
+	if entry != nil {
 		// The field count fits in the map's initial byte; append one more entry.
 		require.Equal(t, byte(0xa0), data[0]&0xe0)
 		require.Less(t, data[0]&0x1f, byte(23))
 		data[0]++
-		data = append(append(data, cborText("ExtraData")...), 0xf6)
+		data = append(data, entry...)
 	}
 	return data
 }
 
-// Ugorji rejects legacy field names, so these reads must fall back without
-// losing the L1 gas prices.
-func TestLegacyHeaderFieldsFallBack(t *testing.T) {
-	for _, extraData := range []bool{false, true} {
-		expected := populatedHeader()
-		data := legacyHeader(t, &expected, extraData)
+// Ugorji reads legacy header fields, including "ExtraData" from before #1498,
+// without losing the L1 gas prices, and still rejects unknown fields.
+func TestLegacyHeaderFields(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		entry   []byte
+		wantErr bool
+	}{
+		{name: "gas prices"},
+		{name: "ExtraData null", entry: append(cborText("ExtraData"), 0xf6)},
+		{name: "ExtraData felt", entry: append(cborText("ExtraData"), 0x84, 1, 2, 3, 4)},
+		{name: "unknown field", entry: append(cborText("Unknown"), 0xf6), wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			expected := populatedHeader()
+			data := legacyHeader(t, &expected, tc.entry)
 
-		require.Error(t, ugorji.Unmarshal(data, new(*core.Header)))
-		var header *core.Header
-		require.NoError(t, cbor.Unmarshal(data, &header))
-		require.Equal(t, &expected, header)
+			var header *core.Header
+			err := ugorji.Unmarshal(data, &header)
+			if tc.wantErr {
+				require.ErrorContains(t, err, "Unknown")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, &expected, header)
+
+			header = nil
+			require.NoError(t, cbor.Unmarshal(data, &header))
+			require.Equal(t, &expected, header)
+		})
 	}
 }
