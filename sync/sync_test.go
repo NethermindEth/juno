@@ -16,13 +16,11 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 const timeout = time.Second
@@ -33,9 +31,6 @@ func TestNoopSynchronizerPreConfirmedChain(t *testing.T) {
 }
 
 func TestSyncBlocks(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
@@ -110,53 +105,7 @@ func TestSyncBlocks(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 
-		mockSNData := mocks.NewMockStarknetData(mockCtrl)
-
-		syncingHeight := uint64(0)
-		reqCount := 0
-		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
-				curHeight := atomic.LoadUint64(&syncingHeight)
-				// reject any other requests
-				if height != curHeight {
-					return nil, nil, errors.New("try again")
-				}
-
-				reqCount++
-				state, block, err := gw.StateUpdateWithBlock(t.Context(), curHeight)
-				if err != nil {
-					return nil, nil, err
-				}
-
-				switch reqCount {
-				case 1:
-					return nil, nil, errors.New("try again")
-				case 2:
-					state.BlockHash = new(felt.Felt) // fail sanity checks
-				case 3:
-					state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
-				default:
-					reqCount = 0
-					atomic.AddUint64(&syncingHeight, 1)
-				}
-
-				return state, block, nil
-			}).AnyTimes()
-		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, hash *felt.Felt) (core.ClassDefinition, error) {
-				return gw.Class(ctx, hash)
-			}).AnyTimes()
-
-		mockSNData.EXPECT().BlockHeaderLatest(gomock.Any()).DoAndReturn(
-			func(ctx context.Context) (core.Header, error) {
-				block, err := gw.BlockLatest(t.Context())
-				if err != nil {
-					return core.Header{}, err
-				}
-				return *block.Header, nil
-			}).AnyTimes()
-
-		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
+		dataSource := &unreliableDataSource{DataSource: sync.NewFeederGatewayDataSource(bc, gw)}
 		synchronizer := sync.New(bc, dataSource, logger, sync.WithPreConfirmedPollInterval(0))
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
@@ -165,6 +114,47 @@ func TestSyncBlocks(t *testing.T) {
 
 		testBlockchain(t, bc)
 	})
+}
+
+// unreliableDataSource fails BlockByNumber in a fixed pattern before it lets
+// each height through, so the synchronizer's retry path gets exercised.
+type unreliableDataSource struct {
+	sync.DataSource
+	syncingHeight atomic.Uint64
+	reqCount      int
+}
+
+func (u *unreliableDataSource) BlockByNumber(
+	ctx context.Context,
+	height uint64,
+) (sync.CommittedBlock, error) {
+	curHeight := u.syncingHeight.Load()
+	// reject any other requests
+	if height != curHeight {
+		return sync.CommittedBlock{}, errors.New("try again")
+	}
+
+	u.reqCount++
+	if u.reqCount == 1 {
+		return sync.CommittedBlock{}, errors.New("try again")
+	}
+
+	committed, err := u.DataSource.BlockByNumber(ctx, curHeight)
+	if err != nil {
+		return sync.CommittedBlock{}, err
+	}
+
+	switch u.reqCount {
+	case 2:
+		committed.StateUpdate.BlockHash = new(felt.Felt) // fail sanity checks
+	case 3:
+		committed.StateUpdate.OldRoot = new(felt.Felt).SetUint64(1) // fail store
+	default:
+		u.reqCount = 0
+		u.syncingHeight.Add(1)
+	}
+
+	return committed, nil
 }
 
 func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {

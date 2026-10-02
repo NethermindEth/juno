@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/starknetdata"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
@@ -27,19 +27,22 @@ type DataSource interface {
 }
 
 type feederGatewayDataSource struct {
-	blockchain   *blockchain.Blockchain
-	starknetData starknetdata.StarknetData
+	blockchain *blockchain.Blockchain
+	feeder     *adaptfeeder.Feeder
 }
 
-func NewFeederGatewayDataSource(blockchain *blockchain.Blockchain, starknetData starknetdata.StarknetData) DataSource {
+func NewFeederGatewayDataSource(
+	blockchain *blockchain.Blockchain,
+	feeder *adaptfeeder.Feeder,
+) DataSource {
 	return &feederGatewayDataSource{
-		blockchain:   blockchain,
-		starknetData: starknetData,
+		blockchain: blockchain,
+		feeder:     feeder,
 	}
 }
 
 func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error) {
-	stateUpdate, block, err := f.starknetData.StateUpdateWithBlock(ctx, blockNumber)
+	stateUpdate, block, err := f.feeder.StateUpdateWithBlock(ctx, blockNumber)
 	if err != nil {
 		return CommittedBlock{}, err
 	}
@@ -58,7 +61,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 }
 
 func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
-	header, err := f.starknetData.BlockHeaderLatest(ctx)
+	header, err := f.feeder.BlockHeaderLatest(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +95,7 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 		}
 
 		if errors.Is(stateErr, db.ErrKeyNotFound) {
-			class, fetchErr := f.starknetData.Class(ctx, classHash)
+			class, fetchErr := f.feeder.Class(ctx, classHash)
 			if fetchErr == nil {
 				newClasses[*classHash] = class
 			}
@@ -126,7 +129,7 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, error) {
-	return f.starknetData.PreConfirmedBlockByNumber(
+	return f.feeder.PreConfirmedBlockByNumber(
 		ctx,
 		blockNumber,
 		blockIdentifier,
@@ -139,12 +142,12 @@ func (f *feederGatewayDataSource) PreConfirmedBlockLatest(
 	blockIdentifier string,
 	knownTransactionCount uint64,
 ) (starknet.PreConfirmedUpdate, uint64, error) {
-	return f.starknetData.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
+	return f.feeder.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
 }
 
 func (f *feederGatewayDataSource) Class(
 	ctx context.Context,
 	classHash *felt.Felt,
 ) (core.ClassDefinition, error) {
-	return f.starknetData.Class(ctx, classHash)
+	return f.feeder.Class(ctx, classHash)
 }
