@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -15,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"

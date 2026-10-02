@@ -1,4 +1,5 @@
-package feeder
+// Package adaptfeeder adapts feeder gateway responses to core types.
+package adaptfeeder
 
 import (
 	"context"

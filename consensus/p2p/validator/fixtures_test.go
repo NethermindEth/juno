@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/adapters/consensus2p2p"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
@@ -19,7 +20,6 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
