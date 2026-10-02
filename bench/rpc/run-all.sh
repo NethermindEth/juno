@@ -7,6 +7,7 @@ usage() {
 usage: $0 <corpus(.json)> <node|url> [k6 flags...]
   <corpus>  config or its folder (all.json <-> all/)
   <node>    nodes.json name or URL; results -> <corpus>/<node>/
+Runs in config order when the config exists, else A-Z.
 Extra args pass to every k6 run.
 EOF
   exit 1
@@ -18,23 +19,48 @@ source "$SCRIPT_DIR/resolve-node.sh"
 [[ $# -lt 2 ]] && usage
 BASE=${1%/}
 CORPUS_DIR=${BASE%.json}
+CONFIG="$CORPUS_DIR.json"
 resolve_node "$2"
 shift 2
 K6_ARGS=("$@")
 
 OUT_DIR="$CORPUS_DIR/$NODE_NAME"
 
+# Config order first (keys_unsorted keeps file order), then corpora the
+# config doesn't list, A-Z.
 shopt -s nullglob
-corpora=("$CORPUS_DIR"/*.json)
-if ((${#corpora[@]} == 0)); then
+mapfile -t names < <(
+  {
+    [[ -f "$CONFIG" ]] && jq -r 'keys_unsorted[]' "$CONFIG"
+    for corpus in "$CORPUS_DIR"/*.json; do basename "$corpus" .json; done
+  } | awk '!seen[$0]++'
+)
+if ((${#names[@]} == 0)); then
   echo "error: no corpora in $CORPUS_DIR" >&2
   exit 1
 fi
+
+corpora=()
+missing=()
+for name in "${names[@]}"; do
+  if [[ -f "$CORPUS_DIR/$name.json" ]]; then
+    corpora+=("$name")
+  else
+    missing+=("$name")
+  fi
+done
+echo "run order:"
+for i in "${!corpora[@]}"; do
+  printf '  %2d. %s\n' "$((i + 1))" "${corpora[i]}"
+done
+if ((${#missing[@]} > 0)); then
+  echo "missing: ${missing[*]}" >&2
+fi
 mkdir -p "$OUT_DIR"
 
-failed=()
-for corpus in "${corpora[@]}"; do
-  name="$(basename "$corpus" .json)"
+failed=("${missing[@]}")
+for name in "${corpora[@]}"; do
+  corpus="$CORPUS_DIR/$name.json"
   echo
   echo "==> $name"
   # 2s aggregation period: the default 10s leaves short runs with too few
@@ -55,8 +81,10 @@ report="$OUT_DIR/report.md"
 {
   echo "| method | reqs | req/s | errors | avg (ms) | med | p90 | p95 | p99 | max |"
   echo "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
-  for summary in "$OUT_DIR"/*.json; do
-    jq -r --arg name "$(basename "$summary" .json)" '
+  for name in "${corpora[@]}"; do
+    summary="$OUT_DIR/$name.json"
+    [[ -f "$summary" ]] || continue
+    jq -r --arg name "$name" '
       def r2: (. // 0) * 100 | round / 100;
       .metrics as $m
       | ($m.http_req_duration // {}) as $d
