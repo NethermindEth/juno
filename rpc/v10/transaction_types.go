@@ -1,7 +1,9 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -239,18 +241,17 @@ type ResourceBoundsMap struct {
 	L1DataGas ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
-func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
-	// Check if L1DataGas is nil, if it is, provide default values
-	if r.L1DataGas.MaxAmount == nil && r.L1DataGas.MaxPricePerUnit == nil {
-		r.L1DataGas = ResourceBounds{
+// MarshalJSONTo writes the bounds with zero L1 data gas when a pre-0.13.4 transaction has none.
+func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
+	type alias ResourceBoundsMap
+	bounds := alias(r)
+	if bounds.L1DataGas.MaxAmount == nil && bounds.L1DataGas.MaxPricePerUnit == nil {
+		bounds.L1DataGas = ResourceBounds{
 			MaxAmount:       &felt.Zero,
 			MaxPricePerUnit: &felt.Zero,
 		}
 	}
-
-	// Define an alias to avoid recursion
-	type alias ResourceBoundsMap
-	return json.Marshal((*alias)(r))
+	return json.MarshalEncode(enc, &bounds)
 }
 
 type FeePayment struct {
@@ -369,10 +370,10 @@ type FeeEstimate struct {
 }
 
 type ContractErrorData struct {
-	RevertError json.RawMessage `json:"revert_error"`
+	RevertError jsonv1.RawMessage `json:"revert_error"`
 }
 
-func MakeContractError(err json.RawMessage) *jsonrpc.Error {
+func MakeContractError(err jsonv1.RawMessage) *jsonrpc.Error {
 	return rpccore.ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err,
 	})
@@ -456,6 +457,6 @@ type BroadcastedTransaction struct {
 }
 
 type TransactionExecutionErrorData struct {
-	TransactionIndex uint64          `json:"transaction_index"`
-	ExecutionError   json.RawMessage `json:"execution_error"`
+	TransactionIndex uint64            `json:"transaction_index"`
+	ExecutionError   jsonv1.RawMessage `json:"execution_error"`
 }

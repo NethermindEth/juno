@@ -1,8 +1,8 @@
 package rpccore
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 )
 
@@ -26,44 +26,43 @@ func (l SimulationLimit) Limit() int       { return simulationLimit }
 func (l FunctionCalldataLimit) Limit() int { return functionCalldataLimit }
 func (l SenderAddressLimit) Limit() int    { return senderAddressLimit }
 
+// LimitSlice is a JSON array that rejects more than L items while it decodes.
 type LimitSlice[T any, L Limit] struct {
 	Data []T `validate:"dive"`
 }
 
-func (l LimitSlice[T, L]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(l.Data)
+func (l LimitSlice[T, L]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, l.Data)
 }
 
-func (l *LimitSlice[T, L]) UnmarshalJSON(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-
-	if err := expectDelim(decoder, '['); err != nil {
+func (l *LimitSlice[T, L]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if err := expectDelim(dec, '['); err != nil {
 		return err
 	}
 
 	var limit L
 	l.Data = []T{}
-	for decoder.More() {
+	for dec.PeekKind() != ']' {
 		if len(l.Data) >= limit.Limit() {
 			return fmt.Errorf("expected max %d items", limit.Limit())
 		}
 		var value T
-		if err := decoder.Decode(&value); err != nil {
+		if err := json.UnmarshalDecode(dec, &value); err != nil {
 			return err
 		}
 		l.Data = append(l.Data, value)
 	}
 
-	return expectDelim(decoder, ']')
+	return expectDelim(dec, ']')
 }
 
-func expectDelim(decoder *json.Decoder, delim json.Delim) error {
-	token, err := decoder.Token()
+func expectDelim(dec *jsontext.Decoder, delim jsontext.Kind) error {
+	token, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	if token != delim {
-		return fmt.Errorf("expected %s, got %s", delim, token)
+	if token.Kind() != delim {
+		return fmt.Errorf("expected %s, got %s", delim, token.Kind())
 	}
 	return nil
 }
