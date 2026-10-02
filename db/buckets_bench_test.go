@@ -41,7 +41,7 @@ func BenchmarkKey(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			b.ReportAllocs()
 			for b.Loop() {
-				keySink = db.StateTrie.Key(c.keys...)
+				keySink = db.DeprecatedStateTrie.Key(c.keys...)
 			}
 		})
 	}

@@ -67,7 +67,8 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		err := txn.Get(db.ContractStorage.Key(exampleBytes[:]), func(data []byte) error {
+		//nolint:staticcheck,nolintlint // old state layout
+		err := txn.Get(db.DeprecatedContractStorage.Key(exampleBytes[:]), func(data []byte) error {
 			require.Equal(
 				t,
 				exampleBytes[:],
@@ -144,7 +145,10 @@ func TestRemovePending(t *testing.T) {
 func TestChangeTrieNodeEncoding(t *testing.T) {
 	testdb := memory.New()
 
-	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
+	buckets := []db.Bucket{
+		//nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedClassesTrie, db.DeprecatedStateTrie, db.DeprecatedContractStorage,
+	}
 
 	var n struct {
 		Value *felt.Felt
@@ -154,9 +158,14 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
 		// will fail with an error since they are not valid trie.Node encodings.
-		require.NoError(t, txn.Put(db.ClassesTrie.Key(), []byte{1, 2, 3}))
-		require.NoError(t, txn.Put(db.StateTrie.Key(), []byte{1, 2, 3}))
-		require.NoError(t, txn.Put(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
+		//nolint:staticcheck,nolintlint // old state layout
+		require.NoError(t, txn.Put(db.DeprecatedClassesTrie.Key(), []byte{1, 2, 3}))
+		//nolint:staticcheck,nolintlint // old state layout
+		require.NoError(t, txn.Put(db.DeprecatedStateTrie.Key(), []byte{1, 2, 3}))
+		require.NoError(
+			//nolint:staticcheck,nolintlint // old state layout
+			t, txn.Put(db.DeprecatedContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}),
+		)
 
 		for _, bucket := range buckets {
 			for i := range 5 {
@@ -374,7 +383,8 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 }
 
 func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
-	migrator := migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)
+	//nolint:staticcheck,nolintlint // old state layout
+	migrator := migrateTrieNodesFromBitsetToTrieKey(db.DeprecatedClassesTrie)
 	memDB := memory.New()
 	memTxn := memDB.NewIndexedBatch()
 
@@ -393,13 +403,15 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 	require.True(t, wrote > 0)
 	require.NoError(t, err)
 
-	nodeKey := db.ClassesTrie.Key(bsBytes)
+	//nolint:staticcheck,nolintlint // old state layout
+	nodeKey := db.DeprecatedClassesTrie.Key(bsBytes)
 	err = memTxn.Put(nodeKey, nodeBytes.Bytes())
 	require.NoError(t, err)
 
 	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), &networks.Mainnet))
 
-	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func([]byte) error { return nil })
+	//nolint:staticcheck,nolintlint // old state layout
+	err = memTxn.Get(db.DeprecatedClassesTrie.Key(bsBytes), func([]byte) error { return nil })
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	var nodeKeyBuf bytes.Buffer

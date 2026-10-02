@@ -110,9 +110,9 @@ func migrateContracts(
 
 func wipeDeprecatedBuckets(database db.KeyValueStore) error {
 	for _, bucket := range []db.Bucket{
-		db.ContractClassHash,
-		db.ContractNonce,
-		db.ContractDeploymentHeight,
+		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+		db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 	} {
 		start := bucket.Key()
 		end := dbutils.UpperBound(start)

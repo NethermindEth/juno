@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	//nolint:staticcheck,nolintlint // old state layout
 	"github.com/NethermindEth/juno/core/deprecatedstate"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
@@ -87,7 +88,8 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 		return nil
 	}
 
-	leafPrefix := db.ContractStorage.Key(addrBytes)
+	//nolint:staticcheck,nolintlint // old state layout
+	leafPrefix := db.DeprecatedContractStorage.Key(addrBytes)
 	leafPrefix = append(leafPrefix, deprecatedstate.ContractStorageTrieHeight)
 
 	headStorageTrieIt, err := i.Database.NewIterator(leafPrefix, true)
