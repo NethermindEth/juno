@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/utils/log"
 )
 
@@ -18,7 +19,7 @@ type options struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   *Timeouts
+	timeouts   *timeout.Timeouts
 }
 
 // Option is a functional option for configuring the feeder client.
@@ -61,7 +62,7 @@ func WithHTTPClient(client *http.Client) Option {
 }
 
 func WithTimeouts(timeouts []time.Duration, fixed bool) Option {
-	return func(o *options) { o.timeouts = makeTimeouts(timeouts, fixed) }
+	return func(o *options) { o.timeouts = timeout.New(timeouts, fixed) }
 }
 
 // requestConfig holds per-request overrides of the client's retry behavior.
