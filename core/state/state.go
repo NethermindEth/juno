@@ -542,13 +542,14 @@ func (s *State) writeHistory(blockNum uint64, diff *core.StateDiff) error {
 		}
 	}
 
-	for addr, classHash := range diff.ReplacedClasses {
+	// Replaced classes last: deploy and replace in one block ends with the replaced class
+	for addr, classHash := range diff.DeployedContracts {
 		if err := WriteClassHashHistory(s.batch, &addr, blockNum, classHash); err != nil {
 			return err
 		}
 	}
 
-	for addr, classHash := range diff.DeployedContracts {
+	for addr, classHash := range diff.ReplacedClasses {
 		if err := WriteClassHashHistory(s.batch, &addr, blockNum, classHash); err != nil {
 			return err
 		}

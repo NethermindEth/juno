@@ -4,7 +4,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/pruner"
 )
 
@@ -54,7 +56,8 @@ func (b *stateBackend) StateAtBlockHash(
 	blockHash *felt.Felt,
 ) (core.StateReader, StateCloser, error) {
 	if blockHash.IsZero() {
-		st, err := state.NewStateReader(&felt.Zero, b.stateDB)
+		memDB := memory.New()
+		st, err := state.NewStateReader(&felt.Zero, state.NewStateDB(memDB, triedb.New(memDB, nil)))
 		if err != nil {
 			return nil, nil, err
 		}

@@ -508,7 +508,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 		// containing the other child as the child
 		return &trienode.EdgeNode{Path: bitPrefix, Child: n.Children[other], Flags: trienode.NewNodeFlag()}, true, nil
 	case *trienode.ValueNode:
-		t.nodeTracer.onDelete(key)
+		t.nodeTracer.onDelete(prefix)
 		return nil, true, nil
 	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
