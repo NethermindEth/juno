@@ -25,7 +25,11 @@ import (
 
 var feltOne = &felt.One
 
-const tickInterval = 100 * time.Millisecond
+const (
+	tickInterval = 100 * time.Millisecond
+	staleAfter   = 100 * time.Millisecond
+	onDemandWait = time.Second
+)
 
 // makeTestPreConfirmedBlock returns a starknet.PreConfirmedBlock carrying
 // `txCount` synthesised invoke transactions with matching receipts and per-tx
@@ -159,12 +163,14 @@ func wirePoller(
 	highest := &atomic.Pointer[core.Header]{}
 	highest.Store(head)
 
-	p := preconfirmed.NewPoller(ds, bc, highest, tickInterval, log.NewNopZapLogger())
+	p := preconfirmed.NewPoller(
+		ds, bc, highest, tickInterval, staleAfter, onDemandWait, log.NewNopZapLogger(),
+	)
 	return harness{poller: p, highest: highest}
 }
 
-// chain reads the poller's current pre-confirmed view the way any consumer does.
-func (h harness) chain(t *testing.T) preconfirmed.ChainReader {
+// readChain reads the poller's current pre-confirmed view the way any consumer does.
+func (h harness) readChain(t *testing.T) preconfirmed.ChainReader {
 	t.Helper()
 	view, err := h.poller.PreConfirmedChain()
 	require.NoError(t, err)
@@ -212,10 +218,10 @@ func assertChain(t *testing.T, snap *preconfirmed.ChainReader, want ...expectedE
 	require.NotNil(t, snap, "snapshot must be non-nil")
 	require.Equal(t, len(want), snap.Length(), "chain length")
 	i := 0
-	for pc := range snap.OldestFirst() {
-		require.Equal(t, want[i].number, pc.Block.Number, "entry %d block number", i)
-		require.Equal(t, want[i].identifier, pc.BlockIdentifier, "entry %d identifier", i)
-		require.Equal(t, want[i].txCount, len(pc.Block.Transactions), "entry %d tx count", i)
+	for preConf := range snap.OldestFirst() {
+		require.Equal(t, want[i].number, preConf.Block.Number, "entry %d block number", i)
+		require.Equal(t, want[i].identifier, preConf.BlockIdentifier, "entry %d identifier", i)
+		require.Equal(t, want[i].txCount, len(preConf.Block.Transactions), "entry %d tx count", i)
 		i++
 	}
 }
@@ -234,13 +240,13 @@ func TestPollerColdBootstrapNoGap(t *testing.T) {
 		Return(block1, uint64(1), nil)
 
 	synctest.Test(t, func(t *testing.T) {
-		h := wirePoller(t, fx.bc, fx.head, ds)
-		go h.poller.Run(t.Context())
+		harness := wirePoller(t, fx.bc, fx.head, ds)
+		go harness.poller.Run(t.Context())
 		synctest.Wait()
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.chain(t)
+		view := harness.readChain(t)
 		assertChain(t, &view, entry(1, &block1))
 	})
 }
@@ -277,7 +283,7 @@ func TestPollerColdBootstrapWithGap(t *testing.T) {
 		time.Sleep(tickInterval)
 		synctest.Wait()
 
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -333,7 +339,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 		time.Sleep(2 * tickInterval)
 		synctest.Wait()
 
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &block1))
 	})
 }
@@ -367,13 +373,13 @@ func TestPollerSameHeightNoBackfill(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view, entry(1, &seed))
 	})
 }
@@ -407,13 +413,13 @@ func TestPollerSameHeightDeltaAppliesToSlot(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed))
 
 		// Tick 2: delta preserves seed.identifier and appends its own txs to seed's.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view, entry(1, &seed, &delta))
 	})
 }
@@ -453,13 +459,13 @@ func TestPollerForwardJumpFinalisesMostRecent(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &seed, &finaliseDelta), // seed + delta merged at block 1
 			entry(2, &block2),
@@ -507,13 +513,13 @@ func TestPollerLargeJumpWalksGap(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &seed), // identifier preserved by finalise
 			entry(2, &block2),
@@ -543,7 +549,7 @@ func TestPollerNotAtTipSkipsAllWork(t *testing.T) {
 
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, blankEntry(1))
 	})
 }
@@ -556,8 +562,11 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
+	// Once for the tick and once for reading the chain: the failed tick leaves the chain
+	// outdated, so the read asks for a new poll, which fails the same way.
 	ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, uint64(0), errors.New("wire boom"))
+		Return(nil, uint64(0), errors.New("wire boom")).
+		Times(2)
 
 	synctest.Test(t, func(t *testing.T) {
 		h := wirePoller(t, fx.bc, fx.head, ds)
@@ -568,7 +577,7 @@ func TestPollerLatestErrorSkipsApply(t *testing.T) {
 		synctest.Wait()
 
 		// A latest error must not produce any chain state.
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, blankEntry(1))
 	})
 }
@@ -584,6 +593,15 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ds := mocks.NewMockStarknetData(ctrl)
 	gomock.InOrder(
+		// Tick 1.
+		ds.EXPECT().
+			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(latestReply, uint64(3), nil),
+		ds.EXPECT().
+			PreConfirmedBlockByNumber(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("backfill boom")),
+		// Reading the chain: the failed tick leaves it outdated, so the read asks for a new
+		// poll, which fails the same way.
 		ds.EXPECT().
 			PreConfirmedBlockLatest(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(latestReply, uint64(3), nil),
@@ -601,7 +619,7 @@ func TestPollerBackfillErrorSkipsApply(t *testing.T) {
 		synctest.Wait()
 
 		// The tick aborts before any apply when backfill errors.
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, blankEntry(1))
 	})
 }
@@ -633,13 +651,13 @@ func TestPollerLatestNotFoundSkipsTickAndRecovers(t *testing.T) {
 		// Tick 1: nothing in the pre-confirmed window — the tick is a no-op.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, blankEntry(1))
 
 		// Tick 2: the window opened; polling proceeds normally.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view, entry(1, &block1))
 	})
 }
@@ -691,13 +709,13 @@ func TestPollerBackfillNotFoundSkipsApplyAndRecovers(t *testing.T) {
 		// Tick 1: the mid-fill not-found aborts the tick before any apply.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, blankEntry(1))
 
 		// Tick 2: the full gap backfills and the latest lands on top.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -746,13 +764,13 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view1 := h.chain(t)
+		view1 := h.readChain(t)
 		assertChain(t, &view1, entry(1, &block1))
 
 		// Tick 2.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view2 := h.chain(t)
+		view2 := h.readChain(t)
 		assertChain(t, &view2,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -761,7 +779,7 @@ func TestPollerMultiTickExtendsChain(t *testing.T) {
 		// Tick 3.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view3 := h.chain(t)
+		view3 := h.readChain(t)
 		assertChain(t, &view3,
 			entry(1, &block1),
 			entry(2, &block2),
@@ -802,7 +820,7 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed1), entry(2, &seed2))
 
 		// Canonical head advances by one — block 1 is now committed.
@@ -814,7 +832,7 @@ func TestPollerHeadAdvancesDropsCommittedEntries(t *testing.T) {
 		synctest.Wait()
 
 		// seed1 committed → dropped; only seed2 remains at the new head+1.
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view, entry(newHead.Number+1, &seed2))
 	})
 }
@@ -859,7 +877,7 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed1), entry(2, &seed2), entry(3, &seed3))
 
 		// Tick 2.
@@ -867,7 +885,7 @@ func TestPollerReorgLowerHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Block 2 swapped to the new identifier; block 3 truncated.
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &replacement),
@@ -910,7 +928,7 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 		// Tick 1.
 		time.Sleep(tickInterval)
 		synctest.Wait()
-		view := h.chain(t)
+		view := h.readChain(t)
 		assertChain(t, &view, entry(1, &seed1), entry(2, &seed2), entry(3, &seed3))
 
 		// Tick 2.
@@ -918,7 +936,7 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 		synctest.Wait()
 
 		// Deepest slot replaced; lower entries and length untouched.
-		view = h.chain(t)
+		view = h.readChain(t)
 		assertChain(t, &view,
 			entry(1, &seed1),
 			entry(2, &seed2),
@@ -986,7 +1004,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.chain(t)
+			view := h.readChain(t)
 			require.Equal(t, classDef, classesAt(&view, 1)[*classHash],
 				"the re-polled full block's declared class must be fetched and land on slot 1")
 		})
@@ -1043,7 +1061,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.chain(t)
+			view := h.readChain(t)
 			classes := classesAt(&view, 1)
 			require.Equal(t, storedDef, classes[*storedClass],
 				"the stored tip's declared class must be recovered and fetched")
@@ -1094,7 +1112,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 
-			view := h.chain(t)
+			view := h.readChain(t)
 			require.Equal(t, storedDef, classesAt(&view, 1)[*storedClass],
 				"the stored tip's declared class must be recovered despite a NoChange re-poll")
 		})

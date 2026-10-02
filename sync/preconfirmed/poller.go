@@ -52,29 +52,38 @@ type DataSource interface {
 // in apply as delta / preserve / replace.
 type Poller struct {
 	dataSource         DataSource
-	preConfirmedChain  *ChainStorage
 	blockchain         *blockchain.Blockchain
-	feed               *feed.Feed[*pending.PreConfirmed]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
+	feed               *feed.Feed[*pending.PreConfirmed]
 	logger             log.StructuredLogger
+
+	preConfirmedChain *ChainStorage
+	requestSync       *RequestSync
 }
 
+// NewPoller builds a poller that ticks every `interval`. Additionally it polls on request based
+// on whenever there is a call to `[Poller.PreConfirmedChain] based  on the `staleAfter`
+// and `onDemandWait` variables.
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
 	highestBlockHeader *atomic.Pointer[core.Header],
 	interval time.Duration,
+	staleAfter time.Duration,
+	onDemandWait time.Duration,
 	logger log.StructuredLogger,
 ) *Poller {
 	return &Poller{
 		dataSource:         dataSource,
-		preConfirmedChain:  NewChainStorage(),
 		blockchain:         blockchain,
-		feed:               feed.New[*pending.PreConfirmed](),
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
+		feed:               feed.New[*pending.PreConfirmed](),
 		logger:             logger,
+
+		preConfirmedChain: NewChainStorage(),
+		requestSync:       NewRequestSync(staleAfter, onDemandWait),
 	}
 }
 
@@ -82,7 +91,13 @@ func (p *Poller) Subscribe() Subscription {
 	return Subscription{p.feed.Subscribe()}
 }
 
+// PreConfirmedChain returns the pre-confirmed chain. If current chain is older than
+// [RequestSync.dataFreshnessTime], a new poll will return and it will block until the work is
+// done. In case the works take longer than [RequestSync.requestWaitTime], it will stop waiting
+// for the poll result (without interrupting) and return the current available chain.
 func (p *Poller) PreConfirmedChain() (ChainReader, error) {
+	p.requestSync.Request()
+
 	// note(rdr): maybe querying for the height here can be skipped, since this system
 	// should be aware what is the latest block that was stored and if it is synced (the height)
 	height, err := p.blockchain.Height()
@@ -132,29 +147,46 @@ func (p *Poller) Run(ctx context.Context) {
 		}
 	}
 
+	p.requestSync.Start()
+	defer p.requestSync.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			height, err := p.blockchain.Height()
-			if err != nil {
-				p.logger.Error("Reading chain heigh", zap.Error(err))
-				continue
-			}
-			p.preConfirmedChain.AdvanceTo(height + 1)
-			if !p.atTip(height) {
-				continue
-			}
 
-			if err := p.poll(ctx, height+1); err != nil {
+		case respCh := <-p.requestSync.ListenRequests():
+			if err := p.poll(ctx); err != nil {
 				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				p.requestSync.SignalFailure(respCh)
+				continue
 			}
+			p.requestSync.SignalSuccess(respCh)
+			ticker.Reset(p.interval)
+
+		case <-ticker.C:
+			respCh := p.requestSync.SelfRequest()
+			if err := p.poll(ctx); err != nil {
+				p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+				p.requestSync.SignalFailure(respCh)
+				continue
+			}
+			p.requestSync.SignalSuccess(respCh)
 		}
 	}
 }
 
-func (p *Poller) poll(ctx context.Context, oldestPreConf uint64) error {
+func (p *Poller) poll(ctx context.Context) error {
+	height, err := p.blockchain.Height()
+	if err != nil {
+		return fmt.Errorf("reading chain height: %w", err)
+	}
+	p.preConfirmedChain.AdvanceTo(height + 1)
+	if !p.atTip(height) {
+		return nil
+	}
+
+	oldestPreConf := height + 1
 	chain := p.preConfirmedChain.SnapshotForBlock(oldestPreConf)
 
 	var (

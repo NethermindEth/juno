@@ -850,7 +850,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 				(*felt.TransactionHash)(txHash),
-			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(
@@ -869,7 +869,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 				(*felt.TransactionHash)(txHash),
-			).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(
 				t,
@@ -927,7 +927,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		txHash := addRes.TransactionHash
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncer.EXPECT().PreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
@@ -959,6 +959,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
 		}
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
+			&txHash,
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, preConfirmed), nil).Times(1)
 		handler.preConfirmedFeed.Send(preConfirmed)
@@ -973,18 +976,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
 
-		preConfirmed = &pending.PreConfirmed{
-			Block: &core.Block{
-				Header: &core.Header{
-					Number:           block.Number + 1,
-					TransactionCount: 0,
-				},
-				Transactions: []core.Transaction{},
-				Receipts:     []*core.TransactionReceipt{},
-			},
-		}
-		mockSyncer.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
 		// Accepted on l2 Status
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
@@ -1008,8 +999,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			"",
 		)
 
-		mockSyncer.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
 		l1Head := core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
@@ -1039,8 +1028,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		adapterFeeder := adaptfeeder.New(client)
+		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(nil, mockSyncer, nil, logger)
+		handler := New(mockChain, mockSyncer, nil, logger)
 		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
@@ -1059,6 +1049,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 		}
 
+		// The store is read first and misses. The reorg drives a non-deterministic
+		// number of status checks, so leave the count open.
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
+			Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		// We need to return some status at start, otherwise it will re-try for a while.
 		mockSyncer.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, preConfirmedData1), nil).AnyTimes()

@@ -41,7 +41,9 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `disable-sync` | `false` | Disables L2 synchronization |
+| `preconfirmed-on-demand-wait` | `1s` | Maximum time an RPC request waits for the pre_confirmed poll it triggered before answering with the pre_confirmed block already stored (0s: never waits) |
 | `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
+| `preconfirmed-stale-after` | `100ms` | How long after a pre_confirmed poll its result is served as is. Once stale, an RPC request reading the pre_confirmed block triggers a new poll first (0s: every request polls) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 

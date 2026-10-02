@@ -301,12 +301,21 @@ func (h *Handler) TransactionStatus(
 }
 
 // transactionStatusFromStore resolves a transaction's status from the
-// pre_confirmed chain or the committed store, decoding only the receipt fields
+// committed store or the pre_confirmed chain, decoding only the receipt fields
 // the status needs instead of adapting the whole receipt. Returns
 // rpccore.ErrTxnHashNotFound if the transaction is not found locally.
 func (h *Handler) transactionStatusFromStore(
 	hash *felt.Felt,
 ) (TransactionStatus, *jsonrpc.Error) {
+	status, rpcErr := h.finalisedTransactionStatus(hash)
+	if rpcErr == nil {
+		return status, nil
+	}
+	if rpcErr != rpccore.ErrTxnHashNotFound {
+		return TransactionStatus{}, rpcErr
+	}
+
+	// Not in a finalised block, so try the pre_confirmed chain.
 	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
 		if receipt, _, err := chain.ReceiptByHash(hash); err == nil {
 			return newTransactionStatus(
@@ -315,6 +324,17 @@ func (h *Handler) transactionStatusFromStore(
 		}
 	}
 
+	// We need to read the disk again because it could've been updated while we were checking
+	// the pre-confirmed data.
+	return h.finalisedTransactionStatus(hash)
+}
+
+// finalisedTransactionStatus resolves a transaction's status from the committed
+// store. Returns rpccore.ErrTxnHashNotFound if the transaction is not in a
+// finalised block.
+func (h *Handler) finalisedTransactionStatus(
+	hash *felt.Felt,
+) (TransactionStatus, *jsonrpc.Error) {
 	blockNumber, index, err := h.bcReader.BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(hash),
 	)
@@ -381,22 +401,43 @@ func (h *Handler) TransactionByHash(
 	hash *felt.Felt,
 	responseFlags ResponseFlags,
 ) (Transaction, *jsonrpc.Error) {
-	// Check pre-confirmed data
-	if preConfirmed, err := h.syncReader.PreConfirmedChain(); err == nil {
-		if txn, err := preConfirmed.TransactionByHash(hash); err == nil {
-			return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
+	txn, rpcErr := h.finalisedTransactionByHash(hash)
+	if rpcErr == nil {
+		return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
+	}
+	if rpcErr != rpccore.ErrTxnHashNotFound {
+		return Transaction{}, rpcErr
+	}
+
+	// Not in a finalised block, so try the pre_confirmed chain.
+	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+		if preConfirmedTxn, err := chain.TransactionByHash(hash); err == nil {
+			return AdaptTransaction(preConfirmedTxn, responseFlags.IncludeProofFacts), nil
 		}
 	}
 
+	// We need to read the disk again because it could've been updated while we were checking
+	// the pre-confirmed data.
+	txn, rpcErr = h.finalisedTransactionByHash(hash)
+	if rpcErr != nil {
+		return Transaction{}, rpcErr
+	}
+	return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
+}
+
+// finalisedTransactionByHash looks a transaction up in the finalised blocks.
+// Returns rpccore.ErrTxnHashNotFound if it is not there.
+func (h *Handler) finalisedTransactionByHash(
+	hash *felt.Felt,
+) (core.Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return Transaction{}, rpccore.ErrInternal.CloneWithData(err)
+			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
-		return Transaction{}, rpccore.ErrTxnHashNotFound
+		return nil, rpccore.ErrTxnHashNotFound
 	}
-
-	return AdaptTransaction(txn, responseFlags.IncludeProofFacts), nil
+	return txn, nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -464,11 +505,30 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 func (h *Handler) TransactionReceiptByHash(
 	hash *felt.Felt,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
-	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
+	adaptedReceipt, rpcErr := h.getFinalisedTransactionReceipt(hash)
+	if rpcErr == nil {
+		return adaptedReceipt, nil
+	}
+	if rpcErr != rpccore.ErrTxnHashNotFound {
+		return TransactionReceiptWithBlockInfo{}, rpcErr
+	}
+
+	// Not in a finalised block, so try the pre_confirmed chain.
+	adaptedReceipt, rpcErr = h.getPendingTransactionReceipt(hash)
 	if rpcErr == nil {
 		return adaptedReceipt, nil
 	}
 
+	// We need to read the disk again because it could've been updated while we were checking
+	// the pre-confirmed data.
+	return h.getFinalisedTransactionReceipt(hash)
+}
+
+// getFinalisedTransactionReceipt searches for a transaction receipt in the finalised blocks.
+// Returns rpccore.ErrTxnHashNotFound if the transaction is not in a finalised block.
+func (h *Handler) getFinalisedTransactionReceipt(
+	hash *felt.Felt,
+) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {

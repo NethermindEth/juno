@@ -588,18 +588,8 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	preConfirmed := &pending.PreConfirmed{
-		Block: &core.Block{
-			Header: &core.Header{
-				Number: latestBlockNumber + 1,
-			},
-		},
-	}
-	mockSyncReader.EXPECT().
-		PreConfirmedChain().
-		Return(mustNewChain(t, preConfirmed), nil).
-		Times(len(latestBlock.Transactions) * 6)
-
+	// checkLatestBlock resolves every transaction through TransactionByHash, which
+	// reads the finalised store first and hits, in all seven subtests below.
 	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
 		func(hash *felt.Felt) (core.Transaction, error) {
 			if tx, found := latestBlockTxMap[*hash]; found {
@@ -607,7 +597,7 @@ func TestBlockWithTxs(t *testing.T) {
 			}
 			return nil, errors.New("txn not found")
 		},
-	).Times(len(latestBlock.Transactions) * 6)
+	).Times(len(latestBlock.Transactions) * 7)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
@@ -751,10 +741,12 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
+		// Only the two block handlers read the pre_confirmed chain; the
+		// per-transaction lookups in checkLatestBlock are served by the store.
 		mockSyncReader.EXPECT().
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmed), nil).
-			Times(2 + len(latestBlock.Transactions))
+			Times(2)
 
 		preConfirmedID := blockIDPreConfirmed(t)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)

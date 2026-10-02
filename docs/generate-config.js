@@ -228,6 +228,12 @@ function parseValue(value) {
   // sync/sync.go: const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
   if (value === "sync.DefaultPreConfirmedPollInterval") return "500ms";
 
+  // sync/sync.go: const DefaultPreConfirmedStaleAfter = 100 * time.Millisecond
+  if (value === "sync.DefaultPreConfirmedStaleAfter") return "100ms";
+
+  // sync/sync.go: const DefaultPreConfirmedOnDemandWait = time.Second
+  if (value === "sync.DefaultPreConfirmedOnDemandWait") return "1s";
+
   // Strip uint64(...) / uint(...) type casts so e.g. `uint64(0)` becomes `0`.
   const uintCast = value.match(/^uint(?:8|16|32|64)?\((.+)\)$/);
   if (uintCast) {

@@ -61,6 +61,8 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
+	preConfirmedStaleAfterF             = "preconfirmed-stale-after"
+	preConfirmedOnDemandWaitF           = "preconfirmed-on-demand-wait"
 	disableSyncF                        = "disable-sync"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
@@ -137,6 +139,8 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPreConfirmedPollInterval           = sync.DefaultPreConfirmedPollInterval
+	defaultPreConfirmedStaleAfter             = sync.DefaultPreConfirmedStaleAfter
+	defaultPreConfirmedOnDemandWait           = sync.DefaultPreConfirmedOnDemandWait
 	defaultDisableSync                        = false
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
@@ -222,6 +226,12 @@ const (
 	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
+	preConfirmedStaleAfterUsage = "How long after a pre_confirmed poll its result is served " +
+		"as is. Once stale, an RPC request reading the pre_confirmed block triggers a new poll " +
+		"first (0s: every request polls)."
+	preConfirmedOnDemandWaitUsage = "Maximum time an RPC request waits for the pre_confirmed " +
+		"poll it triggered before answering with the pre_confirmed block already stored " +
+		"(0s: never waits)."
 	disableSyncUsage   = "Disables L2 synchronization."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
@@ -581,12 +591,23 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(
 		preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage,
 	)
+	junoCmd.Flags().Duration(
+		preConfirmedStaleAfterF, defaultPreConfirmedStaleAfter, preConfirmedStaleAfterUsage,
+	)
+	junoCmd.Flags().Duration(
+		preConfirmedOnDemandWaitF, defaultPreConfirmedOnDemandWait, preConfirmedOnDemandWaitUsage,
+	)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 	junoCmd.Flags().Uint(
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	setCategory(junoCmd, catSyncPolling,
-		disableSyncF, preConfirmedPollIntervalF, remoteDBF, readinessBlockToleranceF,
+		disableSyncF,
+		preConfirmedPollIntervalF,
+		preConfirmedStaleAfterF,
+		preConfirmedOnDemandWaitF,
+		remoteDBF,
+		readinessBlockToleranceF,
 	)
 
 	// --- Gateway ---
