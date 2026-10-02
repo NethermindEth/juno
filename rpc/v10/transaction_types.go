@@ -1,9 +1,9 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -251,7 +251,7 @@ func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
 			MaxPricePerUnit: &felt.Zero,
 		}
 	}
-	return jsonv2.MarshalEncode(enc, &bounds)
+	return json.MarshalEncode(enc, &bounds)
 }
 
 type FeePayment struct {
@@ -370,10 +370,10 @@ type FeeEstimate struct {
 }
 
 type ContractErrorData struct {
-	RevertError json.RawMessage `json:"revert_error"`
+	RevertError jsonv1.RawMessage `json:"revert_error"`
 }
 
-func MakeContractError(err json.RawMessage) *jsonrpc.Error {
+func MakeContractError(err jsonv1.RawMessage) *jsonrpc.Error {
 	return rpccore.ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err,
 	})
@@ -457,6 +457,6 @@ type BroadcastedTransaction struct {
 }
 
 type TransactionExecutionErrorData struct {
-	TransactionIndex uint64          `json:"transaction_index"`
-	ExecutionError   json.RawMessage `json:"execution_error"`
+	TransactionIndex uint64            `json:"transaction_index"`
+	ExecutionError   jsonv1.RawMessage `json:"execution_error"`
 }

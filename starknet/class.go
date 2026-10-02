@@ -2,9 +2,9 @@ package starknet
 
 import (
 	"bytes"
-	"encoding/json"
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"strings"
 
@@ -69,9 +69,9 @@ type EntryPoints struct {
 }
 
 type DeprecatedCairoClass struct {
-	Abi         json.RawMessage `json:"abi"`
-	EntryPoints EntryPoints     `json:"entry_points_by_type"`
-	Program     json.RawMessage `json:"program"`
+	Abi         jsonv1.RawMessage `json:"abi"`
+	EntryPoints EntryPoints       `json:"entry_points_by_type"`
+	Program     jsonv1.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {
@@ -99,13 +99,14 @@ func (c *ClassDefinition) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	if isSierra {
 		c.Sierra = new(SierraClass)
-		return jsonv2.Unmarshal(value, c.Sierra, dec.Options())
+		return json.Unmarshal(value, c.Sierra, dec.Options())
 	}
 	c.DeprecatedCairo = new(DeprecatedCairoClass)
-	return jsonv2.Unmarshal(value, c.DeprecatedCairo, dec.Options())
+	return json.Unmarshal(value, c.DeprecatedCairo, dec.Options())
 }
 
-// hasTopLevelKey scans the keys of a JSON object without decoding its values.
+// hasTopLevelKey scans the keys of a JSON object without decoding its values
+// and stops at the first match, so the value must be syntactically valid.
 // A value that is not an object has no keys.
 func hasTopLevelKey(value jsontext.Value, key string, opts jsontext.Options) (bool, error) {
 	dec := jsontext.NewDecoder(bytes.NewBuffer(value), opts)
@@ -139,25 +140,25 @@ type SegmentLengths struct {
 
 func (n *SegmentLengths) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if dec.PeekKind() == '[' {
-		return jsonv2.UnmarshalDecode(dec, &n.Children)
+		return json.UnmarshalDecode(dec, &n.Children)
 	}
-	return jsonv2.UnmarshalDecode(dec, &n.Length)
+	return json.UnmarshalDecode(dec, &n.Length)
 }
 
 func (n SegmentLengths) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(n.Children) > 0 {
-		return jsonv2.MarshalEncode(enc, n.Children)
+		return json.MarshalEncode(enc, n.Children)
 	}
 	return enc.WriteToken(jsontext.Uint(n.Length))
 }
 
 type CasmClass struct {
-	Prime                  string          `json:"prime"`
-	Bytecode               []felt.Felt     `json:"bytecode"`
-	Hints                  json.RawMessage `json:"hints"`
-	PythonicHints          json.RawMessage `json:"pythonic_hints"`
-	CompilerVersion        string          `json:"compiler_version"`
-	BytecodeSegmentLengths *SegmentLengths `json:"bytecode_segment_lengths,omitempty"`
+	Prime                  string            `json:"prime"`
+	Bytecode               []felt.Felt       `json:"bytecode"`
+	Hints                  jsonv1.RawMessage `json:"hints"`
+	PythonicHints          jsonv1.RawMessage `json:"pythonic_hints"`
+	CompilerVersion        string            `json:"compiler_version"`
+	BytecodeSegmentLengths *SegmentLengths   `json:"bytecode_segment_lengths,omitempty"`
 	EntryPoints            struct {
 		External    []CompiledEntryPoint `json:"EXTERNAL"`
 		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
@@ -173,6 +174,11 @@ type CompiledEntryPoint struct {
 
 // IsDeprecatedCompiledClassDefinition reports whether a compiled class is Cairo 0,
 // which has a program key.
-func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
-	return hasTopLevelKey(definition, "program", json.DefaultOptionsV1())
+func IsDeprecatedCompiledClassDefinition(definition jsonv1.RawMessage) (bool, error) {
+	opts := jsonv1.DefaultOptionsV1()
+	value, err := jsontext.NewDecoder(bytes.NewBuffer(definition), opts).ReadValue()
+	if err != nil {
+		return false, err
+	}
+	return hasTopLevelKey(value, "program", opts)
 }
