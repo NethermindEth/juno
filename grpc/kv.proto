@@ -18,6 +18,7 @@ enum Op {
   SEEK = 1;
   CURRENT = 4;
   NEXT = 8;
+  PREV = 12;
   SEEK_EXACT = 15;
   OPEN = 30;
   CLOSE = 31;
