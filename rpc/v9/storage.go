@@ -246,17 +246,17 @@ func getContractProof(
 func buildContractLeavesData(
 	state core.StateReader,
 	contracts []felt.Felt,
-) ([]*LeafData, error) {
+) ([]LeafData, error) {
 	if metadataReader, ok := state.(contractMetadataReader); ok {
 		return buildContractLeavesDataFromMetadata(metadataReader, contracts)
 	}
 
-	contractLeavesData := make([]*LeafData, len(contracts))
+	contractLeavesData := make([]LeafData, len(contracts))
 
 	for i, contract := range contracts {
 		classHash, err := state.ContractClassHash(&contract)
 		if err != nil {
-			// contract does not exist, skip getting leaf data
+			// A missing contract has the zero-valued leaf data required for non-membership.
 			if errors.Is(err, db.ErrKeyNotFound) {
 				continue
 			}
@@ -278,10 +278,10 @@ func buildContractLeavesData(
 			return nil, err
 		}
 
-		contractLeavesData[i] = &LeafData{
-			Nonce:       &nonce,
-			ClassHash:   &classHash,
-			StorageRoot: &storageRoot,
+		contractLeavesData[i] = LeafData{
+			Nonce:       nonce,
+			ClassHash:   classHash,
+			StorageRoot: storageRoot,
 		}
 	}
 
@@ -295,22 +295,23 @@ type contractMetadataReader interface {
 func buildContractLeavesDataFromMetadata(
 	state contractMetadataReader,
 	contracts []felt.Felt,
-) ([]*LeafData, error) {
-	contractLeavesData := make([]*LeafData, len(contracts))
+) ([]LeafData, error) {
+	contractLeavesData := make([]LeafData, len(contracts))
 
 	for i, contract := range contracts {
 		classHash, nonce, storageRoot, err := state.ContractMetadata(&contract)
 		if err != nil {
+			// A missing contract has the zero-valued leaf data required for non-membership.
 			if errors.Is(err, db.ErrKeyNotFound) {
 				continue
 			}
 			return nil, err
 		}
 
-		contractLeavesData[i] = &LeafData{
-			Nonce:       &nonce,
-			ClassHash:   &classHash,
-			StorageRoot: &storageRoot,
+		contractLeavesData[i] = LeafData{
+			Nonce:       nonce,
+			ClassHash:   classHash,
+			StorageRoot: storageRoot,
 		}
 	}
 
@@ -527,14 +528,14 @@ type HashToNode struct {
 }
 
 type LeafData struct {
-	Nonce       *felt.Felt `json:"nonce"`
-	ClassHash   *felt.Felt `json:"class_hash"`
-	StorageRoot *felt.Felt `json:"storage_root"`
+	Nonce       felt.Felt `json:"nonce"`
+	ClassHash   felt.Felt `json:"class_hash"`
+	StorageRoot felt.Felt `json:"storage_root"`
 }
 
 type ContractProof struct {
 	Nodes      []*HashToNode `json:"nodes"`
-	LeavesData []*LeafData   `json:"contract_leaves_data"`
+	LeavesData []LeafData    `json:"contract_leaves_data"`
 }
 
 type GlobalRoots struct {
