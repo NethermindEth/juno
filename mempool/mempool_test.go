@@ -221,7 +221,13 @@ func TestWait(t *testing.T) {
 	}
 
 	// One transaction.
-	require.NoError(t, bc.Store(block0, &core.BlockCommitments{}, stateUpdate0, nil))
+	require.NoError(t, bc.Store(
+		block0,
+		&core.BlockCommitments{},
+		stateUpdate0,
+		nil,
+		core.EventsBloom(block0.Receipts),
+	))
 	require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
 			TransactionHash: new(felt.Felt).SetUint64(1),

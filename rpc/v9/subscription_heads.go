@@ -67,9 +67,9 @@ func (s *headsSubscriberState) onNewHead(
 	_ context.Context,
 	id string,
 	_ *subscription,
-	head *core.Block,
+	headWithBloom *core.WithBloom[*core.Block],
 ) error {
-	return sendHeader(s.conn, head.Header, id)
+	return sendHeader(s.conn, headWithBloom.Value.Header, id)
 }
 
 func (s *headsSubscriberState) sendHistoricalHeaders(

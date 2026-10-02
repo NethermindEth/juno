@@ -1127,8 +1127,8 @@ func TestPollerBroadcastsOnApply(t *testing.T) {
 		select {
 		case pc := <-sub.Recv():
 			require.NotNil(t, pc)
-			require.Equal(t, uint64(1), pc.Block.Number)
-			require.Equal(t, "r0", pc.BlockIdentifier)
+			require.Equal(t, uint64(1), pc.Value.Block.Number)
+			require.Equal(t, "r0", pc.Value.BlockIdentifier)
 		default:
 			t.Fatal("expected a pre_confirmed broadcast on successful apply")
 		}
@@ -1167,8 +1167,8 @@ func TestPollerSilentOnNoChange(t *testing.T) {
 		synctest.Wait()
 		select {
 		case pc := <-sub.Recv():
-			require.Equal(t, uint64(1), pc.Block.Number)
-			require.Equal(t, "r0", pc.BlockIdentifier)
+			require.Equal(t, uint64(1), pc.Value.Block.Number)
+			require.Equal(t, "r0", pc.Value.BlockIdentifier)
 		default:
 			t.Fatal("expected the seeding tick to broadcast")
 		}
