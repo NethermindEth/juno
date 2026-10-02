@@ -66,19 +66,6 @@ func BenchmarkJSONUnmarshal(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalJSON(b *testing.B) {
-	for _, tc := range benchFeltInputs(b) {
-		input := []byte(`"` + tc.hex + `"`)
-		b.Run(tc.name, func(b *testing.B) {
-			b.ReportAllocs()
-			var value felt.Felt
-			for b.Loop() {
-				_ = value.UnmarshalJSON(input)
-			}
-		})
-	}
-}
-
 // Felts used in CBOR pass through a Montgomery transformation,
 // so they only come in two flavors: zero or nonzero.
 var benchCBORInputs = []struct {

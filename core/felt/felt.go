@@ -3,6 +3,7 @@ package felt
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"math/big"
@@ -51,23 +52,26 @@ func (z *Felt) Impl() *fp.Element {
 	return (*fp.Element)(z)
 }
 
-// UnmarshalJSON accepts a quoted, 0x-prefixed hex string and sets z.
-//
-// TODO(granza): move to UnmarshalText after migrating to json/v2
-//
-// The UnmarshalJSON interface is faster than the UnmarshalText one on json/v1.
-// json/v1 treats the input of UnmarshalText as if it could have escaped chars,
-// so it triggers an upfront check scan. This is no longer the case for json/v2.
-func (z *Felt) UnmarshalJSON(data []byte) error {
-	dataSize := len(data)
-	if dataSize < len(`"0x0"`) || data[0] != '"' || data[dataSize-1] != '"' {
+// UnmarshalJSONFrom sets z from a quoted 0x-prefixed hex JSON string; any other JSON value fails.
+func (z *Felt) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	value, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if value.Kind() != '"' {
 		return errors.New("felt: expected a quoted 0x hex string")
 	}
-	return z.setHex(data[1 : dataSize-1])
+	return z.setHex(value[1 : len(value)-1])
+}
+
+// UnmarshalText sets z from an unquoted 0x-prefixed hex string, as map keys and text
+// decoders pass it.
+func (z *Felt) UnmarshalText(text []byte) error {
+	return z.setHex(text)
 }
 
 // setHex parses a 0x-prefixed hex string (without surrounding quotes) into z.
-// It is the decode counterpart of AppendText.
+// It is shared by Felt and Slice JSON decoding.
 func (z *Felt) setHex(data []byte) error {
 	if len(data) < len("0x0") || data[0] != '0' || (data[1] != 'x' && data[1] != 'X') {
 		return errors.New("felt: expected hex string starting with 0x")

@@ -92,7 +92,7 @@ func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
 	}
 
 	st.includeLastUpdateBlock = false
-	return st.Value.UnmarshalJSON(data)
+	return json.Unmarshal(data, &st.Value)
 }
 
 /****************************************************

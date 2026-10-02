@@ -3,6 +3,7 @@ package felt_test
 import (
 	"encoding"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"strings"
 	"testing"
 
@@ -234,37 +235,65 @@ func TestJSONUnmarshal(t *testing.T) {
 
 	t.Run("invalid values", func(t *testing.T) {
 		tests := []struct {
-			name  string
-			input string
+			name    string
+			input   string
+			wantErr string
 		}{
-			{"no quotes", `0xdeadbeef`},
-			{"no prefix", `"deadbeef"`},
-			{"no hex prefix", `"4437ab"`},
-			{"empty hex", `"0x"`},
-			{"only quotes", `""`},
+			{"no quotes", `0xdeadbeef`, "invalid character"},
+			{"non-string", `5`, "expected a quoted 0x hex string"},
+			{"no prefix", `"deadbeef"`, "expected hex string starting with 0x"},
+			{"no hex prefix", `"4437ab"`, "expected hex string starting with 0x"},
+			{"empty hex", `"0x"`, "expected hex string starting with 0x"},
+			{"only quotes", `""`, "expected hex string starting with 0x"},
 			{
 				"65 hex digits (exceeds 32 bytes)",
 				`"0x10000000000000000000000000000000000000000000000000000000000000000"`,
+				"value exceeds field size",
 			},
 			{
 				"field modulus P (invalid canonical)",
 				`"0x0800000000000011000000000000000000000000000000000000000000000001"`,
+				"invalid fp.Element encoding",
 			},
 			{
 				"above modulus with leading zero",
 				`"0x0fb01012100000000000000000000000000000000000000000000000000000000"`,
+				"value exceeds field size",
 			},
-			{"invalid hex character", `"0xdeadgbeef"`},
-			{"spaces in hex", `"0xdead beef"`},
-			{"negative", `"-0x1"`},
+			{"invalid hex character", `"0xdeadgbeef"`, "couldn't decode hex value"},
+			{"spaces in hex", `"0xdead beef"`, "couldn't decode hex value"},
+			{"negative", `"-0x1"`, "expected hex string starting with 0x"},
 		}
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				var f felt.Felt
-				assert.Error(t, json.Unmarshal([]byte(tc.input), &f))
+				require.ErrorContains(t, json.Unmarshal([]byte(tc.input), &f), tc.wantErr)
 			})
 		}
+	})
+
+	t.Run("null", func(t *testing.T) {
+		var f felt.Felt
+		require.ErrorContains(t, json.Unmarshal([]byte(`null`), &f), "expected a quoted 0x hex string")
+	})
+}
+
+func TestJSONUnmarshalV2(t *testing.T) {
+	t.Run("hex string", func(t *testing.T) {
+		var f felt.Felt
+		require.NoError(t, jsonv2.Unmarshal([]byte(`"0xdeadbeef"`), &f))
+		assert.Equal(t, "0xdeadbeef", f.String())
+	})
+
+	t.Run("null", func(t *testing.T) {
+		var f felt.Felt
+		require.ErrorContains(t, jsonv2.Unmarshal([]byte(`null`), &f), "expected a quoted 0x hex string")
+	})
+
+	t.Run("non-string", func(t *testing.T) {
+		var f felt.Felt
+		require.ErrorContains(t, jsonv2.Unmarshal([]byte(`5`), &f), "expected a quoted 0x hex string")
 	})
 }
 
@@ -317,7 +346,8 @@ func TestFeltsWrappers(t *testing.T) {
 	type textCodec interface {
 		encoding.TextMarshaler
 		encoding.TextAppender
-		json.Unmarshaler
+		encoding.TextUnmarshaler
+		jsonv2.UnmarshalerFrom
 	}
 
 	wrappers := map[string]textCodec{
@@ -333,19 +363,24 @@ func TestFeltsWrappers(t *testing.T) {
 
 	for name, w := range wrappers {
 		t.Run(name, func(t *testing.T) {
-			require.NoError(t, w.UnmarshalJSON([]byte(`"0xDEADc0de"`)))
+			require.NoError(t, json.Unmarshal([]byte(`"0xDEADc0de"`), w))
 
-			// MarshalText path (via json/v1).
 			got, err := w.MarshalText()
 			require.NoError(t, err)
-			assert.Equal(t, `0xdeadc0de`, string(got))
+			assert.Equal(t, "0xdeadc0de", string(got))
 
-			// AppendText path (via json/v2).
 			appended, err := w.AppendText([]byte("prefix:"))
 			require.NoError(t, err)
 			assert.Equal(t, "prefix:0xdeadc0de", string(appended))
 
-			require.Error(t, w.UnmarshalJSON([]byte(`"0xerror"`)))
+			require.ErrorContains(t, json.Unmarshal([]byte(`"0xerror"`), w), "couldn't decode hex value")
+			require.ErrorContains(t, json.Unmarshal([]byte(`null`), w), "expected a quoted 0x hex string")
+
+			require.NoError(t, w.UnmarshalText([]byte("0xC0DE")))
+			got, err = w.MarshalText()
+			require.NoError(t, err)
+			assert.Equal(t, "0xc0de", string(got))
+			require.ErrorContains(t, w.UnmarshalText([]byte("c0de")), "expected hex string starting with 0x")
 		})
 	}
 }
@@ -384,15 +419,18 @@ func FuzzFeltUnmarshal(f *testing.F) {
 	f.Add([]byte(`""`))
 	f.Add([]byte(`"`))
 	f.Add([]byte(`5`))
+	f.Add([]byte(`null`))
 	f.Add([]byte(``))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded felt.Felt
-		if err := decoded.UnmarshalJSON(data); err != nil {
+		if err := json.Unmarshal(data, &decoded); err != nil {
 			return // rejecting is fine
 		}
 
-		reference, err := new(felt.Felt).SetString(string(data[1 : len(data)-1]))
+		// Only a quoted string can be accepted; the decoder tolerates surrounding whitespace.
+		quoted := strings.TrimSpace(string(data))
+		reference, err := new(felt.Felt).SetString(quoted[1 : len(quoted)-1])
 		require.NoError(t, err, "accepted %q that SetString rejects", data)
 		assert.True(t, decoded.Equal(reference), "input %q: got %s want %s",
 			data, decoded.String(), reference.String(),
@@ -404,5 +442,42 @@ func FuzzFeltUnmarshal(f *testing.F) {
 		var roundTrip felt.Felt
 		require.NoError(t, json.Unmarshal(marshalled, &roundTrip))
 		assert.True(t, decoded.Equal(&roundTrip))
+	})
+}
+
+func TestJSONMapKey(t *testing.T) {
+	one := felt.FromUint64[felt.Felt](1)
+	big := felt.NewUnsafeFromString[felt.Felt](
+		"0x7cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+	)
+
+	t.Run("v1 round trip", func(t *testing.T) {
+		in := map[felt.Felt]int{one: 1, *big: 2}
+		data, err := json.Marshal(in)
+		require.NoError(t, err)
+		assert.JSONEq(t,
+			`{"0x1":1,"0x7cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789":2}`,
+			string(data),
+		)
+
+		var out map[felt.Felt]int
+		require.NoError(t, json.Unmarshal(data, &out))
+		assert.Equal(t, in, out)
+	})
+
+	t.Run("v2 round trip", func(t *testing.T) {
+		in := map[felt.Address]string{felt.Address(one): "a"}
+		data, err := jsonv2.Marshal(in)
+		require.NoError(t, err)
+
+		var out map[felt.Address]string
+		require.NoError(t, jsonv2.Unmarshal(data, &out))
+		assert.Equal(t, in, out)
+	})
+
+	t.Run("invalid key", func(t *testing.T) {
+		var out map[felt.Felt]int
+		err := json.Unmarshal([]byte(`{"abc":1}`), &out)
+		require.ErrorContains(t, err, "expected hex string starting with 0x")
 	})
 }
