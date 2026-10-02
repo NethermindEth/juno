@@ -3,6 +3,7 @@ package core_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -12,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/db/pebblev2"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"

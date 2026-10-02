@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
