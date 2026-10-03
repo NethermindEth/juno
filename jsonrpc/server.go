@@ -612,6 +612,9 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
+		if req.ID == nil {
+			return nil, header, nil
+		}
 		s.logger.Trace(
 			"Method not found in request",
 			zap.String("method", log.SanitizeString(req.Method)),
@@ -624,6 +627,9 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
+		if req.ID == nil {
+			return nil, header, nil
+		}
 		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
 		return res, header, nil
 	}
