@@ -94,6 +94,9 @@ func TestHandle(t *testing.T) {
 	type validationStruct struct {
 		A int `validate:"min=1"`
 	}
+	type panickingValidationStruct struct {
+		A int `validate:"panics"`
+	}
 	methods := []jsonrpc.Method{
 		{
 			Name:   "method",
@@ -157,6 +160,20 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
+			Name:   "panics",
+			Params: []jsonrpc.Parameter{},
+			Handler: func() (int, *jsonrpc.Error) {
+				panic("handler panic")
+			},
+		},
+		{
+			Name:   "validationPanics",
+			Params: []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(v panickingValidationStruct) (int, *jsonrpc.Error) {
+				return v.A, nil
+			},
+		},
+		{
 			Name: "acceptsContext",
 			Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
 				require.NotNil(t, ctx)
@@ -199,9 +216,15 @@ func TestHandle(t *testing.T) {
 		},
 	}
 
+	v := validator.New()
+	// register a custom validation tag to simulate a validator panic from validateParam
+	require.NoError(t, v.RegisterValidation("panics", func(fl validator.FieldLevel) bool {
+		panic("validator panic")
+	}))
+
 	listener := CountingEventListener{}
 	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
-		WithValidator(validator.New()).
+		WithValidator(v).
 		WithListener(&listener)
 	require.NoError(t, server.RegisterMethods(methods...))
 
@@ -544,6 +567,33 @@ func TestHandle(t *testing.T) {
 		"junk + valid params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3], "junk": "junk"}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unexpected params: junk"},"id":1}`,
+		},
+
+		"handler panics": {
+			req:              `{"jsonrpc": "2.0", "method": "panics", "params": {}, "id": 1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
+			checkFailedEvent: true,
+		},
+
+		"handler panics as notification": {
+			req: `{"jsonrpc": "2.0", "method": "panics", "params": {}}`,
+			res: ``,
+		},
+
+		"validator panics": {
+			req:              `{"jsonrpc": "2.0", "method": "validationPanics", "params": [{"A": 1}], "id": 1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
+			checkFailedEvent: true,
+		},
+
+		"handler panic mixed with successes in a batch": {
+			req: `[{"jsonrpc" : "2.0", "method" : "method",
+					"params" : { "num" : 5 } , "id" : 5},
+					{"jsonrpc" : "2.0", "method" : "panics",
+					"params" : {} , "id" : 8},
+					{"jsonrpc" : "2.0", "method" : "method",
+					"params" : { "num" : 44 } , "id" : 6}]`,
+			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":8},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 	}
 
