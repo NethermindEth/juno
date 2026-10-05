@@ -173,6 +173,7 @@ type Synchronizer struct {
 func New(
 	blockchain *blockchain.Blockchain,
 	dataSource DataSource,
+	preConfirmedSource preconfirmed.DataSource,
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Synchronizer {
@@ -197,7 +198,7 @@ func New(
 	}
 
 	poller := preconfirmed.NewPoller(
-		dataSource,
+		preConfirmedSource,
 		blockchain,
 		&s.highestBlockHeader,
 		cfg.preConfirmedPollInterval,

@@ -8,9 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
-	"github.com/NethermindEth/juno/sync/preconfirmed"
 )
 
 type CommittedBlock struct {
@@ -23,7 +21,6 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockHeaderLatest(ctx context.Context) (*core.Header, error)
-	preconfirmed.DataSource
 }
 
 type feederGatewayDataSource struct {
@@ -118,33 +115,4 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	}
 
 	return newClasses, closer()
-}
-
-func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
-	ctx context.Context,
-	blockNumber uint64,
-	blockIdentifier string,
-	knownTransactionCount uint64,
-) (starknet.PreConfirmedUpdate, error) {
-	return f.starknetData.PreConfirmedBlockByNumber(
-		ctx,
-		blockNumber,
-		blockIdentifier,
-		knownTransactionCount,
-	)
-}
-
-func (f *feederGatewayDataSource) PreConfirmedBlockLatest(
-	ctx context.Context,
-	blockIdentifier string,
-	knownTransactionCount uint64,
-) (starknet.PreConfirmedUpdate, uint64, error) {
-	return f.starknetData.PreConfirmedBlockLatest(ctx, blockIdentifier, knownTransactionCount)
-}
-
-func (f *feederGatewayDataSource) Class(
-	ctx context.Context,
-	classHash *felt.Felt,
-) (core.ClassDefinition, error) {
-	return f.starknetData.Class(ctx, classHash)
 }

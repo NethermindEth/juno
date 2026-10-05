@@ -25,8 +25,7 @@ type Subscription struct {
 	*feed.Subscription[*pending.PreConfirmed]
 }
 
-// DataSource is the narrow surface the Poller needs from the wire side. Any
-// type implementing these methods (e.g. sync.DataSource) satisfies it.
+// DataSource is the narrow surface the Poller needs from the wire side.
 type DataSource interface {
 	PreConfirmedBlockLatest(
 		ctx context.Context,
