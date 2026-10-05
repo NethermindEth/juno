@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	//nolint:staticcheck // the deprecated trie is this migration's input
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -122,7 +121,6 @@ func seedThreeLeafTrie(t *testing.T, database db.KeyValueStore) {
 
 	//nolint:staticcheck // deprecated trie is the migration's input
 	txn := database.NewIndexedBatch()
-	//nolint:staticcheck // deprecated trie is the migration's input
 	tr, err := trie.NewTriePedersen(txn, db.StateTrie.Key(), 251)
 	require.NoError(t, err)
 	for i := range keys {
