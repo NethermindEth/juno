@@ -250,7 +250,8 @@ func TestIsDeprecatedCompiledClassDefinition(t *testing.T) {
 	}
 
 	t.Run("truncated after the program key", func(t *testing.T) {
-		_, err := IsDeprecatedCompiledClassDefinition(json.RawMessage(`{"program":{},"entry_points_by_type":{`))
+		truncated := json.RawMessage(`{"program":{},"entry_points_by_type":{`)
+		_, err := IsDeprecatedCompiledClassDefinition(truncated)
 		require.Error(t, err)
 	})
 }
