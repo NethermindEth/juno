@@ -43,7 +43,8 @@ make corpus-gen
 ```
 
 Both take `<corpus>` (config or its folder, `all.json` ↔ `all/`) and `<node>`
-(name in `nodes.json` or a literal URL); remaining args pass through.
+(`nodes/<node>.json`, which sets `url`, or a literal URL); remaining args
+pass through.
 
 `gen-all.sh`: one corpus per config entry (`{"name": "subcommand [flags]"}`)
 into the config's folder, sampling `<node>` via `--source-url`; per-entry
