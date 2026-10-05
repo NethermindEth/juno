@@ -452,15 +452,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 		if !cfg.DisableSync {
 			feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-			synchronizer = sync.New(
-				chain,
-				feederGatewayDataSource,
-				logger,
+			syncOpts := []sync.Option{
 				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
 				sync.WithPreConfirmedStaleAfter(cfg.PreConfirmedStaleAfter),
 				sync.WithPreConfirmedOnDemandWait(cfg.PreConfirmedOnDemandWait),
 				sync.WithReadOnlyBlockchain(dbIsRemote),
-			)
+			}
+			if cfg.Metrics {
+				syncOpts = append(syncOpts, sync.WithPreConfirmedListener(makePreConfirmedMetrics()))
+			}
+			synchronizer = sync.New(chain, feederGatewayDataSource, logger, syncOpts...)
 			synchronizer.WithPlugin(junoPlugin)
 		}
 

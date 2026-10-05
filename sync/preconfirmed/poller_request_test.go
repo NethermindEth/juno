@@ -37,7 +37,14 @@ func wirePollerWithInterval(
 	highest.Store(head)
 
 	p := preconfirmed.NewPoller(
-		ds, bc, highest, interval, staleAfter, onDemandWait, log.NewNopZapLogger(),
+		ds,
+		bc,
+		highest,
+		interval,
+		staleAfter,
+		onDemandWait,
+		&preconfirmed.SelectiveListener{},
+		log.NewNopZapLogger(),
 	)
 	return harness{poller: p, highest: highest}
 }
