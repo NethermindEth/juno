@@ -17,6 +17,8 @@ type restorer struct {
 	batches         []db.Batch
 	scratchPool     []copyScratch
 	progressTracker *progresslogger.BlockProgressTracker
+	// newState history is restored up front by restoreNewStateHistory
+	newState bool
 }
 
 func newRestorer(
@@ -24,6 +26,7 @@ func newRestorer(
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
 	maxWorkers int,
 	progressTracker *progresslogger.BlockProgressTracker,
+	newState bool,
 ) *restorer {
 	batches := make([]db.Batch, maxWorkers)
 	for i := range batches {
@@ -35,6 +38,7 @@ func newRestorer(
 		batches:         batches,
 		scratchPool:     make([]copyScratch, maxWorkers),
 		progressTracker: progressTracker,
+		newState:        newState,
 	}
 }
 
@@ -48,15 +52,17 @@ func (r *restorer) Run(index int, blockNumber uint64, outputs chan<- db.Batch) e
 
 	batch := r.batches[index]
 
-	if err := copyStateHistory(
-		r.reader,
-		batch,
-		&r.scratchPool[index],
-		update.StateDiff,
-		blockNumber,
-		scratchToHistory,
-	); err != nil {
-		return err
+	if !r.newState {
+		if err := copyStateHistory(
+			r.reader,
+			batch,
+			&r.scratchPool[index],
+			update.StateDiff,
+			blockNumber,
+			scratchToHistory,
+		); err != nil {
+			return err
+		}
 	}
 
 	err = core.WriteBlockHeaderNumberByHash(batch, update.BlockHash, blockNumber)

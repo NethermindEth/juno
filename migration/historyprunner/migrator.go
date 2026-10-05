@@ -51,6 +51,7 @@ type Migrator struct {
 	floorPinned      bool          // true once oldestBlockKept reflects a committed cutoff
 	stagerProgress   uint64
 	restorerProgress uint64
+	newState         bool // history is in the new-state layout
 }
 
 // New constructs a history pruner migrator. retainedBlocks is the number
@@ -59,10 +60,11 @@ type Migrator struct {
 // the reorg-safe window above it. minAge layers a wallclock floor on top:
 // blocks whose on-chain timestamp is younger than minAge are also retained,
 // mirroring the running pruner's --prune-min-age. Zero disables it.
-func New(retainedBlocks uint64, minAge time.Duration) *Migrator {
+func New(retainedBlocks uint64, minAge time.Duration, newState bool) *Migrator {
 	return &Migrator{
 		retainedBlocks: retainedBlocks,
 		minAge:         minAge,
+		newState:       newState,
 	}
 }
 
@@ -157,7 +159,7 @@ func (m *Migrator) Migrate(
 		return state, nil
 	}
 
-	if err := m.setupBeforeRestorer(database, oldestBlockKept); err != nil {
+	if err := m.setupBeforeRestorer(database, logger, oldestBlockKept); err != nil {
 		return nil, fmt.Errorf("setting up before restorer: %w", err)
 	}
 
@@ -209,12 +211,20 @@ func (m *Migrator) setupBeforeStager(
 // can copy staged keepers back, and seeds the reverse-lookup for the block
 // immediately below the keeper window. Gated by restorerProgress so a resumed
 // restorer doesn't re-wipe partial work.
-func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore, oldestBlockKept uint64) error {
+func (m *Migrator) setupBeforeRestorer(
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+	oldestBlockKept uint64,
+) error {
 	if m.restorerProgress != 0 {
 		return nil
 	}
 	batch := database.NewBatch()
-	if err := wipeStorageHistoryBuckets(batch); err != nil {
+	wipeHistory := wipeStorageHistoryBuckets
+	if m.newState {
+		wipeHistory = wipeNewStateHistoryBuckets
+	}
+	if err := wipeHistory(batch); err != nil {
 		return fmt.Errorf("wiping storage history buckets: %w", err)
 	}
 	header, err := core.GetBlockHeaderByNumber(database, oldestBlockKept-uint64(1))
@@ -230,6 +240,9 @@ func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore, oldestBlockKep
 	}
 	if err := batch.Write(); err != nil {
 		return fmt.Errorf("writing batch: %w", err)
+	}
+	if m.newState {
+		return restoreNewStateHistory(database, logger)
 	}
 	return nil
 }
@@ -254,6 +267,18 @@ func (m *Migrator) runStager(
 		return nil, true, nil
 	}
 	m.stagerProgress = max(oldestBlockKept, m.stagerProgress)
+
+	if m.newState {
+		done, err := stageNewStateHistory(ctx, database, logger, oldestBlockKept-1)
+		if err != nil {
+			return nil, false, fmt.Errorf("staging new-state history: %w", err)
+		}
+		if !done {
+			logger.Info("Stager interrupted")
+			return encodeIntermediateState(m.stagerProgress, 0, m.oldestBlockKept), false, nil
+		}
+		return nil, true, nil
+	}
 
 	// Progress is reported relative to the keeper window [oldestBlockKept,
 	// chainHeight] — passing absolute block numbers would start the readout
@@ -319,7 +344,7 @@ func (m *Migrator) runRestorer(
 		m.restorerProgress,
 		chainHeight,
 		maxWorkers,
-		newRestorer(database, batchSemaphore, maxWorkers, progressTracker),
+		newRestorer(database, batchSemaphore, maxWorkers, progressTracker, m.newState),
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf(

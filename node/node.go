@@ -61,6 +61,7 @@ const (
 	sequencerAddress = 1337
 	PruneModeFlag    = "prune-mode"
 	PruneMinAgeFlag  = "prune-min-age"
+	NewStateFlag     = "new-state"
 )
 
 // Config is the top-level juno configuration.
@@ -224,11 +225,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			"remove --disable-l1-verification or disable --prune-mode")
 	}
 
-	if cfg.Prune && cfg.NewState {
-		return nil, errors.New("--prune-mode and --new-state are mutually exclusive; " +
-			"remove one of them")
-	}
-
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {
@@ -388,12 +384,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 		if cfg.Prune {
-			prunerOpts := make([]pruner.Option, 0, 2)
+			prunerOpts := make([]pruner.Option, 0, 3)
 			if cfg.Metrics {
 				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 			}
 
-			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
+			prunerOpts = append(prunerOpts,
+				pruner.WithMinAge(cfg.PruneMinAge),
+				pruner.WithNewState(cfg.NewState),
+			)
 			p := pruner.New(
 				database,
 				retentionFloor,
@@ -523,12 +522,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 			if cfg.Prune {
-				prunerOpts := make([]pruner.Option, 0, 2)
+				prunerOpts := make([]pruner.Option, 0, 3)
 				if cfg.Metrics {
 					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 				}
 
-				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
+				prunerOpts = append(prunerOpts,
+					pruner.WithMinAge(cfg.PruneMinAge),
+					pruner.WithNewState(cfg.NewState),
+				)
 				p := pruner.New(
 					database,
 					retentionFloor,
