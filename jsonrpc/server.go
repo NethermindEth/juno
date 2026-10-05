@@ -595,27 +595,21 @@ func concatBatchResponses(responses []json.RawMessage) []byte {
 
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
 // instead of crashing the HTTP connection
-func (s *Server) handleRequest(ctx context.Context, req *Request) (res *response, header http.Header, err error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	s.logger.Trace("Received request", zap.Object("req", req))
 
-	header = http.Header{}
-	if err = req.isSane(); err != nil {
+	header := http.Header{}
+	if err := req.isSane(); err != nil {
 		s.logger.Trace("Request sanity check failed", zap.Error(err))
 		return nil, header, err
 	}
 
-	defer func() {
-		if req.ID == nil {
-			s.logger.Trace("Notification received, no response expected")
-			res = nil
-		}
-	}()
-
-	res = &response{
+	res := &response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
 
+	var tuple []reflect.Value
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
@@ -623,22 +617,29 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (res *response
 			"Method not found in request",
 			zap.String("method", log.SanitizeString(req.Method)),
 		)
-		return res, header, nil
+	} else {
+		handlerTimer := time.Now()
+		s.listener.OnNewRequest(req.Method)
+		args, err := s.buildArguments(ctx, req.Params, calledMethod)
+		if err != nil {
+			res.Error = Err(InvalidParams, err.Error())
+			s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
+		} else {
+			defer func() {
+				s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
+			}()
+			tuple = reflect.ValueOf(calledMethod.Handler).Call(args)
+		}
 	}
 
-	handlerTimer := time.Now()
-	s.listener.OnNewRequest(req.Method)
-	args, err := s.buildArguments(ctx, req.Params, calledMethod)
-	if err != nil {
-		res.Error = Err(InvalidParams, err.Error())
-		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
+	if req.ID == nil { // notification
+		s.logger.Trace("Notification received, no response expected")
+		return nil, header, nil
+	}
+
+	if res.Error != nil {
 		return res, header, nil
 	}
-	defer func() {
-		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
-	}()
-
-	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 
 	errorIndex := 1
 	if len(tuple) == 3 {
