@@ -595,16 +595,23 @@ func concatBatchResponses(responses []json.RawMessage) []byte {
 
 // TODO: add recover() to catch panics from handlers/validators and return a JSON-RPC internal error
 // instead of crashing the HTTP connection
-func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (res *response, header http.Header, err error) {
 	s.logger.Trace("Received request", zap.Object("req", req))
 
-	header := http.Header{}
-	if err := req.isSane(); err != nil {
+	header = http.Header{}
+	if err = req.isSane(); err != nil {
 		s.logger.Trace("Request sanity check failed", zap.Error(err))
 		return nil, header, err
 	}
 
-	res := &response{
+	defer func() {
+		if req.ID == nil {
+			s.logger.Trace("Notification received, no response expected")
+			res = nil
+		}
+	}()
+
+	res = &response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
@@ -612,9 +619,6 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
-		if req.ID == nil {
-			return nil, header, nil
-		}
 		s.logger.Trace(
 			"Method not found in request",
 			zap.String("method", log.SanitizeString(req.Method)),
@@ -627,9 +631,6 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
-		if req.ID == nil {
-			return nil, header, nil
-		}
 		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
 		return res, header, nil
 	}
@@ -638,10 +639,6 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	}()
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
-	if res.ID == nil { // notification
-		s.logger.Trace("Notification received, no response expected")
-		return nil, header, nil
-	}
 
 	errorIndex := 1
 	if len(tuple) == 3 {
