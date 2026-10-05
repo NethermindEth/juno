@@ -3,7 +3,7 @@ package sync_test
 import (
 	"context"
 	"errors"
-	"sync/atomic"
+	gosync "sync"
 	"testing"
 	"time"
 
@@ -120,7 +120,8 @@ func TestSyncBlocks(t *testing.T) {
 // each height through, so the synchronizer's retry path gets exercised.
 type unreliableDataSource struct {
 	sync.DataSource
-	syncingHeight atomic.Uint64
+	mu            gosync.Mutex
+	syncingHeight uint64
 	reqCount      int
 }
 
@@ -128,9 +129,11 @@ func (u *unreliableDataSource) BlockByNumber(
 	ctx context.Context,
 	height uint64,
 ) (sync.CommittedBlock, error) {
-	curHeight := u.syncingHeight.Load()
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	// reject any other requests
-	if height != curHeight {
+	if height != u.syncingHeight {
 		return sync.CommittedBlock{}, errors.New("try again")
 	}
 
@@ -139,7 +142,7 @@ func (u *unreliableDataSource) BlockByNumber(
 		return sync.CommittedBlock{}, errors.New("try again")
 	}
 
-	committed, err := u.DataSource.BlockByNumber(ctx, curHeight)
+	committed, err := u.DataSource.BlockByNumber(ctx, height)
 	if err != nil {
 		return sync.CommittedBlock{}, err
 	}
@@ -151,7 +154,7 @@ func (u *unreliableDataSource) BlockByNumber(
 		committed.StateUpdate.OldRoot = new(felt.Felt).SetUint64(1) // fail store
 	default:
 		u.reqCount = 0
-		u.syncingHeight.Add(1)
+		u.syncingHeight++
 	}
 
 	return committed, nil
