@@ -120,6 +120,7 @@ type options struct {
 	preConfirmedPollInterval time.Duration
 	preConfirmedStaleAfter   time.Duration
 	preConfirmedOnDemandWait time.Duration
+	preConfirmedListener     preconfirmed.EventListener
 	readOnlyBlockchain       bool
 }
 
@@ -141,6 +142,11 @@ func WithPreConfirmedStaleAfter(staleAfter time.Duration) Option {
 // never wait.
 func WithPreConfirmedOnDemandWait(onDemandWait time.Duration) Option {
 	return func(o *options) { o.preConfirmedOnDemandWait = onDemandWait }
+}
+
+// WithPreConfirmedListener sets the listener the pre-confirmed poller reports its polls to.
+func WithPreConfirmedListener(listener preconfirmed.EventListener) Option {
+	return func(o *options) { o.preConfirmedListener = listener }
 }
 
 // WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
@@ -181,6 +187,7 @@ func New(
 		preConfirmedPollInterval: DefaultPreConfirmedPollInterval,
 		preConfirmedStaleAfter:   DefaultPreConfirmedStaleAfter,
 		preConfirmedOnDemandWait: DefaultPreConfirmedOnDemandWait,
+		preConfirmedListener:     &preconfirmed.SelectiveListener{},
 	}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -204,6 +211,7 @@ func New(
 		cfg.preConfirmedPollInterval,
 		cfg.preConfirmedStaleAfter,
 		cfg.preConfirmedOnDemandWait,
+		cfg.preConfirmedListener,
 		s.logger,
 	)
 

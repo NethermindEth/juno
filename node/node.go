@@ -451,16 +451,23 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		if !cfg.DisableSync {
+			syncOpts := []sync.Option{
+				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
+				sync.WithPreConfirmedStaleAfter(cfg.PreConfirmedStaleAfter),
+				sync.WithPreConfirmedOnDemandWait(cfg.PreConfirmedOnDemandWait),
+				sync.WithReadOnlyBlockchain(dbIsRemote),
+			}
+			if cfg.Metrics {
+				syncOpts = append(syncOpts, sync.WithPreConfirmedListener(makePreConfirmedMetrics()))
+			}
+
 			gw := adaptfeeder.New(client)
 			synchronizer = sync.New(
 				chain,
 				sync.NewFeederGatewayDataSource(chain, gw),
 				gw,
 				logger,
-				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
-				sync.WithPreConfirmedStaleAfter(cfg.PreConfirmedStaleAfter),
-				sync.WithPreConfirmedOnDemandWait(cfg.PreConfirmedOnDemandWait),
-				sync.WithReadOnlyBlockchain(dbIsRemote),
+				syncOpts...,
 			)
 			synchronizer.WithPlugin(junoPlugin)
 		}
