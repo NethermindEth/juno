@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1182,14 +1184,14 @@ func TestEventListener(t *testing.T) {
 
 func TestClientRetryBehavior(t *testing.T) {
 	t.Run("succeeds after retrying with increased timeout", func(t *testing.T) {
-		requestCount := 0
+		var requestCount atomic.Int32
 		srv := httptest.
 			NewServer(http.
 				HandlerFunc(
 					func(w http.ResponseWriter, r *http.Request) {
-						requestCount++
+						count := requestCount.Add(1)
 
-						if requestCount == 2 || requestCount == 1 {
+						if count == 2 || count == 1 {
 							time.Sleep(800 * time.Millisecond)
 							w.WriteHeader(http.StatusGatewayTimeout)
 							return
@@ -1217,13 +1219,13 @@ func TestClientRetryBehavior(t *testing.T) {
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
 		require.NotZero(t, block)
-		require.Equal(t, 3, requestCount)
+		require.Equal(t, int32(3), requestCount.Load())
 	})
 
 	t.Run("fails when max retries exceeded", func(t *testing.T) {
-		requestCount := 0
+		var requestCount atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestCount++
+			requestCount.Add(1)
 			time.Sleep(300 * time.Millisecond)
 			w.WriteHeader(http.StatusGatewayTimeout)
 		}))
@@ -1240,14 +1242,14 @@ func TestClientRetryBehavior(t *testing.T) {
 
 		_, err = client.Block(t.Context(), "1")
 		require.Error(t, err)
-		require.Equal(t, 3, requestCount)
+		require.Equal(t, int32(3), requestCount.Load())
 	})
 
 	t.Run("stops retrying on success", func(t *testing.T) {
-		requestCount := 0
+		var requestCount atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestCount++
-			if requestCount == 1 {
+			count := requestCount.Add(1)
+			if count == 1 {
 				time.Sleep(300 * time.Millisecond)
 				w.WriteHeader(http.StatusGatewayTimeout)
 				return
@@ -1271,7 +1273,7 @@ func TestClientRetryBehavior(t *testing.T) {
 		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
 		require.NotZero(t, block)
-		require.Equal(t, 2, requestCount)
+		require.Equal(t, int32(2), requestCount.Load())
 	})
 }
 
@@ -1387,4 +1389,37 @@ func TestPreConfirmedBlockLatest(t *testing.T) {
 		_, _, err := client.PreConfirmedBlockLatest(t.Context(), "0xbad", 0)
 		require.ErrorContains(t, err, "missing block_number")
 	})
+}
+
+func TestConcurrentTryGetRace(t *testing.T) {
+	initialDefaultTimeout := http.DefaultClient.Timeout
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"block_number":1,"status":"ACCEPTED_ON_L2","block_hash":"0x1","parent_hash":"0x0","state_root":"0x0","sequencer_address":"0x0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	serverURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	client := feeder.NewClient(serverURL)
+
+	const numGoroutines = 20
+	const requestsPerGoroutine = 10
+	var wg sync.WaitGroup
+
+	for i := range numGoroutines {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for range requestsPerGoroutine {
+				_, err := client.Block(t.Context(), "1")
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	assert.Equal(t, initialDefaultTimeout, http.DefaultClient.Timeout, "http.DefaultClient.Timeout should not be mutated")
 }

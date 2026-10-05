@@ -128,9 +128,15 @@ func NewClient(clientURL *url.URL, opts ...Option) *Client {
 		opt(&o)
 	}
 
+	baseClient := o.httpClient
+	if baseClient == nil {
+		baseClient = http.DefaultClient
+	}
+	clonedClient := *baseClient
+
 	client := &Client{
 		url:        clientURL,
-		client:     o.httpClient,
+		client:     &clonedClient,
 		backoff:    o.backoff,
 		maxRetries: o.maxRetries,
 		maxWait:    o.maxWait,
@@ -174,9 +180,14 @@ func (c *Client) buildRequest(ctx context.Context, queryURL *url.URL) (*http.Req
 // the response body on 200, a StatusError on any other status, and transport
 // errors unchanged.
 func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser, error) {
-	c.client.Timeout = timeout
+	// Make a shallow copy of the http.Client to apply an attempt-specific timeout
+	// without racing concurrent calls or mutating the shared client. The underlying
+	// Transport and connection pool remain shared.
+	httpClient := *c.client
+	httpClient.Timeout = timeout
+
 	reqTimer := time.Now()
-	res, err := c.client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
