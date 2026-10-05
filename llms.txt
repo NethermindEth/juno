@@ -13,6 +13,7 @@ Append `.md` to any docs page URL below for its raw Markdown (e.g. `https://juno
   - [Configuration](https://juno.nethermind.io/configuring): Juno's configuration options, settable by flag, environment variable, or YAML file, with defaults.
   - [Updating](https://juno.nethermind.io/updating): Update a Juno node to a new release with Docker, a prebuilt binary, or from source.
   - [Snapshot Sync](https://juno.nethermind.io/snapshots): Download a database snapshot and start from a recent block instead of syncing from genesis, with sizes and commands per network.
+  - [Remote Database](https://juno.nethermind.io/remote-database): Run a Juno node without a local database. The node reads the database of another Juno node over gRPC.
 
 - RPC and WebSockets
 
