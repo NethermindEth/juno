@@ -63,7 +63,24 @@ func proveLegacyForTest(t *Trie, key *felt.Felt, proof *ProofNodeSet) error {
 		if !isLeaf && i+1 < len(nodesFromRoot) {
 			onPathChild = &nodesFromRoot[i+1]
 		}
-		binary, err := t.addProofNode(parentKey, storageNode, carriedHash, proof, onPathChild)
+
+		var leftNode, rightNode *Node
+		switch {
+		case onPathChild == nil:
+		case onPathChild.key.Equal(storageNode.node.Left):
+			leftNode = onPathChild.node
+		case onPathChild.key.Equal(storageNode.node.Right):
+			rightNode = onPathChild.node
+		}
+
+		binary, err := t.addProofNode(
+			parentKey,
+			storageNode,
+			carriedHash,
+			proof,
+			leftNode,
+			rightNode,
+		)
 		if err != nil {
 			return err
 		}
@@ -74,10 +91,9 @@ func proveLegacyForTest(t *Trie, key *felt.Felt, proof *ProofNodeSet) error {
 
 		carriedHash = nil
 		switch {
-		case onPathChild == nil:
-		case onPathChild.key.Equal(storageNode.node.Left):
+		case leftNode != nil:
 			carriedHash = binary.LeftHash
-		case onPathChild.key.Equal(storageNode.node.Right):
+		case rightNode != nil:
 			carriedHash = binary.RightHash
 		}
 		parentKey = storageNode.key
