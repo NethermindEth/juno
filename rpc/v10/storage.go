@@ -415,8 +415,9 @@ func buildContractLeavesData(
 	}
 
 	contractLeavesData := make([]LeafData, len(contracts))
-	for i, contract := range contracts {
-		classHash, err := state.ContractClassHash(&contract)
+	for i := range contracts {
+		contract := &contracts[i]
+		classHash, err := state.ContractClassHash(contract)
 		if err != nil {
 			// A missing contract has the zero-valued leaf data required for non-membership.
 			if errors.Is(err, db.ErrKeyNotFound) {
@@ -425,12 +426,12 @@ func buildContractLeavesData(
 			return nil, err
 		}
 
-		nonce, err := state.ContractNonce(&contract)
+		nonce, err := state.ContractNonce(contract)
 		if err != nil {
 			return nil, err
 		}
 
-		contractStorageTrie, err := state.ContractStorageTrie(&contract)
+		contractStorageTrie, err := state.ContractStorageTrie(contract)
 		if err != nil {
 			return nil, err
 		}
@@ -459,8 +460,9 @@ func buildContractLeavesDataFromMetadata(
 ) ([]LeafData, error) {
 	contractLeavesData := make([]LeafData, len(contracts))
 
-	for i, contract := range contracts {
-		classHash, nonce, storageRoot, err := state.ContractMetadata(&contract)
+	for i := range contracts {
+		contract := &contracts[i]
+		classHash, nonce, storageRoot, err := state.ContractMetadata(contract)
 		if err != nil {
 			// A missing contract has the zero-valued leaf data required for non-membership.
 			if errors.Is(err, db.ErrKeyNotFound) {
@@ -518,7 +520,8 @@ func getContractStorageProof(
 func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
-	for i, hash := range proof.Keys() {
+	nodeHashes := proof.Keys()
+	for i := range nodeHashes {
 		var node Node
 
 		switch n := nodeList[i].(type) {
@@ -537,7 +540,7 @@ func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 		}
 
 		nodes[i] = &HashToNode{
-			Hash: &hash,
+			Hash: &nodeHashes[i],
 			Node: node,
 		}
 	}
@@ -548,7 +551,12 @@ func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 func adaptTrieProofNodes(proof *trie2.ProofNodeSet) ([]*HashToNode, error) {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
-	for i, hash := range proof.Keys() {
+	nodeHashes := proof.Keys()
+
+	// Two for binary nodes, one for edge nods
+	const maxChildHashesPerProofNode = 2
+	childHashes := make([]felt.Felt, 0, maxChildHashesPerProofNode*len(nodeHashes))
+	for i := range nodeHashes {
 		var node Node
 
 		switch n := nodeList[i].(type) {
@@ -561,9 +569,11 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) ([]*HashToNode, error) {
 			if err != nil {
 				return nil, err
 			}
+			leftIndex := len(childHashes)
+			childHashes = append(childHashes, leftChild, rightChild)
 			node = &BinaryNode{
-				Left:  &leftChild,
-				Right: &rightChild,
+				Left:  &childHashes[leftIndex],
+				Right: &childHashes[leftIndex+1],
 			}
 		case *trienode.EdgeNode:
 			pathFelt := n.Path.Felt()
@@ -572,15 +582,17 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) ([]*HashToNode, error) {
 				return nil, err
 			}
 
+			childIndex := len(childHashes)
+			childHashes = append(childHashes, child)
 			node = &EdgeNode{
 				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  &child,
+				Child:  &childHashes[childIndex],
 			}
 		}
 
 		nodes[i] = &HashToNode{
-			Hash: &hash,
+			Hash: &nodeHashes[i],
 			Node: node,
 		}
 	}
