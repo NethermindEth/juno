@@ -61,7 +61,8 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	txHash := felt.NewRandom[felt.Felt]()
 
-	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+	// The finalised store is read again after the pre_confirmed miss.
+	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -90,7 +91,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
 	}
-	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
+	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -570,14 +571,6 @@ func TestTransactionByHash(t *testing.T) {
 				}
 				return tx, nil
 			}).Times(1)
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &pending.PreConfirmed{
-				Block: &core.Block{
-					Header: &core.Header{
-						Number:           1,
-						TransactionCount: 0,
-					},
-				},
-			}), nil)
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 			hash, err := felt.NewFromString[felt.Felt](test.hash)
@@ -596,6 +589,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	gw := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	blockNumber := uint64(11252240)
 	update, err := gw.PreConfirmedBlockWithIdentifier(
@@ -606,10 +600,11 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	preConfirmedFull := update.(starknet.PreConfirmedBlock)
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(&preConfirmedFull, blockNumber)
 	require.NoError(t, err)
-	handler := rpc.New(nil, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
+		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PreConfirmedChain().
 			Return(mustNewChain(t, &adaptedPreConfirmed), nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
@@ -670,6 +665,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {
 		for i, hash := range hashes {
 			t.Run(fmt.Sprintf("block-%d", receiptBlockNumbers[i]), func(t *testing.T) {
+				mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
 				tx, rpcErr := handler.TransactionByHash(hash, rpc.ResponseFlags{})
 				require.Nil(t, rpcErr)
@@ -682,6 +678,9 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		for i, hash := range hashes {
 			wantBlock := receiptBlockNumbers[i]
 			t.Run(fmt.Sprintf("block-%d", wantBlock), func(t *testing.T) {
+				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+					(*felt.TransactionHash)(hash),
+				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
@@ -1132,10 +1131,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			require.NotNil(t, transaction, "transaction not found on expected block")
 
 			preConfirmed := test.preConfirmedFn(t, loadedBlock)
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 			_, err := preConfirmed.ReceiptByHash((*felt.TransactionHash)(transaction.Hash()))
 			if err != nil {
-				// receipt belong to canonical block mock expectations
+				// receipt belongs to a canonical block: the store answers and the
+				// pre_confirmed chain is never consulted
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
 				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
@@ -1148,6 +1147,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					nil,
 				)
 				mockReader.EXPECT().L1Head().Return(test.l1Head, nil)
+			} else {
+				// receipt lives in the pre_confirmed chain: the store misses first
+				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+					(*felt.TransactionHash)(expected.Hash),
+				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 			}
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
@@ -1166,9 +1171,10 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	txHash := felt.NewFromBytes[felt.Felt]([]byte("random hash"))
+	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(txHash),
-	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+	).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
@@ -1624,10 +1630,8 @@ func TestTransactionStatus(t *testing.T) {
 			},
 		},
 	}
-	mockFoundInDB := func(
-		mockReader *mocks.MockReader,
-		mockSyncReader *mocks.MockSyncReader,
-	) {
+	// A store hit never consults the pre_confirmed chain.
+	mockFoundInDB := func(mockReader *mocks.MockReader) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(tx.Hash()),
 		).Return(block.Number, uint64(0), nil)
@@ -1637,26 +1641,23 @@ func TestTransactionStatus(t *testing.T) {
 			Reverted:     block.Receipts[0].Reverted,
 			RevertReason: block.Receipts[0].RevertReason,
 		}, nil)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 	}
 
 	mockNotFound := func(
 		mockReader *mocks.MockReader,
 		mockSyncReader *mocks.MockSyncReader,
 	) {
+		// The finalised store is read again after the pre_confirmed miss.
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			gomock.Any(),
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 	}
 
-	mockFoundInDBReverted := func(
-		mockReader *mocks.MockReader,
-		mockSyncReader *mocks.MockSyncReader,
-	) {
+	mockFoundInDBReverted := func(mockReader *mocks.MockReader) {
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(tx.Hash()),
 		).Return(block.Number, uint64(0), nil)
@@ -1666,7 +1667,6 @@ func TestTransactionStatus(t *testing.T) {
 			Reverted:     true,
 			RevertReason: "some revert reason",
 		}, nil)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 	}
 
 	testCases := []testCase{
@@ -1678,8 +1678,8 @@ func TestTransactionStatus(t *testing.T) {
 				Finality:  rpc.TxnStatusAcceptedOnL2,
 				Execution: rpc.TxnSuccess,
 			},
-			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
-				mockFoundInDB(mockReader, mockSyncReader)
+			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
+				mockFoundInDB(mockReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},
@@ -1692,8 +1692,8 @@ func TestTransactionStatus(t *testing.T) {
 				Execution:     rpc.TxnFailure,
 				FailureReason: "some revert reason",
 			},
-			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
-				mockFoundInDBReverted(mockReader, mockSyncReader)
+			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
+				mockFoundInDBReverted(mockReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},
@@ -1705,8 +1705,8 @@ func TestTransactionStatus(t *testing.T) {
 				Finality:  rpc.TxnStatusAcceptedOnL1,
 				Execution: rpc.TxnSuccess,
 			},
-			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
-				mockFoundInDB(mockReader, mockSyncReader)
+			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
+				mockFoundInDB(mockReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: math.MaxUint64}, nil)
 			},
 		},
@@ -1719,6 +1719,9 @@ func TestTransactionStatus(t *testing.T) {
 				Execution: rpc.TxnSuccess,
 			},
 			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+					(*felt.TransactionHash)(targetTxnHash),
+				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t,
 					&pending.PreConfirmed{
 						Block: &core.Block{
@@ -1820,6 +1823,9 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
+		(*felt.TransactionHash)(hash),
+	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PreConfirmedChain().
 		Return(mustNewChain(t, baseEntry, tipEntry), nil)
 
@@ -1891,7 +1897,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		require.Nil(t, err)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			&res.TransactionHash,
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
@@ -1923,7 +1929,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		require.Nil(t, err)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			&res.TransactionHash,
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
 			PreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
@@ -2292,4 +2298,95 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 		require.NoError(t, json.Unmarshal(sierraJSON, &roundTripped))
 		require.Equal(t, class.SierraProgram, roundTripped)
 	})
+}
+
+// handlerWithBlockCommittedMidRequest returns a handler whose store and pre_confirmed
+// chain behave as the node does when the block holding the returned block's transactions
+// is committed while a request for one of them is in flight.
+// In other words, we want to make sure that data in disk is not available until data in memory
+// (pre-confirmed data) is read. This simulates the real world race of data moving from
+// the pre-confirmed chain to disk just before being read. If the node doesn't check the disk
+// after reading the pre-confirmed (or doesn't check it at all), then the handler would never
+// retured the actual data, exposing the race.
+func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Block) {
+	t.Helper()
+	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Mainnet))
+	block, err := gw.BlockLatest(t.Context())
+	require.NoError(t, err)
+	txn := block.Transactions[0]
+	txHash := (*felt.TransactionHash)(txn.Hash())
+	pastBlock := &pending.PreConfirmed{
+		Block: &core.Block{Header: &core.Header{Number: block.Number + 1}},
+	}
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+	committed := false
+	mockSyncReader.EXPECT().PreConfirmedChain().
+		DoAndReturn(func() (preconfirmed.ChainReader, error) {
+			committed = true
+			return mustNewChain(t, pastBlock), nil
+		}).AnyTimes()
+	mockReader.EXPECT().TransactionByHash(txn.Hash()).
+		DoAndReturn(func(*felt.Felt) (core.Transaction, error) {
+			if !committed {
+				return nil, db.ErrKeyNotFound
+			}
+			return txn, nil
+		}).AnyTimes()
+	mockReader.EXPECT().BlockNumberAndIndexByTxHash(txHash).
+		DoAndReturn(func(*felt.TransactionHash) (uint64, uint64, error) {
+			if !committed {
+				return 0, 0, db.ErrKeyNotFound
+			}
+			return block.Number, 0, nil
+		}).AnyTimes()
+	mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(block.Number, uint64(0)).
+		Return(txn, *block.Receipts[0], block.Hash, nil).AnyTimes()
+	mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(block.Number, uint64(0)).
+		Return(core.TransactionExecutionStatus{}, nil).AnyTimes()
+	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
+
+	return rpc.New(mockReader, mockSyncReader, nil, nil), block
+}
+
+// TestTransactionByHash_BlockCommittedMidRequest: a transaction that moves from the
+// pre_confirmed chain into the store while the request is in flight must still be
+// returned, whichever source the handler reads first.
+func TestTransactionByHash_BlockCommittedMidRequest(t *testing.T) {
+	handler, block := handlerWithBlockCommittedMidRequest(t)
+	hash := block.Transactions[0].Hash()
+
+	got, rpcErr := handler.TransactionByHash(hash, rpc.ResponseFlags{})
+	require.Nil(t, rpcErr)
+	require.Equal(t, hash, got.Hash)
+}
+
+// TestTransactionReceiptByHash_BlockCommittedMidRequest: same race as
+// TestTransactionByHash_BlockCommittedMidRequest, for receipts. The block is committed by
+// the time any answer is produced, so the receipt reports ACCEPTED_ON_L2.
+func TestTransactionReceiptByHash_BlockCommittedMidRequest(t *testing.T) {
+	handler, block := handlerWithBlockCommittedMidRequest(t)
+	hash := block.Transactions[0].Hash()
+
+	got, rpcErr := handler.TransactionReceiptByHash(hash)
+	require.Nil(t, rpcErr)
+	require.Equal(t, hash, got.Hash)
+	require.Equal(t, rpc.TxnAcceptedOnL2, got.FinalityStatus)
+}
+
+// TestTransactionStatus_BlockCommittedMidRequest: same race as
+// TestTransactionByHash_BlockCommittedMidRequest, for the local half of TransactionStatus.
+// With no feeder client, a transaction lost between the two views would surface as
+// ErrTxnHashNotFound.
+func TestTransactionStatus_BlockCommittedMidRequest(t *testing.T) {
+	handler, block := handlerWithBlockCommittedMidRequest(t)
+	hash := block.Transactions[0].Hash()
+
+	status, rpcErr := handler.TransactionStatus(t.Context(), hash)
+	require.Nil(t, rpcErr)
+	require.Equal(t, rpc.TxnStatusAcceptedOnL2, status.Finality)
 }
