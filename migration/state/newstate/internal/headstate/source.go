@@ -122,9 +122,9 @@ func pendingContracts(r db.KeyValueReader) (iter.Seq[pendingContract], func() er
 		}()
 
 		for _, bucket := range []db.Bucket{
-			db.ContractClassHash,
-			db.ContractNonce,
-			db.ContractDeploymentHeight,
+			db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
+			db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
+			db.DeprecatedContractDeploymentHeight, //nolint:staticcheck,nolintlint // old state layout
 			db.Contract,
 		} {
 			c, err := newCursor(r, bucket)

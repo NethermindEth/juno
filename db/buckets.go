@@ -42,12 +42,12 @@ const (
 	// maps l1 handler msg hash to l1 handler txn hash
 	L1HandlerTxnHashByMsgHash = Bucket(l1HandlerTxnHashByMsgHash)
 	L1Height                  = Bucket(l1Height)
-	// maps block number and index to transaction receipt
-	ReceiptsByBlockNumberAndIndex = Bucket(receiptsByBlockNumberAndIndex)
+	// Deprecated: block number + index -> receipt; replaced by BlockTransactions.
+	DeprecatedReceiptsByBlockNumberAndIndex = Bucket(receiptsByBlockNumberAndIndex)
 	// maps transaction hashes to block number and index
 	TransactionBlockNumbersAndIndicesByHash = Bucket(transactionBlockNumbersAndIndicesByHash)
-	// maps block number and index to transaction
-	TransactionsByBlockNumberAndIndex = Bucket(transactionsByBlockNumberAndIndex)
+	// Deprecated: block number + index -> transaction; replaced by BlockTransactions.
+	DeprecatedTransactionsByBlockNumberAndIndex = Bucket(transactionsByBlockNumberAndIndex)
 
 	/****************************************************
 			Class
@@ -56,7 +56,8 @@ const (
 	Class = Bucket(class)
 	// Class CASM hash metadata (declaration and migration info)
 	ClassCasmHashMetadata = Bucket(classCasmHashMetadata)
-	ClassesTrie           = Bucket(classesTrie)
+	// Deprecated: old global class trie; replaced by ClassTrie.
+	DeprecatedClassesTrie = Bucket(classesTrie)
 	// ClassTrie + nodetype + path + pathlength -> Trie Node
 	ClassTrie = Bucket(classTrie)
 
@@ -65,15 +66,15 @@ const (
 	*****************************************************/
 	// Contract + ContractAddr -> Contract
 	Contract = Bucket(contract)
-	// maps contract addresses and class hashes
-	ContractClassHash = Bucket(contractClassHash)
-	// contract nonce
-	ContractNonce = Bucket(contractNonce)
-	// contract storages
-	ContractStorage = Bucket(contractStorage)
+	// Deprecated: address -> class hash; folded into Contract.
+	DeprecatedContractClassHash = Bucket(contractClassHash)
+	// Deprecated: address -> nonce; folded into Contract.
+	DeprecatedContractNonce = Bucket(contractNonce)
+	// Deprecated: old per-contract Pedersen storage trie; replaced by ContractTrieStorage.
+	DeprecatedContractStorage = Bucket(contractStorage)
 
-	// maps contract addresses to their deployment block number
-	ContractDeploymentHeight = Bucket(contractDeploymentHeight)
+	// Deprecated: address -> deployment height; folded into Contract.
+	DeprecatedContractDeploymentHeight = Bucket(contractDeploymentHeight)
 	// ContractTrieContract + nodetype + path + pathlength -> Trie Node
 	ContractTrieContract = Bucket(contractTrieContract)
 	// ContractTrieStorage + owner + nodetype + path + pathlength -> Trie Node
@@ -82,11 +83,11 @@ const (
 	// For these three history buckets, the block number is when the current value was set, and
 	// the value is the old value before that.
 
-	// DeprecatedContractClassHashHistory + Contract address + block number -> old class hash.
+	// Deprecated: address + block -> old class hash; replaced by ContractClassHashHistory.
 	DeprecatedContractClassHashHistory = Bucket(deprecatedContractClassHashHistory)
-	// DeprecatedContractNonceHistory + Contract address + block number -> old nonce.
+	// Deprecated: address + block -> old nonce; replaced by ContractNonceHistory.
 	DeprecatedContractNonceHistory = Bucket(deprecatedContractNonceHistory)
-	// DeprecatedContractStorageHistory + Contract address + storage slot + block number -> old value.
+	// Deprecated: address + slot + block -> old value; replaced by ContractStorageHistory.
 	DeprecatedContractStorageHistory = Bucket(deprecatedContractStorageHistory)
 
 	ContractClassHashHistory = Bucket(contractClassHashHistory)
@@ -123,8 +124,8 @@ const (
 	StateHashToTrieRoots = Bucket(stateHashToTrieRoots)
 	// StateID + root hash -> state id
 	StateID = Bucket(stateID)
-	// state metadata (e.g., the state root)
-	StateTrie                 = Bucket(stateTrie)
+	// Deprecated: old global contract trie; replaced by ContractTrieContract.
+	DeprecatedStateTrie       = Bucket(stateTrie)
 	StateUpdatesByBlockNumber = Bucket(stateUpdatesByBlockNumber)
 )
 

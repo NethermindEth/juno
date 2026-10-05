@@ -3,7 +3,6 @@ package deprecatedstate
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -70,7 +69,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 
 //nolint:staticcheck // Necessary for old state
 func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
-	_, err := core.GetContractClassHash(txn, addr)
+	_, err := GetContractClassHash(txn, addr)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
@@ -93,7 +92,8 @@ type ContractUpdater struct {
 // assumes storage is cleared in revert process
 func (c *ContractUpdater) Purge() error {
 	addrBytes := c.Address.Marshal()
-	buckets := []db.Bucket{db.ContractNonce, db.ContractClassHash}
+	//nolint:staticcheck,nolintlint // old state layout
+	buckets := []db.Bucket{db.DeprecatedContractNonce, db.DeprecatedContractClassHash}
 
 	for _, bucket := range buckets {
 		if err := c.txn.Delete(bucket.Key(addrBytes)); err != nil {
@@ -106,7 +106,8 @@ func (c *ContractUpdater) Purge() error {
 
 // UpdateNonce updates the nonce value in the database.
 func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
-	nonceKey := db.ContractNonceKey(c.Address)
+	//nolint:staticcheck,nolintlint // old state layout
+	nonceKey := db.DeprecatedContractNonceKey(c.Address)
 	return c.txn.Put(nonceKey, nonce.Marshal())
 }
 
@@ -149,13 +150,13 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 //nolint:staticcheck // Necessary for old state
 func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	return trie.GetLeafPedersen(
-		txn, db.ContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
+		txn, db.DeprecatedContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
 	)
 }
 
 //nolint:staticcheck // Necessary for old state
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
-	classHashKey := db.ContractClassHashKey(addr)
+	classHashKey := db.DeprecatedContractClassHashKey(addr)
 	return txn.Put(classHashKey, classHash.Marshal())
 }
 
@@ -170,5 +171,9 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 //nolint:staticcheck // Necessary for old state
 func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	return trie.NewTriePedersen(txn, db.ContractStorage.Key(addrBytes), ContractStorageTrieHeight)
+	return trie.NewTriePedersen(
+		txn,
+		db.DeprecatedContractStorage.Key(addrBytes),
+		ContractStorageTrieHeight,
+	)
 }

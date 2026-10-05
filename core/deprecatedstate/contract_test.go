@@ -69,7 +69,8 @@ func TestContractRoot(t *testing.T) {
 
 	txn2 := testDB.NewIndexedBatch()
 	addrBytes := addr.Marshal()
-	storagePrefix := db.ContractStorage.Key(addrBytes)
+	//nolint:staticcheck,nolintlint // old state layout
+	storagePrefix := db.DeprecatedContractStorage.Key(addrBytes)
 	err = txn2.Put(storagePrefix, []byte{0xFF, 0xFF, 0xFF})
 	require.NoError(t, err)
 	require.NoError(t, txn2.Write())
@@ -116,7 +117,8 @@ func TestContractStorage(t *testing.T) {
 
 	txn2 := testDB.NewIndexedBatch()
 	addrBytes := addr.Marshal()
-	storagePrefix := db.ContractStorage.Key(addrBytes)
+	//nolint:staticcheck,nolintlint // old state layout
+	storagePrefix := db.DeprecatedContractStorage.Key(addrBytes)
 	err = txn2.Put(storagePrefix, []byte{0xFF, 0xFF, 0xFF})
 	require.NoError(t, err)
 	require.NoError(t, txn2.Write())

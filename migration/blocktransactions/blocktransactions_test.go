@@ -202,11 +202,13 @@ func runTestBlockTransactionsMigration(
 					t.Run("PerTx layout should be empty", func(t *testing.T) {
 						assertEmptyBucket(
 							t,
-							core.TransactionsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
+							//nolint:staticcheck,nolintlint // old transaction layout
+							core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 						assertEmptyBucket(
 							t,
-							core.ReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
+							//nolint:staticcheck,nolintlint // old transaction layout
+							core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 					})
 				})
