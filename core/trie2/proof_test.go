@@ -179,6 +179,20 @@ func TestProveMultiMatchesRepeatedProve(t *testing.T) {
 	}
 }
 
+func TestProveMultiZeroHeightTrie(t *testing.T) {
+	tr := NewEmpty(0, crypto.Pedersen)
+	key := new(felt.Felt).SetUint64(1)
+	require.NoError(t, tr.Update(key, new(felt.Felt).SetUint64(2)))
+
+	repeatedProof := NewProofNodeSet()
+	require.NoError(t, tr.Prove(key, repeatedProof))
+
+	multiProof := NewProofNodeSet()
+	require.NoError(t, tr.ProveMulti([]felt.Felt{*key}, multiProof))
+
+	requireProofNodeSetEqual(t, repeatedProof, multiProof, tr.HashFn())
+}
+
 func TestProveCustom(t *testing.T) {
 	tests := []testTrie{
 		{
