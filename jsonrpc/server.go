@@ -598,18 +598,27 @@ func concatBatchResponses(responses []json.RawMessage) []byte {
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	s.logger.Trace("Received request", zap.Object("req", req))
 
-	header := http.Header{}
 	if err := req.isSane(); err != nil {
 		s.logger.Trace("Request sanity check failed", zap.Error(err))
-		return nil, header, err
+		return nil, http.Header{}, err
 	}
 
+	res, header := s.callMethod(ctx, req)
+	if req.ID == nil { // notification
+		s.logger.Trace("Notification received, no response expected")
+		return nil, header, nil
+	}
+
+	return res, header, nil
+}
+
+func (s *Server) callMethod(ctx context.Context, req *Request) (*response, http.Header) {
+	header := http.Header{}
 	res := &response{
 		Version: "2.0",
 		ID:      req.ID,
 	}
 
-	var tuple []reflect.Value
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
@@ -617,29 +626,22 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			"Method not found in request",
 			zap.String("method", log.SanitizeString(req.Method)),
 		)
-	} else {
-		handlerTimer := time.Now()
-		s.listener.OnNewRequest(req.Method)
-		args, err := s.buildArguments(ctx, req.Params, calledMethod)
-		if err != nil {
-			res.Error = Err(InvalidParams, err.Error())
-			s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
-		} else {
-			defer func() {
-				s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
-			}()
-			tuple = reflect.ValueOf(calledMethod.Handler).Call(args)
-		}
+		return res, header
 	}
 
-	if req.ID == nil { // notification
-		s.logger.Trace("Notification received, no response expected")
-		return nil, header, nil
+	handlerTimer := time.Now()
+	s.listener.OnNewRequest(req.Method)
+	args, err := s.buildArguments(ctx, req.Params, calledMethod)
+	if err != nil {
+		res.Error = Err(InvalidParams, err.Error())
+		s.logger.Trace("Error building arguments for RPC call", zap.Error(err))
+		return res, header
 	}
+	defer func() {
+		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
+	}()
 
-	if res.Error != nil {
-		return res, header, nil
-	}
+	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 
 	errorIndex := 1
 	if len(tuple) == 3 {
@@ -658,11 +660,11 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 				zap.String("res", log.SanitizeString(string(errJSON))),
 			)
 		}
-		return res, header, nil
+		return res, header
 	}
 	res.Result = tuple[0].Interface()
 
-	return res, header, nil
+	return res, header
 }
 
 //nolint:gocyclo
