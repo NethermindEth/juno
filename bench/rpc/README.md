@@ -44,7 +44,9 @@ make corpus-gen
 
 Both take `<corpus>` (config or its folder, `all.json` ↔ `all/`) and `<node>`
 (`nodes/<node>.json`, which sets `url`, or a literal URL); remaining args
-pass through.
+pass through. Machine-specific settings go in the gitignored
+`nodes/<node>.local.json`, merged over `nodes/<node>.json` (local keys win);
+start from `nodes/node.local.json.example`.
 
 `gen-all.sh`: one corpus per config entry (`{"name": "subcommand [flags]"}`)
 into the config's folder, sampling `<node>` via `--source-url`; per-entry
@@ -53,9 +55,12 @@ flags win.
 `run-all.sh`: `run.js` once per corpus against `<node>`, in config order when
 `<corpus>.json` exists (corpora it doesn't list follow A-Z), else A-Z. A
 listed corpus missing from the folder counts as failed. Writes
-`<corpus>/<node>/` (overwritten per re-run): `<method>.html` (dashboard, live
-at `:5665`), `<method>.json` (summary), `report.md` (rows in run order).
-Failures don't stop the sweep.
+`<corpus>/<node>/` (or `$OUT_DIR`; overwritten per re-run): `<method>.html`
+(dashboard, live at `:5665`), `<method>.json` (summary), `report.md` (rows in
+run order). Failures don't stop the remaining corpora.
+
+`expand.sh <sets> <in.json >out.json`: give each entry a warm-up and
+`<sets>` differently seeded copies, for repeated runs.
 
 ### corpus-gen
 

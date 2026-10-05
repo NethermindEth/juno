@@ -1,0 +1,5 @@
+{
+  "snapshot": "/path/to/snapshot",
+  "workspaces": "/path/to/bench",
+  "bin": "/path/to/binary"
+}
