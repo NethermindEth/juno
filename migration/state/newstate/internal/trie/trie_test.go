@@ -35,10 +35,12 @@ type trieCase struct {
 
 var trieCases = []trieCase{
 	{
-		name:           "ClassTrie",
-		oldBucket:      db.ClassesTrie,
-		newBucket:      db.ClassTrie,
-		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.ClassesTrie)} },
+		name: "ClassTrie",
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		oldBucket: db.DeprecatedClassesTrie,
+		newBucket: db.ClassTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.DeprecatedClassesTrie)} },
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewClassTrieID(felt.StateRootHash(felt.One))
 		},
@@ -46,10 +48,12 @@ var trieCases = []trieCase{
 		buildOldFn: trie.NewTriePoseidon,
 	},
 	{
-		name:           "ContractTrie",
-		oldBucket:      db.StateTrie,
-		newBucket:      db.ContractTrieContract,
-		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.StateTrie)} },
+		name: "ContractTrie",
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		oldBucket: db.DeprecatedStateTrie,
+		newBucket: db.ContractTrieContract,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.DeprecatedStateTrie)} },
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewContractTrieID(felt.StateRootHash(felt.One))
 		},
@@ -57,13 +61,15 @@ var trieCases = []trieCase{
 		buildOldFn: trie.NewTriePedersen,
 	},
 	{
-		name:      "StorageTrie",
-		oldBucket: db.ContractStorage,
+		name: "StorageTrie",
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		oldBucket: db.DeprecatedContractStorage,
 		newBucket: db.ContractTrieStorage,
 		owner:     felt.FromUint64[felt.Address](42),
 		oldBuildPrefix: func(owner *felt.Address) []byte {
 			ownerBytes := owner.Bytes()
-			return db.ContractStorage.Key(ownerBytes[:])
+			//nolint:staticcheck // the deprecated buckets are this migration's input
+			return db.DeprecatedContractStorage.Key(ownerBytes[:])
 		},
 		newTrieID: func(owner *felt.Address) trieutils.TrieID {
 			return trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), *owner)
@@ -126,7 +132,9 @@ func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
 	leaves := randomLeaves(100)
 	memDB := buildFullDB(t, leaves)
 
-	require.True(t, bucketHasKeys(t, memDB, db.ClassesTrie), "precondition: DB has old-format data")
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	require.True(t, bucketHasKeys(t, memDB, db.DeprecatedClassesTrie),
+		"precondition: DB has old-format data")
 
 	state, err := (&trielib.Migrator{}).Migrate(
 		context.Background(),
@@ -137,7 +145,14 @@ func TestMigrate_RunsWhenOldDataPresent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, state, "completed migration must return nil intermediate state")
 
-	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+	for _, bucket := range []db.Bucket{
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedClassesTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedStateTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedContractStorage,
+	} {
 		assert.False(t,
 			bucketHasKeys(t, memDB, bucket),
 			"old-format bucket %v should be empty after migration", bucket)
@@ -232,8 +247,10 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 	leaves := randomLeaves(50)
 
 	migratedDB := memory.New()
-	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
-	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePoseidon, db.DeprecatedClassesTrie.Key())
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen, db.DeprecatedStateTrie.Key())
 
 	owners := []felt.Address{
 		felt.FromUint64[felt.Address](1),
@@ -245,7 +262,8 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 	for _, owner := range owners {
 		ownerBytes := owner.Bytes()
 		buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen,
-			db.ContractStorage.Key(ownerBytes[:]))
+			//nolint:staticcheck // the deprecated buckets are this migration's input
+			db.DeprecatedContractStorage.Key(ownerBytes[:]))
 	}
 
 	_, err := (&trielib.Migrator{}).Migrate(
@@ -270,7 +288,14 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 	}
 
 	// Old buckets fully drained.
-	for _, bucket := range []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage} {
+	for _, bucket := range []db.Bucket{
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedClassesTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedStateTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedContractStorage,
+	} {
 		assert.False(t, bucketHasKeys(t, migratedDB, bucket),
 			"old bucket %v should be drained", bucket)
 	}
@@ -331,10 +356,13 @@ func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 
 	owner := felt.FromUint64[felt.Address](42)
 	ownerBytes := owner.Bytes()
-	storagePrefix := db.ContractStorage.Key(ownerBytes[:])
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	storagePrefix := db.DeprecatedContractStorage.Key(ownerBytes[:])
 
-	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePoseidon, db.ClassesTrie.Key())
-	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, db.StateTrie.Key())
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePoseidon, db.DeprecatedClassesTrie.Key())
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, db.DeprecatedStateTrie.Key())
 	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, storagePrefix)
 
 	return memDB

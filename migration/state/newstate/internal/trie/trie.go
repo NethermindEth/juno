@@ -32,7 +32,12 @@ var (
 	shouldNotRerun []byte
 )
 
-var deprecatedTrieBuckets = []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
+//nolint:staticcheck // the deprecated buckets are this migration's input
+var deprecatedTrieBuckets = []db.Bucket{
+	db.DeprecatedClassesTrie,
+	db.DeprecatedStateTrie,
+	db.DeprecatedContractStorage,
+}
 
 // Migrator converts every deprecated Starknet trie on disk into the
 // equivalent trie2 layout used by the new state:
@@ -193,8 +198,10 @@ func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
 		oldBucket, newBucket db.Bucket
 		hashFn               crypto.HashFn
 	}{
-		{db.ClassesTrie, db.ClassTrie, crypto.Poseidon},
-		{db.StateTrie, db.ContractTrieContract, crypto.Pedersen},
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		{db.DeprecatedClassesTrie, db.ClassTrie, crypto.Poseidon},
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		{db.DeprecatedStateTrie, db.ContractTrieContract, crypto.Pedersen},
 	} {
 		desc, err := enumerateGlobalTrie(r, spec.oldBucket, spec.newBucket, spec.hashFn)
 		if err != nil {
@@ -239,7 +246,8 @@ func enumerateGlobalTrie(
 }
 
 func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
-	it, err := r.NewIterator(db.ContractStorage.Key(), true)
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	it, err := r.NewIterator(db.DeprecatedContractStorage.Key(), true)
 	if err != nil {
 		return nil, fmt.Errorf("opening storage iterator: %w", err)
 	}
@@ -255,14 +263,16 @@ func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
 		}
 		owner := felt.FromBytes[felt.Address](key[1 : 1+felt.Bytes])
 		ownerBytes := owner.Bytes()
-		ownerPrefix := db.ContractStorage.Key(ownerBytes[:])
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		ownerPrefix := db.DeprecatedContractStorage.Key(ownerBytes[:])
 
 		rootPath, count, err := scanTrie(it, ownerPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("enumerating storage owner %s: %w", &owner, err)
 		}
 		descs = append(descs, TrieDesc{
-			DeprecatedTrieBucket: db.ContractStorage,
+			//nolint:staticcheck // the deprecated buckets are this migration's input
+			DeprecatedTrieBucket: db.DeprecatedContractStorage,
 			TrieBucket:           db.ContractTrieStorage,
 			Owner:                owner,
 			HashFn:               crypto.Pedersen,

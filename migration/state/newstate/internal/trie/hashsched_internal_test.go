@@ -47,7 +47,8 @@ func TestMigrateTrieWaitsForInFlightHashesOnError(t *testing.T) {
 	require.NoError(t, err)
 	var desc TrieDesc
 	for _, d := range descs {
-		if d.DeprecatedTrieBucket == db.StateTrie {
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		if d.DeprecatedTrieBucket == db.DeprecatedStateTrie {
 			desc = d
 		}
 	}
@@ -119,9 +120,10 @@ func seedThreeLeafTrie(t *testing.T, database db.KeyValueStore) {
 		felt.FromBytes[felt.Felt](rightKey[:]),
 	}
 
-	//nolint:staticcheck // deprecated trie is the migration's input
+	//nolint:staticcheck // the deprecated buckets are this migration's input
 	txn := database.NewIndexedBatch()
-	tr, err := trie.NewTriePedersen(txn, db.StateTrie.Key(), 251)
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	tr, err := trie.NewTriePedersen(txn, db.DeprecatedStateTrie.Key(), 251)
 	require.NoError(t, err)
 	for i := range keys {
 		value := felt.FromUint64[felt.Felt](uint64(i + 1))

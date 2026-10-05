@@ -170,9 +170,12 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 		db.DeprecatedContractClassHashHistory,
 		db.DeprecatedContractNonceHistory,
 		db.DeprecatedContractStorageHistory,
-		db.ClassesTrie,
-		db.StateTrie,
-		db.ContractStorage,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedClassesTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedStateTrie,
+		//nolint:staticcheck // the deprecated buckets are this migration's input
+		db.DeprecatedContractStorage,
 	} {
 		assert.Zerof(t, bucketKeyCount(t, memDB, bucket), "bucket %v must be wiped", bucket)
 	}

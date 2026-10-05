@@ -314,9 +314,11 @@ func writeRootEdgeNode(
 
 func deprecatedTriePrefix(desc TrieDesc) []byte {
 	switch desc.DeprecatedTrieBucket {
-	case db.ClassesTrie, db.StateTrie:
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	case db.DeprecatedClassesTrie, db.DeprecatedStateTrie:
 		return desc.DeprecatedTrieBucket.Key()
-	case db.ContractStorage:
+	//nolint:staticcheck // the deprecated buckets are this migration's input
+	case db.DeprecatedContractStorage:
 		ownerBytes := desc.Owner.Bytes()
 		return desc.DeprecatedTrieBucket.Key(ownerBytes[:])
 	default:
