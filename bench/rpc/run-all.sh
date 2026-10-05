@@ -6,7 +6,7 @@ usage() {
   cat >&2 <<EOF
 usage: $0 <corpus(.json)> <node|url> [k6 flags...]
   <corpus>  config or its folder (all.json <-> all/)
-  <node>    nodes.json name or URL; results -> <corpus>/<node>/
+  <node>    nodes/<node>.json name or URL; results -> <corpus>/<node>/
 Extra args pass to every k6 run.
 EOF
   exit 1

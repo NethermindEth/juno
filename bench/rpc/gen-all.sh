@@ -6,7 +6,7 @@ usage() {
   cat >&2 <<EOF
 usage: $0 <corpus(.json)> <node|url> [corpus-gen flags...]
   <corpus>  config or its folder (all.json <-> all/)
-  <node>    nodes.json name or URL, sampled via --source-url
+  <node>    nodes/<node>.json name or URL, sampled via --source-url
 Config: {"name": "subcommand [flags]"} map, one corpus per entry.
 Extra args pass to every corpus-gen call; per-entry flags win.
 EOF
