@@ -10,7 +10,8 @@
         "running-juno",
         "configuring",
         "updating",
-        "snapshots"
+        "snapshots",
+        "remote-database"
       ]
     },
     {
