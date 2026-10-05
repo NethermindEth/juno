@@ -95,7 +95,7 @@ Corpus must be redirected in (`<`), not piped. k6 prints its summary to stdout;
 | `--count`       | corpus entries                                 |
 | `--block-start` | sample range low (inclusive, default 0)        |
 | `--block-end`   | sample range high (inclusive, default latest)  |
-| `--seed`        | reproducible corpus                            |
+| `--seed`        | reproducible corpus (mixed with method + options) |
 | `--batch N`     | N requests per entry                           |
 | `--concurrency` | concurrent sampling requests (`GOMAXPROCS`)    |
 | `--source-url`  | node to sample (`http://localhost:6060/v0_10`) |

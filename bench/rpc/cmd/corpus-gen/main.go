@@ -193,7 +193,11 @@ func buildCorpus[T any](
 	stopProgress := reportProgress(progress, &completed, cfg.count)
 	defer stopProgress()
 
-	seed := methodSeed(cfg.seed, method)
+	seed, err := corpusSeed(cfg.seed, method, meta)
+	if err != nil {
+		return nil, fmt.Errorf("derive corpus seed: %w", err)
+	}
+
 	requests := make([]any, cfg.count)
 	p := pool.New().
 		WithContext(ctx).
@@ -271,9 +275,16 @@ func newSeededRand(seed, stream uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, stream))
 }
 
-// methodSeed decorrelates draws across methods; flag variants of one method stay aligned.
-func methodSeed(seed uint64, method string) uint64 {
+// corpusSeed decorrelates draws across methods and their option variants.
+func corpusSeed(seed uint64, method string, sampling any) (uint64, error) {
+	options, err := json.Marshal(sampling)
+	if err != nil {
+		return 0, err
+	}
+
 	h := fnv.New64a()
 	h.Write([]byte(method))
-	return seed ^ h.Sum64()
+	h.Write([]byte{0})
+	h.Write(options)
+	return seed ^ h.Sum64(), nil
 }
