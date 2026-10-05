@@ -128,6 +128,9 @@ func NewClient(clientURL *url.URL, opts ...Option) *Client {
 		opt(&o)
 	}
 
+	// Own a Client value so attempt timeouts never write http.DefaultClient
+	// or a Client the caller still holds. WithHTTPClient(nil) clears the
+	// default; treat that as DefaultClient. The Transport pointer is shared.
 	baseClient := o.httpClient
 	if baseClient == nil {
 		baseClient = http.DefaultClient
@@ -180,9 +183,8 @@ func (c *Client) buildRequest(ctx context.Context, queryURL *url.URL) (*http.Req
 // the response body on 200, a StatusError on any other status, and transport
 // errors unchanged.
 func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser, error) {
-	// Make a shallow copy of the http.Client to apply an attempt-specific timeout
-	// without racing concurrent calls or mutating the shared client. The underlying
-	// Transport and connection pool remain shared.
+	// Copy per attempt. Timeout is not safe to set on a shared Client, and it
+	// has to outlive Do so it still covers reading the body. Transport is shared.
 	httpClient := *c.client
 	httpClient.Timeout = timeout
 

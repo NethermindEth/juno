@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/stretchr/testify/assert"
@@ -150,4 +151,49 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 			}
 		})
 	}
+}
+
+// One successful call is enough to catch the old tryGet, which assigned
+// Client.Timeout on the shared http.Client before Do.
+func TestHTTPClientTimeoutNotMutated(t *testing.T) {
+	const blockBody = `{"block_hash": "0x123", "block_number": 1}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(blockBody))
+	}))
+	t.Cleanup(srv.Close)
+
+	serverURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+
+	t.Run("default client", func(t *testing.T) {
+		before := http.DefaultClient.Timeout
+		client := NewClient(serverURL, WithMaxRetries(0), WithBackoff(NopBackoff))
+		require.NotSame(t, http.DefaultClient, client.client)
+		require.Equal(t, before, client.client.Timeout)
+
+		block, err := client.Block(t.Context(), "1")
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), block.Number)
+		require.Equal(t, before, http.DefaultClient.Timeout)
+		require.Equal(t, before, client.client.Timeout)
+	})
+
+	t.Run("caller client", func(t *testing.T) {
+		const suppliedTimeout = 3 * time.Second
+		supplied := &http.Client{Timeout: suppliedTimeout}
+		client := NewClient(
+			serverURL,
+			WithHTTPClient(supplied),
+			WithMaxRetries(0),
+			WithBackoff(NopBackoff),
+		)
+		require.NotSame(t, supplied, client.client)
+		require.Equal(t, suppliedTimeout, client.client.Timeout)
+
+		block, err := client.Block(t.Context(), "1")
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), block.Number)
+		require.Equal(t, suppliedTimeout, supplied.Timeout)
+		require.Equal(t, suppliedTimeout, client.client.Timeout)
+	})
 }

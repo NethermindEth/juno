@@ -1184,6 +1184,8 @@ func TestEventListener(t *testing.T) {
 
 func TestClientRetryBehavior(t *testing.T) {
 	t.Run("succeeds after retrying with increased timeout", func(t *testing.T) {
+		// The client gives up while this handler is still sleeping, so the
+		// next attempt overlaps it. A plain int races under -race.
 		var requestCount atomic.Int32
 		srv := httptest.
 			NewServer(http.
@@ -1394,9 +1396,9 @@ func TestPreConfirmedBlockLatest(t *testing.T) {
 func TestConcurrentTryGetRace(t *testing.T) {
 	initialDefaultTimeout := http.DefaultClient.Timeout
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"block_number":1,"status":"ACCEPTED_ON_L2","block_hash":"0x1","parent_hash":"0x0","state_root":"0x0","sequencer_address":"0x0"}`))
+	const blockBody = `{"block_hash": "0x123", "block_number": 1}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(blockBody))
 	}))
 	t.Cleanup(server.Close)
 
@@ -1409,17 +1411,18 @@ func TestConcurrentTryGetRace(t *testing.T) {
 	const requestsPerGoroutine = 10
 	var wg sync.WaitGroup
 
-	for i := range numGoroutines {
+	for range numGoroutines {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			for range requestsPerGoroutine {
-				_, err := client.Block(t.Context(), "1")
-				assert.NoError(t, err)
+				block, blockErr := client.Block(t.Context(), "1")
+				assert.NoError(t, blockErr)
+				assert.Equal(t, uint64(1), block.Number)
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()
-	assert.Equal(t, initialDefaultTimeout, http.DefaultClient.Timeout, "http.DefaultClient.Timeout should not be mutated")
+	assert.Equal(t, initialDefaultTimeout, http.DefaultClient.Timeout)
 }
