@@ -41,9 +41,19 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 		return CommittedBlock{}, err
 	}
 
-	newClasses, err := f.fetchUnknownClasses(ctx, stateUpdate)
+	missingClassHashes, err := MissingClassHashes(f.blockchain, stateUpdate.StateDiff)
 	if err != nil {
 		return CommittedBlock{}, err
+	}
+
+	newClasses := make(map[felt.Felt]core.ClassDefinition, len(missingClassHashes))
+	for _, classHash := range missingClassHashes {
+		class, err := f.starknetData.Class(ctx, classHash)
+		if err != nil {
+			return CommittedBlock{}, err
+		}
+
+		newClasses[*classHash] = class
 	}
 
 	return CommittedBlock{
@@ -59,60 +69,61 @@ func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.
 	if err != nil {
 		return nil, err
 	}
+
 	return &header, nil
 }
 
-func (f *feederGatewayDataSource) fetchUnknownClasses(
-	ctx context.Context,
-	stateUpdate *core.StateUpdate,
-) (map[felt.Felt]core.ClassDefinition, error) {
-	state, closer, err := f.blockchain.HeadState()
+func MissingClassHashes(
+	chain *blockchain.Blockchain,
+	stateDiff *core.StateDiff,
+) ([]*felt.Felt, error) {
+	introduced := introducedClassHashes(stateDiff)
+
+	state, closer, err := chain.HeadState()
+	if errors.Is(err, db.ErrKeyNotFound) { // empty DB: nothing is known yet
+		return introduced, nil
+	}
 	if err != nil {
-		// if err is db.ErrKeyNotFound we are on an empty DB
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, err
-		}
-		closer = func() error {
-			return nil
-		}
+		return nil, err
 	}
 
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
-	fetchIfNotFound := func(classHash *felt.Felt) error {
-		if _, ok := newClasses[*classHash]; ok {
-			return nil
-		}
-
-		stateErr := db.ErrKeyNotFound
-		if state != nil {
-			_, stateErr = state.Class(classHash)
-		}
-
-		if errors.Is(stateErr, db.ErrKeyNotFound) {
-			class, fetchErr := f.starknetData.Class(ctx, classHash)
-			if fetchErr == nil {
-				newClasses[*classHash] = class
-			}
-			return fetchErr
-		}
-		return stateErr
-	}
-
-	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
-		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, errors.Join(err, closer())
-		}
-	}
-	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
-		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, errors.Join(err, closer())
-		}
-	}
-	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(&classHash); err != nil {
+	missing := make([]*felt.Felt, 0, len(introduced))
+	for _, classHash := range introduced {
+		_, err := state.Class(classHash)
+		switch {
+		case errors.Is(err, db.ErrKeyNotFound):
+			missing = append(missing, classHash)
+		case err != nil:
 			return nil, errors.Join(err, closer())
 		}
 	}
 
-	return newClasses, closer()
+	return missing, closer()
+}
+
+func introducedClassHashes(stateDiff *core.StateDiff) []*felt.Felt {
+	seen := make(map[felt.Felt]struct{})
+	hashes := make([]*felt.Felt, 0)
+	add := func(classHash *felt.Felt) {
+		if _, ok := seen[*classHash]; ok {
+			return
+		}
+
+		seen[*classHash] = struct{}{}
+		hashes = append(hashes, classHash)
+	}
+
+	for _, classHash := range stateDiff.DeployedContracts {
+		add(classHash)
+	}
+
+	for _, classHash := range stateDiff.DeclaredV0Classes {
+		add(classHash)
+	}
+
+	for classHash := range stateDiff.DeclaredV1Classes {
+		add(&classHash)
+	}
+
+	return hashes
 }
