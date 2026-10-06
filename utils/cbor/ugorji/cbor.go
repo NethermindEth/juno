@@ -2,7 +2,10 @@
 package ugorji
 
 import (
+	"errors"
 	"fmt"
+	"math/big"
+	"reflect"
 	"sync"
 
 	"github.com/ugorji/go/codec"
@@ -15,17 +18,38 @@ var (
 	handle = func() *codec.CborHandle {
 		h := &codec.CborHandle{}
 		h.TypeInfos = codec.NewTypeInfos([]string{"cbor"})
-		// Fail on field names from older records rather than drop them, e.g. "GasPrice".
-		h.ErrorIfNoField = true
+		h.ErrorIfNoField = true // Reject unknown fields.
 		h.ValidateUnicode = true
-		// Limit nesting to 32 levels; keep Ugorji's copying ownership.
 		h.MaxDepth = 32
+		h.MaxInitLen = 1 << 18 // Covers large felt slices.
+		if err := h.SetInterfaceExt(reflect.TypeFor[big.Int](), bignumTag, bignum{}); err != nil {
+			panic(err)
+		}
 		return h
 	}()
 )
 
-// Unmarshal decodes exactly one CBOR value. On error, out may be partially
-// populated. Decoded values do not retain references to data.
+// bignumTag identifies an unsigned CBOR bignum.
+const bignumTag = 2
+
+var errBignumShape = errors.New("ugorji: unsupported CBOR shape for big.Int")
+
+// bignum decodes unsigned CBOR bignums into big.Int.
+type bignum struct{}
+
+// ConvertExt is required by [codec.InterfaceExt]; encoding is unsupported.
+func (bignum) ConvertExt(any) any { panic("ugorji: encoding big.Int is not supported") }
+
+// UpdateExt sets dst from the bignum's magnitude bytes.
+func (bignum) UpdateExt(dst, src any) {
+	magnitude, ok := src.([]byte)
+	if !ok {
+		panic(errBignumShape)
+	}
+	dst.(*big.Int).SetBytes(magnitude)
+}
+
+// Unmarshal decodes exactly one CBOR value from data into out.
 func Unmarshal(data []byte, out any) error {
 	d := decoders.Get().(*codec.Decoder)
 	d.ResetBytes(data)
