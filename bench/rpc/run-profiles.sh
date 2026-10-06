@@ -71,6 +71,8 @@ load_plan() {
   fi
 
   DROP_CACHES=$(jq '.drop_caches != false' "$PLAN")
+  [[ $DROP_CACHES != true || -w /proc/sys/vm/drop_caches ]] ||
+    fail "drop_caches needs root; run as root or set \"drop_caches\": false in $PLAN"
   K6_FLAGS=$(jq -er '.k6_flags // "" | strings' "$PLAN") || fail "$PLAN: k6_flags must be a string"
 }
 
@@ -78,7 +80,10 @@ select_profiles() {
   if (($# > 0)); then
     PROFILES=("$@")
   else
-    mapfile -t PROFILES < <(jq -r '.profiles | keys_unsorted[]' "$PLAN")
+    local profiles
+    profiles=$(jq -er '.profiles | keys_unsorted[]' "$PLAN") ||
+      fail "$PLAN: profiles must be a non-empty object"
+    mapfile -t PROFILES <<<"$profiles"
   fi
 }
 
@@ -104,8 +109,8 @@ check_profiles() {
 restore_db() {
   local db=$1
   echo "==> restore $db from $SNAPSHOT"
-  cp -a "$SNAPSHOT" "$db"
   export NODE_DB="$db"
+  cp -a "$SNAPSHOT" "$db"
 }
 
 drop_caches() {
@@ -118,10 +123,20 @@ drop_caches() {
   echo 3 >/proc/sys/vm/drop_caches
 }
 
-block_number() {
+block_number_response() {
   curl --silent --max-time 5 --header 'Content-Type: application/json' \
     --data '{"jsonrpc":"2.0","id":1,"method":"starknet_blockNumber","params":[]}' \
-    "$NODE_URL" | jq -r '.result // empty'
+    "$NODE_URL"
+}
+
+check_url_free() {
+  if block_number_response >/dev/null; then
+    fail "$NODE_URL already answers; stop that node first"
+  fi
+}
+
+node_alive() {
+  kill -0 "$NODE_PID" 2>/dev/null
 }
 
 start_node() {
@@ -132,8 +147,9 @@ start_node() {
 }
 
 wait_for_node() {
-  local waited=0
-  until [[ -n $(block_number) ]]; do
+  local log=$1 waited=0
+  until block_number_response >/dev/null; do
+    node_alive || fail "$NODE exited; see $log"
     sleep 2
     waited=$((waited + 2))
     if ((waited % 30 == 0)); then
@@ -143,45 +159,59 @@ wait_for_node() {
 }
 
 check_height() {
-  local height
-  height=$(block_number)
+  local log=$1 response height
+  response=$(block_number_response)
+  height=$(jq -r '.result // empty' <<<"$response")
+  [[ $height =~ ^[0-9]+$ ]] || fail "$NODE answered without a block number: $response; see $log"
   echo "==> $NODE ready at $height"
   if [[ -n $HEIGHT ]] && ((height != HEIGHT)); then
-    stop_node
     fail "node at $height, expected $HEIGHT"
   fi
 }
 
 stop_node() {
   echo "==> stopping $NODE"
-  kill -TERM "$NODE_PID"
+  if node_alive; then
+    kill -TERM "$NODE_PID"
+  fi
   wait "$NODE_PID" || true
+  unset NODE_PID
+}
+
+cleanup() {
+  if [[ -n ${NODE_PID-} ]]; then
+    stop_node
+  fi
+  if [[ -n ${NODE_DB-} ]]; then
+    rm -rf "$NODE_DB"
+    unset NODE_DB
+  fi
 }
 
 run_k6() {
   local workspace=$1
   shift
   echo "==> k6 on $CORPUS: $*"
-  # run-all.sh fails if any corpus failed; go on so the node still stops.
-  OUT_DIR="$workspace" "$SCRIPT_DIR/run-all.sh" "$CORPUS" "$NODE" "$@" || true
+  OUT_DIR="$workspace" "$SCRIPT_DIR/run-all.sh" "$CORPUS" "$NODE" "$@"
 }
 
 run_profile() {
-  local profile=$1 trial=$2 workspace flags
+  local profile=$1 trial=$2 workspace log flags
   workspace=$(workspace_dir "$profile" "$trial")
+  log="$workspace/node.log"
   read -ra flags <<<"$K6_FLAGS $(profile_flags "$profile")"
 
   echo
   echo "######## profile $profile (trial $trial)"
+  check_url_free
   mkdir -p "$workspace"
   restore_db "$workspace/db"
   drop_caches
-  start_node "$workspace/node.log"
-  wait_for_node
-  check_height
-  run_k6 "$workspace" "${flags[@]}"
-  stop_node
-  rm -rf "$workspace/db"
+  start_node "$log"
+  wait_for_node "$log"
+  check_height "$log"
+  run_k6 "$workspace" "${flags[@]}" || FAILED+=("$profile")
+  cleanup
   echo "==> results in $workspace"
 }
 
@@ -196,10 +226,16 @@ main() {
   select_profiles "$@"
   check_profiles "$trial"
 
+  # cleanup deletes NODE_DB and kills NODE_PID: never act on inherited ones.
+  unset NODE_PID NODE_DB
+  trap cleanup EXIT
+
+  FAILED=()
   local profile
   for profile in "${PROFILES[@]}"; do
     run_profile "$profile" "$trial"
   done
+  ((${#FAILED[@]} == 0)) || fail "k6 failed for profiles: ${FAILED[*]}"
 }
 
 main "$@"
