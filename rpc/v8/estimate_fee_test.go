@@ -150,3 +150,64 @@ func TestEstimateFee(t *testing.T) {
 		require.Equal(t, expectedErr, err)
 	})
 }
+
+func TestEstimateMessageFee(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
+	mockVM := mocks.NewMockVM(mockCtrl)
+	handler := rpc.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+
+	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
+
+	blockID := blockIDLatest(t)
+	msg := &rpc.MsgFromL1{
+		To:       felt.FromUint64[felt.Felt](0xABCD),
+		Selector: felt.FromUint64[felt.Felt](0x1),
+		Payload:  []felt.Felt{felt.FromUint64[felt.Felt](0xCAFE)},
+	}
+
+	t.Run("overall fee below the minimum is raised to the minimum", func(t *testing.T) {
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			gomock.Any(),
+			mockState,
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{felt.NewFromUint64[felt.Felt](42)},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{L1Gas: 1, L2Gas: 2, L1DataGas: 3}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+		}, nil)
+
+		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.Equal(t, rpccore.MinL1ToL2MessageFee, *got.OverallFee)
+		assert.Equal(t, uint64(1), got.L1GasConsumed.Uint64())
+	})
+
+	t.Run("overall fee above the minimum is unchanged", func(t *testing.T) {
+		want := felt.FromUint64[felt.Felt](60_000_000_000_000)
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			gomock.Any(),
+			mockState,
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{&want},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+		}, nil)
+
+		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.Equal(t, want, *got.OverallFee)
+	})
+}
