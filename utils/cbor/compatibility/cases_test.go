@@ -2,6 +2,7 @@ package cbor_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"os"
 	"testing"
 
@@ -21,7 +22,7 @@ const goldenFile = "testdata/golden_bytes.json"
 
 // goldenBytes is each record's hex, keyed by name.
 // It is how the records were written, so it is byte for byte what a database holds.
-func goldenBytes(t *testing.T) map[string]string {
+func goldenBytes(t testing.TB) map[string]string {
 	t.Helper()
 
 	data, err := os.ReadFile(goldenFile)
@@ -74,6 +75,7 @@ func goldenCases() []goldenCase {
 		{"InvokeTransaction, populated", populatedInvokeTransaction()},
 		{"TransactionReceipt, populated", populatedReceipt()},
 		{"StateUpdate, populated", populatedStateUpdate()},
+		{"SierraClass, populated", populatedSierraClass()},
 		{"L1Head", core.L1Head{
 			BlockNumber: 8,
 			BlockHash:   felt.NewFromUint64[felt.Felt](9),
@@ -132,6 +134,34 @@ func populatedDeclaredClassDefinition() core.DeclaredClassDefinition {
 			},
 		},
 	}
+}
+
+func populatedSierraClass() core.SierraClass {
+	prime, ok := new(big.Int).SetString(
+		"0x800000000000011000000000000000000000000000000000000000000000001", 0,
+	)
+	if !ok {
+		panic("invalid prime")
+	}
+	class := *populatedDeclaredClassDefinition().Class.(*core.SierraClass)
+	class.Compiled = &core.CasmClass{
+		Bytecode:        felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](8)},
+		PythonicHints:   []byte(`[[0,["memory[ap] = segments.add()"]]]`),
+		CompilerVersion: "2.11.0",
+		Hints:           []byte(`[[0,[{"AllocSegment":{"dst":{"register":"AP","offset":0}}}]]]`),
+		Prime:           prime,
+		External: []core.CasmEntryPoint{{
+			Offset:   1,
+			Builtins: []string{"range_check"},
+			Selector: felt.NewFromUint64[felt.Felt](9),
+		}},
+		L1Handler:   []core.CasmEntryPoint{{Offset: 2, Selector: felt.NewFromUint64[felt.Felt](10)}},
+		Constructor: []core.CasmEntryPoint{{Offset: 3, Selector: felt.NewFromUint64[felt.Felt](11)}},
+		BytecodeSegmentLengths: core.SegmentLengths{
+			Children: []core.SegmentLengths{{Length: 1}},
+		},
+	}
+	return class
 }
 
 func populatedDeclareTransaction() core.DeclareTransaction {
