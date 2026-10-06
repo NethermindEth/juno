@@ -181,11 +181,16 @@ func writeStorageRoot(
 	owner *felt.Address,
 	root *felt.Felt,
 ) error {
-	err := state.WriteContractStorageRoot(r, w, (*felt.Felt)(owner), root)
+	addr := (*felt.Felt)(owner)
+	contract, err := state.GetContract(r, addr)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return nil
 	}
 	if err != nil {
+		return fmt.Errorf("reading contract %x: %w", owner, err)
+	}
+	contract.StorageRoot = *root
+	if err := state.WriteContractRecord(w, addr, &contract); err != nil {
 		return fmt.Errorf("writing storage root of %x: %w", owner, err)
 	}
 	return nil
