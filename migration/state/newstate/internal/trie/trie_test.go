@@ -188,6 +188,7 @@ func TestMigrationEndToEnd(t *testing.T) {
 
 			migratedDB := memory.New()
 			buildDeprecatedTrie(t, migratedDB, c.leaves, c.tc.buildOldFn, prefix)
+			seedContract(t, migratedDB, &c.tc.owner)
 			_, err := (&trielib.Migrator{}).Migrate(
 				context.Background(), migratedDB, nil, log.NewNopZapLogger(),
 			)
@@ -303,6 +304,7 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 		buildDeprecatedTrie(t, migratedDB, leaves, trie.NewTriePedersen,
 			//nolint:staticcheck // the deprecated buckets are this migration's input
 			db.DeprecatedContractStorage.Key(ownerBytes[:]))
+		seedContract(t, migratedDB, &owner)
 	}
 
 	_, err := (&trielib.Migrator{}).Migrate(
@@ -403,8 +405,17 @@ func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 	//nolint:staticcheck // the deprecated buckets are this migration's input
 	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, db.DeprecatedStateTrie.Key())
 	buildDeprecatedTrie(t, memDB, leaves, trie.NewTriePedersen, storagePrefix)
+	seedContract(t, memDB, &owner)
 
 	return memDB
+}
+
+// seedContract writes the contract record the trie phase backfills the storage root into.
+func seedContract(t *testing.T, database db.KeyValueStore, owner *felt.Address) {
+	t.Helper()
+	require.NoError(t, state.WriteContract(
+		database, (*felt.Felt)(owner), felt.Zero, felt.Zero, 0,
+	))
 }
 
 func buildDeprecatedTrie(

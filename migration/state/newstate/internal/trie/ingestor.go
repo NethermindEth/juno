@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -174,7 +173,7 @@ func (i *ingestor) migrateTrie(
 	return computeEdgeHash(&rootHash, &seg, desc.HashFn), nil
 }
 
-// writeStorageRoot sets the trie's root on its contract; a trie without one is skipped.
+// writeStorageRoot sets the trie's root on its contract, which the headstate phase has written.
 func writeStorageRoot(
 	r db.KeyValueReader,
 	w db.KeyValueWriter,
@@ -183,9 +182,6 @@ func writeStorageRoot(
 ) error {
 	addr := (*felt.Felt)(owner)
 	contract, err := state.GetContract(r, addr)
-	if errors.Is(err, db.ErrKeyNotFound) {
-		return nil
-	}
 	if err != nil {
 		return fmt.Errorf("reading contract %x: %w", owner, err)
 	}
