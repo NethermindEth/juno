@@ -121,5 +121,10 @@ func (h *Handler) EstimateMessageFee(
 		return FeeEstimate{}, httpHeader, err
 	}
 
-	return result.SimulatedTransactions[0].FeeEstimation, httpHeader, nil
+	estimate := result.SimulatedTransactions[0].FeeEstimation
+	if estimate.OverallFee.Cmp(&rpccore.MinL1ToL2MessageFee) < 0 {
+		minFee := rpccore.MinL1ToL2MessageFee
+		estimate.OverallFee = &minFee
+	}
+	return estimate, httpHeader, nil
 }

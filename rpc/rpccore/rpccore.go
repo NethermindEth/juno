@@ -5,9 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/eth"
 )
+
+const minL1ToL2MessageFeeWei = 50_000_000_000_000
+
+// MinL1ToL2MessageFee is the lowest overall fee, in wei, that
+// starknet_estimateMessageFee returns. The L1 core contract rejects
+// messages that pay less.
+var MinL1ToL2MessageFee = felt.FromUint64[felt.Felt](minL1ToL2MessageFeeWei)
 
 const (
 	MaxEventChunkSize             = 10240

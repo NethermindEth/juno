@@ -341,7 +341,12 @@ func (h *Handler) EstimateMessageFee(
 		}
 		return FeeEstimate{}, httpHeader, err
 	}
-	return estimates[0], httpHeader, nil
+	estimate := estimates[0]
+	if estimate.OverallFee.Cmp(&rpccore.MinL1ToL2MessageFee) < 0 {
+		minFee := rpccore.MinL1ToL2MessageFee
+		estimate.OverallFee = &minFee
+	}
+	return estimate, httpHeader, nil
 }
 
 type ContractErrorData struct {
