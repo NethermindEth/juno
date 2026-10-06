@@ -164,6 +164,14 @@
 | `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
 | `grpc-port` | `6064` | The port on which the gRPC server will listen for requests |
 
+### MCP (experimental)
+
+| Config Option | Default Value | Description |
+| - | - | - |
+| `mcp` | `false` | EXPERIMENTAL: Enables the MCP server on the default port and interface |
+| `mcp-host` | `localhost` | The interface on which the MCP server will listen for requests |
+| `mcp-port` | `6063` | The port on which the MCP server will listen for requests |
+
 ### Plugins & Misc
 
 | Config Option | Default Value | Description |

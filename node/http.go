@@ -70,6 +70,11 @@ func (h *httpService) withWriteTimeout(d time.Duration) *httpService {
 	return h
 }
 
+func (h *httpService) withReadTimeout(d time.Duration) *httpService {
+	h.srv.ReadTimeout = d
+	return h
+}
+
 func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
@@ -177,6 +182,25 @@ func makeRPCOverWebsocket(
 		close(shutdown)
 	})
 	return httpServ
+}
+
+func makeMCP(
+	host string,
+	port uint16,
+	handler http.Handler,
+	rpcRequestTimeout time.Duration,
+) *httpService {
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", handler)
+
+	svc := makeHTTPService(host, port, mux)
+	if rpcRequestTimeout > 0 {
+		// The MCP server answers a request only while its context is alive, and net/http
+		// cancels that context once the read timeout expires, even if the handler is running.
+		timeout := rpcRequestTimeout + 5*time.Second
+		svc = svc.withReadTimeout(timeout).withWriteTimeout(timeout)
+	}
+	return svc
 }
 
 func makeMetrics(host string, port uint16) *httpService {

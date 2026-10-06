@@ -32,14 +32,15 @@ const (
 	catP2P            = "P2P (experimental)"
 	catSequencer      = "Sequencer (experimental)"
 	catGRPC           = "gRPC"
+	catMCP            = "MCP (experimental)"
 	catMisc           = "Plugins & Misc"
 	catOther          = "Other"
 )
 
 // FlagCategories returns all the categories flags can be grouped in, sorted based on Juno's today
 // more important flags.
-func FlagCategories() [18]string {
-	return [18]string{
+func FlagCategories() [19]string {
+	return [19]string{
 		catHTTPRPC,
 		catWebSocket,
 		catNetwork,
@@ -57,6 +58,7 @@ func FlagCategories() [18]string {
 		catP2P,
 		catSequencer,
 		catGRPC,
+		catMCP,
 		catMisc,
 	}
 }

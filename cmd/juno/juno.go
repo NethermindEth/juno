@@ -76,6 +76,9 @@ const (
 	grpcF                               = "grpc"
 	grpcHostF                           = "grpc-host"
 	grpcPortF                           = "grpc-port"
+	mcpF                                = "mcp"
+	mcpHostF                            = "mcp-host"
+	mcpPortF                            = "mcp-port"
 	maxVMsF                             = "max-vms"
 	maxVMQueueF                         = "max-vm-queue"
 	remoteDBF                           = "remote-db"
@@ -152,6 +155,8 @@ const (
 	defaultMetricsPort                        = 9090
 	defaultGRPC                               = false
 	defaultGRPCPort                           = 6064
+	defaultMCP                                = false
+	defaultMCPPort                            = 6063
 	defaultRemoteDB                           = ""
 	defaultRPCMaxBlockScan                    = math.MaxUint
 	defaultCacheSizeMb                        = 1024
@@ -247,6 +252,9 @@ const (
 	grpcUsage            = "Enable the HTTP gRPC server on the default port."
 	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
 	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
+	mcpUsage             = "EXPERIMENTAL: Enables the MCP server on the default port and interface."
+	mcpHostUsage         = "The interface on which the MCP server will listen for requests."
+	mcpPortUsage         = "The port on which the MCP server will listen for requests."
 	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
 	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
 	remoteDBUsage        = "gRPC URL of a remote Juno node"
@@ -755,6 +763,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	setCategory(junoCmd, catGRPC, grpcF, grpcHostF, grpcPortF)
+
+	// --- MCP (experimental) ---
+	junoCmd.Flags().Bool(mcpF, defaultMCP, mcpUsage)
+	junoCmd.Flags().String(mcpHostF, defaultHost, mcpHostUsage)
+	junoCmd.Flags().Uint16(mcpPortF, defaultMCPPort, mcpPortUsage)
+	setCategory(junoCmd, catMCP, mcpF, mcpHostF, mcpPortF)
 
 	// --- Plugins & Misc ---
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
