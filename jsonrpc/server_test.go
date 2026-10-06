@@ -108,6 +108,12 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
+			Name: "nilResult",
+			Handler: func() (any, *jsonrpc.Error) {
+				return nil, nil
+			},
+		},
+		{
 			Name:   "subtract",
 			Params: []jsonrpc.Parameter{{Name: "minuend"}, {Name: "subtrahend"}},
 			Handler: func(a, b int) (int, *jsonrpc.Error) {
@@ -302,6 +308,46 @@ func TestHandle(t *testing.T) {
 		"notification": {
 			req: `{"jsonrpc" : "2.0", "method" : "method","params" : { "num" : 5, "shouldError" : false, "msg": "error message" }}`,
 			res: ``,
+		},
+		"null id is a request, not a notification": {
+			req: `{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":null}`,
+			res: `{"jsonrpc":"2.0","result":{"doubled":10},"id":null}`,
+		},
+
+		"null id unknown method": {
+			req: `{"jsonrpc":"2.0","method":"absent","id":null}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method Not Found"},"id":null}`,
+		},
+
+		"batch with null id and notification": {
+			req: `[{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":null},
+					{"jsonrpc":"2.0","method":"method","params":{"num":5}}]`,
+			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":null}]`,
+		},
+
+		"nil interface result keeps the result key": {
+			req: `{"jsonrpc":"2.0","method":"nilResult","id":1}`,
+			res: `{"jsonrpc":"2.0","result":null,"id":1}`,
+		},
+
+		"trailing whitespace": {
+			req: `{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":1}` + "\n \t\r\n",
+			res: `{"jsonrpc":"2.0","result":{"doubled":10},"id":1}`,
+		},
+
+		"trailing garbage": {
+			req: `{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":1} trailing`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"{\"jsonrpc\":\"2.0\",\"method\":\"method\",\"params\":{\"num\":5},\"id\":1} trailing\n                                                              ^\nunexpected data after the request [line 1, position 63]"},"id":null}`,
+		},
+
+		"second request after the first": {
+			req: `{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":1}{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":2}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"...\":\"method\",\"params\":{\"num\":5},\"id\":1}{\"jsonrpc\":\"2.0\",\"method\":\"method\",\"p...\n                                        ^\nunexpected data after the request [line 1, position 62]"},"id":null}`,
+		},
+
+		"trailing garbage after batch": {
+			req: `[{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":1}] ]`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"[{\"jsonrpc\":\"2.0\",\"method\":\"method\",\"params\":{\"num\":5},\"id\":1}] ]\n                                                                ^\nunexpected data after the request [line 1, position 65]"},"id":null}`,
 		},
 
 		"batch with notif and string id": {
@@ -715,6 +761,13 @@ type fakeConn struct {
 	ctx context.Context
 }
 
+// messageConn hands the server one whole message to read and a connection to
+// write on, as the websocket transport does
+type messageConn struct {
+	io.Reader
+	io.Writer
+}
+
 func (fc *fakeConn) Write(p []byte) (int, error) {
 	return 0, nil
 }
@@ -755,11 +808,10 @@ func TestWriteToConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), 0, serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, messageConn{strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`), serverConn})
 		require.NoError(t, err)
 	})
 
-	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
 	initialResp := `{"jsonrpc":"2.0","result":0,"id":1}`
 	require.Equal(t, initialResp, read(t, clientConn, len(initialResp)))
 	require.Equal(t, testBytes, read(t, clientConn, len(testBytes)))
@@ -791,13 +843,12 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 		// We close clientConn early.
 	})
 
+	require.NoError(t, clientConn.Close())
+
 	wg.Go(func() {
-		err := server.HandleReadWriter(t.Context(), 0, serverConn)
+		err := server.HandleReadWriter(t.Context(), 0, messageConn{strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`), serverConn})
 		require.ErrorIs(t, err, io.ErrClosedPipe)
 	})
-
-	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
-	require.NoError(t, clientConn.Close())
 }
 
 func TestRequest_MarshalLogObject(t *testing.T) {
@@ -810,12 +861,12 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 				Version: "2.0",
 				Method:  "starknet_getBlockWithTxs",
 				Params:  []any{"latest"},
-				ID:      1,
+				ID:      json.RawMessage("1"),
 			},
 			want: map[string]any{
 				"jsonrpc": "2.0",
 				"method":  "starknet_getBlockWithTxs",
-				"id":      1,
+				"id":      json.RawMessage("1"),
 				"params":  []any{"latest"},
 			},
 		},
@@ -833,12 +884,12 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 			req: &jsonrpc.Request{
 				Version: "2.0",
 				Method:  "ping",
-				ID:      "abc",
+				ID:      json.RawMessage(`"abc"`),
 			},
 			want: map[string]any{
 				"jsonrpc": "2.0",
 				"method":  "ping",
-				"id":      "abc",
+				"id":      json.RawMessage(`"abc"`),
 			},
 		},
 		"method with control chars is sanitised": {
@@ -867,11 +918,6 @@ func read(t *testing.T, c io.Reader, length int) string {
 	_, err := c.Read(got)
 	require.NoError(t, err)
 	return string(got)
-}
-
-func write(t *testing.T, c io.Writer, data string) {
-	_, err := c.Write([]byte(data))
-	require.NoError(t, err)
 }
 
 func TestBatchElementLimit(t *testing.T) {
