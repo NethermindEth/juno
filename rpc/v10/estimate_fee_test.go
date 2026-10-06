@@ -216,4 +216,54 @@ func TestEstimateMessageFee(t *testing.T) {
 		require.Nil(t, err)
 		assert.NotEmpty(t, feeEstimate)
 	})
+
+	t.Run("overall fee below the minimum is raised to the minimum", func(t *testing.T) {
+		mockState := mocks.NewMockStateReader(mockCtrl)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
+
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			gomock.Any(),
+			mockState,
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{felt.NewFromUint64[felt.Felt](42)},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{L1Gas: 1, L2Gas: 2, L1DataGas: 3}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+		}, nil)
+
+		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.Equal(t, rpccore.MinL1ToL2MessageFee, *got.OverallFee)
+		assert.Equal(t, uint64(1), got.L1GasConsumed.Uint64())
+	})
+
+	t.Run("overall fee above the minimum is unchanged", func(t *testing.T) {
+		mockState := mocks.NewMockStateReader(mockCtrl)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
+
+		want := felt.FromUint64[felt.Felt](60_000_000_000_000)
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			gomock.Any(),
+			mockState,
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{&want},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+		}, nil)
+
+		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.Equal(t, want, *got.OverallFee)
+	})
 }
