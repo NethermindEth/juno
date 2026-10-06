@@ -608,7 +608,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		"/rpc" + pathV08: jsonrpcServerV08,
 	}
 	var rpcGate *jsonrpc.Gate
-	if (cfg.HTTP || cfg.Websocket) && cfg.RPCMaxConcurrentRequests > 0 {
+	if (cfg.HTTP || cfg.Websocket || cfg.MCP) && cfg.RPCMaxConcurrentRequests > 0 {
 		rpcGate = jsonrpc.NewGate(cfg.RPCMaxConcurrentRequests, uint64(cfg.RPCMaxRequestQueue))
 		if cfg.Metrics {
 			makeRPCGateMetrics(rpcGate)
@@ -654,7 +654,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 	if cfg.MCP {
 		mcpServer := mcp.New(jsonrpcServerV10, version, logger).
-			WithRequestTimeout(cfg.RPCRequestTimeout)
+			WithRequestTimeout(cfg.RPCRequestTimeout).
+			WithGate(rpcGate)
 		services = append(
 			services,
 			makeMCP(cfg.MCPHost, cfg.MCPPort, mcpServer, cfg.RPCRequestTimeout),

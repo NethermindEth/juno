@@ -293,10 +293,10 @@ const (
 	dbCompressionUsage = "Database compression profile. Options: zstd, snappy, minlz. " +
 		"Use zstd for low storage."
 	rpcRequestTimeoutUsage        = "Maximum time for an RPC request to complete."
-	rpcMaxConcurrentRequestsUsage = "Maximum concurrent RPC requests, over HTTP and websocket " +
-		"together; 0 disables the limit."
-	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
-		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
+	rpcMaxConcurrentRequestsUsage = "Maximum concurrent RPC requests, over HTTP, websocket " +
+		"and MCP together; 0 disables the limit."
+	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests and MCP tool calls to queue " +
+		"after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +

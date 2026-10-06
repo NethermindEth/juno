@@ -29,6 +29,7 @@ type Server struct {
 	rpc            *jsonrpc.Server
 	logger         log.StructuredLogger
 	requestTimeout time.Duration
+	gate           *toolGate
 	handler        http.Handler
 }
 
@@ -115,6 +116,12 @@ func (s *Server) toolHandler(t *tool) mcpsdk.ToolHandler {
 func (s *Server) call(
 	ctx context.Context, method string, params map[string]json.RawMessage,
 ) *mcpsdk.CallToolResult {
+	release, rejected := s.admit(ctx)
+	if rejected != nil {
+		return rejected
+	}
+	defer release()
+
 	// A request without id is a notification, which gets no response.
 	request := jsonrpc.Request{Version: "2.0", Method: method, ID: 1}
 	if len(params) > 0 {

@@ -15,8 +15,8 @@
 | `rpc-max-batch-response-size` | `64` | Size (in MBs) at which a batch stops being processed. The calls answered so far are returned, the rest are not executed. 0 disables the limit |
 | `rpc-max-batch-size` | `1000` | Maximum number of calls in a single batch request. 0 disables the limit |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
-| `rpc-max-concurrent-requests` | `256000` | Maximum concurrent RPC requests, over HTTP and websocket together; 0 disables the limit |
-| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
+| `rpc-max-concurrent-requests` | `256000` | Maximum concurrent RPC requests, over HTTP, websocket and MCP together; 0 disables the limit |
+| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests and MCP tool calls to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC

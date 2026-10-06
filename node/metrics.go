@@ -112,7 +112,7 @@ func makeRPCGateMetrics(gate *jsonrpc.Gate) {
 		Namespace: "rpc",
 		Subsystem: subsystemHTTP,
 		Name:      "active_requests",
-		Help:      "Number of RPC requests currently being processed, over HTTP and websocket",
+		Help:      "Number of RPC requests currently being processed, over HTTP, websocket and MCP",
 	}, func() float64 {
 		return float64(gate.Running())
 	})
@@ -120,7 +120,7 @@ func makeRPCGateMetrics(gate *jsonrpc.Gate) {
 		Namespace: "rpc",
 		Subsystem: subsystemHTTP,
 		Name:      "queued_requests",
-		Help:      "Number of HTTP RPC requests waiting for a processing slot.",
+		Help:      "Number of HTTP RPC requests and MCP tool calls waiting for a processing slot.",
 	}, func() float64 {
 		return float64(gate.Queued())
 	})
