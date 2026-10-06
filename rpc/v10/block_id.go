@@ -34,6 +34,22 @@ func (s BlockStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+func (s *BlockStatus) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "PRE_CONFIRMED":
+		*s = BlockPreConfirmed
+	case "ACCEPTED_ON_L2":
+		*s = BlockAcceptedL2
+	case "ACCEPTED_ON_L1":
+		*s = BlockAcceptedL1
+	case "REJECTED":
+		*s = BlockRejected
+	default:
+		return fmt.Errorf("unknown block status %q", string(text))
+	}
+	return nil
+}
+
 type blockIDType uint8
 
 const (
@@ -135,6 +151,27 @@ func (b *BlockID) Number() uint64 {
 		panic(fmt.Sprintf("Trying to get number from block id with type %s", b.typeID.String()))
 	}
 	return b.data[0]
+}
+
+func (b BlockID) MarshalJSON() ([]byte, error) {
+	switch b.typeID {
+	case latest:
+		return json.Marshal("latest")
+	case preConfirmed:
+		return json.Marshal("pre_confirmed")
+	case l1Accepted:
+		return json.Marshal("l1_accepted")
+	case hash:
+		return json.Marshal(struct {
+			BlockHash *felt.Felt `json:"block_hash"`
+		}{BlockHash: &b.data})
+	case number:
+		return json.Marshal(struct {
+			BlockNumber uint64 `json:"block_number"`
+		}{BlockNumber: b.data[0]})
+	default:
+		return nil, fmt.Errorf("cannot marshal block id of type %d", b.typeID)
+	}
 }
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
