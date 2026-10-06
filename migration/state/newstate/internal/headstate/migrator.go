@@ -32,8 +32,7 @@ var _ migration.Migration = (*Migrator)(nil)
 //	          ▼
 //	Contract[addr] = { ClassHash, Nonce, DeployedHeight }
 //
-// StorageRoot is left zero — the running node lazily backfills it on the
-// contract's first storage write.
+// StorageRoot is left zero here and filled in by the trie phase.
 //
 // pendingContracts walks the buckets in lockstep; the records are batched and
 // written here. Once every address has been migrated, the three deprecated

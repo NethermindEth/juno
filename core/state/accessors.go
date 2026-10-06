@@ -53,10 +53,11 @@ func WriteContract(
 		ClassHash:      classHash,
 		DeployedHeight: deployHeight,
 	}
-	return writeContract(w, addr, &contract)
+	return WriteContractRecord(w, addr, &contract)
 }
 
-func writeContract(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
+// WriteContractRecord stores a whole contract record
+func WriteContractRecord(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
 	if err != nil {

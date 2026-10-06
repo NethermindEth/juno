@@ -69,6 +69,15 @@ var fixture = contractFixture{
 
 func seedDeprecated(t *testing.T, memDB db.KeyValueStore) {
 	t.Helper()
+	seedDeprecatedContract(t, memDB)
+	seedDeprecatedStorageTrie(t, memDB, fixture.addr, map[felt.Felt]felt.Felt{
+		fixture.slot: fixture.headSlotValue,
+	})
+}
+
+// seedDeprecatedContract omits the storage trie
+func seedDeprecatedContract(t *testing.T, memDB db.KeyValueStore) {
+	t.Helper()
 
 	require.NoError(t, deprecatedstate.WriteContractClassHash(
 		memDB, &fixture.addr, &fixture.headClassHash))
@@ -82,10 +91,6 @@ func seedDeprecated(t *testing.T, memDB db.KeyValueStore) {
 		memDB, &fixture.addr, &fixture.preNonce, nonceHeight))
 	require.NoError(t, deprecatedstate.WriteContractStorageHistory(
 		memDB, &fixture.addr, &fixture.slot, &fixture.preSlotValue, storeHeight))
-
-	seedDeprecatedStorageTrie(t, memDB, fixture.addr, map[felt.Felt]felt.Felt{
-		fixture.slot: fixture.headSlotValue,
-	})
 }
 
 func seedDeprecatedStorageTrie(
@@ -224,7 +229,7 @@ func TestMigrateOnEmptyDB(t *testing.T) {
 
 func TestBeforeResumesAtNamedPhase(t *testing.T) {
 	memDB := newDB(t)
-	seedDeprecated(t, memDB)
+	seedDeprecatedContract(t, memDB)
 
 	m := newstate.New()
 	require.NoError(t, m.Before([]byte{1}))
