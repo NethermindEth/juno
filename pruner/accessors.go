@@ -406,7 +406,7 @@ func (p *supersededPruner) prune(keyPrefix []byte) error {
 		return nil
 	}
 	key := p.it.Key()
-	if len(key) != len(keyPrefix)+8 || !bytes.HasPrefix(key, keyPrefix) {
+	if !bytes.HasPrefix(key, keyPrefix) {
 		return nil
 	}
 	return p.w.Delete(bytes.Clone(key))
