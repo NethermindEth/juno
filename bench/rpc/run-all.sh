@@ -8,7 +8,7 @@ usage: $0 <corpus(.json)> <node|url> [k6 flags...]
   <corpus>  config or its folder (all.json <-> all/)
   <node>    nodes/<node>.json name or URL; results -> <corpus>/<node>/
 Runs in config order when the config exists, else A-Z.
-Extra args pass to every k6 run.
+Extra args pass to every k6 run. OUT_DIR overrides the results folder.
 EOF
   exit 1
 }
@@ -24,7 +24,7 @@ resolve_node "$2"
 shift 2
 K6_ARGS=("$@")
 
-OUT_DIR="$CORPUS_DIR/$NODE_NAME"
+OUT_DIR=${OUT_DIR:-$CORPUS_DIR/$NODE_NAME}
 
 # Config order first (keys_unsorted keeps file order), then corpora the
 # config doesn't list, A-Z.
