@@ -45,10 +45,10 @@ const (
 	DefaultPreConfirmedPollInterval = 500 * time.Millisecond
 	// DefaultPreConfirmedStaleAfter is how long after a successful poll the pre-confirmed chain is
 	// served as is before a read triggers a new poll, unless overridden.
-	DefaultPreConfirmedStaleAfter = 100 * time.Millisecond
+	DefaultPreConfirmedStaleAfter = 500 * time.Millisecond
 	// DefaultPreConfirmedOnDemandWait is how long a read waits for the pre-confirmed poll it
 	// triggered before answering with the stored chain, unless overridden.
-	DefaultPreConfirmedOnDemandWait = time.Second
+	DefaultPreConfirmedOnDemandWait = 0 * time.Second
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
