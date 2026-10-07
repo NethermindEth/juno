@@ -159,8 +159,16 @@ func (m *Migrator) Migrate(
 		return state, nil
 	}
 
-	if err := m.setupBeforeRestorer(database, logger, oldestBlockKept); err != nil {
+	if err := m.setupBeforeRestorer(database, oldestBlockKept); err != nil {
 		return nil, fmt.Errorf("setting up before restorer: %w", err)
+	}
+
+	state, done, err = m.restoreNewState(ctx, database, logger, chainHeight)
+	if err != nil {
+		return nil, fmt.Errorf("restoring new-state history: %w", err)
+	}
+	if !done {
+		return state, nil
 	}
 
 	state, done, err = m.runRestorer(
@@ -213,7 +221,6 @@ func (m *Migrator) setupBeforeStager(
 // restorer doesn't re-wipe partial work.
 func (m *Migrator) setupBeforeRestorer(
 	database db.KeyValueStore,
-	logger log.StructuredLogger,
 	oldestBlockKept uint64,
 ) error {
 	if m.restorerProgress != 0 {
@@ -241,10 +248,26 @@ func (m *Migrator) setupBeforeRestorer(
 	if err := batch.Write(); err != nil {
 		return fmt.Errorf("writing batch: %w", err)
 	}
-	if m.newState {
-		return restoreNewStateHistory(database, logger)
-	}
 	return nil
+}
+
+// restoreNewState refills the new-state history wiped by setupBeforeRestorer,
+// under the same gate. done=false signals it was interrupted.
+func (m *Migrator) restoreNewState(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+	chainHeight uint64,
+) ([]byte, bool, error) {
+	if !m.newState || m.restorerProgress != 0 {
+		return nil, true, nil
+	}
+	done, err := restoreNewStateHistory(ctx, database, logger)
+	if err != nil || done {
+		return nil, done, err
+	}
+	logger.Info("New-state history restore interrupted")
+	return encodeIntermediateState(chainHeight+1, 0, m.oldestBlockKept), false, nil
 }
 
 // runStager stages the keeper-window history into the scratch namespace.

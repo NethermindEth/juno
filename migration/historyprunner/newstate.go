@@ -21,9 +21,6 @@ var newStateHistoryBuckets = []db.Bucket{
 	db.ContractClassHashHistory,
 }
 
-// ctxCheckInterval is how many entries the scans process between ctx checks.
-const ctxCheckInterval = 1 << 16
-
 // stageNewStateHistory copies to the scratch space every new-state history
 // entry a read at or above cutoff can reach: the entries above cutoff, plus
 // each key's latest entry at or below it, which answers reads until the key's
@@ -83,10 +80,8 @@ func stageBucket(
 		return err
 	}
 
-	var scanned int
 	for ok := it.First(); ok; ok = it.Next() {
-		scanned++
-		if scanned%ctxCheckInterval == 0 && ctx.Err() != nil {
+		if ctx.Err() != nil {
 			return false, nil
 		}
 
@@ -120,8 +115,11 @@ func stageBucket(
 }
 
 // restoreNewStateHistory moves staged new-state history back into its buckets.
-// Re-run safe: the scratch space is only wiped after the restorer completes.
-func restoreNewStateHistory(database db.KeyValueStore, logger log.StructuredLogger) error {
+func restoreNewStateHistory(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+) (bool, error) {
 	start := time.Now()
 	batch := database.NewBatchWithSize(int(batchByteSize))
 	defer func() { _ = batch.Close() }()
@@ -129,32 +127,35 @@ func restoreNewStateHistory(database db.KeyValueStore, logger log.StructuredLogg
 	for _, bucket := range newStateHistoryBuckets {
 		it, err := database.NewIterator([]byte{migrationScratchTag, byte(bucket)}, true)
 		if err != nil {
-			return err
+			return false, err
 		}
 		for ok := it.First(); ok; ok = it.Next() {
+			if ctx.Err() != nil {
+				return false, it.Close()
+			}
 			val, err := it.Value()
 			if err != nil {
-				return joinClose(err, it)
+				return false, joinClose(err, it)
 			}
 			if err := batch.Put(bytes.Clone(it.Key()[1:]), val); err != nil {
-				return joinClose(err, it)
+				return false, joinClose(err, it)
 			}
 			if batch.Size() >= targetBatchByteSize {
 				if err := batch.Write(); err != nil {
-					return joinClose(err, it)
+					return false, joinClose(err, it)
 				}
 				batch = database.NewBatchWithSize(int(batchByteSize))
 			}
 		}
 		if err := it.Close(); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if err := batch.Write(); err != nil {
-		return err
+		return false, err
 	}
 	logger.Info("Restored new-state history", zap.Duration("elapsed", time.Since(start)))
-	return nil
+	return true, nil
 }
 
 func wipeNewStateHistoryBuckets(batch db.Batch) error {
