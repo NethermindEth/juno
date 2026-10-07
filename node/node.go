@@ -27,6 +27,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/mcp"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
@@ -77,6 +78,9 @@ type Config struct {
 	GRPC                     bool             `mapstructure:"grpc"`
 	GRPCHost                 string           `mapstructure:"grpc-host"`
 	GRPCPort                 uint16           `mapstructure:"grpc-port"`
+	MCP                      bool             `mapstructure:"mcp"`
+	MCPHost                  string           `mapstructure:"mcp-host"`
+	MCPPort                  uint16           `mapstructure:"mcp-port"`
 	DatabasePath             string           `mapstructure:"db-path"`
 	Network                  networks.Network `mapstructure:"network"`
 	EthNode                  string           `mapstructure:"eth-node"`
@@ -646,6 +650,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.RPCRequestTimeout,
 				rpcGate,
 			),
+		)
+	}
+	if cfg.MCP {
+		mcpServer := mcp.New(jsonrpcServerV10, version, logger).
+			WithRequestTimeout(cfg.RPCRequestTimeout)
+		services = append(
+			services,
+			makeMCP(cfg.MCPHost, cfg.MCPPort, mcpServer, cfg.RPCRequestTimeout),
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {

@@ -67,6 +67,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMetricsPort := uint16(9090)
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
+	defaultMCPPort := uint16(6063)
 	defaultColour := true
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultPreConfirmedStaleAfter := 500 * time.Millisecond
@@ -113,6 +114,8 @@ func TestConfigPrecedence(t *testing.T) {
 		GRPC:                               defaultGRPC,
 		GRPCHost:                           defaultHost,
 		GRPCPort:                           defaultGRPCPort,
+		MCPHost:                            defaultHost,
+		MCPPort:                            defaultMCPPort,
 		Metrics:                            defaultMetrics,
 		MetricsHost:                        defaultHost,
 		MetricsPort:                        defaultMetricsPort,
@@ -172,6 +175,8 @@ func TestConfigPrecedence(t *testing.T) {
 		GRPC:                               defaultGRPC,
 		GRPCHost:                           defaultHost,
 		GRPCPort:                           defaultGRPCPort,
+		MCPHost:                            defaultHost,
+		MCPPort:                            defaultMCPPort,
 		Metrics:                            defaultMetrics,
 		MetricsHost:                        defaultHost,
 		MetricsPort:                        defaultMetricsPort,
@@ -330,6 +335,8 @@ pprof: true
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -390,6 +397,8 @@ http-port: 4576
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -449,6 +458,8 @@ http-port: 4576
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -508,6 +519,8 @@ http-port: 4576
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -566,6 +579,9 @@ metrics-port: 4576
 grpc: true
 grpc-host: 0.0.0.0
 grpc-port: 4576
+mcp: true
+mcp-host: 0.0.0.0
+mcp-port: 4576
 db-path: /home/config-file/.juno
 network: sepolia
 pprof: true
@@ -579,6 +595,7 @@ db-cache-size: 1024
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
+				"--mcp", "--mcp-port", "4577", "--mcp-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof",
 				"--preconfirmed-poll-interval", time.Millisecond.String(), "--db-cache-size", "9",
 				"--preconfirmed-stale-after", "10ms", "--preconfirmed-on-demand-wait", "20ms",
@@ -597,6 +614,9 @@ db-cache-size: 1024
 				GRPC:                               true,
 				GRPCHost:                           "127.0.0.1",
 				GRPCPort:                           4577,
+				MCP:                                true,
+				MCPHost:                            "127.0.0.1",
+				MCPPort:                            4577,
 				DatabasePath:                       "/home/flag/.juno",
 				Network:                            networks.Mainnet,
 				Pprof:                              true,
@@ -656,6 +676,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -714,6 +736,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -770,6 +794,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -827,6 +853,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -884,6 +912,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,
@@ -940,6 +970,8 @@ network: sepolia
 				GRPC:                               defaultGRPC,
 				GRPCHost:                           defaultHost,
 				GRPCPort:                           defaultGRPCPort,
+				MCPHost:                            defaultHost,
+				MCPPort:                            defaultMCPPort,
 				Metrics:                            defaultMetrics,
 				MetricsHost:                        defaultHost,
 				MetricsPort:                        defaultMetricsPort,

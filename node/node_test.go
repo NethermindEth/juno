@@ -28,6 +28,8 @@ func TestNewNode(t *testing.T) {
 		WebsocketPort: 0,
 		GRPC:          true,
 		GRPCPort:      0,
+		MCP:           true,
+		MCPPort:       0,
 		DatabasePath:  t.TempDir(),
 		DBCompression: "zstd",
 		// P2P will only work with Sepolia (for the time being)
