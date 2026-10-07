@@ -18,7 +18,7 @@ usage: $0 <node> <corpus> <plan.json> <trial> [profile...]
   <corpus>       expanded config or its folder, e.g. corpus/report.json
   <plan.json>    shared by all machines:
                    height       block height the node must report; null skips the check
-                   drop_caches  before each profile; needs root; default true
+                   drop_caches  before each profile; needs passwordless sudo; default true
                    k6_flags     k6 flags for every profile, before its own;
                                 e.g. "-e GZIP=1" for gzip responses
                    profiles     {"<profile>": "<k6 flags>"}, run in file order
@@ -71,8 +71,8 @@ load_plan() {
   fi
 
   DROP_CACHES=$(jq '.drop_caches != false' "$PLAN")
-  [[ $DROP_CACHES != true || -w /proc/sys/vm/drop_caches ]] ||
-    fail "drop_caches needs root; run as root or set \"drop_caches\": false in $PLAN"
+  [[ $DROP_CACHES != true ]] || sudo -n true 2>/dev/null ||
+    fail "drop_caches needs passwordless sudo; set \"drop_caches\": false in $PLAN to skip"
   K6_FLAGS=$(jq -er '.k6_flags // "" | strings' "$PLAN") || fail "$PLAN: k6_flags must be a string"
 }
 
@@ -120,7 +120,7 @@ drop_caches() {
   fi
   echo "==> dropping caches"
   sync
-  echo 3 >/proc/sys/vm/drop_caches
+  echo 3 | sudo -n tee /proc/sys/vm/drop_caches >/dev/null
 }
 
 block_number_response() {
