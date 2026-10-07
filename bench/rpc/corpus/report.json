@@ -85,7 +85,10 @@
   "getEvents-walletHistory": "getEvents --addresses 1 --keys 1,0,1 --window 81920 --count 50000",
 
   "traceBlockTransactions-blockNumber": "traceBlockTransactions --block-id number --block-start 1952705 --count 50000",
+  "traceBlockTransactions-blockHash": "traceBlockTransactions --block-id hash --block-start 1952705 --count 50000",
   "traceBlockTransactions-latest": "traceBlockTransactions --block-id latest --count 1000",
+  "traceBlockTransactions-blockNumber-initialReads": "traceBlockTransactions --block-id number --return-initial-reads --block-start 1952705 --count 50000",
   "traceBlockTransactions-blockHash-initialReads": "traceBlockTransactions --block-id hash --return-initial-reads --block-start 1952705 --count 50000",
+  "traceBlockTransactions-latest-initialReads": "traceBlockTransactions --block-id latest --return-initial-reads --count 1000",
   "traceTransaction": "traceTransaction --block-start 1952705 --count 50000"
 }
