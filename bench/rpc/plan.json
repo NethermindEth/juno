@@ -1,9 +1,10 @@
 {
-  "height": 15787915,
+  "height": 15908814,
   "drop_caches": true,
   "profiles": {
-    "low": "--vus 1 --duration 10s",
-    "medium": "--vus 100 --duration 30s",
+    "sequential": "--vus 1 --duration 10s",
+    "low": "--vus 50 --duration 10s",
+    "medium": "--vus 200 --duration 30s",
     "high": "--vus 500 --duration 30s"
   }
 }
