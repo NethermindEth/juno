@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// goldenEncoding checks exact stored bytes without relying on a matching decoder.
-func goldenEncoding(
+// assertEncodesToGolden checks exact stored bytes without relying on a matching decoder.
+func assertEncodesToGolden(
 	t *testing.T,
 	marshal func(any) ([]byte, error),
 	cases []goldenCase,
@@ -29,8 +29,8 @@ func goldenEncoding(
 	}
 }
 
-// goldenDecoding reads fixed bytes without calling an encoder.
-func goldenDecoding(
+// assertDecodesFromGolden checks decoding fixed bytes without calling an encoder.
+func assertDecodesFromGolden(
 	t *testing.T,
 	unmarshal func([]byte, any) error,
 	cases []goldenCase,

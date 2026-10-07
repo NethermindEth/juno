@@ -10,10 +10,10 @@ import (
 func TestFxamackerGoldenBytes(t *testing.T) {
 	cases := goldenCases()
 	t.Run("encoding", func(t *testing.T) {
-		goldenEncoding(t, fxamacker.Marshal, cases)
+		assertEncodesToGolden(t, fxamacker.Marshal, cases)
 	})
 	t.Run("decoding", func(t *testing.T) {
-		goldenDecoding(t, fxamacker.Unmarshal, cases)
+		assertDecodesFromGolden(t, fxamacker.Unmarshal, cases)
 	})
 	require.Equal(t, len(cases), len(goldenBytes(t)), "a case lost its vector")
 }
