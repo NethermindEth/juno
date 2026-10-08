@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/migration"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -255,7 +254,6 @@ func populatedHeader() core.Header {
 		EventCount:       7,
 		Timestamp:        8,
 		ProtocolVersion:  "0.13.2",
-		EventsBloom:      bloom.New(64, 3),
 		L1GasPriceETH:    felt.NewFromUint64[felt.Felt](9),
 		Signatures: [][]*felt.Felt{{
 			felt.NewFromUint64[felt.Felt](10),
