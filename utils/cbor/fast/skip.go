@@ -17,6 +17,13 @@ func (r *Reader) Skip() error {
 
 // skip takes the number of arrays, maps and chained tags already open around the item.
 func (r *Reader) skip(depth int) error {
+	// A felt is the bulk of what a record holds, and its shape needs no head decoding.
+	if buf := r.buf[r.pos:]; len(buf) >= feltLen && buf[0] == feltHead &&
+		buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+		r.pos += feltLen
+		return nil
+	}
+
 	head := byte(0)
 	if r.pos < len(r.buf) {
 		head = r.buf[r.pos]
