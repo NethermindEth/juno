@@ -15,6 +15,7 @@ import (
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -52,7 +53,7 @@ func TestPlugin(t *testing.T) {
 		dataSource,
 		integGw,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 	).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -90,7 +91,7 @@ func TestPlugin(t *testing.T) {
 			dataSource,
 			mainGw,
 			log.NewNopZapLogger(),
-			sync.WithPreConfirmedPollInterval(0),
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))

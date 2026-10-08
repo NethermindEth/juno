@@ -225,14 +225,14 @@ function parseValue(value) {
   if (value === "vm.DefaultMaxSteps") return 4_000_000;
   if (value === "vm.DefaultMaxGas") return 100_000_000;
 
-  // sync/sync.go: const DefaultPreConfirmedPollInterval = 500 * time.Millisecond
-  if (value === "sync.DefaultPreConfirmedPollInterval") return "500ms";
+  // sync/preconfirmed/option.go: const DefaultPollInterval = 500 * time.Millisecond
+  if (value === "preconfirmed.DefaultPollInterval") return "500ms";
 
-  // sync/sync.go: const DefaultPreConfirmedStaleAfter = 500 * time.Millisecond
-  if (value === "sync.DefaultPreConfirmedStaleAfter") return "500ms";
+  // sync/preconfirmed/option.go: const DefaultStaleAfter = 500 * time.Millisecond
+  if (value === "preconfirmed.DefaultStaleAfter") return "500ms";
 
-  // sync/sync.go: const DefaultPreConfirmedOnDemandWait = 0 * time.Second
-  if (value === "sync.DefaultPreConfirmedOnDemandWait") return "0s";
+  // sync/preconfirmed/option.go: const DefaultOnDemandWait = 0 * time.Second
+  if (value === "preconfirmed.DefaultOnDemandWait") return "0s";
 
   // Strip uint64(...) / uint(...) type casts so e.g. `uint64(0)` becomes `0`.
   const uintCast = value.match(/^uint(?:8|16|32|64)?\((.+)\)$/);

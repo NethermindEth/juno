@@ -40,17 +40,6 @@ const (
 	OpReorgCheckLocal  = "reorgCheckLocal"
 )
 
-const (
-	// DefaultPreConfirmedPollInterval is how often the pre-confirmed poller ticks unless overridden.
-	DefaultPreConfirmedPollInterval = 500 * time.Millisecond
-	// DefaultPreConfirmedStaleAfter is how long after a successful poll the pre-confirmed chain is
-	// served as is before a read triggers a new poll, unless overridden.
-	DefaultPreConfirmedStaleAfter = 500 * time.Millisecond
-	// DefaultPreConfirmedOnDemandWait is how long a read waits for the pre-confirmed poll it
-	// triggered before answering with the stored chain, unless overridden.
-	DefaultPreConfirmedOnDemandWait = 0 * time.Second
-)
-
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
 type NewHeadSubscription struct {
 	*feed.Subscription[*core.Block]
@@ -117,36 +106,17 @@ func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error)
 
 // options carries the optional Synchronizer settings; see [Option].
 type options struct {
-	preConfirmedPollInterval time.Duration
-	preConfirmedStaleAfter   time.Duration
-	preConfirmedOnDemandWait time.Duration
-	preConfirmedListener     preconfirmed.EventListener
-	readOnlyBlockchain       bool
+	preConfirmed       []preconfirmed.Option
+	readOnlyBlockchain bool
 }
 
 // Option is a functional option for configuring a Synchronizer.
 type Option func(*options)
 
-// WithPreConfirmedPollInterval overrides [DefaultPreConfirmedPollInterval]; zero disables polling.
-func WithPreConfirmedPollInterval(interval time.Duration) Option {
-	return func(o *options) { o.preConfirmedPollInterval = interval }
-}
-
-// WithPreConfirmedStaleAfter overrides [DefaultPreConfirmedStaleAfter]; zero makes every read
-// poll.
-func WithPreConfirmedStaleAfter(staleAfter time.Duration) Option {
-	return func(o *options) { o.preConfirmedStaleAfter = staleAfter }
-}
-
-// WithPreConfirmedOnDemandWait overrides [DefaultPreConfirmedOnDemandWait]; zero makes reads
-// never wait.
-func WithPreConfirmedOnDemandWait(onDemandWait time.Duration) Option {
-	return func(o *options) { o.preConfirmedOnDemandWait = onDemandWait }
-}
-
-// WithPreConfirmedListener sets the listener the pre-confirmed poller reports its polls to.
-func WithPreConfirmedListener(listener preconfirmed.EventListener) Option {
-	return func(o *options) { o.preConfirmedListener = listener }
+// WithPreConfirmed configures the pre-confirmed poller; see [preconfirmed.Option]. Repeated
+// calls accumulate, with later options winning over earlier ones.
+func WithPreConfirmed(opts ...preconfirmed.Option) Option {
+	return func(o *options) { o.preConfirmed = append(o.preConfirmed, opts...) }
 }
 
 // WithReadOnlyBlockchain stops the synchronizer from writing to the blockchain.
@@ -183,12 +153,7 @@ func New(
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Synchronizer {
-	cfg := options{
-		preConfirmedPollInterval: DefaultPreConfirmedPollInterval,
-		preConfirmedStaleAfter:   DefaultPreConfirmedStaleAfter,
-		preConfirmedOnDemandWait: DefaultPreConfirmedOnDemandWait,
-		preConfirmedListener:     &preconfirmed.SelectiveListener{},
-	}
+	cfg := options{}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -208,11 +173,8 @@ func New(
 		preConfirmedSource,
 		blockchain,
 		&s.highestBlockHeader,
-		cfg.preConfirmedPollInterval,
-		cfg.preConfirmedStaleAfter,
-		cfg.preConfirmedOnDemandWait,
-		cfg.preConfirmedListener,
 		s.logger,
+		cfg.preConfirmed...,
 	)
 
 	// todo(rdr): do something about shared `highestBlockHeader`

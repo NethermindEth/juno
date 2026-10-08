@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 )
@@ -165,7 +166,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 				dataSource,
 				feederClient,
 				logger,
-				sync.WithPreConfirmedPollInterval(0),
+				sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 			).WithListener(&sync.SelectiveListener{
 				OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
 					// Stop the syncer after we successfully stored block.

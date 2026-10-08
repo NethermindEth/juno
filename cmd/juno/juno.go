@@ -19,7 +19,7 @@ import (
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
@@ -138,9 +138,9 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPreConfirmedPollInterval           = sync.DefaultPreConfirmedPollInterval
-	defaultPreConfirmedStaleAfter             = sync.DefaultPreConfirmedStaleAfter
-	defaultPreConfirmedOnDemandWait           = sync.DefaultPreConfirmedOnDemandWait
+	defaultPreConfirmedPollInterval           = preconfirmed.DefaultPollInterval
+	defaultPreConfirmedStaleAfter             = preconfirmed.DefaultStaleAfter
+	defaultPreConfirmedOnDemandWait           = preconfirmed.DefaultOnDemandWait
 	defaultDisableSync                        = false
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
