@@ -62,6 +62,10 @@ func TestDecodeBloomMatchesTheBloomPackage(t *testing.T) {
 	}
 	oneWord := bloom.New(64, 1)
 	oneWord.Add([]byte("a"))
+	elevenWords := bloom.New(11*64, 3) // a round of eight words and three more
+	for i := range 40 {
+		elevenWords.Add(fmt.Appendf(nil, "event %d", i))
+	}
 	odd := bloom.New(100, 3) // 100 bits, not a whole number of words
 	odd.Add([]byte("a"))
 
@@ -69,6 +73,7 @@ func TestDecodeBloomMatchesTheBloomPackage(t *testing.T) {
 		"events":              bloomBytes(t, full),
 		"empty events":        bloomBytes(t, bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)),
 		"one word":            bloomBytes(t, oneWord),
+		"eleven words":        bloomBytes(t, elevenWords),
 		"odd bit count":       bloomBytes(t, odd),
 		"no bits":             bloomBytes(t, bloom.New(0, 0)),
 		"zero m and k":        rawBloom(0, 0, 0),
