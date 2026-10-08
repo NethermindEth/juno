@@ -1,28 +1,28 @@
 ---
-title: Full Control Over Pre-confirmed Polling 
+title: Full Control Over Pre-confirmed Polling
 description: "How Juno fetches the pre_confirmed block, what its three polling options trade off, and which values to set for your workload."
 ---
 
 # Pre-confirmed block polling
 
 :::info
-Pre-confirmed blocks are blocks that the Sequencers are proposing and that will soon be finalized and added to the L2 chain. They can be queried via RPC using the `pre_confirmed` block tag.
+Pre-confirmed blocks are blocks that the sequencers are proposing and that will soon be finalized and added to the L2 chain. They can be queried via RPC using the `pre_confirmed` block tag.
 :::
 
-Juno unlocks the possibility to its users to decide to minimze response latency or data staleness (how old the data is) when they query for a pre-confirmed block by exposing these three flags:
+Juno unlocks the possibility for its users to decide whether to minimize response latency or data staleness (how old the data is) when they query for a pre-confirmed block by exposing these three flags:
 - `--preconfirmed-poll-interval` sets how frequently Juno polls for the pre-confirmed data.
-- `--preconfirmed-stale-after` sets after how many time polled data is considered old.
-- `--preconfirmed-on-demand-wait` sets how long should requests for pre-confirmed data wait for a response.
+- `--preconfirmed-stale-after` sets after how much time polled data is considered old.
+- `--preconfirmed-on-demand-wait` sets how long a request that triggers a poll waits for it before answering with the stored data.
 
-The goal with these flags is to shape how pre-confirmed polls behave by either when receiving a preconfirmed request answer directly with what's on memory, minimizing latency but risking answering stale data, or on the contrary, forwarding the request to the sequencer, maximizing data freshness at the cost of one extra roundtrip between Juno and the sequencer.
+The goal with these flags is to shape how pre-confirmed polls behave when receiving a pre-confirmed request, by either answering directly with what's in memory, minimizing latency but risking answering with stale data, or, on the contrary, polling the sequencer first and waiting for the answer, maximizing data freshness at the cost of one extra round trip between Juno and the sequencer.
 
-## Suggested presets 
+## Suggested presets
 
-Depending on the node use case, the following are flag settings the team recommend that find a good balance between latency and data staleness. 
+Depending on the node's use case, the following flag settings strike a good balance between latency and data staleness.
 
-### Default (for App Developers, Stakers and Explorers )
+### Default (for App Developers, Stakers and Explorers)
 
-The default preset works well for indidivual users who have their private Juno node and wish to minimize unnecessary requests to the Sequencer and risk getting rate limited for a while, effectively slowing the node syncing while at the same time striking a fine balance between fast responses and updated data.
+The default preset works well for individual users who have their private Juno node and wish to minimize unnecessary requests to the sequencer, which risk getting the node rate limited for a while and effectively slowing its syncing, while at the same time striking a fine balance between fast responses and updated data.
 
 - `--preconfirmed-poll-interval 1s`
 - `--preconfirmed-stale-after 250ms`
@@ -30,8 +30,7 @@ The default preset works well for indidivual users who have their private Juno n
 
 ### RPC Providers
 
-RPC providers nodes are expected to be constantly hit with pre-confirmed requests and because nodes
-are shared with a lot of users, triggering a request on demand but not waiting for it is ok, because data staleness should be small, and next requests will benefit from this on-demand.
+RPC provider nodes are expected to be constantly hit with pre-confirmed requests, and because nodes are shared with a lot of users, triggering a request on demand but not waiting for it is OK, because data staleness should be small, and the next requests will benefit from this on-demand poll.
 
 - `--preconfirmed-poll-interval 500ms`
 - `--preconfirmed-stale-after 250ms`
@@ -39,16 +38,16 @@ are shared with a lot of users, triggering a request on demand but not waiting f
 
 ### Bots and MEV
 
-For users looking to maximize freshness data at the cost of some initial latency, they will benefit from waiting longer periods of time, to guarantee always getting the most recent data.
+Users looking to maximize data freshness at the cost of some initial latency will benefit from waiting longer for the poll, to get the most recent data on nearly every read.
 
 - `--preconfirmed-poll-interval 500ms`
 - `--preconfirmed-stale-after 250ms`
 - `--preconfirmed-on-demand-wait 1s`
 
-## Study on the effect of this flags 
+## Study on the effect of these flags
 
 :::info
-The following is an optional section to explain how the previous default values were achieved and how they actually impact the node behaviour. For the curious and for the ones looking to fine-tune this flags to their unique conditions and use case.
+The following optional section shows how each of these options affects the node's behaviour and how the default values above were chosen, for the curious and for those looking to fine-tune the flags to their own conditions and use case.
 :::
 
 ### The setup
