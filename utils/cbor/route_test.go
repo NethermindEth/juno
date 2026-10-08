@@ -1,6 +1,9 @@
 package cbor_test
 
 import (
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/utils/cbor"
@@ -206,6 +209,39 @@ func TestUnroutedTypesGoToFxamacker(t *testing.T) {
 
 	// A pair by value is not a destination a route takes.
 	require.Error(t, cbor.Unmarshal(data, pair{}))
+}
+
+// Decodes running at once share the pool of Readers, so each must see only its own input.
+func TestRouteDecodesConcurrently(t *testing.T) {
+	const workers, rounds = 8, 200
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	for w := range workers {
+		wg.Go(func() {
+			want := pair{X: uint64(w), Name: strings.Repeat("n", w)}
+			data, err := cbor.Marshal(&want)
+			if err != nil {
+				errs <- err
+				return
+			}
+			for range rounds {
+				var got pair
+				if err := cbor.Unmarshal(data, &got); err != nil {
+					errs <- err
+					return
+				}
+				if got.X != want.X || got.Name != want.Name {
+					errs <- fmt.Errorf("worker %d decoded %+v", w, got)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
 }
 
 func BenchmarkRoute(b *testing.B) {
