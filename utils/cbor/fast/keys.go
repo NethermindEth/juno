@@ -2,6 +2,7 @@ package fast
 
 import (
 	"cmp"
+	"encoding/binary"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -30,9 +31,24 @@ type Fields struct {
 	folded map[string]int
 }
 
+// keyWords is how many 8 byte words of a key are compared as words.
+const keyWords = 3
+
 type fieldKey struct {
-	encoded string
-	field   int
+	// words holds the first bytes of encoded, little-endian and padded with zeros, and masks
+	// selects the bytes that belong to it.
+	words, masks [keyWords]uint64
+	encoded      string
+	field        int
+}
+
+func newFieldKey(encoded string, field int) fieldKey {
+	out := fieldKey{encoded: encoded, field: field}
+	for i := 0; i < len(encoded) && i < keyWords*8; i++ {
+		out.words[i/8] |= uint64(encoded[i]) << (i % 8 * 8)
+		out.masks[i/8] |= 0xff << (i % 8 * 8)
+	}
+	return out
 }
 
 // NewFields returns the Fields of a struct whose field number i has the wire name names[i].
@@ -66,7 +82,7 @@ func NewFields(names ...string) *Fields {
 			panic("fast: field names repeat ignoring case: " + name)
 		}
 		out.folded[lower] = i
-		out.order[i] = fieldKey{encoded: head + name, field: i}
+		out.order[i] = newFieldKey(head+name, i)
 	}
 	slices.SortFunc(out.order, func(a, b fieldKey) int {
 		return cmp.Or(cmp.Compare(len(a.encoded), len(b.encoded)), strings.Compare(a.encoded, b.encoded))
@@ -126,7 +142,30 @@ func (r *Reader) NextField(s *Struct) (int, error) {
 	}
 	s.left--
 	buf := r.buf[r.pos:]
-	if len(buf) > 0 {
+	if len(buf) >= keyWords*8 {
+		// Compare a word at a time; the bytes past a short key are masked off.
+		w0 := binary.LittleEndian.Uint64(buf)
+		w1 := binary.LittleEndian.Uint64(buf[8:])
+		w2 := binary.LittleEndian.Uint64(buf[16:])
+		head := byte(w0)
+		order := s.fields.order
+		for i := s.next; i < len(order); i++ {
+			key := &order[i]
+			if keyHead := byte(key.words[0]); keyHead != head {
+				if keyHead > head {
+					break // every key from here on sorts after this one
+				}
+				continue
+			}
+			if (w0^key.words[0])&key.masks[0]|(w1^key.words[1])&key.masks[1]|(w2^key.words[2])&key.masks[2] == 0 &&
+				(len(key.encoded) <= keyWords*8 ||
+					len(buf) >= len(key.encoded) && string(buf[keyWords*8:len(key.encoded)]) == key.encoded[keyWords*8:]) {
+				r.pos += len(key.encoded)
+				s.next = i + 1
+				return s.mark(key.field)
+			}
+		}
+	} else if len(buf) > 0 {
 		head := buf[0]
 		order := s.fields.order
 		for i := s.next; i < len(order); i++ {
