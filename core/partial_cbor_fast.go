@@ -46,13 +46,14 @@ func walkFields(r *fast.Reader, fields []string, read func(field int) error) err
 		return err
 	}
 	var seen uint64
+	all := uint64(1)<<len(fields) - 1
 	for ; count > 0; count-- {
 		key, isText, err := r.Key()
 		if err != nil {
 			return err
 		}
 		field := -1
-		if isText {
+		if isText && seen != all { // once every field is read, the rest only needs skipping
 			field = fieldIndex(fields, key)
 		}
 		if field < 0 || seen&(1<<field) != 0 {
