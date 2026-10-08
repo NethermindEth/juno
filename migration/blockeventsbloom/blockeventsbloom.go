@@ -166,11 +166,12 @@ func stripHeaders(
 }
 
 // commitBatches writes each queued batch in order until the queue closes. After a failure
-// it keeps draining so the walk never blocks, and returns the first error.
+// it keeps draining and closing batches so the walk never blocks, and returns the first error.
 func commitBatches(logger log.StructuredLogger, commitQueue <-chan db.Batch) error {
 	var firstErr error
 	for batch := range commitQueue {
 		if firstErr != nil {
+			firstErr = errors.Join(firstErr, batch.Close())
 			continue
 		}
 		logger.Debug("Writing batch", zap.Int("batchSize", batch.Size()))
