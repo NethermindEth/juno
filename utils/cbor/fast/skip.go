@@ -82,6 +82,11 @@ func (r *Reader) skipElements(count, limit uint64, perCount int, depth int) erro
 		return ErrTruncated
 	}
 	for n := count * uint64(perCount); n > 0; n-- {
+		if buf := r.buf[r.pos:]; len(buf) >= feltLen && buf[0] == feltHead &&
+			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+			r.pos += feltLen
+			continue
+		}
 		if err := r.skip(depth); err != nil {
 			return err
 		}
