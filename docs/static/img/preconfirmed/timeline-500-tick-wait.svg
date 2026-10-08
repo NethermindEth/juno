@@ -39,19 +39,20 @@
 <rect x="138.9" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
 <rect x="284.4" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
 <rect x="415.3" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="595.6" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="741.1" y="230" width="2.9" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="546.2" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="726.5" y="230" width="17.5" height="40" fill="#2a78d6" opacity="0.10"/>
 <rect x="104.0" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
 <text x="104.0" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
 <rect x="249.5" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
 <text x="249.5" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
 <rect x="380.4" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
 <text x="380.4" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
-<rect x="560.7" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="560.7" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
-<rect x="706.2" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="706.2" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
-<path d="M389.9,194.0 L399.9,194.0 L394.9,184.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<rect x="511.3" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
+<text x="511.3" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
+<rect x="691.6" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
+<text x="691.6" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
+<path d="M389.9,174.0 L399.9,174.0 L394.9,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M555.7,174.0 L565.7,174.0 L560.7,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
 <line x1="104" y1="384.0" x2="744" y2="384.0" stroke="#e1e0d9" stroke-width="1"/>
 <text x="96.0" y="388.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
 <line x1="104" y1="352.0" x2="744" y2="352.0" stroke="#e1e0d9" stroke-width="1"/>
@@ -61,8 +62,8 @@
 <line x1="104" y1="288.0" x2="744" y2="288.0" stroke="#e1e0d9" stroke-width="1"/>
 <text x="96.0" y="292.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">900</text>
 <text x="110.0" y="301.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">age of the stored data (ms)</text>
-<path d="M138.9,371.2 L284.4,317.9 L284.4,371.2 L415.3,323.2 L415.3,371.2 L595.6,305.1 L595.6,371.2 L741.1,317.9 L741.1,371.2 L744.0,370.1 L744.0,384.0 L138.9,384.0 Z" fill="#4a3aa7" opacity="0.10"/>
-<path d="M138.9,371.2 L284.4,317.9 L284.4,371.2 L415.3,323.2 L415.3,371.2 L595.6,305.1 L595.6,371.2 L741.1,317.9 L741.1,371.2 L744.0,370.1" fill="none" stroke="#4a3aa7" stroke-width="2" stroke-linejoin="round"/>
+<path d="M138.9,371.2 L284.4,317.9 L284.4,371.2 L415.3,323.2 L415.3,371.2 L546.2,323.2 L546.2,371.2 L726.5,305.1 L726.5,371.2 L744.0,364.8 L744.0,384.0 L138.9,384.0 Z" fill="#4a3aa7" opacity="0.10"/>
+<path d="M138.9,371.2 L284.4,317.9 L284.4,371.2 L415.3,323.2 L415.3,371.2 L546.2,323.2 L546.2,371.2 L726.5,305.1 L726.5,371.2 L744.0,364.8" fill="none" stroke="#4a3aa7" stroke-width="2" stroke-linejoin="round"/>
 <line x1="191.3" y1="269" x2="191.3" y2="347.0" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
 <circle cx="191.3" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
 <text x="191.3" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">A</text>
@@ -80,11 +81,13 @@
 <text x="453.1" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">C</text>
 <circle cx="453.1" cy="357.3" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
 <text x="459.1" y="371.3" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">250 ms</text>
-<line x1="627.6" y1="269" x2="627.6" y2="354.5" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="627.6" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="627.6" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">D</text>
-<circle cx="627.6" cy="359.5" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="633.6" y="373.5" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">230 ms</text>
+<rect x="511.3" y="241" width="34.9" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
+<line x1="511.3" y1="236" x2="511.3" y2="252" stroke="#eb6834" stroke-width="2"/>
+<line x1="546.2" y1="269" x2="546.2" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="546.2" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="546.2" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">C</text>
+<circle cx="546.2" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="552.2" y="385.2" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">120 ms</text>
 <line x1="104" y1="398" x2="744" y2="398" stroke="#c3c2b7" stroke-width="1"/>
 <line x1="104.0" y1="398" x2="104.0" y2="403" stroke="#c3c2b7" stroke-width="1"/>
 <text x="104.0" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0 ms</text>
@@ -96,8 +99,9 @@
 <text x="540.4" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1500</text>
 <line x1="685.8" y1="398" x2="685.8" y2="403" stroke="#c3c2b7" stroke-width="1"/>
 <text x="685.8" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
-<text x="394.9" y="167.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">tick moved to 1570</text>
-<text x="380.4" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">stale: waits 120 ms</text>
+<text x="405.1" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick moved to 1570</text>
+<text x="380.4" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">waits 120 ms</text>
+<text x="511.3" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">waits 120 ms</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">About half of the sparse reads find data under 250 ms old and answer at once; the rest wait.</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Gateway cost when idle is the previous default's (the tick fires twice as often as with 1 s).</text>
 <text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: 2.4 gateway requests/s idle; sparse reads 92% caught up, p50 0.7 ms, p99 234 ms.</text>

@@ -133,7 +133,7 @@
 <text x="710.0" y="259.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">248</text>
 <text x="710.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
 <text x="665.0" y="365.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">wait (ms)</text>
-<text x="16.0" y="248.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read latency</text>
-<text x="16.0" y="262.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">p99 (ms)</text>
-<text x="16.0" y="380.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, 2026-10-07. The wait changes what a read gets, not the gateway cost (equal for all four). Bold: the new default.</text>
+<text x="16.0" y="270.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read latency</text>
+<text x="16.0" y="284.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">p99 (ms)</text>
+<text x="16.0" y="380.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, 2026-10-07. The wait changes what a read gets, not the gateway cost (within 10%). Bold: the new default.</text>
 </svg>

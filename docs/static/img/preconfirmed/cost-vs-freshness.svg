@@ -58,7 +58,7 @@
 <text x="255.5" y="238.5" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/100/0</text>
 <text x="289.0" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/0</text>
 <text x="298.4" y="149.8" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/150</text>
-<text x="294.1" y="116.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/300 (new default): cheapest and freshest</text>
+<text x="294.1" y="116.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/300 (new default)</text>
 <text x="269.2" y="126.7" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/250/1000</text>
 <text x="595.7" y="169.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/500/0 (previous default)</text>
 <text x="583.1" y="148.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/0/0</text>

@@ -66,7 +66,7 @@
 <circle cx="307.6" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
 <text x="307.6" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">B</text>
 <circle cx="307.6" cy="362.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="301.6" y="357.7" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">200 ms</text>
+<text x="313.6" y="376.7" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">200 ms</text>
 <line x1="525.8" y1="269" x2="525.8" y2="331.0" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
 <circle cx="525.8" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
 <text x="525.8" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">C</text>
@@ -91,5 +91,5 @@
 <text x="653.8" y="224.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">gateway on D since 1550; the read still gets C</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Stale-after equals the tick: the stored data always counts as fresh, so reads never trigger a poll.</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Data age at a read: from one round trip (120 ms) up to the tick plus a round trip (620 ms).</text>
-<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: 2.5 gateway requests/s at any load; 76% of sparse reads caught up; read latency under 1 ms.</text>
+<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: 2.5 gateway requests/s at any load; 76% of sparse reads caught up; read latency p50 0.7 ms.</text>
 </svg>

@@ -48,8 +48,8 @@
 <text x="482.2" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
 <rect x="613.1" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
 <text x="613.1" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
-<path d="M389.9,194.0 L399.9,194.0 L394.9,184.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
-<path d="M599.4,194.0 L609.4,194.0 L604.4,184.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M389.9,174.0 L399.9,174.0 L394.9,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M599.4,174.0 L609.4,174.0 L604.4,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
 <line x1="104" y1="384.0" x2="744" y2="384.0" stroke="#e1e0d9" stroke-width="1"/>
 <text x="96.0" y="388.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
 <line x1="104" y1="352.0" x2="744" y2="352.0" stroke="#e1e0d9" stroke-width="1"/>
@@ -103,11 +103,11 @@
 <text x="540.4" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1500</text>
 <line x1="685.8" y1="398" x2="685.8" y2="403" stroke="#c3c2b7" stroke-width="1"/>
 <text x="685.8" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
-<text x="394.9" y="167.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">tick moved to 1720</text>
+<text x="405.1" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick moved to 1720</text>
 <text x="278.5" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">waits 120 ms</text>
 <text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">x4: one shared poll, all wait</text>
 <text x="671.3" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">no wait</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Reads within 250 ms of a completed poll (shaded) answer at once; the others wait one round trip.</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: sparse reads 100% caught up, p50 121 ms, p99 246 ms; bursts 85% caught up, p50 119 ms.</text>
-<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">At 20 reads/s: nine reads in ten answer in under 1 ms (p50 0.8 ms, p99 242 ms), 95% caught up.</text>
+<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">At 20 reads/s: half of the reads answer in under 1 ms, a quarter wait over 100 ms (p99 242 ms); 95% caught up.</text>
 </svg>
