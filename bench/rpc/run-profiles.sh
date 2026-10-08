@@ -12,20 +12,23 @@ usage: $0 <node> <corpus> <plan.json> <trial> [profile...]
                  win; see nodes/node.local.json.example):
                    url         JSON-RPC endpoint
                    snapshot    pristine DB directory, copied fresh for each profile
+                               unless the plan sets restore to false
                    workspaces  each profile's workspace -> <workspaces>/<corpus>/<profile>/<trial>/
                    bin         node binary; nodes/<node>.sh gets it as NODE_BIN and
-                               the profile's DB copy as NODE_DB
+                               the profile's DB as NODE_DB
   <corpus>       expanded config or its folder, e.g. corpus/report.json
   <plan.json>    shared by all machines:
                    height       block height the node must report; null skips the check
                    drop_caches  before each profile; needs passwordless sudo; default true
+                   restore      copy the snapshot for each profile; false runs the node
+                                on the snapshot itself, which it may modify; default true
                    k6_flags     k6 flags for every profile, before its own;
                                 e.g. "-e GZIP=1" for gzip responses
                    profiles     {"<profile>": "<k6 flags>"}, run in file order
   <trial>        name, e.g. 1
   [profile...]   profiles to run; default: all
-A workspace must not exist; it gets db/ (removed after the run), node.log
-and the run-all.sh results.
+A workspace must not exist; it gets db/ (only with restore; removed after
+the run), node.log and the run-all.sh results.
 EOF
   exit 1
 }
@@ -61,6 +64,14 @@ load_corpus() {
   CORPUS_NAME=$(basename "${CORPUS%/}" .json)
 }
 
+# jq's // treats false as missing, and -e fails on a false output: hence the
+# explicit null check and tostring.
+plan_bool() {
+  jq -er --arg key "$1" --argjson default "$2" \
+    'if .[$key] == null then $default else .[$key] end | booleans | tostring' "$PLAN" ||
+    fail "$PLAN: $1 must be true or false"
+}
+
 load_plan() {
   PLAN=$1
   [[ -f $PLAN ]] || fail "$PLAN not found"
@@ -70,7 +81,8 @@ load_plan() {
     fail "$PLAN: height must be a block number or null"
   fi
 
-  DROP_CACHES=$(jq '.drop_caches != false' "$PLAN")
+  RESTORE=$(plan_bool restore true)
+  DROP_CACHES=$(plan_bool drop_caches true)
   [[ $DROP_CACHES != true ]] || sudo -n true 2>/dev/null ||
     fail "drop_caches needs passwordless sudo; set \"drop_caches\": false in $PLAN to skip"
   K6_FLAGS=$(jq -er '.k6_flags // "" | strings' "$PLAN") || fail "$PLAN: k6_flags must be a string"
@@ -106,10 +118,16 @@ check_profiles() {
   done
 }
 
-restore_db() {
+prepare_db() {
   local db=$1
+  if [[ $RESTORE != true ]]; then
+    echo "==> using $SNAPSHOT in place"
+    export NODE_DB="$SNAPSHOT"
+    return
+  fi
   echo "==> restore $db from $SNAPSHOT"
   export NODE_DB="$db"
+  DB_COPY="$db"
   cp -a "$SNAPSHOT" "$db"
 }
 
@@ -182,9 +200,9 @@ cleanup() {
   if [[ -n ${NODE_PID-} ]]; then
     stop_node
   fi
-  if [[ -n ${NODE_DB-} ]]; then
-    rm -rf "$NODE_DB"
-    unset NODE_DB
+  if [[ -n ${DB_COPY-} ]]; then
+    rm -rf "$DB_COPY"
+    unset DB_COPY
   fi
 }
 
@@ -205,7 +223,7 @@ run_profile() {
   echo "######## profile $profile (trial $trial)"
   check_url_free
   mkdir -p "$workspace"
-  restore_db "$workspace/db"
+  prepare_db "$workspace/db"
   drop_caches
   start_node "$log"
   wait_for_node "$log"
@@ -226,8 +244,8 @@ main() {
   select_profiles "$@"
   check_profiles "$trial"
 
-  # cleanup deletes NODE_DB and kills NODE_PID: never act on inherited ones.
-  unset NODE_PID NODE_DB
+  # cleanup deletes DB_COPY and kills NODE_PID: never act on inherited ones.
+  unset NODE_PID DB_COPY
   trap cleanup EXIT
 
   FAILED=()

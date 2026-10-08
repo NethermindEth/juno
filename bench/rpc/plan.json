@@ -1,6 +1,7 @@
 {
   "height": 15908814,
   "drop_caches": true,
+  "restore": true,
   "profiles": {
     "sequential": "--vus 1 --duration 10s",
     "low": "--vus 50 --duration 10s",
