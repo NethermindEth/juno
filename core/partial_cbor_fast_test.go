@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -476,4 +477,60 @@ func TestEventsBloomReaderMatchesFxamacker(t *testing.T) {
 			require.Equal(t, want, got)
 		})
 	}
+}
+
+func indexesCases(t testing.TB) map[string][]byte {
+	intPair := func(key int, value any) []byte {
+		return append(marshalled(t, key), marshalled(t, value)...)
+	}
+	return map[string][]byte{
+		"stored": marshalled(t, &BlockTransactionsIndexes{
+			Transactions: []int{0, 37, 1 << 20, 1 << 33}, Receipts: []int{1<<33 + 5},
+		}),
+		"empty":        marshalled(t, &BlockTransactionsIndexes{}),
+		"empty arrays": cborMap(intPair(1, []int{}), intPair(2, []int{})),
+		"nulls":        cborMap(intPair(1, nil), intPair(2, []any{nil, 3})),
+		"negative":     cborMap(intPair(1, []int{-1, -1 << 40})),
+		"repeat":       cborMap(intPair(2, []int{1}), intPair(2, []int{2})),
+		"text keys":    cborMap(pair(t, "1", []int{1}), pair(t, "Transactions", []int{2}), intPair(2, []int{3})),
+		"other keys":   cborMap(intPair(-1, []int{1}), intPair(3, "x"), intPair(1, []int{4})),
+	}
+}
+
+func TestBlockTransactionsIndexesReaderMatchesFxamacker(t *testing.T) {
+	for name, data := range indexesCases(t) {
+		t.Run(name, func(t *testing.T) {
+			requireMatchesFxamacker(t, data, true,
+				[]projectionCase{projectionCaseFor[BlockTransactionsIndexes]()})
+		})
+	}
+	// Partial reads decode the indexes as the first item and keep the rest.
+	data := slices.Concat(indexesCases(t)["stored"], []byte{0x01, 0x02})
+	var got, want BlockTransactionsIndexes
+	gotRest, err := cbor.UnmarshalFirst(data, &got)
+	require.NoError(t, err)
+	wantRest, err := fxamacker.UnmarshalFirst(data, &want)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+	require.Equal(t, wantRest, gotRest)
+
+	for _, malformed := range [][]byte{
+		cborMap(append(marshalled(t, 1), marshalled(t, []any{"x"})...)),
+		cborMap(append(marshalled(t, 2), marshalled(t, uint64(1<<63))...)),
+		cborMap(append(marshalled(t, uint64(1<<63)), marshalled(t, 1)...)),
+		cborMap(append([]byte{0x62, 0xff, 0xfe}, marshalled(t, 1)...)),
+		indexesCases(t)["stored"][:10],
+	} {
+		var indexes BlockTransactionsIndexes
+		require.Error(t, cbor.Unmarshal(malformed, &indexes))
+		require.Error(t, fxamacker.Unmarshal(malformed, &BlockTransactionsIndexes{}))
+	}
+}
+
+func FuzzBlockTransactionsIndexes(f *testing.F) {
+	var seeds [][]byte
+	for _, data := range indexesCases(f) {
+		seeds = append(seeds, data)
+	}
+	fuzzProjections(f, []projectionCase{projectionCaseFor[BlockTransactionsIndexes]()}, seeds...)
 }

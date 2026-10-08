@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"errors"
+	"math"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
@@ -31,6 +32,7 @@ func init() {
 	cbor.RegisterReader(readReceiptExecutionStatusProjection)
 	cbor.RegisterReader(readReceiptEventsProjection)
 	cbor.RegisterReader(readTransactionHashProjection)
+	cbor.RegisterReader(readBlockTransactionsIndexes)
 }
 
 // walkFields reads a struct's map and calls read with the index in fields of each field a key
@@ -350,4 +352,86 @@ func readTransactionHashProjection(r *fast.Reader, dst *transactionHashProjectio
 	return walkFields(r, transactionHashField, func(int) error {
 		return readFeltValue(r, &dst.TransactionHash)
 	})
+}
+
+// readBlockTransactionsIndexes reads the offsets heading a block's transactions and receipts,
+// which every partial read of them decodes first. Its fields are keyed by the integers 1 and 2,
+// which fxamacker matches only to integer keys; a text key names no field.
+func readBlockTransactionsIndexes(r *fast.Reader, dst *BlockTransactionsIndexes) error {
+	if r.Null() {
+		return nil
+	}
+	count, err := r.MapLen()
+	if err != nil {
+		return err
+	}
+	var seen uint64
+	for ; count > 0; count-- {
+		field, err := readIndexesKey(r)
+		if err != nil {
+			return err
+		}
+		if field < 0 || seen&(1<<field) != 0 {
+			if err := r.Skip(); err != nil {
+				return err
+			}
+			continue
+		}
+		seen |= 1 << field
+		target := &dst.Transactions
+		if field == 2 {
+			target = &dst.Receipts
+		}
+		if err := readInts(r, target); err != nil {
+			return err
+		}
+	}
+	r.Leave()
+	return nil
+}
+
+// readIndexesKey reads a key of BlockTransactionsIndexes and returns the field it names, 1 or 2,
+// or -1. fxamacker reads integer keys as int64 and checks text keys are UTF-8.
+func readIndexesKey(r *fast.Reader) (int, error) {
+	if head, err := r.Peek(); err != nil || head&0xe0 != fast.MajorUint {
+		_, _, err := r.Key()
+		return -1, err
+	}
+	key, err := r.Uint64()
+	switch {
+	case err != nil:
+		return -1, err
+	case key > math.MaxInt64:
+		return -1, fast.ErrType
+	case key == 1 || key == 2:
+		return int(key), nil
+	default:
+		return -1, nil
+	}
+}
+
+// readInts reads an array of integers, or null as nil. A null element leaves it zero.
+func readInts(r *fast.Reader, dst *[]int) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := r.ArrayLen()
+	if err != nil {
+		return err
+	}
+	out := make([]int, count)
+	for i := range out {
+		if r.Null() {
+			continue
+		}
+		value, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		out[i] = int(value)
+	}
+	r.Leave()
+	*dst = out
+	return nil
 }
