@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 616" width="760" height="616" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
+<title id="title">Gateway cost against freshness, per configuration (interval / stale-after / wait, in ms)</title>
+<desc id="desc">Up and to the left is better: fewer gateway requests, more reads answered with the gateway's current state.</desc>
+<rect x="0.5" y="0.5" width="759" height="615" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
+<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">Gateway cost against freshness, per configuration (interval / stale-after / wait, in ms)</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Up and to the left is better: fewer gateway requests, more reads answered with the gateway's current state.</text>
+<circle cx="22" cy="60" r="5" fill="#eb6834"/>
+<text x="32.0" y="64.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">previous default 500/500/0</text>
+<circle cx="247.2" cy="60" r="5" fill="#2a78d6"/>
+<text x="257.2" y="64.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">new default 1000/250/300</text>
+<circle cx="22" cy="78" r="5" fill="#1baf7a"/>
+<text x="32.0" y="82.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">runner-up 500/250/300</text>
+<circle cx="211.2" cy="78" r="5" fill="#aaa89f"/>
+<text x="221.2" y="82.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">other configurations measured</text>
+<text x="110.0" y="98.0" font-size="12.5" fill="#0b0b0b" text-anchor="start" font-weight="600">Sparse reader: one pre_confirmed read every 5 s</text>
+<line x1="110" y1="292.0" x2="740" y2="292.0" stroke="#e1e0d9"/>
+<text x="102.0" y="296.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0%</text>
+<line x1="110" y1="247.0" x2="740" y2="247.0" stroke="#e1e0d9"/>
+<text x="102.0" y="251.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">25%</text>
+<line x1="110" y1="202.0" x2="740" y2="202.0" stroke="#e1e0d9"/>
+<text x="102.0" y="206.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">50%</text>
+<line x1="110" y1="157.0" x2="740" y2="157.0" stroke="#e1e0d9"/>
+<text x="102.0" y="161.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">75%</text>
+<line x1="110" y1="112.0" x2="740" y2="112.0" stroke="#e1e0d9"/>
+<text x="102.0" y="116.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">100%</text>
+<line x1="110" y1="292.0" x2="740" y2="292.0" stroke="#c3c2b7"/>
+<line x1="110.0" y1="292.0" x2="110.0" y2="297.0" stroke="#c3c2b7"/>
+<text x="110.0" y="310.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1</text>
+<line x1="267.5" y1="292.0" x2="267.5" y2="297.0" stroke="#c3c2b7"/>
+<text x="267.5" y="310.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1.5</text>
+<line x1="425.0" y1="292.0" x2="425.0" y2="297.0" stroke="#c3c2b7"/>
+<text x="425.0" y="310.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2</text>
+<line x1="582.5" y1="292.0" x2="582.5" y2="297.0" stroke="#c3c2b7"/>
+<text x="582.5" y="310.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2.5</text>
+<line x1="740.0" y1="292.0" x2="740.0" y2="297.0" stroke="#c3c2b7"/>
+<text x="740.0" y="310.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">3</text>
+<text x="425.0" y="326.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">gateway requests per second (get_preconfirmed_block)</text>
+<text x="102.0" y="98.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">caught up</text>
+<line x1="259.5" y1="234.5" x2="267.5" y2="226.5" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="273.2" y1="122.7" x2="283.2" y2="118.7" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="599.7" y1="165.2" x2="607.7" y2="155.2" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="587.1" y1="144.0" x2="595.1" y2="150.0" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="599.7" y1="130.4" x2="607.7" y2="126.4" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<circle cx="595.1" cy="150.0" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="595.1" cy="202.0" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="277.0" cy="220.0" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="154.1" cy="284.4" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="267.5" cy="226.5" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="251.8" cy="171.9" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="286.4" cy="145.8" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="283.2" cy="118.7" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="607.7" cy="155.2" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="280.1" cy="112.0" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="607.7" cy="126.4" r="6" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<text x="166.1" y="288.4" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">2000/250/0</text>
+<text x="239.8" y="175.9" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/500/0</text>
+<text x="255.5" y="238.5" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/100/0</text>
+<text x="289.0" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/0</text>
+<text x="298.4" y="149.8" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/150</text>
+<text x="294.1" y="116.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/300 (new default): cheapest and freshest</text>
+<text x="269.2" y="126.7" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/250/1000</text>
+<text x="595.7" y="169.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/500/0 (previous default)</text>
+<text x="583.1" y="148.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/0/0</text>
+<text x="607.1" y="206.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">500/250/0</text>
+<text x="595.7" y="134.4" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/250/300 (runner-up)</text>
+<text x="110.0" y="358.0" font-size="12.5" fill="#0b0b0b" text-anchor="start" font-weight="600">Busy node: 20 pre_confirmed reads per second</text>
+<line x1="110" y1="552.0" x2="740" y2="552.0" stroke="#e1e0d9"/>
+<text x="102.0" y="556.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0%</text>
+<line x1="110" y1="507.0" x2="740" y2="507.0" stroke="#e1e0d9"/>
+<text x="102.0" y="511.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">25%</text>
+<line x1="110" y1="462.0" x2="740" y2="462.0" stroke="#e1e0d9"/>
+<text x="102.0" y="466.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">50%</text>
+<line x1="110" y1="417.0" x2="740" y2="417.0" stroke="#e1e0d9"/>
+<text x="102.0" y="421.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">75%</text>
+<line x1="110" y1="372.0" x2="740" y2="372.0" stroke="#e1e0d9"/>
+<text x="102.0" y="376.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">100%</text>
+<line x1="110" y1="552.0" x2="740" y2="552.0" stroke="#c3c2b7"/>
+<line x1="188.8" y1="552.0" x2="188.8" y2="557.0" stroke="#c3c2b7"/>
+<text x="188.8" y="570.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2</text>
+<line x1="346.2" y1="552.0" x2="346.2" y2="557.0" stroke="#c3c2b7"/>
+<text x="346.2" y="570.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">3</text>
+<line x1="503.8" y1="552.0" x2="503.8" y2="557.0" stroke="#c3c2b7"/>
+<text x="503.8" y="570.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">4</text>
+<line x1="661.2" y1="552.0" x2="661.2" y2="557.0" stroke="#c3c2b7"/>
+<text x="661.2" y="570.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">5</text>
+<text x="425.0" y="586.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">gateway requests per second (get_preconfirmed_block)</text>
+<text x="102.0" y="358.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">caught up</text>
+<line x1="262.0" y1="383.0" x2="310.0" y2="381.4" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="341.0" y1="372.0" x2="314.8" y2="378.1" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="341.0" y1="388.0" x2="294.3" y2="395.6" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="341.0" y1="405.0" x2="303.7" y2="405.7" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="341.0" y1="420.0" x2="321.0" y2="412.5" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="341.0" y1="436.0" x2="270.6" y2="409.8" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<line x1="695.8" y1="377.0" x2="703.8" y2="388.0" stroke="#898781" stroke-width="1" opacity="0.7"/>
+<circle cx="703.8" cy="388.0" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="265.9" cy="411.1" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="321.0" cy="412.5" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="303.7" cy="405.7" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="470.7" cy="394.9" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="185.6" cy="445.4" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="294.3" cy="395.6" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="314.8" cy="378.1" r="5" fill="#aaa89f" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="270.6" cy="409.8" r="6" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="310.0" cy="381.4" r="6" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="306.9" cy="381.2" r="6" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<text x="197.6" y="449.4" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/500/0</text>
+<text x="258.0" y="387.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">1000/250/300 (new default)</text>
+<text x="258.0" y="403.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">= 500/250/300 (runner-up)</text>
+<text x="345.0" y="376.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/1000</text>
+<text x="345.0" y="392.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/150</text>
+<text x="345.0" y="408.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">2000/250/0</text>
+<text x="345.0" y="424.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/250/0</text>
+<text x="345.0" y="440.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">500/500/0 (previous default) = 500/250/0</text>
+<text x="482.7" y="398.9" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/100/0: 12% of polls refused</text>
+<text x="691.8" y="380.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/0/0: 28% of polls refused</text>
+<text x="16.0" y="604.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, 2026-10-07, one node per configuration. Refused = HTTP 429 from the gateway.</text>
+</svg>

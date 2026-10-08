@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 392" width="760" height="392" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
+<title id="title">What the wait buys on the 1 s tick with stale-after 250 ms</title>
+<desc id="desc">Top: share of reads answered with the gateway's current state. Bottom: read latency p99 (the cap sets the tail).</desc>
+<rect x="0.5" y="0.5" width="759" height="391" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
+<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">What the wait buys on the 1 s tick with stale-after 250 ms</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Top: share of reads answered with the gateway's current state. Bottom: read latency p99 (the cap sets the tail).</text>
+<line x1="122" y1="206.0" x2="260" y2="206.0" stroke="#e1e0d9"/>
+<text x="114.0" y="210.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
+<line x1="122" y1="151.0" x2="260" y2="151.0" stroke="#e1e0d9"/>
+<text x="114.0" y="155.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">50</text>
+<line x1="122" y1="96.0" x2="260" y2="96.0" stroke="#e1e0d9"/>
+<text x="114.0" y="100.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">100</text>
+<line x1="122" y1="206.0" x2="260" y2="206.0" stroke="#c3c2b7"/>
+<path d="M135.0,206.0 L135.0,166.0 Q135.0,162.0 139.0,162.0 L153.0,162.0 Q157.0,162.0 157.0,166.0 L157.0,206.0 Z" fill="#86b6ef"/>
+<text x="146.0" y="157.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">40</text>
+<path d="M165.0,206.0 L165.0,120.7 Q165.0,116.7 169.0,116.7 L183.0,116.7 Q187.0,116.7 187.0,120.7 L187.0,206.0 Z" fill="#5598e7"/>
+<text x="176.0" y="111.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">81</text>
+<path d="M195.0,206.0 L195.0,100.0 Q195.0,96.0 199.0,96.0 L213.0,96.0 Q217.0,96.0 217.0,100.0 L217.0,206.0 Z" fill="#2a78d6"/>
+<text x="206.0" y="91.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">100</text>
+<path d="M225.0,206.0 L225.0,104.1 Q225.0,100.1 229.0,100.1 L243.0,100.1 Q247.0,100.1 247.0,104.1 L247.0,206.0 Z" fill="#1c5cab"/>
+<text x="236.0" y="95.1" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">96</text>
+<text x="191.0" y="74.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">one read every 5 s</text>
+<line x1="280" y1="206.0" x2="418" y2="206.0" stroke="#e1e0d9"/>
+<line x1="280" y1="151.0" x2="418" y2="151.0" stroke="#e1e0d9"/>
+<line x1="280" y1="96.0" x2="418" y2="96.0" stroke="#e1e0d9"/>
+<line x1="280" y1="206.0" x2="418" y2="206.0" stroke="#c3c2b7"/>
+<path d="M293.0,206.0 L293.0,131.3 Q293.0,127.3 297.0,127.3 L311.0,127.3 Q315.0,127.3 315.0,131.3 L315.0,206.0 Z" fill="#86b6ef"/>
+<text x="304.0" y="122.3" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">72</text>
+<path d="M323.0,206.0 L323.0,112.8 Q323.0,108.8 327.0,108.8 L341.0,108.8 Q345.0,108.8 345.0,112.8 L345.0,206.0 Z" fill="#5598e7"/>
+<text x="334.0" y="103.8" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">88</text>
+<path d="M353.0,206.0 L353.0,114.7 Q353.0,110.7 357.0,110.7 L371.0,110.7 Q375.0,110.7 375.0,114.7 L375.0,206.0 Z" fill="#2a78d6"/>
+<text x="364.0" y="105.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">87</text>
+<path d="M383.0,206.0 L383.0,103.2 Q383.0,99.2 387.0,99.2 L401.0,99.2 Q405.0,99.2 405.0,103.2 L405.0,206.0 Z" fill="#1c5cab"/>
+<text x="394.0" y="94.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">97</text>
+<text x="349.0" y="74.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">5 reads/s</text>
+<line x1="438" y1="206.0" x2="576" y2="206.0" stroke="#e1e0d9"/>
+<line x1="438" y1="151.0" x2="576" y2="151.0" stroke="#e1e0d9"/>
+<line x1="438" y1="96.0" x2="576" y2="96.0" stroke="#e1e0d9"/>
+<line x1="438" y1="206.0" x2="576" y2="206.0" stroke="#c3c2b7"/>
+<path d="M451.0,206.0 L451.0,124.8 Q451.0,120.8 455.0,120.8 L469.0,120.8 Q473.0,120.8 473.0,124.8 L473.0,206.0 Z" fill="#86b6ef"/>
+<text x="462.0" y="115.8" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">78</text>
+<path d="M481.0,206.0 L481.0,114.4 Q481.0,110.4 485.0,110.4 L499.0,110.4 Q503.0,110.4 503.0,114.4 L503.0,206.0 Z" fill="#5598e7"/>
+<text x="492.0" y="105.4" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">87</text>
+<path d="M511.0,206.0 L511.0,105.7 Q511.0,101.7 515.0,101.7 L529.0,101.7 Q533.0,101.7 533.0,105.7 L533.0,206.0 Z" fill="#2a78d6"/>
+<text x="522.0" y="96.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">95</text>
+<path d="M541.0,206.0 L541.0,103.7 Q541.0,99.7 545.0,99.7 L559.0,99.7 Q563.0,99.7 563.0,103.7 L563.0,206.0 Z" fill="#1c5cab"/>
+<text x="552.0" y="94.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">97</text>
+<text x="507.0" y="74.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">20 reads/s</text>
+<line x1="596" y1="206.0" x2="734" y2="206.0" stroke="#e1e0d9"/>
+<line x1="596" y1="151.0" x2="734" y2="151.0" stroke="#e1e0d9"/>
+<line x1="596" y1="96.0" x2="734" y2="96.0" stroke="#e1e0d9"/>
+<line x1="596" y1="206.0" x2="734" y2="206.0" stroke="#c3c2b7"/>
+<path d="M609.0,206.0 L609.0,152.1 Q609.0,148.1 613.0,148.1 L627.0,148.1 Q631.0,148.1 631.0,152.1 L631.0,206.0 Z" fill="#86b6ef"/>
+<text x="620.0" y="143.1" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">53</text>
+<path d="M639.0,206.0 L639.0,113.0 Q639.0,109.0 643.0,109.0 L657.0,109.0 Q661.0,109.0 661.0,113.0 L661.0,206.0 Z" fill="#5598e7"/>
+<text x="650.0" y="104.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">88</text>
+<path d="M669.0,206.0 L669.0,116.6 Q669.0,112.6 673.0,112.6 L687.0,112.6 Q691.0,112.6 691.0,116.6 L691.0,206.0 Z" fill="#2a78d6"/>
+<text x="680.0" y="107.6" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">85</text>
+<path d="M699.0,206.0 L699.0,102.2 Q699.0,98.2 703.0,98.2 L717.0,98.2 Q721.0,98.2 721.0,102.2 L721.0,206.0 Z" fill="#1c5cab"/>
+<text x="710.0" y="93.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">98</text>
+<text x="665.0" y="74.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">bursts of 10 reads</text>
+<text x="16.0" y="100.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">caught up</text>
+<text x="16.0" y="114.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">(%)</text>
+<line x1="122" y1="334.0" x2="260" y2="334.0" stroke="#e1e0d9"/>
+<text x="114.0" y="338.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
+<line x1="122" y1="291.8" x2="260" y2="291.8" stroke="#e1e0d9"/>
+<text x="114.0" y="295.8" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">150</text>
+<line x1="122" y1="249.6" x2="260" y2="249.6" stroke="#e1e0d9"/>
+<text x="114.0" y="253.6" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">300</text>
+<line x1="122" y1="334.0" x2="260" y2="334.0" stroke="#c3c2b7"/>
+<rect x="135.0" y="332.7" width="22" height="2.0" fill="#86b6ef"/>
+<text x="146.0" y="328.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">1</text>
+<text x="146.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0</text>
+<path d="M165.0,334.0 L165.0,295.2 Q165.0,291.2 169.0,291.2 L183.0,291.2 Q187.0,291.2 187.0,295.2 L187.0,334.0 Z" fill="#5598e7"/>
+<text x="176.0" y="286.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">152</text>
+<text x="176.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">150</text>
+<path d="M195.0,334.0 L195.0,268.8 Q195.0,264.8 199.0,264.8 L213.0,264.8 Q217.0,264.8 217.0,268.8 L217.0,334.0 Z" fill="#2a78d6"/>
+<text x="206.0" y="259.8" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">246</text>
+<text x="206.0" y="349.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">300</text>
+<path d="M225.0,334.0 L225.0,269.7 Q225.0,265.7 229.0,265.7 L243.0,265.7 Q247.0,265.7 247.0,269.7 L247.0,334.0 Z" fill="#1c5cab"/>
+<text x="236.0" y="260.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">243</text>
+<text x="236.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
+<text x="191.0" y="365.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">wait (ms)</text>
+<line x1="280" y1="334.0" x2="418" y2="334.0" stroke="#e1e0d9"/>
+<line x1="280" y1="291.8" x2="418" y2="291.8" stroke="#e1e0d9"/>
+<line x1="280" y1="249.6" x2="418" y2="249.6" stroke="#e1e0d9"/>
+<line x1="280" y1="334.0" x2="418" y2="334.0" stroke="#c3c2b7"/>
+<rect x="293.0" y="332.7" width="22" height="2.0" fill="#86b6ef"/>
+<text x="304.0" y="328.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">1</text>
+<text x="304.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0</text>
+<path d="M323.0,334.0 L323.0,295.2 Q323.0,291.2 327.0,291.2 L341.0,291.2 Q345.0,291.2 345.0,295.2 L345.0,334.0 Z" fill="#5598e7"/>
+<text x="334.0" y="286.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">152</text>
+<text x="334.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">150</text>
+<path d="M353.0,334.0 L353.0,253.1 Q353.0,249.1 357.0,249.1 L371.0,249.1 Q375.0,249.1 375.0,253.1 L375.0,334.0 Z" fill="#2a78d6"/>
+<text x="364.0" y="244.1" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">302</text>
+<text x="364.0" y="349.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">300</text>
+<path d="M383.0,334.0 L383.0,252.8 Q383.0,248.8 387.0,248.8 L401.0,248.8 Q405.0,248.8 405.0,252.8 L405.0,334.0 Z" fill="#1c5cab"/>
+<text x="394.0" y="243.8" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">303</text>
+<text x="394.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
+<text x="349.0" y="365.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">wait (ms)</text>
+<line x1="438" y1="334.0" x2="576" y2="334.0" stroke="#e1e0d9"/>
+<line x1="438" y1="291.8" x2="576" y2="291.8" stroke="#e1e0d9"/>
+<line x1="438" y1="249.6" x2="576" y2="249.6" stroke="#e1e0d9"/>
+<line x1="438" y1="334.0" x2="576" y2="334.0" stroke="#c3c2b7"/>
+<rect x="451.0" y="332.7" width="22" height="2.0" fill="#86b6ef"/>
+<text x="462.0" y="328.7" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">1</text>
+<text x="462.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0</text>
+<path d="M481.0,334.0 L481.0,295.2 Q481.0,291.2 485.0,291.2 L499.0,291.2 Q503.0,291.2 503.0,295.2 L503.0,334.0 Z" fill="#5598e7"/>
+<text x="492.0" y="286.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">152</text>
+<text x="492.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">150</text>
+<path d="M511.0,334.0 L511.0,269.9 Q511.0,265.9 515.0,265.9 L529.0,265.9 Q533.0,265.9 533.0,269.9 L533.0,334.0 Z" fill="#2a78d6"/>
+<text x="522.0" y="260.9" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">242</text>
+<text x="522.0" y="349.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">300</text>
+<path d="M541.0,334.0 L541.0,253.9 Q541.0,249.9 545.0,249.9 L559.0,249.9 Q563.0,249.9 563.0,253.9 L563.0,334.0 Z" fill="#1c5cab"/>
+<text x="552.0" y="244.9" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">299</text>
+<text x="552.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
+<text x="507.0" y="365.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">wait (ms)</text>
+<line x1="596" y1="334.0" x2="734" y2="334.0" stroke="#e1e0d9"/>
+<line x1="596" y1="291.8" x2="734" y2="291.8" stroke="#e1e0d9"/>
+<line x1="596" y1="249.6" x2="734" y2="249.6" stroke="#e1e0d9"/>
+<line x1="596" y1="334.0" x2="734" y2="334.0" stroke="#c3c2b7"/>
+<rect x="609.0" y="331.9" width="22" height="2.0" fill="#86b6ef"/>
+<text x="620.0" y="327.9" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">4</text>
+<text x="620.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0</text>
+<path d="M639.0,334.0 L639.0,295.2 Q639.0,291.2 643.0,291.2 L657.0,291.2 Q661.0,291.2 661.0,295.2 L661.0,334.0 Z" fill="#5598e7"/>
+<text x="650.0" y="286.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">152</text>
+<text x="650.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">150</text>
+<path d="M669.0,334.0 L669.0,253.1 Q669.0,249.1 673.0,249.1 L687.0,249.1 Q691.0,249.1 691.0,253.1 L691.0,334.0 Z" fill="#2a78d6"/>
+<text x="680.0" y="244.1" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">302</text>
+<text x="680.0" y="349.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">300</text>
+<path d="M699.0,334.0 L699.0,268.2 Q699.0,264.2 703.0,264.2 L717.0,264.2 Q721.0,264.2 721.0,268.2 L721.0,334.0 Z" fill="#1c5cab"/>
+<text x="710.0" y="259.2" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">248</text>
+<text x="710.0" y="349.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
+<text x="665.0" y="365.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">wait (ms)</text>
+<text x="16.0" y="248.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read latency</text>
+<text x="16.0" y="262.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">p99 (ms)</text>
+<text x="16.0" y="380.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, 2026-10-07. The wait changes what a read gets, not the gateway cost (equal for all four). Bold: the new default.</text>
+</svg>
