@@ -49,6 +49,7 @@ var headerFields = fieldsOf[core.Header]([]string{
 // ReadHeader reads a stored block header. The keys of the legacy fields GasPrice,
 // GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.
 func ReadHeader(r *fast.Reader, dst *core.Header) error {
+	var prices *[2]core.GasPrice
 	s, err := r.OpenStruct(headerFields)
 	for err == nil {
 		var field int
@@ -87,9 +88,9 @@ func ReadHeader(r *fast.Reader, dst *core.Header) error {
 			err = readUint64(r, &mode)
 			dst.L1DAMode = core.L1DAMode(mode)
 		case headerL1DataGasPrice:
-			err = readPtr(r, &dst.L1DataGasPrice, readGasPrice)
+			err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)
 		case headerL2GasPrice:
-			err = readPtr(r, &dst.L2GasPrice, readGasPrice)
+			err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)
 		default:
 			err = r.Skip()
 		}
@@ -106,6 +107,24 @@ var gasPriceFields = fieldsOf[core.GasPrice]([]string{
 	gasPriceInWei: "PriceInWei",
 	gasPriceInFri: "PriceInFri",
 })
+
+// readGasPricePtr reads a gas price behind a pointer, into slot of prices. A header's two gas
+// prices share one allocation. Null leaves the pointer nil.
+func readGasPricePtr(r *fast.Reader, dst **core.GasPrice, prices **[2]core.GasPrice, slot int) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	if *prices == nil {
+		*prices = new([2]core.GasPrice)
+	}
+	value := &(*prices)[slot]
+	if err := readGasPrice(r, value); err != nil {
+		return err
+	}
+	*dst = value
+	return nil
+}
 
 func readGasPrice(r *fast.Reader, dst *core.GasPrice) error {
 	s, err := r.OpenStruct(gasPriceFields)
