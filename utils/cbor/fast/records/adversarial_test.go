@@ -264,14 +264,12 @@ func hasNullResourceKey(data []byte) bool {
 
 func TestShortFeltsInASliceMatchFxamacker(t *testing.T) {
 	if limbSliceBoundBug() {
-		t.Skip("known: fast.LimbSlice bounds a felt at five bytes, but fxamacker takes [] or null as a zero felt")
 	}
 	require.True(t, agree(t, "receipt", shortFelts))
 }
 
 func TestNullResourceBoundsKeyMatchesFxamacker(t *testing.T) {
 	if nullResourceKeyBug() {
-		t.Skip("known: readResourceBounds reads a null key as zero; fxamacker keeps the previous key")
 	}
 	require.True(t, agree(t, "transaction", nullResourceKey()))
 }

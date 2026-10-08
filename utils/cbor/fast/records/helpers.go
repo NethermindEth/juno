@@ -1,9 +1,11 @@
 package records
 
 import (
+	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
@@ -148,7 +150,13 @@ func readSlice[T any](r *fast.Reader, dst *[]T, read func(*fast.Reader, *T) erro
 	return nil
 }
 
-// readPtrSlice reads an array of struct pointers, or null as nil. An element may be null.
+// minPtrSliceElement is fewer bytes than any struct readPtrSlice reads takes when stored with
+// its fields.
+const minPtrSliceElement = 32
+
+// readPtrSlice reads an array of struct pointers, or null as nil. An element may be null. The
+// elements share one array, as long as the bytes left could hold them: an array of nulls or
+// empty maps gets no more memory than fxamacker would give it, give or take a small factor.
 func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) error) error {
 	if r.Null() {
 		*dst = nil
@@ -159,10 +167,21 @@ func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) 
 		return err
 	}
 	out := make([]*T, count)
+	values := make([]T, min(count, r.Len()/minPtrSliceElement))
 	for i := range out {
-		if err := readPtr(r, &out[i], read); err != nil {
+		if r.Null() {
+			continue
+		}
+		var value *T
+		if len(values) > 0 {
+			value, values = &values[0], values[1:]
+		} else {
+			value = new(T)
+		}
+		if err := read(r, value); err != nil {
 			return err
 		}
+		out[i] = value
 	}
 	r.Leave()
 	*dst = out
@@ -189,67 +208,27 @@ func readStringSlice(r *fast.Reader, dst *[]string) error {
 	return nil
 }
 
-// readFields walks a struct's map, giving field the name of each entry to read. field reports
-// whether it knows the name; an unknown name is retried case-insensitively, which is how
-// fxamacker matches keys, and skipped when it is still unknown. Null leaves the struct as it is.
-func readFields(r *fast.Reader, names folder, field func(key string) (known bool, err error)) error {
-	if r.Null() {
-		return nil
+// fieldsOf returns the Fields of T, whose field number i has the wire name names[i]. It panics
+// unless the names are the wire names fxamacker gives the fields of T, so a reader cannot leave
+// a field of T unread.
+func fieldsOf[T any](names []string) *fast.Fields {
+	want := map[string]bool{}
+	addFields(want, reflect.TypeFor[T]())
+	for _, name := range names {
+		if !want[name] {
+			panic("records: " + reflect.TypeFor[T]().String() + " has no field " + name)
+		}
+		delete(want, name)
 	}
-	count, err := r.MapLen()
-	if err != nil {
-		return err
+	if len(want) > 0 {
+		panic(fmt.Sprintf("records: no field numbers for %v fields %v", reflect.TypeFor[T](), slices.Sorted(maps.Keys(want))))
 	}
-	for ; count > 0; count-- {
-		raw, isText, err := r.Key()
-		if err != nil {
-			return err
-		}
-		if !isText {
-			if err := r.Skip(); err != nil {
-				return err
-			}
-			continue
-		}
-		// The name is only compared inside field, so it can borrow the input.
-		key := unsafe.String(unsafe.SliceData(raw), len(raw))
-		known, err := field(key)
-		if err != nil {
-			return err
-		}
-		if !known {
-			if canonical, ok := names.canonical(raw); ok {
-				known, err = field(canonical)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if !known {
-			if err := r.Skip(); err != nil {
-				return err
-			}
-		}
-	}
-	r.Leave()
-	return nil
+	return fast.NewFields(names...)
 }
 
-// folder maps the lower-cased wire name of each field of a struct to its wire name.
-type folder map[string]string
-
-// maxFieldName is the longest wire name a folder will match; a longer key cannot be one.
-const maxFieldName = 64
-
-// newFolder lists the wire names of the fields of T as fxamacker does: the field name, or the
+// addFields lists the wire names of the fields of typ as fxamacker does: the field name, or the
 // name in its cbor tag, with embedded structs promoted and "-" fields left out.
-func newFolder[T any]() folder {
-	out := folder{}
-	addFields(out, reflect.TypeFor[T]())
-	return out
-}
-
-func addFields(out folder, typ reflect.Type) {
+func addFields(out map[string]bool, typ reflect.Type) {
 	for i := range typ.NumField() {
 		field := typ.Field(i)
 		name, _, _ := strings.Cut(field.Tag.Get("cbor"), ",")
@@ -264,24 +243,8 @@ func addFields(out folder, typ reflect.Type) {
 		case name == "":
 			name = field.Name
 		}
-		out[strings.ToLower(name)] = name
+		out[name] = true
 	}
-}
-
-// canonical returns the wire name that key matches ignoring case.
-func (f folder) canonical(key []byte) (string, bool) {
-	if len(key) > maxFieldName {
-		return "", false
-	}
-	var buf [maxFieldName]byte
-	for i, c := range key {
-		if 'A' <= c && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		buf[i] = c
-	}
-	name, ok := f[string(buf[:len(key)])]
-	return name, ok
 }
 
 // readLimbPtr reads a felt-shaped value behind a pointer. Null leaves the pointer nil.
@@ -309,10 +272,16 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 		return err
 	}
 	out := make([]*felt.Felt, count)
+	// The felts share one array the count sizes, rather than one allocation each.
+	values := make([]felt.Felt, count)
 	for i := range out {
-		if err := readFelt(r, &out[i]); err != nil {
+		if r.Null() {
+			continue
+		}
+		if err := r.Limbs((*[fast.Limbs]uint64)(&values[i])); err != nil {
 			return err
 		}
+		out[i] = &values[i]
 	}
 	r.Leave()
 	*dst = out
@@ -320,9 +289,16 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 }
 
 // readFeltMap reads a map from felt to felt, or null as nil. Keys and values are read in
-// place, with no generic function value in the way, so nothing but the map and its values
-// is allocated.
+// place, with no generic function value in the way, so nothing but the map and one array
+// holding its values is allocated.
 func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
+	var spare []felt.Felt
+	return readFeltMapFrom(r, dst, &spare, 0)
+}
+
+// readFeltMapFrom is readFeltMap taking the values from spare. When spare runs out it is
+// refilled with room for the values left in the map and extra more.
+func readFeltMapFrom(r *fast.Reader, dst *map[felt.Felt]*felt.Felt, spare *[]felt.Felt, extra int) error {
 	if r.Null() {
 		*dst = nil
 		return nil
@@ -332,13 +308,17 @@ func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 		return err
 	}
 	out := make(map[felt.Felt]*felt.Felt, count)
-	for ; count > 0; count-- {
+	for left := count; left > 0; left-- {
 		var key felt.Felt
 		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
 			return err
 		}
-		var value *felt.Felt
-		if err := readFelt(r, &value); err != nil {
+		if r.Null() {
+			out[key] = nil
+			continue
+		}
+		value := nextFelt(spare, left+extra)
+		if err := r.Limbs((*[fast.Limbs]uint64)(value)); err != nil {
 			return err
 		}
 		out[key] = value
@@ -346,6 +326,19 @@ func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 	r.Leave()
 	*dst = out
 	return nil
+}
+
+// nextFelt returns a zero felt from the front of spare. An empty spare is refilled with an
+// array of at least want felts, rounded up to what its allocation holds anyway, so the
+// rounding serves later felts rather than going to waste.
+func nextFelt(spare *[]felt.Felt, want int) *felt.Felt {
+	if len(*spare) == 0 {
+		grown := slices.Grow([]felt.Felt(nil), want)
+		*spare = grown[:cap(grown)]
+	}
+	value := &(*spare)[0]
+	*spare = (*spare)[1:]
+	return value
 }
 
 // readStorageDiffs reads a map from contract address to its map of storage updates.
@@ -359,13 +352,16 @@ func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Fel
 		return err
 	}
 	out := make(map[felt.Felt]map[felt.Felt]*felt.Felt, count)
+	// The inner maps take their values from shared arrays, each sized for at least one
+	// value per map still to come.
+	var spare []felt.Felt
 	for ; count > 0; count-- {
 		var key felt.Felt
 		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
 			return err
 		}
 		var value map[felt.Felt]*felt.Felt
-		if err := readFeltMap(r, &value); err != nil {
+		if err := readFeltMapFrom(r, &value, &spare, count-1); err != nil {
 			return err
 		}
 		out[key] = value
@@ -373,14 +369,4 @@ func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Fel
 	r.Leave()
 	*dst = out
 	return nil
-}
-
-// once marks field number bit as read, and reports whether it already was. A map with the same
-// key twice is something fxamacker has its own rule for (the first value wins), so the reader
-// leaves it to fxamacker.
-func once(seen *uint64, bit uint) bool {
-	mask := uint64(1) << bit
-	repeated := *seen&mask != 0
-	*seen |= mask
-	return repeated
 }

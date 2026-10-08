@@ -1,3 +1,4 @@
+//nolint:goconst // A wire name reads best spelled out beside the field number it maps to.
 package records
 
 import (
@@ -49,325 +50,326 @@ func ReadTransaction(tags TransactionTags) func(r *fast.Reader, dst *core.Transa
 	}
 }
 
+const (
+	invokeTransactionHash = iota
+	invokeCallData
+	invokeTransactionSignature
+	invokeMaxFee
+	invokeContractAddress
+	invokeVersion
+	invokeEntryPointSelector
+	invokeNonce
+	invokeSenderAddress
+	invokeResourceBounds
+	invokeTip
+	invokePaymasterData
+	invokeAccountDeploymentData
+	invokeNonceDAMode
+	invokeFeeDAMode
+	invokeProofFacts
+)
+
+var invokeFields = fieldsOf[core.InvokeTransaction]([]string{
+	invokeTransactionHash:       "TransactionHash",
+	invokeCallData:              "CallData",
+	invokeTransactionSignature:  "TransactionSignature",
+	invokeMaxFee:                "MaxFee",
+	invokeContractAddress:       "ContractAddress",
+	invokeVersion:               "Version",
+	invokeEntryPointSelector:    "EntryPointSelector",
+	invokeNonce:                 "Nonce",
+	invokeSenderAddress:         "SenderAddress",
+	invokeResourceBounds:        "ResourceBounds",
+	invokeTip:                   "Tip",
+	invokePaymasterData:         "PaymasterData",
+	invokeAccountDeploymentData: "AccountDeploymentData",
+	invokeNonceDAMode:           "NonceDAMode",
+	invokeFeeDAMode:             "FeeDAMode",
+	invokeProofFacts:            "ProofFacts",
+})
+
 // ReadInvoke reads the map of a stored invoke transaction, after its tag.
 func ReadInvoke(r *fast.Reader, dst *core.InvokeTransaction) error {
-	var seen uint64
-	return readFields(r, foldInvokeTransaction, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "TransactionHash":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(invokeFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case invokeTransactionHash:
 			err = readFelt(r, &dst.TransactionHash)
-		case "CallData":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeCallData:
 			err = readFeltSlice(r, &dst.CallData)
-		case "TransactionSignature":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeTransactionSignature:
 			err = readFeltSlice(r, &dst.TransactionSignature)
-		case "MaxFee":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeMaxFee:
 			err = readFelt(r, &dst.MaxFee)
-		case "ContractAddress":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeContractAddress:
 			err = readFelt(r, &dst.ContractAddress)
-		case "Version":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeVersion:
 			err = readLimbPtr(r, &dst.Version)
-		case "EntryPointSelector":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeEntryPointSelector:
 			err = readFelt(r, &dst.EntryPointSelector)
-		case "Nonce":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeNonce:
 			err = readFelt(r, &dst.Nonce)
-		case "SenderAddress":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeSenderAddress:
 			err = readFelt(r, &dst.SenderAddress)
-		case "ResourceBounds":
-			if once(&seen, 10) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeResourceBounds:
 			err = readResourceBounds(r, &dst.ResourceBounds)
-		case "Tip":
-			if once(&seen, 11) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeTip:
 			err = readUint64(r, &dst.Tip)
-		case "PaymasterData":
-			if once(&seen, 12) {
-				return false, fast.ErrUnsupported
-			}
+		case invokePaymasterData:
 			err = readFeltSlice(r, &dst.PaymasterData)
-		case "AccountDeploymentData":
-			if once(&seen, 13) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeAccountDeploymentData:
 			err = readFeltSlice(r, &dst.AccountDeploymentData)
-		case "NonceDAMode":
-			if once(&seen, 14) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeNonceDAMode:
 			err = readUint32(r, &dst.NonceDAMode)
-		case "FeeDAMode":
-			if once(&seen, 15) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeFeeDAMode:
 			err = readUint32(r, &dst.FeeDAMode)
-		case "ProofFacts":
-			if once(&seen, 16) {
-				return false, fast.ErrUnsupported
-			}
+		case invokeProofFacts:
 			dst.ProofFacts, err = fast.LimbSlice[felt.Felt](r)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	declareTransactionHash = iota
+	declareClassHash
+	declareSenderAddress
+	declareMaxFee
+	declareTransactionSignature
+	declareNonce
+	declareVersion
+	declareCompiledClassHash
+	declareResourceBounds
+	declareTip
+	declarePaymasterData
+	declareAccountDeploymentData
+	declareNonceDAMode
+	declareFeeDAMode
+)
+
+var declareFields = fieldsOf[core.DeclareTransaction]([]string{
+	declareTransactionHash:       "TransactionHash",
+	declareClassHash:             "ClassHash",
+	declareSenderAddress:         "SenderAddress",
+	declareMaxFee:                "MaxFee",
+	declareTransactionSignature:  "TransactionSignature",
+	declareNonce:                 "Nonce",
+	declareVersion:               "Version",
+	declareCompiledClassHash:     "CompiledClassHash",
+	declareResourceBounds:        "ResourceBounds",
+	declareTip:                   "Tip",
+	declarePaymasterData:         "PaymasterData",
+	declareAccountDeploymentData: "AccountDeploymentData",
+	declareNonceDAMode:           "NonceDAMode",
+	declareFeeDAMode:             "FeeDAMode",
+})
 
 // ReadDeclare reads the map of a stored declare transaction, after its tag.
 func ReadDeclare(r *fast.Reader, dst *core.DeclareTransaction) error {
-	var seen uint64
-	return readFields(r, foldDeclareTransaction, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "TransactionHash":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(declareFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case declareTransactionHash:
 			err = readFelt(r, &dst.TransactionHash)
-		case "ClassHash":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case declareClassHash:
 			err = readFelt(r, &dst.ClassHash)
-		case "SenderAddress":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case declareSenderAddress:
 			err = readFelt(r, &dst.SenderAddress)
-		case "MaxFee":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case declareMaxFee:
 			err = readFelt(r, &dst.MaxFee)
-		case "TransactionSignature":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case declareTransactionSignature:
 			err = readFeltSlice(r, &dst.TransactionSignature)
-		case "Nonce":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case declareNonce:
 			err = readFelt(r, &dst.Nonce)
-		case "Version":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case declareVersion:
 			err = readLimbPtr(r, &dst.Version)
-		case "CompiledClassHash":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case declareCompiledClassHash:
 			err = readFelt(r, &dst.CompiledClassHash)
-		case "ResourceBounds":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case declareResourceBounds:
 			err = readResourceBounds(r, &dst.ResourceBounds)
-		case "Tip":
-			if once(&seen, 10) {
-				return false, fast.ErrUnsupported
-			}
+		case declareTip:
 			err = readUint64(r, &dst.Tip)
-		case "PaymasterData":
-			if once(&seen, 11) {
-				return false, fast.ErrUnsupported
-			}
+		case declarePaymasterData:
 			err = readFeltSlice(r, &dst.PaymasterData)
-		case "AccountDeploymentData":
-			if once(&seen, 12) {
-				return false, fast.ErrUnsupported
-			}
+		case declareAccountDeploymentData:
 			err = readFeltSlice(r, &dst.AccountDeploymentData)
-		case "NonceDAMode":
-			if once(&seen, 13) {
-				return false, fast.ErrUnsupported
-			}
+		case declareNonceDAMode:
 			err = readUint32(r, &dst.NonceDAMode)
-		case "FeeDAMode":
-			if once(&seen, 14) {
-				return false, fast.ErrUnsupported
-			}
+		case declareFeeDAMode:
 			err = readUint32(r, &dst.FeeDAMode)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	deployTransactionHash = iota
+	deployContractAddressSalt
+	deployContractAddress
+	deployClassHash
+	deployConstructorCallData
+	deployVersion
+	deployFieldCount
+)
+
+var deployFields = fieldsOf[core.DeployTransaction]([]string{
+	deployTransactionHash:     "TransactionHash",
+	deployContractAddressSalt: "ContractAddressSalt",
+	deployContractAddress:     "ContractAddress",
+	deployClassHash:           "ClassHash",
+	deployConstructorCallData: "ConstructorCallData",
+	deployVersion:             "Version",
+})
 
 func readDeploy(r *fast.Reader, dst *core.DeployTransaction) error {
-	var seen uint64
-	return readFields(r, foldDeployTransaction, func(key string) (bool, error) {
-		return readDeployField(r, key, &seen, dst)
-	})
+	s, err := r.OpenStruct(deployFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		if field == fast.Done {
+			return err
+		}
+		err = readDeployField(r, field, dst)
+	}
+	return err
 }
 
-// readDeployField reads one field of a deploy transaction. A deploy-account transaction embeds
-// one, so its map carries these keys too.
-func readDeployField(r *fast.Reader, key string, seen *uint64, dst *core.DeployTransaction) (bool, error) {
-	var err error
-	switch key {
-	case "TransactionHash":
-		if once(seen, 1) {
-			return false, fast.ErrUnsupported
-		}
-		err = readFelt(r, &dst.TransactionHash)
-	case "ContractAddressSalt":
-		if once(seen, 2) {
-			return false, fast.ErrUnsupported
-		}
-		err = readFelt(r, &dst.ContractAddressSalt)
-	case "ContractAddress":
-		if once(seen, 3) {
-			return false, fast.ErrUnsupported
-		}
-		err = readFelt(r, &dst.ContractAddress)
-	case "ClassHash":
-		if once(seen, 4) {
-			return false, fast.ErrUnsupported
-		}
-		err = readFelt(r, &dst.ClassHash)
-	case "ConstructorCallData":
-		if once(seen, 5) {
-			return false, fast.ErrUnsupported
-		}
-		err = readFeltSlice(r, &dst.ConstructorCallData)
-	case "Version":
-		if once(seen, 6) {
-			return false, fast.ErrUnsupported
-		}
-		err = readLimbPtr(r, &dst.Version)
+// readDeployField reads field number field of a deploy transaction, or skips the value of a
+// field it does not have.
+func readDeployField(r *fast.Reader, field int, dst *core.DeployTransaction) error {
+	switch field {
+	case deployTransactionHash:
+		return readFelt(r, &dst.TransactionHash)
+	case deployContractAddressSalt:
+		return readFelt(r, &dst.ContractAddressSalt)
+	case deployContractAddress:
+		return readFelt(r, &dst.ContractAddress)
+	case deployClassHash:
+		return readFelt(r, &dst.ClassHash)
+	case deployConstructorCallData:
+		return readFeltSlice(r, &dst.ConstructorCallData)
+	case deployVersion:
+		return readLimbPtr(r, &dst.Version)
 	default:
-		return false, nil
+		return r.Skip()
 	}
-	return true, err
 }
+
+const (
+	deployAccountMaxFee = deployFieldCount + iota
+	deployAccountTransactionSignature
+	deployAccountNonce
+	deployAccountResourceBounds
+	deployAccountTip
+	deployAccountPaymasterData
+	deployAccountNonceDAMode
+	deployAccountFeeDAMode
+)
+
+// A deploy-account transaction embeds a deploy transaction, so its map has the keys of both.
+var deployAccountFields = fieldsOf[core.DeployAccountTransaction]([]string{
+	deployTransactionHash:             "TransactionHash",
+	deployContractAddressSalt:         "ContractAddressSalt",
+	deployContractAddress:             "ContractAddress",
+	deployClassHash:                   "ClassHash",
+	deployConstructorCallData:         "ConstructorCallData",
+	deployVersion:                     "Version",
+	deployAccountMaxFee:               "MaxFee",
+	deployAccountTransactionSignature: "TransactionSignature",
+	deployAccountNonce:                "Nonce",
+	deployAccountResourceBounds:       "ResourceBounds",
+	deployAccountTip:                  "Tip",
+	deployAccountPaymasterData:        "PaymasterData",
+	deployAccountNonceDAMode:          "NonceDAMode",
+	deployAccountFeeDAMode:            "FeeDAMode",
+})
 
 func readDeployAccount(r *fast.Reader, dst *core.DeployAccountTransaction) error {
-	var seen uint64
-	return readFields(r, foldDeployAccountTransaction, func(key string) (bool, error) {
-		if known, err := readDeployField(r, key, &seen, &dst.DeployTransaction); known || err != nil {
-			return known, err
-		}
-		var err error
-		switch key {
-		case "MaxFee":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(deployAccountFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case deployAccountMaxFee:
 			err = readFelt(r, &dst.MaxFee)
-		case "TransactionSignature":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountTransactionSignature:
 			err = readFeltSlice(r, &dst.TransactionSignature)
-		case "Nonce":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountNonce:
 			err = readFelt(r, &dst.Nonce)
-		case "ResourceBounds":
-			if once(&seen, 10) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountResourceBounds:
 			err = readResourceBounds(r, &dst.ResourceBounds)
-		case "Tip":
-			if once(&seen, 11) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountTip:
 			err = readUint64(r, &dst.Tip)
-		case "PaymasterData":
-			if once(&seen, 12) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountPaymasterData:
 			err = readFeltSlice(r, &dst.PaymasterData)
-		case "NonceDAMode":
-			if once(&seen, 13) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountNonceDAMode:
 			err = readUint32(r, &dst.NonceDAMode)
-		case "FeeDAMode":
-			if once(&seen, 14) {
-				return false, fast.ErrUnsupported
-			}
+		case deployAccountFeeDAMode:
 			err = readUint32(r, &dst.FeeDAMode)
 		default:
-			return false, nil
+			err = readDeployField(r, field, &dst.DeployTransaction)
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
+const (
+	l1HandlerTransactionHash = iota
+	l1HandlerContractAddress
+	l1HandlerEntryPointSelector
+	l1HandlerNonce
+	l1HandlerCallData
+	l1HandlerVersion
+)
+
+var l1HandlerFields = fieldsOf[core.L1HandlerTransaction]([]string{
+	l1HandlerTransactionHash:    "TransactionHash",
+	l1HandlerContractAddress:    "ContractAddress",
+	l1HandlerEntryPointSelector: "EntryPointSelector",
+	l1HandlerNonce:              "Nonce",
+	l1HandlerCallData:           "CallData",
+	l1HandlerVersion:            "Version",
+})
+
 func readL1Handler(r *fast.Reader, dst *core.L1HandlerTransaction) error {
-	var seen uint64
-	return readFields(r, foldL1HandlerTransaction, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "TransactionHash":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(l1HandlerFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case l1HandlerTransactionHash:
 			err = readFelt(r, &dst.TransactionHash)
-		case "ContractAddress":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case l1HandlerContractAddress:
 			err = readFelt(r, &dst.ContractAddress)
-		case "EntryPointSelector":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case l1HandlerEntryPointSelector:
 			err = readFelt(r, &dst.EntryPointSelector)
-		case "Nonce":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case l1HandlerNonce:
 			err = readFelt(r, &dst.Nonce)
-		case "CallData":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case l1HandlerCallData:
 			err = readFeltSlice(r, &dst.CallData)
-		case "Version":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case l1HandlerVersion:
 			err = readLimbPtr(r, &dst.Version)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
 // readResourceBounds reads the map of resource bounds of a version 3 transaction.
@@ -383,6 +385,10 @@ func readResourceBounds(r *fast.Reader, dst *map[core.Resource]core.ResourceBoun
 	out := make(map[core.Resource]core.ResourceBounds, count)
 	for ; count > 0; count-- {
 		var resource core.Resource
+		if r.Null() {
+			// fxamacker keeps the previous key for a null one; it is not worth copying.
+			return fast.ErrUnsupported
+		}
 		if err := readUint32(r, &resource); err != nil {
 			return err
 		}
@@ -397,24 +403,31 @@ func readResourceBounds(r *fast.Reader, dst *map[core.Resource]core.ResourceBoun
 	return nil
 }
 
+const (
+	boundsMaxAmount = iota
+	boundsMaxPricePerUnit
+)
+
+var boundsFields = fieldsOf[core.ResourceBounds]([]string{
+	boundsMaxAmount:       "MaxAmount",
+	boundsMaxPricePerUnit: "MaxPricePerUnit",
+})
+
 func readBounds(r *fast.Reader, dst *core.ResourceBounds) error {
-	var seen uint64
-	return readFields(r, foldResourceBounds, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "MaxAmount":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(boundsFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case boundsMaxAmount:
 			err = readUint64(r, &dst.MaxAmount)
-		case "MaxPricePerUnit":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case boundsMaxPricePerUnit:
 			err = readFelt(r, &dst.MaxPricePerUnit)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }

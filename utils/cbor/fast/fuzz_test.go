@@ -27,6 +27,20 @@ func seeds() [][]byte {
 	}
 }
 
+// readerSeeds are felts and felt arrays in the 37 byte form, with short limbs, and with the
+// wrong number of limbs, then keys long enough for a one-byte length and with non-ASCII text.
+func readerSeeds() [][]byte {
+	return [][]byte{
+		feltArray(1)[5:],
+		feltArray(3),
+		{0x82, 0x84, 0x00, 0x18, 0x1e, 0x19, 0x01, 0x00, 0x1a, 0, 0, 1, 0, 0x83, 0x01, 0x02, 0x03},
+		{0x81, 0x85, 0x01, 0x02, 0x03, 0x04, 0x05},
+		{0x84, 0x01, 0x20, 0x02, 0x03},
+		{0x78, 0x18, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x'},
+		{0x6a, 'k', 'e', 'y', 0xc3, 0xa9, 'a', 'b', 'c', 'd', 'e'},
+	}
+}
+
 // FuzzSkipMatchesFxamacker checks Skip against the decoder it replaces: both must agree on
 // whether the first item is well-formed and on where it ends. The one allowed difference is
 // ErrUnsupported, an indefinite-length item that this package leaves to the caller's fallback.
@@ -59,7 +73,7 @@ func FuzzSkipMatchesFxamacker(f *testing.F) {
 // fxamacker decoder yields, with the same remainder. A reader may be stricter than
 // fxamacker (it does not coerce between types), never more lenient.
 func FuzzReadersMatchFxamacker(f *testing.F) {
-	for _, s := range seeds() {
+	for _, s := range append(seeds(), readerSeeds()...) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -111,12 +125,59 @@ func FuzzReadersMatchFxamacker(f *testing.F) {
 			require.Equal(t, want, got)
 			require.Equal(t, rest, r.Remaining())
 		})
+		t.Run("key", func(t *testing.T) {
+			r := fast.NewReader(data)
+			got, isText, err := r.Key()
+			if err != nil {
+				require.Zero(t, r.Pos(), "a failed read must not consume")
+				return
+			}
+			if isText {
+				var want string
+				rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+				require.NoError(t, fxErr)
+				require.Equal(t, want, string(got))
+				require.Equal(t, rest, r.Remaining())
+				return
+			}
+			var want int64
+			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+			require.NoError(t, fxErr)
+			require.Equal(t, rest, r.Remaining())
+		})
 		t.Run("bytes", func(t *testing.T) {
 			var want []byte
 			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
 			r := fast.NewReader(data)
 			got, err := r.Bytes()
 			if err != nil {
+				return
+			}
+			require.NoError(t, fxErr)
+			require.Equal(t, want, got)
+			require.Equal(t, rest, r.Remaining())
+		})
+		t.Run("felt", func(t *testing.T) {
+			var want [fast.Limbs]uint64
+			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+			r := fast.NewReader(data)
+			var got [fast.Limbs]uint64
+			if err := r.Limbs(&got); err != nil {
+				require.Zero(t, r.Pos(), "a failed read must not consume")
+				require.Zero(t, got, "a failed read must not write")
+				return
+			}
+			require.NoError(t, fxErr)
+			require.Equal(t, want, got)
+			require.Equal(t, rest, r.Remaining())
+		})
+		t.Run("felt slice", func(t *testing.T) {
+			var want [][fast.Limbs]uint64
+			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+			r := fast.NewReader(data)
+			got, err := fast.LimbSlice[[fast.Limbs]uint64](&r)
+			if err != nil {
+				require.Zero(t, r.Pos(), "a failed read must not consume")
 				return
 			}
 			require.NoError(t, fxErr)
