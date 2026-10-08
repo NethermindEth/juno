@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fast/records"
 )
 
 var once sync.Once
@@ -44,5 +45,7 @@ func init() {
 				panic(err)
 			}
 		}
+
+		records.Register()
 	})
 }
