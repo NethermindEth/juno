@@ -133,6 +133,11 @@ func TestNextField(t *testing.T) {
 			want: []fieldValue{{1, 1}},
 			err:  fast.ErrUnsupported,
 		},
+		"repeated key, first in another case": {
+			data: pairs(text("A"), one, text("a"), two),
+			want: []fieldValue{{1, 1}},
+			err:  fast.ErrUnsupported,
+		},
 		"integer key overflows int64": {
 			data: pairs([]byte{0x1b, 0x80, 0, 0, 0, 0, 0, 0, 0}, one),
 			err:  fast.ErrType,
