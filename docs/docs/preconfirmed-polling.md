@@ -1,36 +1,55 @@
 ---
-title: Pre-confirmed Polling
+title: Full Control Over Pre-confirmed Polling 
 description: "How Juno fetches the pre_confirmed block, what its three polling options trade off, and which values to set for your workload."
 ---
 
 # Pre-confirmed block polling
 
-Starknet's sequencer publishes the block it is currently building as the **pre-confirmed block**. JSON-RPC methods that take a block identifier accept the `pre_confirmed` tag (`pending` in API v0.8) and answer from that block, so clients can see transactions and state changes seconds before the block closes. This page explains how Juno obtains the pre-confirmed block, what that costs, and how the three `preconfirmed-*` configuration options change what a `pre_confirmed` read returns and how long it takes.
+:::info
+Pre-confirmed blocks are blocks that the Sequencers are proposing and that will soon be finalized and added to the L2 chain. They can be queried via RPC using the `pre_confirmed` block tag.
+:::
 
-## How Juno gets the pre-confirmed block
+Juno unlocks the possibility to its users to decide to minimze response latency or data staleness (how old the data is) when they query for a pre-confirmed block by exposing these three flags:
+- `--preconfirmed-poll-interval` sets how frequently Juno polls for the pre-confirmed data.
+- `--preconfirmed-stale-after` sets after how many time polled data is considered old.
+- `--preconfirmed-on-demand-wait` sets how long should requests for pre-confirmed data wait for a response.
 
-The pre-confirmed block is not streamed to the node. Juno **polls** the sequencer's feeder gateway for it (`get_preconfirmed_block`): one HTTP round trip, about 120 ms from a typical host. The node stores the result and serves every `pre_confirmed` read from that stored copy until the next poll replaces it.
+The goal with these flags is to shape how pre-confirmed polls behave by either when receiving a preconfirmed request answer directly with what's on memory, minimizing latency but risking answering stale data, or on the contrary, forwarding the request to the sequencer, maximizing data freshness at the cost of one extra roundtrip between Juno and the sequencer.
 
-Every poll is one gateway request, and the gateway throttles an IP address that sends more than a few requests per second by answering HTTP 429. A throttled poll fails fast; the node keeps serving the copy it already has and tries again on the next tick or the next read.
+## Suggested presets 
 
-Two numbers describe what a reader gets:
+Depending on the node use case, the following are flag settings the team recommend that find a good balance between latency and data staleness. 
 
-- **Staleness** is how far behind the gateway an answer is. A read is *caught up* when the pre-confirmed state the node returned was still the gateway's current one at that moment; otherwise its staleness is how long the gateway had already had a newer one.
-- **Latency** is how long the `pre_confirmed` read itself takes. Served from the stored copy it takes under a millisecond; a read that waits for a poll takes about one gateway round trip.
+### Default (for App Developers, Stakers and Explorers )
 
-The trade-off is simple to state. A node can only be fresher by polling more often or by polling when a read asks, and polling when asked only makes *that* read fresher if the read waits for the poll to come back. Polling more often costs gateway requests; waiting costs latency. The three options below let you choose where to sit.
+The default preset works well for indidivual users who have their private Juno node and wish to minimize unnecessary requests to the Sequencer and risk getting rate limited for a while, effectively slowing the node syncing while at the same time striking a fine balance between fast responses and updated data.
 
-## The three options
+- `--preconfirmed-poll-interval 1s`
+- `--preconfirmed-stale-after 250ms`
+- `--preconfirmed-on-demand-wait 300ms`
 
-The values are durations (`500ms`, `1s`), settable as flags, environment variables or in the configuration file like any other option (see [Configuration](configuring)).
+### RPC Providers
 
-**`preconfirmed-poll-interval`** (default `1s`) sets how frequently the pre_confirmed block is updated; `0s` disables fetching it. This is the **tick**: the node polls on this schedule whether or not anybody is reading. A successful poll triggered by a read (below) restarts the tick, so under steady read traffic the tick rarely fires. WebSocket subscriptions on the pre-confirmed block receive every update the poller applies, so on a node that nobody reads they advance at the tick.
+RPC providers nodes are expected to be constantly hit with pre-confirmed requests and because nodes
+are shared with a lot of users, triggering a request on demand but not waiting for it is ok, because data staleness should be small, and next requests will benefit from this on-demand.
 
-**`preconfirmed-stale-after`** (default `250ms`) sets how long after a poll its result is served as is. A read that arrives later than that after the last successful poll triggers a new poll first; `0s` makes every read poll. Reads that arrive while a poll is in flight share it instead of starting another one, so a burst of concurrent reads costs one gateway request. The clock only advances on a *successful* poll. A poll the gateway answers counts as successful even when the answer is that it has no pre-confirmed block for the height the node asked about; after a throttled or failed poll the clock stays where it was, so the next read polls again.
+- `--preconfirmed-poll-interval 500ms`
+- `--preconfirmed-stale-after 250ms`
+- `--preconfirmed-on-demand-wait 0s`
 
-**`preconfirmed-on-demand-wait`** (default `300ms`) is the maximum time a read waits for the poll it triggered (or joined) before answering with the pre-confirmed block already stored; `0s` means it never waits. With a wait, the read that triggered the poll gets the poll's result, at the price of about one round trip of latency. With `0s` the read answers immediately from the stored block while the poll proceeds for the benefit of the *next* reads. The wait is a cap, not a delay: a read is released as soon as its poll completes, or at once if the poll fails.
+### Bots and MEV
 
-## What the options do over time
+For users looking to maximize freshness data at the cost of some initial latency, they will benefit from waiting longer periods of time, to guarantee always getting the most recent data.
+
+- `--preconfirmed-poll-interval 500ms`
+- `--preconfirmed-stale-after 250ms`
+- `--preconfirmed-on-demand-wait 1s`
+
+## Study on the effect of this flags 
+
+:::info
+The following is an optional section to explain how the previous default values were achieved and how they actually impact the node behaviour. For the curious and for the ones looking to fine-tune this flags to their unique conditions and use case.
+:::
 
 The four figures below play the same two seconds: the gateway's pre-confirmed state changes three times (A to B, C and D), every poll takes 120 ms, and a few `pre_confirmed` reads arrive at the same moments. For each read the figure shows whether it was answered with the gateway's current state (filled dot) or an older one (hollow dot), how long it waited, and the age of the data it received.
 
