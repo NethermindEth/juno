@@ -422,12 +422,21 @@ func readInts(r *fast.Reader, dst *[]int) error {
 	}
 	out := make([]int, count)
 	for i := range out {
-		if r.Null() {
+		// Stored offsets are unsigned; a null or a negative integer takes the second try.
+		value, err := r.Uint64()
+		if err != nil {
+			if r.Null() {
+				continue
+			}
+			signed, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			out[i] = int(signed)
 			continue
 		}
-		value, err := r.Int64()
-		if err != nil {
-			return err
+		if value > math.MaxInt64 {
+			return fast.ErrType
 		}
 		out[i] = int(value)
 	}
