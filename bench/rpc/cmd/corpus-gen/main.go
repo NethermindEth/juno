@@ -137,7 +137,7 @@ type jsonRPCRequest struct {
 }
 
 func writeCorpus[T any](w io.Writer, c *corpus[T]) error {
-	data, err := json.MarshalIndent(c, "", "  ")
+	data, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
