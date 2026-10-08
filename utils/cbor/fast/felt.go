@@ -114,8 +114,11 @@ func LimbSlice[F ~[Limbs]uint64](r *Reader) ([]F, error) {
 		return nil, err
 	}
 	if count > uint64(r.Len())/(1+Limbs) {
+		// Every felt Juno writes takes at least five bytes, so this count is a damaged one or a
+		// felt written in a form fxamacker also takes (an empty array is a zero felt). It is
+		// never worth an allocation the input cannot back; fxamacker decides.
 		r.pos = start
-		return nil, ErrTruncated
+		return nil, ErrUnsupported
 	}
 	out := make([]F, count)
 	// F has the layout of [Limbs]uint64, so the slice can be read as one.

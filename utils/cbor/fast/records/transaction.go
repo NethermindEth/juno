@@ -385,6 +385,10 @@ func readResourceBounds(r *fast.Reader, dst *map[core.Resource]core.ResourceBoun
 	out := make(map[core.Resource]core.ResourceBounds, count)
 	for ; count > 0; count-- {
 		var resource core.Resource
+		if r.Null() {
+			// fxamacker keeps the previous key for a null one; it is not worth copying.
+			return fast.ErrUnsupported
+		}
 		if err := readUint32(r, &resource); err != nil {
 			return err
 		}
