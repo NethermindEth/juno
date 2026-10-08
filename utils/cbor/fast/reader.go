@@ -23,9 +23,10 @@ const (
 
 // Head bytes of the simple values the stored records use.
 const (
-	SimpleFalse = MajorSimple | 20
-	SimpleTrue  = MajorSimple | 21
-	SimpleNull  = MajorSimple | 22
+	SimpleFalse     = MajorSimple | 20
+	SimpleTrue      = MajorSimple | 21
+	SimpleNull      = MajorSimple | 22
+	SimpleUndefined = MajorSimple | 23
 )
 
 // Additional info values. Below info1Byte the argument is the info itself.
@@ -46,11 +47,15 @@ const MaxNestedLevels = 32
 type Reader struct {
 	buf []byte
 	pos int
+	// depth is how many arrays and maps are open around the next item. ArrayLen and MapLen
+	// open one and Leave closes it, so Skip can hold what it passes over to MaxNestedLevels
+	// counted from the start of the record.
+	depth int
 }
 
 // NewReader returns a Reader positioned at the start of data.
 func NewReader(data []byte) Reader {
-	return Reader{buf: data, pos: 0}
+	return Reader{buf: data, pos: 0, depth: 0}
 }
 
 // Remaining returns the unread suffix of the input. It aliases the input buffer.
@@ -125,9 +130,19 @@ func (r *Reader) expect(want byte) (uint64, error) {
 	}
 	if major != want {
 		r.pos = start
-		return 0, ErrType
+		return 0, mismatch(major)
 	}
 	return argument, nil
+}
+
+// mismatch is the error for finding an item of the given major type where another was
+// expected. A tag is not a mismatch of data: fxamacker looks through tags it has no use for,
+// which this package leaves to it.
+func mismatch(found byte) error {
+	if found == MajorTag {
+		return ErrUnsupported
+	}
+	return ErrType
 }
 
 // ArrayLen reads an array head and returns its element count. The count is capped by the
@@ -142,6 +157,10 @@ func (r *Reader) ArrayLen() (int, error) {
 	if count > uint64(r.Len()) {
 		r.pos = start
 		return 0, ErrTruncated
+	}
+	if err := r.enter(); err != nil {
+		r.pos = start
+		return 0, err
 	}
 	return int(count), nil
 }
@@ -158,17 +177,33 @@ func (r *Reader) MapLen() (int, error) {
 		r.pos = start
 		return 0, ErrTruncated
 	}
+	if err := r.enter(); err != nil {
+		r.pos = start
+		return 0, err
+	}
 	return int(count), nil
 }
+
+func (r *Reader) enter() error {
+	if r.depth >= MaxNestedLevels {
+		return ErrDepth
+	}
+	r.depth++
+	return nil
+}
+
+// Leave closes the array or map that ArrayLen or MapLen opened, once all its items are read.
+func (r *Reader) Leave() { r.depth-- }
 
 // Tag reads a tag number. The content item follows.
 func (r *Reader) Tag() (uint64, error) {
 	return r.expect(MajorTag)
 }
 
-// Null consumes the next item if it is null, reporting whether it was.
+// Null consumes the next item if it is null or undefined, reporting whether it was.
+// fxamacker decodes both the same way.
 func (r *Reader) Null() bool {
-	if r.pos < len(r.buf) && r.buf[r.pos] == SimpleNull {
+	if r.pos < len(r.buf) && (r.buf[r.pos] == SimpleNull || r.buf[r.pos] == SimpleUndefined) {
 		r.pos++
 		return true
 	}

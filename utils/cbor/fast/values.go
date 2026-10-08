@@ -19,7 +19,11 @@ func (r *Reader) Int64() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if (major != MajorUint && major != MajorNegInt) || argument > math.MaxInt64 {
+	if major != MajorUint && major != MajorNegInt {
+		r.pos = start
+		return 0, mismatch(major)
+	}
+	if argument > math.MaxInt64 {
 		r.pos = start
 		return 0, ErrType
 	}
@@ -43,7 +47,7 @@ func (r *Reader) Bool() (bool, error) {
 		r.pos++
 		return true, nil
 	default:
-		return false, ErrType
+		return false, mismatch(head & majorMask)
 	}
 }
 
@@ -121,7 +125,7 @@ func (r *Reader) BigInt() (*big.Int, error) {
 	case MajorTag:
 		if argument != tagPositiveBignum && argument != tagNegativeBignum {
 			r.pos = start
-			return nil, ErrType
+			return nil, ErrUnsupported
 		}
 		magnitude, err := r.payload(MajorBytes)
 		if err != nil {
@@ -148,9 +152,38 @@ const (
 	tagNegativeBignum = 3
 )
 
-// KeyNoCopy reads a map key that is a text string and returns its bytes, valid only while
-// the input is. It does not check UTF-8: a key is only compared against known field names,
-// so invalid text just fails to match, as in fxamacker.
-func (r *Reader) KeyNoCopy() ([]byte, error) {
-	return r.payload(MajorString)
+// Key reads a map key the way fxamacker reads the keys of a struct. A text key is returned
+// as a sub-slice of the input, valid only while the input is, after a UTF-8 check. An
+// integer key can match no field, so it is consumed and reported as not text; one too large
+// for int64 is an error, as is a key of any other type.
+func (r *Reader) Key() (key []byte, isText bool, err error) {
+	start := r.pos
+	major, argument, err := r.Head()
+	if err != nil {
+		return nil, false, err
+	}
+	switch major {
+	case MajorString:
+		if argument > uint64(r.Len()) {
+			r.pos = start
+			return nil, false, ErrTruncated
+		}
+		end := r.pos + int(argument)
+		key = r.buf[r.pos:end]
+		if !utf8.Valid(key) {
+			r.pos = start
+			return nil, false, ErrSyntax
+		}
+		r.pos = end
+		return key, true, nil
+	case MajorUint, MajorNegInt:
+		if argument > math.MaxInt64 {
+			r.pos = start
+			return nil, false, ErrType
+		}
+		return nil, false, nil
+	default:
+		r.pos = start
+		return nil, false, ErrType
+	}
 }

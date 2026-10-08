@@ -233,8 +233,34 @@ func TestBigInt(t *testing.T) {
 	})
 
 	t.Run("other tag", func(t *testing.T) {
+		// Some other tag: fxamacker looks through it, so the reader leaves it to fxamacker.
 		r := fast.NewReader([]byte{0xc4, 0x41, 0x01})
 		_, err := r.BigInt()
-		require.ErrorIs(t, err, fast.ErrType)
+		require.ErrorIs(t, err, fast.ErrUnsupported)
+		require.Zero(t, r.Pos())
 	})
+}
+
+func TestTaggedValuesAreLeftToFxamacker(t *testing.T) {
+	tagged := []byte{0xd8, 0x64, 0x01} // tag 100 over 1
+	r := fast.NewReader(tagged)
+	_, err := r.Uint64()
+	require.ErrorIs(t, err, fast.ErrUnsupported)
+	_, err = r.Int64()
+	require.ErrorIs(t, err, fast.ErrUnsupported)
+	_, err = r.String()
+	require.ErrorIs(t, err, fast.ErrUnsupported)
+	_, err = r.ArrayLen()
+	require.ErrorIs(t, err, fast.ErrUnsupported)
+	require.Zero(t, r.Pos())
+
+	// A tag is still readable as one.
+	tag, err := r.Tag()
+	require.NoError(t, err)
+	require.EqualValues(t, 100, tag)
+}
+
+func TestUndefinedIsNull(t *testing.T) {
+	r := fast.NewReader([]byte{0xf7})
+	require.True(t, r.Null())
 }

@@ -1,6 +1,7 @@
 package records_test
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fast/records"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	bloom "github.com/bits-and-blooms/bloom/v3"
@@ -342,8 +344,8 @@ func TestHeaderLegacyKeys(t *testing.T) {
 	require.Equal(t, before+1, routed("core.Header"))
 }
 
-func TestStateUpdateMatchesFxamacker(t *testing.T) {
-	update := &core.StateUpdate{
+func stateUpdate() *core.StateUpdate {
+	return &core.StateUpdate{
 		BlockHash: f(1), NewRoot: f(2), OldRoot: f(3),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -359,6 +361,10 @@ func TestStateUpdateMatchesFxamacker(t *testing.T) {
 			MigratedClasses:   map[felt.SierraClassHash]felt.CasmClassHash{felt.SierraClassHash(*f(1)): felt.CasmClassHash(*f(2))},
 		},
 	}
+}
+
+func TestStateUpdateMatchesFxamacker(t *testing.T) {
+	update := stateUpdate()
 	for name, value := range map[string]*core.StateUpdate{"populated": update, "zero": {}, "empty diff": {StateDiff: &core.StateDiff{}}} {
 		t.Run(name, func(t *testing.T) {
 			data, err := cbor.Marshal(value)
@@ -370,4 +376,22 @@ func TestStateUpdateMatchesFxamacker(t *testing.T) {
 			require.Equal(t, before+1, routed("core.StateUpdate"))
 		})
 	}
+}
+
+func TestBloomDeclaringMoreBitsThanItHoldsIsRejected(t *testing.T) {
+	data, err := cbor.Marshal(header())
+	require.NoError(t, err)
+
+	// The bit count sits after m and k, in the bloom filter's byte string, which starts
+	// after the key "EventsBloom" and the byte string's own head.
+	key := []byte("EventsBloom")
+	at := bytes.Index(data, key) + len(key)
+	require.Equal(t, byte(0x59), data[at], "a two byte length byte string")
+	count := at + 3 + 2*8
+	for i := range 8 {
+		data[count+i] = 0
+	}
+	data[count] = 0x04 // 2^58 bits
+
+	require.ErrorIs(t, cbor.Unmarshal(data, new(core.Header)), records.ErrBloomSize)
 }
