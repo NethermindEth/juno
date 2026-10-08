@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 488" width="760" height="488" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
-<title id="title">B. On-demand polling, no wait: interval 1 s, stale-after 250 ms, wait 0</title>
-<desc id="desc">A read that finds data older than 250 ms triggers a poll but answers at once with the old data; the next read benefits.</desc>
+<title id="title">Polling on demand, no wait: interval 1 s, stale-after 250 ms, wait 0</title>
+<desc id="desc">A read that finds data older than 250 ms triggers a poll but answers at once with the old data.</desc>
 <rect x="0.5" y="0.5" width="759" height="487" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
-<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">B. On-demand polling, no wait: interval 1 s, stale-after 250 ms, wait 0</text>
-<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">A read that finds data older than 250 ms triggers a poll but answers at once with the old data; the next read benefits.</text>
+<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">Polling on demand, no wait: interval 1 s, stale-after 250 ms, wait 0</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">A read that finds data older than 250 ms triggers a poll but answers at once with the old data.</text>
 <rect x="16" y="57" width="16" height="10" rx="2" fill="#1baf7a" opacity="0.25"/>
 <text x="38.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">gateway's pre-confirmed state (A, B, C, D in turn)</text>
 <rect x="358" y="57" width="16" height="10" rx="2" fill="#2a78d6"/>
@@ -16,7 +16,7 @@
 <rect x="440" y="76" width="16" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
 <text x="462.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read waiting for a poll</text>
 <rect x="16" y="92" width="16" height="10" fill="#2a78d6" opacity="0.10"/>
-<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">stored data younger than stale-after: reads answer at once</text>
+<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">fresh window: reads answer at once from the stored data</text>
 <path d="M401.0,102.0 L411.0,102.0 L406.0,92.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
 <text x="420.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick cancelled by a read-triggered poll</text>
 <text x="96.0" y="144.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Gateway state</text>
@@ -98,8 +98,9 @@
 <line x1="685.8" y1="398" x2="685.8" y2="403" stroke="#c3c2b7" stroke-width="1"/>
 <text x="685.8" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
 <text x="405.1" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick moved to 1720</text>
-<text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="normal">4 reads at once share the poll</text>
+<text x="278.5" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">gets A at once</text>
+<text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">4 reads at once share the poll</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">A triggered poll restarts the 1 s tick (hollow triangle: the tick it cancelled).</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">A burst shares one poll; with no wait, every read in it answers with the old data.</text>
-<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: 1.6 gateway requests/s idle (2.5 at the 500 ms tick), but only 40% of sparse reads caught up, 53% in bursts.</text>
+<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: 1.6 gateway requests/s with no reads (2.5 at 500 ms); sparse reads 40% caught up, bursts 53%.</text>
 </svg>

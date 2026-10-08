@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 488" width="760" height="488" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
-<title id="title">C. On-demand polling with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</title>
-<desc id="desc">The new default. A read that finds data older than 250 ms triggers or joins a poll and waits for it (at most 300 ms).</desc>
+<title id="title">Polling on demand with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</title>
+<desc id="desc">The default. A read that finds data older than 250 ms triggers or joins a poll and waits, at most 300 ms.</desc>
 <rect x="0.5" y="0.5" width="759" height="487" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
-<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">C. On-demand polling with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</text>
-<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">The new default. A read that finds data older than 250 ms triggers or joins a poll and waits for it (at most 300 ms).</text>
+<text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">Polling on demand with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">The default. A read that finds data older than 250 ms triggers or joins a poll and waits, at most 300 ms.</text>
 <rect x="16" y="57" width="16" height="10" rx="2" fill="#1baf7a" opacity="0.25"/>
 <text x="38.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">gateway's pre-confirmed state (A, B, C, D in turn)</text>
 <rect x="358" y="57" width="16" height="10" rx="2" fill="#2a78d6"/>
@@ -16,7 +16,7 @@
 <rect x="440" y="76" width="16" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
 <text x="462.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read waiting for a poll</text>
 <rect x="16" y="92" width="16" height="10" fill="#2a78d6" opacity="0.10"/>
-<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">stored data younger than stale-after: reads answer at once</text>
+<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">fresh window: reads answer at once from the stored data</text>
 <path d="M401.0,102.0 L411.0,102.0 L406.0,92.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
 <text x="420.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick cancelled by a read-triggered poll</text>
 <text x="96.0" y="144.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Gateway state</text>
@@ -105,9 +105,9 @@
 <text x="685.8" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
 <text x="405.1" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick moved to 1720</text>
 <text x="278.5" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">waits 120 ms</text>
-<text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">x4: one shared poll, all wait</text>
+<text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">x4: one poll, all wait</text>
 <text x="671.3" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">no wait</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Reads within 250 ms of a completed poll (shaded) answer at once; the others wait one round trip.</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: sparse reads 100% caught up, p50 121 ms, p99 246 ms; bursts 85% caught up, p50 119 ms.</text>
-<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">At 20 reads/s: half of the reads answer in under 1 ms, a quarter wait over 100 ms (p99 242 ms); 95% caught up.</text>
+<text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">At 20 reads/s: p50 0.8 ms, a quarter of the reads wait over 100 ms (p99 242 ms); 95% caught up.</text>
 </svg>
