@@ -8,6 +8,7 @@ usage: $0 <corpus(.json)> <node|url> [k6 flags...]
   <corpus>  config or its folder (all.json <-> all/)
   <node>    nodes/<node>.json name or URL; results -> <corpus>/<node>/
 Runs in config order when the config exists, else A-Z.
+Corpora are all <name>.json or all <name>.json.zst (decompressed into TMPDIR).
 Extra args pass to every k6 run. OUT_DIR overrides the results folder.
 EOF
   exit 1
@@ -26,13 +27,30 @@ K6_ARGS=("$@")
 
 OUT_DIR=${OUT_DIR:-$CORPUS_DIR/$NODE_NAME}
 
+shopt -s nullglob
+plain_corpora=("$CORPUS_DIR"/*.json)
+zstd_corpora=("$CORPUS_DIR"/*.json.zst)
+if ((${#plain_corpora[@]} > 0 && ${#zstd_corpora[@]} > 0)); then
+  echo "error: $CORPUS_DIR mixes .json and .json.zst corpora; keep one format" >&2
+  exit 1
+fi
+CORPUS_EXT=.json
+corpus_files=("${plain_corpora[@]}")
+if ((${#zstd_corpora[@]} > 0)); then
+  CORPUS_EXT=.json.zst
+  corpus_files=("${zstd_corpora[@]}")
+  if ! command -v zstd >/dev/null; then
+    echo "error: zstd not found; required by .json.zst corpora" >&2
+    exit 1
+  fi
+fi
+
 # Config order first (keys_unsorted keeps file order), then corpora the
 # config doesn't list, A-Z.
-shopt -s nullglob
 mapfile -t names < <(
   {
     [[ -f "$CONFIG" ]] && jq -r 'keys_unsorted[]' "$CONFIG"
-    for corpus in "$CORPUS_DIR"/*.json; do basename "$corpus" .json; done
+    for corpus in "${corpus_files[@]}"; do basename "$corpus" "$CORPUS_EXT"; done
   } | awk '!seen[$0]++'
 )
 if ((${#names[@]} == 0)); then
@@ -43,7 +61,7 @@ fi
 corpora=()
 missing=()
 for name in "${names[@]}"; do
-  if [[ -f "$CORPUS_DIR/$name.json" ]]; then
+  if [[ -f "$CORPUS_DIR/$name$CORPUS_EXT" ]]; then
     corpora+=("$name")
   else
     missing+=("$name")
@@ -58,11 +76,29 @@ if ((${#missing[@]} > 0)); then
 fi
 mkdir -p "$OUT_DIR"
 
+# k6's open() rejects a piped stdin (its file cache checks the copied size
+# against stat), so a .json.zst corpus is decompressed to a temp file first.
+decompressed=
+discard_decompressed() {
+  [[ -z $decompressed ]] || rm -f -- "$decompressed"
+  decompressed=
+}
+trap discard_decompressed EXIT
+
 failed=("${missing[@]}")
 for name in "${corpora[@]}"; do
-  corpus="$CORPUS_DIR/$name.json"
+  corpus="$CORPUS_DIR/$name$CORPUS_EXT"
   echo
   echo "==> $name"
+  if [[ $CORPUS_EXT == .json.zst ]]; then
+    decompressed=$(mktemp)
+    if ! zstd -d -q -c "$corpus" >"$decompressed"; then
+      failed+=("$name")
+      discard_decompressed
+      continue
+    fi
+    corpus=$decompressed
+  fi
   # 2s aggregation period: the default 10s leaves short runs with too few
   # data points and k6 then skips the HTML report entirely.
   K6_WEB_DASHBOARD=true \
@@ -75,6 +111,7 @@ for name in "${corpora[@]}"; do
     "${K6_ARGS[@]}" \
     <"$corpus" ||
     failed+=("$name")
+  discard_decompressed
 done
 
 report="$OUT_DIR/report.md"

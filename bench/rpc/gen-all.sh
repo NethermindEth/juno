@@ -9,6 +9,7 @@ usage: $0 <corpus(.json)> <node|url> [corpus-gen flags...]
   <node>    nodes/<node>.json name or URL, sampled via --source-url
 Config: {"name": "subcommand [flags]"} map, one corpus per entry.
 Extra args pass to every corpus-gen call; per-entry flags win.
+COMPRESS=zstd writes <name>.json.zst (zstd -1) instead of <name>.json.
 EOF
   exit 1
 }
@@ -26,6 +27,16 @@ resolve_node "$2"
 shift 2
 GEN_ARGS=("$@")
 
+COMPRESS=${COMPRESS:-}
+case $COMPRESS in
+  "") CORPUS_EXT=.json ;;
+  zstd) CORPUS_EXT=.json.zst ;;
+  *)
+    echo "error: COMPRESS must be zstd or unset (got '$COMPRESS')" >&2
+    exit 1
+    ;;
+esac
+
 if [[ ! -f "$CONFIG" ]]; then
   echo "error: config $CONFIG not found" >&2
   exit 1
@@ -38,16 +49,25 @@ if [[ ! -x "$CORPUS_GEN" ]]; then
   echo "error: $CORPUS_GEN not found; run 'make corpus-gen' first" >&2
   exit 1
 fi
+if [[ -n $COMPRESS ]] && ! command -v zstd >/dev/null; then
+  echo "error: zstd not found; required by COMPRESS=zstd" >&2
+  exit 1
+fi
 
 mkdir -p "$OUT_DIR"
 
 gen() {
-  local name=$1
+  local name=$1 out
   shift
+  out="$OUT_DIR/$name$CORPUS_EXT"
   echo "==> $name"
   # Node URL first, then pass-through, then per-entry flags (pflag: last wins).
-  "$CORPUS_GEN" --source-url "$NODE_URL" "${GEN_ARGS[@]}" "$@" >"$OUT_DIR/$name.json" ||
-    { rm -f "$OUT_DIR/$name.json"; return 1; }
+  local -a cmd=("$CORPUS_GEN" --source-url "$NODE_URL" "${GEN_ARGS[@]}" "$@")
+  if [[ -n $COMPRESS ]]; then
+    "${cmd[@]}" | zstd -1 -q >"$out"
+  else
+    "${cmd[@]}" >"$out"
+  fi || { rm -f "$out"; return 1; }
 }
 
 while IFS=$'\t' read -r name cmd; do

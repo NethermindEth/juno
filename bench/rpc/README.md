@@ -50,11 +50,14 @@ start from `nodes/node.local.json.example`.
 
 `gen-all.sh`: one corpus per config entry (`{"name": "subcommand [flags]"}`)
 into the config's folder, sampling `<node>` via `--source-url`; per-entry
-flags win.
+flags win. `COMPRESS=zstd` writes `<name>.json.zst` (`zstd -1`) instead of
+`<name>.json`.
 
 `run-all.sh`: `run.js` once per corpus against `<node>`, in config order when
-`<corpus>.json` exists (corpora it doesn't list follow A-Z), else A-Z. A
-listed corpus missing from the folder counts as failed. Writes
+`<corpus>.json` exists (corpora it doesn't list follow A-Z), else A-Z. The
+folder holds either `<name>.json` or `<name>.json.zst` corpora, never both
+(error); `.json.zst` ones are decompressed into `$TMPDIR` per run and deleted
+after. A listed corpus missing from the folder counts as failed. Writes
 `<corpus>/<node>/` (or `$OUT_DIR`; overwritten per re-run): `<method>.html`
 (dashboard, live at `:5665`), `<method>.json` (summary), `report.md` (rows in
 run order). Failures don't stop the remaining corpora.
