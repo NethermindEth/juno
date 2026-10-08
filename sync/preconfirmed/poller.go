@@ -516,6 +516,10 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 }
 
 func (p *Poller) reportPollError(err error) {
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+
 	if errors.Is(err, feeder.ErrRateLimited) {
 		p.logger.Debug(
 			"Pre-confirmed polling rate limited; retrying next tick", zap.Error(err),

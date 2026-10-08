@@ -105,6 +105,11 @@ var reportedFailures = []struct {
 		reason: preconfirmed.FailureError,
 	},
 	{
+		name:   "timed out",
+		err:    fmt.Errorf("querying: %w", context.DeadlineExceeded),
+		reason: preconfirmed.FailureError,
+	},
+	{
 		name:   "rate limited",
 		err:    fmt.Errorf("querying: %w", feeder.ErrRateLimited),
 		reason: preconfirmed.FailureRateLimited,
@@ -370,6 +375,78 @@ func TestPollerReportsFailedPolls(t *testing.T) {
 			time.Sleep(tickInterval)
 			synctest.Wait()
 			require.Equal(t, []listenerCall{pollFailed(preconfirmed.FailureError)}, listener.take())
+		})
+	})
+}
+
+// A poll cut short because the poller is stopping reports no failure.
+func TestPollerReportsNoFailureWhenStopped(t *testing.T) {
+	t.Parallel()
+
+	t.Run("while polling the latest", func(t *testing.T) {
+		t.Parallel()
+		fx := newChainFixture(t)
+
+		stoppedLatest := func(
+			ctx context.Context, _ string, _ uint64,
+		) (starknet.PreConfirmedUpdate, uint64, error) {
+			<-ctx.Done()
+			return nil, 0, fmt.Errorf("querying: %w", ctx.Err())
+		}
+
+		ctrl := gomock.NewController(t)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).DoAndReturn(stoppedLatest)
+
+		synctest.Test(t, func(t *testing.T) {
+			listener := &listenerRecorder{}
+			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			ctx, cancel := context.WithCancel(t.Context())
+			go h.poller.Run(ctx)
+			synctest.Wait()
+
+			// The poller stops while tick 1 waits for the latest.
+			time.Sleep(tickInterval)
+			synctest.Wait()
+			cancel()
+			synctest.Wait()
+			require.Empty(t, listener.take())
+		})
+	})
+
+	t.Run("while backfilling", func(t *testing.T) {
+		t.Parallel()
+		fx := newChainFixture(t)
+
+		stoppedByNumber := func(
+			ctx context.Context, _ uint64, _ string, _ uint64,
+		) (starknet.PreConfirmedUpdate, error) {
+			<-ctx.Done()
+			return nil, fmt.Errorf("querying: %w", ctx.Err())
+		}
+
+		ctrl := gomock.NewController(t)
+		ds := mocks.NewMockPreConfirmedDataSource(ctrl)
+		gomock.InOrder(
+			ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+				Return(makeTestPreConfirmedBlock("r2", 0), uint64(2), nil),
+			ds.EXPECT().PreConfirmedBlockByNumber(gomock.Any(), uint64(1), "", uint64(0)).
+				DoAndReturn(stoppedByNumber),
+		)
+
+		synctest.Test(t, func(t *testing.T) {
+			listener := &listenerRecorder{}
+			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			ctx, cancel := context.WithCancel(t.Context())
+			go h.poller.Run(ctx)
+			synctest.Wait()
+
+			// The poller stops while tick 1 backfills block 1.
+			time.Sleep(tickInterval)
+			synctest.Wait()
+			cancel()
+			synctest.Wait()
+			require.Equal(t, []listenerCall{backfillStarted(1)}, listener.take())
 		})
 	})
 }
