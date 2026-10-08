@@ -25,8 +25,9 @@ type fieldValue struct {
 	value uint64
 }
 
-// readStruct reads a map of integers with fields, skipping the values of unknown keys.
-func readStruct(t *testing.T, data []byte, fields *fast.Fields) ([]fieldValue, error) {
+// readStruct reads a map of integers with fields, skipping the values of unknown keys. The
+// input may go on for trailer bytes after the map.
+func readStruct(t *testing.T, data []byte, trailer int, fields *fast.Fields) ([]fieldValue, error) {
 	t.Helper()
 	r := fast.NewReader(data)
 	s, err := r.OpenStruct(fields)
@@ -40,7 +41,7 @@ func readStruct(t *testing.T, data []byte, fields *fast.Fields) ([]fieldValue, e
 		case err != nil:
 			return out, err
 		case field == fast.Done:
-			require.Zero(t, r.Len())
+			require.Equal(t, trailer, r.Len())
 			return out, nil
 		case field == fast.Unknown:
 			require.NoError(t, r.Skip())
@@ -65,7 +66,9 @@ func TestNewFieldsRejects(t *testing.T) {
 }
 
 func TestNextField(t *testing.T) {
-	fields := fast.NewFields("ccc", "a", "bb")
+	long := strings.Repeat("x", 30)
+	mid := "abcdefghijklmnopqrst"
+	fields := fast.NewFields("ccc", "a", "bb", long, mid)
 	one, two, three := []byte{0x01}, []byte{0x02}, []byte{0x03}
 	tests := map[string]struct {
 		data []byte
@@ -75,6 +78,24 @@ func TestNextField(t *testing.T) {
 		"canonical": {
 			data: pairs(text("a"), one, text("bb"), two, text("ccc"), three),
 			want: []fieldValue{{1, 1}, {2, 2}, {0, 3}},
+		},
+		"long key": {
+			data: pairs(text("a"), one, []byte{0x78, 30}, []byte(long), two),
+			want: []fieldValue{{1, 1}, {3, 2}},
+		},
+		"long key differing at the end": {
+			data: pairs(text("a"), one, []byte{0x78, 30}, []byte(long[:29]+"y"), two),
+			want: []fieldValue{{1, 1}},
+		},
+		"key of three words": {
+			data: pairs(text(mid), one),
+			want: []fieldValue{{4, 1}},
+		},
+		"key differing in its third word": {
+			data: pairs(text(mid[:19]+"X"), one),
+		},
+		"key differing in its last byte": {
+			data: pairs(text("ccd"), three),
 		},
 		"omitted field": {
 			data: pairs(text("a"), one, text("ccc"), three),
@@ -134,11 +155,19 @@ func TestNextField(t *testing.T) {
 		},
 	}
 	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			got, err := readStruct(t, tt.data, fields)
-			require.ErrorIs(t, err, tt.err)
-			require.Equal(t, tt.want, got)
-		})
+		// Keys are compared a word at a time when the input is long enough, and a byte at a
+		// time near its end.
+		for _, trailer := range []int{0, 32} {
+			if trailer > 0 && tt.err == fast.ErrTruncated {
+				continue // the trailer would complete it
+			}
+			t.Run(name, func(t *testing.T) {
+				data := append(append([]byte{}, tt.data...), make([]byte, trailer)...)
+				got, err := readStruct(t, data, trailer, fields)
+				require.ErrorIs(t, err, tt.err)
+				require.Equal(t, tt.want, got)
+			})
+		}
 	}
 }
 
