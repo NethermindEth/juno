@@ -1,11 +1,13 @@
 package cbor
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
@@ -14,7 +16,9 @@ import (
 // A route is a reader for one Go type, found by the exact type of the destination.
 // Only utils/cbor/registry's init adds routes, before concurrent use, so lookups take no lock.
 var (
-	routes  = map[reflect.Type]*route{}
+	// routes is keyed by the type word of the destination's interface value, which is
+	// what reflect.TypeOf returns, without hashing an interface.
+	routes  = map[unsafe.Pointer]*route{}
 	enabled atomic.Bool
 )
 
@@ -27,16 +31,22 @@ func init() {
 // variable JUNO_CBOR_FAST=off sets the initial state.
 func SetFastEnabled(on bool) { enabled.Store(on) }
 
+// A route serves one destination type, *T or **T, and gets the destination as the
+// pointer itself. The routes of *T and **T share their counters.
 type route struct {
-	name string
-	// read decodes one item into v, which is a *T or a **T, and leaves it untouched on
+	// read decodes one item into the destination and leaves it untouched on
 	// fast.ErrUnsupported.
-	read func(r *fast.Reader, v any) error
-	// reset puts v back to the zero value, undoing a partial read.
-	reset func(v any)
-	// isZero reports whether v points at a zero value (for **T, at a nil pointer).
-	isZero func(v any) bool
+	read func(r *fast.Reader, dst unsafe.Pointer) error
+	// reset puts the destination back to the zero value, undoing a partial read.
+	reset func(dst unsafe.Pointer)
+	// isZero reports whether the destination holds the zero value (for **T, a nil pointer).
+	isZero func(dst unsafe.Pointer) bool
 
+	*counters
+}
+
+type counters struct {
+	name          string
 	routed        atomic.Uint64
 	unsupported   atomic.Uint64
 	nonZeroTarget atomic.Uint64
@@ -73,14 +83,26 @@ func Stats() map[string]RouteStats {
 // from utils/cbor/registry's init, before concurrent use.
 func RegisterReader[T any](read func(r *fast.Reader, dst *T) error) {
 	typ := reflect.TypeFor[T]()
-	rt := &route{
-		name: typ.String(),
-		read: func(r *fast.Reader, v any) error {
-			if dst, ok := v.(*T); ok {
-				return read(r, dst)
-			}
-			// **T: null leaves the pointer nil, anything else allocates the value.
-			ptr := v.(**T)
+	shared := &counters{name: typ.String()}
+	// A value whose bytes are all zero is the zero value. The converse fails only for
+	// values like an empty string that still points somewhere, which reflect decides.
+	zeroBytes := make([]byte, typ.Size())
+	routes[typeWord(new(T))] = &route{
+		read: func(r *fast.Reader, dst unsafe.Pointer) error {
+			return read(r, (*T)(dst))
+		},
+		reset: func(dst unsafe.Pointer) {
+			*(*T)(dst) = *new(T)
+		},
+		isZero: func(dst unsafe.Pointer) bool {
+			return bytes.Equal(unsafe.Slice((*byte)(dst), len(zeroBytes)), zeroBytes) ||
+				reflect.NewAt(typ, dst).Elem().IsZero()
+		},
+		counters: shared,
+	}
+	routes[typeWord(new(*T))] = &route{
+		// null leaves the pointer nil, anything else allocates the value.
+		read: func(r *fast.Reader, dst unsafe.Pointer) error {
 			if r.Null() {
 				return nil
 			}
@@ -88,26 +110,27 @@ func RegisterReader[T any](read func(r *fast.Reader, dst *T) error) {
 			if err := read(r, value); err != nil {
 				return err
 			}
-			*ptr = value
+			*(**T)(dst) = value
 			return nil
 		},
-		reset: func(v any) {
-			var zero T
-			if dst, ok := v.(*T); ok {
-				*dst = zero
-				return
-			}
-			*v.(**T) = nil
+		reset: func(dst unsafe.Pointer) {
+			*(**T)(dst) = nil
 		},
-		isZero: func(v any) bool {
-			if dst, ok := v.(*T); ok {
-				return reflect.ValueOf(dst).Elem().IsZero()
-			}
-			return *v.(**T) == nil
+		isZero: func(dst unsafe.Pointer) bool {
+			return *(**T)(dst) == nil
 		},
+		counters: shared,
 	}
-	routes[reflect.TypeFor[*T]()] = rt
-	routes[reflect.TypeFor[**T]()] = rt
+}
+
+// eface is the layout of an interface value with no methods.
+type eface struct {
+	typ, data unsafe.Pointer
+}
+
+// typeWord returns the dynamic type of v as the runtime keeps it.
+func typeWord(v any) unsafe.Pointer {
+	return (*eface)(unsafe.Pointer(&v)).typ
 }
 
 // extraneousDataError is what a decode of exactly one item reports about bytes after it.
@@ -123,18 +146,21 @@ func decode(data []byte, v any) (rest []byte, handled bool, err error) {
 	if len(routes) == 0 || !enabled.Load() {
 		return nil, false, nil
 	}
-	rt, ok := routes[reflect.TypeOf(v)]
+	value := (*eface)(unsafe.Pointer(&v))
+	rt, ok := routes[value.typ]
 	if !ok {
 		return nil, false, nil
 	}
-	if !rt.isZero(v) {
+	// A route's destination is a pointer, which the interface holds as its data word.
+	dst := value.data
+	if !rt.isZero(dst) {
 		rt.nonZeroTarget.Add(1)
 		return nil, false, nil
 	}
 
 	reader := fast.NewReader(data)
-	if err := rt.read(&reader, v); err != nil {
-		rt.reset(v)
+	if err := rt.read(&reader, dst); err != nil {
+		rt.reset(dst)
 		if errors.Is(err, fast.ErrUnsupported) {
 			rt.unsupported.Add(1)
 			return nil, false, nil
