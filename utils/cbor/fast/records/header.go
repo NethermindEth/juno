@@ -5,120 +5,139 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
 
+const (
+	headerHash = iota
+	headerParentHash
+	headerNumber
+	headerGlobalStateRoot
+	headerSequencerAddress
+	headerTransactionCount
+	headerEventCount
+	headerTimestamp
+	headerProtocolVersion
+	headerEventsBloom
+	headerL1GasPriceETH
+	headerSignatures
+	headerL1GasPriceSTRK
+	headerL1DAMode
+	headerL1DataGasPrice
+	headerL2GasPrice
+)
+
+var headerFields = fieldsOf[core.Header]([]string{
+	headerHash:             "Hash",
+	headerParentHash:       "ParentHash",
+	headerNumber:           "Number",
+	headerGlobalStateRoot:  "GlobalStateRoot",
+	headerSequencerAddress: "SequencerAddress",
+	headerTransactionCount: "TransactionCount",
+	headerEventCount:       "EventCount",
+	headerTimestamp:        "Timestamp",
+	headerProtocolVersion:  "ProtocolVersion",
+	headerEventsBloom:      "EventsBloom",
+	headerL1GasPriceETH:    "gasprice",
+	headerSignatures:       "Signatures",
+	headerL1GasPriceSTRK:   "gaspricestrk",
+	headerL1DAMode:         "L1DAMode",
+	headerL1DataGasPrice:   "L1DataGasPrice",
+	headerL2GasPrice:       "L2GasPrice",
+})
+
 // ReadHeader reads a stored block header. The keys of the legacy fields GasPrice,
 // GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.
 func ReadHeader(r *fast.Reader, dst *core.Header) error {
-	var seen uint64
-	return readFields(r, foldHeader, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Hash":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	var prices *[2]core.GasPrice
+	s, err := r.OpenStruct(headerFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case headerHash:
 			err = readFelt(r, &dst.Hash)
-		case "ParentHash":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case headerParentHash:
 			err = readFelt(r, &dst.ParentHash)
-		case "Number":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case headerNumber:
 			err = readUint64(r, &dst.Number)
-		case "GlobalStateRoot":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case headerGlobalStateRoot:
 			err = readFelt(r, &dst.GlobalStateRoot)
-		case "SequencerAddress":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case headerSequencerAddress:
 			err = readFelt(r, &dst.SequencerAddress)
-		case "TransactionCount":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case headerTransactionCount:
 			err = readUint64(r, &dst.TransactionCount)
-		case "EventCount":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case headerEventCount:
 			err = readUint64(r, &dst.EventCount)
-		case "Timestamp":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case headerTimestamp:
 			err = readUint64(r, &dst.Timestamp)
-		case "ProtocolVersion":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case headerProtocolVersion:
 			err = readString(r, &dst.ProtocolVersion)
-		case "EventsBloom":
-			if once(&seen, 10) {
-				return false, fast.ErrUnsupported
-			}
+		case headerEventsBloom:
 			err = readBloom(r, &dst.EventsBloom)
-		case "gasprice":
-			if once(&seen, 11) {
-				return false, fast.ErrUnsupported
-			}
+		case headerL1GasPriceETH:
 			err = readFelt(r, &dst.L1GasPriceETH)
-		case "Signatures":
-			if once(&seen, 12) {
-				return false, fast.ErrUnsupported
-			}
+		case headerSignatures:
 			err = readSlice(r, &dst.Signatures, readFeltPtrSlice)
-		case "gaspricestrk":
-			if once(&seen, 13) {
-				return false, fast.ErrUnsupported
-			}
+		case headerL1GasPriceSTRK:
 			err = readFelt(r, &dst.L1GasPriceSTRK)
-		case "L1DAMode":
-			if once(&seen, 14) {
-				return false, fast.ErrUnsupported
-			}
+		case headerL1DAMode:
 			var mode uint64
 			err = readUint64(r, &mode)
 			dst.L1DAMode = core.L1DAMode(mode)
-		case "L1DataGasPrice":
-			if once(&seen, 15) {
-				return false, fast.ErrUnsupported
-			}
-			err = readPtr(r, &dst.L1DataGasPrice, readGasPrice)
-		case "L2GasPrice":
-			if once(&seen, 16) {
-				return false, fast.ErrUnsupported
-			}
-			err = readPtr(r, &dst.L2GasPrice, readGasPrice)
+		case headerL1DataGasPrice:
+			err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)
+		case headerL2GasPrice:
+			err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
+}
+
+const (
+	gasPriceInWei = iota
+	gasPriceInFri
+)
+
+var gasPriceFields = fieldsOf[core.GasPrice]([]string{
+	gasPriceInWei: "PriceInWei",
+	gasPriceInFri: "PriceInFri",
+})
+
+// readGasPricePtr reads a gas price behind a pointer, into slot of prices. A header's two gas
+// prices share one allocation. Null leaves the pointer nil.
+func readGasPricePtr(r *fast.Reader, dst **core.GasPrice, prices **[2]core.GasPrice, slot int) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	if *prices == nil {
+		*prices = new([2]core.GasPrice)
+	}
+	value := &(*prices)[slot]
+	if err := readGasPrice(r, value); err != nil {
+		return err
+	}
+	*dst = value
+	return nil
 }
 
 func readGasPrice(r *fast.Reader, dst *core.GasPrice) error {
-	var seen uint64
-	return readFields(r, foldGasPrice, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "PriceInWei":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(gasPriceFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case gasPriceInWei:
 			err = readFelt(r, &dst.PriceInWei)
-		case "PriceInFri":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case gasPriceInFri:
 			err = readFelt(r, &dst.PriceInFri)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
