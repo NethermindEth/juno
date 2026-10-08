@@ -48,17 +48,17 @@ func readStateDiff(r *fast.Reader, dst *core.StateDiff) error {
 			if once(&seen, 1) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.StorageDiffs, readStorageDiff)
+			err = readStorageDiffs(r, &dst.StorageDiffs)
 		case "Nonces":
 			if once(&seen, 2) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.Nonces, readFelt)
+			err = readFeltMap(r, &dst.Nonces)
 		case "DeployedContracts":
 			if once(&seen, 3) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.DeployedContracts, readFelt)
+			err = readFeltMap(r, &dst.DeployedContracts)
 		case "DeclaredV0Classes":
 			if once(&seen, 4) {
 				return false, fast.ErrUnsupported
@@ -68,19 +68,17 @@ func readStateDiff(r *fast.Reader, dst *core.StateDiff) error {
 			if once(&seen, 5) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.DeclaredV1Classes, readFelt)
+			err = readFeltMap(r, &dst.DeclaredV1Classes)
 		case "ReplacedClasses":
 			if once(&seen, 6) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.ReplacedClasses, readFelt)
+			err = readFeltMap(r, &dst.ReplacedClasses)
 		case "MigratedClasses":
 			if once(&seen, 7) {
 				return false, fast.ErrUnsupported
 			}
-			err = readMap(r, &dst.MigratedClasses, func(r *fast.Reader, v *felt.CasmClassHash) error {
-				return fast.Felt(r, v)
-			})
+			err = readMigratedClasses(r, &dst.MigratedClasses)
 		default:
 			return false, nil
 		}
@@ -88,6 +86,28 @@ func readStateDiff(r *fast.Reader, dst *core.StateDiff) error {
 	})
 }
 
-func readStorageDiff(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
-	return readMap(r, dst, readFelt)
+func readMigratedClasses(r *fast.Reader, dst *map[felt.SierraClassHash]felt.CasmClassHash) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := r.MapLen()
+	if err != nil {
+		return err
+	}
+	out := make(map[felt.SierraClassHash]felt.CasmClassHash, count)
+	for ; count > 0; count-- {
+		var key felt.SierraClassHash
+		if err := fast.Felt(r, &key); err != nil {
+			return err
+		}
+		var value felt.CasmClassHash
+		if err := fast.Felt(r, &value); err != nil {
+			return err
+		}
+		out[key] = value
+	}
+	r.Leave()
+	*dst = out
+	return nil
 }

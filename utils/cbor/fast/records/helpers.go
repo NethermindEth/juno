@@ -319,12 +319,10 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 	return nil
 }
 
-// readMap reads a map whose keys are felt-shaped, or null as nil. Each value is read by readValue.
-func readMap[K ~[fast.Limbs]uint64, V any](
-	r *fast.Reader,
-	dst *map[K]V,
-	readValue func(*fast.Reader, *V) error,
-) error {
+// readFeltMap reads a map from felt to felt, or null as nil. Keys and values are read in
+// place, with no generic function value in the way, so nothing but the map and its values
+// is allocated.
+func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 	if r.Null() {
 		*dst = nil
 		return nil
@@ -333,14 +331,41 @@ func readMap[K ~[fast.Limbs]uint64, V any](
 	if err != nil {
 		return err
 	}
-	out := make(map[K]V, count)
+	out := make(map[felt.Felt]*felt.Felt, count)
 	for ; count > 0; count-- {
-		var key K
-		if err := fast.Felt(r, &key); err != nil {
+		var key felt.Felt
+		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
 			return err
 		}
-		var value V
-		if err := readValue(r, &value); err != nil {
+		var value *felt.Felt
+		if err := readFelt(r, &value); err != nil {
+			return err
+		}
+		out[key] = value
+	}
+	r.Leave()
+	*dst = out
+	return nil
+}
+
+// readStorageDiffs reads a map from contract address to its map of storage updates.
+func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := r.MapLen()
+	if err != nil {
+		return err
+	}
+	out := make(map[felt.Felt]map[felt.Felt]*felt.Felt, count)
+	for ; count > 0; count-- {
+		var key felt.Felt
+		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
+			return err
+		}
+		var value map[felt.Felt]*felt.Felt
+		if err := readFeltMap(r, &value); err != nil {
 			return err
 		}
 		out[key] = value
