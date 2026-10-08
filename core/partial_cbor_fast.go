@@ -1,0 +1,328 @@
+package core
+
+import (
+	"encoding/binary"
+	"errors"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fast"
+	bloom "github.com/bits-and-blooms/bloom/v3"
+)
+
+// The projections are read by the fast decoder: only the fields a projection names with a typed
+// field are decoded, every other value is skipped with its syntax checked. The readers follow
+// fxamacker's struct rules, which the projections rely on: a key names a field exactly or, failing
+// that, ignoring ASCII case; the first of two keys naming one field wins; integer keys and unknown
+// keys are skipped; null leaves a plain field as it was and a pointer nil.
+//
+// The readers need no type tags, so they register here rather than in utils/cbor/registry, which
+// imports this package. Init runs before any decode.
+//
+//nolint:gochecknoinits
+func init() {
+	cbor.RegisterReader(readHeaderHashProjection)
+	cbor.RegisterReader(readHeaderGlobalStateRootProjection)
+	cbor.RegisterReader(readHeaderTransactionCountProjection)
+	cbor.RegisterReader(readHeaderTimestampProjection)
+	cbor.RegisterReader(readHeaderEventsBloomProjection)
+	cbor.RegisterReader(readHeaderHashAndStateRootProjection)
+	cbor.RegisterReader(readReceiptExecutionStatusProjection)
+	cbor.RegisterReader(readReceiptEventsProjection)
+	cbor.RegisterReader(readTransactionHashProjection)
+}
+
+// walkFields reads a struct's map and calls read with the index in fields of each field a key
+// names, the first time it is named. Every other value is skipped. Null leaves the struct as it is.
+func walkFields(r *fast.Reader, fields []string, read func(field int) error) error {
+	if r.Null() {
+		return nil
+	}
+	count, err := r.MapLen()
+	if err != nil {
+		return err
+	}
+	var seen uint64
+	for ; count > 0; count-- {
+		key, isText, err := r.Key()
+		if err != nil {
+			return err
+		}
+		field := -1
+		if isText {
+			field = fieldIndex(fields, key)
+		}
+		if field < 0 || seen&(1<<field) != 0 {
+			if err := r.Skip(); err != nil {
+				return err
+			}
+			continue
+		}
+		seen |= 1 << field
+		if err := read(field); err != nil {
+			return err
+		}
+	}
+	r.Leave()
+	return nil
+}
+
+// fieldIndex returns the index of the field key names, or -1. The names of a stored struct's
+// fields differ in more than case, so a key that names a skipped field exactly cannot name a wanted
+// one ignoring case, and the wanted fields are the only ones to look for.
+func fieldIndex(fields []string, key []byte) int {
+	for i, name := range fields {
+		if string(key) == name {
+			return i
+		}
+	}
+	// fxamacker compares ignoring case only names of the key's byte length, where Unicode folding
+	// cannot reach an ASCII name.
+	for i, name := range fields {
+		if len(key) == len(name) && equalFoldASCII(key, name) {
+			return i
+		}
+	}
+	return -1
+}
+
+// equalFoldASCII compares a key with an ASCII name of the same length, ignoring case.
+func equalFoldASCII(key []byte, name string) bool {
+	for i := range len(name) {
+		a, b := key[i], name[i]
+		if 'A' <= a && a <= 'Z' {
+			a += 'a' - 'A'
+		}
+		if 'A' <= b && b <= 'Z' {
+			b += 'a' - 'A'
+		}
+		if a != b {
+			return false
+		}
+	}
+	return true
+}
+
+// readFeltPtr reads a felt behind a pointer. Null leaves the pointer nil.
+func readFeltPtr(r *fast.Reader, dst **felt.Felt) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	value := new(felt.Felt)
+	if err := fast.Felt(r, value); err != nil {
+		return err
+	}
+	*dst = value
+	return nil
+}
+
+// readFeltValue reads a felt in place. Null leaves it as it was.
+func readFeltValue(r *fast.Reader, dst *felt.Felt) error {
+	if r.Null() {
+		return nil
+	}
+	return fast.Felt(r, dst)
+}
+
+func readUint64Value(r *fast.Reader, dst *uint64) error {
+	if r.Null() {
+		return nil
+	}
+	value, err := r.Uint64()
+	if err != nil {
+		return err
+	}
+	*dst = value
+	return nil
+}
+
+func readUint64Ptr(r *fast.Reader, dst **uint64) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	value, err := r.Uint64()
+	if err != nil {
+		return err
+	}
+	*dst = &value
+	return nil
+}
+
+// errBloomSize means a stored bloom filter declares more bits than its bytes hold.
+var errBloomSize = errors.New("core: bloom filter is shorter than it declares")
+
+// readBloomPtr reads a bloom filter, stored as its binary form in a byte string. The bloom package
+// allocates the bit count the form declares before it reads the words, so a count the bytes cannot
+// hold is rejected first. The form is m, k and the bit count (8 bytes each), then the words.
+func readBloomPtr(r *fast.Reader, dst **bloom.BloomFilter) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	data, err := r.BytesNoCopy()
+	if err != nil {
+		return err
+	}
+	const header = 3 * 8
+	if len(data) < header || binary.BigEndian.Uint64(data[2*8:]) > uint64(len(data)-header)*8 {
+		return errBloomSize
+	}
+	// UnmarshalBinary copies what it keeps.
+	filter := new(bloom.BloomFilter)
+	if err := filter.UnmarshalBinary(data); err != nil {
+		return err
+	}
+	*dst = filter
+	return nil
+}
+
+// The wire names of the fields each reader decodes, in the order its read callback numbers them.
+var (
+	hashField              = []string{"Hash"}
+	globalStateRootField   = []string{"GlobalStateRoot"}
+	transactionCountField  = []string{"TransactionCount"}
+	timestampField         = []string{"Timestamp"}
+	eventsBloomField       = []string{"EventsBloom"}
+	hashAndStateRootFields = []string{"Hash", "GlobalStateRoot"}
+	executionStatusFields  = []string{"Reverted", "RevertReason"}
+	eventsFields           = []string{"Events", "TransactionHash"}
+	eventFields            = []string{"From", "Keys", "Data"}
+	transactionHashField   = []string{"TransactionHash"}
+)
+
+func readHeaderHashProjection(r *fast.Reader, dst *headerHashProjection) error {
+	return walkFields(r, hashField, func(int) error {
+		return readFeltPtr(r, &dst.Hash)
+	})
+}
+
+func readHeaderGlobalStateRootProjection(r *fast.Reader, dst *headerGlobalStateRootProjection) error {
+	return walkFields(r, globalStateRootField, func(int) error {
+		return readFeltPtr(r, &dst.GlobalStateRoot)
+	})
+}
+
+func readHeaderTransactionCountProjection(
+	r *fast.Reader,
+	dst *headerTransactionCountProjection,
+) error {
+	return walkFields(r, transactionCountField, func(int) error {
+		return readUint64Value(r, &dst.TransactionCount)
+	})
+}
+
+func readHeaderTimestampProjection(r *fast.Reader, dst *headerTimestampProjection) error {
+	return walkFields(r, timestampField, func(int) error {
+		return readUint64Ptr(r, &dst.Timestamp)
+	})
+}
+
+func readHeaderEventsBloomProjection(r *fast.Reader, dst *headerEventsBloomProjection) error {
+	return walkFields(r, eventsBloomField, func(int) error {
+		return readBloomPtr(r, &dst.EventsBloom)
+	})
+}
+
+func readHeaderHashAndStateRootProjection(
+	r *fast.Reader,
+	dst *headerHashAndStateRootProjection,
+) error {
+	return walkFields(r, hashAndStateRootFields, func(field int) error {
+		if field == 0 {
+			return readFeltPtr(r, &dst.Hash)
+		}
+		return readFeltPtr(r, &dst.GlobalStateRoot)
+	})
+}
+
+func readReceiptExecutionStatusProjection(
+	r *fast.Reader,
+	dst *receiptExecutionStatusProjection,
+) error {
+	return walkFields(r, executionStatusFields, func(field int) error {
+		if r.Null() {
+			return nil
+		}
+		if field == 0 {
+			value, err := r.Bool()
+			dst.Reverted = value
+			return err
+		}
+		value, err := r.String()
+		dst.RevertReason = value
+		return err
+	})
+}
+
+func readReceiptEventsProjection(r *fast.Reader, dst *receiptEventsProjection) error {
+	return walkFields(r, eventsFields, func(field int) error {
+		if field == 0 {
+			return readEvents(r, &dst.Events)
+		}
+		return readFeltPtr(r, &dst.TransactionHash)
+	})
+}
+
+// readEvents reads an array of events, or null as nil. An element may be null.
+func readEvents(r *fast.Reader, dst *[]*Event) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := r.ArrayLen()
+	if err != nil {
+		return err
+	}
+	events := make([]*Event, count)
+	for i := range events {
+		if r.Null() {
+			continue
+		}
+		event := new(Event)
+		if err := readEvent(r, event); err != nil {
+			return err
+		}
+		events[i] = event
+	}
+	r.Leave()
+	*dst = events
+	return nil
+}
+
+func readEvent(r *fast.Reader, dst *Event) error {
+	return walkFields(r, eventFields, func(field int) error {
+		if field == 0 {
+			return readFeltPtr(r, &dst.From)
+		}
+		value, err := fast.LimbSlice[felt.Felt](r)
+		if err != nil {
+			return err
+		}
+		if field == 1 {
+			dst.Keys = value
+		} else {
+			dst.Data = value
+		}
+		return nil
+	})
+}
+
+// readTransactionHashProjection reads the hash of a stored transaction. The record carries the
+// tag of its transaction type, which fxamacker looks through since the projection has none.
+func readTransactionHashProjection(r *fast.Reader, dst *transactionHashProjection) error {
+	if head, err := r.Peek(); err == nil && head&0xe0 == fast.MajorTag {
+		// Tags 0-3 hold a time or a bignum, which fxamacker reads differently; so does a chain.
+		tag, err := r.Tag()
+		if err != nil {
+			return err
+		}
+		if next, err := r.Peek(); tag <= 3 || (err == nil && next&0xe0 == fast.MajorTag) {
+			return fast.ErrUnsupported
+		}
+	}
+	return walkFields(r, transactionHashField, func(int) error {
+		return readFeltValue(r, &dst.TransactionHash)
+	})
+}
