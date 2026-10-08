@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -140,6 +141,9 @@ func (e extraneousDataError) Error() string {
 	return fmt.Sprintf("cbor: %d bytes of extraneous data", int(e))
 }
 
+// readers keeps Readers, which would otherwise escape to the heap on every decode.
+var readers = sync.Pool{New: func() any { return new(fast.Reader) }}
+
 // decode tries the fast decoder for v. It returns handled=false when the caller must
 // use fxamacker, with v untouched.
 func decode(data []byte, v any) (rest []byte, handled bool, err error) {
@@ -158,8 +162,13 @@ func decode(data []byte, v any) (rest []byte, handled bool, err error) {
 		return nil, false, nil
 	}
 
-	reader := fast.NewReader(data)
-	if err := rt.read(&reader, dst); err != nil {
+	reader := readers.Get().(*fast.Reader)
+	*reader = fast.NewReader(data)
+	err = rt.read(reader, dst)
+	rest = reader.Remaining()
+	*reader = fast.Reader{} // the pool must not hold on to data
+	readers.Put(reader)
+	if err != nil {
 		rt.reset(dst)
 		if errors.Is(err, fast.ErrUnsupported) {
 			rt.unsupported.Add(1)
@@ -168,7 +177,7 @@ func decode(data []byte, v any) (rest []byte, handled bool, err error) {
 		return nil, true, mapError(rt, err)
 	}
 	rt.routed.Add(1)
-	return reader.Remaining(), true, nil
+	return rest, true, nil
 }
 
 // mapError gives a type mismatch the error type callers already look for.
