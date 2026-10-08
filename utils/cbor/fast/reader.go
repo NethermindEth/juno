@@ -79,6 +79,18 @@ func (r *Reader) Peek() (byte, error) {
 // the value of an integer or simple item, the length of a string, the element count of an
 // array or map, or the number of a tag. It consumes nothing on error.
 func (r *Reader) Head() (major byte, argument uint64, err error) {
+	// The argument is small enough to live in the info bits.
+	if r.pos < len(r.buf) {
+		if head := r.buf[r.pos]; head&infoMask < info1Byte {
+			r.pos++
+			return head & majorMask, uint64(head & infoMask), nil
+		}
+	}
+	return r.headSlow()
+}
+
+// headSlow is Head for a missing head or an argument that follows the head byte.
+func (r *Reader) headSlow() (major byte, argument uint64, err error) {
 	if r.pos >= len(r.buf) {
 		return 0, 0, ErrTruncated
 	}
@@ -86,7 +98,6 @@ func (r *Reader) Head() (major byte, argument uint64, err error) {
 	major = head & majorMask
 	info := head & infoMask
 
-	// The argument is small enough to live in the info bits.
 	if info < info1Byte {
 		r.pos++
 		return major, uint64(info), nil
@@ -123,8 +134,18 @@ func (r *Reader) Head() (major byte, argument uint64, err error) {
 // expect reads a head and requires the given major type.
 // It consumes nothing unless the major type matches.
 func (r *Reader) expect(want byte) (uint64, error) {
+	if r.pos < len(r.buf) {
+		if info := r.buf[r.pos] - want; info < info1Byte {
+			r.pos++
+			return uint64(info), nil
+		}
+	}
+	return r.expectSlow(want)
+}
+
+func (r *Reader) expectSlow(want byte) (uint64, error) {
 	start := r.pos
-	major, argument, err := r.Head()
+	major, argument, err := r.headSlow()
 	if err != nil {
 		return 0, err
 	}
@@ -149,31 +170,38 @@ func mismatch(found byte) error {
 // bytes left, since every element takes at least one, so it is safe to size an allocation
 // from it for one-byte elements; scale by the element size before presizing anything bigger.
 func (r *Reader) ArrayLen() (int, error) {
-	start := r.pos
-	count, err := r.expect(MajorArray)
-	if err != nil {
-		return 0, err
+	if r.pos < len(r.buf) && r.depth < MaxNestedLevels {
+		// count < bytes left including the head is count <= bytes left after it.
+		if count := r.buf[r.pos] - MajorArray; count < info1Byte && int(count) < len(r.buf)-r.pos {
+			r.pos++
+			r.depth++
+			return int(count), nil
+		}
 	}
-	if count > uint64(r.Len()) {
-		r.pos = start
-		return 0, ErrTruncated
-	}
-	if err := r.enter(); err != nil {
-		r.pos = start
-		return 0, err
-	}
-	return int(count), nil
+	return r.containerLen(MajorArray, 1)
 }
 
 // MapLen reads a map head and returns its pair count, capped by the bytes left
 // since every pair takes at least two.
 func (r *Reader) MapLen() (int, error) {
+	if r.pos < len(r.buf) && r.depth < MaxNestedLevels {
+		if count := r.buf[r.pos] - MajorMap; count < info1Byte && 2*int(count) < len(r.buf)-r.pos {
+			r.pos++
+			r.depth++
+			return int(count), nil
+		}
+	}
+	return r.containerLen(MajorMap, 2)
+}
+
+// containerLen reads an array or map head whose items take at least perItem bytes each.
+func (r *Reader) containerLen(want byte, perItem uint64) (int, error) {
 	start := r.pos
-	count, err := r.expect(MajorMap)
+	count, err := r.expectSlow(want)
 	if err != nil {
 		return 0, err
 	}
-	if count > uint64(r.Len())/2 {
+	if count > uint64(r.Len())/perItem {
 		r.pos = start
 		return 0, ErrTruncated
 	}

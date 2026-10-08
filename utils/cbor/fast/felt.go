@@ -32,7 +32,48 @@ func (r *Reader) Limbs(dst *[Limbs]uint64) error {
 		r.pos += feltLen
 		return nil
 	}
+	if n := shortLimbs(buf, dst); n > 0 {
+		r.pos += n
+		return nil
+	}
 	return r.limbsSlow(dst)
+}
+
+// shortLimbs reads a felt of four unsigned integers of any width from the start of buf and
+// returns the bytes it took, or 0, leaving dst alone, for anything else.
+func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
+	if len(buf) == 0 || buf[0] != feltHead {
+		return 0
+	}
+	var limbs [Limbs]uint64
+	n := 1
+	for i := range limbs {
+		if n >= len(buf) {
+			return 0
+		}
+		head := buf[n]
+		switch {
+		case head < info1Byte:
+			limbs[i] = uint64(head)
+			n++
+		case head == info1Byte && n+2 <= len(buf):
+			limbs[i] = uint64(buf[n+1])
+			n += 2
+		case head == info2Byte && n+3 <= len(buf):
+			limbs[i] = uint64(binary.BigEndian.Uint16(buf[n+1:]))
+			n += 3
+		case head == info4Byte && n+5 <= len(buf):
+			limbs[i] = uint64(binary.BigEndian.Uint32(buf[n+1:]))
+			n += 5
+		case head == info8Byte && n+9 <= len(buf):
+			limbs[i] = binary.BigEndian.Uint64(buf[n+1:])
+			n += 9
+		default:
+			return 0
+		}
+	}
+	*dst = limbs
+	return n
 }
 
 // limbsSlow reads a felt whose limbs are not all eight bytes wide.
@@ -79,13 +120,36 @@ func LimbSlice[F ~[Limbs]uint64](r *Reader) ([]F, error) {
 	out := make([]F, count)
 	// F has the layout of [Limbs]uint64, so the slice can be read as one.
 	felts := unsafe.Slice((*[Limbs]uint64)(unsafe.Pointer(unsafe.SliceData(out))), len(out))
-	for i := range felts {
-		if err := r.Limbs(&felts[i]); err != nil {
-			r.pos = start
-			return nil, err
-		}
+	if err := r.readLimbs(felts); err != nil {
+		r.pos = start
+		return nil, err
 	}
 	return out, nil
+}
+
+// readLimbs fills felts from consecutive felts in the input. The 37 byte form is read in the
+// loop itself; any other goes through Limbs. It may write felts before failing.
+func (r *Reader) readLimbs(felts [][Limbs]uint64) error {
+	buf := r.buf[r.pos:]
+	for i := range felts {
+		if len(buf) >= feltLen && buf[0] == feltHead &&
+			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+			felt := &felts[i]
+			felt[0] = binary.BigEndian.Uint64(buf[2:])
+			felt[1] = binary.BigEndian.Uint64(buf[11:])
+			felt[2] = binary.BigEndian.Uint64(buf[20:])
+			felt[3] = binary.BigEndian.Uint64(buf[29:])
+			buf = buf[feltLen:]
+			continue
+		}
+		r.pos = len(r.buf) - len(buf)
+		if err := r.Limbs(&felts[i]); err != nil {
+			return err
+		}
+		buf = r.buf[r.pos:]
+	}
+	r.pos = len(r.buf) - len(buf)
+	return nil
 }
 
 // Felt reads a felt into any type with the layout of one.
