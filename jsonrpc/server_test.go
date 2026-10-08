@@ -304,6 +304,26 @@ func TestHandle(t *testing.T) {
 			res: ``,
 		},
 
+		"unknown method notification": {
+			req: `{"jsonrpc":"2.0","method":"absent"}`,
+			res: ``,
+		},
+
+		"invalid params notification": {
+			req: `{"jsonrpc":"2.0","method":"method","params":{}}`,
+			res: ``,
+		},
+
+		"batch with failing notifications only": {
+			req: `[{"jsonrpc":"2.0","method":"absent"},{"jsonrpc":"2.0","method":"method","params":{}}]`,
+			res: ``,
+		},
+
+		"batch excludes failing notifications": {
+			req: `[{"jsonrpc":"2.0","method":"absent"},{"jsonrpc":"2.0","method":"method","params":{}},{"jsonrpc":"2.0","method":"method","params":{"num":5},"id":5}]`,
+			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5}]`,
+		},
+
 		"batch with notif and string id": {
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 }},
