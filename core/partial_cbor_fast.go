@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
+	"github.com/bits-and-blooms/bitset"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -153,9 +154,11 @@ func readUint64Ptr(r *fast.Reader, dst **uint64) error {
 // errBloomSize means a stored bloom filter declares more bits than its bytes hold.
 var errBloomSize = errors.New("core: bloom filter is shorter than it declares")
 
-// readBloomPtr reads a bloom filter, stored as its binary form in a byte string. The bloom package
-// allocates the bit count the form declares before it reads the words, so a count the bytes cannot
-// hold is rejected first. The form is m, k and the bit count (8 bytes each), then the words.
+// readBloomPtr reads a bloom filter, stored as its binary form in a byte string: m, k and the bit
+// count (8 bytes each), then the words of the bit set, big-endian. The bloom package allocates the
+// bit count the form declares before it reads the words, so a count the bytes cannot hold is
+// rejected first. The words are read here rather than through the package's stream reader, which
+// costs more than the rest of the header; bytes after them are ignored, as the package does.
 func readBloomPtr(r *fast.Reader, dst **bloom.BloomFilter) error {
 	if r.Null() {
 		*dst = nil
@@ -166,15 +169,37 @@ func readBloomPtr(r *fast.Reader, dst **bloom.BloomFilter) error {
 		return err
 	}
 	const header = 3 * 8
-	if len(data) < header || binary.BigEndian.Uint64(data[2*8:]) > uint64(len(data)-header)*8 {
+	if len(data) < header {
 		return errBloomSize
 	}
-	// UnmarshalBinary copies what it keeps.
-	filter := new(bloom.BloomFilter)
-	if err := filter.UnmarshalBinary(data); err != nil {
-		return err
+	words := data[header:]
+	bits := binary.BigEndian.Uint64(data[2*8:])
+	if bits > uint64(len(words))*8 {
+		return errBloomSize
 	}
-	*dst = filter
+	count := (bits + 63) / 64
+	if count*8 > uint64(len(words)) {
+		return errBloomSize
+	}
+	// A bit count that is not a whole number of words, or a bit set package set to another byte
+	// order, takes the package's own reader. UnmarshalBinary copies what it keeps.
+	if bits != count*64 || bitset.BinaryOrder() != binary.BigEndian {
+		filter := new(bloom.BloomFilter)
+		if err := filter.UnmarshalBinary(data); err != nil {
+			return err
+		}
+		*dst = filter
+		return nil
+	}
+	var set []uint64 // the package leaves a filter of no words with a nil slice
+	if count != 0 {
+		set = make([]uint64, count)
+	}
+	for i := range set {
+		set[i] = binary.BigEndian.Uint64(words[8*i:])
+	}
+	m, k := binary.BigEndian.Uint64(data), binary.BigEndian.Uint64(data[8:])
+	*dst = bloom.FromWithM(set, uint(m), uint(k))
 	return nil
 }
 

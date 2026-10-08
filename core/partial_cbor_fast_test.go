@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"reflect"
 	"strings"
@@ -9,27 +10,38 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fast"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
-// projectionCase decodes data into a fresh projection through the wrapper and through fxamacker.
+// projectionCase decodes data into a fresh projection through the wrapper or through fxamacker.
 type projectionCase struct {
-	name   string
-	decode func(data []byte) (got, want any, gotErr, wantErr error)
+	name         string
+	viaFast      func(data []byte) (any, error)
+	viaFxamacker func(data []byte) (any, error)
 }
 
 func projectionCaseFor[T any]() projectionCase {
 	return projectionCase{
 		name: reflect.TypeFor[T]().String(),
-		decode: func(data []byte) (got, want any, gotErr, wantErr error) {
-			gotValue, wantValue := new(T), new(T)
-			gotErr = cbor.Unmarshal(data, gotValue)
-			wantErr = fxamacker.Unmarshal(data, wantValue)
-			return gotValue, wantValue, gotErr, wantErr
+		viaFast: func(data []byte) (any, error) {
+			value := new(T)
+			return value, cbor.Unmarshal(data, value)
+		},
+		viaFxamacker: func(data []byte) (any, error) {
+			value := new(T)
+			return value, fxamacker.Unmarshal(data, value)
 		},
 	}
+}
+
+// decode decodes data through the wrapper and through fxamacker.
+func (p projectionCase) decode(data []byte) (got, want any, gotErr, wantErr error) {
+	got, gotErr = p.viaFast(data)
+	want, wantErr = p.viaFxamacker(data)
+	return got, want, gotErr, wantErr
 }
 
 func headerProjections() []projectionCase {
@@ -362,19 +374,25 @@ func TestProjectionFieldNamesDifferInMoreThanCase(t *testing.T) {
 // fxamacker and requires them to agree, as the record readers' fuzz targets do: both succeed with
 // equal values, or both fail, except where fxamacker coerces a type the fast reader rejects.
 //
-// skip names key text that makes an input unsafe to give fxamacker: the bloom package allocates
-// whatever bit count the bytes declare.
-func fuzzProjections(f *testing.F, projections []projectionCase, skip string, seeds ...[]byte) {
+// The bloom package allocates whatever bit count its bytes declare, so an input that may hold a
+// bloom filter is decoded into the bloom projection only once the fast reader, which checks that
+// count, accepted it on its own: the wrapper would give fxamacker a form the reader leaves to it.
+func fuzzProjections(f *testing.F, projections []projectionCase, seeds ...[]byte) {
 	for _, seed := range seeds {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		unsafeForFxamacker := skip != "" && bytes.Contains(bytes.ToLower(data), []byte(skip))
+		mayHoldBloom := bytes.Contains(bytes.ToLower(data), []byte("eventsbloom"))
 		for _, projection := range projections {
-			if unsafeForFxamacker && projection.name == "core.headerEventsBloomProjection" {
-				continue
+			if mayHoldBloom && projection.name == "core.headerEventsBloomProjection" {
+				r := fast.NewReader(data)
+				if readHeaderEventsBloomProjection(&r, new(headerEventsBloomProjection)) != nil ||
+					r.Len() != 0 {
+					continue
+				}
 			}
-			got, want, gotErr, wantErr := projection.decode(data)
+			got, gotErr := projection.viaFast(data)
+			want, wantErr := projection.viaFxamacker(data)
 			if wantErr == nil {
 				var typeErr *fxamacker.UnmarshalTypeError
 				if errors.As(gotErr, &typeErr) && typeErr.CBORType == "" {
@@ -396,12 +414,12 @@ func FuzzHeaderProjections(f *testing.F) {
 	small.Add([]byte("x"))
 	smallBloom := sampleHeader()
 	smallBloom.EventsBloom = small
-	fuzzProjections(f, headerProjections(), "eventsbloom",
+	fuzzProjections(f, headerProjections(),
 		marshalled(f, noBloom), marshalled(f, smallBloom), marshalled(f, &Header{}))
 }
 
 func FuzzReceiptProjections(f *testing.F) {
-	fuzzProjections(f, receiptProjections(), "",
+	fuzzProjections(f, receiptProjections(),
 		marshalled(f, sampleReceipt()), marshalled(f, &TransactionReceipt{}))
 }
 
@@ -411,5 +429,51 @@ func FuzzTransactionHashProjection(f *testing.F) {
 		stored, untagged := transactionForms(f, tx)
 		seeds = append(seeds, stored, untagged)
 	}
-	fuzzProjections(f, transactionProjections(), "", seeds...)
+	fuzzProjections(f, transactionProjections(), seeds...)
+}
+
+// TestEventsBloomReaderMatchesFxamacker covers bloom forms the fuzz target cannot give fxamacker:
+// a bit count that is not whole words, short words, bytes after the words, and odd m and k.
+func TestEventsBloomReaderMatchesFxamacker(t *testing.T) {
+	form := func(m, k, bits uint64, words []uint64, extra ...byte) []byte {
+		out := binary.BigEndian.AppendUint64(nil, m)
+		out = binary.BigEndian.AppendUint64(out, k)
+		out = binary.BigEndian.AppendUint64(out, bits)
+		for _, word := range words {
+			out = binary.BigEndian.AppendUint64(out, word)
+		}
+		return append(out, extra...)
+	}
+	words := []uint64{0x0123456789abcdef, 1 << 63, 0, 42}
+	cases := map[string]struct {
+		data  []byte
+		valid bool
+	}{
+		"whole words":       {form(256, 3, 256, words), true},
+		"no words":          {form(0, 0, 0, nil), true},
+		"m differs":         {form(1000, 7, 256, words), true},
+		"partial word":      {form(200, 3, 200, words), true},
+		"bytes after":       {form(256, 3, 256, words, 1, 2, 3), true},
+		"extra word":        {form(192, 3, 192, words), true},
+		"short words":       {form(256, 3, 256, words[:3], 1, 2, 3, 4), false},
+		"partial word cut":  {form(200, 3, 200, words[:3], 1), false},
+		"no bit count":      {form(1, 2, 0, nil)[:20], false},
+		"empty byte string": {[]byte{}, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			data := cborMap(pair(t, "EventsBloom", tc.data))
+			var got, want headerEventsBloomProjection
+			gotErr := cbor.Unmarshal(data, &got)
+			wantErr := fxamacker.Unmarshal(data, &want)
+			if !tc.valid {
+				require.Error(t, wantErr)
+				require.Error(t, gotErr)
+				return
+			}
+			require.NoError(t, wantErr)
+			require.NoError(t, gotErr)
+			require.Equal(t, want, got)
+		})
+	}
 }
