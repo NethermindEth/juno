@@ -8,7 +8,7 @@ package fast
 // a reader that returns the value does. A skipped field that breaks those is accepted by both.
 func (r *Reader) Skip() error {
 	start := r.pos
-	if err := r.skip(0); err != nil {
+	if err := r.skip(r.depth); err != nil {
 		r.pos = start
 		return err
 	}

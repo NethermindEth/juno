@@ -34,6 +34,9 @@ func readFeltSlice(r *fast.Reader, dst *felt.Slice[felt.Felt]) error {
 }
 
 func readUint64(r *fast.Reader, dst *uint64) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
 	value, err := r.Uint64()
 	if err != nil {
 		return err
@@ -43,6 +46,9 @@ func readUint64(r *fast.Reader, dst *uint64) error {
 }
 
 func readUint32[T ~uint32](r *fast.Reader, dst *T) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
 	value, err := r.Uint64()
 	if err != nil {
 		return err
@@ -55,6 +61,9 @@ func readUint32[T ~uint32](r *fast.Reader, dst *T) error {
 }
 
 func readByte(r *fast.Reader, dst *byte) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
 	value, err := r.Uint64()
 	if err != nil {
 		return err
@@ -67,6 +76,9 @@ func readByte(r *fast.Reader, dst *byte) error {
 }
 
 func readBool(r *fast.Reader, dst *bool) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
 	value, err := r.Bool()
 	if err != nil {
 		return err
@@ -76,6 +88,9 @@ func readBool(r *fast.Reader, dst *bool) error {
 }
 
 func readString(r *fast.Reader, dst *string) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
 	value, err := r.String()
 	if err != nil {
 		return err
@@ -128,6 +143,7 @@ func readSlice[T any](r *fast.Reader, dst *[]T, read func(*fast.Reader, *T) erro
 			return err
 		}
 	}
+	r.Leave()
 	*dst = out
 	return nil
 }
@@ -148,6 +164,7 @@ func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) 
 			return err
 		}
 	}
+	r.Leave()
 	*dst = out
 	return nil
 }
@@ -167,6 +184,7 @@ func readStringSlice(r *fast.Reader, dst *[]string) error {
 			return err
 		}
 	}
+	r.Leave()
 	*dst = out
 	return nil
 }
@@ -183,9 +201,15 @@ func readFields(r *fast.Reader, names folder, field func(key string) (known bool
 		return err
 	}
 	for ; count > 0; count-- {
-		raw, err := r.KeyNoCopy()
+		raw, isText, err := r.Key()
 		if err != nil {
 			return err
+		}
+		if !isText {
+			if err := r.Skip(); err != nil {
+				return err
+			}
+			continue
 		}
 		// The name is only compared inside field, so it can borrow the input.
 		key := unsafe.String(unsafe.SliceData(raw), len(raw))
@@ -207,6 +231,7 @@ func readFields(r *fast.Reader, names folder, field func(key string) (known bool
 			}
 		}
 	}
+	r.Leave()
 	return nil
 }
 
@@ -289,6 +314,7 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 			return err
 		}
 	}
+	r.Leave()
 	*dst = out
 	return nil
 }
@@ -319,6 +345,17 @@ func readMap[K ~[fast.Limbs]uint64, V any](
 		}
 		out[key] = value
 	}
+	r.Leave()
 	*dst = out
 	return nil
+}
+
+// once marks field number bit as read, and reports whether it already was. A map with the same
+// key twice is something fxamacker has its own rule for (the first value wins), so the reader
+// leaves it to fxamacker.
+func once(seen *uint64, bit uint) bool {
+	mask := uint64(1) << bit
+	repeated := *seen&mask != 0
+	*seen |= mask
+	return repeated
 }

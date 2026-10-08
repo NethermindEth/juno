@@ -42,13 +42,15 @@ func (r *Reader) limbsSlow(dst *[Limbs]uint64) error {
 	if err != nil {
 		return err
 	}
-	if count != Limbs {
-		r.pos = start
-		return ErrType
-	}
+	// Like a Go array in fxamacker, a shorter array leaves the rest zero and a longer one is
+	// cut off. Juno never writes either.
 	var limbs [Limbs]uint64
-	for i := range limbs {
-		limbs[i], err = r.Uint64()
+	for i := range count {
+		if i >= Limbs {
+			err = r.Skip()
+		} else {
+			limbs[i], err = r.Uint64()
+		}
 		if err != nil {
 			r.pos = start
 			return err
