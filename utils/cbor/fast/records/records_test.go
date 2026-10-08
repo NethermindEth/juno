@@ -449,3 +449,55 @@ func TestSmallEventsMatchFxamacker(t *testing.T) {
 	require.Nil(t, got.Events[1])
 	require.NotSame(t, got.Events[0], got.Events[2])
 }
+
+// TestSharedArraysKeepValuesIndependent checks that values read into one shared array are
+// still distinct: writing through one decoded pointer changes nothing else, and null elements
+// stay nil.
+func TestSharedArraysKeepValuesIndependent(t *testing.T) {
+	update := stateUpdate()
+	update.StateDiff.Nonces[*f(20)] = nil
+	update.StateDiff.DeclaredV0Classes = append(update.StateDiff.DeclaredV0Classes, nil, f(21))
+	update.StateDiff.StorageDiffs[*f(4)] = map[felt.Felt]*felt.Felt{*f(14): f(15), *f(16): nil, *f(17): f(18)}
+	data, err := cbor.Marshal(update)
+	require.NoError(t, err)
+	got, want := decodeBoth[core.StateUpdate](t, data)
+	require.Equal(t, want, got)
+
+	receiptData, err := cbor.Marshal(receipt())
+	require.NoError(t, err)
+	gotReceipt, wantReceipt := decodeBoth[core.TransactionReceipt](t, receiptData)
+	require.Equal(t, wantReceipt, gotReceipt)
+	// An event written through its pointer leaves its neighbours alone.
+	*gotReceipt.Events[0] = core.Event{}
+	require.Equal(t, wantReceipt.Events[1:], gotReceipt.Events[1:])
+
+	diff := got.StateDiff
+	var felts []*felt.Felt
+	for _, storage := range diff.StorageDiffs {
+		for _, value := range storage {
+			felts = append(felts, value)
+		}
+	}
+	for _, m := range []map[felt.Felt]*felt.Felt{diff.Nonces, diff.DeployedContracts, diff.DeclaredV1Classes, diff.ReplacedClasses} {
+		for _, value := range m {
+			felts = append(felts, value)
+		}
+	}
+	felts = append(felts, diff.DeclaredV0Classes...)
+	for _, event := range gotReceipt.Events {
+		if event != nil {
+			felts = append(felts, event.From)
+		}
+	}
+	for i, value := range felts {
+		if value == nil {
+			continue
+		}
+		*value = felt.Felt{1 << 63, uint64(i)}
+	}
+	for i, value := range felts {
+		if value != nil {
+			require.Equal(t, felt.Felt{1 << 63, uint64(i)}, *value, "felt %d was overwritten through another pointer", i)
+		}
+	}
+}

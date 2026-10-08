@@ -272,10 +272,16 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 		return err
 	}
 	out := make([]*felt.Felt, count)
+	// The felts share one array the count sizes, rather than one allocation each.
+	values := make([]felt.Felt, count)
 	for i := range out {
-		if err := readFelt(r, &out[i]); err != nil {
+		if r.Null() {
+			continue
+		}
+		if err := r.Limbs((*[fast.Limbs]uint64)(&values[i])); err != nil {
 			return err
 		}
+		out[i] = &values[i]
 	}
 	r.Leave()
 	*dst = out
@@ -283,9 +289,16 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 }
 
 // readFeltMap reads a map from felt to felt, or null as nil. Keys and values are read in
-// place, with no generic function value in the way, so nothing but the map and its values
-// is allocated.
+// place, with no generic function value in the way, so nothing but the map and one array
+// holding its values is allocated.
 func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
+	var spare []felt.Felt
+	return readFeltMapFrom(r, dst, &spare, 0)
+}
+
+// readFeltMapFrom is readFeltMap taking the values from spare. When spare runs out it is
+// refilled with room for the values left in the map and extra more.
+func readFeltMapFrom(r *fast.Reader, dst *map[felt.Felt]*felt.Felt, spare *[]felt.Felt, extra int) error {
 	if r.Null() {
 		*dst = nil
 		return nil
@@ -295,13 +308,17 @@ func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 		return err
 	}
 	out := make(map[felt.Felt]*felt.Felt, count)
-	for ; count > 0; count-- {
+	for left := count; left > 0; left-- {
 		var key felt.Felt
 		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
 			return err
 		}
-		var value *felt.Felt
-		if err := readFelt(r, &value); err != nil {
+		if r.Null() {
+			out[key] = nil
+			continue
+		}
+		value := nextFelt(spare, left+extra)
+		if err := r.Limbs((*[fast.Limbs]uint64)(value)); err != nil {
 			return err
 		}
 		out[key] = value
@@ -309,6 +326,19 @@ func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 	r.Leave()
 	*dst = out
 	return nil
+}
+
+// nextFelt returns a zero felt from the front of spare. An empty spare is refilled with an
+// array of at least want felts, rounded up to what its allocation holds anyway, so the
+// rounding serves later felts rather than going to waste.
+func nextFelt(spare *[]felt.Felt, want int) *felt.Felt {
+	if len(*spare) == 0 {
+		grown := slices.Grow([]felt.Felt(nil), want)
+		*spare = grown[:cap(grown)]
+	}
+	value := &(*spare)[0]
+	*spare = (*spare)[1:]
+	return value
 }
 
 // readStorageDiffs reads a map from contract address to its map of storage updates.
@@ -322,13 +352,16 @@ func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Fel
 		return err
 	}
 	out := make(map[felt.Felt]map[felt.Felt]*felt.Felt, count)
+	// The inner maps take their values from shared arrays, each sized for at least one
+	// value per map still to come.
+	var spare []felt.Felt
 	for ; count > 0; count-- {
 		var key felt.Felt
 		if err := r.Limbs((*[fast.Limbs]uint64)(&key)); err != nil {
 			return err
 		}
 		var value map[felt.Felt]*felt.Felt
-		if err := readFeltMap(r, &value); err != nil {
+		if err := readFeltMapFrom(r, &value, &spare, count-1); err != nil {
 			return err
 		}
 		out[key] = value
