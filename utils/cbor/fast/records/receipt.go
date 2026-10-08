@@ -1,3 +1,4 @@
+//nolint:goconst // A wire name reads best spelled out beside the field number it maps to.
 package records
 
 import (
@@ -6,153 +7,169 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
 
+const (
+	receiptFee = iota
+	receiptFeeUnit
+	receiptEvents
+	receiptExecutionResources
+	receiptL1ToL2Message
+	receiptL2ToL1Message
+	receiptTransactionHash
+	receiptReverted
+	receiptRevertReason
+)
+
+var receiptFields = fieldsOf[core.TransactionReceipt]([]string{
+	receiptFee:                "Fee",
+	receiptFeeUnit:            "FeeUnit",
+	receiptEvents:             "Events",
+	receiptExecutionResources: "ExecutionResources",
+	receiptL1ToL2Message:      "L1ToL2Message",
+	receiptL2ToL1Message:      "L2ToL1Message",
+	receiptTransactionHash:    "TransactionHash",
+	receiptReverted:           "Reverted",
+	receiptRevertReason:       "RevertReason",
+})
+
 // ReadReceipt reads a stored TransactionReceipt.
 func ReadReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
-	var seen uint64
-	return readFields(r, foldTransactionReceipt, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Fee":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(receiptFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case receiptFee:
 			err = readFelt(r, &dst.Fee)
-		case "FeeUnit":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptFeeUnit:
 			err = readByte(r, (*byte)(&dst.FeeUnit))
-		case "Events":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptEvents:
 			err = readPtrSlice(r, &dst.Events, readEvent)
-		case "ExecutionResources":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
-			err = readPtr(r, &dst.ExecutionResources, readExecutionResources)
-		case "L1ToL2Message":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptExecutionResources:
+			err = readExecutionResources(r, &dst.ExecutionResources)
+		case receiptL1ToL2Message:
 			err = readPtr(r, &dst.L1ToL2Message, readL1ToL2Message)
-		case "L2ToL1Message":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptL2ToL1Message:
 			err = readPtrSlice(r, &dst.L2ToL1Message, readL2ToL1Message)
-		case "TransactionHash":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptTransactionHash:
 			err = readFelt(r, &dst.TransactionHash)
-		case "Reverted":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptReverted:
 			err = readBool(r, &dst.Reverted)
-		case "RevertReason":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case receiptRevertReason:
 			err = readString(r, &dst.RevertReason)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	eventFrom = iota
+	eventKeys
+	eventData
+)
+
+var eventFields = fieldsOf[core.Event]([]string{
+	eventFrom: "From",
+	eventKeys: "Keys",
+	eventData: "Data",
+})
 
 func readEvent(r *fast.Reader, dst *core.Event) error {
-	var seen uint64
-	return readFields(r, foldEvent, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "From":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(eventFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case eventFrom:
 			err = readFelt(r, &dst.From)
-		case "Keys":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case eventKeys:
 			err = readFeltSlice(r, &dst.Keys)
-		case "Data":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case eventData:
 			err = readFeltSlice(r, &dst.Data)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	l1ToL2From = iota
+	l1ToL2Nonce
+	l1ToL2Payload
+	l1ToL2Selector
+	l1ToL2To
+)
+
+var l1ToL2Fields = fieldsOf[core.L1ToL2Message]([]string{
+	l1ToL2From:     "From",
+	l1ToL2Nonce:    "Nonce",
+	l1ToL2Payload:  "Payload",
+	l1ToL2Selector: "Selector",
+	l1ToL2To:       "To",
+})
 
 func readL1ToL2Message(r *fast.Reader, dst *core.L1ToL2Message) error {
-	var seen uint64
-	return readFields(r, foldL1ToL2Message, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "From":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(l1ToL2Fields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case l1ToL2From:
 			err = readEthAddress(r, &dst.From)
-		case "Nonce":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case l1ToL2Nonce:
 			err = readFelt(r, &dst.Nonce)
-		case "Payload":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case l1ToL2Payload:
 			err = readFeltSlice(r, &dst.Payload)
-		case "Selector":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case l1ToL2Selector:
 			err = readFelt(r, &dst.Selector)
-		case "To":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case l1ToL2To:
 			err = readFelt(r, &dst.To)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
+const (
+	l2ToL1From = iota
+	l2ToL1Payload
+	l2ToL1To
+)
+
+var l2ToL1Fields = fieldsOf[core.L2ToL1Message]([]string{
+	l2ToL1From:    "From",
+	l2ToL1Payload: "Payload",
+	l2ToL1To:      "To",
+})
+
 func readL2ToL1Message(r *fast.Reader, dst *core.L2ToL1Message) error {
-	var seen uint64
-	return readFields(r, foldL2ToL1Message, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "From":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(l2ToL1Fields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case l2ToL1From:
 			err = readFelt(r, &dst.From)
-		case "Payload":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case l2ToL1Payload:
 			err = readFeltSlice(r, &dst.Payload)
-		case "To":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case l2ToL1To:
 			err = readEthAddress(r, &dst.To)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
 // readEthAddress reads the 20 bytes of an L1 address, a byte string.
@@ -171,160 +188,200 @@ func readEthAddress(r *fast.Reader, dst *eth.Address) error {
 	return nil
 }
 
-func readExecutionResources(r *fast.Reader, dst *core.ExecutionResources) error {
-	var seen uint64
-	return readFields(r, foldExecutionResources, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "BuiltinInstanceCounter":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
-			err = readBuiltinInstanceCounter(r, &dst.BuiltinInstanceCounter)
-		case "MemoryHoles":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
-			err = readUint64(r, &dst.MemoryHoles)
-		case "Steps":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
-			err = readUint64(r, &dst.Steps)
-		case "DataAvailability":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
-			err = readPtr(r, &dst.DataAvailability, readDataAvailability)
-		case "TotalGasConsumed":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
-			err = readPtr(r, &dst.TotalGasConsumed, readGasConsumed)
-		default:
-			return false, nil
-		}
-		return true, err
-	})
+const (
+	resourcesBuiltinInstanceCounter = iota
+	resourcesMemoryHoles
+	resourcesSteps
+	resourcesDataAvailability
+	resourcesTotalGasConsumed
+)
+
+var executionResourcesFields = fieldsOf[core.ExecutionResources]([]string{
+	resourcesBuiltinInstanceCounter: "BuiltinInstanceCounter",
+	resourcesMemoryHoles:            "MemoryHoles",
+	resourcesSteps:                  "Steps",
+	resourcesDataAvailability:       "DataAvailability",
+	resourcesTotalGasConsumed:       "TotalGasConsumed",
+})
+
+// executionResources holds execution resources and the structs they point to, so that one
+// allocation serves all three.
+type executionResources struct {
+	core.ExecutionResources
+	dataAvailability core.DataAvailability
+	totalGasConsumed core.GasConsumed
 }
+
+// readExecutionResources reads execution resources behind a pointer. Null leaves the pointer nil.
+func readExecutionResources(r *fast.Reader, dst **core.ExecutionResources) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	block := new(executionResources)
+	resources := &block.ExecutionResources
+	s, err := r.OpenStruct(executionResourcesFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			if err == nil {
+				*dst = resources
+			}
+			return err
+		case resourcesBuiltinInstanceCounter:
+			err = readBuiltinInstanceCounter(r, &resources.BuiltinInstanceCounter)
+		case resourcesMemoryHoles:
+			err = readUint64(r, &resources.MemoryHoles)
+		case resourcesSteps:
+			err = readUint64(r, &resources.Steps)
+		case resourcesDataAvailability:
+			if r.Null() {
+				resources.DataAvailability = nil
+			} else if err = readDataAvailability(r, &block.dataAvailability); err == nil {
+				resources.DataAvailability = &block.dataAvailability
+			}
+		case resourcesTotalGasConsumed:
+			if r.Null() {
+				resources.TotalGasConsumed = nil
+			} else if err = readGasConsumed(r, &block.totalGasConsumed); err == nil {
+				resources.TotalGasConsumed = &block.totalGasConsumed
+			}
+		default:
+			err = r.Skip()
+		}
+	}
+	return err
+}
+
+const (
+	dataAvailabilityL1Gas = iota
+	dataAvailabilityL1DataGas
+)
+
+var dataAvailabilityFields = fieldsOf[core.DataAvailability]([]string{
+	dataAvailabilityL1Gas:     "L1Gas",
+	dataAvailabilityL1DataGas: "L1DataGas",
+})
 
 func readDataAvailability(r *fast.Reader, dst *core.DataAvailability) error {
-	var seen uint64
-	return readFields(r, foldDataAvailability, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "L1Gas":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(dataAvailabilityFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case dataAvailabilityL1Gas:
 			err = readUint64(r, &dst.L1Gas)
-		case "L1DataGas":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case dataAvailabilityL1DataGas:
 			err = readUint64(r, &dst.L1DataGas)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	gasConsumedL1Gas = iota
+	gasConsumedL1DataGas
+	gasConsumedL2Gas
+)
+
+var gasConsumedFields = fieldsOf[core.GasConsumed]([]string{
+	gasConsumedL1Gas:     "L1Gas",
+	gasConsumedL1DataGas: "L1DataGas",
+	gasConsumedL2Gas:     "L2Gas",
+})
 
 func readGasConsumed(r *fast.Reader, dst *core.GasConsumed) error {
-	var seen uint64
-	return readFields(r, foldGasConsumed, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "L1Gas":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(gasConsumedFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case gasConsumedL1Gas:
 			err = readUint64(r, &dst.L1Gas)
-		case "L1DataGas":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case gasConsumedL1DataGas:
 			err = readUint64(r, &dst.L1DataGas)
-		case "L2Gas":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case gasConsumedL2Gas:
 			err = readUint64(r, &dst.L2Gas)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
+const (
+	builtinPedersen = iota
+	builtinRangeCheck
+	builtinBitwise
+	builtinOutput
+	builtinEcsda
+	builtinEcOp
+	builtinKeccak
+	builtinPoseidon
+	builtinSegmentArena
+	builtinAddMod
+	builtinMulMod
+	builtinRangeCheck96
+)
+
+var builtinFields = fieldsOf[core.BuiltinInstanceCounter]([]string{
+	builtinPedersen:     "Pedersen",
+	builtinRangeCheck:   "RangeCheck",
+	builtinBitwise:      "Bitwise",
+	builtinOutput:       "Output",
+	builtinEcsda:        "Ecsda",
+	builtinEcOp:         "EcOp",
+	builtinKeccak:       "Keccak",
+	builtinPoseidon:     "Poseidon",
+	builtinSegmentArena: "SegmentArena",
+	builtinAddMod:       "AddMod",
+	builtinMulMod:       "MulMod",
+	builtinRangeCheck96: "RangeCheck96",
+})
+
 func readBuiltinInstanceCounter(r *fast.Reader, dst *core.BuiltinInstanceCounter) error {
-	var seen uint64
-	return readFields(r, foldBuiltinInstanceCounter, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Pedersen":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(builtinFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case builtinPedersen:
 			err = readUint64(r, &dst.Pedersen)
-		case "RangeCheck":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinRangeCheck:
 			err = readUint64(r, &dst.RangeCheck)
-		case "Bitwise":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinBitwise:
 			err = readUint64(r, &dst.Bitwise)
-		case "Output":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinOutput:
 			err = readUint64(r, &dst.Output)
-		case "Ecsda":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinEcsda:
 			err = readUint64(r, &dst.Ecsda)
-		case "EcOp":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinEcOp:
 			err = readUint64(r, &dst.EcOp)
-		case "Keccak":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinKeccak:
 			err = readUint64(r, &dst.Keccak)
-		case "Poseidon":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinPoseidon:
 			err = readUint64(r, &dst.Poseidon)
-		case "SegmentArena":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinSegmentArena:
 			err = readUint64(r, &dst.SegmentArena)
-		case "AddMod":
-			if once(&seen, 10) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinAddMod:
 			err = readUint64(r, &dst.AddMod)
-		case "MulMod":
-			if once(&seen, 11) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinMulMod:
 			err = readUint64(r, &dst.MulMod)
-		case "RangeCheck96":
-			if once(&seen, 12) {
-				return false, fast.ErrUnsupported
-			}
+		case builtinRangeCheck96:
 			err = readUint64(r, &dst.RangeCheck96)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }

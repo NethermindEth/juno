@@ -87,7 +87,6 @@ func TestSkipCountsAFeltAsALevel(t *testing.T) {
 		r := fast.NewReader(wrapped(item))
 		err := r.Skip()
 		if fxErr != nil && err == nil {
-			t.Skip("known: Skip passes a 37 byte felt without counting its nesting level")
 		}
 		require.Equalf(t, fxErr == nil, err == nil, "%d tags: fx=%v fast=%v", tags, fxErr, err)
 	}
