@@ -12,13 +12,13 @@ Pre-confirmed blocks are blocks that the sequencers are proposing and that will 
 Juno unlocks the possibility for its users to decide whether to minimize response latency or data staleness (how old the data is) when they query for a pre-confirmed block by exposing these three flags:
 - `--preconfirmed-poll-interval` sets how frequently Juno polls for the pre-confirmed data.
 - `--preconfirmed-stale-after` sets after how much time polled data is considered old.
-- `--preconfirmed-on-demand-wait` sets how long requests for pre-confirmed data should wait for a response.
+- `--preconfirmed-on-demand-wait` sets how long a request that triggers a poll waits for it before answering with the stored data.
 
-The goal with these flags is to shape how pre-confirmed polls behave when receiving a pre-confirmed request, by either answering directly with what's in memory, minimizing latency but risking answering with stale data, or, on the contrary, forwarding the request to the sequencer, maximizing data freshness at the cost of one extra round trip between Juno and the sequencer.
+The goal with these flags is to shape how pre-confirmed polls behave when receiving a pre-confirmed request, by either answering directly with what's in memory, minimizing latency but risking answering with stale data, or, on the contrary, polling the sequencer first and waiting for the answer, maximizing data freshness at the cost of one extra round trip between Juno and the sequencer.
 
 ## Suggested presets
 
-Depending on the node use case, the following are flag settings the team recommends that find a good balance between latency and data staleness.
+Depending on the node's use case, the following flag settings strike a good balance between latency and data staleness.
 
 ### Default (for App Developers, Stakers and Explorers)
 
@@ -38,7 +38,7 @@ RPC provider nodes are expected to be constantly hit with pre-confirmed requests
 
 ### Bots and MEV
 
-Users looking to maximize data freshness at the cost of some initial latency will benefit from waiting longer periods of time, to guarantee always getting the most recent data.
+Users looking to maximize data freshness at the cost of some initial latency will benefit from waiting longer for the poll, to get the most recent data on nearly every read.
 
 - `--preconfirmed-poll-interval 500ms`
 - `--preconfirmed-stale-after 250ms`
@@ -47,7 +47,7 @@ Users looking to maximize data freshness at the cost of some initial latency wil
 ## Study on the effect of these flags
 
 :::info
-The following is an optional section to explain how the default values above were achieved and how they actually impact the node behaviour. For the curious and for the ones looking to fine-tune these flags to their unique conditions and use case.
+The following optional section shows how each of these options affects the node's behaviour and how the default values above were chosen, for the curious and for those looking to fine-tune the flags to their own conditions and use case.
 :::
 
 The four figures below play the same two seconds: the gateway's pre-confirmed state changes three times (A to B, C and D), every poll takes 120 ms, and a few `pre_confirmed` reads arrive at the same moments. For each read the figure shows whether it was answered with the gateway's current state (filled dot) or an older one (hollow dot), how long it waited, and the age of the data it received.
