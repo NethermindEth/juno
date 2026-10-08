@@ -24,6 +24,7 @@ const sidebars = {
       items: [
         "json-rpc",
         "websocket",
+        "preconfirmed-polling",
         {
           type: "html",
           value:
