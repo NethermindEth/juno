@@ -194,6 +194,28 @@ func (s *sweeper) transaction(w *worker, suffix string, key, raw []byte) {
 	})
 }
 
+// indexes reads the offsets that start a BlockTransactions entry through the wrapper, as Juno
+// does, from a copy it then overwrites, and requires fxamacker's value and remainder.
+func (s *sweeper) indexes(w *worker, j job, want core.BlockTransactionsIndexes, wantRest int) {
+	buf := bytes.Clone(j.raw)
+	var got core.BlockTransactionsIndexes
+	rest, err := cbor.UnmarshalFirst(buf, &got)
+	restLen := len(rest)
+	for i := range buf {
+		buf[i] = scribble
+	}
+	w.stat("block indexes").count++
+	switch {
+	case err != nil:
+		s.failf("block indexes", j.key, "wrapper err=%v", err)
+	case restLen != wantRest:
+		s.failf("block indexes", j.key, "remainder %d bytes, fxamacker %d", restLen, wantRest)
+	case !reflect.DeepEqual(want, got):
+		s.mismatches.Add(1)
+		s.failf("block indexes", j.key, "mismatch:\n%s", diff(want, got))
+	}
+}
+
 func (s *sweeper) blockTransactions(w *worker, j job) {
 	var idx core.BlockTransactionsIndexes
 	rest, err := fxamacker.UnmarshalFirst(j.raw, &idx)
@@ -201,6 +223,7 @@ func (s *sweeper) blockTransactions(w *worker, j job) {
 		s.failf("blocktx", j.key, "indexes: %v", err)
 		return
 	}
+	s.indexes(w, j, idx, len(rest))
 	end := func(offsets []int, i, last int) int {
 		if i+1 < len(offsets) {
 			return offsets[i+1]
@@ -491,6 +514,8 @@ func checkRoutes(t *testing.T, total map[string]*kindStats, delta map[string]cbo
 			expectRouted["core.Transaction"] += st.count
 		case k == "class Sierra":
 			expectRouted["core.ClassDefinition"] += st.count
+		case k == "block indexes":
+			expectRouted["core.BlockTransactionsIndexes"] += st.count
 		}
 	}
 	for k, d := range delta {
