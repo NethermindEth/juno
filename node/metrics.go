@@ -261,13 +261,15 @@ func makePreConfirmedMetrics() preconfirmed.EventListener {
 	} {
 		failedPolls.WithLabelValues(reason).Add(0)
 	}
-	backfills := prometheus.NewCounter(prometheus.CounterOpts{
+	// A poller that keeps up with the gateway backfills gaps of 1: the old tip, re-polled.
+	backfillGap := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespaceSync,
 		Subsystem: subsystemPreConfirmed,
-		Name:      "backfills",
-		Help:      "Total number of pre-confirmed backfills",
+		Name:      "backfill_gap",
+		Help:      "Number of blocks each pre-confirmed backfill fetches below the latest",
+		Buckets:   []float64{1, 2, 3, 4, 5},
 	})
-	prometheus.MustRegister(pollLatency, failedPolls, backfills)
+	prometheus.MustRegister(pollLatency, failedPolls, backfillGap)
 
 	return &preconfirmed.SelectiveListener{
 		OnPollSucceededCb: func(update string, took time.Duration) {
@@ -276,8 +278,8 @@ func makePreConfirmedMetrics() preconfirmed.EventListener {
 		OnPollFailedCb: func(reason string) {
 			failedPolls.WithLabelValues(reason).Inc()
 		},
-		OnBackfillCb: func() {
-			backfills.Inc()
+		OnBackfillCb: func(gap uint64) {
+			backfillGap.Observe(float64(gap))
 		},
 	}
 }

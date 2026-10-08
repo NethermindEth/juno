@@ -236,7 +236,7 @@ func (p *Poller) poll(ctx context.Context) error {
 			zap.Uint64("fromBlock", fromBlock),
 			zap.Uint64("toBlock", updateBlockNum),
 		)
-		p.listener.OnBackfill()
+		p.listener.OnBackfill(updateBlockNum - fromBlock)
 		err = p.backfill(
 			ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum,
 		)

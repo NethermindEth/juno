@@ -24,14 +24,15 @@ type EventListener interface {
 	OnPollSucceeded(update string, took time.Duration)
 	// OnPollFailed reports a poll that did not apply the latest update.
 	OnPollFailed(reason string)
-	// OnBackfill reports a poll starting to backfill the blocks below the latest.
-	OnBackfill()
+	// OnBackfill reports a poll starting to backfill the gap below the latest, with how many
+	// blocks it holds: from the stored tip, or from above the head when nothing is stored.
+	OnBackfill(gap uint64)
 }
 
 type SelectiveListener struct {
 	OnPollSucceededCb func(update string, took time.Duration)
 	OnPollFailedCb    func(reason string)
-	OnBackfillCb      func()
+	OnBackfillCb      func(gap uint64)
 }
 
 func (l *SelectiveListener) OnPollSucceeded(update string, took time.Duration) {
@@ -46,8 +47,8 @@ func (l *SelectiveListener) OnPollFailed(reason string) {
 	}
 }
 
-func (l *SelectiveListener) OnBackfill() {
+func (l *SelectiveListener) OnBackfill(gap uint64) {
 	if l.OnBackfillCb != nil {
-		l.OnBackfillCb()
+		l.OnBackfillCb(gap)
 	}
 }
