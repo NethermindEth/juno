@@ -57,5 +57,7 @@ jobs:
         env:
           #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block,
           #  thus there will be no more pending transcations with `pending` semantics.
-          TESTS_TO_SKIP: "TestSubscribePendingTransactions"
+          #  TestEstimateMessageFee hard-codes the overall_fee of a historical block, which is
+          #  below the minimum message fee Juno now applies to the estimate.
+          TESTS_TO_SKIP: "TestSubscribePendingTransactions|TestEstimateMessageFee"
         run: go test -skip "$TESTS_TO_SKIP" -timeout 1200s -v -env testnet .
