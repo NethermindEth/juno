@@ -1,9 +1,11 @@
 package records
 
 import (
+	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
@@ -189,67 +191,27 @@ func readStringSlice(r *fast.Reader, dst *[]string) error {
 	return nil
 }
 
-// readFields walks a struct's map, giving field the name of each entry to read. field reports
-// whether it knows the name; an unknown name is retried case-insensitively, which is how
-// fxamacker matches keys, and skipped when it is still unknown. Null leaves the struct as it is.
-func readFields(r *fast.Reader, names folder, field func(key string) (known bool, err error)) error {
-	if r.Null() {
-		return nil
+// fieldsOf returns the Fields of T, whose field number i has the wire name names[i]. It panics
+// unless the names are the wire names fxamacker gives the fields of T, so a reader cannot leave
+// a field of T unread.
+func fieldsOf[T any](names []string) *fast.Fields {
+	want := map[string]bool{}
+	addFields(want, reflect.TypeFor[T]())
+	for _, name := range names {
+		if !want[name] {
+			panic("records: " + reflect.TypeFor[T]().String() + " has no field " + name)
+		}
+		delete(want, name)
 	}
-	count, err := r.MapLen()
-	if err != nil {
-		return err
+	if len(want) > 0 {
+		panic(fmt.Sprintf("records: no field numbers for %v fields %v", reflect.TypeFor[T](), slices.Sorted(maps.Keys(want))))
 	}
-	for ; count > 0; count-- {
-		raw, isText, err := r.Key()
-		if err != nil {
-			return err
-		}
-		if !isText {
-			if err := r.Skip(); err != nil {
-				return err
-			}
-			continue
-		}
-		// The name is only compared inside field, so it can borrow the input.
-		key := unsafe.String(unsafe.SliceData(raw), len(raw))
-		known, err := field(key)
-		if err != nil {
-			return err
-		}
-		if !known {
-			if canonical, ok := names.canonical(raw); ok {
-				known, err = field(canonical)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if !known {
-			if err := r.Skip(); err != nil {
-				return err
-			}
-		}
-	}
-	r.Leave()
-	return nil
+	return fast.NewFields(names...)
 }
 
-// folder maps the lower-cased wire name of each field of a struct to its wire name.
-type folder map[string]string
-
-// maxFieldName is the longest wire name a folder will match; a longer key cannot be one.
-const maxFieldName = 64
-
-// newFolder lists the wire names of the fields of T as fxamacker does: the field name, or the
+// addFields lists the wire names of the fields of typ as fxamacker does: the field name, or the
 // name in its cbor tag, with embedded structs promoted and "-" fields left out.
-func newFolder[T any]() folder {
-	out := folder{}
-	addFields(out, reflect.TypeFor[T]())
-	return out
-}
-
-func addFields(out folder, typ reflect.Type) {
+func addFields(out map[string]bool, typ reflect.Type) {
 	for i := range typ.NumField() {
 		field := typ.Field(i)
 		name, _, _ := strings.Cut(field.Tag.Get("cbor"), ",")
@@ -264,24 +226,8 @@ func addFields(out folder, typ reflect.Type) {
 		case name == "":
 			name = field.Name
 		}
-		out[strings.ToLower(name)] = name
+		out[name] = true
 	}
-}
-
-// canonical returns the wire name that key matches ignoring case.
-func (f folder) canonical(key []byte) (string, bool) {
-	if len(key) > maxFieldName {
-		return "", false
-	}
-	var buf [maxFieldName]byte
-	for i, c := range key {
-		if 'A' <= c && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		buf[i] = c
-	}
-	name, ok := f[string(buf[:len(key)])]
-	return name, ok
 }
 
 // readLimbPtr reads a felt-shaped value behind a pointer. Null leaves the pointer nil.
@@ -373,14 +319,4 @@ func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Fel
 	r.Leave()
 	*dst = out
 	return nil
-}
-
-// once marks field number bit as read, and reports whether it already was. A map with the same
-// key twice is something fxamacker has its own rule for (the first value wins), so the reader
-// leaves it to fxamacker.
-func once(seen *uint64, bit uint) bool {
-	mask := uint64(1) << bit
-	repeated := *seen&mask != 0
-	*seen |= mask
-	return repeated
 }
