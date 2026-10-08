@@ -33,158 +33,173 @@ func ReadClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassD
 	}
 }
 
+const (
+	sierraAbi = iota
+	sierraAbiHash
+	sierraEntryPoints
+	sierraProgram
+	sierraProgramHash
+	sierraSemanticVersion
+	sierraCompiled
+)
+
+var sierraClassFields = fieldsOf[core.SierraClass]([]string{
+	sierraAbi:             "Abi",
+	sierraAbiHash:         "AbiHash",
+	sierraEntryPoints:     "EntryPoints",
+	sierraProgram:         "Program",
+	sierraProgramHash:     "ProgramHash",
+	sierraSemanticVersion: "SemanticVersion",
+	sierraCompiled:        "Compiled",
+})
+
 // ReadSierraClass reads the map of a stored Sierra class, after its tag.
 func ReadSierraClass(r *fast.Reader, dst *core.SierraClass) error {
-	var seen uint64
-	return readFields(r, foldSierraClass, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Abi":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(sierraClassFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case sierraAbi:
 			err = readString(r, &dst.Abi)
-		case "AbiHash":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraAbiHash:
 			err = readFelt(r, &dst.AbiHash)
-		case "EntryPoints":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraEntryPoints:
 			err = readSierraEntryPoints(r, &dst.EntryPoints)
-		case "Program":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraProgram:
 			err = readFeltSlice(r, &dst.Program)
-		case "ProgramHash":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraProgramHash:
 			err = readFelt(r, &dst.ProgramHash)
-		case "SemanticVersion":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraSemanticVersion:
 			err = readString(r, &dst.SemanticVersion)
-		case "Compiled":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraCompiled:
 			err = readPtr(r, &dst.Compiled, readCasmClass)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	entryPointsConstructor = iota
+	entryPointsExternal
+	entryPointsL1Handler
+)
+
+var sierraEntryPointsFields = fieldsOf[core.SierraEntryPointsByType]([]string{
+	entryPointsConstructor: "Constructor",
+	entryPointsExternal:    "External",
+	entryPointsL1Handler:   "L1Handler",
+})
 
 func readSierraEntryPoints(r *fast.Reader, dst *core.SierraEntryPointsByType) error {
-	var seen uint64
-	return readFields(r, foldSierraEntryPointsByType, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Constructor":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(sierraEntryPointsFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case entryPointsConstructor:
 			err = readSlice(r, &dst.Constructor, readSierraEntryPoint)
-		case "External":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case entryPointsExternal:
 			err = readSlice(r, &dst.External, readSierraEntryPoint)
-		case "L1Handler":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case entryPointsL1Handler:
 			err = readSlice(r, &dst.L1Handler, readSierraEntryPoint)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	sierraEntryPointIndex = iota
+	sierraEntryPointSelector
+)
+
+var sierraEntryPointFields = fieldsOf[core.SierraEntryPoint]([]string{
+	sierraEntryPointIndex:    "Index",
+	sierraEntryPointSelector: "Selector",
+})
 
 func readSierraEntryPoint(r *fast.Reader, dst *core.SierraEntryPoint) error {
-	var seen uint64
-	return readFields(r, foldSierraEntryPoint, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Index":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(sierraEntryPointFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case sierraEntryPointIndex:
 			err = readUint64(r, &dst.Index)
-		case "Selector":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case sierraEntryPointSelector:
 			err = readFelt(r, &dst.Selector)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
+const (
+	casmBytecode = iota
+	casmPythonicHints
+	casmCompilerVersion
+	casmHints
+	casmPrime
+	casmExternal
+	casmL1Handler
+	casmConstructor
+	casmBytecodeSegmentLengths
+)
+
+var casmClassFields = fieldsOf[core.CasmClass]([]string{
+	casmBytecode:               "Bytecode",
+	casmPythonicHints:          "PythonicHints",
+	casmCompilerVersion:        "CompilerVersion",
+	casmHints:                  "Hints",
+	casmPrime:                  "Prime",
+	casmExternal:               "External",
+	casmL1Handler:              "L1Handler",
+	casmConstructor:            "Constructor",
+	casmBytecodeSegmentLengths: "BytecodeSegmentLengths",
+})
+
 func readCasmClass(r *fast.Reader, dst *core.CasmClass) error {
-	var seen uint64
-	return readFields(r, foldCasmClass, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Bytecode":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(casmClassFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case casmBytecode:
 			err = readFeltSlice(r, &dst.Bytecode)
-		case "PythonicHints":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case casmPythonicHints:
 			err = readRaw(r, (*[]byte)(&dst.PythonicHints))
-		case "CompilerVersion":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case casmCompilerVersion:
 			err = readString(r, &dst.CompilerVersion)
-		case "Hints":
-			if once(&seen, 4) {
-				return false, fast.ErrUnsupported
-			}
+		case casmHints:
 			err = readRaw(r, (*[]byte)(&dst.Hints))
-		case "Prime":
-			if once(&seen, 5) {
-				return false, fast.ErrUnsupported
-			}
+		case casmPrime:
 			err = readBigIntPtr(r, dst)
-		case "External":
-			if once(&seen, 6) {
-				return false, fast.ErrUnsupported
-			}
+		case casmExternal:
 			err = readSlice(r, &dst.External, readCasmEntryPoint)
-		case "L1Handler":
-			if once(&seen, 7) {
-				return false, fast.ErrUnsupported
-			}
+		case casmL1Handler:
 			err = readSlice(r, &dst.L1Handler, readCasmEntryPoint)
-		case "Constructor":
-			if once(&seen, 8) {
-				return false, fast.ErrUnsupported
-			}
+		case casmConstructor:
 			err = readSlice(r, &dst.Constructor, readCasmEntryPoint)
-		case "BytecodeSegmentLengths":
-			if once(&seen, 9) {
-				return false, fast.ErrUnsupported
-			}
+		case casmBytecodeSegmentLengths:
 			err = readSegmentLengths(r, &dst.BytecodeSegmentLengths, 0)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
 
 func readBigIntPtr(r *fast.Reader, dst *core.CasmClass) error {
@@ -200,56 +215,69 @@ func readBigIntPtr(r *fast.Reader, dst *core.CasmClass) error {
 	return nil
 }
 
+const (
+	casmEntryPointOffset = iota
+	casmEntryPointBuiltins
+	casmEntryPointSelector
+)
+
+var casmEntryPointFields = fieldsOf[core.CasmEntryPoint]([]string{
+	casmEntryPointOffset:   "Offset",
+	casmEntryPointBuiltins: "Builtins",
+	casmEntryPointSelector: "Selector",
+})
+
 func readCasmEntryPoint(r *fast.Reader, dst *core.CasmEntryPoint) error {
-	var seen uint64
-	return readFields(r, foldCasmEntryPoint, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Offset":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(casmEntryPointFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case casmEntryPointOffset:
 			err = readUint64(r, &dst.Offset)
-		case "Builtins":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case casmEntryPointBuiltins:
 			err = readStringSlice(r, &dst.Builtins)
-		case "Selector":
-			if once(&seen, 3) {
-				return false, fast.ErrUnsupported
-			}
+		case casmEntryPointSelector:
 			err = readFelt(r, &dst.Selector)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
+
+const (
+	segmentChildren = iota
+	segmentLength
+)
+
+var segmentLengthsFields = fieldsOf[core.SegmentLengths]([]string{
+	segmentChildren: "Children",
+	segmentLength:   "Length",
+})
 
 func readSegmentLengths(r *fast.Reader, dst *core.SegmentLengths, depth int) error {
 	if depth > maxSegmentDepth {
 		return fast.ErrDepth
 	}
-	var seen uint64
-	return readFields(r, foldSegmentLengths, func(key string) (bool, error) {
-		var err error
-		switch key {
-		case "Children":
-			if once(&seen, 1) {
-				return false, fast.ErrUnsupported
-			}
+	s, err := r.OpenStruct(segmentLengthsFields)
+	for err == nil {
+		var field int
+		field, err = r.NextField(&s)
+		switch field {
+		case fast.Done:
+			return err
+		case segmentChildren:
 			err = readSlice(r, &dst.Children, func(r *fast.Reader, child *core.SegmentLengths) error {
 				return readSegmentLengths(r, child, depth+1)
 			})
-		case "Length":
-			if once(&seen, 2) {
-				return false, fast.ErrUnsupported
-			}
+		case segmentLength:
 			err = readUint64(r, &dst.Length)
 		default:
-			return false, nil
+			err = r.Skip()
 		}
-		return true, err
-	})
+	}
+	return err
 }
