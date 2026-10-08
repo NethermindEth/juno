@@ -40,10 +40,13 @@ type fieldKey struct {
 	words, masks [keyWords]uint64
 	encoded      string
 	field        int
+	// bit is the field's bit in Struct.seen, and short whether words holds all of encoded.
+	bit   uint64
+	short bool
 }
 
 func newFieldKey(encoded string, field int) fieldKey {
-	out := fieldKey{encoded: encoded, field: field}
+	out := fieldKey{encoded: encoded, field: field, bit: 1 << field, short: len(encoded) <= keyWords*8}
 	for i := 0; i < len(encoded) && i < keyWords*8; i++ {
 		out.words[i/8] |= uint64(encoded[i]) << (i % 8 * 8)
 		out.masks[i/8] |= 0xff << (i % 8 * 8)
@@ -133,6 +136,26 @@ func (r *Reader) OpenStruct(fields *Fields) (Struct, error) {
 // other key is read and matched like fxamacker. A field named twice is ErrUnsupported, since
 // fxamacker has its own rule for a repeated key.
 func (r *Reader) NextField(s *Struct) (int, error) {
+	// The common case first: the key is the one expected next, and its field is not yet read.
+	if s.left > 0 && s.next < len(s.fields.order) && r.pos+keyWords*8 <= len(r.buf) {
+		key := &s.fields.order[s.next]
+		buf := r.buf[r.pos : r.pos+keyWords*8]
+		if (binary.LittleEndian.Uint64(buf)^key.words[0])&key.masks[0]|
+			(binary.LittleEndian.Uint64(buf[8:])^key.words[1])&key.masks[1]|
+			(binary.LittleEndian.Uint64(buf[16:])^key.words[2])&key.masks[2]|
+			s.seen&key.bit == 0 && key.short {
+			r.pos += len(key.encoded)
+			s.left--
+			s.next++
+			s.seen |= key.bit
+			return key.field, nil
+		}
+	}
+	return r.nextField(s)
+}
+
+// nextField looks for the key among all the fields after the last one matched, then like fxamacker.
+func (r *Reader) nextField(s *Struct) (int, error) {
 	if s.left == 0 {
 		if s.open {
 			s.open = false
@@ -141,14 +164,25 @@ func (r *Reader) NextField(s *Struct) (int, error) {
 		return Done, nil
 	}
 	s.left--
-	buf := r.buf[r.pos:]
+	if i := s.find(r.buf[r.pos:]); i >= 0 {
+		key := &s.fields.order[i]
+		r.pos += len(key.encoded)
+		s.next = i + 1
+		return s.mark(key.field)
+	}
+	return r.otherField(s)
+}
+
+// find returns where the key at the start of buf is in the order of the fields, looking only
+// after the last one matched, or -1.
+func (s *Struct) find(buf []byte) int {
+	order := s.fields.order
 	if len(buf) >= keyWords*8 {
 		// Compare a word at a time; the bytes past a short key are masked off.
 		w0 := binary.LittleEndian.Uint64(buf)
 		w1 := binary.LittleEndian.Uint64(buf[8:])
 		w2 := binary.LittleEndian.Uint64(buf[16:])
 		head := byte(w0)
-		order := s.fields.order
 		for i := s.next; i < len(order); i++ {
 			key := &order[i]
 			if keyHead := byte(key.words[0]); keyHead != head {
@@ -158,32 +192,25 @@ func (r *Reader) NextField(s *Struct) (int, error) {
 				continue
 			}
 			if (w0^key.words[0])&key.masks[0]|(w1^key.words[1])&key.masks[1]|(w2^key.words[2])&key.masks[2] == 0 &&
-				(len(key.encoded) <= keyWords*8 ||
-					len(buf) >= len(key.encoded) && string(buf[keyWords*8:len(key.encoded)]) == key.encoded[keyWords*8:]) {
-				r.pos += len(key.encoded)
-				s.next = i + 1
-				return s.mark(key.field)
+				(key.short || len(buf) >= len(key.encoded) && string(buf[keyWords*8:len(key.encoded)]) == key.encoded[keyWords*8:]) {
+				return i
 			}
 		}
-	} else if len(buf) > 0 {
-		head := buf[0]
-		order := s.fields.order
-		for i := s.next; i < len(order); i++ {
-			key := order[i].encoded
-			if key[0] != head {
-				if key[0] > head {
-					break // every key from here on sorts after this one
-				}
-				continue
+		return -1
+	}
+	for i := s.next; i < len(order) && len(buf) > 0; i++ {
+		key := order[i].encoded
+		if key[0] != buf[0] {
+			if key[0] > buf[0] {
+				break
 			}
-			if len(buf) >= len(key) && string(buf[:len(key)]) == key {
-				r.pos += len(key)
-				s.next = i + 1
-				return s.mark(order[i].field)
-			}
+			continue
+		}
+		if len(buf) >= len(key) && string(buf[:len(key)]) == key {
+			return i
 		}
 	}
-	return r.otherField(s)
+	return -1
 }
 
 // otherField matches a key that is not where a canonical encoder would put it.
