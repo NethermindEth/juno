@@ -395,3 +395,45 @@ func TestBloomDeclaringMoreBitsThanItHoldsIsRejected(t *testing.T) {
 
 	require.ErrorIs(t, cbor.Unmarshal(data, new(core.Header)), records.ErrBloomSize)
 }
+
+// allocsOf counts allocations per decode of data into a fresh T with decode.
+func allocsOf[T any](data []byte, decode func([]byte, any) error) float64 {
+	return testing.AllocsPerRun(50, func() {
+		var dst T
+		if err := decode(data, &dst); err != nil {
+			panic(err)
+		}
+	})
+}
+
+// The fast reader must not allocate more than fxamacker does, whatever the record.
+func TestAllocationsDoNotExceedFxamacker(t *testing.T) {
+	check := func(t *testing.T, fast, fx float64) {
+		t.Helper()
+		require.LessOrEqual(t, fast, fx, "fast=%v fxamacker=%v allocations per decode", fast, fx)
+	}
+
+	t.Run("receipt", func(t *testing.T) {
+		data, _ := cbor.Marshal(receipt())
+		check(t, allocsOf[core.TransactionReceipt](data, cbor.Unmarshal), allocsOf[core.TransactionReceipt](data, fxamacker.Unmarshal))
+	})
+	t.Run("header", func(t *testing.T) {
+		data, _ := cbor.Marshal(header())
+		check(t, allocsOf[core.Header](data, cbor.Unmarshal), allocsOf[core.Header](data, fxamacker.Unmarshal))
+	})
+	t.Run("state update", func(t *testing.T) {
+		data, _ := cbor.Marshal(stateUpdate())
+		check(t, allocsOf[core.StateUpdate](data, cbor.Unmarshal), allocsOf[core.StateUpdate](data, fxamacker.Unmarshal))
+	})
+	t.Run("sierra class", func(t *testing.T) {
+		class := core.ClassDefinition(sierraClass())
+		data, _ := cbor.Marshal(&class)
+		check(t, allocsOf[core.ClassDefinition](data, cbor.Unmarshal), allocsOf[core.ClassDefinition](data, fxamacker.Unmarshal))
+	})
+	for name, tx := range transactions() {
+		t.Run("transaction "+name, func(t *testing.T) {
+			data, _ := cbor.Marshal(&tx)
+			check(t, allocsOf[core.Transaction](data, cbor.Unmarshal), allocsOf[core.Transaction](data, fxamacker.Unmarshal))
+		})
+	}
+}
