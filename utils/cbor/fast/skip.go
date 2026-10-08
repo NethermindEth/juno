@@ -17,8 +17,9 @@ func (r *Reader) Skip() error {
 
 // skip takes the number of arrays, maps and chained tags already open around the item.
 func (r *Reader) skip(depth int) error {
-	// A felt is the bulk of what a record holds, and its shape needs no head decoding.
-	if buf := r.buf[r.pos:]; len(buf) >= feltLen && buf[0] == feltHead &&
+	// A felt is the bulk of what a record holds, and its shape needs no head decoding. It is an
+	// array, so it opens a nesting level of its own.
+	if buf := r.buf[r.pos:]; depth < MaxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
 		buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
 		r.pos += feltLen
 		return nil
@@ -82,7 +83,7 @@ func (r *Reader) skipElements(count, limit uint64, perCount int, depth int) erro
 		return ErrTruncated
 	}
 	for n := count * uint64(perCount); n > 0; n-- {
-		if buf := r.buf[r.pos:]; len(buf) >= feltLen && buf[0] == feltHead &&
+		if buf := r.buf[r.pos:]; depth < MaxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
 			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
 			r.pos += feltLen
 			continue
