@@ -13,7 +13,7 @@ on:
       rpc_version:
         type: string
         default: "v0_9"
-        description: "RPC version being tested (v0_8, v0_9, or v0_10)"
+        description: "RPC version being tested (v0_9 or v0_10)"
     secrets:
       TEST_RPC_URL:
         required: false
@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.0.0
         with:
-          node-version: "18"
+          node-version: "22"
 
       - name: Install dependencies
         run: npm ci
@@ -45,22 +45,19 @@ jobs:
       - name: Set test configuration
         id: tests
         run: |
-          # rpcChannel test file differs by version: v0.10 uses rpcChannel010, older versions use rpcChannel
+          # rpcChannel test file differs by version: v0.9 uses rpcChannel09, v0.10 uses rpcChannel010
           if [ "${{ inputs.rpc_version }}" == "v0_10" ]; then
             RPC_CHANNEL_TEST="rpcChannel010.test.ts"
           else
-            RPC_CHANNEL_TEST="rpcChannel.test.ts"
+            RPC_CHANNEL_TEST="rpcChannel09.test.ts"
           fi
 
           FAST_TESTS="rpcProvider.test.ts transactionReceipt.test.ts ${RPC_CHANNEL_TEST} defaultProvider.test.ts"
 
           if [ "${{ inputs.test_mode }}" == "fast" ]; then
             echo "tests=${FAST_TESTS}" >> $GITHUB_OUTPUT
-          elif [ "${{ inputs.rpc_version }}" == "v0_10" ]; then
-            # cairo1.test.ts was removed in starknet.js v9.x
-            echo "tests=${FAST_TESTS} contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts account.test.ts account.starknetId.test.ts" >> $GITHUB_OUTPUT
           else
-            echo "tests=${FAST_TESTS} contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts cairo1.test.ts account.test.ts account.starknetId.test.ts" >> $GITHUB_OUTPUT
+            echo "tests=${FAST_TESTS} contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts account.test.ts account.starknetId.test.ts" >> $GITHUB_OUTPUT
           fi
 
       - name: Run tests (${{ inputs.test_mode }} mode)
