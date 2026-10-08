@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 616" width="760" height="616" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
 <title id="title">Gateway cost against freshness, per configuration (interval / stale-after / wait, in ms)</title>
-<desc id="desc">Up and to the left is better: fewer gateway requests, more reads answered with the gateway's current state.</desc>
+<desc id="desc">Up and to the left is better: fewer gateway requests and more reads caught up with the gateway.</desc>
 <rect x="0.5" y="0.5" width="759" height="615" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
 <text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">Gateway cost against freshness, per configuration (interval / stale-after / wait, in ms)</text>
-<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Up and to the left is better: fewer gateway requests, more reads answered with the gateway's current state.</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Up and to the left is better: fewer gateway requests and more reads caught up with the gateway.</text>
 <circle cx="22" cy="60" r="5" fill="#eb6834"/>
 <text x="32.0" y="64.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">500/500/0</text>
 <circle cx="124.8" cy="60" r="5" fill="#2a78d6"/>
@@ -114,5 +114,5 @@
 <text x="345.0" y="440.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">500/500/0 = 500/250/0</text>
 <text x="482.7" y="398.9" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">1000/100/0: 12% of polls refused</text>
 <text x="691.8" y="380.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">500/0/0: 28% of polls refused</text>
-<text x="16.0" y="604.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, one node per configuration, 110 s per load level. Refused = HTTP 429 from the gateway.</text>
+<text x="16.0" y="604.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">Mainnet, one node per configuration, 110 s per read pattern. Refused = HTTP 429 from the gateway.</text>
 </svg>

@@ -1,112 +1,112 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 488" width="760" height="488" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
 <title id="title">Polling on demand with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</title>
-<desc id="desc">The default. A read that finds data older than 250 ms triggers or joins a poll and waits, at most 300 ms.</desc>
+<desc id="desc">The default: a read finding data older than 250 ms triggers or joins a poll and waits up to 300 ms.</desc>
 <rect x="0.5" y="0.5" width="759" height="487" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
 <text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">Polling on demand with a wait: interval 1 s, stale-after 250 ms, wait 300 ms</text>
-<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">The default. A read that finds data older than 250 ms triggers or joins a poll and waits, at most 300 ms.</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">The default: a read finding data older than 250 ms triggers or joins a poll and waits up to 300 ms.</text>
 <rect x="16" y="57" width="16" height="10" rx="2" fill="#1baf7a" opacity="0.25"/>
-<text x="38.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">gateway's pre-confirmed state (A, B, C, D in turn)</text>
-<rect x="358" y="57" width="16" height="10" rx="2" fill="#2a78d6"/>
-<text x="380.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">node poll: one gateway round trip (about 120 ms)</text>
+<text x="38.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">gateway state (A, B, C, D in turn)</text>
+<rect x="330" y="57" width="16" height="10" rx="2" fill="#2a78d6"/>
+<text x="352.0" y="66.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">node poll: one gateway round trip (about 120 ms)</text>
 <circle cx="24" cy="80" r="5" fill="#eb6834"/>
 <text x="38.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read: caught up with the gateway</text>
-<circle cx="266" cy="80" r="5" fill="#fcfcfb" stroke="#eb6834" stroke-width="2"/>
-<text x="280.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read: one state behind</text>
-<rect x="440" y="76" width="16" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
-<text x="462.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read waiting for a poll</text>
+<circle cx="298" cy="80" r="5" fill="#fcfcfb" stroke="#eb6834" stroke-width="2"/>
+<text x="312.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read: one state behind</text>
+<rect x="500" y="76" width="16" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
+<text x="522.0" y="84.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">read waiting for a poll</text>
 <rect x="16" y="92" width="16" height="10" fill="#2a78d6" opacity="0.10"/>
-<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">fresh window: reads answer at once from the stored data</text>
-<path d="M401.0,102.0 L411.0,102.0 L406.0,92.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
-<text x="420.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick cancelled by a read-triggered poll</text>
-<text x="96.0" y="144.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Gateway state</text>
-<text x="96.0" y="188.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Node polls</text>
-<text x="96.0" y="248.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Reads</text>
-<rect x="105.0" y="128" width="99.8" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
-<text x="154.9" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">A</text>
-<rect x="206.8" y="128" width="158.0" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
-<text x="285.8" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">B</text>
-<line x1="205.8" y1="128" x2="205.8" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
-<text x="209.8" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 350 ms</text>
-<rect x="366.8" y="128" width="187.1" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
-<text x="460.4" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">C</text>
-<line x1="365.8" y1="128" x2="365.8" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
-<text x="369.8" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 900 ms</text>
-<rect x="555.9" y="128" width="187.1" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
-<text x="649.5" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">D</text>
-<line x1="554.9" y1="128" x2="554.9" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
-<text x="558.9" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 1550 ms</text>
-<rect x="138.9" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="313.5" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="517.1" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="648.0" y="230" width="72.7" height="40" fill="#2a78d6" opacity="0.10"/>
-<rect x="104.0" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="104.0" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">tick</text>
-<rect x="278.5" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="278.5" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
-<rect x="482.2" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="482.2" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
-<rect x="613.1" y="176" width="34.9" height="16" rx="3" fill="#2a78d6"/>
-<text x="613.1" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">triggered by a read</text>
-<path d="M389.9,174.0 L399.9,174.0 L394.9,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
-<path d="M599.4,174.0 L609.4,174.0 L604.4,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
-<line x1="104" y1="384.0" x2="744" y2="384.0" stroke="#e1e0d9" stroke-width="1"/>
-<text x="96.0" y="388.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
-<line x1="104" y1="352.0" x2="744" y2="352.0" stroke="#e1e0d9" stroke-width="1"/>
-<text x="96.0" y="356.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">300</text>
-<line x1="104" y1="320.0" x2="744" y2="320.0" stroke="#e1e0d9" stroke-width="1"/>
-<text x="96.0" y="324.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">600</text>
-<line x1="104" y1="288.0" x2="744" y2="288.0" stroke="#e1e0d9" stroke-width="1"/>
-<text x="96.0" y="292.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">900</text>
-<text x="110.0" y="301.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">age of the stored data (ms)</text>
-<path d="M138.9,371.2 L313.5,307.2 L313.5,371.2 L517.1,296.5 L517.1,371.2 L648.0,323.2 L648.0,371.2 L744.0,336.0 L744.0,384.0 L138.9,384.0 Z" fill="#4a3aa7" opacity="0.10"/>
-<path d="M138.9,371.2 L313.5,307.2 L313.5,371.2 L517.1,296.5 L517.1,371.2 L648.0,323.2 L648.0,371.2 L744.0,336.0" fill="none" stroke="#4a3aa7" stroke-width="2" stroke-linejoin="round"/>
-<rect x="278.5" y="241" width="34.9" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
-<line x1="278.5" y1="236" x2="278.5" y2="252" stroke="#eb6834" stroke-width="2"/>
-<line x1="313.5" y1="269" x2="313.5" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="313.5" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="313.5" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">B</text>
-<circle cx="313.5" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="307.5" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">120 ms</text>
-<line x1="336.7" y1="269" x2="336.7" y2="357.7" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="336.7" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="336.7" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">B</text>
-<circle cx="336.7" cy="362.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="342.7" y="376.7" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">200 ms</text>
-<rect x="482.2" y="241" width="34.9" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
-<line x1="482.2" y1="236" x2="482.2" y2="252" stroke="#eb6834" stroke-width="2"/>
-<line x1="517.1" y1="269" x2="517.1" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="517.1" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="517.1" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">C (x4)</text>
-<circle cx="517.1" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="511.1" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">120 ms</text>
-<rect x="613.1" y="241" width="34.9" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
-<line x1="613.1" y1="236" x2="613.1" y2="252" stroke="#eb6834" stroke-width="2"/>
-<line x1="648.0" y1="269" x2="648.0" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="648.0" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="648.0" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">D</text>
-<circle cx="648.0" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="642.0" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">120 ms</text>
-<line x1="671.3" y1="269" x2="671.3" y2="357.7" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
-<circle cx="671.3" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="671.3" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">D</text>
-<circle cx="671.3" cy="362.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
-<text x="677.3" y="376.7" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">200 ms</text>
-<line x1="104" y1="398" x2="744" y2="398" stroke="#c3c2b7" stroke-width="1"/>
-<line x1="104.0" y1="398" x2="104.0" y2="403" stroke="#c3c2b7" stroke-width="1"/>
-<text x="104.0" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0 ms</text>
-<line x1="249.5" y1="398" x2="249.5" y2="403" stroke="#c3c2b7" stroke-width="1"/>
-<text x="249.5" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">500</text>
-<line x1="394.9" y1="398" x2="394.9" y2="403" stroke="#c3c2b7" stroke-width="1"/>
-<text x="394.9" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
-<line x1="540.4" y1="398" x2="540.4" y2="403" stroke="#c3c2b7" stroke-width="1"/>
-<text x="540.4" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1500</text>
-<line x1="685.8" y1="398" x2="685.8" y2="403" stroke="#c3c2b7" stroke-width="1"/>
-<text x="685.8" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
-<text x="405.1" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick moved to 1720</text>
-<text x="278.5" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">waits 120 ms</text>
-<text x="482.2" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">x4: one poll, all wait</text>
-<text x="671.3" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">no wait</text>
+<text x="38.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">fresh window: a read answers at once from the stored data</text>
+<path d="M473.0,102.0 L483.0,102.0 L478.0,92.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="492.0" y="102.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">tick cancelled by a read's poll</text>
+<text x="102.0" y="144.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Gateway state</text>
+<text x="102.0" y="188.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Node polls</text>
+<text x="102.0" y="248.0" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal">Reads</text>
+<rect x="111.0" y="128" width="98.9" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
+<text x="160.4" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">A</text>
+<rect x="211.9" y="128" width="156.5" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
+<text x="290.1" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">B</text>
+<line x1="210.9" y1="128" x2="210.9" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
+<text x="214.9" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 350 ms</text>
+<rect x="370.4" y="128" width="185.3" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
+<text x="463.0" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">C</text>
+<line x1="369.4" y1="128" x2="369.4" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
+<text x="373.4" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 900 ms</text>
+<rect x="557.7" y="128" width="185.3" height="24" rx="3" fill="#1baf7a" opacity="0.14"/>
+<text x="650.3" y="144.0" font-size="12" fill="#52514e" text-anchor="middle" font-weight="600">D</text>
+<line x1="556.7" y1="128" x2="556.7" y2="270" stroke="#1baf7a" stroke-width="1.5" opacity="0.7"/>
+<text x="560.7" y="123.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal">new state at 1550 ms</text>
+<rect x="144.6" y="230" width="72.0" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="317.5" y="230" width="72.0" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="519.2" y="230" width="72.0" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="648.9" y="230" width="72.0" height="40" fill="#2a78d6" opacity="0.10"/>
+<rect x="110.0" y="176" width="34.6" height="16" rx="3" fill="#2a78d6"/>
+<text x="110.0" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tick</text>
+<rect x="282.9" y="176" width="34.6" height="16" rx="3" fill="#2a78d6"/>
+<text x="282.9" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">read-triggered</text>
+<rect x="484.6" y="176" width="34.6" height="16" rx="3" fill="#2a78d6"/>
+<text x="484.6" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">read-triggered</text>
+<rect x="614.3" y="176" width="34.6" height="16" rx="3" fill="#2a78d6"/>
+<text x="614.3" y="208.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">read-triggered</text>
+<path d="M393.2,174.0 L403.2,174.0 L398.2,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M600.7,174.0 L610.7,174.0 L605.7,164.0 Z" fill="#fcfcfb" stroke="#2a78d6" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="110" y1="384.0" x2="744" y2="384.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="102.0" y="388.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
+<line x1="110" y1="352.0" x2="744" y2="352.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="102.0" y="356.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">300</text>
+<line x1="110" y1="320.0" x2="744" y2="320.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="102.0" y="324.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">600</text>
+<line x1="110" y1="288.0" x2="744" y2="288.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="102.0" y="292.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">900</text>
+<text x="116.0" y="301.0" font-size="12" fill="#898781" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">age of the stored data (ms)</text>
+<path d="M144.6,371.2 L317.5,307.2 L317.5,371.2 L519.2,296.5 L519.2,371.2 L648.9,323.2 L648.9,371.2 L744.0,336.0 L744.0,384.0 L144.6,384.0 Z" fill="#4a3aa7" opacity="0.10"/>
+<path d="M144.6,371.2 L317.5,307.2 L317.5,371.2 L519.2,296.5 L519.2,371.2 L648.9,323.2 L648.9,371.2 L744.0,336.0" fill="none" stroke="#4a3aa7" stroke-width="2" stroke-linejoin="round"/>
+<rect x="282.9" y="241" width="34.6" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
+<line x1="282.9" y1="236" x2="282.9" y2="252" stroke="#eb6834" stroke-width="2"/>
+<line x1="317.5" y1="269" x2="317.5" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="317.5" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="317.5" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">B</text>
+<circle cx="317.5" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="311.5" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">120 ms</text>
+<line x1="340.5" y1="269" x2="340.5" y2="357.7" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="340.5" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="340.5" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">B</text>
+<circle cx="340.5" cy="362.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="346.5" y="376.7" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 ms</text>
+<rect x="484.6" y="241" width="34.6" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
+<line x1="484.6" y1="236" x2="484.6" y2="252" stroke="#eb6834" stroke-width="2"/>
+<line x1="519.2" y1="269" x2="519.2" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="519.2" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="519.2" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">C (x4)</text>
+<circle cx="519.2" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="513.2" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">120 ms</text>
+<rect x="614.3" y="241" width="34.6" height="6" rx="1" fill="#eb6834" opacity="0.5"/>
+<line x1="614.3" y1="236" x2="614.3" y2="252" stroke="#eb6834" stroke-width="2"/>
+<line x1="648.9" y1="269" x2="648.9" y2="366.2" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="648.9" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="648.9" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">D</text>
+<circle cx="648.9" cy="371.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="642.9" y="385.2" font-size="12" fill="#52514e" text-anchor="end" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">120 ms</text>
+<line x1="672.0" y1="269" x2="672.0" y2="357.7" stroke="#eb6834" stroke-width="1" opacity="0.45"/>
+<circle cx="672.0" cy="244" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="672.0" y="264.0" font-size="12" fill="#0b0b0b" text-anchor="middle" font-weight="600">D</text>
+<circle cx="672.0" cy="362.7" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="678.0" y="376.7" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">200 ms</text>
+<line x1="110" y1="398" x2="744" y2="398" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="110.0" y1="398" x2="110.0" y2="403" stroke="#c3c2b7" stroke-width="1"/>
+<text x="110.0" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">0 ms</text>
+<line x1="254.1" y1="398" x2="254.1" y2="403" stroke="#c3c2b7" stroke-width="1"/>
+<text x="254.1" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">500</text>
+<line x1="398.2" y1="398" x2="398.2" y2="403" stroke="#c3c2b7" stroke-width="1"/>
+<text x="398.2" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1000</text>
+<line x1="542.3" y1="398" x2="542.3" y2="403" stroke="#c3c2b7" stroke-width="1"/>
+<text x="542.3" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">1500</text>
+<line x1="686.4" y1="398" x2="686.4" y2="403" stroke="#c3c2b7" stroke-width="1"/>
+<text x="686.4" y="416.0" font-size="12" fill="#898781" text-anchor="middle" font-weight="normal">2000 ms</text>
+<text x="408.3" y="172.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">tick moved to 1720</text>
+<text x="282.9" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">waits 120 ms</text>
+<text x="484.6" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">x4: one poll, all wait</text>
+<text x="672.0" y="224.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal" stroke="#fcfcfb" stroke-width="4" stroke-linejoin="round" paint-order="stroke">no wait</text>
 <text x="16.0" y="438.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Reads within 250 ms of a completed poll (shaded) answer at once; the others wait one round trip.</text>
 <text x="16.0" y="455.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Measured: sparse reads 100% caught up, p50 121 ms, p99 246 ms; bursts 85% caught up, p50 119 ms.</text>
 <text x="16.0" y="472.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">At 20 reads/s: p50 0.8 ms, a quarter of the reads wait over 100 ms (p99 242 ms); 95% caught up.</text>

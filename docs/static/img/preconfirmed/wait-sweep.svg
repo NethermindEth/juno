@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 392" width="760" height="392" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-labelledby="title desc">
 <title id="title">What the wait buys on the 1 s tick with stale-after 250 ms</title>
-<desc id="desc">Top: share of reads answered with the gateway's current state. Bottom: read latency p99 (the cap sets the tail).</desc>
+<desc id="desc">Top: share of reads caught up with the gateway. Bottom: read latency p99, which the cap sets.</desc>
 <rect x="0.5" y="0.5" width="759" height="391" rx="8" fill="#fcfcfb" stroke="rgba(11,11,11,0.10)"/>
 <text x="16.0" y="24.0" font-size="14" fill="#0b0b0b" text-anchor="start" font-weight="600">What the wait buys on the 1 s tick with stale-after 250 ms</text>
-<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Top: share of reads answered with the gateway's current state. Bottom: read latency p99 (the cap sets the tail).</text>
+<text x="16.0" y="42.0" font-size="12" fill="#52514e" text-anchor="start" font-weight="normal">Top: share of reads caught up with the gateway. Bottom: read latency p99, which the cap sets.</text>
 <line x1="122" y1="206.0" x2="260" y2="206.0" stroke="#e1e0d9"/>
 <text x="114.0" y="210.0" font-size="12" fill="#898781" text-anchor="end" font-weight="normal">0</text>
 <line x1="122" y1="151.0" x2="260" y2="151.0" stroke="#e1e0d9"/>
