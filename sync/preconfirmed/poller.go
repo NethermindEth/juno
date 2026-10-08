@@ -57,6 +57,7 @@ type Poller struct {
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
 	feed               *feed.Feed[*pending.PreConfirmed]
+	listener           EventListener
 	logger             log.StructuredLogger
 
 	preConfirmedChain *ChainStorage
@@ -65,7 +66,7 @@ type Poller struct {
 
 // NewPoller builds a poller that ticks every `interval`. Additionally it polls on request based
 // on whenever there is a call to `[Poller.PreConfirmedChain] based  on the `staleAfter`
-// and `onDemandWait` variables.
+// and `onDemandWait` variables. Every poll is reported to `listener`.
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
@@ -73,6 +74,7 @@ func NewPoller(
 	interval time.Duration,
 	staleAfter time.Duration,
 	onDemandWait time.Duration,
+	listener EventListener,
 	logger log.StructuredLogger,
 ) *Poller {
 	return &Poller{
@@ -81,6 +83,7 @@ func NewPoller(
 		highestBlockHeader: highestBlockHeader,
 		interval:           interval,
 		feed:               feed.New[*pending.PreConfirmed](),
+		listener:           listener,
 		logger:             logger,
 
 		preConfirmedChain: NewChainStorage(),
@@ -158,7 +161,7 @@ func (p *Poller) Run(ctx context.Context) {
 
 		case respCh := <-p.requestSync.ListenRequests():
 			if err := p.poll(ctx); err != nil {
-				p.logPollError(err)
+				p.reportPollError(err)
 				p.requestSync.SignalFailure(respCh)
 				continue
 			}
@@ -168,7 +171,7 @@ func (p *Poller) Run(ctx context.Context) {
 		case <-ticker.C:
 			respCh := p.requestSync.SelfRequest()
 			if err := p.poll(ctx); err != nil {
-				p.logPollError(err)
+				p.reportPollError(err)
 				p.requestSync.SignalFailure(respCh)
 				continue
 			}
@@ -186,6 +189,7 @@ func (p *Poller) poll(ctx context.Context) error {
 	if !p.atTip(height) {
 		return nil
 	}
+	start := time.Now()
 
 	oldestPreConf := height + 1
 	chain := p.preConfirmedChain.SnapshotForBlock(oldestPreConf)
@@ -211,6 +215,7 @@ func (p *Poller) poll(ctx context.Context) error {
 			p.logger.Debug("No pre-confirmed block in gateway window; skipping tick",
 				zap.Error(err),
 			)
+			p.listener.OnPollFailed(FailureNotFound)
 			return nil
 		}
 		return fmt.Errorf("polling latest pre-confirmed: %w", err)
@@ -227,6 +232,11 @@ func (p *Poller) poll(ctx context.Context) error {
 	}
 
 	if updateBlockNum > fromBlock {
+		p.logger.Debug("Backfilling pre-confirmed blocks",
+			zap.Uint64("fromBlock", fromBlock),
+			zap.Uint64("toBlock", updateBlockNum),
+		)
+		p.listener.OnBackfill(updateBlockNum - fromBlock)
 		err = p.backfill(
 			ctx, oldestPreConf, mostRecent, fromBlock, identifier, txCount, updateBlockNum,
 		)
@@ -237,6 +247,7 @@ func (p *Poller) poll(ctx context.Context) error {
 					zap.Uint64("toBlock", updateBlockNum),
 					zap.Error(err),
 				)
+				p.listener.OnPollFailed(FailureNotFound)
 				return nil
 			}
 			return fmt.Errorf(
@@ -253,7 +264,11 @@ func (p *Poller) poll(ctx context.Context) error {
 	// path ignores baseTxCount — so the stale value is harmless under current
 	// semantics. Revisit if ApplyUpdate grows a branch that reads baseTxCount
 	// for non-Delta updates.
-	return p.apply(update, updateBlockNum, txCount, oldestPreConf, nil)
+	if err = p.apply(update, updateBlockNum, txCount, oldestPreConf, nil); err != nil {
+		return err
+	}
+	p.listener.OnPollSucceeded(updateKind(update), time.Since(start))
+	return nil
 }
 
 // backfill fills the gap [fromBlock, endExclusive), applying each slot with its own
@@ -500,13 +515,31 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 	return stateDiff, nil
 }
 
-func (p *Poller) logPollError(err error) {
+func (p *Poller) reportPollError(err error) {
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+
 	if errors.Is(err, feeder.ErrRateLimited) {
 		p.logger.Debug(
 			"Pre-confirmed polling rate limited; retrying next tick", zap.Error(err),
 		)
+		p.listener.OnPollFailed(FailureRateLimited)
 		return
 	}
 
 	p.logger.Warn("Pre-confirmed polling failed", zap.Error(err))
+	p.listener.OnPollFailed(FailureError)
+}
+
+// updateKind names update for [EventListener.OnPollSucceeded].
+func updateKind(update starknet.PreConfirmedUpdate) string {
+	switch update.(type) {
+	case starknet.PreConfirmedNoChange:
+		return UpdateNoChange
+	case starknet.PreConfirmedDeltaUpdate:
+		return UpdateDelta
+	default:
+		return UpdateFull
+	}
 }

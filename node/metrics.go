@@ -15,17 +15,19 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
 	l1MetricsTimeout = 5 * time.Second
 
-	labelMethod     = "method"
-	labelVersion    = "version"
-	namespaceSync   = "sync"
-	namespacePruner = "pruner"
-	subsystemHTTP   = "http"
+	labelMethod           = "method"
+	labelVersion          = "version"
+	namespaceSync         = "sync"
+	namespacePruner       = "pruner"
+	subsystemHTTP         = "http"
+	subsystemPreConfirmed = "preconfirmed"
 )
 
 func makeDBMetrics() db.EventListener {
@@ -236,6 +238,48 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		},
 		OnReorgCb: func(blockNum uint64) {
 			reorgCount.Inc()
+		},
+	}
+}
+
+func makePreConfirmedMetrics() preconfirmed.EventListener {
+	pollLatency := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespaceSync,
+		Subsystem: subsystemPreConfirmed,
+		Name:      "poll_latency",
+		Help:      "Successful pre-confirmed poll latency in seconds, by update kind",
+	}, []string{"update"})
+	failedPolls := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespaceSync,
+		Subsystem: subsystemPreConfirmed,
+		Name:      "failed_polls",
+		Help:      "Total number of failed pre-confirmed polls, by reason",
+	}, []string{"reason"})
+	// Start every reason at zero so rate and increase also see a reason's first failure.
+	for _, reason := range []string{
+		preconfirmed.FailureNotFound, preconfirmed.FailureRateLimited, preconfirmed.FailureError,
+	} {
+		failedPolls.WithLabelValues(reason).Add(0)
+	}
+	// A poller that keeps up with the gateway backfills gaps of 1: the old tip, re-polled.
+	backfillGap := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespaceSync,
+		Subsystem: subsystemPreConfirmed,
+		Name:      "backfill_gap",
+		Help:      "Number of blocks each pre-confirmed backfill fetches below the latest",
+		Buckets:   []float64{1, 2, 3, 4, 5},
+	})
+	prometheus.MustRegister(pollLatency, failedPolls, backfillGap)
+
+	return &preconfirmed.SelectiveListener{
+		OnPollSucceededCb: func(update string, took time.Duration) {
+			pollLatency.WithLabelValues(update).Observe(took.Seconds())
+		},
+		OnPollFailedCb: func(reason string) {
+			failedPolls.WithLabelValues(reason).Inc()
+		},
+		OnBackfillCb: func(gap uint64) {
+			backfillGap.Observe(float64(gap))
 		},
 	}
 }
