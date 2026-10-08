@@ -437,3 +437,15 @@ func TestAllocationsDoNotExceedFxamacker(t *testing.T) {
 		})
 	}
 }
+
+// Elements of a pointer slice share an array only while the bytes left could hold them; small
+// ones past that are allocated one by one.
+func TestSmallEventsMatchFxamacker(t *testing.T) {
+	// {"Events": [{}, null, {"From": null}, {}]}
+	data := []byte{0xa1, 0x66, 'E', 'v', 'e', 'n', 't', 's', 0x84, 0xa0, 0xf6, 0xa1, 0x64, 'F', 'r', 'o', 'm', 0xf6, 0xa0}
+	got, want := decodeBoth[core.TransactionReceipt](t, data)
+	require.Equal(t, want, got)
+	require.Len(t, got.Events, 4)
+	require.Nil(t, got.Events[1])
+	require.NotSame(t, got.Events[0], got.Events[2])
+}

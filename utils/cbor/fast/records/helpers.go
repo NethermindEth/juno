@@ -150,7 +150,13 @@ func readSlice[T any](r *fast.Reader, dst *[]T, read func(*fast.Reader, *T) erro
 	return nil
 }
 
-// readPtrSlice reads an array of struct pointers, or null as nil. An element may be null.
+// minPtrSliceElement is fewer bytes than any struct readPtrSlice reads takes when stored with
+// its fields.
+const minPtrSliceElement = 32
+
+// readPtrSlice reads an array of struct pointers, or null as nil. An element may be null. The
+// elements share one array, as long as the bytes left could hold them: an array of nulls or
+// empty maps gets no more memory than fxamacker would give it, give or take a small factor.
 func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) error) error {
 	if r.Null() {
 		*dst = nil
@@ -161,10 +167,21 @@ func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) 
 		return err
 	}
 	out := make([]*T, count)
+	values := make([]T, min(count, r.Len()/minPtrSliceElement))
 	for i := range out {
-		if err := readPtr(r, &out[i], read); err != nil {
+		if r.Null() {
+			continue
+		}
+		var value *T
+		if len(values) > 0 {
+			value, values = &values[0], values[1:]
+		} else {
+			value = new(T)
+		}
+		if err := read(r, value); err != nil {
 			return err
 		}
+		out[i] = value
 	}
 	r.Leave()
 	*dst = out

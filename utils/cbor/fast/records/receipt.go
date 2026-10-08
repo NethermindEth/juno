@@ -47,7 +47,7 @@ func ReadReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
 		case receiptEvents:
 			err = readPtrSlice(r, &dst.Events, readEvent)
 		case receiptExecutionResources:
-			err = readPtr(r, &dst.ExecutionResources, readExecutionResources)
+			err = readExecutionResources(r, &dst.ExecutionResources)
 		case receiptL1ToL2Message:
 			err = readPtr(r, &dst.L1ToL2Message, readL1ToL2Message)
 		case receiptL2ToL1Message:
@@ -204,24 +204,50 @@ var executionResourcesFields = fieldsOf[core.ExecutionResources]([]string{
 	resourcesTotalGasConsumed:       "TotalGasConsumed",
 })
 
-func readExecutionResources(r *fast.Reader, dst *core.ExecutionResources) error {
+// executionResources holds execution resources and the structs they point to, so that one
+// allocation serves all three.
+type executionResources struct {
+	core.ExecutionResources
+	dataAvailability core.DataAvailability
+	totalGasConsumed core.GasConsumed
+}
+
+// readExecutionResources reads execution resources behind a pointer. Null leaves the pointer nil.
+func readExecutionResources(r *fast.Reader, dst **core.ExecutionResources) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	block := new(executionResources)
+	resources := &block.ExecutionResources
 	s, err := r.OpenStruct(executionResourcesFields)
 	for err == nil {
 		var field int
 		field, err = r.NextField(&s)
 		switch field {
 		case fast.Done:
+			if err == nil {
+				*dst = resources
+			}
 			return err
 		case resourcesBuiltinInstanceCounter:
-			err = readBuiltinInstanceCounter(r, &dst.BuiltinInstanceCounter)
+			err = readBuiltinInstanceCounter(r, &resources.BuiltinInstanceCounter)
 		case resourcesMemoryHoles:
-			err = readUint64(r, &dst.MemoryHoles)
+			err = readUint64(r, &resources.MemoryHoles)
 		case resourcesSteps:
-			err = readUint64(r, &dst.Steps)
+			err = readUint64(r, &resources.Steps)
 		case resourcesDataAvailability:
-			err = readPtr(r, &dst.DataAvailability, readDataAvailability)
+			if r.Null() {
+				resources.DataAvailability = nil
+			} else if err = readDataAvailability(r, &block.dataAvailability); err == nil {
+				resources.DataAvailability = &block.dataAvailability
+			}
 		case resourcesTotalGasConsumed:
-			err = readPtr(r, &dst.TotalGasConsumed, readGasConsumed)
+			if r.Null() {
+				resources.TotalGasConsumed = nil
+			} else if err = readGasConsumed(r, &block.totalGasConsumed); err == nil {
+				resources.TotalGasConsumed = &block.totalGasConsumed
+			}
 		default:
 			err = r.Skip()
 		}
