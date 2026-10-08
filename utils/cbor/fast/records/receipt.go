@@ -8,9 +8,9 @@ import (
 
 // ReadReceipt reads a stored TransactionReceipt.
 func ReadReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldTransactionReceipt, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Fee":
 			err = readFelt(r, &dst.Fee)
 		case "FeeUnit":
@@ -37,9 +37,9 @@ func ReadReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
 }
 
 func readEvent(r *fast.Reader, dst *core.Event) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldEvent, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "From":
 			err = readFelt(r, &dst.From)
 		case "Keys":
@@ -54,9 +54,9 @@ func readEvent(r *fast.Reader, dst *core.Event) error {
 }
 
 func readL1ToL2Message(r *fast.Reader, dst *core.L1ToL2Message) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldL1ToL2Message, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "From":
 			err = readEthAddress(r, &dst.From)
 		case "Nonce":
@@ -75,9 +75,9 @@ func readL1ToL2Message(r *fast.Reader, dst *core.L1ToL2Message) error {
 }
 
 func readL2ToL1Message(r *fast.Reader, dst *core.L2ToL1Message) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldL2ToL1Message, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "From":
 			err = readFelt(r, &dst.From)
 		case "Payload":
@@ -105,9 +105,9 @@ func readEthAddress(r *fast.Reader, dst *eth.Address) error {
 }
 
 func readExecutionResources(r *fast.Reader, dst *core.ExecutionResources) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldExecutionResources, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "BuiltinInstanceCounter":
 			err = readBuiltinInstanceCounter(r, &dst.BuiltinInstanceCounter)
 		case "MemoryHoles":
@@ -126,9 +126,9 @@ func readExecutionResources(r *fast.Reader, dst *core.ExecutionResources) error 
 }
 
 func readDataAvailability(r *fast.Reader, dst *core.DataAvailability) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldDataAvailability, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "L1Gas":
 			err = readUint64(r, &dst.L1Gas)
 		case "L1DataGas":
@@ -141,9 +141,9 @@ func readDataAvailability(r *fast.Reader, dst *core.DataAvailability) error {
 }
 
 func readGasConsumed(r *fast.Reader, dst *core.GasConsumed) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldGasConsumed, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "L1Gas":
 			err = readUint64(r, &dst.L1Gas)
 		case "L1DataGas":
@@ -158,9 +158,9 @@ func readGasConsumed(r *fast.Reader, dst *core.GasConsumed) error {
 }
 
 func readBuiltinInstanceCounter(r *fast.Reader, dst *core.BuiltinInstanceCounter) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldBuiltinInstanceCounter, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Pedersen":
 			err = readUint64(r, &dst.Pedersen)
 		case "RangeCheck":

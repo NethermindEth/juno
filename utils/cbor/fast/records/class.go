@@ -35,9 +35,9 @@ func ReadClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassD
 
 // ReadSierraClass reads the map of a stored Sierra class, after its tag.
 func ReadSierraClass(r *fast.Reader, dst *core.SierraClass) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldSierraClass, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Abi":
 			err = readString(r, &dst.Abi)
 		case "AbiHash":
@@ -60,9 +60,9 @@ func ReadSierraClass(r *fast.Reader, dst *core.SierraClass) error {
 }
 
 func readSierraEntryPoints(r *fast.Reader, dst *core.SierraEntryPointsByType) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldSierraEntryPointsByType, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Constructor":
 			err = readSlice(r, &dst.Constructor, readSierraEntryPoint)
 		case "External":
@@ -77,9 +77,9 @@ func readSierraEntryPoints(r *fast.Reader, dst *core.SierraEntryPointsByType) er
 }
 
 func readSierraEntryPoint(r *fast.Reader, dst *core.SierraEntryPoint) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldSierraEntryPoint, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Index":
 			err = readUint64(r, &dst.Index)
 		case "Selector":
@@ -92,9 +92,9 @@ func readSierraEntryPoint(r *fast.Reader, dst *core.SierraEntryPoint) error {
 }
 
 func readCasmClass(r *fast.Reader, dst *core.CasmClass) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldCasmClass, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Bytecode":
 			err = readFeltSlice(r, &dst.Bytecode)
 		case "PythonicHints":
@@ -134,9 +134,9 @@ func readBigIntPtr(r *fast.Reader, dst *core.CasmClass) error {
 }
 
 func readCasmEntryPoint(r *fast.Reader, dst *core.CasmEntryPoint) error {
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldCasmEntryPoint, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Offset":
 			err = readUint64(r, &dst.Offset)
 		case "Builtins":
@@ -154,9 +154,9 @@ func readSegmentLengths(r *fast.Reader, dst *core.SegmentLengths, depth int) err
 	if depth > maxSegmentDepth {
 		return fast.ErrDepth
 	}
-	return readFields(r, func(key []byte) (bool, error) {
+	return readFields(r, foldSegmentLengths, func(key string) (bool, error) {
 		var err error
-		switch string(key) {
+		switch key {
 		case "Children":
 			err = readSlice(r, &dst.Children, func(r *fast.Reader, child *core.SegmentLengths) error {
 				return readSegmentLengths(r, child, depth+1)

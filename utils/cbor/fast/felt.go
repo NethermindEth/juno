@@ -85,3 +85,8 @@ func LimbSlice[F ~[Limbs]uint64](r *Reader) ([]F, error) {
 	}
 	return out, nil
 }
+
+// Felt reads a felt into any type with the layout of one.
+func Felt[F ~[Limbs]uint64](r *Reader, dst *F) error {
+	return r.Limbs((*[Limbs]uint64)(unsafe.Pointer(dst)))
+}
