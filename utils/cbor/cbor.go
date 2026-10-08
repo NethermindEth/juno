@@ -1,5 +1,5 @@
-// Package cbor provides Juno's CBOR API. Encoding and decoding currently use
-// the fxamacker adapter.
+// Package cbor provides Juno's CBOR API. Encoding uses the fxamacker adapter. Decoding goes to
+// the fast decoder for the types registered with RegisterReader and to fxamacker for the rest.
 package cbor
 
 import (
@@ -31,11 +31,20 @@ func Marshal(v any) ([]byte, error) {
 
 // Unmarshal decodes a CBOR value from data into v.
 func Unmarshal(data []byte, v any) error {
+	if rest, handled, err := decode(data, v); handled {
+		if err == nil && len(rest) != 0 {
+			return extraneousDataError(len(rest))
+		}
+		return err
+	}
 	return fxamacker.Unmarshal(data, v)
 }
 
 // UnmarshalFirst decodes the first CBOR item and returns the remaining bytes.
 func UnmarshalFirst(data []byte, v any) ([]byte, error) {
+	if rest, handled, err := decode(data, v); handled {
+		return rest, err
+	}
 	return fxamacker.UnmarshalFirst(data, v)
 }
 
@@ -54,4 +63,10 @@ func NewEncoder(w io.Writer) Encoder {
 // Only call this from utils/cbor/registry's init, before concurrent use.
 func RegisterType(t reflect.Type) error {
 	return fxamacker.RegisterType(t)
+}
+
+// TagOf returns the tag number RegisterType gave a type, which a reader needs to tell the
+// concrete types of an interface apart.
+func TagOf(t reflect.Type) (uint64, bool) {
+	return fxamacker.TagOf(t)
 }

@@ -15,6 +15,7 @@ var (
 	// https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 	// 65536-15309735 	Unassigned
 	tagNum     uint64 = 65536
+	tagOf             = map[reflect.Type]uint64{}
 	encMode           = newEncMode()
 	decMode           = newDecMode()
 	strictMode        = newStrictMode()
@@ -59,8 +60,15 @@ func RegisterType(rType reflect.Type) error {
 		return err
 	}
 	encMode, decMode = newEncMode(), newDecMode()
+	tagOf[rType] = tagNum
 	tagNum++
 	return nil
+}
+
+// TagOf returns the tag number RegisterType gave a type.
+func TagOf(rType reflect.Type) (uint64, bool) {
+	tag, ok := tagOf[rType]
+	return tag, ok
 }
 
 // Marshal returns encoding of param v

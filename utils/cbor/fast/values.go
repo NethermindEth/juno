@@ -147,3 +147,10 @@ const (
 	tagPositiveBignum = 2
 	tagNegativeBignum = 3
 )
+
+// KeyNoCopy reads a map key that is a text string and returns its bytes, valid only while
+// the input is. It does not check UTF-8: a key is only compared against known field names,
+// so invalid text just fails to match, as in fxamacker.
+func (r *Reader) KeyNoCopy() ([]byte, error) {
+	return r.payload(MajorString)
+}
