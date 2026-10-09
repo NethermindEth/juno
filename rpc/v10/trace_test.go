@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -141,25 +141,18 @@ func AssertTracedBlockTransactions(
 	t.Cleanup(mockCtrl.Finish)
 
 	client := feeder.NewTestClient(t, n)
-	gateway := adaptfeeder.New(client)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
 	mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).
 		DoAndReturn(func(number uint64) (*core.Header, error) {
-			block, err := gateway.BlockByNumber(t.Context(), number)
-			if err != nil {
-				return nil, err
-			}
+			block := adaptfeedertest.Block(t, client, number)
 			return block.Header, nil
 		}).AnyTimes()
 
 	mockReader.EXPECT().TransactionsAndReceiptsByBlockNumber(gomock.Any()).
 		DoAndReturn(func(number uint64) ([]core.Transaction, []*core.TransactionReceipt, error) {
-			block, err := gateway.BlockByNumber(t.Context(), number)
-			if err != nil {
-				return nil, nil, err
-			}
+			block := adaptfeedertest.Block(t, client, number)
 
 			// Simulate gas consumption in block receipts
 			for _, receipt := range block.Receipts {
@@ -201,16 +194,12 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 
 		network := networks.Sepolia
 		client := feeder.NewTestClient(t, &network)
-		gateway := adaptfeeder.New(client)
 
 		blockNumber := uint64(40000)
 
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).
 			DoAndReturn(func(number uint64) (*core.Header, error) {
-				block, err := gateway.BlockByNumber(t.Context(), number)
-				if err != nil {
-					return nil, err
-				}
+				block := adaptfeedertest.Block(t, client, number)
 				return block.Header, nil
 			})
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
@@ -584,7 +573,6 @@ func TestTraceTransaction(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
-		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
 		revertedTxHash := felt.NewUnsafeFromString[felt.TransactionHash](
@@ -593,8 +581,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		blockNumber := uint64(18)
 
-		gatewayBlock, gatewayErr := gateway.BlockByNumber(t.Context(), blockNumber)
-		require.NoError(t, gatewayErr)
+		gatewayBlock := adaptfeedertest.Block(t, client, blockNumber)
 		revertedTxIndex := slices.IndexFunc(gatewayBlock.Transactions, func(tx core.Transaction) bool {
 			return tx.Hash().Equal((*felt.Felt)(revertedTxHash))
 		})
@@ -604,18 +591,12 @@ func TestTraceTransaction(t *testing.T) {
 			Return(blockNumber, uint64(revertedTxIndex), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			DoAndReturn(func(number uint64) (*core.Header, error) {
-				block, err := gateway.BlockByNumber(t.Context(), number)
-				if err != nil {
-					return nil, err
-				}
+				block := adaptfeedertest.Block(t, client, number)
 				return block.Header, nil
 			})
 		mockReader.EXPECT().TransactionsAndReceiptsByBlockNumber(blockNumber).
 			DoAndReturn(func(number uint64) ([]core.Transaction, []*core.TransactionReceipt, error) {
-				block, err := gateway.BlockByNumber(t.Context(), number)
-				if err != nil {
-					return nil, nil, err
-				}
+				block := adaptfeedertest.Block(t, client, number)
 				return block.Transactions, block.Receipts, nil
 			}).AnyTimes()
 

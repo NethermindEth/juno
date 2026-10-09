@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -409,7 +410,8 @@ func TestTransactionByHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw := adaptfeeder.New(feeder.NewTestClient(t, test.network))
+			client := feeder.NewTestClient(t, test.network)
+			gw := adaptfeeder.New(client)
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
@@ -444,11 +446,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
 	var latestBlockNumber uint64 = 19199
-	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, 19199)
 	latestBlockHash := latestBlock.Hash
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -600,10 +600,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
 
 	checkTxReceipt := func(t *testing.T, h *felt.Felt, expected string) {
 		t.Helper()
@@ -774,10 +772,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}`
 
 		integClient := feeder.NewTestClient(t, &networks.Integration)
-		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
-		require.NoError(t, err)
+		blockWithRevertedTxn := adaptfeedertest.Block(t, integClient, 304740)
 
 		revertedTxnIdx := 1
 		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
@@ -845,10 +841,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}`
 
 		integClient := feeder.NewTestClient(t, &networks.Integration)
-		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(t.Context(), 319132)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, integClient, 319132)
 
 		index := 0
 		txnHash := block.Transactions[index].Hash()
@@ -903,10 +897,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		}`
 
 		netClient := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-		netGW := adaptfeeder.New(netClient)
 
-		block, err := netGW.BlockByNumber(t.Context(), 35748)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, netClient, 35748)
 
 		index := 0
 		txnHash := block.Transactions[index].Hash()
@@ -972,7 +964,8 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	n := &networks.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
@@ -1316,7 +1309,9 @@ func TestAddTransaction(t *testing.T) {
 			sub := receivedTxFeed.SubscribeKeepLast()
 			defer sub.Unsubscribe()
 
-			gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+			client := feeder.NewTestClient(t, n)
+
+			gw := adaptfeeder.New(client)
 			//nolint:staticcheck // Intention here is reading the transaction, not its status
 			tx, err := gw.Transaction(
 				t.Context(),
@@ -1392,10 +1387,7 @@ func TestTransactionStatus(t *testing.T) {
 			client := feeder.NewTestClient(t, test.network)
 
 			t.Run("tx found in db", func(t *testing.T) {
-				gw := adaptfeeder.New(client)
-
-				block, err := gw.BlockLatest(t.Context())
-				require.NoError(t, err)
+				block := adaptfeedertest.BlockLatest(t, client)
 
 				tx := block.Transactions[0]
 

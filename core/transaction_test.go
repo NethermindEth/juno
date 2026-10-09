@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -219,7 +220,8 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 func TestTransactionV3Hash(t *testing.T) {
 	network := networks.Sepolia
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
+	client := feeder.NewTestClient(t, &network)
+	gw := adaptfeeder.New(client)
 	ctx := t.Context()
 
 	tests := map[string]struct {
@@ -282,7 +284,8 @@ func TestTransactionV3Hash(t *testing.T) {
 // BenchmarkTransactionV3Hash measures the Poseidon-based v3 invoke transaction hash.
 func BenchmarkTransactionV3Hash(b *testing.B) {
 	network := networks.Sepolia
-	gw := adaptfeeder.New(feeder.NewTestClient(b, &network))
+	client := feeder.NewTestClient(b, &network)
+	gw := adaptfeeder.New(client)
 
 	key := "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"
 	hash := felt.UnsafeFromString[felt.Felt](key)
@@ -359,11 +362,9 @@ func TestMessageHash(t *testing.T) {
 
 func TestDeclareV0TransactionHash(t *testing.T) {
 	network := networks.Goerli
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
-	ctx := t.Context()
+	client := feeder.NewTestClient(t, &network)
 
-	b, err := gw.BlockByNumber(ctx, 231579)
-	require.NoError(t, err)
+	b := adaptfeedertest.Block(t, client, 231579)
 
 	decTx, ok := b.Transactions[30].(*core.DeclareTransaction)
 	require.True(t, ok)

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -86,7 +86,6 @@ func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 
 func prepareDB(t *testing.T, network *networks.Network, syncToBlock uint64) string {
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
 
 	dbPath := t.TempDir()
 	testDB, err := pebblev2.New(dbPath)
@@ -98,11 +97,8 @@ func prepareDB(t *testing.T, network *networks.Network, syncToBlock uint64) stri
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
-		block, err := gw.BlockByNumber(t.Context(), blockNumber)
-		require.NoError(t, err)
-
-		stateUpdate, err := gw.StateUpdate(t.Context(), blockNumber)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, blockNumber)
+		stateUpdate := adaptfeedertest.StateUpdate(t, client, blockNumber)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}

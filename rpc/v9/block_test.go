@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -143,10 +143,8 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
 
-		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
-		require.NoError(t, err)
+		expectedBlock := adaptfeedertest.Block(t, client, 147)
 
 		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{
 			Hash:   expectedBlock.Hash,
@@ -171,12 +169,9 @@ func TestBlockTransactionCount(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
 
@@ -339,11 +334,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 	latestBlockHash := latestBlock.Hash
 
 	checkBlock := func(t *testing.T, b *rpc.BlockWithTxHashes) {
@@ -559,11 +552,9 @@ func TestBlockWithTxs(t *testing.T) {
 
 	n := &networks.Mainnet
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(16697)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 	latestBlockHash := latestBlock.Hash
 
 	checkLatestBlock := func(
@@ -847,9 +838,8 @@ func TestBlockWithTxsV013(t *testing.T) {
 	handler := rpc.New(mockReader, nil, nil, nil)
 
 	blockNumber := uint64(16350)
-	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	coreBlock, err := gw.BlockByNumber(t.Context(), blockNumber)
-	require.NoError(t, err)
+	client := feeder.NewTestClient(t, n)
+	coreBlock := adaptfeedertest.Block(t, client, blockNumber)
 	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
 	require.True(t, ok)
 
@@ -956,11 +946,9 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pre_confirmed block", func(t *testing.T) {
-		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
+		block0 := adaptfeedertest.Block(t, client, 0)
 
 		// pre_confirmed block does not have, hash, parent_hash, global_state_root
 		block0.Hash = nil
@@ -1007,8 +995,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("blockID - l1_accepted bounded to chain height when L1 is ahead", func(t *testing.T) {
-		block1, err := mainnetGw.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		block1 := adaptfeedertest.Block(t, client, 1)
 
 		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block1.Number + 10,
@@ -1057,8 +1044,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
-		block1, err := mainnetGw.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		block1 := adaptfeedertest.Block(t, client, 1)
 
 		blockID := blockIDNumber(t, block1.Number)
 
@@ -1116,12 +1102,10 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	handler := rpc.New(mockReader, nil, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 	latestBlockNumber := uint64(4850)
 
 	t.Run("default sequencer address", func(t *testing.T) {
-		latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-		require.NoError(t, err)
+		latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 		latestBlock.Header.SequencerAddress = nil
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil).Times(2)
 		mockReader.EXPECT().TransactionsByBlockNumber(latestBlock.Number).Return(
@@ -1132,11 +1116,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 		blockID := blockIDLatest(t)
 		block, rpcErr := handler.BlockWithTxs(&blockID)
-		require.NoError(t, err, rpcErr)
+		require.Nil(t, rpcErr)
 		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
-		require.NoError(t, err, rpcErr)
+		require.Nil(t, rpcErr)
 		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }

@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -99,9 +99,7 @@ func TestGetMessageStatus(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := feeder.NewTestClient(t, &test.network)
-			gw := adaptfeeder.New(client)
-			block, err := gw.BlockByNumber(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			block := adaptfeedertest.Block(t, client, test.blockNum)
 
 			preConfirmed := &pending.PreConfirmed{
 				Block: &core.Block{

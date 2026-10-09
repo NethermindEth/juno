@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -47,9 +48,7 @@ func loadBlockFromFeederTestdata(
 ) *core.Block {
 	t.Helper()
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-	block, err := gw.BlockByNumber(t.Context(), blockNumber)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, blockNumber)
 	return block
 }
 
@@ -550,7 +549,8 @@ func TestTransactionByHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw := adaptfeeder.New(feeder.NewTestClient(t, test.network))
+			client := feeder.NewTestClient(t, test.network)
+			gw := adaptfeeder.New(client)
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
@@ -703,9 +703,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 
 	n := &networks.Mainnet
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
-	latestBlock, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.BlockLatest(t, client)
 	latestBlock.Hash = nil
 	latestBlock.GlobalStateRoot = nil
 
@@ -734,11 +732,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
 	var latestBlockNumber uint64 = 19199
-	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, 19199)
 	latestBlockHash := latestBlock.Hash
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -1228,7 +1224,8 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	n := &networks.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
@@ -1563,7 +1560,9 @@ func TestAddTransaction(t *testing.T) {
 		defer sub.Unsubscribe()
 		recv := sub.Recv()
 
-		gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+		client := feeder.NewTestClient(t, n)
+
+		gw := adaptfeeder.New(client)
 		//nolint:staticcheck // Intention here is reading the transaction, not its status
 		tx, err := gw.Transaction(
 			t.Context(),
@@ -1606,10 +1605,8 @@ func TestAddTransaction(t *testing.T) {
 
 func TestTransactionStatus(t *testing.T) {
 	mainnetClient := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(mainnetClient)
 
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	block := adaptfeedertest.BlockLatest(t, mainnetClient)
 	tx := block.Transactions[0]
 	targetTxnHash := tx.Hash()
 	type testCase struct {
@@ -1803,9 +1800,7 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mainnetClient := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(mainnetClient)
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	block := adaptfeedertest.BlockLatest(t, mainnetClient)
 	tx := block.Transactions[0]
 	hash := tx.Hash()
 
@@ -2310,9 +2305,8 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 // retured the actual data, exposing the race.
 func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Block) {
 	t.Helper()
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Mainnet))
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	block := adaptfeedertest.BlockLatest(t, client)
 	txn := block.Transactions[0]
 	txHash := (*felt.TransactionHash)(txn.Hash())
 	pastBlock := &pending.PreConfirmed{
