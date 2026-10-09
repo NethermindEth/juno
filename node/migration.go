@@ -26,7 +26,7 @@ func registerMigrations(cfg *Config) *migration.Registry {
 	registry := migration.NewRegistry().
 		With(&blocktransactions.Migrator{}).
 		WithOptional(
-			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
+			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge, cfg.NewState),
 			cfg.Prune,
 			PruneModeFlag,
 		).
