@@ -5,18 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
-	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -72,24 +69,6 @@ func (r *listenerRecorder) take() []listenerCall {
 	calls := r.calls
 	r.calls = nil
 	return calls
-}
-
-// wirePollerWithListener is [wirePoller] with a chosen listener.
-func wirePollerWithListener(
-	t *testing.T,
-	bc *blockchain.Blockchain,
-	head *core.Header,
-	ds preconfirmed.DataSource,
-	listener preconfirmed.EventListener,
-) harness {
-	t.Helper()
-	highest := &atomic.Pointer[core.Header]{}
-	highest.Store(head)
-
-	p := preconfirmed.NewPoller(
-		ds, bc, highest, tickInterval, staleAfter, onDemandWait, listener, log.NewNopZapLogger(),
-	)
-	return harness{poller: p, highest: highest}
 }
 
 // reportedFailures are data source errors that fail a pre-confirmed poll, with the reason the
@@ -155,7 +134,7 @@ func TestPollerReportsSuccessfulPolls(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			go h.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -190,7 +169,7 @@ func TestPollerReportsSuccessfulPolls(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			go h.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -245,7 +224,7 @@ func TestPollerReportsBackfillGap(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			go h.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -284,7 +263,7 @@ func TestPollerReportsBackfillGap(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			go h.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -315,7 +294,7 @@ func TestPollerReportsFailedPolls(t *testing.T) {
 
 			synctest.Test(t, func(t *testing.T) {
 				listener := &listenerRecorder{}
-				h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+				h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 				go h.poller.Run(t.Context())
 				synctest.Wait()
 
@@ -340,7 +319,7 @@ func TestPollerReportsFailedPolls(t *testing.T) {
 
 			synctest.Test(t, func(t *testing.T) {
 				listener := &listenerRecorder{}
-				h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+				h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 				go h.poller.Run(t.Context())
 				synctest.Wait()
 
@@ -368,7 +347,7 @@ func TestPollerReportsFailedPolls(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			go h.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -400,7 +379,7 @@ func TestPollerReportsNoFailureWhenStopped(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			ctx, cancel := context.WithCancel(t.Context())
 			go h.poller.Run(ctx)
 			synctest.Wait()
@@ -436,7 +415,7 @@ func TestPollerReportsNoFailureWhenStopped(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			listener := &listenerRecorder{}
-			h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+			h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 			ctx, cancel := context.WithCancel(t.Context())
 			go h.poller.Run(ctx)
 			synctest.Wait()
@@ -462,7 +441,7 @@ func TestPollerReportsNothingWhileNotAtTip(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		listener := &listenerRecorder{}
-		h := wirePollerWithListener(t, fx.bc, fx.head, ds, listener)
+		h := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithListener(listener))
 		h.highest.Store(&core.Header{Number: fx.head.Number + 5}) // not at tip
 		go h.poller.Run(t.Context())
 		synctest.Wait()

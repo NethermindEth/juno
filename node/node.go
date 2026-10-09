@@ -42,6 +42,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -451,14 +452,15 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
 		if !cfg.DisableSync {
-			syncOpts := []sync.Option{
-				sync.WithPreConfirmedPollInterval(cfg.PreConfirmedPollInterval),
-				sync.WithPreConfirmedStaleAfter(cfg.PreConfirmedStaleAfter),
-				sync.WithPreConfirmedOnDemandWait(cfg.PreConfirmedOnDemandWait),
-				sync.WithReadOnlyBlockchain(dbIsRemote),
+			preConfirmedOpts := []preconfirmed.Option{
+				preconfirmed.WithPollInterval(cfg.PreConfirmedPollInterval),
+				preconfirmed.WithStaleAfter(cfg.PreConfirmedStaleAfter),
+				preconfirmed.WithOnDemandWait(cfg.PreConfirmedOnDemandWait),
 			}
 			if cfg.Metrics {
-				syncOpts = append(syncOpts, sync.WithPreConfirmedListener(makePreConfirmedMetrics()))
+				preConfirmedOpts = append(
+					preConfirmedOpts, preconfirmed.WithListener(makePreConfirmedMetrics()),
+				)
 			}
 
 			gw := adaptfeeder.New(client)
@@ -467,7 +469,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				sync.NewFeederGatewayDataSource(chain, gw),
 				gw,
 				logger,
-				syncOpts...,
+				sync.WithPreConfirmed(preConfirmedOpts...),
+				sync.WithReadOnlyBlockchain(dbIsRemote),
 			)
 			synchronizer.WithPlugin(junoPlugin)
 		}

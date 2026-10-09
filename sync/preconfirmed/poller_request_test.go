@@ -4,17 +4,13 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
-	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
-	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -22,32 +18,6 @@ import (
 // longTick keeps periodic polls outside every test's horizon: the tests below drive the poller
 // through reads, so a tick would blur which poll served a read.
 const longTick = 10 * time.Second
-
-// wirePollerWithInterval is [wirePoller] with a chosen tick interval. It keeps the package's
-// staleAfter and onDemandWait so reads behave as in the rest of the tests.
-func wirePollerWithInterval(
-	t *testing.T,
-	bc *blockchain.Blockchain,
-	head *core.Header,
-	ds preconfirmed.DataSource,
-	interval time.Duration,
-) harness {
-	t.Helper()
-	highest := &atomic.Pointer[core.Header]{}
-	highest.Store(head)
-
-	p := preconfirmed.NewPoller(
-		ds,
-		bc,
-		highest,
-		interval,
-		staleAfter,
-		onDemandWait,
-		&preconfirmed.SelectiveListener{},
-		log.NewNopZapLogger(),
-	)
-	return harness{poller: p, highest: highest}
-}
 
 // chainRead is what one PreConfirmedChain call returned and how long it waited for it.
 type chainRead struct {
@@ -132,7 +102,7 @@ func TestPollerRequestPollsOnDemand(t *testing.T) {
 	)
 
 	synctest.Test(t, func(t *testing.T) {
-		harness := wirePollerWithInterval(t, fx.bc, fx.head, ds, longTick)
+		harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(longTick))
 		go harness.poller.Run(t.Context())
 		synctest.Wait()
 
@@ -179,7 +149,7 @@ func TestPollerRequestReusesFreshData(t *testing.T) {
 		)
 
 		synctest.Test(t, func(t *testing.T) {
-			harness := wirePollerWithInterval(t, fx.bc, fx.head, ds, longTick)
+			harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(longTick))
 			go harness.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -231,7 +201,7 @@ func TestPollerRequestReusesFreshData(t *testing.T) {
 		)
 
 		synctest.Test(t, func(t *testing.T) {
-			harness := wirePollerWithInterval(t, fx.bc, fx.head, ds, tick)
+			harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(tick))
 			go harness.poller.Run(t.Context())
 			synctest.Wait()
 
@@ -279,7 +249,7 @@ func TestPollerRequestRepollsAfterFailure(t *testing.T) {
 	)
 
 	synctest.Test(t, func(t *testing.T) {
-		harness := wirePollerWithInterval(t, fx.bc, fx.head, ds, longTick)
+		harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(longTick))
 		go harness.poller.Run(t.Context())
 		synctest.Wait()
 
@@ -344,7 +314,7 @@ func TestPollerRequestStopsWaitingForSlowPoll(t *testing.T) {
 		releaseOnce := sync.OnceFunc(func() { close(release) })
 		defer releaseOnce()
 
-		harness := wirePollerWithInterval(t, fx.bc, fx.head, ds, longTick)
+		harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(longTick))
 		go harness.poller.Run(t.Context())
 		synctest.Wait()
 

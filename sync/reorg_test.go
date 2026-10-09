@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
@@ -256,7 +257,7 @@ func setup(
 			dataSource,
 			nil,
 			logger,
-			sync.WithPreConfirmedPollInterval(0),
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		)
 		require.NoError(t, synchronizer.Run(ctx))
 	})

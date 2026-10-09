@@ -152,27 +152,25 @@ type harness struct {
 
 // wirePoller builds a poller against an already-constructed blockchain and
 // DataSource. The highest-known header starts at head, so the poller is at tip
-// unless a test moves it.
+// unless a test moves it. opts override the package's tick interval, staleAfter
+// and onDemandWait; later options win.
 func wirePoller(
 	t *testing.T,
 	bc *blockchain.Blockchain,
 	head *core.Header,
 	ds preconfirmed.DataSource,
+	opts ...preconfirmed.Option,
 ) harness {
 	t.Helper()
 	highest := &atomic.Pointer[core.Header]{}
 	highest.Store(head)
 
-	p := preconfirmed.NewPoller(
-		ds,
-		bc,
-		highest,
-		tickInterval,
-		staleAfter,
-		onDemandWait,
-		&preconfirmed.SelectiveListener{},
-		log.NewNopZapLogger(),
-	)
+	opts = append([]preconfirmed.Option{
+		preconfirmed.WithPollInterval(tickInterval),
+		preconfirmed.WithStaleAfter(staleAfter),
+		preconfirmed.WithOnDemandWait(onDemandWait),
+	}, opts...)
+	p := preconfirmed.NewPoller(ds, bc, highest, log.NewNopZapLogger(), opts...)
 	return harness{poller: p, highest: highest}
 }
 

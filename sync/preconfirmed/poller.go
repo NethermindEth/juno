@@ -64,30 +64,39 @@ type Poller struct {
 	requestSync       *RequestSync
 }
 
-// NewPoller builds a poller that ticks every `interval`. Additionally it polls on request based
-// on whenever there is a call to `[Poller.PreConfirmedChain] based  on the `staleAfter`
-// and `onDemandWait` variables. Every poll is reported to `listener`.
+// NewPoller builds a poller over dataSource. It ticks every [DefaultPollInterval] and serves
+// [Poller.PreConfirmedChain] reads from the stored chain, polling first when that chain is older
+// than [DefaultStaleAfter] and waiting at most [DefaultOnDemandWait] for the poll. Every poll is
+// reported to the listener. highestBlockHeader gates polling to when the node is at the tip.
+// See [Option] for overriding the defaults.
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
 	highestBlockHeader *atomic.Pointer[core.Header],
-	interval time.Duration,
-	staleAfter time.Duration,
-	onDemandWait time.Duration,
-	listener EventListener,
 	logger log.StructuredLogger,
+	opts ...Option,
 ) *Poller {
+	o := options{
+		pollInterval: DefaultPollInterval,
+		staleAfter:   DefaultStaleAfter,
+		onDemandWait: DefaultOnDemandWait,
+		listener:     &SelectiveListener{},
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	return &Poller{
 		dataSource:         dataSource,
 		blockchain:         blockchain,
 		highestBlockHeader: highestBlockHeader,
-		interval:           interval,
+		interval:           o.pollInterval,
 		feed:               feed.New[*pending.PreConfirmed](),
-		listener:           listener,
+		listener:           o.listener,
 		logger:             logger,
 
 		preConfirmedChain: NewChainStorage(),
-		requestSync:       NewRequestSync(staleAfter, onDemandWait),
+		requestSync:       NewRequestSync(o.staleAfter, o.onDemandWait),
 	}
 }
 

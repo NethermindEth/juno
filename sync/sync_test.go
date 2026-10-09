@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,9 @@ func TestSyncBlocks(t *testing.T) {
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(
+			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -88,7 +91,9 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(
+			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -106,7 +111,9 @@ func TestSyncBlocks(t *testing.T) {
 		)
 
 		dataSource := &unreliableDataSource{DataSource: sync.NewFeederGatewayDataSource(bc, gw)}
-		synchronizer := sync.New(bc, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(
+			bc, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -184,7 +191,7 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 		dataSource,
 		nil,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		sync.WithReadOnlyBlockchain(true),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -226,7 +233,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 		dataSource,
 		gw,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 	)
 
 	storedStartingBlock := make(chan struct{}, 1)
@@ -272,7 +279,7 @@ func TestStartingBlockHeaderNotRunning(t *testing.T) {
 		newTestBlockDataSource(),
 		nil,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		sync.WithReadOnlyBlockchain(true),
 	)
 
@@ -297,7 +304,7 @@ func TestStartingBlockHeaderFallbackUnavailable(t *testing.T) {
 		dataSource,
 		nil,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		sync.WithReadOnlyBlockchain(true),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -339,7 +346,7 @@ func TestReorg(t *testing.T) {
 		dataSource,
 		sepoliaGw,
 		log.NewNopZapLogger(),
-		sync.WithPreConfirmedPollInterval(0),
+		sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 	)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -367,7 +374,7 @@ func TestReorg(t *testing.T) {
 			dataSource,
 			mainGw,
 			log.NewNopZapLogger(),
-			sync.WithPreConfirmedPollInterval(0),
+			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
 		)
 		sub := synchronizer.SubscribeReorg()
 		// Use a generous timeout with early cancellation once the expected block is stored.
@@ -419,7 +426,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
 	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-	syncer := sync.New(chain, dataSource, gw, logger, sync.WithPreConfirmedPollInterval(0))
+	syncer := sync.New(
+		chain, dataSource, gw, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+	)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -460,7 +469,9 @@ func TestPreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, nil, nil, logger, sync.WithPreConfirmedPollInterval(0))
+		synchronizer := sync.New(
+			bc, nil, nil, logger, sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+		)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
