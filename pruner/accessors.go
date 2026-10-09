@@ -1,7 +1,9 @@
 package pruner
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 
 	"github.com/NethermindEth/juno/core"
@@ -77,6 +79,7 @@ func PruneUpto(
 	database db.KeyValueStore,
 	endExclusive uint64,
 	targetBatchByteSize int,
+	newState bool,
 ) (blocksPruned, oldestKept uint64, err error) {
 	start, err := OldestRetainedBlock(database)
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -89,7 +92,9 @@ func PruneUpto(
 		return 0, start, nil
 	}
 
-	blockNum, err := pruneHashKeyedUpto(ctx, database, start, endExclusive, targetBatchByteSize)
+	blockNum, err := pruneHashKeyedUpto(
+		ctx, database, start, endExclusive, targetBatchByteSize, newState,
+	)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -174,6 +179,7 @@ func pruneHashKeyedUpto(
 	start,
 	endExclusive uint64,
 	targetBatchByteSize int,
+	newState bool,
 ) (uint64, error) {
 	batch := database.NewBatch()
 	// batch is rotated below, so close whichever one is current at return.
@@ -213,7 +219,12 @@ func pruneHashKeyedUpto(
 			return 0, err
 		}
 
-		if err := pruneStateHistoryFromUpdate(batch, blockNum, su); err != nil {
+		if newState {
+			err = pruneNewStateHistoryFromUpdate(database, batch, blockNum, su)
+		} else {
+			err = pruneStateHistoryFromUpdate(batch, blockNum, su)
+		}
+		if err != nil {
 			return 0, err
 		}
 
@@ -302,6 +313,107 @@ func pruneStateHistoryFromUpdate(
 		}
 	}
 	return nil
+}
+
+// pruneNewStateHistoryFromUpdate deletes the new-state history entries that
+// block blockNumber supersedes. New-state entries record the value *after*
+// the block, and a read at h takes the latest entry at or before h, so the
+// block's own entry must stay: it answers every read until the key changes
+// again. What becomes unreachable is the key's previous entry, which only
+// answered reads below blockNumber.
+//
+// Buckets touched (all keyed by suffix block number):
+//
+//   - ContractStorageHistory:   contract + slot + block → slot value
+//   - ContractNonceHistory:     contract + block        → nonce
+//   - ContractClassHashHistory: contract + block        → class hash
+func pruneNewStateHistoryFromUpdate(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	blockNumber uint64,
+	stateUpdate *core.StateUpdate,
+) error {
+	diff := stateUpdate.StateDiff
+
+	storage, err := newSupersededPruner(r, w, db.ContractStorageHistory, blockNumber)
+	if err != nil {
+		return err
+	}
+	for addr, slots := range diff.StorageDiffs {
+		for slot := range slots {
+			if err := storage.prune(db.ContractStorageHistoryKey(&addr, &slot)); err != nil {
+				return errors.Join(err, storage.close())
+			}
+		}
+	}
+	if err := storage.close(); err != nil {
+		return err
+	}
+
+	nonces, err := newSupersededPruner(r, w, db.ContractNonceHistory, blockNumber)
+	if err != nil {
+		return err
+	}
+	for addr := range diff.Nonces {
+		if err := nonces.prune(db.ContractNonceHistoryKey(&addr)); err != nil {
+			return errors.Join(err, nonces.close())
+		}
+	}
+	if err := nonces.close(); err != nil {
+		return err
+	}
+
+	// Both deploys and replacements write class hash history
+	classHashes, err := newSupersededPruner(r, w, db.ContractClassHashHistory, blockNumber)
+	if err != nil {
+		return err
+	}
+	for _, classes := range []map[felt.Felt]*felt.Felt{diff.DeployedContracts, diff.ReplacedClasses} {
+		for addr := range classes {
+			if err := classHashes.prune(db.ContractClassHashHistoryKey(&addr)); err != nil {
+				return errors.Join(err, classHashes.close())
+			}
+		}
+	}
+	return classHashes.close()
+}
+
+// supersededPruner deletes, per key prefix, the latest history entry below a
+// block. One iterator serves every key of a bucket.
+type supersededPruner struct {
+	it          db.Iterator
+	w           db.KeyValueWriter
+	blockNumber uint64
+}
+
+func newSupersededPruner(
+	r db.KeyValueReader,
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	blockNumber uint64,
+) (supersededPruner, error) {
+	it, err := r.NewIterator(bucket.Key(), true)
+	if err != nil {
+		return supersededPruner{}, err
+	}
+	return supersededPruner{it: it, w: w, blockNumber: blockNumber}, nil
+}
+
+func (p *supersededPruner) prune(keyPrefix []byte) error {
+	// Seek may run past the bucket end; Prev then lands on its last entry
+	p.it.Seek(binary.BigEndian.AppendUint64(keyPrefix, p.blockNumber))
+	if !p.it.Prev() {
+		return nil
+	}
+	key := p.it.Key()
+	if !bytes.HasPrefix(key, keyPrefix) {
+		return nil
+	}
+	return p.w.Delete(bytes.Clone(key))
+}
+
+func (p *supersededPruner) close() error {
+	return p.it.Close()
 }
 
 // pruneAggregatedBloomFiltersUpto deletes every aggregated bloom filter
