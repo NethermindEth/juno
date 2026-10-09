@@ -85,3 +85,69 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestBlockIDMarshalJSON(t *testing.T) {
+	hash := felt.NewUnsafeFromString[felt.Felt](
+		"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+	)
+
+	tests := []struct {
+		name string
+		id   rpc.BlockID
+		data string
+	}{
+		{"latest", rpc.BlockIDLatest(), `"latest"`},
+		{"pre_confirmed", rpc.BlockIDPreConfirmed(), `"pre_confirmed"`},
+		{"l1_accepted", rpc.BlockIDL1Accepted(), `"l1_accepted"`},
+		{"number", rpc.BlockIDFromNumber(42), `{"block_number":42}`},
+		{"number zero", rpc.BlockIDFromNumber(0), `{"block_number":0}`},
+		{"hash", rpc.BlockIDFromHash(hash), `{"block_hash":"` + hash.String() + `"}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			data, err := json.Marshal(test.id)
+			require.NoError(t, err)
+			assert.JSONEq(t, test.data, string(data))
+
+			var decoded rpc.BlockID
+			require.NoError(t, json.Unmarshal(data, &decoded))
+			assert.Equal(t, test.id, decoded)
+		})
+	}
+
+	t.Run("zero value", func(t *testing.T) {
+		_, err := json.Marshal(rpc.BlockID{})
+		require.ErrorContains(t, err, "cannot marshal block id of type 0")
+	})
+}
+
+func TestBlockStatusJSON(t *testing.T) {
+	tests := []struct {
+		status rpc.BlockStatus
+		data   string
+	}{
+		{rpc.BlockPreConfirmed, `"PRE_CONFIRMED"`},
+		{rpc.BlockAcceptedL2, `"ACCEPTED_ON_L2"`},
+		{rpc.BlockAcceptedL1, `"ACCEPTED_ON_L1"`},
+		{rpc.BlockRejected, `"REJECTED"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.data, func(t *testing.T) {
+			data, err := json.Marshal(test.status)
+			require.NoError(t, err)
+			assert.Equal(t, test.data, string(data))
+
+			var decoded rpc.BlockStatus
+			require.NoError(t, json.Unmarshal(data, &decoded))
+			assert.Equal(t, test.status, decoded)
+		})
+	}
+
+	t.Run("unknown", func(t *testing.T) {
+		var decoded rpc.BlockStatus
+		err := json.Unmarshal([]byte(`"PENDING"`), &decoded)
+		require.ErrorContains(t, err, `unknown block status "PENDING"`)
+	})
+}
