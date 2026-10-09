@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/adapters/consensus2p2p"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
@@ -60,13 +61,10 @@ func LoadBlockDependencies(
 	var err error
 	t.Helper()
 
-	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+	client := feeder.NewTestClient(t, network)
 
-	headBlock, err = gw.BlockByNumber(t.Context(), uint64(height-1))
-	require.NoError(t, err)
-
-	revealedBlock, err = gw.BlockByNumber(t.Context(), headBlock.Number-builder.BlockHashLag)
-	require.NoError(t, err)
+	headBlock = adaptfeedertest.Block(t, client, uint64(height-1))
+	revealedBlock = adaptfeedertest.Block(t, client, headBlock.Number-builder.BlockHashLag)
 
 	err = database.Update(func(txn db.IndexedBatch) error {
 		require.NoError(t, core.WriteBlockHeaderByNumber(txn, revealedBlock.Header))

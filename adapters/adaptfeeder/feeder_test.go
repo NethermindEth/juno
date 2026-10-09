@@ -18,45 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBlockByNumber(t *testing.T) {
-	numbers := []uint64{147, 11817}
-
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	for _, number := range numbers {
-		numberStr := strconv.FormatUint(number, 10)
-		t.Run("mainnet block number "+numberStr, func(t *testing.T) {
-			response, err := client.Block(ctx, numberStr)
-			require.NoError(t, err)
-			sig, err := client.Signature(ctx, numberStr)
-			require.NoError(t, err)
-			block, err := adapter.BlockByNumber(ctx, number)
-			require.NoError(t, err)
-			adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
-			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, block)
-		})
-	}
-}
-
-func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	response, err := client.Block(ctx, "latest")
-	require.NoError(t, err)
-	sig, err := client.Signature(ctx, "latest")
-	require.NoError(t, err)
-	block, err := adapter.BlockLatest(ctx)
-	require.NoError(t, err)
-	adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
-	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, block)
-}
-
 func TestBlockHeaderLatest(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	adapter := adaptfeeder.New(client)
@@ -70,28 +31,6 @@ func TestBlockHeaderLatest(t *testing.T) {
 
 	assert.Equal(t, block.Hash, header.Hash)
 	assert.Equal(t, block.Number, header.Number)
-}
-
-func TestStateUpdate(t *testing.T) {
-	numbers := []uint64{0, 1, 2, 21656}
-
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	for _, number := range numbers {
-		numberStr := strconv.FormatUint(number, 10)
-		t.Run("number "+numberStr, func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, numberStr)
-			require.NoError(t, err)
-			feederUpdate, err := adapter.StateUpdate(ctx, number)
-			require.NoError(t, err)
-
-			adaptedResponse, err := sn2core.AdaptStateUpdate(&response)
-			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, feederUpdate)
-		})
-	}
 }
 
 func TestClassV0(t *testing.T) {
@@ -273,18 +212,6 @@ func TestAdapterErrorPaths(t *testing.T) {
 	ctx := t.Context()
 	missing := uint64(99999999)
 	missingHash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
-
-	t.Run("BlockByNumber error", func(t *testing.T) {
-		block, err := adapter.BlockByNumber(ctx, missing)
-		assert.Error(t, err)
-		assert.Nil(t, block)
-	})
-
-	t.Run("StateUpdate error", func(t *testing.T) {
-		su, err := adapter.StateUpdate(ctx, missing)
-		assert.Error(t, err)
-		assert.Nil(t, su)
-	})
 
 	t.Run("StateUpdateWithBlock error", func(t *testing.T) {
 		su, blk, err := adapter.StateUpdateWithBlock(ctx, missing)

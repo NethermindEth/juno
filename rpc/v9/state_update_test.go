@@ -3,7 +3,7 @@ package rpcv9_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -62,10 +62,8 @@ func TestStateUpdate(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
-	update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
-	require.NoError(t, err)
+	update21656 := adaptfeedertest.StateUpdate(t, client, 21656)
 
 	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
 		t.Helper()
@@ -134,7 +132,6 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("post v0.11.0", func(t *testing.T) {
 		integrationClient := feeder.NewTestClient(t, &networks.Integration)
-		integGw := adaptfeeder.New(integrationClient)
 
 		for name, height := range map[string]uint64{
 			"declared Cairo0 classes": 283746,
@@ -142,8 +139,7 @@ func TestStateUpdate(t *testing.T) {
 			"replaced classes":        283428,
 		} {
 			t.Run(name, func(t *testing.T) {
-				gwUpdate, err := integGw.StateUpdate(t.Context(), height)
-				require.NoError(t, err)
+				gwUpdate := adaptfeedertest.StateUpdate(t, integrationClient, height)
 				number := blockIDNumber(t, height)
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
 				blockIDNumber(t, height)

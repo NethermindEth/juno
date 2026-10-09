@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -225,16 +225,10 @@ func TestSubscribeEvents(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	b2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
-
-	b3, err := gw.BlockByNumber(t.Context(), 56379)
-	require.NoError(t, err)
+	b1 := adaptfeedertest.Block(t, client, 56377)
+	b2 := adaptfeedertest.Block(t, client, 56378)
+	b3 := adaptfeedertest.Block(t, client, 56379)
 
 	b1Filtered, b1Emitted := createTestEvents(
 		t,
@@ -821,7 +815,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		mockGateway := mocks.NewMockGateway(mockCtrl)
-		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
@@ -830,8 +823,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 38748)
 
 		txToBroadcast := BroadcastedTransaction{Transaction: AdaptTransaction(block.Transactions[0])}
 
@@ -1038,13 +1030,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -1093,13 +1081,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 
 func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -1335,13 +1319,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	toTransactionsWithFinalityStatus := func(txs []core.Transaction, finalityStatus TxnStatusWithoutL1) []*SubscriptionNewTransaction {
 		txsWithStatus := make([]*SubscriptionNewTransaction, len(txs))
@@ -1731,13 +1711,9 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	type stepInfo struct {
 		description string
@@ -2219,10 +2195,8 @@ func testHeadBlock(t *testing.T) *core.Block {
 
 	n := new(networks.Sepolia)
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
+	b1 := adaptfeedertest.Block(t, client, 56377)
 
 	return b1
 }
