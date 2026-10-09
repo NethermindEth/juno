@@ -1,8 +1,8 @@
 package rpcv9
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -149,20 +149,14 @@ func (b *BlockID) Number() uint64 {
 	return b.data[0]
 }
 
-func (b *BlockID) UnmarshalJSON(data []byte) error {
-	type blockIDObject struct {
-		BlockHash   *felt.Felt `json:"block_hash"`
-		BlockNumber *uint64    `json:"block_number"`
-	}
-
-	trimmed := bytes.TrimLeft(data, " \t\r\n")
-	if len(trimmed) == 0 {
-		return errors.New("cannot unmarshal block id")
-	}
-
-	if trimmed[0] != '"' {
-		var object blockIDObject
-		if err := json.Unmarshal(trimmed, &object); err != nil {
+// UnmarshalJSONFrom reads a block tag string or an object with a block hash or number.
+func (b *BlockID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if dec.PeekKind() != '"' {
+		var object struct {
+			BlockHash   *felt.Felt `json:"block_hash"`
+			BlockNumber *uint64    `json:"block_number"`
+		}
+		if err := json.UnmarshalDecode(dec, &object); err != nil {
 			return err
 		}
 		switch {
@@ -178,11 +172,11 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	var blockTag string
-	if err := json.Unmarshal(trimmed, &blockTag); err != nil {
+	blockTag, err := dec.ReadToken()
+	if err != nil {
 		return err
 	}
-	switch blockTag {
+	switch blockTag.String() {
 	case "latest":
 		b.typeID = latest
 	case "pre_confirmed":
@@ -190,7 +184,7 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	case "l1_accepted":
 		b.typeID = l1Accepted
 	default:
-		return fmt.Errorf("unknown block tag '%s'", blockTag)
+		return fmt.Errorf("unknown block tag '%s'", blockTag.String())
 	}
 	return nil
 }

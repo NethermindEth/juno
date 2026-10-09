@@ -3,7 +3,9 @@ package rpcv9
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -255,18 +257,17 @@ type ResourceBoundsMap struct {
 	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
-func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
-	// Check if L1DataGas is nil, if it is, provide default values
-	if r.L1DataGas == nil {
-		r.L1DataGas = &ResourceBounds{
+// MarshalJSONTo writes the bounds with zero L1 data gas when a pre-0.13.4 transaction has none.
+func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
+	type alias ResourceBoundsMap
+	bounds := alias(r)
+	if bounds.L1DataGas == nil {
+		bounds.L1DataGas = &ResourceBounds{
 			MaxAmount:       &felt.Zero,
 			MaxPricePerUnit: &felt.Zero,
 		}
 	}
-
-	// Define an alias to avoid recursion
-	type alias ResourceBoundsMap
-	return json.Marshal((*alias)(r))
+	return json.MarshalEncode(enc, &bounds)
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -369,7 +370,7 @@ type AddTxResponse struct {
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287
 type BroadcastedTransaction struct {
 	Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
+	ContractClass jsonv1.RawMessage `json:"contract_class,omitempty" validate:"required_if=Transaction.Type DECLARE"`
 }
 
 func AdaptBroadcastedTransaction(
@@ -771,7 +772,7 @@ func (h *Handler) pushToFeederGateway(
 
 	if tx.Type == TxnDeclare && tx.Version.Cmp(felt.NewFromUint64[felt.Felt](2)) != -1 {
 		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
+		if err := jsonv1.Unmarshal(tx.ContractClass, &contractClass); err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
@@ -779,7 +780,7 @@ func (h *Handler) pushToFeederGateway(
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
 		}
 
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
+		sierraProgBytes, errIn := jsonv1.Marshal(sierraProg)
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
@@ -790,7 +791,7 @@ func (h *Handler) pushToFeederGateway(
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
+		newContractClass, err := jsonv1.Marshal(contractClass)
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
@@ -798,7 +799,7 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	payload := AdaptRPCTxToAddTxGatewayPayload(tx)
-	txJSON, err := json.Marshal(&payload)
+	txJSON, err := jsonv1.Marshal(&payload)
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
@@ -817,7 +818,7 @@ func (h *Handler) pushToFeederGateway(
 		ContractAddress *felt.Felt `json:"address"`
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
-	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
+	if err = jsonv1.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
 	}
 
@@ -830,7 +831,7 @@ func (h *Handler) pushToFeederGateway(
 
 type AddTxGatewayPayload struct {
 	starknet.Transaction
-	ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	ContractClass jsonv1.RawMessage `json:"contract_class,omitempty"`
 }
 
 func AdaptRPCTxToAddTxGatewayPayload(rpcTx *BroadcastedTransaction) AddTxGatewayPayload {

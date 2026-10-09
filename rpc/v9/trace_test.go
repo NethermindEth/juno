@@ -1394,3 +1394,25 @@ func TestCall(t *testing.T) {
 		require.Equal(t, expectedErr, rpcErr)
 	})
 }
+
+func TestExecuteInvocationMarshalJSON(t *testing.T) {
+	t.Run("reverted writes only the revert reason", func(t *testing.T) {
+		data, err := json.Marshal(rpc.ExecuteInvocation{RevertReason: "boom"})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"revert_reason":"boom"}`, string(data))
+	})
+
+	t.Run("succeeded writes the function invocation", func(t *testing.T) {
+		invocation := &rpc.FunctionInvocation{
+			ContractAddress: felt.FromUint64[felt.Felt](1),
+			EntryPointType:  "EXTERNAL",
+		}
+		want, err := json.Marshal(invocation)
+		require.NoError(t, err)
+
+		data, err := json.Marshal(rpc.ExecuteInvocation{FunctionInvocation: invocation})
+		require.NoError(t, err)
+		assert.JSONEq(t, string(want), string(data))
+		assert.NotContains(t, string(data), "revert_reason")
+	})
+}
