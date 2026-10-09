@@ -223,21 +223,6 @@ func (mr *MockFeederReaderMockRecorder) StateUpdateWithBlockAndSignature(ctx, bl
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateWithBlockAndSignature", reflect.TypeOf((*MockFeederReader)(nil).StateUpdateWithBlockAndSignature), ctx, blockID)
 }
 
-// Transaction mocks base method.
-func (m *MockFeederReader) Transaction(ctx context.Context, transactionHash *felt.Felt) (starknet.DeprecatedTransactionStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Transaction", ctx, transactionHash)
-	ret0, _ := ret[0].(starknet.DeprecatedTransactionStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Transaction indicates an expected call of Transaction.
-func (mr *MockFeederReaderMockRecorder) Transaction(ctx, transactionHash any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockFeederReader)(nil).Transaction), ctx, transactionHash)
-}
-
 // TransactionStatus mocks base method.
 func (m *MockFeederReader) TransactionStatus(ctx context.Context, transactionHash *felt.Felt) (starknet.TransactionStatus, error) {
 	m.ctrl.T.Helper()

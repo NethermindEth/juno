@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -151,27 +150,12 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 
 func TestVerifyTransactionHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	txnHash0 := felt.NewUnsafeFromString[felt.Felt]("0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
-	txn0, err := gw.Transaction(t.Context(), txnHash0)
-	require.NoError(t, err)
-
-	txnHash1 := felt.NewUnsafeFromString[felt.Felt]("0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
-	txn1, err := gw.Transaction(t.Context(), txnHash1)
-	require.NoError(t, err)
-
-	txnHash2 := felt.NewUnsafeFromString[felt.Felt]("0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
-	txn2, err := gw.Transaction(t.Context(), txnHash2)
-	require.NoError(t, err)
-
-	txnHash3 := felt.NewUnsafeFromString[felt.Felt]("0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
-	txn3, err := gw.Transaction(t.Context(), txnHash3)
-	require.NoError(t, err)
-
-	txnHash4 := felt.NewUnsafeFromString[felt.Felt]("0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497")
-	txn4, err := gw.Transaction(t.Context(), txnHash4)
-	require.NoError(t, err)
+	txn0 := adaptfeedertest.Block(t, client, 16697).Transactions[22]
+	txn1 := adaptfeedertest.Block(t, client, 11434).Transactions[37]
+	txn2 := adaptfeedertest.Block(t, client, 11437).Transactions[91]
+	txn3 := adaptfeedertest.Block(t, client, 11439).Transactions[97]
+	txn4 := adaptfeedertest.Block(t, client, 16730).Transactions[251]
 
 	t.Run("contains bad transaction", func(t *testing.T) {
 		badTxn0 := new(core.DeclareTransaction)
@@ -221,18 +205,15 @@ func TestVerifyTransactionHash(t *testing.T) {
 func TestTransactionV3Hash(t *testing.T) {
 	network := networks.Sepolia
 	client := feeder.NewTestClient(t, &network)
-	gw := adaptfeeder.New(client)
-	ctx := t.Context()
 
 	tests := map[string]struct {
-		tx   func(hash *felt.Felt) core.Transaction
+		tx   func() core.Transaction
 		want felt.Felt
 	}{
 		"invoke": {
 			// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea
-			tx: func(hash *felt.Felt) core.Transaction {
-				tx, err := gw.Transaction(ctx, hash)
-				require.NoError(t, err)
+			tx: func() core.Transaction {
+				tx := adaptfeedertest.Block(t, client, 567941).Transactions[0]
 				invoke, ok := tx.(*core.InvokeTransaction)
 				require.True(t, ok)
 				invoke.TransactionHash = nil
@@ -244,9 +225,8 @@ func TestTransactionV3Hash(t *testing.T) {
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155
 		"declare": {
-			tx: func(hash *felt.Felt) core.Transaction {
-				tx, err := gw.Transaction(ctx, hash)
-				require.NoError(t, err)
+			tx: func() core.Transaction {
+				tx := adaptfeedertest.Block(t, client, 570000).Transactions[6]
 				declare, ok := tx.(*core.DeclareTransaction)
 				require.True(t, ok)
 				declare.TransactionHash = nil
@@ -258,9 +238,8 @@ func TestTransactionV3Hash(t *testing.T) {
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975
 		"deployAccount": {
-			tx: func(hash *felt.Felt) core.Transaction {
-				tx, err := gw.Transaction(ctx, hash)
-				require.NoError(t, err)
+			tx: func() core.Transaction {
+				tx := adaptfeedertest.Block(t, client, 571531).Transactions[6]
 				deployAccount, ok := tx.(*core.DeployAccountTransaction)
 				require.True(t, ok)
 				deployAccount.TransactionHash = nil
@@ -274,7 +253,7 @@ func TestTransactionV3Hash(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			got, err := core.TransactionHash(test.tx(&test.want), &network)
+			got, err := core.TransactionHash(test.tx(), &network)
 			require.NoError(t, err)
 			require.Equal(t, test.want, got)
 		})
@@ -285,13 +264,8 @@ func TestTransactionV3Hash(t *testing.T) {
 func BenchmarkTransactionV3Hash(b *testing.B) {
 	network := networks.Sepolia
 	client := feeder.NewTestClient(b, &network)
-	gw := adaptfeeder.New(client)
 
-	key := "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"
-	hash := felt.UnsafeFromString[felt.Felt](key)
-	//nolint:staticcheck // need the full transaction to hash it; the status endpoint won't do
-	tx, err := gw.Transaction(b.Context(), &hash)
-	require.NoError(b, err)
+	tx := adaptfeedertest.Block(b, client, 567941).Transactions[0]
 	invoke, ok := tx.(*core.InvokeTransaction)
 	require.True(b, ok)
 	invoke.TransactionHash = nil

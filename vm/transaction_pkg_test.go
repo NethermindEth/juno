@@ -4,9 +4,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/assert"
@@ -14,68 +15,68 @@ import (
 )
 
 func TestTransactionMarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Integration)
-	gw := adaptfeeder.New(client)
+	txAt := func(network *networks.Network, blockNumber uint64, index int) core.Transaction {
+		client := feeder.NewTestClient(t, network)
+		return adaptfeedertest.Block(t, client, blockNumber).Transactions[index]
+	}
 
 	tests := map[string]struct {
-		Hash     *felt.Felt
+		Txn      core.Transaction
 		Expected string
 	}{
 		"invoke v0": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			Txn: txAt(&networks.Mainnet, 8, 12),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Invoke": {
-                        "V0": {
-                            "version": "0x0",
-                            "contract_address": "0x2cbc1f6e80a024900dc949914c7692f802ba90012cda39115db5640f5eca847",
-                            "max_fee": "0x0",
-                            "signature": [],
-                            "calldata": [
-                                "0x79631f37538379fc32739605910733219b836b050766a2349e93ec375e62885",
-                                "0x0"
-                            ],
-                            "entry_point_selector": "0x218f305395474a84a39307fa5297be118fe17bf65e27ac5e2de6617baa44c64"                        }
-                    }
-                },
-                "txn_hash": "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Invoke": {
+						"V0": {
+							"version": "0x0",
+							"contract_address": "0x43324c97e376d7d164abded1af1e73e9ce8214249f711edb7059c1ca34560e8",
+							"max_fee": "0x0",
+							"signature": [],
+							"calldata": [
+								"0x1b654cb59f978da2eee76635158e5ff1399bf607cb2d05e3e3b4e41d7660ca2",
+								"0x2",
+								"0x5f743efdb29609bfc2002041bdd5c72257c0c6b5c268fc929a3e516c171c731",
+								"0x635afb0ea6c4cdddf93f42287b45b67acee4f08c6f6c53589e004e118491546"
+							],
+							"entry_point_selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f"
+						}
+					}
+				},
+				"txn_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"
+			}`,
 		},
 		"invoke v1": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+			Txn: txAt(&networks.Sepolia, 469719, 2),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Invoke": {
-                        "V1": {
-                            "version": "0x1",
-                            "sender_address": "0x219937256cd88844f9fdc9c33a2d6d492e253ae13814c2dc0ecab7f26919d46",
-                            "max_fee": "0x2386f26fc10000",
-                            "signature": [
-                                "0x89aa2f42e07913b6dee313c3ef680efb99892feb3e2d08287e01e63418da7a",
-                                "0x458fb4c942d5407d8c1ef1557d29487ab8217842d28a907d75ee0828243361"
-                            ],
-                            "calldata": [
-                                "0x1",
-                                "0x7812357541c81dd9a320c2339c0c76add710db15f8cc29e8dde8e588cad4455",
-                                "0x7772be8b80a8a33dc6c1f9a6ab820c02e537c73e859de67f288c70f92571bb",
-                                "0x0",
-                                "0x3",
-                                "0x3",
-                                "0x24b037cd0ffd500467f4cc7d0b9df27abdc8646379e818e3ce3d9925fc9daec",
-                                "0x4b7797c3f6a6d9b1a28bbd6645d3f009bd12587581e21011aeb9b176f801ab0",
-                                "0xdfeaf5f022324453e6058c00c7d35ee449c1d01bb897ccb5df20f697d98f26"
-                            ],
-                            "nonce": "0x99d"
-                        }
-                    }
-                },
-                "txn_hash": "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Invoke": {
+						"V1": {
+							"version": "0x1",
+							"sender_address": "0x5598089625602db226a2149c5b2e47d985e56c5201007707b5623c146896295",
+							"max_fee": "0x5c1a57b6ea",
+							"signature": [
+								"0x2b043d7e396849c783cf32c6184ce1505718b0916b5c6a8d052da362000f9d3",
+								"0x295d3d0c6819a61e16d26155eed7eb2b9104eee4e92d2d8d2013ef02fb8a14a"
+							],
+							"calldata": [
+								"0x1",
+								"0x4715653320bf709d46a964cc5e719285153db9150bef7476a55efc0cffcc05f",
+								"0x2214fe6a6e2545aebfe589b84884a2c528416482abec76605b7fdb1c31ce5b2",
+								"0x0"
+							],
+							"nonce": "0xf144"
+						}
+					}
+				},
+				"txn_hash": "0x570f295777212b12cf75e681ce0c5d82bfd0088b936a98e2d6c3980fd495a33"
+			}`,
 		},
 		"invoke v3": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			Txn: txAt(&networks.Integration, 319132, 0),
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -110,10 +111,6 @@ func TestTransactionMarshal(t *testing.T) {
                                     "max_amount": "0x186a0",
                                     "max_price_per_unit": "0x5af3107a4000"
                                 },
-                                "L1_DATA": {
-                                    "max_amount": "0x186a0",
-                                    "max_price_per_unit": "0x5af3107a4000"
-                                },
                                 "L2_GAS": {
                                     "max_amount": "0x0",
                                     "max_price_per_unit": "0x0"
@@ -131,9 +128,28 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"invoke v3 with proof_facts": {
-			// Synthetic fixture: no real on-chain tx carries proof_facts yet, so 0xdeadbeef is a
-			// handcrafted invoke v3 transaction stored in testdata with the field set.
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef"),
+			// No real on-chain tx carries proof_facts yet, so the transaction is handcrafted.
+			Txn: &core.InvokeTransaction{
+				TransactionHash:      felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef"),
+				Version:              new(core.TransactionVersion).SetUint64(3),
+				SenderAddress:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
+				CallData:             []felt.Felt{felt.FromUint64[felt.Felt](1)},
+				Nonce:                felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				ResourceBounds: map[core.Resource]core.ResourceBounds{
+					core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: new(felt.Felt).SetUint64(1)},
+					core.ResourceL1DataGas: {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
+					core.ResourceL2Gas:     {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
+				},
+				NonceDAMode:           core.DAModeL1,
+				FeeDAMode:             core.DAModeL1,
+				AccountDeploymentData: []felt.Felt{},
+				PaymasterData:         []felt.Felt{},
+				ProofFacts: []felt.Felt{
+					felt.FromUint64[felt.Felt](100),
+					felt.FromUint64[felt.Felt](200),
+				},
+			},
 			Expected: `{
                 "query_bit": false,
                 "txn": {
@@ -171,201 +187,200 @@ func TestTransactionMarshal(t *testing.T) {
             }`,
 		},
 		"deploy v0": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
+			Txn: txAt(&networks.Mainnet, 2889, 53),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Deploy": {
-                        "version": "0x0",
-                        "contract_address": "0x18c17afbe50afac8aa6e25bb95a6d7983f0d8a7557fbf98bdad3ccf531a9b60",
-                        "contract_address_salt": "0x5de1c0a37865820ce4896872e78da6877b0a8eede3d363131734556a8815d52",
-                        "class_hash": "0x71468bd837666b3a05cca1a5363b0d9e15cacafd6eeaddfbc4f00d5c7b9a51d",
-                        "constructor_calldata": []
-                    }
-                },
-                "txn_hash": "0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Deploy": {
+						"version": "0x0",
+						"contract_address": "0x3fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac",
+						"contract_address_salt": "0xc356fd2878d3b7ce9f7ff08aaaad342356d226ab812034e3e8ce5066ecf6",
+						"class_hash": "0x52c7ba99c77fc38dd3346beea6c0753c3471f2e3135af5bb837d6c9523fff62",
+						"constructor_calldata": [
+							"0x0"
+						]
+					}
+				},
+				"txn_hash": "0x260fabbb9a76bc91261cb47eec5ad929a7ed1936e56dd1533356d3b442112fd"
+			}`,
 		},
 		"declare v1": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
+			Txn: txAt(&networks.Mainnet, 9306, 46),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Declare": {
-                        "V1": {
-                            "version": "0x1",
-                            "class_hash": "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
-                            "sender_address": "0x52125c1e043126c637d1436d9551ef6c4f6e3e36945676bbd716a56e3a41b7a",
-                            "max_fee": "0x2386f26fc10000",
-                            "signature": [
-                                "0x17872d12092aa60331394f514de908309fdba185997fd3d0be1e2896cd1e053",
-                                "0x66124ebfe1a34809b2223a9707ac796dc6f4b6310cb002bda1e4c062a4b2867"
-                            ],
-                            "nonce": "0x1078"
-                        }
-                    }
-                },
-                "txn_hash": "0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Declare": {
+						"V1": {
+							"version": "0x1",
+							"class_hash": "0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453",
+							"sender_address": "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23",
+							"max_fee": "0x5af3107a4000",
+							"signature": [
+								"0x516b5999b47509105675dd4c6ed9c373448038cfd00549fe868695916eee0ff",
+								"0x6c0189aaa56bfcb2a3e97198d04bd7a9750a4354b88f4e5edf57cf4d966ddda"
+							],
+							"nonce": "0x1d"
+						}
+					}
+				},
+				"txn_hash": "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d"
+			}`,
 		},
 		"declare v2": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4"),
+			Txn: txAt(&networks.Sepolia, 18, 0),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Declare": {
-                        "V2": {
-                            "version": "0x2",
-                            "class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
-                            "sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
-                            "max_fee": "0x50c8f30c048",
-                            "signature": [
-                                "0x42a40a113a4381e5f304fd28a707ba4182609db42062a7f36b9291bf8ae8ae7",
-                                "0x6035bcf022f887c80dbc2b615e927d662637d2213335ee657893dce8ddabe5b"
-                            ],
-                            "nonce": "0x11",
-                            "compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724"
-                        }
-                    }
-                },
-                "txn_hash": "0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Declare": {
+						"V2": {
+							"version": "0x2",
+							"class_hash": "0x16342ade8a7cc8296920731bc34b5a6530f5ee1dc1bfd3cc83cb3f519d6530a",
+							"sender_address": "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+							"max_fee": "0x58ece00bd5f",
+							"signature": [
+								"0x25db5938ed86d666ddfdbfe08fdaa1cdcec72911c979304f47851c76afc30ab",
+								"0x1c8db05f7fe7aa3d549044c7128b62c9b0f69cdc97f6752ea33a875b6458e8b"
+							],
+							"nonce": "0x1",
+							"compiled_class_hash": "0x7d50adbdf0ac129ba351f21b026e5ccf1741a318c13240e50795f1b7ecde94d"
+						}
+					}
+				},
+				"txn_hash": "0x3744af1511b472fa4dac94feefc944ec785c4a380e9b925ea408d4954729453"
+			}`,
 		},
 		"declare v3": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+			Txn: txAt(&networks.Sepolia, 570000, 6),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Declare": {
-                        "V3": {
-                            "version": "0x3",
-                            "class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
-                            "sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
-                            "signature": [
-                                "0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
-                                "0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
-                            ],
-                            "nonce": "0x1",
-                            "compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
-                            "resource_bounds": {
-                                "L1_GAS": {
-                                    "max_amount": "0x186a0",
-                                    "max_price_per_unit": "0x2540be400"
-                                },
-                                "L1_DATA": {
-                                    "max_amount": "0x186a0",
-                                    "max_price_per_unit": "0x2540be400"
-                                },
-                                "L2_GAS": {
-                                    "max_amount": "0x0",
-                                    "max_price_per_unit": "0x0"
-                                }
-                            },
-                            "tip": "0x0",
-                            "nonce_data_availability_mode": "L1",
-                            "fee_data_availability_mode": "L1",
-                            "account_deployment_data": [],
-                            "paymaster_data": []
-                        }
-                    }
-                },
-                "txn_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Declare": {
+						"V3": {
+							"version": "0x3",
+							"class_hash": "0x224518978adb773cfd4862a894e9d333192fbd24bc83841dc7d4167c09b89c5",
+							"sender_address": "0x36d67ab362562a97f9fba8a1051cf8e37ff1a1449530fb9f1f0e32ac2da7d06",
+							"signature": [
+								"0x5c6a94302ef4b6d80a4c6a3eaf5ad30e11fa13aa78f7397a4f69901ceb12b7",
+								"0x25bf97f481061f8abf5eb93e67eaebe6bb74dda34d7378a506f5ee2ff1daef1"
+							],
+							"nonce": "0x2b",
+							"compiled_class_hash": "0x6ff9f7df06da94198ee535f41b214dce0b8bafbdb45e6c6b09d4b3b693b1f17",
+							"resource_bounds": {
+								"L1_GAS": {
+									"max_amount": "0x0",
+									"max_price_per_unit": "0x10968159929e"
+								},
+								"L1_DATA": {
+									"max_amount": "0x120",
+									"max_price_per_unit": "0x99f"
+								},
+								"L2_GAS": {
+									"max_amount": "0x1ff3ec0",
+									"max_price_per_unit": "0x197aa1ce3"
+								}
+							},
+							"tip": "0x0",
+							"nonce_data_availability_mode": "L1",
+							"fee_data_availability_mode": "L1",
+							"account_deployment_data": [],
+							"paymaster_data": []
+						}
+					}
+				},
+				"txn_hash": "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155"
+			}`,
 		},
 		"deploy account v1": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
+			Txn: txAt(&networks.Sepolia, 0, 2),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "DeployAccount": {
-                        "V1": {
-                            "version": "0x1",
-                            "contract_address_salt": "0x7b9f4b7d6d49b60686004dd850a4b41c818d6eb69e226b8ea37ea025e6830f5",
-                            "class_hash": "0x5a9941d0cc16b8619a3325055472da709a66113afcc6a8ab86055da7d29c5f8",
-                            "constructor_calldata": [
-                                "0x7b16a9b7bb08d36950aa5d27d4d2c64bfd54f3ae16a0e01f21a6d410cb5179c"
-                            ],
-                            "max_fee": "0x2386f273b213da",
-                            "signature": [
-                                "0x7d31509f555031323050ed226012f0c6361b3dc34f0f5d2c65a76870fd8908b",
-                                "0x58d64f6d39dfb20586da0c40e3d575cab940009cdee6423b03268fd893bd27a"
-                            ],
-                            "nonce": "0x0"
-                        }
-                    }
-                },
-                "txn_hash": "0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"DeployAccount": {
+						"V1": {
+							"version": "0x1",
+							"contract_address_salt": "0x0",
+							"class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+							"constructor_calldata": [
+								"0x12c4df40394d06f157edec8d0e64db61fe0c271149ea860c8fe98def29ecf02"
+							],
+							"max_fee": "0x0",
+							"signature": [
+								"0x13f82fd9238dfc8d01543f89be2b5d5589b3eb93d9c3b888f1f94b089768771",
+								"0x2c279ec310c4dd58a296fab66b2624640780e79a1c5c87388e6150fb5384a9d"
+							],
+							"nonce": "0x0"
+						}
+					}
+				},
+				"txn_hash": "0x144f41e654d0916810a83df0fe8984043671200f28df1206f58566144e302dd"
+			}`,
 		},
 		"deploy account v3": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			Txn: txAt(&networks.Sepolia, 571531, 6),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "DeployAccount": {
-                        "V3": {
-                            "version": "0x3",
-                            "contract_address_salt": "0x0",
-                            "class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
-                            "constructor_calldata": [
-                                "0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c"
-                            ],
-                            "signature": [
-                                "0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec",
-                                "0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"
-                            ],
-                            "nonce": "0x0",
-                            "resource_bounds": {
-                                "L1_GAS": {
-                                    "max_amount": "0x186a0",
-                                    "max_price_per_unit": "0x5af3107a4000"
-                                },
-                                "L1_DATA": {
-                                    "max_amount": "0x186a0",
-                                    "max_price_per_unit": "0x5af3107a4000"
-                                },
-                                "L2_GAS": {
-                                    "max_amount": "0x0",
-                                    "max_price_per_unit": "0x0"
-                                }
-                            },
-                            "tip": "0x0",
-                            "nonce_data_availability_mode": "L1",
-                            "fee_data_availability_mode": "L1",
-                            "paymaster_data": []
-                        }
-                    }
-                },
-                "txn_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"DeployAccount": {
+						"V3": {
+							"version": "0x3",
+							"contract_address_salt": "0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3",
+							"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
+							"constructor_calldata": [
+								"0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3"
+							],
+							"signature": [
+								"0x3ef7f047c95592a04d4d754888dd8f125480a48dee23ee86c115d5da2a86573",
+								"0x65e8661ab1526b4f8ea50b76fea1a0e82543de1eb3885e415790d7e1b5a93c7"
+							],
+							"nonce": "0x0",
+							"resource_bounds": {
+								"L1_GAS": {
+									"max_amount": "0x0",
+									"max_price_per_unit": "0x1597b3274d88"
+								},
+								"L1_DATA": {
+									"max_amount": "0x210",
+									"max_price_per_unit": "0x97c"
+								},
+								"L2_GAS": {
+									"max_amount": "0xe6fa0",
+									"max_price_per_unit": "0x1920d1317"
+								}
+							},
+							"tip": "0x0",
+							"nonce_data_availability_mode": "L1",
+							"fee_data_availability_mode": "L1",
+							"paymaster_data": []
+						}
+					}
+				},
+				"txn_hash": "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975"
+			}`,
 		},
 		"declare v0": {
-			Hash: felt.NewUnsafeFromString[felt.Felt]("0x6d346ba207eb124355960c19c737698ad37a3c920a588b741e0130ff5bd4d6d"),
+			Txn: txAt(&networks.Sepolia, 0, 1),
 			Expected: `{
-                "query_bit": false,
-                "txn": {
-                    "Declare": {
-                        "V0": {
-                            "version": "0x0",
-                            "class_hash": "0x71e6ef53e53e6f5ca792fc4a5799a33e6f4118e4fd1d948dca3a371506f0cc7",
-                            "sender_address": "0x1",
-                            "max_fee": "0x0",
-                            "signature": [],
-                            "nonce": "0x0"
-                        }
-                    }
-                },
-                "txn_hash": "0x6d346ba207eb124355960c19c737698ad37a3c920a588b741e0130ff5bd4d6d"
-            }`,
+				"query_bit": false,
+				"txn": {
+					"Declare": {
+						"V0": {
+							"version": "0x0",
+							"class_hash": "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+							"sender_address": "0x1",
+							"max_fee": "0x0",
+							"signature": [],
+							"nonce": "0x0"
+						}
+					}
+				},
+				"txn_hash": "0x32538718071ad83ccd09fca03fe3a17add776ec12002d1c4e16ad4b92ddf752"
+			}`,
 		},
 	}
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			txn, err := gw.Transaction(t.Context(), test.Hash)
-			require.NoError(t, err)
-
-			jsonB, err := marshalTxn(txn)
+			jsonB, err := marshalTxn(test.Txn)
 			require.NoError(t, err)
 			assert.JSONEq(t, test.Expected, string(jsonB))
 		})

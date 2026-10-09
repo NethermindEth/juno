@@ -138,10 +138,6 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 		dir = "transaction_status"
 		queryArg = transactionHashArg
 
-	case strings.HasSuffix(path, "get_transaction"):
-		dir = "transaction"
-		queryArg = transactionHashArg
-
 	case strings.HasSuffix(path, "get_class_by_hash"):
 		dir = "class"
 		queryArg = classHashArg
@@ -182,9 +178,6 @@ func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (stri
 
 func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	switch {
-	case dir == "transaction" && queryArg == transactionHashArg:
-		// get_transaction not-found response
-		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
 	case dir == "transaction_status" && queryArg == transactionHashArg:
 		// get_transaction_status not-found response
 		resp := `{"tx_status":"NOT_RECEIVED","finality_status":"NOT_RECEIVED","execution_status":null}`
