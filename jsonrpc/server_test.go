@@ -770,6 +770,43 @@ func TestHandleReaderReadError(t *testing.T) {
 	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"connection reset"},"id":null}`, string(res))
 }
 
+// stallReader returns (0, nil) before each read of the underlying reader
+type stallReader struct {
+	r       io.Reader
+	stalled bool
+}
+
+func (s *stallReader) Read(p []byte) (int, error) {
+	if s.stalled = !s.stalled; s.stalled {
+		return 0, nil
+	}
+	return s.r.Read(p)
+}
+
+func TestHandleReaderTrailingData(t *testing.T) {
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "test",
+		Handler: func() (int, *jsonrpc.Error) { return 1, nil },
+	}))
+	req := `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	padding := strings.Repeat(" ", 300)
+
+	t.Run("empty reads are not trailing data", func(t *testing.T) {
+		body := &stallReader{r: iotest.OneByteReader(strings.NewReader(req + padding))}
+		res, _, err := server.HandleReader(t.Context(), body)
+		require.NoError(t, err)
+		require.Equal(t, `{"jsonrpc":"2.0","result":1,"id":1}`, string(res))
+	})
+
+	t.Run("offset spans buffer chunks", func(t *testing.T) {
+		res, _, err := server.HandleReader(t.Context(), strings.NewReader(req+padding+"x"))
+		require.NoError(t, err)
+		require.Contains(t, string(res), fmt.Sprintf(
+			"unexpected data after the request [line 1, position %d]", len(req)+len(padding)+1))
+	})
+}
+
 type fakeConn struct {
 	ctx context.Context
 }

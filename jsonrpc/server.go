@@ -36,10 +36,11 @@ const (
 	ServerBusy = -32004
 )
 
+const bufferSize = 128
+
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
-	bufferSize       = 128
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
@@ -563,19 +564,22 @@ func decodeOne(dec *json.Decoder, src io.Reader, v any) error {
 	}
 	rest := io.MultiReader(dec.Buffered(), src)
 	offset := int(dec.InputOffset())
+	var buf [bufferSize]byte
 	for {
-		var b [1]byte
-		if _, err := rest.Read(b[:]); err != nil {
+		n, err := rest.Read(buf[:])
+		for _, b := range buf[:n] {
+			switch b {
+			case ' ', '\t', '\r', '\n':
+				offset++
+			default:
+				return &trailingDataError{offset: offset}
+			}
+		}
+		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
-		}
-		switch b[0] {
-		case ' ', '\t', '\r', '\n':
-			offset++
-		default:
-			return &trailingDataError{offset: offset}
 		}
 	}
 }
