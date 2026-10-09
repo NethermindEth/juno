@@ -23,7 +23,7 @@ The goal with these flags is to shape how pre-confirmed polls behave when receiv
 These flags allow users to fine-tune and decide for which main objective they want to optimize: to minimize latency, by setting `--preconfirmed-on-demand-wait` to 0, or to minimize how old the answered data is, at the cost of some latency, by being willing to let a few requests wait.
 
 :::note
-Waiting for the pre-confirmed block to be refetched from the sequencer may seem counterintuitive at first, due to the latency increase, but it guarantees receiving the most up-to-date data. If there were no wait at all, Juno would need to be queried several times to get the updated data.
+Waiting for the pre-confirmed block to be refetched from the sequencer may seem counterintuitive at first, due to the latency increase, but it returns the most up-to-date data on nearly every request. If there were no wait at all, Juno would need to be queried again to get the updated data.
 :::
 
 The following flag settings strike a good balance between latency and data staleness based on the different node use cases.
