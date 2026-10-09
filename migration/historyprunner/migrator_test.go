@@ -28,10 +28,19 @@ func setupChain(
 	totalBlocks uint64,
 ) (db.KeyValueStore, []*testutils.StoredBlock) {
 	t.Helper()
+	return setupChainWith(t, totalBlocks, testutils.StoreBlock)
+}
+
+func setupChainWith(
+	t *testing.T,
+	totalBlocks uint64,
+	store func(*testing.T, db.KeyValueStore, uint64) *testutils.StoredBlock,
+) (db.KeyValueStore, []*testutils.StoredBlock) {
+	t.Helper()
 	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
-		blocks[i] = testutils.StoreBlock(t, database, i)
+		blocks[i] = store(t, database, i)
 	}
 	tip := totalBlocks - 1
 	require.NoError(t, core.WriteChainHeight(database, tip))
@@ -67,7 +76,7 @@ func TestMigrate_FullRun(t *testing.T) {
 
 			database, blocks := setupChain(t, totalBlocks)
 
-			m := historyprunner.New(tc.retainedBlocks, 0)
+			m := historyprunner.New(tc.retainedBlocks, 0, false)
 			state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 			require.NoError(t, err)
 			require.Nil(t, state, "fully completed migration must not return intermediate state")
@@ -112,7 +121,7 @@ func TestMigrate_MinAgeFloorTightensCutoff(t *testing.T) {
 		StateRoot:   felt.NewRandom[felt.Felt](),
 	}))
 
-	m := historyprunner.New(retainedBlocks, minAge)
+	m := historyprunner.New(retainedBlocks, minAge, false)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -148,7 +157,7 @@ func TestMigrate_MinAgeFloorIgnoredInDeepCatchUp(t *testing.T) {
 		StateRoot:   felt.NewRandom[felt.Felt](),
 	}))
 
-	m := historyprunner.New(retainedBlocks, minAge)
+	m := historyprunner.New(retainedBlocks, minAge, false)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -165,7 +174,7 @@ func TestMigrate_NoOpWhenChainShorterThanRetention(t *testing.T) {
 
 	database, blocks := setupChain(t, totalBlocks)
 
-	m := historyprunner.New(retainedBlocks, 0)
+	m := historyprunner.New(retainedBlocks, 0, false)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -180,7 +189,7 @@ func TestMigrate_NoOpWhenChainShorterThanRetention(t *testing.T) {
 // pointer is missing. This is the cold-start path on a fresh node.
 func TestMigrate_NoOpOnEmptyDB(t *testing.T) {
 	database := testutils.NewPebbleTestDB(t)
-	m := historyprunner.New(10, 0)
+	m := historyprunner.New(10, 0, false)
 	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
 	require.Nil(t, state)
@@ -230,7 +239,7 @@ func runCancellable(
 	defer cancel()
 	wrapped := &cancelAfterBlocks{KeyValueStore: database, cancel: cancel, after: int64(cancelAfter)}
 
-	m := historyprunner.New(retainedBlocks, 0)
+	m := historyprunner.New(retainedBlocks, 0, false)
 	require.NoError(t, m.Before(prevState))
 	state, err := m.Migrate(ctx, wrapped, &networks.Mainnet, log.NewNopZapLogger())
 	require.NoError(t, err)
@@ -278,4 +287,53 @@ func TestMigrate_CancelAndResume(t *testing.T) {
 	// End-state after multiple cancel/resume cycles must be byte-for-byte
 	// identical to a single-shot run.
 	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
+}
+
+// TestMigrate_NewState checks that the migration on new-state history keeps
+// every answer at or above the retention floor and leaves each key only its
+// latest entry below it.
+func TestMigrate_NewState(t *testing.T) {
+	const totalBlocks uint64 = 30
+	const retainedBlocks uint64 = 10
+	const oldestBlockKept = totalBlocks - retainedBlocks - 1
+	floor := oldestBlockKept - 1
+
+	database, blocks := setupChainWith(t, totalBlocks, testutils.StoreNewStateBlock)
+	want := testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1)
+
+	m := historyprunner.New(retainedBlocks, 0, true)
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+
+	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, core.BlockHashLag)
+	assert.Equal(t, want, testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1))
+
+	has := func(key []byte) bool {
+		ok, err := database.Has(key)
+		require.NoError(t, err)
+		return ok
+	}
+	for b := range totalBlocks {
+		kept := b >= floor
+		assert.Equal(t, kept, has(db.ContractStorageHistoryAtBlockKey(
+			testutils.SharedAddr1, testutils.SharedSlot, b)), "shared slot at %d", b)
+		assert.Equal(t, kept, has(db.ContractNonceHistoryAtBlockKey(testutils.SharedAddr1, b)))
+		assert.Equal(t, kept, has(db.ContractClassHashHistoryAtBlockKey(testutils.SharedAddr2, b)))
+	}
+	assert.False(t, bucketHasKeys(t, database, db.Temporary), "scratch space must be wiped")
+
+	// Re-running on the pruned history must not change any answer
+	_, err = historyprunner.New(retainedBlocks, 0, true).
+		Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	assert.Equal(t, want, testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1))
+}
+
+func bucketHasKeys(t *testing.T, r db.KeyValueReader, bucket db.Bucket) bool {
+	t.Helper()
+	it, err := r.NewIterator(bucket.Key(), true)
+	require.NoError(t, err)
+	defer it.Close()
+	return it.First()
 }
