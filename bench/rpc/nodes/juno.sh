@@ -10,5 +10,6 @@ exec "$NODE_BIN" \
   --network "$NODE_NETWORK" \
   --disable-sync \
   --disable-l1-verification \
+  --max-vm-queue 16384 \
   --http \
   --http-port 6060
