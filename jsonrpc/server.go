@@ -137,6 +137,7 @@ func (r *Request) isSane() error {
 // validID reports whether id is a valid JSON-RPC request id: a string, null,
 // or a number with no fractional part.
 func validID(id json.RawMessage) bool {
+	// The decoder never produces an empty value, so id[0] is safe
 	switch id[0] {
 	case '"', 'n':
 		return true

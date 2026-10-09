@@ -3,6 +3,7 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/iotest"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils/log"
@@ -755,6 +757,17 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
 	require.NotNil(t, header)
+}
+
+func TestHandleReaderReadError(t *testing.T) {
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
+	body := io.MultiReader(
+		strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`),
+		iotest.ErrReader(errors.New("connection reset")),
+	)
+	res, _, err := server.HandleReader(t.Context(), body)
+	require.NoError(t, err)
+	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"connection reset"},"id":null}`, string(res))
 }
 
 type fakeConn struct {
