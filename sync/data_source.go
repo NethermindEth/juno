@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 )
 
 type CommittedBlock struct {

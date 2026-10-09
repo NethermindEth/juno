@@ -1,4 +1,5 @@
-package feeder
+// Package adaptfeeder adapts feeder gateway responses to core types.
+package adaptfeeder
 
 import (
 	"context"
@@ -44,6 +45,7 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 	if err != nil {
 		return core.Header{}, err
 	}
+	//nolint:exhaustruct_v5 // the header-only endpoint returns only the hash and number
 	return core.Header{
 		Hash:   response.Hash,
 		Number: response.Number,

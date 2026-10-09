@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -25,7 +26,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"

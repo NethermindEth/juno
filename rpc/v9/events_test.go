@@ -3,6 +3,7 @@ package rpcv9_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -16,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v9"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/require"

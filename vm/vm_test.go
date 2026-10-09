@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -15,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
