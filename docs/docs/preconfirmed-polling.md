@@ -14,11 +14,20 @@ Juno unlocks the possibility for its users to decide whether to minimize respons
 - `--preconfirmed-stale-after` sets after how much time polled data is considered old.
 - `--preconfirmed-on-demand-wait` sets how long a request that triggers a poll waits for it before answering with the stored data.
 
+In other words, `--preconfirmed-poll-interval` sets when the node updates his pre-confirmed data on its own, independent if there are requests for pre-confirmed data. `--preconfirmed-on-demand-wait` tells requests that are waiting for the data how much to wait for it to be refetched (worst case) before reeturning. Once a new pre-confirmed has been fetched, a new one won't be re-fetched until `--preconfirmed-stale-after` time passes; during that window every, new request will use the cached data.
+
 The goal with these flags is to shape how pre-confirmed polls behave when receiving a pre-confirmed request, by either answering directly with what's in memory, minimizing latency but risking answering with stale data, or, on the contrary, polling the sequencer first and waiting for the answer, maximizing data freshness at the cost of one extra round trip between Juno and the sequencer.
 
 ## Suggested presets
 
-Depending on the node's use case, the following flag settings strike a good balance between latency and data staleness.
+These flags allow users to fine tune and decide for which main objective they want to optimize, minimal latency by setting `--preconfirmed-on-demand-wait` to 0 or to minimize how old data answered is, at the cost of some latency by willing to wait for a few requests.
+
+
+:::note
+Waiting for the pre-confirmed to be refetched from the sequencer may seem counter intuititive at first, due to latency increase but guaranteeing to receive the most up to date data. If there was no wait at all, Juno would need to be queried several times to get the updated data. 
+:::
+
+The following flag settings strike a good balance between latency and data staleness based on the different node use cases.
 
 ### Default (for App Developers, Stakers and Explorers)
 
@@ -43,6 +52,7 @@ Users looking to maximize data freshness at the cost of some initial latency wil
 - `--preconfirmed-poll-interval 500ms`
 - `--preconfirmed-stale-after 250ms`
 - `--preconfirmed-on-demand-wait 1s`
+
 
 ## Study on the effect of these flags
 
