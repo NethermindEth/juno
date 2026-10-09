@@ -84,19 +84,20 @@ func AssertTracedBlockTransactions(
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (*core.Block, error) {
-		block := adaptfeedertest.Block(t, client, number)
+	mockReader.EXPECT().BlockByNumber(gomock.Any()).
+		DoAndReturn(func(number uint64) (*core.Block, error) {
+			block := adaptfeedertest.Block(t, client, number)
 
-		// Simulate gas consumption in block receipts
-		for _, receipt := range block.Receipts {
-			receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
-				L1Gas:     5,
-				L2Gas:     10,
-				L1DataGas: 15,
+			// Simulate gas consumption in block receipts
+			for _, receipt := range block.Receipts {
+				receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
+					L1Gas:     5,
+					L2Gas:     10,
+					L1DataGas: 15,
+				}
 			}
-		}
-		return block, nil
-	}).AnyTimes()
+			return block, nil
+		}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
 
