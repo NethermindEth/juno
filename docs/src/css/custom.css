@@ -432,6 +432,13 @@ html {
   max-width: 52rem;
 }
 
+/* Themed figures: a light and a dark SVG embedded back to back, told apart
+   by the #gh-...-mode-only fragment on the src; the other theme's is hidden. */
+:root[data-theme="light"] img[src$="#gh-dark-mode-only"],
+:root[data-theme="dark"] img[src$="#gh-light-mode-only"] {
+  display: none;
+}
+
 /* ── Code ──────────────────────────────────────────────────────────── */
 .theme-code-block {
   box-shadow: none !important;

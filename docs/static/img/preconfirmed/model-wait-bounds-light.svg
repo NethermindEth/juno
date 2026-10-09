@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 422" width="760" height="422" font-family="'DM Sans', sans-serif" role="img" aria-labelledby="title desc">
+<title id="title">Worst-case latency and worst-case age of the answer as functions of the wait cap, for the default tick and fresh window: the latency bound rises with the cap until it equals the poll's duration and stays there, and the age bound drops from 1120 ms to 370 ms at a cap of 120 ms for an ordinary poll, or from 1240 ms to 490 ms at 240 ms for a slow poll; the 300 ms default cap covers both</title>
+<desc id="desc">Worst-case latency and worst-case age of the answer as functions of the wait cap, for the default tick and fresh window: the latency bound rises with the cap until it equals the poll's duration and stays there, and the age bound drops from 1120 ms to 370 ms at a cap of 120 ms for an ordinary poll, or from 1240 ms to 490 ms at 240 ms for a slow poll; the 300 ms default cap covers both</desc>
+<rect x="0" y="0" width="760" height="422" fill="#f6f6f8"/>
+<rect x="0.5" y="0.5" width="759" height="421" rx="8" fill="#f6f6f8" stroke="#e0e0ec"/>
+<line x1="16.0" y1="22.0" x2="34.0" y2="22.0" stroke="#2a78d6" stroke-width="2"/>
+<text x="40.0" y="26.0" font-size="12" fill="#3e3e57" text-anchor="start" font-weight="normal">ordinary poll, R = 120 ms</text>
+<line x1="235.0" y1="22.0" x2="253.0" y2="22.0" stroke="#86b6ef" stroke-width="2" stroke-dasharray="5,3"/>
+<text x="259.0" y="26.0" font-size="12" fill="#3e3e57" text-anchor="start" font-weight="normal">slow poll, R = 240 ms</text>
+<line x1="110.0" y1="174.0" x2="740.0" y2="174.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="102.0" y="178.0" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">0</text>
+<line x1="110.0" y1="137.3" x2="740.0" y2="137.3" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="141.3" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">100</text>
+<line x1="110.0" y1="100.7" x2="740.0" y2="100.7" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="104.7" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">200</text>
+<line x1="110.0" y1="64.0" x2="740.0" y2="64.0" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="68.0" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">300</text>
+<line x1="110.0" y1="366.0" x2="740.0" y2="366.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="102.0" y="370.0" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">0</text>
+<line x1="110.0" y1="319.8" x2="740.0" y2="319.8" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="323.8" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">400</text>
+<line x1="110.0" y1="273.7" x2="740.0" y2="273.7" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="277.7" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">800</text>
+<line x1="110.0" y1="227.5" x2="740.0" y2="227.5" stroke="#ebebf3" stroke-width="1"/>
+<text x="102.0" y="231.5" font-size="12" fill="#585873" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace">1200</text>
+<text x="110.0" y="54.0" font-size="12.5" fill="#12123a" text-anchor="start" font-weight="600"><tspan font-family="'DM Mono', monospace">L*</tspan><tspan>, worst-case latency (ms)</tspan></text>
+<text x="110.0" y="206.0" font-size="12.5" fill="#12123a" text-anchor="start" font-weight="600"><tspan font-family="'DM Mono', monospace">A*</tspan><tspan>, worst-case age of the answer (ms)</tspan></text>
+<line x1="582.5" y1="64.0" x2="582.5" y2="174.0" stroke="#585873" stroke-width="1" opacity="1.0"/>
+<line x1="582.5" y1="216.0" x2="582.5" y2="366.0" stroke="#585873" stroke-width="1" opacity="1.0"/>
+<line x1="346.2" y1="64.0" x2="346.2" y2="174.0" stroke="#585873" stroke-width="1" opacity="0.5"/>
+<line x1="346.2" y1="216.0" x2="346.2" y2="366.0" stroke="#585873" stroke-width="1" opacity="0.5"/>
+<text x="587.5" y="76.0" font-size="12" fill="#4d4d65" text-anchor="start" font-weight="normal" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke"><tspan>default cap, </tspan><tspan font-family="'DM Mono', monospace">300 ms</tspan></text>
+<text x="351.2" y="76.0" font-size="12" fill="#4d4d65" text-anchor="start" font-weight="normal" font-family="'DM Mono', monospace" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke">150 ms</text>
+<path d="M110.0,174.0 L299.0,130.0 L740.0,130.0" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round"/>
+<path d="M110.0,174.0 L488.0,86.0 L740.0,86.0" fill="none" stroke="#86b6ef" stroke-width="2" stroke-dasharray="5,3" stroke-linejoin="round"/>
+<text x="745.0" y="134.0" font-size="12" fill="#4d4d65" text-anchor="start" font-weight="normal" font-family="'DM Mono', monospace">R</text>
+<path d="M110.0,222.9 L488.0,222.9" fill="none" stroke="#86b6ef" stroke-width="2" stroke-dasharray="5,3"/>
+<line x1="488.0" y1="226.9" x2="488.0" y2="305.5" stroke="#86b6ef" stroke-width="1" stroke-dasharray="2,3"/>
+<path d="M488.0,309.5 L740.0,309.5" fill="none" stroke="#86b6ef" stroke-width="2" stroke-dasharray="5,3"/>
+<circle cx="488.0" cy="222.9" r="4" fill="#f6f6f8" stroke="#86b6ef" stroke-width="2"/>
+<circle cx="488.0" cy="309.5" r="4" fill="#86b6ef" stroke="#f6f6f8" stroke-width="2"/>
+<path d="M110.0,236.8 L299.0,236.8" fill="none" stroke="#2a78d6" stroke-width="2"/>
+<line x1="299.0" y1="240.8" x2="299.0" y2="319.3" stroke="#2a78d6" stroke-width="1" stroke-dasharray="2,3"/>
+<path d="M299.0,323.3 L740.0,323.3" fill="none" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="299.0" cy="236.8" r="4" fill="#f6f6f8" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="299.0" cy="323.3" r="4" fill="#2a78d6" stroke="#f6f6f8" stroke-width="2"/>
+<text x="114.0" y="252.8" font-size="12" fill="#4d4d65" text-anchor="start" font-weight="normal" font-family="'DM Mono', monospace" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke">I + R = 1120 ms</text>
+<text x="736.0" y="339.3" font-size="12" fill="#4d4d65" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke">S + R = 370 ms</text>
+<text x="498.0" y="226.9" font-size="12" fill="#4d4d65" text-anchor="start" font-weight="normal" font-family="'DM Mono', monospace" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke">1240 ms</text>
+<text x="736.0" y="303.5" font-size="12" fill="#4d4d65" text-anchor="end" font-weight="normal" font-family="'DM Mono', monospace" stroke="#f6f6f8" stroke-width="4" stroke-linejoin="round" paint-order="stroke">490 ms</text>
+<line x1="110.0" y1="366.0" x2="110.0" y2="371.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="110.0" y="384.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal" font-family="'DM Mono', monospace">0</text>
+<line x1="267.5" y1="366.0" x2="267.5" y2="371.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="267.5" y="384.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal" font-family="'DM Mono', monospace">100</text>
+<line x1="425.0" y1="366.0" x2="425.0" y2="371.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="425.0" y="384.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal" font-family="'DM Mono', monospace">200</text>
+<line x1="582.5" y1="366.0" x2="582.5" y2="371.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="582.5" y="384.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal" font-family="'DM Mono', monospace">300</text>
+<line x1="740.0" y1="366.0" x2="740.0" y2="371.0" stroke="#e0e0ec" stroke-width="1"/>
+<text x="740.0" y="384.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal" font-family="'DM Mono', monospace">400</text>
+<text x="425.0" y="404.0" font-size="12" fill="#585873" text-anchor="middle" font-weight="normal"><tspan font-family="'DM Mono', monospace">W</tspan><tspan>, the on-demand wait cap (ms)</tspan></text>
+</svg>

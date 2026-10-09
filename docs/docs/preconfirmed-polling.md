@@ -77,6 +77,52 @@ Three terms name what the options control, and a configuration is written as `in
 
 Each configuration below opens with a schematic timeline that applies these rules to the same two seconds: the same gateway state changes (A to B, C and D), the same 120 ms polls and the same eight reads, four of them at once at 1300 ms. A filled dot is a read that was caught up, a hollow dot one state behind; the shaded band after each completed poll is the fresh window; the bottom lane is the age of the data each read gets, counted from when its poll was sent.
 
+### How the three options determine latency and staleness
+
+Named time variables make the rules above precise: the symbols first, then the relations between them, then the worst cases in closed form.
+
+| Symbol | Meaning |
+| --- | --- |
+| `I` | the tick, `--preconfirmed-poll-interval` |
+| `S` | the fresh window, `--preconfirmed-stale-after` |
+| `W` | the wait cap, `--preconfirmed-on-demand-wait` |
+| `R` | the duration of one poll: one gateway round trip, about 120 ms from the test host; a poll that finds the gateway on a new block also fetches the block it was following, two round trips, about 240 ms |
+| `L` | the time a read spends waiting for pre-confirmed data inside the node |
+| `A` | the age of the data a read is answered with, counted from the moment the poll that fetched it was sent |
+| `L*`, `A*` | the largest `L` and `A` over all the moments at which a read can arrive |
+| `C`, `r` | the node's poll rate and the rate of `pre_confirmed` reads |
+
+The gateway may change at any moment after a poll is sent, so `A` is the worst-case staleness of an answer: the staleness measured above is at most `A`. Every poll is taken to last `R` and to succeed; a refused or failed poll leaves the window closed, so the next read polls again, and is left out of the model.
+
+**Relations.** A poll sent at time `p` completes at `p + R`; its fresh window is `[p + R, p + R + S]`, measured from the completion. A read arriving at time `x` inside the window answers at once from the stored block: `L = 0`, `A = x − p ≤ S + R`. A read arriving outside it triggers a poll, or joins the one in flight, and waits for it at most `W`. If the poll completes within the wait, the read answers with its result: `L = R` for the read that triggered it, less for one that joined, and `A = R`. Otherwise the read answers after `W` with the stored block: `L = W`, and `A` is the stored block's age plus `W`. With `W = 0` no read waits; the poll a read triggers serves later reads. Left alone, the node polls once per tick; a successful read-triggered poll restarts the tick from its completion; polls never overlap. With `S ≥ I` the window stays open from one tick's poll to the next: no read triggers a poll, and `W` has no effect.
+
+![One polling cycle with the default options: a tick poll of 120 ms, its 250 ms fresh window, a read at 250 ms answered at once with data 250 ms old, a read at 700 ms that triggers a poll and waits 120 ms for data 120 ms old, the 1000 ms tick cancelled, and the age of the stored block as a sawtooth](/img/preconfirmed/model-cycle-light.svg#gh-light-mode-only)![One polling cycle with the default options: a tick poll of 120 ms, its 250 ms fresh window, a read at 250 ms answered at once with data 250 ms old, a read at 700 ms that triggers a poll and waits 120 ms for data 120 ms old, the 1000 ms tick cancelled, and the age of the stored block as a sawtooth](/img/preconfirmed/model-cycle-dark.svg#gh-dark-mode-only)
+
+At any instant the stored block comes from the last completed poll, sent at most one poll spacing plus `R` earlier. On the tick the spacing is `I`, so the stored block is never older than `I + R`. The first tick after a read-triggered poll is sent `I` after that poll's completion, one `R` later than the tick alone would send it: a read landing in that tick's poll can see one more `R`. The results below take the tick as settled, as it is for reads more than `I + 2R` apart.
+
+**Timer only** (`S ≥ I`). No read waits, `L* = 0`. A read at a random moment finds the stored block between `R` old, a poll having just completed, and `I + R` old, the next poll about to complete, every age in between equally likely: `A* = I + R`, mean age `R + I/2`. The node polls once per tick: `C = 1/I`.
+
+**On demand, no wait** (`S < I`, `W = 0`). Again `L* = 0`. A read inside the window has `A ≤ S + R`; a read outside it answers with the stored block, at most `I + R` old: `A* = I + R`, the timer's worst case, and for reads farther apart than the tick the timer's distribution too, uniform over `[R, I + R)`. The poll a read triggers helps only the reads that follow within `S` of its completion.
+
+**On demand with a wait** (`S < I`, `W > 0`). A read inside the window has `L = 0` and `A ≤ S + R`; a read outside it waits `min(R, W)`. If `W ≥ R` the poll completes within the wait and the read is caught up, `A = R`, so the worst case is a read inside the window: `L* = R`, `A* = S + R`. If `W < R` the read gives up and answers with the stored block, which can be `I + R` old when the read joined a tick's poll: `L* = W`, `A* = I + R`, as with no wait at all. Hence `L* = min(R, W)`, and `A* = S + R` when `W ≥ R`, `A* = I + R` when `W < R`: the cap bounds the latency tail, a cap shorter than the poll buys nothing in the worst case, and only a cap that covers the slow polls, about 240 ms, buys the freshness for every read.
+
+![Worst-case latency and worst-case age of the answer as functions of the wait cap, for the default tick and fresh window: the latency bound rises with the cap until it equals the poll's duration and stays there, and the age bound drops from 1120 ms to 370 ms at a cap of 120 ms for an ordinary poll, or from 1240 ms to 490 ms at 240 ms for a slow poll; the 300 ms default cap covers both](/img/preconfirmed/model-wait-bounds-light.svg#gh-light-mode-only)![Worst-case latency and worst-case age of the answer as functions of the wait cap, for the default tick and fresh window: the latency bound rises with the cap until it equals the poll's duration and stays there, and the age bound drops from 1120 ms to 370 ms at a cap of 120 ms for an ordinary poll, or from 1240 ms to 490 ms at 240 ms for a slow poll; the 300 ms default cap covers both](/img/preconfirmed/model-wait-bounds-dark.svg#gh-dark-mode-only)
+
+**Which reads wait.** For reads farther apart than the tick, the stored block's age at arrival is uniform over `[R, I + R)`, so a read lands inside the window with probability `S/I` and waits with probability `1 − S/I`: three quarters at `I = 1 s`, `S = 250 ms` (measured: 16 of 21 sparse reads waited), half at `I = 500 ms` (measured: 10 of 29). Such a reader's median read waits `R`, and its expected latency is about `(1 − S/I)·R`.
+
+**Gateway cost.** When reads are rarer than the tick, `C = 1/I`. Under continuous reads every poll is read-driven: a poll takes `R`, its window lasts `S`, and the next read, about `1/r` later, triggers the next poll: `C = 1/(R + S + 1/r)`, which rises with the read rate towards `1/(R + S)` and never exceeds it, because polls never overlap and each successful one is followed by a window of `S`. With `R = 120 ms`: `S = 250 ms` caps the polls at about 2.7 per second, `S = 100 ms` at about 4.5, `S = 0` at `1/R`, about 8; measured at 20 reads per second, 2.8, 3.8 and 5.3 requests per second, the last two with 12 % and 28 % refused (a refused poll returns early and triggers another). About one request per new block, every two seconds or so, comes on top. `S` is therefore the knob that bounds the poll rate under load, and with it whether the gateway throttles the node; `I` sets the idle cost; `W` changes no poll.
+
+**Summary.** Mean ages are for reads farther apart than the tick.
+
+| | `L*` | `A*` | mean `A` | `C`, no reads | `C`, under load |
+| --- | --- | --- | --- | --- | --- |
+| timer only, `S ≥ I` | 0 | `I + R` | `R + I/2` | `1/I` | `1/I` |
+| on demand, no wait, `W = 0` | 0 | `I + R` | `R + I/2` | `1/I` | at most `1/(R + S)` |
+| on demand, wait shorter than the poll, `W < R` | `W` | `I + R` | about `R + I/2` | `1/I` | at most `1/(R + S)` |
+| on demand, wait covering the poll, `W ≥ R` | `R` | `S + R` | `R + S²/(2I)` | `1/I` | at most `1/(R + S)` |
+
+For the default, `I = 1 s`, `S = 250 ms`, `W = 300 ms`, `R = 120 ms`: `L* = 120 ms`, 240 ms for a slow poll, and the cap, 300 ms, for a poll slower than that; `A* = 370 ms`, with a mean age of about 150 ms against 620 ms for a 1 s timer; three quarters of the sparse reads wait; `C` from 1 per second with no reads to at most about 2.7 under load. The measurements above agree with the model where it predicts: a p50 of 121 ms for sparse reads, against `R`, and a p99 of 302 ms in the worst read pattern, against the cap; 1.4 requests per second with no reads and 2.8 at 20 reads per second, each `C` plus the per-block extra. Where the model only bounds, they stay inside it: a staleness p90 of 0 ms for sparse reads and at 20 reads per second, with 95 % to 100 % of reads caught up, against `A* = 370 ms`, since a read is behind only if the gateway changed within its `A`, the minority of cases for ages of a round trip or two.
+
 ### Polling on a timer only: `500ms / 500ms / 0s`
 
 ![Timeline of polling on a timer only: polls every 500 ms, no read waits, three of eight reads one state behind](/img/preconfirmed/timeline-tick-only.svg)
