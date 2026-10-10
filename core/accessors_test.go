@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -22,10 +22,8 @@ func setupForTxsAndReceiptsTests(t *testing.T) (db.KeyValueStore, *core.Block) {
 	t.Helper()
 	memDB := memory.New()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 
 	require.NoError(t, core.WriteTransactionsAndReceipts(
 		memDB,
@@ -58,12 +56,10 @@ func TestWriteTransactionsAndReceipts(t *testing.T) {
 	t.Parallel()
 	memDB := memory.New()
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 
-	err = core.WriteTransactionsAndReceipts(
+	err := core.WriteTransactionsAndReceipts(
 		memDB,
 		block.Number,
 		block.Transactions,

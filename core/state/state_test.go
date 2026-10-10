@@ -1,11 +1,10 @@
 package state
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -817,16 +816,10 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 
 func BenchmarkStateUpdate(b *testing.B) {
 	client := feeder.NewTestClient(b, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	su0, err := gw.StateUpdate(b.Context(), block0)
-	require.NoError(b, err)
-
-	su1, err := gw.StateUpdate(b.Context(), block1)
-	require.NoError(b, err)
-
-	su2, err := gw.StateUpdate(b.Context(), block2)
-	require.NoError(b, err)
+	su0 := adaptfeedertest.StateUpdate(b, client, block0)
+	su1 := adaptfeedertest.StateUpdate(b, client, block1)
+	su2 := adaptfeedertest.StateUpdate(b, client, block2)
 
 	stateUpdates := []*core.StateUpdate{su0, su1, su2}
 
@@ -848,19 +841,9 @@ func BenchmarkStateUpdate(b *testing.B) {
 // Get the first 3 state updates from the mainnet.
 func getStateUpdates(t *testing.T) []*core.StateUpdate {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
-	su0, err := gw.StateUpdate(ctx, 0)
-	require.NoError(t, err)
-
-	su1, err := gw.StateUpdate(ctx, 1)
-	require.NoError(t, err)
-
-	su2, err := gw.StateUpdate(ctx, 2)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
+	su2 := adaptfeedertest.StateUpdate(t, client, 2)
 
 	return []*core.StateUpdate{su0, su1, su2}
 }

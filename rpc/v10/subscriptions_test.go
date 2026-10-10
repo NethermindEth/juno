@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -219,16 +219,10 @@ func TestSubscribeEvents(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	b2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
-
-	b3, err := gw.BlockByNumber(t.Context(), 56379)
-	require.NoError(t, err)
+	b1 := adaptfeedertest.Block(t, client, 56377)
+	b2 := adaptfeedertest.Block(t, client, 56378)
+	b3 := adaptfeedertest.Block(t, client, 56379)
 
 	b1Filtered, b1Emitted := createTestEvents(
 		t,
@@ -889,7 +883,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		mockGateway := mocks.NewMockGateway(mockCtrl)
-		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
@@ -898,8 +891,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 1164621)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 1164621)
 
 		txToBroadcast := BroadcastedTransaction{
 			Transaction: AdaptCoreTransaction(block.Transactions[0]),
@@ -1027,12 +1019,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, logger)
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 38748)
 
 		targetTxn := block.Transactions[0]
 		targetReceipt := block.Receipts[0]
@@ -1415,13 +1405,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	toTransactionsWithFinalityStatus := func(
 		txs []core.Transaction,
@@ -2033,13 +2019,9 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	type stepInfo struct {
 		description   string

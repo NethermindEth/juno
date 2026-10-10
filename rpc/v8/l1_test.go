@@ -2,9 +2,10 @@ package rpcv8_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -80,15 +81,15 @@ func TestGetMessageStatus(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := feeder.NewTestClient(t, &test.network)
-			gw := adaptfeeder.New(client)
-			block, err := gw.BlockByNumber(t.Context(), uint64(test.blockNum))
-			require.NoError(t, err)
+			block := adaptfeedertest.Block(t, client, uint64(test.blockNum))
 
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
-				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)
-				require.NoError(t, err)
-				l1handlerTxns[i] = txn
+				index := slices.IndexFunc(block.Transactions, func(txn core.Transaction) bool {
+					return txn.Hash().Equal(test.msgs[i].L1HandlerHash)
+				})
+				require.NotEqual(t, -1, index)
+				l1handlerTxns[i] = block.Transactions[index]
 			}
 
 			mockL1Client.EXPECT().TransactionReceipt(

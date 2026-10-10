@@ -11,51 +11,11 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestBlockByNumber(t *testing.T) {
-	numbers := []uint64{147, 11817}
-
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	for _, number := range numbers {
-		numberStr := strconv.FormatUint(number, 10)
-		t.Run("mainnet block number "+numberStr, func(t *testing.T) {
-			response, err := client.Block(ctx, numberStr)
-			require.NoError(t, err)
-			sig, err := client.Signature(ctx, numberStr)
-			require.NoError(t, err)
-			block, err := adapter.BlockByNumber(ctx, number)
-			require.NoError(t, err)
-			adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
-			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, block)
-		})
-	}
-}
-
-func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	response, err := client.Block(ctx, "latest")
-	require.NoError(t, err)
-	sig, err := client.Signature(ctx, "latest")
-	require.NoError(t, err)
-	block, err := adapter.BlockLatest(ctx)
-	require.NoError(t, err)
-	adaptedResponse, err := sn2core.AdaptBlock(&response, sig.Signature)
-	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, block)
-}
 
 func TestBlockHeaderLatest(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
@@ -70,28 +30,6 @@ func TestBlockHeaderLatest(t *testing.T) {
 
 	assert.Equal(t, block.Hash, header.Hash)
 	assert.Equal(t, block.Number, header.Number)
-}
-
-func TestStateUpdate(t *testing.T) {
-	numbers := []uint64{0, 1, 2, 21656}
-
-	client := feeder.NewTestClient(t, &networks.Mainnet)
-	adapter := adaptfeeder.New(client)
-	ctx := t.Context()
-
-	for _, number := range numbers {
-		numberStr := strconv.FormatUint(number, 10)
-		t.Run("number "+numberStr, func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, numberStr)
-			require.NoError(t, err)
-			feederUpdate, err := adapter.StateUpdate(ctx, number)
-			require.NoError(t, err)
-
-			adaptedResponse, err := sn2core.AdaptStateUpdate(&response)
-			require.NoError(t, err)
-			assert.Equal(t, adaptedResponse, feederUpdate)
-		})
-	}
 }
 
 func TestClassV0(t *testing.T) {
@@ -119,81 +57,6 @@ func TestClassV0(t *testing.T) {
 			require.Equal(t, adaptedResponse, classGeneric)
 		})
 	}
-}
-
-func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &networks.Goerli)
-	adapterGoerli := adaptfeeder.New(clientGoerli)
-
-	clientMainnet := feeder.NewTestClient(t, &networks.Mainnet)
-	adapterMainnet := adaptfeeder.New(clientMainnet)
-
-	ctx := t.Context()
-
-	t.Run("invoke transaction", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-
-		txn, err := adapterGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		invokeTx, ok := txn.(*core.InvokeTransaction)
-		require.True(t, ok)
-		assert.Equal(t, sn2core.AdaptInvokeTransaction(responseTx), invokeTx)
-	})
-
-	t.Run("deploy transaction", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-
-		txn, err := adapterGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		deployTx, ok := txn.(*core.DeployTransaction)
-		require.True(t, ok)
-		assert.Equal(t, sn2core.AdaptDeployTransaction(responseTx), deployTx)
-	})
-
-	t.Run("deploy account transaction", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
-		response, err := clientMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-
-		txn, err := adapterMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
-		require.True(t, ok)
-		assert.Equal(t, sn2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
-	})
-
-	t.Run("declare transaction", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-
-		txn, err := adapterGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		declareTx, ok := txn.(*core.DeclareTransaction)
-		require.True(t, ok)
-		assert.Equal(t, sn2core.AdaptDeclareTransaction(responseTx), declareTx)
-	})
-
-	t.Run("l1handler transaction", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
-		response, err := clientMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-
-		txn, err := adapterMainnet.Transaction(ctx, hash)
-		require.NoError(t, err)
-		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
-		require.True(t, ok)
-		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
-	})
 }
 
 func TestClassV1(t *testing.T) {
@@ -273,18 +136,6 @@ func TestAdapterErrorPaths(t *testing.T) {
 	ctx := t.Context()
 	missing := uint64(99999999)
 	missingHash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
-
-	t.Run("BlockByNumber error", func(t *testing.T) {
-		block, err := adapter.BlockByNumber(ctx, missing)
-		assert.Error(t, err)
-		assert.Nil(t, block)
-	})
-
-	t.Run("StateUpdate error", func(t *testing.T) {
-		su, err := adapter.StateUpdate(ctx, missing)
-		assert.Error(t, err)
-		assert.Nil(t, su)
-	})
 
 	t.Run("StateUpdateWithBlock error", func(t *testing.T) {
 		su, blk, err := adapter.StateUpdateWithBlock(ctx, missing)

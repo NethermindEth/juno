@@ -3,7 +3,7 @@ package core_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -84,14 +84,11 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	var expectedNext uint64 = 7
 	for i := range expectedNext {
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		s, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		s := adaptfeedertest.StateUpdate(t, client, i)
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
 	}
 

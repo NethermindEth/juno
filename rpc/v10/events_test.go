@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -151,14 +151,12 @@ func filterEventsByAddressAndKey(
 func fetchAndStoreBlock(
 	t *testing.T,
 	chain *blockchain.Blockchain,
-	gw *adaptfeeder.Feeder,
+	client *feeder.Client,
 	blockNumber uint64,
 ) {
 	t.Helper()
-	b, err := gw.BlockByNumber(t.Context(), blockNumber)
-	require.NoError(t, err)
-	s, err := gw.StateUpdate(t.Context(), blockNumber)
-	require.NoError(t, err)
+	b := adaptfeedertest.Block(t, client, blockNumber)
+	s := adaptfeedertest.StateUpdate(t, client, blockNumber)
 	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
 }
 
@@ -167,7 +165,7 @@ func setupTestChain(
 	t *testing.T,
 	network *networks.Network,
 	numBlocks uint64,
-) (*blockchain.Blockchain, *adaptfeeder.Feeder) {
+) (*blockchain.Blockchain, *feeder.Client) {
 	t.Helper()
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -177,25 +175,20 @@ func setupTestChain(
 	)
 
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
 	for i := range numBlocks {
-		fetchAndStoreBlock(t, chain, gw, i)
+		fetchAndStoreBlock(t, chain, client, i)
 	}
 
-	return chain, gw
+	return chain, client
 }
 
 func TestEvents(t *testing.T) {
 	network := networks.Sepolia
 	numCanonicalBlocks := uint64(5)
-	chain, gw := setupTestChain(t, &network, numCanonicalBlocks)
+	chain, client := setupTestChain(t, &network, numCanonicalBlocks)
 
-	block5, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks)
-	require.NoError(t, err)
-
-	block6, err := gw.BlockByNumber(t.Context(), numCanonicalBlocks+1)
-	require.NoError(t, err)
+	block5 := adaptfeedertest.Block(t, client, numCanonicalBlocks)
+	block6 := adaptfeedertest.Block(t, client, numCanonicalBlocks+1)
 
 	canonicalEvents := extractCanonicalEvents(t, chain, 0, numCanonicalBlocks-1)
 
@@ -234,11 +227,10 @@ func TestEvents(t *testing.T) {
 	canonicalMultiPreConfirmed = append(canonicalMultiPreConfirmed, multiPreConfirmedEvents...)
 
 	l1AcceptedBlockNumber := uint64(4)
-	l1AcceptedBlock, err := gw.BlockByNumber(t.Context(), l1AcceptedBlockNumber)
+	l1AcceptedBlock := adaptfeedertest.Block(t, client, l1AcceptedBlockNumber)
 	eventsFromL1AcceptedBlock := extractCanonicalEvents(
 		t, chain, l1AcceptedBlockNumber, l1AcceptedBlockNumber,
 	)
-	require.NoError(t, err)
 	require.NoError(t, chain.SetL1Head(&core.L1Head{
 		BlockNumber: l1AcceptedBlockNumber,
 		BlockHash:   l1AcceptedBlock.Hash,

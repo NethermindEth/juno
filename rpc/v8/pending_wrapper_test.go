@@ -3,7 +3,7 @@ package rpcv8_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -25,11 +25,9 @@ func TestPendingWrapper_Pending(t *testing.T) {
 	logger := log.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 
 	t.Run("Returns empty pending placeholder based on latest header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
