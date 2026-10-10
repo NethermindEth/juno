@@ -43,14 +43,17 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	var (
-		syntaxErr *json.SyntaxError
-		typeErr   *json.UnmarshalTypeError
+		syntaxErr   *json.SyntaxError
+		typeErr     *json.UnmarshalTypeError
+		trailingErr *trailingDataError
 	)
 	switch {
 	case errors.As(err, &syntaxErr):
 		return min(int(syntaxErr.Offset)-1, inputLength), true
 	case errors.As(err, &typeErr):
 		return min(int(typeErr.Offset)-1, inputLength), true
+	case errors.As(err, &trailingErr):
+		return min(trailingErr.offset, inputLength), true
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return inputLength, true
 	default:

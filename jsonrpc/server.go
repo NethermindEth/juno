@@ -36,18 +36,19 @@ const (
 	ServerBusy = -32004
 )
 
+const bufferSize = 128
+
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
-	bufferSize       = 128
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
 type Request struct {
-	Version string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-	ID      any    `json:"id,omitempty"`
+	Version string          `json:"jsonrpc"`
+	Method  string          `json:"method"`
+	Params  any             `json:"params,omitempty"`
+	ID      json.RawMessage `json:"id,omitempty"` // nil when absent, which marks a notification
 }
 
 // MarshalLogObject implements [zapcore.ObjectMarshaler].
@@ -70,10 +71,10 @@ func (r *Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type response struct {
-	Version string `json:"jsonrpc"`
-	Result  any    `json:"result,omitempty"`
-	Error   *Error `json:"error,omitempty"`
-	ID      any    `json:"id"`
+	Version string          `json:"jsonrpc"`
+	Result  any             `json:"result,omitempty"`
+	Error   *Error          `json:"error,omitempty"`
+	ID      json.RawMessage `json:"id"`
 }
 
 func errResponse(code int, data any) response {
@@ -134,17 +135,18 @@ func (r *Request) isSane() error {
 	return nil
 }
 
-// validID reports whether id is a valid JSON-RPC request id: a string, or a
-// number with no fractional part.
-func validID(id any) bool {
-	idType := reflect.TypeOf(id)
-	if idType.Kind() != reflect.String && idType.Name() != "Number" {
+// validID reports whether id is a valid JSON-RPC request id: a string, null,
+// or a number with no fractional part.
+func validID(id json.RawMessage) bool {
+	// The decoder never produces an empty value, so id[0] is safe
+	switch id[0] {
+	case '"', 'n':
+		return true
+	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return !bytes.Contains(id, []byte{'.'})
+	default:
 		return false
 	}
-	if idType.Name() == "Number" {
-		return !strings.Contains(id.(json.Number).String(), ".")
-	}
-	return true
 }
 
 type Parameter struct {
@@ -398,7 +400,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 	if !requestIsBatch {
 		req := new(Request)
-		if jsonErr := dec.Decode(req); jsonErr != nil {
+		if jsonErr := decodeOne(dec, bufferedReader, req); jsonErr != nil {
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			resp = new(errResponse(InvalidRequest, handleErr.Error()))
@@ -413,7 +415,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	} else if !s.disableBatchRequests {
 		var batchReq []json.RawMessage
 
-		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
+		if batchJSONErr := decodeOne(dec, bufferedReader, &batchReq); batchJSONErr != nil {
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
 		} else if len(batchReq) == 0 {
 			resp = new(errResponse(InvalidRequest, "empty batch"))
@@ -544,6 +546,44 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	return concatBatchResponses(responses), finalHeaders, nil
 }
 
+// trailingDataError marks bytes after the single JSON value of a request body
+type trailingDataError struct {
+	offset int
+}
+
+func (e *trailingDataError) Error() string {
+	return "unexpected data after the request"
+}
+
+// decodeOne decodes the next JSON value from dec, which reads from src, and
+// rejects anything but whitespace after it, as a request body holds exactly
+// one value
+func decodeOne(dec *json.Decoder, src io.Reader, v any) error {
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	rest := io.MultiReader(dec.Buffered(), src)
+	offset := int(dec.InputOffset())
+	var buf [bufferSize]byte
+	for {
+		n, err := rest.Read(buf[:])
+		for _, b := range buf[:n] {
+			switch b {
+			case ' ', '\t', '\r', '\n':
+				offset++
+			default:
+				return &trailingDataError{offset: offset}
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 func isBatch(reader *bufio.Reader) bool {
 	for n := 1; ; n++ {
 		buf, err := reader.Peek(n)
@@ -663,6 +703,9 @@ func (s *Server) callMethod(ctx context.Context, req *Request) (*response, http.
 		return res, header
 	}
 	res.Result = tuple[0].Interface()
+	if res.Result == nil { // omitempty would drop the key, and the spec requires it
+		res.Result = json.RawMessage("null")
+	}
 
 	return res, header
 }
