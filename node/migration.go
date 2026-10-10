@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -25,11 +26,11 @@ func registerMigrations(cfg *Config) *migration.Registry {
 	registry := migration.NewRegistry().
 		With(&blocktransactions.Migrator{}).
 		WithOptional(
-			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
+			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge, cfg.NewState),
 			cfg.Prune,
 			PruneModeFlag,
 		).
-		WithOptional(newstate.New(), cfg.NewState, "new-state").
+		WithOptional(newstate.New(), cfg.NewState, NewStateFlag).
 		With(&statedifflength.Migrator{})
 
 	return registry
@@ -51,6 +52,13 @@ func migrateIfNeeded(
 	}
 
 	migrateFn := func() error {
+		registry := registerMigrations(config)
+		if config.Prune && config.NewState {
+			if err := requireNewStateBeforePruning(database, registry); err != nil {
+				return err
+			}
+		}
+
 		// Run deprecated migrations first
 		if err := deprecated.MigrateIfNeeded(
 			ctx,
@@ -69,7 +77,6 @@ func migrateIfNeeded(
 		}
 
 		// Run new migrations
-		registry := registerMigrations(config)
 		runner, err := migration.NewRunner(
 			registry,
 			database,
@@ -93,6 +100,37 @@ func migrateIfNeeded(
 	}
 
 	return migrateFn()
+}
+
+// requireNewStateBeforePruning rejects migrating to the new state in the same
+// run that enables pruning. The pruning migration runs first and would leave
+// the new-state migration a pruned deprecated history, which it can't convert.
+func requireNewStateBeforePruning(database db.KeyValueReader, registry *migration.Registry) error {
+	if _, err := core.GetChainHeight(database); errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	metadata, err := migration.GetSchemaMetadata(database)
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return fmt.Errorf("getting schema metadata: %w", err)
+	}
+
+	flags := registry.OptionalMigrationFlags()
+	applied := func(flag string, version migration.SchemaVersion) bool {
+		idx := slices.Index(flags, flag)
+		return idx >= 0 && version.Has(uint8(idx))
+	}
+	if applied(NewStateFlag, metadata.CurrentVersion) {
+		return nil
+	}
+	if applied(PruneModeFlag, metadata.LastTargetVersion) {
+		return errors.New("a pruned database can't be migrated to the new state; " +
+			"resync with --new-state")
+	}
+	return errors.New("--prune-mode can't be enabled while migrating to the new state; " +
+		"run once with --new-state and without --prune-mode, then add --prune-mode")
 }
 
 // fetchL1HeadIfMissing writes an L1 head to disk before the history pruning

@@ -219,6 +219,11 @@ function parseValue(value) {
     return "prune-min-age";
   }
 
+  // Same for new-state.
+  if (value === "node.NewStateFlag") {
+    return "new-state";
+  }
+
   // VM default limits live in the `vm` package; hard-code their numeric
   // values so the rendered table shows the resolved default rather than
   // the raw Go identifier.
