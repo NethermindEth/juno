@@ -2,6 +2,8 @@ package rpcv9_test
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -42,6 +44,7 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var blockID rpc.BlockID
+			//nolint:staticcheck,nolintlint // SA9005 does not know json/v2 UnmarshalJSONFrom
 			require.NoError(t, json.Unmarshal([]byte(test.data), &blockID))
 			assert.Equal(t, test.expected, blockID)
 		})
@@ -65,23 +68,27 @@ func TestBlockIDUnmarshalJSON(t *testing.T) {
 	for _, test := range errorTests {
 		t.Run("error/"+test.name, func(t *testing.T) {
 			var blockID rpc.BlockID
+			//nolint:staticcheck,nolintlint // SA9005 does not know json/v2 UnmarshalJSONFrom
 			require.Error(t, json.Unmarshal([]byte(test.data), &blockID))
 		})
 	}
 
-	// encoding/json rejects malformed input before it reaches the unmarshaler, so call it directly.
+	// encoding/json rejects malformed input before it reaches the unmarshaler, so feed a
+	// decoder directly.
 	rawErrorTests := []struct {
 		name string
 		data string
 	}{
 		{"blank input", "  \n\t"},
 		{"unterminated tag", `"latest`},
+		{"truncated object", `{"block_number":`},
 	}
 
 	for _, test := range rawErrorTests {
 		t.Run("error/"+test.name, func(t *testing.T) {
 			var blockID rpc.BlockID
-			require.Error(t, blockID.UnmarshalJSON([]byte(test.data)))
+			dec := jsontext.NewDecoder(strings.NewReader(test.data))
+			require.Error(t, blockID.UnmarshalJSONFrom(dec))
 		})
 	}
 }

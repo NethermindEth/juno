@@ -2315,8 +2315,10 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := test.input.MarshalJSON()
+			before := *test.input
+			got, err := json.Marshal(test.input)
 			require.NoError(t, err)
+			assert.Equal(t, before, *test.input, "marshal must not mutate the input")
 
 			var gotMap, expectedMap map[string]any
 			require.NoError(t, json.Unmarshal(got, &gotMap))

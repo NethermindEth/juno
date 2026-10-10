@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -467,4 +468,53 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			require.Equal(t, test.expectedInitialReads, simulatedTxs.InitialReads)
 		})
 	}
+}
+
+func TestSimulateTransactionsResponseMarshalJSON(t *testing.T) {
+	simulated := []rpcv10.SimulatedTransaction{{
+		FeeEstimation: rpcv10.FeeEstimate{OverallFee: felt.NewFromUint64[felt.Felt](7)},
+	}}
+
+	t.Run("without initial reads marshals as an array", func(t *testing.T) {
+		data, err := json.Marshal(rpcv10.SimulateTransactionsResponse{SimulatedTransactions: simulated})
+		require.NoError(t, err)
+		require.True(t, strings.HasPrefix(string(data), "["), string(data))
+		require.NotContains(t, string(data), "initial_reads")
+	})
+
+	t.Run("with initial reads marshals as an object", func(t *testing.T) {
+		data, err := json.Marshal(rpcv10.SimulateTransactionsResponse{
+			SimulatedTransactions: simulated,
+			InitialReads:          &rpcv10.InitialReads{},
+		})
+		require.NoError(t, err)
+		var decoded map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(data, &decoded))
+		require.Len(t, decoded, 2)
+		require.Contains(t, decoded, "simulated_transactions")
+		require.Contains(t, decoded, "initial_reads")
+	})
+}
+
+func TestTraceBlockTransactionsResponseMarshalJSON(t *testing.T) {
+	traces := []rpcv10.TracedBlockTransaction{{TransactionHash: felt.NewFromUint64[felt.Felt](9)}}
+
+	t.Run("without initial reads marshals as an array", func(t *testing.T) {
+		data, err := json.Marshal(rpcv10.TraceBlockTransactionsResponse{Traces: traces})
+		require.NoError(t, err)
+		require.JSONEq(t, `[{"transaction_hash":"0x9"}]`, string(data))
+	})
+
+	t.Run("with initial reads marshals as an object", func(t *testing.T) {
+		data, err := json.Marshal(rpcv10.TraceBlockTransactionsResponse{
+			Traces:       traces,
+			InitialReads: &rpcv10.InitialReads{},
+		})
+		require.NoError(t, err)
+		var decoded map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(data, &decoded))
+		require.Len(t, decoded, 2)
+		require.JSONEq(t, `[{"transaction_hash":"0x9"}]`, string(decoded["traces"]))
+		require.Contains(t, decoded, "initial_reads")
+	})
 }

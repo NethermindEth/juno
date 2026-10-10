@@ -1,7 +1,8 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -27,10 +28,10 @@ type StorageAtResponseFlags struct {
 	IncludeLastUpdateBlock bool
 }
 
-// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponseFlags.
-func (f *StorageAtResponseFlags) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONFrom reads the flag names of a `starknet_getStorageAt` request.
+func (f *StorageAtResponseFlags) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := json.UnmarshalDecode(dec, &flags); err != nil {
 		return err
 	}
 	*f = StorageAtResponseFlags{}
@@ -56,43 +57,32 @@ type StorageAtResponse struct {
 	LastUpdateBlock uint64    `json:"last_update_block"`
 }
 
-// MarshalJSON implements the [json.Marshaler] interface for StorageAtResponse.
-func (st *StorageAtResponse) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes the bare storage value, or an object when the last update block
+// is requested.
+func (st *StorageAtResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if st.includeLastUpdateBlock {
 		type storageResultAlias StorageAtResponse
-		return json.Marshal((*storageResultAlias)(st))
+		return json.MarshalEncode(enc, (*storageResultAlias)(st))
 	}
 
-	// Not calling MarshalText directly since we need a quoted JSON hex
-	return st.marshalAsQuotedHex()
+	return json.MarshalEncode(enc, &st.Value)
 }
 
-func (st *StorageAtResponse) marshalAsQuotedHex() ([]byte, error) {
-	// 2 quotes + MaxFeltAsHexSize
-	out := make([]byte, 0, 2+felt.MaxFeltAsHexSize)
-	out = append(out, '"')
-
-	out, err := st.Value.AppendText(out)
-	if err != nil {
-		return nil, err
+// UnmarshalJSONFrom reads either form that MarshalJSONTo writes.
+func (st *StorageAtResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if dec.PeekKind() == '"' {
+		st.includeLastUpdateBlock = false
+		return json.UnmarshalDecode(dec, &st.Value)
 	}
 
-	return append(out, '"'), nil
-}
-
-// UnmarshalJSON implements the [json.Unmarshaler] interface for StorageAtResponse.
-func (st *StorageAtResponse) UnmarshalJSON(data []byte) error {
 	type storageResultAlias StorageAtResponse
 	var alias storageResultAlias
-
-	if err := json.Unmarshal(data, &alias); err == nil {
-		alias.includeLastUpdateBlock = true
-		*st = StorageAtResponse(alias)
-		return nil
+	if err := json.UnmarshalDecode(dec, &alias); err != nil {
+		return err
 	}
-
-	st.includeLastUpdateBlock = false
-	return json.Unmarshal(data, &st.Value)
+	alias.includeLastUpdateBlock = true
+	*st = StorageAtResponse(alias)
+	return nil
 }
 
 /****************************************************
