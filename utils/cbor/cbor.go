@@ -69,11 +69,21 @@ func NewEncoder(w io.Writer) Encoder {
 // RegisterType gives a unique CBOR tag to a type.
 // Only call this from utils/cbor/registry's init, before concurrent use.
 func RegisterType(t reflect.Type) error {
-	return fxamacker.RegisterType(t)
+	tag, err := fxamacker.RegisterType(t)
+	if err != nil {
+		return err
+	}
+	typeTags[t] = tag
+	return nil
 }
 
 // RegisterDecoder registers decode for t's stored CBOR values.
+// Register tagged types with [RegisterType] first.
 func RegisterDecoder(t reflect.Type, decode func(data []byte, v any) error) {
+	if tag, ok := typeTags[t]; ok {
+		contentDecoders[t] = decode
+		decode = withTag(tag, decode)
+	}
 	// Storage accessors use **T; typed serializers use *T.
 	p := reflect.PointerTo(t)
 	decoderRoutes = append(

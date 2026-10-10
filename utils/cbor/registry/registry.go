@@ -46,8 +46,20 @@ func init() {
 			}
 		}
 
-		cbor.RegisterDecoder(reflect.TypeFor[core.Header](), ugorji.Unmarshal)
-		cbor.RegisterDecoder(reflect.TypeFor[core.StateUpdate](), ugorji.Unmarshal)
-		cbor.RegisterDecoder(reflect.TypeFor[core.TransactionReceipt](), ugorji.Unmarshal)
+		for _, t := range []reflect.Type{
+			reflect.TypeFor[core.Header](),
+			reflect.TypeFor[core.StateUpdate](),
+			reflect.TypeFor[core.TransactionReceipt](),
+			reflect.TypeFor[core.DeclareTransaction](),
+			reflect.TypeFor[core.DeployTransaction](),
+			reflect.TypeFor[core.InvokeTransaction](),
+			reflect.TypeFor[core.L1HandlerTransaction](),
+			reflect.TypeFor[core.DeployAccountTransaction](),
+			reflect.TypeFor[core.SierraClass](),
+		} {
+			cbor.RegisterDecoder(t, ugorji.Unmarshal)
+		}
+		cbor.RegisterInterface(reflect.TypeFor[core.Transaction]())
+		cbor.RegisterInterface(reflect.TypeFor[core.ClassDefinition]())
 	})
 }
