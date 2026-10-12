@@ -3,8 +3,10 @@
   "drop_caches": true,
   "restore": true,
   "profiles": {
-    "sequential": "--vus 1 --duration 10s",
+    "sequential": "--vus 1 --duration 30s",
+    "light": "--vus 16 --duration 10s",
     "low": "--vus 50 --duration 10s",
+    "moderate": "--vus 100 --duration 20s",
     "medium": "--vus 200 --duration 30s",
     "high": "--vus 500 --duration 30s"
   }
