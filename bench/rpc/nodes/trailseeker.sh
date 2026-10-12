@@ -10,5 +10,6 @@ exec "$NODE_BIN" \
   --network "$NODE_NETWORK" \
   --sync.enable false \
   --rpc.batch-concurrency-limit 100 \
+  --rpc.request-timeout 60 \
   --max-rpc-connections 4096 \
   --http-rpc 127.0.0.1:9545
