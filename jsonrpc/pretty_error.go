@@ -2,7 +2,8 @@ package jsonrpc
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -43,22 +44,32 @@ func (c *windowBuffer) Write(p []byte) (int, error) {
 
 func errorOffset(inputLength int, err error) (offset int, ok bool) {
 	var (
-		syntaxErr   *json.SyntaxError
-		typeErr     *json.UnmarshalTypeError
-		trailingErr *trailingDataError
+		syntaxErr *jsontext.SyntacticError
+		typeErr   *json.SemanticError
 	)
 	switch {
-	case errors.As(err, &syntaxErr):
-		return min(int(syntaxErr.Offset)-1, inputLength), true
-	case errors.As(err, &typeErr):
-		return min(int(typeErr.Offset)-1, inputLength), true
-	case errors.As(err, &trailingErr):
-		return min(trailingErr.offset, inputLength), true
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return inputLength, true
+	case errors.As(err, &syntaxErr):
+		return min(int(syntaxErr.ByteOffset), inputLength), true
+	case errors.As(err, &typeErr):
+		return min(int(typeErr.ByteOffset), inputLength), true
 	default:
 		return 0, false
 	}
+}
+
+// pastComma moves offset from a comma to the next token, as the decoder reports a
+// missing value at the comma before it
+func pastComma(input []byte, offset int) int {
+	if offset >= len(input) || input[offset] != ',' {
+		return offset
+	}
+	rest := bytes.TrimLeft(input[offset+1:], " \t\r\n")
+	if len(rest) == 0 {
+		return offset
+	}
+	return len(input) - len(rest)
 }
 
 func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
@@ -68,61 +79,87 @@ func lineAndColumn(c *windowBuffer, markerPos int) (line, col int) {
 	return line, col
 }
 
-func expectedToken(reason string) (string, bool) {
-	// The stdlib reason uses parser jargon
-	// This maps it to user-friendly messages
+// expectedToken maps the decoder reason, which uses parser jargon, to a
+// user-friendly message. prev is the last token byte before the error.
+func expectedToken(reason string, prev byte) (string, bool) {
 	switch {
-	case strings.Contains(reason, "beginning of object key string"):
-		return "a string key or '}'", true
-	case strings.Contains(reason, "after object key:value pair"):
-		return "',' or '}'", true
-	case strings.Contains(reason, "after object key"):
+	case strings.Contains(reason, "after object name"):
 		return "':'", true
+	case strings.Contains(reason, "after object value"):
+		return "',' or '}'", true
 	case strings.Contains(reason, "after array element"):
 		return "',' or ']'", true
-	case strings.Contains(reason, "beginning of value"):
+	case strings.Contains(reason, "at start of string"),
+		strings.Contains(reason, "at start of value") && prev == '{':
+		return "a string key or '}'", true
+	case strings.Contains(reason, "at start of value") && (prev == ':' || prev == '['):
 		return "a value", true
 	default:
 		return "", false
 	}
 }
 
-func precededByComma(input []byte, offset int) bool {
+func previousToken(input []byte, offset int) byte {
 	trimmed := bytes.TrimRight(input[:offset], " \t\r\n")
-	return len(trimmed) > 0 && trimmed[len(trimmed)-1] == ','
-}
-
-func describeTypeError(e *json.UnmarshalTypeError) string {
-	if e.Field != "" {
-		return fmt.Sprintf("field %q should be %s, got %s", e.Field, e.Type, e.Value)
+	if len(trimmed) == 0 {
+		return 0
 	}
-	return fmt.Sprintf("expected a JSON object, got %s", e.Value)
+	return trimmed[len(trimmed)-1]
 }
 
-func describeSyntaxError(input []byte, offset int, err error) string {
-	expected, ok := expectedToken(err.Error())
-	if !ok || offset >= len(input) {
-		return err.Error()
+func kindName(kind jsontext.Kind) string {
+	switch kind {
+	case 't', 'f':
+		return "bool"
+	case '{':
+		return "object"
+	case '[':
+		return "array"
+	default:
+		return kind.String()
+	}
+}
+
+func describeTypeError(e *json.SemanticError) string {
+	if e.JSONPointer != "" {
+		field := strings.Join(slices.Collect(e.JSONPointer.Tokens()), ".")
+		return fmt.Sprintf("field %q should be %s, got %s", field, e.GoType, kindName(e.JSONKind))
+	}
+	return fmt.Sprintf("expected a JSON object, got %s", kindName(e.JSONKind))
+}
+
+func describeSyntaxError(input []byte, offset int, err *jsontext.SyntacticError) string {
+	reason := err.Err.Error()
+	if strings.Contains(reason, "after top-level value") {
+		return "unexpected data after the request"
+	}
+	if offset >= len(input) {
+		return reason
 	}
 	symbol, _ := utf8.DecodeRune(input[offset:])
-	if (symbol == '}' || symbol == ']') && precededByComma(input, offset) {
+	prev := previousToken(input, offset)
+	if (symbol == '}' || symbol == ']') && prev == ',' {
 		return fmt.Sprintf("unexpected trailing comma before %q", symbol)
+	}
+	expected, ok := expectedToken(reason, prev)
+	if !ok {
+		return reason
 	}
 	return fmt.Sprintf("unexpected %q, expected %s", symbol, expected)
 }
 
 func describeError(input []byte, offset int, err error) string {
 	var (
-		syntaxErr *json.SyntaxError
-		typeErr   *json.UnmarshalTypeError
+		syntaxErr *jsontext.SyntacticError
+		typeErr   *json.SemanticError
 	)
 	switch {
-	case errors.As(err, &syntaxErr):
-		return describeSyntaxError(input, offset, err)
-	case errors.As(err, &typeErr):
-		return describeTypeError(typeErr)
 	case errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return "unexpected end of input"
+	case errors.As(err, &syntaxErr):
+		return describeSyntaxError(input, offset, syntaxErr)
+	case errors.As(err, &typeErr):
+		return describeTypeError(typeErr)
 	default:
 		return err.Error()
 	}
@@ -207,6 +244,9 @@ func prettyParseError(c *windowBuffer, err error) string {
 	}
 
 	markerPos := absOffset - windowStart
+	if errors.As(err, new(*jsontext.SyntacticError)) {
+		markerPos = pastComma(c.window, markerPos)
+	}
 	line, col := lineAndColumn(c, markerPos)
 	msg := fmt.Sprintf("%s [line %d, position %d]", describeError(c.window, markerPos, err), line, col)
 

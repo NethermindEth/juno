@@ -3,6 +3,7 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -205,6 +206,13 @@ func TestHandle(t *testing.T) {
 				return 0, nil
 			},
 		},
+		{
+			Name:   "raw",
+			Params: []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param jsontext.Value) (string, *jsonrpc.Error) {
+				return string(param), nil
+			},
+		},
 	}
 
 	listener := CountingEventListener{}
@@ -395,7 +403,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON array into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON array into Go jsonrpc.Request"},"id":null}]`,
 		},
 
 		"no method": {
@@ -460,7 +468,7 @@ func TestHandle(t *testing.T) {
 
 		"wrong param type": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal JSON string into Go int"},"id":3}`,
 		},
 
 		"multiple versions in batch": {
@@ -575,12 +583,12 @@ func TestHandle(t *testing.T) {
 
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null}]`,
 		},
 
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null}]`,
 		},
 
 		"fails internally": {
@@ -607,6 +615,26 @@ func TestHandle(t *testing.T) {
 		"empty multiple optional positional params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": [1, [2, 3]], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+
+		"null params": {
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": null, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+
+		"null params with a required param": {
+			req: `{"jsonrpc": "2.0", "method": "method", "params": null, "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing required params: num"},"id":1}`,
+		},
+
+		"positional param keeps its bytes": {
+			req: `{"jsonrpc": "2.0", "method": "raw", "params": [{"b":1,"a":2.50}], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
+		},
+
+		"named param keeps its bytes": {
+			req: `{"jsonrpc": "2.0", "method": "raw", "params": {"param": {"b":1,"a":2.50}}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
 		},
 
 		"junk + valid params": {
@@ -731,6 +759,37 @@ func BenchmarkHandle(b *testing.B) {
 	benchHandleR = header
 }
 
+func BenchmarkHandleParams(b *testing.B) {
+	type blockID struct {
+		Number uint64 `json:"block_number"`
+	}
+	type eventFilter struct {
+		From      blockID    `json:"from_block"`
+		To        string     `json:"to_block"`
+		Address   string     `json:"address"`
+		Keys      [][]string `json:"keys"`
+		ChunkSize uint64     `json:"chunk_size"`
+	}
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
+		WithValidator(validator.New())
+	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
+		Name:    "events",
+		Params:  []jsonrpc.Parameter{{Name: "filter"}},
+		Handler: func(filter eventFilter) (uint64, *jsonrpc.Error) { return filter.ChunkSize, nil },
+	}))
+
+	const request = `{"jsonrpc":"2.0","id":1,"method":"events","params":[{` +
+		`"from_block":{"block_number":123456},"to_block":"latest",` +
+		`"address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",` +
+		`"keys":[["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"]],` +
+		`"chunk_size":100}]}`
+	var err error
+	for b.Loop() {
+		_, _, err = server.HandleReader(b.Context(), strings.NewReader(request))
+		require.NoError(b, err)
+	}
+}
+
 // BenchmarkHandleLargeRequest measures large bodies (up to the 10MB request
 // limit), where the TeeReader copy scales with the input size.
 func BenchmarkHandleLargeRequest(b *testing.B) {
@@ -787,7 +846,7 @@ func TestHandleReaderReadError(t *testing.T) {
 	)
 	res, _, err := server.HandleReader(t.Context(), body)
 	require.NoError(t, err)
-	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"connection reset"},"id":null}`, string(res))
+	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"jsontext: read error: connection reset"},"id":null}`, string(res))
 }
 
 // stallReader returns (0, nil) before each read of the underlying reader
@@ -930,14 +989,14 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 			req: &jsonrpc.Request{
 				Version: "2.0",
 				Method:  "starknet_getBlockWithTxs",
-				Params:  []any{"latest"},
+				Params:  json.RawMessage(`["latest"]`),
 				ID:      json.RawMessage("1"),
 			},
 			want: map[string]any{
 				"jsonrpc": "2.0",
 				"method":  "starknet_getBlockWithTxs",
 				"id":      json.RawMessage("1"),
-				"params":  []any{"latest"},
+				"params":  json.RawMessage(`["latest"]`),
 			},
 		},
 		"nil id and params omitted": {
