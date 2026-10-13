@@ -87,6 +87,8 @@ func progressiveHandler(t *testing.T, runner vm.VM) progressiveFixture {
 	reader.EXPECT().StateAtBlockHash(header.ParentHash).
 		Return(parent, func() error { return nil }, nil).AnyTimes()
 	reader.EXPECT().HeadState().Return(head, func() error { return nil }, nil).AnyTimes()
+	syncReader.EXPECT().ReadPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).AnyTimes()
 	syncReader.EXPECT().RequestPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).AnyTimes()
 	return progressiveFixture{

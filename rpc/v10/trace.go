@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/rpc/tracecache"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"github.com/NethermindEth/juno/vm"
@@ -46,18 +47,29 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash)
+	chain, err := h.syncReader.ReadPreConfirmedChain()
 	if err == nil {
-		return trace, header, nil
-	}
-	if err != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, httpHeader, err
+		trace, header, rpcErr := h.traceInPreConfirmedChain(&chain, hash)
+		if rpcErr == nil {
+			return trace, header, nil
+		}
+		if rpcErr != rpccore.ErrTxnHashNotFound {
+			return TransactionTrace{}, httpHeader, rpcErr
+		}
 	}
 
-	// Not in a finalised block, so try the pre_confirmed chain.
-	trace, header, err = h.findAndTraceInPreConfirmed(hash)
-	if err != nil {
-		return TransactionTrace{}, httpHeader, err
+	trace, header, jsonErr := h.findAndTraceFinalisedTransaction(ctx, hash)
+	if jsonErr == nil {
+		return trace, header, nil
+	}
+	if jsonErr != rpccore.ErrTxnHashNotFound {
+		return TransactionTrace{}, httpHeader, jsonErr
+	}
+
+	// Not in a finalised block either, so request a fresher pre_confirmed chain and try again.
+	trace, header, jsonErr = h.findAndTraceInPreConfirmed(hash)
+	if jsonErr != nil {
+		return TransactionTrace{}, httpHeader, jsonErr
 	}
 	return trace, header, nil
 }
@@ -284,11 +296,8 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return trace, httpHeader, nil
 }
 
-// findAndTraceInPreConfirmed traces a transaction located in any block of the
-// pre_confirmed chain (head+1 .. tip). The chain is scanned newest-first. The
-// state immediately before txIndex is reconstructed by layering every chain
-// entry's diff from chain bottom up to entry's block, then the entry's own
-// transaction-level diffs up to (but not including) txIndex.
+// findAndTraceInPreConfirmed requests the pre_confirmed chain, which can wait for a poll,
+// and traces the transaction in it. See traceInPreConfirmedChain.
 func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.TransactionHash,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
@@ -299,7 +308,17 @@ func (h *Handler) findAndTraceInPreConfirmed(
 		}
 		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
+	return h.traceInPreConfirmedChain(&chain, hash)
+}
 
+// traceInPreConfirmedChain traces a transaction located in any block of the
+// pre_confirmed chain (head+1 .. tip). Returns rpccore.ErrTxnHashNotFound if the
+// chain does not hold the transaction.
+func (h *Handler) traceInPreConfirmedChain(
+	chain *preconfirmed.ChainReader,
+	hash *felt.TransactionHash,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	// todo(rdr): this for-loop needs refactoring
 	for entry := range chain.NewestFirst() {
 		transaction, transactionIndex, err := entry.TransactionByHash(hash)
 		if err != nil {
@@ -315,7 +334,7 @@ func (h *Handler) findAndTraceInPreConfirmed(
 			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 		//nolint:gocritic // safe to defer in loop: we return on this iteration
-		defer h.callAndLogErr(baseCloser, "Failed to close state in findAndTraceInPreConfirmed")
+		defer h.callAndLogErr(baseCloser, "Failed to close state in traceInPreConfirmedChain")
 
 		blockInfo, rpcErr := h.buildBlockInfo(entry.GetHeader())
 		if rpcErr != nil {

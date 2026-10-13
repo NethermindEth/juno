@@ -350,8 +350,8 @@ func TestTraceTransaction(t *testing.T) {
 			// The tx-hash index lookup misses
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
-			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
+			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -362,6 +362,7 @@ func TestTraceTransaction(t *testing.T) {
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
 			// The tx-hash index lookup fails for a non-missing-key reason
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), errors.New("database error"))
 
@@ -398,6 +399,8 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
+		// Not in the stored pre_confirmed chain but finalised, so the chain is never requested.
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).Return(header.Number, uint64(0), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
@@ -465,8 +468,6 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := pending.PreConfirmed{
 			Block: block,
@@ -474,7 +475,7 @@ func TestTraceTransaction(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
@@ -547,9 +548,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{StateDiff: &tipDiff},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 		// Base resolution: bottom (= baseHeader.Number) - 1.
 		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
@@ -577,6 +576,56 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
 
+	t.Run("pre_confirmed block only in the requested chain", func(t *testing.T) {
+		hash := felt.NewFromUint64[felt.TransactionHash](0xfeedface)
+		tx := &core.InvokeTransaction{
+			TransactionHash: (*felt.Felt)(hash),
+			Version:         (*core.TransactionVersion)(&felt.One),
+		}
+		header := &core.Header{
+			Number:           3,
+			SequencerAddress: felt.NewFromUint64[felt.Felt](0x111),
+			ProtocolVersion:  "99.12.3",
+			L1DAMode:         core.Calldata,
+			L1GasPriceETH:    felt.NewFromUint64[felt.Felt](0x1),
+		}
+		stateDiff := core.EmptyStateDiff()
+		polled := pending.PreConfirmed{
+			Block:       &core.Block{Header: header, Transactions: []core.Transaction{tx}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+
+		// Neither the stored chain nor the finalised blocks hold the transaction; the poll the
+		// request waits for brings it in.
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
+			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &polled), nil)
+		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
+			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
+
+		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
+		mockVM.EXPECT().Trace(
+			[]core.Transaction{tx},
+			nil,
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(),
+			vm.TraceOptions{},
+		).Return(vm.ExecutionResults{
+			OverallFees: []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
+			GasConsumed: []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}},
+			Traces:      []vm.TransactionTrace{vmTrace},
+			NumSteps:    uint64(9),
+		}, nil)
+
+		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
+		require.Nil(t, rpcErr)
+		require.Equal(t, "9", httpHeader.Get(rpcv10.ExecutionStepsHeader))
+		vmTrace.ExecutionResources = &vm.ExecutionResources{L1Gas: 2, L1DataGas: 3, L2Gas: 4}
+		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
+	})
+
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &networks.Sepolia
 
@@ -600,6 +649,7 @@ func TestTraceTransaction(t *testing.T) {
 		})
 		require.NotEqual(t, -1, revertedTxIndex)
 
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(revertedTxHash).
 			Return(blockNumber, uint64(revertedTxIndex), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -1542,7 +1592,9 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 			).Return(execResultWithReads(populatedVMReads()), nil),
 		)
 
-		handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
+		handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 		_, _, err := handler.TraceTransaction(t.Context(), (*felt.TransactionHash)(txHash))
 		require.Nil(t, err)
