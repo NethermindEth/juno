@@ -65,7 +65,8 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().ReadPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -1175,7 +1176,8 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().ReadPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
 	assert.Empty(t, tx)

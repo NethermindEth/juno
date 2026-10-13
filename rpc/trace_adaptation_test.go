@@ -96,8 +96,10 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	record.Complete = true
 	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](1)
 	logger := log.NewNopZapLogger()
-	h9 := rpcv9.New(reader, nil, nil, logger).WithTraceCache(cache)
-	h10 := rpcv10.New(reader, nil, nil, logger).WithTraceCache(cache)
+	syncReader := mocks.NewMockSyncReader(ctrl)
+	syncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil).AnyTimes()
+	h9 := rpcv9.New(reader, syncReader, nil, logger).WithTraceCache(cache)
+	h10 := rpcv10.New(reader, syncReader, nil, logger).WithTraceCache(cache)
 	_, lease, err := cache.Acquire(t.Context(), header.Hash, nil)
 	require.NoError(t, err)
 	lease.Publish(record)

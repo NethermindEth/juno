@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -47,6 +46,8 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
+	// Only the stored pre_confirmed chain is read: callers usually see the transaction through
+	// its status or receipt first, and those already request a fresh chain.
 	chain, err := h.syncReader.ReadPreConfirmedChain()
 	if err == nil {
 		trace, header, rpcErr := h.traceInPreConfirmedChain(&chain, hash)
@@ -59,15 +60,6 @@ func (h *Handler) TraceTransaction(
 	}
 
 	trace, header, jsonErr := h.findAndTraceFinalisedTransaction(ctx, hash)
-	if jsonErr == nil {
-		return trace, header, nil
-	}
-	if jsonErr != rpccore.ErrTxnHashNotFound {
-		return TransactionTrace{}, httpHeader, jsonErr
-	}
-
-	// Not in a finalised block either, so request a fresher pre_confirmed chain and try again.
-	trace, header, jsonErr = h.findAndTraceInPreConfirmed(hash)
 	if jsonErr != nil {
 		return TransactionTrace{}, httpHeader, jsonErr
 	}
@@ -294,21 +286,6 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	var trace TransactionTrace
 	adaptCachedTrace(&blockTraces.Traces[txIndex], &trace)
 	return trace, httpHeader, nil
-}
-
-// findAndTraceInPreConfirmed requests the pre_confirmed chain, which can wait for a poll,
-// and traces the transaction in it. See traceInPreConfirmedChain.
-func (h *Handler) findAndTraceInPreConfirmed(
-	hash *felt.TransactionHash,
-) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	chain, err := h.syncReader.RequestPreConfirmedChain()
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
-			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
-		}
-		return TransactionTrace{}, nil, rpccore.ErrInternal.CloneWithData(err)
-	}
-	return h.traceInPreConfirmedChain(&chain, hash)
 }
 
 // traceInPreConfirmedChain traces a transaction located in any block of the

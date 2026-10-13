@@ -89,8 +89,6 @@ func progressiveHandler(t *testing.T, runner vm.VM) progressiveFixture {
 	reader.EXPECT().HeadState().Return(head, func() error { return nil }, nil).AnyTimes()
 	syncReader.EXPECT().ReadPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).AnyTimes()
-	syncReader.EXPECT().RequestPreConfirmedChain().
-		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).AnyTimes()
 	return progressiveFixture{
 		handler: rpcv10.New(reader, syncReader, runner, log.NewNopZapLogger()),
 		blockID: rpcv10.BlockIDFromNumber(header.Number),

@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
@@ -19,6 +20,7 @@ import (
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -28,6 +30,7 @@ import (
 func TestSharedTraceCacheInitialReads(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	reader := mocks.NewMockReader(ctrl)
+	syncReader := mocks.NewMockSyncReader(ctrl)
 	runner := mocks.NewMockVM(ctrl)
 	state := mocks.NewMockStateReader(ctrl)
 	header := &core.Header{
@@ -57,6 +60,8 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	reader.EXPECT().StateAtBlockHash(header.ParentHash).
 		Return(state, func() error { return nil }, nil).Times(3)
 	reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(3)
+	// The pre_confirmed chain holds no transactions: every trace falls through to the finalised store.
+	syncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil).AnyTimes()
 	// v9 and v10 extend the prefix; initial reads replay the complete block.
 	calls := 0
 	runner.EXPECT().Trace(
@@ -98,7 +103,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 		}
 		return result, nil
 	}).Times(3)
-	h := rpc.New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
+	h := rpc.New(reader, syncReader, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
 	methods := registeredTraceMethods(t, h)
 	first, steps, err := methods.transaction9(
 		t.Context(), (*felt.TransactionHash)(transactions[0].Hash()),
@@ -436,6 +441,7 @@ func TestProgressiveTraceEachVersionExtends(t *testing.T) {
 		t.Run(fmt.Sprintf("first=%d", first), func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			reader := mocks.NewMockReader(ctrl)
+			syncReader := mocks.NewMockSyncReader(ctrl)
 			runner := mocks.NewMockVM(ctrl)
 			state := mocks.NewMockStateReader(ctrl)
 			header := &core.Header{
@@ -457,6 +463,10 @@ func TestProgressiveTraceEachVersionExtends(t *testing.T) {
 			reader.EXPECT().StateAtBlockHash(header.ParentHash).
 				Return(state, func() error { return nil }, nil).Times(3)
 			reader.EXPECT().HeadState().Return(state, func() error { return nil }, nil).Times(3)
+			// The pre_confirmed chain holds no transactions: every trace falls through to the
+			// finalised store.
+			syncReader.EXPECT().ReadPreConfirmedChain().
+				Return(emptyPreConfirmedChain(t), nil).AnyTimes()
 			calls := 0
 			runner.EXPECT().Trace(
 				gomock.Any(),
@@ -481,7 +491,7 @@ func TestProgressiveTraceEachVersionExtends(t *testing.T) {
 					NumSteps:    1,
 				}, nil
 			}).Times(3)
-			h := rpc.New(reader, nil, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
+			h := rpc.New(reader, syncReader, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
 			methods := registeredTraceMethods(t, h)
 			request := func(version, index int) {
 				var steps http.Header
@@ -560,4 +570,20 @@ func bindTraceMethod[T any](t *testing.T, methods []jsonrpc.Method, name string,
 		}
 	}
 	t.Fatalf("method %s is not registered", name)
+}
+
+// emptyPreConfirmedChain is a pre_confirmed chain that holds no transactions, as the poller
+// stores before it has seen any for the slot above the head.
+func emptyPreConfirmedChain(t *testing.T) preconfirmed.ChainReader {
+	t.Helper()
+	stateDiff := core.EmptyStateDiff()
+	empty := pending.NewPreConfirmed(
+		&core.Block{Header: &core.Header{Number: 1}},
+		&core.StateUpdate{StateDiff: &stateDiff},
+		nil,
+		"",
+	)
+	chain, err := preconfirmed.NewChain(&empty)
+	require.NoError(t, err)
+	return chain
 }

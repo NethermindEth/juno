@@ -351,7 +351,6 @@ func TestTraceTransaction(t *testing.T) {
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
-			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -516,7 +515,7 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	// Multi-block pre_confirmed chain: target tx lives in the BASE entry, not
-	// the tip. findAndTraceInPreConfirmed must walk the chain newest-first and
+	// the tip. TraceTransaction must walk the chain newest-first and
 	// reconstruct state at the matching entry.
 	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
@@ -572,56 +571,6 @@ func TestTraceTransaction(t *testing.T) {
 		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, rpcErr)
 		require.Equal(t, "7", httpHeader.Get(rpcv10.ExecutionStepsHeader))
-		vmTrace.ExecutionResources = &vm.ExecutionResources{L1Gas: 2, L1DataGas: 3, L2Gas: 4}
-		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
-	})
-
-	t.Run("pre_confirmed block only in the requested chain", func(t *testing.T) {
-		hash := felt.NewFromUint64[felt.TransactionHash](0xfeedface)
-		tx := &core.InvokeTransaction{
-			TransactionHash: (*felt.Felt)(hash),
-			Version:         (*core.TransactionVersion)(&felt.One),
-		}
-		header := &core.Header{
-			Number:           3,
-			SequencerAddress: felt.NewFromUint64[felt.Felt](0x111),
-			ProtocolVersion:  "99.12.3",
-			L1DAMode:         core.Calldata,
-			L1GasPriceETH:    felt.NewFromUint64[felt.Felt](0x1),
-		}
-		stateDiff := core.EmptyStateDiff()
-		polled := pending.PreConfirmed{
-			Block:       &core.Block{Header: header, Transactions: []core.Transaction{tx}},
-			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
-		}
-
-		// Neither the stored chain nor the finalised blocks hold the transaction; the poll the
-		// request waits for brings it in.
-		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &polled), nil)
-		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
-			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
-
-		vmTrace := readTestData[vm.TransactionTrace](t, "traces/vm_transaction_trace.json")
-		mockVM.EXPECT().Trace(
-			[]core.Transaction{tx},
-			nil,
-			[]*felt.Felt{},
-			&vm.BlockInfo{Header: header},
-			gomock.Any(),
-			vm.TraceOptions{},
-		).Return(vm.ExecutionResults{
-			OverallFees: []*felt.Felt{felt.NewFromUint64[felt.Felt](1)},
-			GasConsumed: []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}},
-			Traces:      []vm.TransactionTrace{vmTrace},
-			NumSteps:    uint64(9),
-		}, nil)
-
-		trace, httpHeader, rpcErr := handler.TraceTransaction(t.Context(), hash)
-		require.Nil(t, rpcErr)
-		require.Equal(t, "9", httpHeader.Get(rpcv10.ExecutionStepsHeader))
 		vmTrace.ExecutionResources = &vm.ExecutionResources{L1Gas: 2, L1DataGas: 3, L2Gas: 4}
 		assert.Equal(t, rpcv10.AdaptVMTransactionTrace(&vmTrace), trace)
 	})
