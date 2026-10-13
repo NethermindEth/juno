@@ -1,0 +1,301 @@
+// Command gen writes the struct readers of package records whose fields all map to a helper by
+// their Go type. Run it from records with go generate.
+//
+// A field type that no entry of known maps, and that is not a struct with a reader here, stops
+// the generator with the type and field named, and so does a type with its own CBOR encoding.
+// Either is fixed by mapping the type in known after checking how fxamacker stores it, or by
+// giving the field an override.
+package main
+
+import (
+	"encoding"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"go/format"
+	"log"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/bits-and-blooms/bloom/v3"
+	fxcbor "github.com/fxamacker/cbor/v2"
+)
+
+// reader is a struct to write a reader for.
+type reader struct {
+	typ reflect.Type
+	// name is the reader's name. Its field numbers and table take the name without read.
+	name string
+	// doc follows the name in the reader's comment.
+	doc string
+	// locals are statements run before the map is opened, for the overrides.
+	locals string
+	// overrides holds the case of a field, by Go name, for a field no helper reads by type.
+	overrides map[string]string
+}
+
+// files lists the readers each generated file holds.
+var files = []struct {
+	name    string
+	readers []reader
+}{
+	{"receipt_gen.go", []reader{
+		{typ: reflect.TypeFor[core.TransactionReceipt](), name: "ReadReceipt", doc: "reads a stored TransactionReceipt."},
+		{typ: reflect.TypeFor[core.Event](), name: "readEvent"},
+		{typ: reflect.TypeFor[core.L1ToL2Message](), name: "readL1ToL2Message"},
+		{typ: reflect.TypeFor[core.L2ToL1Message](), name: "readL2ToL1Message"},
+		{typ: reflect.TypeFor[core.DataAvailability](), name: "readDataAvailability"},
+		{typ: reflect.TypeFor[core.GasConsumed](), name: "readGasConsumed"},
+		{typ: reflect.TypeFor[core.BuiltinInstanceCounter](), name: "readBuiltinInstanceCounter"},
+	}},
+	{"header_gen.go", []reader{
+		{
+			typ: reflect.TypeFor[core.Header](), name: "ReadHeader",
+			doc: "reads a stored block header. The keys of the legacy fields GasPrice,\n" +
+				"// GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.",
+			locals: "var prices *[2]core.GasPrice",
+			overrides: map[string]string{
+				// L1DAMode is a uint, which no helper reads.
+				"L1DAMode": "var mode uint64\nerr = readUint64(r, &mode)\ndst.L1DAMode = core.L1DAMode(mode)",
+				// The two gas prices share one allocation.
+				"L1DataGasPrice": "err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)",
+				"L2GasPrice":     "err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)",
+			},
+		},
+		{typ: reflect.TypeFor[core.GasPrice](), name: "readGasPrice"},
+	}},
+	{"state_update_gen.go", []reader{
+		{typ: reflect.TypeFor[core.StateUpdate](), name: "ReadStateUpdate", doc: "reads a stored state update."},
+		{typ: reflect.TypeFor[core.StateDiff](), name: "readStateDiff"},
+	}},
+	{"class_gen.go", []reader{
+		{typ: reflect.TypeFor[core.SierraClass](), name: "ReadSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
+		{typ: reflect.TypeFor[core.SierraEntryPointsByType](), name: "readSierraEntryPoints"},
+		{typ: reflect.TypeFor[core.SierraEntryPoint](), name: "readSierraEntryPoint"},
+		{
+			typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass",
+			overrides: map[string]string{"Prime": "err = readBigIntPtr(r, dst)"},
+		},
+		{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
+	}},
+	{"transaction_gen.go", []reader{
+		{typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke", doc: "reads the map of a stored invoke transaction, after its tag."},
+		{typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare", doc: "reads the map of a stored declare transaction, after its tag."},
+		{typ: reflect.TypeFor[core.DeployTransaction](), name: "readDeploy"},
+		{typ: reflect.TypeFor[core.DeployAccountTransaction](), name: "readDeployAccount"},
+		{typ: reflect.TypeFor[core.L1HandlerTransaction](), name: "readL1Handler"},
+		{typ: reflect.TypeFor[core.ResourceBounds](), name: "readBounds"},
+	}},
+}
+
+// known gives the case that reads a field of a type, with the field for %s. Before adding a
+// type, check how fxamacker stores it: a type with its own CBOR encoding needs a helper that
+// reads that encoding.
+var known = map[reflect.Type]string{
+	reflect.TypeFor[uint64]():                                      "err = readUint64(r, &%s)",
+	reflect.TypeFor[bool]():                                        "err = readBool(r, &%s)",
+	reflect.TypeFor[string]():                                      "err = readString(r, &%s)",
+	reflect.TypeFor[[]string]():                                    "err = readStringSlice(r, &%s)",
+	reflect.TypeFor[json.RawMessage]():                             "err = readRaw(r, (*[]byte)(&%s))",
+	reflect.TypeFor[*felt.Felt]():                                  "err = readFelt(r, &%s)",
+	reflect.TypeFor[felt.Slice[felt.Felt]]():                       "err = readFeltSlice(r, &%s)",
+	reflect.TypeFor[[]felt.Felt]():                                 "%s, err = fast.LimbSlice[felt.Felt](r)",
+	reflect.TypeFor[[]*felt.Felt]():                                "err = readFeltPtrSlice(r, &%s)",
+	reflect.TypeFor[[][]*felt.Felt]():                              "err = readSlice(r, &%s, readFeltPtrSlice)",
+	reflect.TypeFor[map[felt.Felt]*felt.Felt]():                    "err = readFeltMap(r, &%s)",
+	reflect.TypeFor[map[felt.Felt]map[felt.Felt]*felt.Felt]():      "err = readStorageDiffs(r, &%s)",
+	reflect.TypeFor[map[felt.SierraClassHash]felt.CasmClassHash](): "err = readMigratedClasses(r, &%s)",
+	reflect.TypeFor[eth.Address]():                                 "err = readEthAddress(r, &%s)",
+	reflect.TypeFor[*bloom.BloomFilter]():                          "err = readBloom(r, &%s)",
+	reflect.TypeFor[core.FeeUnit]():                                "err = readByte(r, (*byte)(&%s))",
+	reflect.TypeFor[core.DataAvailabilityMode]():                   "err = readUint32(r, &%s)",
+	reflect.TypeFor[*core.TransactionVersion]():                    "err = readLimbPtr(r, &%s)",
+	reflect.TypeFor[map[core.Resource]core.ResourceBounds]():       "err = readResourceBounds(r, &%s)",
+	reflect.TypeFor[*core.ExecutionResources]():                    "err = readExecutionResources(r, &%s)",
+	reflect.TypeFor[core.SegmentLengths]():                         "err = readSegmentLengths(r, &%s, 0)",
+}
+
+// encodings are the interfaces through which a type takes over its own encoding, among those
+// fxamacker honors with the options Juno gives it (TextMarshaler is off by default).
+var encodings = []reflect.Type{
+	reflect.TypeFor[fxcbor.Marshaler](),
+	reflect.TypeFor[fxcbor.Unmarshaler](),
+	reflect.TypeFor[encoding.BinaryMarshaler](),
+	reflect.TypeFor[encoding.BinaryUnmarshaler](),
+}
+
+func main() {
+	out := flag.String("o", ".", "the directory to write the files to")
+	flag.Parse()
+	log.SetFlags(0)
+	log.SetPrefix("gen: ")
+	sources, err := generate()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for name, src := range sources {
+		if err := os.WriteFile(filepath.Join(*out, name), src, 0o600); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+// generate returns the source of each file, by name.
+func generate() (map[string][]byte, error) {
+	names := map[reflect.Type]string{}
+	for _, file := range files {
+		for _, rd := range file.readers {
+			names[rd.typ] = rd.name
+		}
+	}
+	out := map[string][]byte{}
+	for _, file := range files {
+		var body strings.Builder
+		for _, rd := range file.readers {
+			if err := writeReader(&body, rd, names); err != nil {
+				return nil, err
+			}
+		}
+		imports := `"github.com/NethermindEth/juno/core"` + "\n"
+		if strings.Contains(body.String(), "felt.") {
+			imports += `"github.com/NethermindEth/juno/core/felt"` + "\n"
+		}
+		src, err := format.Source([]byte("// Code generated by internal/gen; DO NOT EDIT.\n\npackage records\n\n" +
+			"import (\n" + imports + `"github.com/NethermindEth/juno/utils/cbor/fast"` + "\n)\n\n" + body.String()))
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", file.name, err)
+		}
+		out[file.name] = src
+	}
+	return out, nil
+}
+
+// field is a field as fxamacker sees it: its wire name and its Go name and type.
+type field struct {
+	wire, name string
+	typ        reflect.Type
+}
+
+// fieldsOf lists the fields of typ the way fxamacker does, with embedded structs promoted.
+func fieldsOf(typ reflect.Type) ([]field, error) {
+	var out []field
+	for i := range typ.NumField() {
+		f := typ.Field(i)
+		wire, options, _ := strings.Cut(f.Tag.Get("cbor"), ",")
+		switch {
+		case wire == "-":
+			continue
+		case f.Anonymous && wire == "" && f.Type.Kind() == reflect.Struct:
+			inner, err := fieldsOf(f.Type)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, inner...)
+			continue
+		case f.Anonymous && wire == "":
+			return nil, fmt.Errorf("%v.%s: an embedded %v is not supported", typ, f.Name, f.Type)
+		case !f.IsExported():
+			continue
+		case options != "" && options != "omitempty":
+			return nil, fmt.Errorf("%v.%s: the cbor tag option %q is not supported", typ, f.Name, options)
+		case wire == "":
+			wire = f.Name
+		}
+		out = append(out, field{wire: wire, name: f.Name, typ: f.Type})
+	}
+	return out, nil
+}
+
+// writeReader writes the field numbers, the field table and the reader of rd.
+func writeReader(b *strings.Builder, rd reader, names map[reflect.Type]string) error {
+	if err := ownEncoding(rd.typ); err != nil {
+		return fmt.Errorf("%v: %w", rd.typ, err)
+	}
+	fields, err := fieldsOf(rd.typ)
+	if err != nil {
+		return err
+	}
+	cases := make([]string, len(fields))
+	used := 0
+	for i, f := range fields {
+		if c, ok := rd.overrides[f.name]; ok {
+			cases[i], used = c, used+1
+		} else if cases[i], err = caseOf(f, names); err != nil {
+			return fmt.Errorf("%v.%s: %w; map the type in known or override the field", rd.typ, f.name, err)
+		}
+	}
+	if used != len(rd.overrides) {
+		return fmt.Errorf("%v: an override names a field it does not have", rd.typ)
+	}
+
+	prefix := strings.TrimPrefix(strings.TrimPrefix(rd.name, "read"), "Read")
+	prefix = strings.ToLower(prefix[:1]) + prefix[1:]
+	b.WriteString("const (\n")
+	for i, f := range fields {
+		fmt.Fprintf(b, "%s%s", prefix, f.name)
+		if i == 0 {
+			b.WriteString(" = iota")
+		}
+		b.WriteString("\n")
+	}
+	fmt.Fprintf(b, ")\n\nvar %sFields = fieldsOf[%v]([]string{\n", prefix, rd.typ)
+	for _, f := range fields {
+		fmt.Fprintf(b, "%s%s: %q,\n", prefix, f.name, f.wire)
+	}
+	b.WriteString("})\n\n")
+	if rd.doc != "" {
+		fmt.Fprintf(b, "// %s %s\n", rd.name, rd.doc)
+	}
+	fmt.Fprintf(b, "func %s(r *fast.Reader, dst *%v) error {\n", rd.name, rd.typ)
+	if rd.locals != "" {
+		b.WriteString(rd.locals + "\n")
+	}
+	fmt.Fprintf(b, "s, err := r.OpenStruct(%sFields)\nfor err == nil {\nvar field int\n", prefix)
+	b.WriteString("field, err = r.NextField(&s)\nswitch field {\ncase fast.Done:\nreturn err\n")
+	for i, f := range fields {
+		fmt.Fprintf(b, "case %s%s:\n%s\n", prefix, f.name, cases[i])
+	}
+	b.WriteString("default:\nerr = r.Skip()\n}\n}\nreturn err\n}\n\n")
+	return nil
+}
+
+// caseOf returns the case that reads f: the entry of known for its type or, for a struct with a
+// reader here, a call of that reader, through readPtr, readSlice or readPtrSlice if f holds it
+// behind a pointer or in a slice.
+func caseOf(f field, names map[reflect.Type]string) (string, error) {
+	dst := "dst." + f.name
+	if format, ok := known[f.typ]; ok {
+		return fmt.Sprintf(format, dst), nil
+	}
+	if err := ownEncoding(f.typ); err != nil {
+		return "", err
+	}
+	t, call := f.typ, "%[2]s(r, &%[1]s)"
+	switch {
+	case t.Kind() == reflect.Pointer:
+		t, call = t.Elem(), "readPtr(r, &%s, %s)"
+	case t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Pointer:
+		t, call = t.Elem().Elem(), "readPtrSlice(r, &%s, %s)"
+	case t.Kind() == reflect.Slice:
+		t, call = t.Elem(), "readSlice(r, &%s, %s)"
+	}
+	if name, ok := names[t]; ok {
+		return "err = " + fmt.Sprintf(call, dst, name), nil
+	}
+	return "", fmt.Errorf("no helper reads a %v", f.typ)
+}
+
+// ownEncoding returns an error if t or a pointer to it encodes itself.
+func ownEncoding(t reflect.Type) error {
+	for _, e := range encodings {
+		if t.Implements(e) || reflect.PointerTo(t).Implements(e) {
+			return fmt.Errorf("%v has its own encoding, as a %v", t, e)
+		}
+	}
+	return nil
+}
