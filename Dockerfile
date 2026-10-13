@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjemalloc-dev libbz2-dev pkg-config \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Remove the shared jemalloc so that -ljemalloc links libjemalloc.a. The final image then needs
+# no jemalloc package, and the Debian libjemalloc.so.2 does not pull in libstdc++.
+RUN rm /usr/lib/$(gcc -dumpmachine)/libjemalloc.so
+
 # Install Rust
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain ${RUST_VERSION} --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -41,17 +45,12 @@ COPY . .
 RUN make juno
 
 # --- Final stage ---
-FROM debian:bookworm-slim AS final
+# Wolfi glibc runtime with no shell or package manager. The free tier publishes only the latest
+# tag, so the digest pins it and Dependabot bumps it.
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:2a3f1ec8a825dfbb1211b5835a9b8b3fb8d76c7bd22a189b1f84157ed2028293 AS final
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    gawk \
-    grep \
-    libjemalloc-dev \
-    libjemalloc2 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# The base image runs as uid 65532. Data directories that earlier images made are owned by root.
+USER root
 
 COPY --from=builder /app/build/juno /usr/local/bin/
 
