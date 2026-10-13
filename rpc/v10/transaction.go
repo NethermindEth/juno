@@ -72,8 +72,8 @@ func (h *Handler) AddTransaction(
 			return AddTxResponse{}, err
 		}
 
-		if h.receivedTransactionFeed != nil {
-			h.receivedTransactionFeed.Send(userTxn)
+		if h.receivedTransactionPub != nil {
+			h.receivedTransactionPub.Send(userTxn)
 		}
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
@@ -81,7 +81,7 @@ func (h *Handler) AddTransaction(
 			return AddTxResponse{}, err
 		}
 
-		if h.receivedTransactionFeed != nil {
+		if h.receivedTransactionPub != nil {
 			adaptedTxn, _, aErr := adaptAndCompileBroadcastedTxToCore(
 				ctx, h.compiler, tx, h.bcReader.Network(),
 			)
@@ -89,7 +89,7 @@ func (h *Handler) AddTransaction(
 				// Log error but don't fail the transaction submission
 				h.logger.Warn("Failed to adapt transaction for received feed", zap.Error(aErr))
 			} else {
-				h.receivedTransactionFeed.Send(adaptedTxn)
+				h.receivedTransactionPub.Send(adaptedTxn)
 			}
 		}
 	}

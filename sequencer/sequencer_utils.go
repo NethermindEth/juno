@@ -41,8 +41,8 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 			s.logger.Error("error sending new block to plugin", zap.Error(err))
 		}
 	}
-	// push the new head to the feed
-	s.subNewHeads.Send(preConfirmed.Block)
+	// push the new head to subscribers
+	s.newHeadsPub.Send(preConfirmed.Block)
 
 	if err := s.initPendingBlock(); err != nil {
 		return nil, err

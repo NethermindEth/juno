@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -258,6 +259,7 @@ func setup(
 			nil,
 			logger,
 			sync.WithPreConfirmed(preconfirmed.WithPollInterval(0)),
+			sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 		)
 		require.NoError(t, synchronizer.Run(ctx))
 	})

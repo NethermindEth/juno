@@ -28,9 +28,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -91,11 +91,11 @@ type Pruner struct {
 	// newHeadSub fires on each new L2 head. During catch-up (L2 < L1) it
 	// drives the floor from this event's block number; otherwise the L1
 	// path drives the floor and this event acts only as a trigger.
-	newHeadSub *feed.Subscription[*core.Block]
+	newHeadSub broadcaster.Subscription[*core.Block]
 	// l1HeadSub fires on each new L1 head. In normal operation (L1 < L2)
 	// L1 advances move the retention floor; during catch-up this path
 	// short-circuits and the L2 path drives the floor instead.
-	l1HeadSub *feed.Subscription[*core.L1Head]
+	l1HeadSub broadcaster.Subscription[*core.L1Head]
 	listener  EventListener
 	logger    log.StructuredLogger
 }
@@ -154,15 +154,14 @@ func WithFloorTickInterval(duration time.Duration) Option {
 // retainedBlocks is the number of blocks retained below the retention pivot
 // (= min(l1Head, l2Head); the pivot itself is always retained), so the
 // pruner keeps blocks in [pivot - retainedBlocks, l2Head] and deletes
-// everything below. newHeadSub and l1HeadSub are the two trigger feeds (see
-// [Pruner]). Subscriptions are [feed.Subscription.Unsubscribe]'d when
-// [Pruner.Run] returns.
+// everything below. newHeadSub and l1HeadSub are the two trigger streams
+// (see [Pruner]). Subscriptions are Unsubscribe'd when [Pruner.Run] returns.
 func New(
 	database db.KeyValueStore,
 	retentionFloor *RetentionFloor,
 	retainedBlocks uint64,
-	newHeadSub *feed.Subscription[*core.Block],
-	l1HeadSub *feed.Subscription[*core.L1Head],
+	newHeadSub broadcaster.Subscription[*core.Block],
+	l1HeadSub broadcaster.Subscription[*core.L1Head],
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Pruner {
