@@ -24,7 +24,6 @@ const sidebars = {
       items: [
         "json-rpc",
         "websocket",
-        "preconfirmed-polling",
         {
           type: "html",
           value:
@@ -45,7 +44,12 @@ const sidebars = {
     },
     "staking-validator",
     "monitoring",
-    "tuning",
+    {
+      type: "category",
+      label: "Tuning",
+      collapsed: true,
+      items: ["tuning", "preconfirmed-polling"],
+    },
     "plugins",
     "faq",
   ],

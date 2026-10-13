@@ -1,5 +1,5 @@
 ---
-title: Performance Tuning
+title: Database
 description: "Tune Juno's database and compilation settings for faster sync and lower resource use."
 ---
 

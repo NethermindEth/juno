@@ -1,5 +1,5 @@
 ---
-title: Full Control Over Pre-confirmed Polling
+title: Pre-confirmed Polling
 description: "How Juno fetches the pre_confirmed block, what its three polling options trade off, and which values to set for your workload."
 ---
 
