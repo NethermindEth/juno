@@ -380,9 +380,7 @@ func ReadHeader(r *fast.Reader, dst *core.Header) error {
 		case headerL1GasPriceSTRK:
 			err = readFelt(r, &dst.L1GasPriceSTRK)
 		case headerL1DAMode:
-			var mode uint64
-			err = readUint64(r, &mode)
-			dst.L1DAMode = core.L1DAMode(mode)
+			err = readUint(r, &dst.L1DAMode)
 		case headerL1DataGasPrice:
 			err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)
 		case headerL2GasPrice:
@@ -663,7 +661,7 @@ func readCasmClass(r *fast.Reader, dst *core.CasmClass) error {
 		case casmClassHints:
 			err = readRaw(r, (*[]byte)(&dst.Hints))
 		case casmClassPrime:
-			err = readBigIntPtr(r, dst)
+			err = readBigIntPtr(r, &dst.Prime)
 		case casmClassExternal:
 			err = readSlice(r, &dst.External, readCasmEntryPoint)
 		case casmClassL1Handler:
