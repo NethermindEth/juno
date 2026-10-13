@@ -47,6 +47,22 @@ func readUint64(r *fast.Reader, dst *uint64) error {
 	return nil
 }
 
+// readUint reads an unsigned integer into any type whose underlying type is uint.
+func readUint[T ~uint](r *fast.Reader, dst *T) error {
+	if r.Null() {
+		return nil // null leaves a plain field as it was
+	}
+	value, err := r.Uint64()
+	if err != nil {
+		return err
+	}
+	if uint64(T(value)) != value {
+		return fast.ErrType // wider than uint
+	}
+	*dst = T(value)
+	return nil
+}
+
 func readUint32[T ~uint32](r *fast.Reader, dst *T) error {
 	if r.Null() {
 		return nil // null leaves a plain field as it was

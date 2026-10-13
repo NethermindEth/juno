@@ -1,6 +1,8 @@
 package records
 
 import (
+	"math/big"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
@@ -33,16 +35,16 @@ func ReadClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassD
 	}
 }
 
-func readBigIntPtr(r *fast.Reader, dst *core.CasmClass) error {
+func readBigIntPtr(r *fast.Reader, dst **big.Int) error {
 	if r.Null() {
-		dst.Prime = nil
+		*dst = nil
 		return nil
 	}
 	value, err := r.BigInt()
 	if err != nil {
 		return err
 	}
-	dst.Prime = value
+	*dst = value
 	return nil
 }
 

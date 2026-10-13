@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"go/format"
 	"log"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
@@ -52,8 +53,6 @@ var readers = []reader{
 			"GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.",
 		locals: "var prices *[2]core.GasPrice",
 		overrides: map[string]string{
-			// L1DAMode is a uint, which no helper reads.
-			"L1DAMode": "var mode uint64\nerr = readUint64(r, &mode)\ndst.L1DAMode = core.L1DAMode(mode)",
 			// The two gas prices share one allocation.
 			"L1DataGasPrice": "err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)",
 			"L2GasPrice":     "err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)",
@@ -65,10 +64,7 @@ var readers = []reader{
 	{typ: reflect.TypeFor[core.SierraClass](), name: "ReadSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
 	{typ: reflect.TypeFor[core.SierraEntryPointsByType](), name: "readSierraEntryPoints"},
 	{typ: reflect.TypeFor[core.SierraEntryPoint](), name: "readSierraEntryPoint"},
-	{
-		typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass",
-		overrides: map[string]string{"Prime": "err = readBigIntPtr(r, dst)"},
-	},
+	{typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass"},
 	{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
 	{
 		typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke",
@@ -103,6 +99,8 @@ var known = map[reflect.Type]string{
 	reflect.TypeFor[map[felt.SierraClassHash]felt.CasmClassHash](): "err = readMigratedClasses(r, &%s)",
 	reflect.TypeFor[eth.Address]():                                 "err = readEthAddress(r, &%s)",
 	reflect.TypeFor[*bloom.BloomFilter]():                          "err = readBloom(r, &%s)",
+	reflect.TypeFor[*big.Int]():                                    "err = readBigIntPtr(r, &%s)",
+	reflect.TypeFor[core.L1DAMode]():                               "err = readUint(r, &%s)",
 	reflect.TypeFor[core.FeeUnit]():                                "err = readByte(r, (*byte)(&%s))",
 	reflect.TypeFor[core.DataAvailabilityMode]():                   "err = readUint32(r, &%s)",
 	reflect.TypeFor[*core.TransactionVersion]():                    "err = readLimbPtr(r, &%s)",
