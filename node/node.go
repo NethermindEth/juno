@@ -43,6 +43,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -194,6 +195,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cbor.SetFallbackLogger(func(typeName string, reason cbor.Reason) {
+		logger.Info("Read a stored record with the standard CBOR decoder, not the fast one",
+			zap.String("type", typeName), zap.Stringer("reason", reason))
+	})
 
 	if cfg.DisableSync {
 		if cfg.Sequencer {

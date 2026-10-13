@@ -286,7 +286,6 @@ func TestMainnetSweep(t *testing.T) {
 		t.Fatal("SierraClass has no tag")
 	}
 	s := &sweeper{t: t, sierraTag: tag}
-	before := cbor.Stats()
 	started := time.Now()
 
 	jobs := make(chan job, 256)
@@ -315,8 +314,7 @@ func TestMainnetSweep(t *testing.T) {
 	elapsed := time.Since(started)
 
 	total := merge(results)
-	delta := routeDelta(before, cbor.Stats())
-	out := summary(cfg, elapsed, total, delta, s)
+	out := summary(cfg, elapsed, total, s)
 	t.Log("\n" + out)
 	if f := os.Getenv("SWEEP_SUMMARY"); f != "" {
 		if err := os.WriteFile(f, []byte(out), 0o600); err != nil {
@@ -329,7 +327,6 @@ func TestMainnetSweep(t *testing.T) {
 	if n := s.failures.Load(); n != 0 {
 		t.Errorf("%d records failed (%d mismatches)", n, s.mismatches.Load())
 	}
-	checkRoutes(t, total, delta)
 }
 
 type config struct {
@@ -445,19 +442,6 @@ func merge(results []*worker) map[string]*kindStats {
 	return total
 }
 
-func routeDelta(before, after map[string]cbor.RouteStats) map[string]cbor.RouteStats {
-	delta := map[string]cbor.RouteStats{}
-	for k, a := range after {
-		b := before[k]
-		delta[k] = cbor.RouteStats{
-			Routed:        a.Routed - b.Routed,
-			Unsupported:   a.Unsupported - b.Unsupported,
-			NonZeroTarget: a.NonZeroTarget - b.NonZeroTarget,
-		}
-	}
-	return delta
-}
-
 func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -467,7 +451,7 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-func summary(cfg config, elapsed time.Duration, total map[string]*kindStats, delta map[string]cbor.RouteStats, s *sweeper) string {
+func summary(cfg config, elapsed time.Duration, total map[string]*kindStats, s *sweeper) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "sweep of %s (blocks %d..%d, stride %d, %d workers) took %s\n",
 		cfg.path, cfg.from, cfg.to, cfg.stride, cfg.workers, elapsed.Round(time.Second))
@@ -485,54 +469,8 @@ func summary(cfg config, elapsed time.Duration, total map[string]*kindStats, del
 				fx, fa, float64(st.fxTime)/float64(max(st.fastTime, 1)))
 		}
 	}
-	fmt.Fprintf(&out, "%-36s %12s %12s %14s\n", "route", "routed", "unsupported", "nonzero target")
-	for _, k := range sortedKeys(delta) {
-		d := delta[k]
-		fmt.Fprintf(&out, "%-36s %12d %12d %14d\n", k, d.Routed, d.Unsupported, d.NonZeroTarget)
-	}
 	fmt.Fprintf(&out, "mismatches=%d failures=%d\n", s.mismatches.Load(), s.failures.Load())
 	return out.String()
-}
-
-// checkRoutes requires every routed record to be read by the fast decoder, with Cairo 0
-// classes as the only unsupported reads.
-func checkRoutes(t *testing.T, total map[string]*kindStats, delta map[string]cbor.RouteStats) {
-	var cairo0 uint64
-	if st := total["class Cairo 0 (fallback)"]; st != nil {
-		cairo0 = st.skipped
-	}
-	expectRouted := map[string]uint64{}
-	for k, st := range total {
-		switch {
-		case k == "header":
-			expectRouted["core.Header"] += st.count
-		case k == "state":
-			expectRouted["core.StateUpdate"] += st.count
-		case strings.HasPrefix(k, "receipt"):
-			expectRouted["core.TransactionReceipt"] += st.count
-		case strings.HasPrefix(k, "transaction"):
-			expectRouted["core.Transaction"] += st.count
-		case k == "class Sierra":
-			expectRouted["core.ClassDefinition"] += st.count
-		case k == "block indexes":
-			expectRouted["core.BlockTransactionsIndexes"] += st.count
-		}
-	}
-	for k, d := range delta {
-		if d.NonZeroTarget != 0 {
-			t.Errorf("route %s: %d reads into a non-zero target", k, d.NonZeroTarget)
-		}
-		wantUnsupported := uint64(0)
-		if k == "core.ClassDefinition" {
-			wantUnsupported = cairo0
-		}
-		if d.Unsupported != wantUnsupported {
-			t.Errorf("route %s: %d fallbacks, want %d", k, d.Unsupported, wantUnsupported)
-		}
-		if d.Routed != expectRouted[k] {
-			t.Errorf("route %s: %d routed, want %d", k, d.Routed, expectRouted[k])
-		}
-	}
 }
 
 // strided queues the entries of every stride-th block in [from, to) of a block-keyed bucket by

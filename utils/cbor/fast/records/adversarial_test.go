@@ -144,13 +144,6 @@ func into[T any](data []byte, pointer bool, decode func([]byte, any) error) (any
 	return dst, err
 }
 
-func routeOf(kind string) string {
-	return map[string]string{
-		"receipt": "core.TransactionReceipt", "header": "core.Header", "state": "core.StateUpdate",
-		"transaction": "core.Transaction", "class": "core.ClassDefinition",
-	}[kind]
-}
-
 // fastTypeMismatch is the wrapper's error for a type the fast reader does not coerce.
 func fastTypeMismatch(err error) bool {
 	var typeErr *fxamacker.UnmarshalTypeError
@@ -486,13 +479,12 @@ func TestMapKeyVariantsAgree(t *testing.T) {
 
 // TestIndefiniteLengthItemsFallBack turns each container and string of a record, one at a
 // time, into its indefinite-length form, which the fast reader leaves to fxamacker wherever it
-// meets it: the read must fall back and still decode the same value.
-func TestIndefiniteLengthItemsFallBack(t *testing.T) {
+// meets it: the read must still decode the same value.
+func TestIndefiniteLengthItemsMatchFxamacker(t *testing.T) {
 	for _, s := range samples(t, 8192) {
 		t.Run(s.name, func(t *testing.T) {
 			root, err := parseItem(s.data, 0, 0)
 			require.NoError(t, err)
-			route := routeOf(s.kind)
 			for _, n := range root.all() {
 				if n.major < majorBytes || n.major > majorMap || n.indefinite {
 					continue
@@ -513,15 +505,11 @@ func TestIndefiniteLengthItemsFallBack(t *testing.T) {
 				item = append(item, 0xff)
 				data := splice(s.data, n.start, n.end, item)
 
-				before := cbor.Stats()[route]
 				want, wantErr := decodeAs(s.kind, data, false, fxamacker.Unmarshal)
 				got, gotErr := decodeAs(s.kind, data, false, cbor.Unmarshal)
-				after := cbor.Stats()[route]
 				require.NoError(t, wantErr, "at %d", n.start)
 				require.NoError(t, gotErr, "at %d", n.start)
 				require.Equal(t, want, got, "at %d", n.start)
-				require.Equal(t, before.Unsupported+1, after.Unsupported, "at %d: no fallback", n.start)
-				require.Equal(t, before.Routed, after.Routed, "at %d", n.start)
 			}
 		})
 	}
@@ -609,17 +597,10 @@ func TestNonZeroDestinations(t *testing.T) {
 		for i, s := range list {
 			from := list[(i+1)%len(list)]
 			t.Run(s.name+" over "+from.name, func(t *testing.T) {
-				route := routeOf(kind)
-				before := cbor.Stats()[route]
 				got, gotErr := decodeAs(kind, s.data, false, prefill(from.data))
 				want, wantErr := decodeAs(kind, s.data, false, prefillFx(from.data))
 				require.Equal(t, wantErr == nil, gotErr == nil, "fx=%v wrapper=%v", wantErr, gotErr)
 				require.Equal(t, want, got)
-				after := cbor.Stats()[route]
-				if !reflectZero(t, kind, from.data) {
-					require.Equal(t, before.NonZeroTarget+1, after.NonZeroTarget)
-					require.Equal(t, before.Routed, after.Routed)
-				}
 			})
 		}
 	}
@@ -632,23 +613,6 @@ func TestNonZeroDestinations(t *testing.T) {
 	require.NoError(t, fxamacker.Unmarshal(data, &want))
 	require.Equal(t, want, got)
 }
-
-func reflectZero(t *testing.T, kind string, data []byte) bool {
-	t.Helper()
-	v, err := decodeAs(kind, data, false, fxamacker.Unmarshal)
-	require.NoError(t, err)
-	switch value := v.(type) {
-	case core.TransactionReceipt:
-		return isZeroValue(value)
-	case core.Header:
-		return isZeroValue(value)
-	case core.StateUpdate:
-		return isZeroValue(value)
-	}
-	return v == nil
-}
-
-func isZeroValue[T any](v T) bool { return reflect.ValueOf(&v).Elem().IsZero() }
 
 // A minimal CBOR item parser, independent of the package under test.
 

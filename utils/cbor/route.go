@@ -33,7 +33,7 @@ func init() {
 func SetFastEnabled(on bool) { enabled.Store(on) }
 
 // A route serves one destination type, *T or **T, and gets the destination as the
-// pointer itself. The routes of *T and **T share their counters.
+// pointer itself. The routes of *T and **T share their name and their record of what was logged.
 type route struct {
 	// read decodes one item into the destination and leaves it untouched on
 	// fast.ErrUnsupported.
@@ -43,39 +43,59 @@ type route struct {
 	// isZero reports whether the destination holds the zero value (for **T, a nil pointer).
 	isZero func(dst unsafe.Pointer) bool
 
-	*counters
+	*identity
 }
 
-type counters struct {
-	name          string
-	routed        atomic.Uint64
-	unsupported   atomic.Uint64
-	nonZeroTarget atomic.Uint64
+type identity struct {
+	name string
+	// logged has a flag for each fallback reason, set once it has been reported.
+	logged [reasons]atomic.Bool
 }
 
-// RouteStats counts how a route's reads went.
-type RouteStats struct {
-	// Routed reads were completed by the fast decoder.
-	Routed uint64
-	// Unsupported reads met a form the fast decoder leaves to fxamacker, after it had
+// Reason is why a read of a routed type went to fxamacker.
+type Reason uint8
+
+const (
+	// ReasonUnsupported reads met a form the fast decoder leaves to fxamacker, after it had
 	// started, and were redone there.
-	Unsupported uint64
-	// NonZeroTarget reads went to fxamacker without trying, because their destination
+	ReasonUnsupported Reason = iota
+	// ReasonNonZeroDestination reads went to fxamacker without trying, because their destination
 	// already held a value and the update semantics are fxamacker's.
-	NonZeroTarget uint64
+	ReasonNonZeroDestination
+
+	reasons = iota
+)
+
+func (r Reason) String() string {
+	switch r {
+	case ReasonUnsupported:
+		return "unsupported form"
+	case ReasonNonZeroDestination:
+		return "non-zero destination"
+	default:
+		return "unknown"
+	}
 }
 
-// Stats returns the counters of every route, by type name.
-func Stats() map[string]RouteStats {
-	out := make(map[string]RouteStats, len(routes))
-	for _, rt := range routes {
-		out[rt.name] = RouteStats{
-			Routed:        rt.routed.Load(),
-			Unsupported:   rt.unsupported.Load(),
-			NonZeroTarget: rt.nonZeroTarget.Load(),
-		}
+var logFallback atomic.Pointer[func(typeName string, reason Reason)]
+
+// SetFallbackLogger sets the function that reports the first read of each routed type to fall back
+// to fxamacker, once for each reason. The function must be safe for concurrent use. Nothing is
+// reported until it is set, and a nil function stops reports.
+func SetFallbackLogger(f func(typeName string, reason Reason)) {
+	if f == nil {
+		logFallback.Store(nil)
+		return
 	}
-	return out
+	logFallback.Store(&f)
+}
+
+// fellBack reports a read of the route's type that went to fxamacker, the first time for each reason.
+func (rt *route) fellBack(reason Reason) {
+	// Only a reported fallback is remembered, so that one before the logger is set is not lost.
+	if f := logFallback.Load(); f != nil && rt.logged[reason].CompareAndSwap(false, true) {
+		(*f)(rt.name, reason)
+	}
 }
 
 // RegisterReader sends decodes into *T and **T to read. read must write only what it
@@ -84,7 +104,7 @@ func Stats() map[string]RouteStats {
 // from utils/cbor/registry's init, before concurrent use.
 func RegisterReader[T any](read func(r *fast.Reader, dst *T) error) {
 	typ := reflect.TypeFor[T]()
-	shared := &counters{name: typ.String()}
+	shared := &identity{name: typ.String()}
 	// A value whose bytes are all zero is the zero value. The converse fails only for
 	// values like an empty string that still points somewhere, which reflect decides.
 	zeroBytes := make([]byte, typ.Size())
@@ -99,7 +119,7 @@ func RegisterReader[T any](read func(r *fast.Reader, dst *T) error) {
 			return bytes.Equal(unsafe.Slice((*byte)(dst), len(zeroBytes)), zeroBytes) ||
 				reflect.NewAt(typ, dst).Elem().IsZero()
 		},
-		counters: shared,
+		identity: shared,
 	}
 	routes[typeWord(new(*T))] = &route{
 		// null leaves the pointer nil, anything else allocates the value.
@@ -120,7 +140,7 @@ func RegisterReader[T any](read func(r *fast.Reader, dst *T) error) {
 		isZero: func(dst unsafe.Pointer) bool {
 			return *(**T)(dst) == nil
 		},
-		counters: shared,
+		identity: shared,
 	}
 }
 
@@ -158,7 +178,7 @@ func decode(data []byte, v any) (rest []byte, handled bool, err error) {
 	// A route's destination is a pointer, which the interface holds as its data word.
 	dst := value.data
 	if !rt.isZero(dst) {
-		rt.nonZeroTarget.Add(1)
+		rt.fellBack(ReasonNonZeroDestination)
 		return nil, false, nil
 	}
 
@@ -171,12 +191,11 @@ func decode(data []byte, v any) (rest []byte, handled bool, err error) {
 	if err != nil {
 		rt.reset(dst)
 		if errors.Is(err, fast.ErrUnsupported) {
-			rt.unsupported.Add(1)
+			rt.fellBack(ReasonUnsupported)
 			return nil, false, nil
 		}
 		return nil, true, mapError(rt, err)
 	}
-	rt.routed.Add(1)
 	return rest, true, nil
 }
 
