@@ -7,3 +7,5 @@
 //
 // Everything a reader keeps is copied out of the input.
 package records
+
+//go:generate go run ./internal/gen
