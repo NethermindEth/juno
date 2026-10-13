@@ -23,7 +23,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/bits-and-blooms/bloom/v3"
-	fxcbor "github.com/fxamacker/cbor/v2"
 )
 
 // reader is a struct to write a reader for.
@@ -84,8 +83,14 @@ var files = []struct {
 		{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
 	}},
 	{"transaction_gen.go", []reader{
-		{typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke", doc: "reads the map of a stored invoke transaction, after its tag."},
-		{typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare", doc: "reads the map of a stored declare transaction, after its tag."},
+		{
+			typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke",
+			doc: "reads the map of a stored invoke transaction, after its tag.",
+		},
+		{
+			typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare",
+			doc: "reads the map of a stored declare transaction, after its tag.",
+		},
 		{typ: reflect.TypeFor[core.DeployTransaction](), name: "readDeploy"},
 		{typ: reflect.TypeFor[core.DeployAccountTransaction](), name: "readDeployAccount"},
 		{typ: reflect.TypeFor[core.L1HandlerTransaction](), name: "readL1Handler"},
@@ -123,11 +128,14 @@ var known = map[reflect.Type]string{
 // encodings are the interfaces through which a type takes over its own encoding, among those
 // fxamacker honors with the options Juno gives it (TextMarshaler is off by default).
 var encodings = []reflect.Type{
-	reflect.TypeFor[fxcbor.Marshaler](),
-	reflect.TypeFor[fxcbor.Unmarshaler](),
+	reflect.TypeFor[interface{ MarshalCBOR() ([]byte, error) }](),
+	reflect.TypeFor[interface{ UnmarshalCBOR([]byte) error }](),
 	reflect.TypeFor[encoding.BinaryMarshaler](),
 	reflect.TypeFor[encoding.BinaryUnmarshaler](),
 }
+
+// sourceMode is the mode of the files written.
+const sourceMode = 0o644
 
 func main() {
 	out := flag.String("o", ".", "the directory to write the files to")
@@ -139,7 +147,7 @@ func main() {
 		log.Fatal(err)
 	}
 	for name, src := range sources {
-		if err := os.WriteFile(filepath.Join(*out, name), src, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(*out, name), src, sourceMode); err != nil {
 			log.Fatal(err)
 		}
 	}
