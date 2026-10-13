@@ -10,12 +10,10 @@ package main
 import (
 	"encoding"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"go/format"
 	"log"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -38,64 +36,51 @@ type reader struct {
 	overrides map[string]string
 }
 
-// files lists the readers each generated file holds.
-var files = []struct {
-	name    string
-	readers []reader
-}{
-	{"receipt_gen.go", []reader{
-		{typ: reflect.TypeFor[core.TransactionReceipt](), name: "ReadReceipt", doc: "reads a stored TransactionReceipt."},
-		{typ: reflect.TypeFor[core.Event](), name: "readEvent"},
-		{typ: reflect.TypeFor[core.L1ToL2Message](), name: "readL1ToL2Message"},
-		{typ: reflect.TypeFor[core.L2ToL1Message](), name: "readL2ToL1Message"},
-		{typ: reflect.TypeFor[core.DataAvailability](), name: "readDataAvailability"},
-		{typ: reflect.TypeFor[core.GasConsumed](), name: "readGasConsumed"},
-		{typ: reflect.TypeFor[core.BuiltinInstanceCounter](), name: "readBuiltinInstanceCounter"},
-	}},
-	{"header_gen.go", []reader{
-		{
-			typ: reflect.TypeFor[core.Header](), name: "ReadHeader",
-			doc: "reads a stored block header. The keys of the legacy fields GasPrice,\n" +
-				"// GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.",
-			locals: "var prices *[2]core.GasPrice",
-			overrides: map[string]string{
-				// L1DAMode is a uint, which no helper reads.
-				"L1DAMode": "var mode uint64\nerr = readUint64(r, &mode)\ndst.L1DAMode = core.L1DAMode(mode)",
-				// The two gas prices share one allocation.
-				"L1DataGasPrice": "err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)",
-				"L2GasPrice":     "err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)",
-			},
+// readers lists the readers to write, in the order they are written.
+var readers = []reader{
+	{typ: reflect.TypeFor[core.TransactionReceipt](), name: "ReadReceipt", doc: "reads a stored TransactionReceipt."},
+	{typ: reflect.TypeFor[core.Event](), name: "readEvent"},
+	{typ: reflect.TypeFor[core.L1ToL2Message](), name: "readL1ToL2Message"},
+	{typ: reflect.TypeFor[core.L2ToL1Message](), name: "readL2ToL1Message"},
+	{typ: reflect.TypeFor[core.DataAvailability](), name: "readDataAvailability"},
+	{typ: reflect.TypeFor[core.GasConsumed](), name: "readGasConsumed"},
+	{typ: reflect.TypeFor[core.BuiltinInstanceCounter](), name: "readBuiltinInstanceCounter"},
+	{
+		typ: reflect.TypeFor[core.Header](), name: "ReadHeader",
+		doc: "reads a stored block header. The keys of the legacy fields GasPrice,\n" +
+			"// GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.",
+		locals: "var prices *[2]core.GasPrice",
+		overrides: map[string]string{
+			// L1DAMode is a uint, which no helper reads.
+			"L1DAMode": "var mode uint64\nerr = readUint64(r, &mode)\ndst.L1DAMode = core.L1DAMode(mode)",
+			// The two gas prices share one allocation.
+			"L1DataGasPrice": "err = readGasPricePtr(r, &dst.L1DataGasPrice, &prices, 0)",
+			"L2GasPrice":     "err = readGasPricePtr(r, &dst.L2GasPrice, &prices, 1)",
 		},
-		{typ: reflect.TypeFor[core.GasPrice](), name: "readGasPrice"},
-	}},
-	{"state_update_gen.go", []reader{
-		{typ: reflect.TypeFor[core.StateUpdate](), name: "ReadStateUpdate", doc: "reads a stored state update."},
-		{typ: reflect.TypeFor[core.StateDiff](), name: "readStateDiff"},
-	}},
-	{"class_gen.go", []reader{
-		{typ: reflect.TypeFor[core.SierraClass](), name: "ReadSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
-		{typ: reflect.TypeFor[core.SierraEntryPointsByType](), name: "readSierraEntryPoints"},
-		{typ: reflect.TypeFor[core.SierraEntryPoint](), name: "readSierraEntryPoint"},
-		{
-			typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass",
-			overrides: map[string]string{"Prime": "err = readBigIntPtr(r, dst)"},
-		},
-		{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
-	}},
-	{"transaction_gen.go", []reader{
-		{
-			typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke",
-			doc: "reads the map of a stored invoke transaction, after its tag.",
-		},
-		{
-			typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare",
-			doc: "reads the map of a stored declare transaction, after its tag.",
-		},
-		{typ: reflect.TypeFor[core.DeployTransaction](), name: "readDeploy"},
-		{typ: reflect.TypeFor[core.DeployAccountTransaction](), name: "readDeployAccount"},
-		{typ: reflect.TypeFor[core.L1HandlerTransaction](), name: "readL1Handler"},
-		{typ: reflect.TypeFor[core.ResourceBounds](), name: "readBounds"},
-	}},
+	},
+	{typ: reflect.TypeFor[core.GasPrice](), name: "readGasPrice"},
+	{typ: reflect.TypeFor[core.StateUpdate](), name: "ReadStateUpdate", doc: "reads a stored state update."},
+	{typ: reflect.TypeFor[core.StateDiff](), name: "readStateDiff"},
+	{typ: reflect.TypeFor[core.SierraClass](), name: "ReadSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
+	{typ: reflect.TypeFor[core.SierraEntryPointsByType](), name: "readSierraEntryPoints"},
+	{typ: reflect.TypeFor[core.SierraEntryPoint](), name: "readSierraEntryPoint"},
+	{
+		typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass",
+		overrides: map[string]string{"Prime": "err = readBigIntPtr(r, dst)"},
+	},
+	{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
+	{
+		typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke",
+		doc: "reads the map of a stored invoke transaction, after its tag.",
+	},
+	{
+		typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare",
+		doc: "reads the map of a stored declare transaction, after its tag.",
+	},
+	{typ: reflect.TypeFor[core.DeployTransaction](), name: "readDeploy"},
+	{typ: reflect.TypeFor[core.DeployAccountTransaction](), name: "readDeployAccount"},
+	{typ: reflect.TypeFor[core.L1HandlerTransaction](), name: "readL1Handler"},
+	{typ: reflect.TypeFor[core.ResourceBounds](), name: "readBounds"},
 }
 
 // known gives the case that reads a field of a type, with the field for %s. Before adding a
@@ -134,53 +119,43 @@ var encodings = []reflect.Type{
 	reflect.TypeFor[encoding.BinaryUnmarshaler](),
 }
 
-// sourceMode is the mode of the files written.
-const sourceMode = 0o644
+const (
+	// output is the file written, in the directory gen runs in.
+	output = "readers_gen.go"
+	// sourceMode is the mode it is written with.
+	sourceMode = 0o644
+)
 
 func main() {
-	out := flag.String("o", ".", "the directory to write the files to")
-	flag.Parse()
 	log.SetFlags(0)
 	log.SetPrefix("gen: ")
-	sources, err := generate()
+	src, err := generate()
+	if err == nil {
+		err = os.WriteFile(output, src, sourceMode)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
-	for name, src := range sources {
-		if err := os.WriteFile(filepath.Join(*out, name), src, sourceMode); err != nil {
-			log.Fatal(err)
-		}
-	}
 }
 
-// generate returns the source of each file, by name.
-func generate() (map[string][]byte, error) {
+// generate returns the source of the readers.
+func generate() ([]byte, error) {
 	names := map[reflect.Type]string{}
-	for _, file := range files {
-		for _, rd := range file.readers {
-			names[rd.typ] = rd.name
+	for _, rd := range readers {
+		names[rd.typ] = rd.name
+	}
+	var body strings.Builder
+	for _, rd := range readers {
+		if err := writeReader(&body, rd, names); err != nil {
+			return nil, err
 		}
 	}
-	out := map[string][]byte{}
-	for _, file := range files {
-		var body strings.Builder
-		for _, rd := range file.readers {
-			if err := writeReader(&body, rd, names); err != nil {
-				return nil, err
-			}
-		}
-		imports := `"github.com/NethermindEth/juno/core"` + "\n"
-		if strings.Contains(body.String(), "felt.") {
-			imports += `"github.com/NethermindEth/juno/core/felt"` + "\n"
-		}
-		src, err := format.Source([]byte("// Code generated by internal/gen; DO NOT EDIT.\n\npackage records\n\n" +
-			"import (\n" + imports + `"github.com/NethermindEth/juno/utils/cbor/fast"` + "\n)\n\n" + body.String()))
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", file.name, err)
-		}
-		out[file.name] = src
+	imports := `"github.com/NethermindEth/juno/core"` + "\n"
+	if strings.Contains(body.String(), "felt.") {
+		imports += `"github.com/NethermindEth/juno/core/felt"` + "\n"
 	}
-	return out, nil
+	return format.Source([]byte("// Code generated by internal/gen; DO NOT EDIT.\n\npackage records\n\n" +
+		"import (\n" + imports + `"github.com/NethermindEth/juno/utils/cbor/fast"` + "\n)\n\n" + body.String()))
 }
 
 // field is a field as fxamacker sees it: its wire name and its Go name and type.
@@ -302,7 +277,7 @@ func caseOf(f field, names map[reflect.Type]string) (string, error) {
 func ownEncoding(t reflect.Type) error {
 	for _, e := range encodings {
 		if t.Implements(e) || reflect.PointerTo(t).Implements(e) {
-			return fmt.Errorf("%v has its own encoding, as a %v", t, e)
+			return fmt.Errorf("%v has its own encoding (%s)", t, e.Method(0).Name)
 		}
 	}
 	return nil
