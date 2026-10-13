@@ -1,4 +1,4 @@
-package common
+package progresslogger
 
 import (
 	"fmt"
