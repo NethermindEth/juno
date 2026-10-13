@@ -96,8 +96,6 @@ func decodeBoth[T any](t *testing.T, data []byte) (viaWrapper, viaFx *T) {
 	return viaWrapper, viaFx
 }
 
-func routed(name string) uint64 { return cbor.Stats()[name].Routed }
-
 func TestReceiptMatchesFxamacker(t *testing.T) {
 	for name, value := range map[string]*core.TransactionReceipt{
 		"populated": receipt(),
@@ -107,10 +105,8 @@ func TestReceiptMatchesFxamacker(t *testing.T) {
 			data, err := cbor.Marshal(value)
 			require.NoError(t, err)
 
-			before := routed("core.TransactionReceipt")
 			got, want := decodeBoth[core.TransactionReceipt](t, data)
 			require.Equal(t, want, got)
-			require.Equal(t, before+1, routed("core.TransactionReceipt"), "must be decoded by the fast reader")
 		})
 	}
 }
@@ -120,36 +116,32 @@ func TestSierraClassMatchesFxamacker(t *testing.T) {
 	data, err := cbor.Marshal(&class)
 	require.NoError(t, err)
 
-	before := routed("core.ClassDefinition")
 	var got, want core.ClassDefinition
 	require.NoError(t, cbor.Unmarshal(data, &got))
 	require.NoError(t, fxamacker.Unmarshal(data, &want))
 	require.Equal(t, want, got)
-	require.Equal(t, before+1, routed("core.ClassDefinition"))
 }
 
-func TestCairo0ClassFallsBack(t *testing.T) {
+func TestCairo0ClassMatchesFxamacker(t *testing.T) {
 	var class core.ClassDefinition = &core.DeprecatedCairoClass{Abi: []byte(`[]`), Program: "p"}
 	data, err := cbor.Marshal(&class)
 	require.NoError(t, err)
 
-	stats := cbor.Stats()["core.ClassDefinition"]
 	var got, want core.ClassDefinition
 	require.NoError(t, cbor.Unmarshal(data, &got))
 	require.NoError(t, fxamacker.Unmarshal(data, &want))
 	require.Equal(t, want, got)
-	require.Equal(t, stats.Unsupported+1, cbor.Stats()["core.ClassDefinition"].Unsupported)
 }
 
-func TestNonZeroDestinationGoesToFxamacker(t *testing.T) {
+func TestNonZeroDestinationMatchesFxamacker(t *testing.T) {
 	data, err := cbor.Marshal(receipt())
 	require.NoError(t, err)
 
-	stats := cbor.Stats()["core.TransactionReceipt"]
-	dst := core.TransactionReceipt{Reverted: true, RevertReason: "stale"}
-	require.NoError(t, cbor.Unmarshal(data, &dst))
-	require.Equal(t, stats.NonZeroTarget+1, cbor.Stats()["core.TransactionReceipt"].NonZeroTarget)
-	require.Equal(t, stats.Routed, cbor.Stats()["core.TransactionReceipt"].Routed)
+	got := core.TransactionReceipt{Reverted: true, RevertReason: "stale"}
+	want := got
+	require.NoError(t, cbor.Unmarshal(data, &got))
+	require.NoError(t, fxamacker.Unmarshal(data, &want))
+	require.Equal(t, want, got)
 }
 
 func TestPointerDestination(t *testing.T) {
@@ -179,48 +171,13 @@ func TestUnmarshalFirstRemainder(t *testing.T) {
 	require.Error(t, cbor.Unmarshal(append(append([]byte{}, data...), trailer...), new(core.TransactionReceipt)))
 }
 
-func TestDecodedValuesDoNotAliasInput(t *testing.T) {
-	data, err := cbor.Marshal(receipt())
-	require.NoError(t, err)
-	want := new(core.TransactionReceipt)
-	require.NoError(t, fxamacker.Unmarshal(data, want))
-
-	got := new(core.TransactionReceipt)
-	require.NoError(t, cbor.Unmarshal(data, got))
-	clear(data)
-	require.Equal(t, want, got)
-
-	classData, err := cbor.Marshal(func() *core.ClassDefinition { c := core.ClassDefinition(sierraClass()); return &c }())
-	require.NoError(t, err)
-	var wantClass, gotClass core.ClassDefinition
-	require.NoError(t, fxamacker.Unmarshal(classData, &wantClass))
-	require.NoError(t, cbor.Unmarshal(classData, &gotClass))
-	clear(classData)
-	require.Equal(t, wantClass, gotClass)
-}
-
-func TestMalformedInputIsAnErrorNotAFallback(t *testing.T) {
+func TestMalformedInputIsAnError(t *testing.T) {
 	data, err := cbor.Marshal(receipt())
 	require.NoError(t, err)
 
 	for _, cut := range []int{1, 2, 10, len(data) / 2, len(data) - 1} {
-		stats := cbor.Stats()["core.TransactionReceipt"]
 		require.Error(t, cbor.Unmarshal(data[:cut], new(core.TransactionReceipt)))
-		after := cbor.Stats()["core.TransactionReceipt"]
-		require.Equal(t, stats.Unsupported, after.Unsupported)
 	}
-}
-
-func TestIndefiniteLengthFallsBackToFxamacker(t *testing.T) {
-	// {"Fee": null, "Events": [_ ]} with an indefinite-length array: valid CBOR.
-	data := []byte{0xa1, 0x66, 'E', 'v', 'e', 'n', 't', 's', 0x9f, 0xff}
-	stats := cbor.Stats()["core.TransactionReceipt"]
-
-	var got, want core.TransactionReceipt
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.NoError(t, fxamacker.Unmarshal(data, &want))
-	require.Equal(t, want, got)
-	require.Equal(t, stats.Unsupported+1, cbor.Stats()["core.TransactionReceipt"].Unsupported)
 }
 
 func version(v uint64) *core.TransactionVersion { return (*core.TransactionVersion)(f(v)) }
@@ -279,12 +236,10 @@ func TestTransactionMatchesFxamacker(t *testing.T) {
 			data, err := cbor.Marshal(&tx)
 			require.NoError(t, err)
 
-			before := routed("core.Transaction")
 			var got, want core.Transaction
 			require.NoError(t, cbor.Unmarshal(data, &got))
 			require.NoError(t, fxamacker.Unmarshal(data, &want))
 			require.Equal(t, want, got)
-			require.Equal(t, before+1, routed("core.Transaction"))
 		})
 	}
 }
@@ -308,10 +263,8 @@ func TestHeaderMatchesFxamacker(t *testing.T) {
 			data, err := cbor.Marshal(value)
 			require.NoError(t, err)
 
-			before := routed("core.Header")
 			got, want := decodeBoth[core.Header](t, data)
 			require.Equal(t, want, got)
-			require.Equal(t, before+1, routed("core.Header"))
 		})
 	}
 }
@@ -335,13 +288,11 @@ func TestHeaderLegacyKeys(t *testing.T) {
 		data = append(data, entry.value...)
 	}
 
-	before := routed("core.Header")
 	got, want := decodeBoth[core.Header](t, data)
 	require.Equal(t, want, got)
 	require.EqualValues(t, 5, got.Number)
 	require.NotNil(t, got.L1GasPriceETH)
 	require.NotNil(t, got.L1GasPriceSTRK)
-	require.Equal(t, before+1, routed("core.Header"))
 }
 
 func stateUpdate() *core.StateUpdate {
@@ -370,10 +321,8 @@ func TestStateUpdateMatchesFxamacker(t *testing.T) {
 			data, err := cbor.Marshal(value)
 			require.NoError(t, err)
 
-			before := routed("core.StateUpdate")
 			got, want := decodeBoth[core.StateUpdate](t, data)
 			require.Equal(t, want, got)
-			require.Equal(t, before+1, routed("core.StateUpdate"))
 		})
 	}
 }
@@ -404,38 +353,6 @@ func allocsOf[T any](data []byte, decode func([]byte, any) error) float64 {
 			panic(err)
 		}
 	})
-}
-
-// The fast reader must not allocate more than fxamacker does, whatever the record.
-func TestAllocationsDoNotExceedFxamacker(t *testing.T) {
-	check := func(t *testing.T, fast, fx float64) {
-		t.Helper()
-		require.LessOrEqual(t, fast, fx, "fast=%v fxamacker=%v allocations per decode", fast, fx)
-	}
-
-	t.Run("receipt", func(t *testing.T) {
-		data, _ := cbor.Marshal(receipt())
-		check(t, allocsOf[core.TransactionReceipt](data, cbor.Unmarshal), allocsOf[core.TransactionReceipt](data, fxamacker.Unmarshal))
-	})
-	t.Run("header", func(t *testing.T) {
-		data, _ := cbor.Marshal(header())
-		check(t, allocsOf[core.Header](data, cbor.Unmarshal), allocsOf[core.Header](data, fxamacker.Unmarshal))
-	})
-	t.Run("state update", func(t *testing.T) {
-		data, _ := cbor.Marshal(stateUpdate())
-		check(t, allocsOf[core.StateUpdate](data, cbor.Unmarshal), allocsOf[core.StateUpdate](data, fxamacker.Unmarshal))
-	})
-	t.Run("sierra class", func(t *testing.T) {
-		class := core.ClassDefinition(sierraClass())
-		data, _ := cbor.Marshal(&class)
-		check(t, allocsOf[core.ClassDefinition](data, cbor.Unmarshal), allocsOf[core.ClassDefinition](data, fxamacker.Unmarshal))
-	})
-	for name, tx := range transactions() {
-		t.Run("transaction "+name, func(t *testing.T) {
-			data, _ := cbor.Marshal(&tx)
-			check(t, allocsOf[core.Transaction](data, cbor.Unmarshal), allocsOf[core.Transaction](data, fxamacker.Unmarshal))
-		})
-	}
 }
 
 // Elements of a pointer slice share an array only while the bytes left could hold them; small

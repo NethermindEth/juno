@@ -11,6 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fxSkip is what fxamacker does with an item the destination has no field for: the item sits
+// under an unknown key, so it is checked for well-formedness and skipped, never decoded.
+// It returns the bytes after the item. The key's map adds one nesting level, which wrapped
+// compensates for.
+func fxSkip(item []byte) ([]byte, error) {
+	var none struct{}
+	return fxamacker.UnmarshalFirst(wrapped(item), &none)
+}
+
+// wrapped puts item under the one-character key "z" of a map.
+func wrapped(item []byte) []byte {
+	return append([]byte{0xa1, 0x61, 'z'}, item...)
+}
+
+func nested(levels int, leaf byte) []byte {
+	return append(bytes.Repeat([]byte{0x81}, levels), leaf)
+}
+
 // seeds are well-formed and malformed items covering every major type.
 func seeds() [][]byte {
 	return [][]byte{

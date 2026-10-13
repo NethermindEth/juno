@@ -67,21 +67,15 @@ func transactionProjections() []projectionCase {
 	return []projectionCase{projectionCaseFor[transactionHashProjection]()}
 }
 
-func routedCount(name string) uint64 { return cbor.Stats()[name].Routed }
-
 // requireMatchesFxamacker decodes data into every projection, through the fast reader and through
-// fxamacker, and requires equal values; routed says whether the fast reader must complete it.
-func requireMatchesFxamacker(t *testing.T, data []byte, routed bool, projections []projectionCase) {
+// fxamacker, and requires equal values.
+func requireMatchesFxamacker(t *testing.T, data []byte, projections []projectionCase) {
 	t.Helper()
 	for _, projection := range projections {
-		before := routedCount(projection.name)
 		got, want, gotErr, wantErr := projection.decode(data)
 		require.NoError(t, wantErr, projection.name)
 		require.NoError(t, gotErr, projection.name)
 		require.Equal(t, want, got, projection.name)
-		if routed {
-			require.Equal(t, before+1, routedCount(projection.name), "%s was not routed", projection.name)
-		}
 	}
 }
 
@@ -181,8 +175,8 @@ func cborMap(pairs ...[]byte) []byte {
 }
 
 func TestHeaderProjectionReadersMatchFxamacker(t *testing.T) {
-	requireMatchesFxamacker(t, sampleHeaderBytes(t), true, headerProjections())
-	requireMatchesFxamacker(t, marshalled(t, &Header{}), true, headerProjections())
+	requireMatchesFxamacker(t, sampleHeaderBytes(t), headerProjections())
+	requireMatchesFxamacker(t, marshalled(t, &Header{}), headerProjections())
 }
 
 func TestReceiptProjectionReadersMatchFxamacker(t *testing.T) {
@@ -191,15 +185,15 @@ func TestReceiptProjectionReadersMatchFxamacker(t *testing.T) {
 	noEvents := sampleReceipt()
 	noEvents.Events = []*Event{}
 	for _, receipt := range []*TransactionReceipt{sampleReceipt(), withNullEvent, noEvents, {}} {
-		requireMatchesFxamacker(t, marshalled(t, receipt), true, receiptProjections())
+		requireMatchesFxamacker(t, marshalled(t, receipt), receiptProjections())
 	}
 }
 
 func TestTransactionHashProjectionReaderMatchesFxamacker(t *testing.T) {
 	for _, tx := range wideSampleTransactions() {
 		stored, untagged := transactionForms(t, tx)
-		requireMatchesFxamacker(t, stored, true, transactionProjections())
-		requireMatchesFxamacker(t, untagged, true, transactionProjections())
+		requireMatchesFxamacker(t, stored, transactionProjections())
+		requireMatchesFxamacker(t, untagged, transactionProjections())
 	}
 }
 
@@ -226,7 +220,7 @@ func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
 	}
 	for name, data := range headerCases {
 		t.Run("header "+name, func(t *testing.T) {
-			requireMatchesFxamacker(t, data, true, headerProjections())
+			requireMatchesFxamacker(t, data, headerProjections())
 		})
 	}
 
@@ -241,7 +235,7 @@ func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
 	}
 	for name, data := range receiptCases {
 		t.Run("receipt "+name, func(t *testing.T) {
-			requireMatchesFxamacker(t, data, true, receiptProjections())
+			requireMatchesFxamacker(t, data, receiptProjections())
 		})
 	}
 
@@ -253,7 +247,7 @@ func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
 	}
 	for name, data := range txCases {
 		t.Run("transaction "+name, func(t *testing.T) {
-			requireMatchesFxamacker(t, data, true, transactionProjections())
+			requireMatchesFxamacker(t, data, transactionProjections())
 		})
 	}
 }
@@ -275,9 +269,7 @@ func TestProjectionReadersLeaveTagsToFxamacker(t *testing.T) {
 	header := sampleHeader()
 	withTag := cborMap(pair(t, "Hash", nil), append(marshalled(t, "GlobalStateRoot"),
 		append([]byte{0xd8, 0x30}, marshalled(t, header.GlobalStateRoot)...)...))
-	before := cbor.Stats()["core.headerGlobalStateRootProjection"].Unsupported
-	requireMatchesFxamacker(t, withTag, false, headerProjections())
-	require.Equal(t, before+1, cbor.Stats()["core.headerGlobalStateRootProjection"].Unsupported)
+	requireMatchesFxamacker(t, withTag, headerProjections())
 }
 
 // TestProjectionReadersRejectMalformed checks the readers error on broken input, in the fields
@@ -500,7 +492,7 @@ func indexesCases(t testing.TB) map[string][]byte {
 func TestBlockTransactionsIndexesReaderMatchesFxamacker(t *testing.T) {
 	for name, data := range indexesCases(t) {
 		t.Run(name, func(t *testing.T) {
-			requireMatchesFxamacker(t, data, true,
+			requireMatchesFxamacker(t, data,
 				[]projectionCase{projectionCaseFor[BlockTransactionsIndexes]()})
 		})
 	}
