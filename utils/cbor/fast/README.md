@@ -5,7 +5,8 @@ WIP
 # Fast CBOR decoder
 
 Juno's custom decoder for the stored records (headers, transactions, receipts, state updates,
-classes). It reads them in one pass, straight into the Go values, with hand-written code. It is a
+classes). It reads them in one pass, straight into the Go values, with readers that are mostly
+generated from the Go types and hand-written where a record needs more. It is a
 decoder only: [fxamacker/cbor](https://github.com/fxamacker/cbor) still writes every record in
 the same format, so the fast path can be removed without migrating anything.
 
@@ -22,7 +23,8 @@ decoder must return what fxamacker returns, or return `fast.ErrUnsupported` and 
 |---|---|
 | `utils/cbor/cbor.go`, `route.go` | the API Juno calls, the route table (which Go types have a fast reader) and the fallback |
 | `utils/cbor/fast/` | primitives: `Reader` cursor, heads, ints, strings, felts, `Skip`, key matching |
-| `utils/cbor/fast/records/` | one reader per stored type; `receipt.go` is the template |
+| `utils/cbor/fast/records/` | one reader per stored type: `readers_gen.go` (generated) and the hand-written ones |
+| `utils/cbor/fast/records/internal/gen/` | the generator behind `readers_gen.go`; run `go generate ./utils/cbor/fast/records` |
 | `utils/cbor/registry/` | registers tags and calls `records.Register()` |
 | `core/partial_cbor_fast.go` | readers for projections: a few fields of a record, the rest skipped |
 | `utils/cbor/fast/sweep/` | mainnet sweep and fuzz scripts |
@@ -46,7 +48,8 @@ its concrete type. Pointers and slices are the value or `null`.
 
 ## A reader
 
-Each struct has a constant per field, a table of wire names, and a loop (see `records/receipt.go`):
+Each struct has a constant per field, a table of wire names, and a loop. Most are generated into
+`records/readers_gen.go` (see `ReadReceipt`):
 
 ```go
 s, err := r.OpenStruct(receiptFields)
@@ -64,6 +67,17 @@ for err == nil {
     }
 }
 ```
+
+The generator (`records/internal/gen`) takes a list of core types and finds their fields by
+reflection, as fxamacker does. It picks each field's helper from its Go type, through the `known`
+table (`*felt.Felt` is `readFelt`, `uint64` is `readUint64`, ...) and a rule for a generated struct
+behind a pointer or in a slice. A type it does not know, or one with its own encoding, stops it with
+the type and field named. A few fields are overrides (the two gas prices of a header share one
+allocation). The output is the code you would write by hand, so it costs nothing at run time.
+
+Some readers stay hand-written because they need more than a `case` per field: the tag dispatch of
+`ReadTransaction` and `ReadClassDefinition`, `readExecutionResources` (three structs in one
+allocation, in `receipt.go`), `SegmentLengths`, the bloom reader and the felt-map helpers.
 
 `NextField` first compares the bytes at the cursor with the key it expects next, three words at a
 time, which suits canonical maps. Any other key is matched as fxamacker does: exactly, then ignoring
@@ -94,6 +108,8 @@ felt count, a null `ResourceBounds` key, and Cairo 0 classes.
 | Test | Protects against |
 |---|---|
 | `fieldsOf` panic at init | a core field added or renamed without its reader |
+| `TestGeneratedFilesAreFresh` | `readers_gen.go` left behind a change to a core type or to the generator |
+| `internal/gen` tests | the generator accepting an unknown or self-encoding type |
 | `TestFieldsFollowTheEncoder` | the encoder's key order changing, which would slow every key |
 | `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
 | `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records giving a different result |
@@ -107,14 +123,19 @@ fxamacker is upgraded.
 
 ## Changing it
 
-- **Field added to a stored type:** the init check panics. Add a constant, a name and a `case`
-  calling the helper for its Go type, then update any projection that names it. The random-value
-  test fails if it is read wrongly.
-- **Field changes type or encoding:** switch its `case` to the right helper. A field whose old
-  records must still read needs both forms, or a fallback.
-- **New routed type:** write the reader, register it in `records/register.go`, add it to the
-  random-value, key-order and differential tests, add a fuzz target, run the sweep. A type with no
-  reader decodes through fxamacker, correctly and slower.
+- **Field added to a stored type:** run `go generate ./utils/cbor/fast/records` and commit the
+  result (`TestGeneratedFilesAreFresh` and the init check fail until you do), then update any
+  projection that names the field. If the generator stops with `no helper reads a X`, check how
+  fxamacker stores that type and add it to `known` in `internal/gen/main.go` (a type with its own
+  encoding needs a helper that reads that encoding), or override the field. The random-value test
+  fails if the field is read wrongly.
+- **Field changes type or encoding:** regenerate. The helper follows the type, and a new type may
+  need a `known` entry. A field whose old records must still read needs both forms, or a fallback.
+- **New routed type:** add it to `readers` in `internal/gen/main.go` and regenerate, or, if it needs
+  more than a `case` per field, write the reader by hand (`readExecutionResources` is a model). Then
+  register it in `records/register.go`, add it to the random-value, key-order and differential
+  tests, add a fuzz target, and run the sweep. A type with no reader decodes through fxamacker,
+  correctly and slower.
 - **New endpoint:** nothing, if it reads types already routed. Needing a few fields of a big record
   is a projection in `core/partial_cbor_fast.go`.
 - **Turn it off:** `JUNO_CBOR_FAST=off`, or `cbor.SetFastEnabled(false)`. To remove it, delete the
@@ -127,6 +148,8 @@ fxamacker is upgraded.
 - Felts are read through an unsafe cast from `[4]uint64`.
 - The bloom package allocates the bit count a filter declares, so `records/bloom.go` builds filters
   itself after checking the count against the bytes.
+- The generator must not import `utils/cbor/registry` (it imports `records`, which panics at init
+  when `readers_gen.go` is stale). Keep overrides to one call of a compiled helper.
 - Matching fxamacker is a standing cost: recheck it with the fuzz and the sweep when it changes.
 
 # Fast CBOR decoder benchmarks
