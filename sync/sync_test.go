@@ -27,7 +27,7 @@ import (
 const timeout = time.Second
 
 func TestNoopSynchronizerPreConfirmedChain(t *testing.T) {
-	_, err := new(sync.NoopSynchronizer).PreConfirmedChain()
+	_, err := new(sync.NoopSynchronizer).RequestPreConfirmedChain()
 	require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 }
 
@@ -453,7 +453,7 @@ func TestPreConfirmed(t *testing.T) {
 
 	// The stored-snapshot fast path is covered by the poller tests in
 	// sync/preconfirmed/poller_test.go, which fill the chain through Run's
-	// pre-confirmed poller and read it back with PreConfirmedChain.
+	// pre-confirmed poller and read it back with RequestPreConfirmedChain.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
@@ -475,7 +475,7 @@ func TestPreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		result, err := synchronizer.PreConfirmedChain()
+		result, err := synchronizer.RequestPreConfirmedChain()
 		require.NoError(t, err)
 		require.Equal(t, 1, result.Length())
 		tip := result.Head()

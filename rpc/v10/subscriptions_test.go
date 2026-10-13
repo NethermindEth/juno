@@ -99,7 +99,11 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+func (fs *fakeSyncer) RequestPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return preconfirmed.ChainReader{}, db.ErrKeyNotFound
+}
+
+func (fs *fakeSyncer) ReadPreConfirmedChain() (preconfirmed.ChainReader, error) {
 	return preconfirmed.ChainReader{}, db.ErrKeyNotFound
 }
 
@@ -817,7 +821,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
-			PreConfirmedChain().
+			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -840,7 +844,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, logger)
 		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
 		mockSyncer.EXPECT().
-			PreConfirmedChain().
+			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -928,7 +932,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
-		mockSyncer.EXPECT().PreConfirmedChain().
+		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
 		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
@@ -962,7 +966,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PreConfirmedChain().
+		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, preConfirmed), nil).Times(1)
 		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(
@@ -1054,7 +1058,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
 			Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		// We need to return some status at start, otherwise it will re-try for a while.
-		mockSyncer.EXPECT().PreConfirmedChain().
+		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, preConfirmedData1), nil).AnyTimes()
 		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
 		assertNextTxnStatus(

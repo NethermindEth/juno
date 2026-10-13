@@ -177,7 +177,7 @@ func wirePoller(
 // readChain reads the poller's current pre-confirmed view the way any consumer does.
 func (h harness) readChain(t *testing.T) preconfirmed.ChainReader {
 	t.Helper()
-	view, err := h.poller.PreConfirmedChain()
+	view, err := h.poller.RequestPreConfirmedChain()
 	require.NoError(t, err)
 	return view
 }
@@ -206,7 +206,7 @@ func entry(
 	return expectedEntry{number, block.BlockIdentifier, txCount}
 }
 
-// blankEntry describes the placeholder PreConfirmedChain returns while nothing
+// blankEntry describes the placeholder ReadPreConfirmedChain returns while nothing
 // has been polled for the slot above the canonical head: an empty block carrying
 // the blank identifier.
 //
@@ -332,7 +332,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 		// chain fails the same way that guard does.
 		time.Sleep(3 * tickInterval)
 		synctest.Wait()
-		_, err := h.poller.PreConfirmedChain()
+		_, err := h.poller.RequestPreConfirmedChain()
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 		// Genesis lands.

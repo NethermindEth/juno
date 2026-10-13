@@ -462,7 +462,7 @@ func setupMockBlockTest(
 		// entry), not a base entry or an aggregate.
 		tipEntry := rpc.CreateTestPreConfirmed(t, block, int(block.TransactionCount))
 		entries := append(append([]*pending.PreConfirmed{}, preConfirmedBase...), &tipEntry)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).MaxTimes(1)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, entries...), nil).MaxTimes(1)
 	case blockID.IsLatest():
 		mockChain.EXPECT().Head().Return(block, nil).MaxTimes(1)
 		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).MaxTimes(1)
@@ -601,7 +601,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 		preConfirmed := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -683,7 +683,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
@@ -701,7 +701,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		baseHeader.TransactionCount = 0
 		baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
 
-		mockSyncReader.EXPECT().PreConfirmedChain().
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -737,7 +737,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
@@ -884,7 +884,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
@@ -1037,7 +1037,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 

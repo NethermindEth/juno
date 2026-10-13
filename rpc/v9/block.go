@@ -296,7 +296,7 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 	switch id.Type() {
 	case preConfirmed:
 		var chain preconfirmed.ChainReader
-		chain, err = h.syncReader.PreConfirmedChain()
+		chain, err = h.syncReader.RequestPreConfirmedChain()
 		if err == nil {
 			count = chain.Head().Block.Header.TransactionCount
 		}
@@ -339,7 +339,7 @@ func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	if id.IsPreConfirmed() {
-		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		preConfirmedChain, err := h.syncReader.RequestPreConfirmedChain()
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 				return nil, rpccore.ErrBlockNotFound
@@ -444,7 +444,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	if blockID.IsPreConfirmed() {
-		preConfirmedChain, err := h.syncReader.PreConfirmedChain()
+		preConfirmedChain, err := h.syncReader.RequestPreConfirmedChain()
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 				return nil, rpccore.ErrBlockNotFound

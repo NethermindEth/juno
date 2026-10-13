@@ -476,12 +476,12 @@ func TestEvents(t *testing.T) {
 			// Set up mock expectations
 			if tc.preConfirmed != nil {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(mustNewChain(t, tc.preConfirmed), nil).
 					AnyTimes()
 			} else {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 					AnyTimes()
 			}
@@ -510,7 +510,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockSyncReader.EXPECT().
-		PreConfirmedChain().
+		RequestPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 		AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
@@ -568,7 +568,7 @@ func TestEvents_MultiPreConfirmed(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(multiChain, nil).AnyTimes()
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(multiChain, nil).AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
 
 	preConfirmedID := blockIDPreConfirmed(t)
