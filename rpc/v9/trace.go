@@ -2,7 +2,9 @@ package rpcv9
 
 import (
 	"context"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"net/http"
 	"strconv"
@@ -33,16 +35,17 @@ type TransactionTrace struct {
 }
 
 type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	RevertReason string `json:"revert_reason"`
+	*FunctionInvocation
 }
 
-func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes the invocation itself, or only the revert reason when the call reverted.
+func (e ExecuteInvocation) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
+		return json.MarshalEncode(enc, e.FunctionInvocation)
 	}
 	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
+	return json.MarshalEncode(enc, alias(e))
 }
 
 type FunctionInvocation struct {
@@ -171,7 +174,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		if errors.Is(err, throttler.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, MakeContractError(json.RawMessage(err.Error()))
+		return nil, MakeContractError(jsonv1.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
 		// the blockifier 0.13.4 update requires us to check if the execution failed,
@@ -185,7 +188,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
 		}
 		// Todo: There is currently no standardised way to format these error messages
-		return nil, MakeContractError(json.RawMessage(strErr))
+		return nil, MakeContractError(jsonv1.RawMessage(strErr))
 	}
 	return res.Result, nil
 }

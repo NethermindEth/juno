@@ -1,8 +1,8 @@
 package rpcv9_test
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
@@ -66,7 +66,8 @@ func TestBlockIDMarshalling(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
-			require.NoError(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
+			//nolint:staticcheck,nolintlint // SA9005 does not know json/v2 UnmarshalJSONFrom
+			require.NoError(t, json.Unmarshal([]byte(test.blockIDJSON), &blockID))
 			assert.True(t, test.checkFunc(&blockID))
 		})
 	}
@@ -94,7 +95,8 @@ func TestBlockIDMarshalling(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
-			assert.Error(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
+			//nolint:staticcheck,nolintlint // SA9005 does not know json/v2 UnmarshalJSONFrom
+			assert.Error(t, json.Unmarshal([]byte(test.blockIDJSON), &blockID))
 		})
 	}
 }
@@ -1143,47 +1145,25 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 func blockIDPreConfirmed(t *testing.T) rpc.BlockID {
 	t.Helper()
-
-	blockID := rpc.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"pre_confirmed"`)))
-	return blockID
+	return rpc.BlockIDPreConfirmed()
 }
 
 func blockIDLatest(t *testing.T) rpc.BlockID {
 	t.Helper()
-
-	blockID := rpc.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"latest"`)))
-	return blockID
+	return rpc.BlockIDLatest()
 }
 
 func blockIDHash(t *testing.T, val *felt.Felt) rpc.BlockID {
 	t.Helper()
-
-	blockID := rpc.BlockID{}
-	require.NoError(
-		t,
-		blockID.UnmarshalJSON(
-			[]byte(fmt.Sprintf(`{ "block_hash" : %q }`, val.String())),
-		),
-	)
-	return blockID
+	return rpc.BlockIDFromHash(val)
 }
 
 func blockIDNumber(t *testing.T, val uint64) rpc.BlockID {
 	t.Helper()
-
-	blockID := rpc.BlockID{}
-	require.NoError(t,
-		blockID.UnmarshalJSON([]byte(fmt.Sprintf(`{ "block_number" : %d}`, val))),
-	)
-	return blockID
+	return rpc.BlockIDFromNumber(val)
 }
 
 func blockIDL1Accepted(t *testing.T) rpc.BlockID {
 	t.Helper()
-
-	blockID := rpc.BlockID{}
-	require.NoError(t, blockID.UnmarshalJSON([]byte(`"l1_accepted"`)))
-	return blockID
+	return rpc.BlockIDL1Accepted()
 }

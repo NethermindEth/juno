@@ -1,7 +1,8 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 )
 
@@ -9,9 +10,9 @@ type ResponseFlags struct {
 	IncludeProofFacts bool
 }
 
-func (r *ResponseFlags) UnmarshalJSON(data []byte) error {
+func (r *ResponseFlags) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := json.UnmarshalDecode(dec, &flags); err != nil {
 		return err
 	}
 	*r = ResponseFlags{}
@@ -32,9 +33,9 @@ type SubscriptionTags struct {
 	IncludeProofFacts bool
 }
 
-func (r *SubscriptionTags) UnmarshalJSON(data []byte) error {
+func (r *SubscriptionTags) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var flags []string
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := json.UnmarshalDecode(dec, &flags); err != nil {
 		return err
 	}
 

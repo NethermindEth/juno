@@ -1,7 +1,8 @@
 package rpcv10
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -36,14 +37,15 @@ type FunctionInvocation struct {
 }
 
 type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	RevertReason string `json:"revert_reason"`
+	*FunctionInvocation
 }
 
-func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes the invocation itself, or only the revert reason when the call reverted.
+func (e ExecuteInvocation) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
+		return json.MarshalEncode(enc, e.FunctionInvocation)
 	}
 	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
+	return json.MarshalEncode(enc, alias(e))
 }

@@ -1,9 +1,11 @@
 package starknet
 
 import (
-	"encoding/json"
+	"bytes"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -67,9 +69,9 @@ type EntryPoints struct {
 }
 
 type DeprecatedCairoClass struct {
-	Abi         json.RawMessage `json:"abi"`
-	EntryPoints EntryPoints     `json:"entry_points_by_type"`
-	Program     json.RawMessage `json:"program"`
+	Abi         jsonv1.RawMessage `json:"abi"`
+	EntryPoints EntryPoints       `json:"entry_points_by_type"`
+	Program     jsonv1.RawMessage `json:"program"`
 }
 
 type ClassDefinition struct {
@@ -83,48 +85,80 @@ func (c *ClassDefinition) Validate() error {
 	return nil
 }
 
-func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
-	jsonMap := make(map[string]any)
-	if err := json.Unmarshal(data, &jsonMap); err != nil {
+// UnmarshalJSONFrom decodes a Sierra class when the object has a sierra_program key,
+// else a deprecated Cairo class.
+func (c *ClassDefinition) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	value, err := dec.ReadValue()
+	if err != nil {
 		return err
 	}
 
-	if _, found := jsonMap["sierra_program"]; found {
+	isSierra, err := hasTopLevelKey(value, "sierra_program", dec.Options())
+	if err != nil {
+		return err
+	}
+	if isSierra {
 		c.Sierra = new(SierraClass)
-		return json.Unmarshal(data, c.Sierra)
+		return json.Unmarshal(value, c.Sierra, dec.Options())
 	}
 	c.DeprecatedCairo = new(DeprecatedCairoClass)
-	return json.Unmarshal(data, c.DeprecatedCairo)
+	return json.Unmarshal(value, c.DeprecatedCairo, dec.Options())
 }
 
+// hasTopLevelKey scans the keys of a JSON object without decoding its values
+// and stops at the first match, so the value must be syntactically valid.
+// A value that is not an object has no keys.
+func hasTopLevelKey(value jsontext.Value, key string, opts jsontext.Options) (bool, error) {
+	dec := jsontext.NewDecoder(bytes.NewBuffer(value), opts)
+	open, err := dec.ReadToken()
+	if err != nil {
+		return false, err
+	}
+	if open.Kind() != '{' {
+		return false, nil
+	}
+	for dec.PeekKind() == '"' {
+		name, err := dec.ReadToken()
+		if err != nil {
+			return false, err
+		}
+		if name.String() == key {
+			return true, nil
+		}
+		if err := dec.SkipValue(); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+// SegmentLengths is a CASM bytecode segment: a leaf length or a list of child segments.
 type SegmentLengths struct {
 	Children []SegmentLengths
 	Length   uint64
 }
 
-func (n *SegmentLengths) UnmarshalJSON(data []byte) error {
-	var err error
-	n.Length, err = strconv.ParseUint(string(data), 10, 64)
-	if err != nil {
-		return json.Unmarshal(data, &n.Children)
+func (n *SegmentLengths) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if dec.PeekKind() == '[' {
+		return json.UnmarshalDecode(dec, &n.Children)
 	}
-	return err
+	return json.UnmarshalDecode(dec, &n.Length)
 }
 
-func (n SegmentLengths) MarshalJSON() ([]byte, error) {
+func (n SegmentLengths) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(n.Children) > 0 {
-		return json.Marshal(n.Children)
+		return json.MarshalEncode(enc, n.Children)
 	}
-	return json.Marshal(n.Length)
+	return enc.WriteToken(jsontext.Uint(n.Length))
 }
 
 type CasmClass struct {
-	Prime                  string          `json:"prime"`
-	Bytecode               []felt.Felt     `json:"bytecode"`
-	Hints                  json.RawMessage `json:"hints"`
-	PythonicHints          json.RawMessage `json:"pythonic_hints"`
-	CompilerVersion        string          `json:"compiler_version"`
-	BytecodeSegmentLengths *SegmentLengths `json:"bytecode_segment_lengths,omitempty"`
+	Prime                  string            `json:"prime"`
+	Bytecode               []felt.Felt       `json:"bytecode"`
+	Hints                  jsonv1.RawMessage `json:"hints"`
+	PythonicHints          jsonv1.RawMessage `json:"pythonic_hints"`
+	CompilerVersion        string            `json:"compiler_version"`
+	BytecodeSegmentLengths *SegmentLengths   `json:"bytecode_segment_lengths,omitempty"`
 	EntryPoints            struct {
 		External    []CompiledEntryPoint `json:"EXTERNAL"`
 		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
@@ -138,10 +172,13 @@ type CompiledEntryPoint struct {
 	Builtins []string   `json:"builtins"`
 }
 
-func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
-	var classMap map[string]json.RawMessage
-	if err := json.Unmarshal(definition, &classMap); err != nil {
+// IsDeprecatedCompiledClassDefinition reports whether a compiled class is Cairo 0,
+// which has a program key.
+func IsDeprecatedCompiledClassDefinition(definition jsonv1.RawMessage) (bool, error) {
+	opts := jsonv1.DefaultOptionsV1()
+	value, err := jsontext.NewDecoder(bytes.NewBuffer(definition), opts).ReadValue()
+	if err != nil {
 		return false, err
 	}
-	return len(classMap["program"]) > 0, nil
+	return hasTopLevelKey(value, "program", opts)
 }

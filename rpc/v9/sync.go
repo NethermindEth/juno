@@ -1,7 +1,8 @@
 package rpcv9
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -18,13 +19,14 @@ type Sync struct {
 	HighestBlockNumber  *uint64    `json:"highest_block_num,omitempty"`
 }
 
-func (s Sync) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes `false` when the node is not syncing and the status object otherwise.
+func (s Sync) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if s.Syncing != nil && !*s.Syncing {
-		return json.Marshal(false)
+		return enc.WriteToken(jsontext.False)
 	}
 
 	type alias Sync
-	return json.Marshal(alias(s))
+	return json.MarshalEncode(enc, alias(s))
 }
 
 /****************************************************
