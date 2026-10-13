@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Decodes every routed record of the mainnet database with fxamacker and the wrapper and fails on
-# any mismatch, decode error, unexpected fallback or retained input. The database is opened
+# any mismatch, decode error or retained input. The database is opened
 # read-only.
 #
 #   ./utils/cbor/fast/sweep/run.sh            every block (takes a long time)
