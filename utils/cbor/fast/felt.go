@@ -83,6 +83,11 @@ func (r *Reader) limbsSlow(dst *[Limbs]uint64) error {
 	if err != nil {
 		return err
 	}
+	// The felt is an array, so what it holds, which a longer one skips, sits one level deeper.
+	if err := r.enter(); err != nil {
+		r.pos = start
+		return err
+	}
 	// Like a Go array in fxamacker, a shorter array leaves the rest zero and a longer one is
 	// cut off. Juno never writes either.
 	var limbs [Limbs]uint64
@@ -93,10 +98,12 @@ func (r *Reader) limbsSlow(dst *[Limbs]uint64) error {
 			limbs[i], err = r.Uint64()
 		}
 		if err != nil {
+			r.depth--
 			r.pos = start
 			return err
 		}
 	}
+	r.depth--
 	*dst = limbs
 	return nil
 }
