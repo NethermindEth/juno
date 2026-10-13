@@ -212,3 +212,54 @@ func (f *filler) fillBloom(v reflect.Value) {
 	}
 	v.Set(reflect.ValueOf(filter))
 }
+
+// A type registered with a CBOR tag is written behind its tag, and the generated readers read a
+// field as a plain map. The tagged types sit behind interfaces, which have tag-aware readers by
+// hand. One held directly would still decode, since the fast reader leaves a tag to fxamacker,
+// but would never take the fast path, and no other test would notice. The generator cannot tell,
+// as the registry imports the readers, so this test walks the stored types for it.
+func TestNoTaggedTypeIsAPlainField(t *testing.T) {
+	for _, root := range []reflect.Type{
+		reflect.TypeFor[core.TransactionReceipt](), reflect.TypeFor[core.Header](),
+		reflect.TypeFor[core.StateUpdate](),
+		reflect.TypeFor[core.DeclareTransaction](), reflect.TypeFor[core.DeployTransaction](),
+		reflect.TypeFor[core.InvokeTransaction](), reflect.TypeFor[core.L1HandlerTransaction](),
+		reflect.TypeFor[core.DeployAccountTransaction](), reflect.TypeFor[core.SierraClass](),
+	} {
+		require.Empty(t, taggedInside(root, map[reflect.Type]bool{}, true), "in %s", root)
+	}
+
+	type held struct{ Invoke *core.InvokeTransaction }
+	require.Equal(t, []string{"core.InvokeTransaction"},
+		taggedInside(reflect.TypeFor[held](), map[reflect.Type]bool{}, true))
+}
+
+// taggedInside lists the tagged types that t holds, directly or through other types, but not
+// through an interface. The root is a type whose own tag is read by whoever reads it.
+func taggedInside(t reflect.Type, seen map[reflect.Type]bool, root bool) []string {
+	if seen[t] {
+		return nil
+	}
+	seen[t] = true
+	if _, ok := cbor.TagOf(t); ok && !root {
+		return []string{t.String()}
+	}
+	var found []string
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array:
+		found = taggedInside(t.Elem(), seen, false)
+	case reflect.Map:
+		found = append(taggedInside(t.Key(), seen, false), taggedInside(t.Elem(), seen, false)...)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			f := t.Field(i)
+			// An embedded struct is flattened into its parent, so its own tag never reaches the wire.
+			if f.Anonymous && f.Tag.Get("cbor") == "" {
+				found = append(found, taggedInside(f.Type, seen, true)...)
+			} else if f.IsExported() {
+				found = append(found, taggedInside(f.Type, seen, false)...)
+			}
+		}
+	}
+	return found
+}

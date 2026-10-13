@@ -112,6 +112,7 @@ felt count, a null `ResourceBounds` key, and Cairo 0 classes.
 | `internal/gen` tests | the generator accepting an unknown or self-encoding type |
 | `TestFieldsFollowTheEncoder` | the encoder's key order changing, which would slow every key |
 | `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
+| `TestNoTaggedTypeIsAPlainField` | a type with a CBOR tag held directly in a stored type, which no generated reader handles and so would always fall back |
 | `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records giving a different result |
 | `TestDecodingDoesNotRetainInput`, shared-array and bloom tests | aliasing the input, aliased arrays, a bloom declaring more bits than it holds |
 | `Fuzz…` | arbitrary bytes giving a different result, or a panic |
@@ -149,7 +150,8 @@ fxamacker is upgraded.
 - The bloom package allocates the bit count a filter declares, so `records/bloom.go` builds filters
   itself after checking the count against the bytes.
 - The generator must not import `utils/cbor/registry` (it imports `records`, which panics at init
-  when `readers_gen.go` is stale). Keep overrides to one call of a compiled helper.
+  when `readers_gen.go` is stale). Keep overrides to one call of a compiled helper. For the same
+  reason it cannot know which types carry a tag; `TestNoTaggedTypeIsAPlainField` does.
 - Matching fxamacker is a standing cost: recheck it with the fuzz and the sweep when it changes.
 
 # Fast CBOR decoder benchmarks
