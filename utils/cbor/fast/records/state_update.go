@@ -1,97 +1,9 @@
 package records
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
-
-const (
-	stateUpdateBlockHash = iota
-	stateUpdateNewRoot
-	stateUpdateOldRoot
-	stateUpdateStateDiff
-)
-
-var stateUpdateFields = fieldsOf[core.StateUpdate]([]string{
-	stateUpdateBlockHash: "BlockHash",
-	stateUpdateNewRoot:   "NewRoot",
-	stateUpdateOldRoot:   "OldRoot",
-	stateUpdateStateDiff: "StateDiff",
-})
-
-// ReadStateUpdate reads a stored state update.
-func ReadStateUpdate(r *fast.Reader, dst *core.StateUpdate) error {
-	s, err := r.OpenStruct(stateUpdateFields)
-	for err == nil {
-		var field int
-		field, err = r.NextField(&s)
-		switch field {
-		case fast.Done:
-			return err
-		case stateUpdateBlockHash:
-			err = readFelt(r, &dst.BlockHash)
-		case stateUpdateNewRoot:
-			err = readFelt(r, &dst.NewRoot)
-		case stateUpdateOldRoot:
-			err = readFelt(r, &dst.OldRoot)
-		case stateUpdateStateDiff:
-			err = readPtr(r, &dst.StateDiff, readStateDiff)
-		default:
-			err = r.Skip()
-		}
-	}
-	return err
-}
-
-const (
-	stateDiffStorageDiffs = iota
-	stateDiffNonces
-	stateDiffDeployedContracts
-	stateDiffDeclaredV0Classes
-	stateDiffDeclaredV1Classes
-	stateDiffReplacedClasses
-	stateDiffMigratedClasses
-)
-
-var stateDiffFields = fieldsOf[core.StateDiff]([]string{
-	stateDiffStorageDiffs:      "StorageDiffs",
-	stateDiffNonces:            "Nonces",
-	stateDiffDeployedContracts: "DeployedContracts",
-	stateDiffDeclaredV0Classes: "DeclaredV0Classes",
-	stateDiffDeclaredV1Classes: "DeclaredV1Classes",
-	stateDiffReplacedClasses:   "ReplacedClasses",
-	stateDiffMigratedClasses:   "MigratedClasses",
-})
-
-func readStateDiff(r *fast.Reader, dst *core.StateDiff) error {
-	s, err := r.OpenStruct(stateDiffFields)
-	for err == nil {
-		var field int
-		field, err = r.NextField(&s)
-		switch field {
-		case fast.Done:
-			return err
-		case stateDiffStorageDiffs:
-			err = readStorageDiffs(r, &dst.StorageDiffs)
-		case stateDiffNonces:
-			err = readFeltMap(r, &dst.Nonces)
-		case stateDiffDeployedContracts:
-			err = readFeltMap(r, &dst.DeployedContracts)
-		case stateDiffDeclaredV0Classes:
-			err = readFeltPtrSlice(r, &dst.DeclaredV0Classes)
-		case stateDiffDeclaredV1Classes:
-			err = readFeltMap(r, &dst.DeclaredV1Classes)
-		case stateDiffReplacedClasses:
-			err = readFeltMap(r, &dst.ReplacedClasses)
-		case stateDiffMigratedClasses:
-			err = readMigratedClasses(r, &dst.MigratedClasses)
-		default:
-			err = r.Skip()
-		}
-	}
-	return err
-}
 
 func readMigratedClasses(r *fast.Reader, dst *map[felt.SierraClassHash]felt.CasmClassHash) error {
 	if r.Null() {
