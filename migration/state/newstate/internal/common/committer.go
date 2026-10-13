@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
+	"github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -10,7 +11,7 @@ import (
 
 type Committer struct {
 	logger         log.StructuredLogger
-	counter        Counter
+	counter        progresslogger.Counter
 	batchSemaphore semaphore.ResourceSemaphore[db.Batch]
 	phaseName      string
 }
@@ -24,7 +25,7 @@ func NewCommitter(
 ) *Committer {
 	return &Committer{
 		logger:         logger,
-		counter:        NewCounter(logger, TimeLogRate, phaseName),
+		counter:        progresslogger.NewCounter(logger, TimeLogRate, phaseName),
 		batchSemaphore: batchSemaphore,
 		phaseName:      phaseName,
 	}
