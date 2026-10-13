@@ -16,8 +16,8 @@ import (
 // randomValues is how many values of each type the property test decodes.
 const randomValues = 1000
 
-// The readers are written by hand, one per stored type, so a field added to a core type is easy
-// to leave out of its reader. This test fills every exported field of every routed type, found
+// The readers are generated or written by hand, one per stored type, so a field added to a core
+// type can be left out of its reader or read with the wrong helper. This test fills every exported field of every routed type, found
 // by reflection and not by a list of fields, with random data, and requires the fast decoder to
 // read what fxamacker reads. A field a reader does not know shows up as a value that differs, so
 // a new field needs no new fixture, and a new field type that the filler cannot make fails
