@@ -2,6 +2,133 @@ WIP
 
 
 
+# Fast CBOR decoder
+
+Juno's custom decoder for the stored records (headers, transactions, receipts, state updates,
+classes). It reads them in one pass, straight into the Go values, with hand-written code. It is a
+decoder only: [fxamacker/cbor](https://github.com/fxamacker/cbor) still writes every record in
+the same format, so the fast path can be removed without migrating anything.
+
+## How it relates to fxamacker
+
+The decoder shares no code with it. fxamacker is the **writer** (the bytes on disk are whatever it
+wrote), the **fallback** (any read the fast path does not take goes to it) and the **oracle** (the
+tests decode the same bytes both ways and require equal values). So for every input the fast
+decoder must return what fxamacker returns, or return `fast.ErrUnsupported` and let it decide.
+
+## Layout
+
+| Path | Role |
+|---|---|
+| `utils/cbor/cbor.go`, `route.go` | the API Juno calls, the route table (which Go types have a fast reader) and the fallback |
+| `utils/cbor/fast/` | primitives: `Reader` cursor, heads, ints, strings, felts, `Skip`, key matching |
+| `utils/cbor/fast/records/` | one reader per stored type; `receipt.go` is the template |
+| `utils/cbor/registry/` | registers tags and calls `records.Register()` |
+| `core/partial_cbor_fast.go` | readers for projections: a few fields of a record, the rest skipped |
+| `utils/cbor/fast/sweep/` | mainnet sweep and fuzz scripts |
+
+`fast` must not import `core`.
+
+## One decode
+
+`cbor.Unmarshal` looks up the destination type in the route table. It goes to fxamacker when no
+reader is registered, when `JUNO_CBOR_FAST=off`, or when the destination already holds a value
+(fxamacker merges into it, we do not). Otherwise a pooled `Reader` runs the reader: an error is
+returned as is (a wrong CBOR type is an error), `ErrUnsupported` resets the destination and
+redoes the read with fxamacker, and success returns. The first fallback of each type and reason is
+logged once (`cbor.SetFallbackLogger`, set in `node.New`). Nothing is counted.
+
+## What is stored
+
+A struct is a map keyed by field name in canonical order (shorter keys first, then bytewise). A
+felt is an array of four unsigned integers. A value behind an interface is a tag, then the map of
+its concrete type. Pointers and slices are the value or `null`.
+
+## A reader
+
+Each struct has a constant per field, a table of wire names, and a loop (see `records/receipt.go`):
+
+```go
+s, err := r.OpenStruct(receiptFields)
+for err == nil {
+    var field int
+    field, err = r.NextField(&s)
+    switch field {
+    case fast.Done:
+        return err
+    case receiptFee:
+        err = readFelt(r, &dst.Fee)
+    ...
+    default: // a key that names no field
+        err = r.Skip()
+    }
+}
+```
+
+`NextField` first compares the bytes at the cursor with the key it expects next, three words at a
+time, which suits canonical maps. Any other key is matched as fxamacker does: exactly, then ignoring
+case. The helpers (`readFelt`, `readPtr`, `readSlice`, ...) are in `records/helpers.go`.
+
+It is fast because it is one pass without reflection, matches keys in order, reads the common felt
+form with four loads, shares one backing array across the elements of a slice or map, and decodes
+only the needed fields in projections.
+
+## Rules for every reader
+
+1. Never keep a reference to the input; copy what you keep (`BytesNoCopy` and `StringNoCopy` borrow).
+2. Write only the destination; `ErrUnsupported` may come before or after writing, since the wrapper resets it.
+3. Count nesting through the `Reader` (`ArrayLen`/`MapLen`, then `Leave`), for fxamacker's limit of 32.
+4. Never panic or hang, and never allocate more than the input can back.
+5. Match fxamacker or fall back. A form Juno does not write, where the decoders differ, is handled in
+   this order: return `ErrUnsupported`; match fxamacker if that is a few lines off the hot path; filter it
+   from the fuzz only with a comment saying why it cannot be in a database.
+
+We match: exact then case-insensitive keys (old headers use `GasPrice`), skipped unknown and
+integer keys, `null` equal to `undefined` and leaving a plain field alone, short and long felt
+arrays, nesting of 32 counted over the whole record. We differ: a wrong CBOR type is an error.
+We fall back on: indefinite lengths, a tag where a value is expected, a repeated key, an unusual
+felt count, a null `ResourceBounds` key, and Cairo 0 classes.
+
+## Tests
+
+| Test | Protects against |
+|---|---|
+| `fieldsOf` panic at init | a core field added or renamed without its reader |
+| `TestFieldsFollowTheEncoder` | the encoder's key order changing, which would slow every key |
+| `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
+| `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records giving a different result |
+| `TestDecodingDoesNotRetainInput`, shared-array and bloom tests | aliasing the input, aliased arrays, a bloom declaring more bits than it holds |
+| `Fuzz…` | arbitrary bytes giving a different result, or a panic |
+| `core/partial_cbor_fast_test.go` | projection readers drifting from their records |
+| `sweep/` (build tag `sweep`) | any difference on a real mainnet database; run before a release |
+
+Run the fuzz with `sweep/fuzz.sh` and the sweep with `sweep/run.sh quick`, and rerun both when
+fxamacker is upgraded.
+
+## Changing it
+
+- **Field added to a stored type:** the init check panics. Add a constant, a name and a `case`
+  calling the helper for its Go type, then update any projection that names it. The random-value
+  test fails if it is read wrongly.
+- **Field changes type or encoding:** switch its `case` to the right helper. A field whose old
+  records must still read needs both forms, or a fallback.
+- **New routed type:** write the reader, register it in `records/register.go`, add it to the
+  random-value, key-order and differential tests, add a fuzz target, run the sweep. A type with no
+  reader decodes through fxamacker, correctly and slower.
+- **New endpoint:** nothing, if it reads types already routed. Needing a few fields of a big record
+  is a projection in `core/partial_cbor_fast.go`.
+- **Turn it off:** `JUNO_CBOR_FAST=off`, or `cbor.SetFastEnabled(false)`. To remove it, delete the
+  `records.Register()` call and the `RegisterReader` calls in `core/partial_cbor_fast.go`.
+
+## Sharp edges
+
+- `route.go` keys routes on the runtime's interface type word (`unsafe`), saving about 20 ns a
+  decode, and `isZero` compares bytes before asking reflect. Both rely on Go's layout.
+- Felts are read through an unsafe cast from `[4]uint64`.
+- The bloom package allocates the bit count a filter declares, so `records/bloom.go` builds filters
+  itself after checking the count against the bytes.
+- Matching fxamacker is a standing cost: recheck it with the fuzz and the sweep when it changes.
+
 # Fast CBOR decoder benchmarks
 
 This package provides [CBOR reader primitives](reader.go) and [typed readers for
