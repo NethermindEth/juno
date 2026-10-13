@@ -48,7 +48,7 @@ const sidebars = {
       type: "category",
       label: "Tuning",
       collapsed: true,
-      items: ["tuning", "preconfirmed-polling"],
+      items: ["tuning", "preconfirmed-polling", "contract-compilation"],
     },
     "plugins",
     "faq",
