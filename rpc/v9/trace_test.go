@@ -323,8 +323,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
-			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -335,6 +334,7 @@ func TestTraceTransaction(t *testing.T) {
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
 			// The tx-hash index lookup fails for a non-missing-key reason
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), errors.New("database error"))
 
@@ -371,6 +371,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).Return(header.Number, uint64(0), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
@@ -439,8 +440,6 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := pending.PreConfirmed{
 			Block: block,
@@ -448,7 +447,7 @@ func TestTraceTransaction(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
@@ -490,7 +489,7 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	// Multi-block pre_confirmed chain: target tx lives in the BASE entry, not
-	// the tip. findAndTraceInPreConfirmed must walk newest-first and
+	// the tip. TraceTransaction must walk newest-first and
 	// reconstruct state at the matching entry.
 	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
@@ -522,9 +521,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{StateDiff: &tipDiff},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
 			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
@@ -575,6 +572,7 @@ func TestTraceTransaction(t *testing.T) {
 		})
 		require.NotEqual(t, -1, revertedTxIndex)
 
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(revertedTxHash).
 			Return(blockNumber, uint64(revertedTxIndex), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).

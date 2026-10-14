@@ -34,6 +34,20 @@ func mustNewChain(t *testing.T, entries ...*pending.PreConfirmed) preconfirmed.C
 	return chain
 }
 
+// emptyPreConfirmedChain is a pre_confirmed chain that holds no transactions, as the poller
+// stores before it has seen any for the slot above the head.
+func emptyPreConfirmedChain(t *testing.T) preconfirmed.ChainReader {
+	t.Helper()
+	stateDiff := core.EmptyStateDiff()
+	empty := pending.NewPreConfirmed(
+		&core.Block{Header: &core.Header{Number: 1}},
+		&core.StateUpdate{StateDiff: &stateDiff},
+		nil,
+		"",
+	)
+	return mustNewChain(t, &empty)
+}
+
 type blockTestCase struct {
 	description   string
 	block         *core.Block

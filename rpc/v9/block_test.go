@@ -593,7 +593,10 @@ func TestBlockWithTxs(t *testing.T) {
 	}
 
 	// checkLatestBlock resolves every transaction through TransactionByHash, which
-	// reads the finalised store first and hits, in all seven subtests below.
+	// misses the stored pre_confirmed chain and hits the finalised store, in all seven
+	// subtests below.
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil).
+		Times(len(latestBlock.Transactions) * 7)
 	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
 		func(hash *felt.Felt) (core.Transaction, error) {
 			if tx, found := latestBlockTxMap[*hash]; found {

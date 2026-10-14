@@ -96,7 +96,7 @@ func TestGetMessageStatus(t *testing.T) {
 					},
 				},
 			}
-			mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().
 				Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
 
 			mockL1Client.EXPECT().TransactionReceipt(

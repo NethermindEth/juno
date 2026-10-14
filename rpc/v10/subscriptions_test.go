@@ -821,6 +821,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
+			ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+			AnyTimes()
+		mockSyncer.EXPECT().
 			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 			AnyTimes()
@@ -843,6 +847,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, logger)
 		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
+		mockSyncer.EXPECT().
+			ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+			AnyTimes()
 		mockSyncer.EXPECT().
 			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
@@ -932,6 +940,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
+		mockSyncer.EXPECT().ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
@@ -963,11 +973,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
 		}
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			&txHash,
-		).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncer.EXPECT().RequestPreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
+		// The stored pre_confirmed chain holds the transaction, so it answers on its own.
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(
 			t,
@@ -980,7 +987,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
 
-		// Accepted on l2 Status
+		// Accepted on l2 Status. The stored chain now starts above the committed block.
+		chainAboveBlock := mustNewChain(t, &pending.PreConfirmed{
+			Block: &core.Block{Header: &core.Header{Number: block.Number + 1}},
+		})
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
@@ -1004,6 +1015,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 
 		l1Head := core.L1Head{BlockNumber: block.Number}
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			&txHash,
 		).Return(block.Number, uint64(0), nil)
@@ -1053,12 +1065,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			},
 		}
 
-		// The store is read first and misses. The reorg drives a non-deterministic
-		// number of status checks, so leave the count open.
+		// The store would miss. The reorg drives a non-deterministic number of status checks,
+		// so leave the count open.
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
 			Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
-		// We need to return some status at start, otherwise it will re-try for a while.
-		mockSyncer.EXPECT().RequestPreConfirmedChain().
+		// We need to return some status at start, otherwise it will re-try for a while. The
+		// stored pre_confirmed chain answers it on its own.
+		mockSyncer.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, preConfirmedData1), nil).AnyTimes()
 		id, conn := createTestTxStatusWebsocket(t, handler, targetTxn.Hash())
 		assertNextTxnStatus(
