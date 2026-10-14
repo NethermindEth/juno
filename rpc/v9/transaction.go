@@ -551,7 +551,7 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Erro
 	}
 
 	// Not in a finalised block, so try the pre_confirmed chain.
-	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+	if chain, err := h.syncReader.RequestPreConfirmedChain(); err == nil {
 		if preConfirmedTxn, err := chain.TransactionByHash(hash); err == nil {
 			return AdaptTransaction(preConfirmedTxn), nil
 		}
@@ -597,7 +597,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		chain, err := h.syncReader.PreConfirmedChain()
+		chain, err := h.syncReader.RequestPreConfirmedChain()
 		if err != nil {
 			return Transaction{}, rpccore.ErrBlockNotFound
 		}
@@ -640,7 +640,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 func (h *Handler) getPendingTransactionReceipt(
 	hash *felt.Felt,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
-	chain, err := h.syncReader.PreConfirmedChain()
+	chain, err := h.syncReader.RequestPreConfirmedChain()
 	if err != nil {
 		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
 	}
@@ -935,7 +935,7 @@ func (h *Handler) transactionStatusFromStore(
 	}
 
 	// Not in a finalised block, so try the pre_confirmed chain.
-	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+	if chain, err := h.syncReader.RequestPreConfirmedChain(); err == nil {
 		if receipt, _, err := chain.ReceiptByHash(hash); err == nil {
 			return newTransactionStatus(
 				TxnStatusPreConfirmed, receipt.Reverted, receipt.RevertReason,

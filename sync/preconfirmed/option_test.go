@@ -39,7 +39,7 @@ func TestPollerDefaults(t *testing.T) {
 		synctest.Wait()
 
 		time.Sleep(preconfirmed.DefaultStaleAfter / 2)
-		view, err := poller.PreConfirmedChain()
+		view, err := poller.RequestPreConfirmedChain()
 		require.NoError(t, err)
 		// Lets a poll the read may have asked for run before the test ends, so it is seen.
 		synctest.Wait()

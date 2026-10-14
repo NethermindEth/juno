@@ -63,7 +63,8 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -92,7 +93,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		},
 	}
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -605,7 +606,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
 		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PreConfirmedChain().
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, &adaptedPreConfirmed), nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
@@ -666,7 +667,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		for i, hash := range hashes {
 			t.Run(fmt.Sprintf("block-%d", receiptBlockNumbers[i]), func(t *testing.T) {
 				mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
+				mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(chain, nil)
 				tx, rpcErr := handler.TransactionByHash(hash, rpc.ResponseFlags{})
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, tx.Hash)
@@ -681,7 +682,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(hash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
+				mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(chain, nil)
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
@@ -716,7 +717,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
 	tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
 		Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
 	preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -892,7 +893,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil).Times(2)
 		blockID := rpc.BlockIDPreConfirmed()
 
 		t.Run("invalid index", func(t *testing.T) {
@@ -1152,7 +1154,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
+				mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 			}
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
@@ -1175,7 +1177,8 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(txHash),
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
 	assert.Empty(t, tx)
@@ -1652,7 +1655,7 @@ func TestTransactionStatus(t *testing.T) {
 			gomock.Any(),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 	}
@@ -1722,7 +1725,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(targetTxnHash),
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t,
+				mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t,
 					&pending.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
@@ -1826,7 +1829,7 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(hash),
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
 		Return(mustNewChain(t, baseEntry, tipEntry), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithFeeder(mainnetClient)
@@ -1899,7 +1902,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			&res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 
@@ -1931,7 +1934,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			&res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 
@@ -2325,7 +2328,7 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	committed := false
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
 		DoAndReturn(func() (preconfirmed.ChainReader, error) {
 			committed = true
 			return mustNewChain(t, pastBlock), nil

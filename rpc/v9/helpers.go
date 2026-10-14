@@ -56,7 +56,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	switch blockID.Type() {
 	case preConfirmed:
 		var chain preconfirmed.ChainReader
-		chain, err = h.syncReader.PreConfirmedChain()
+		chain, err = h.syncReader.RequestPreConfirmedChain()
 		if err == nil {
 			block = chain.Head().Block
 		}
@@ -93,7 +93,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	switch blockID.Type() {
 	case preConfirmed:
 		var chain preconfirmed.ChainReader
-		chain, err = h.syncReader.PreConfirmedChain()
+		chain, err = h.syncReader.RequestPreConfirmedChain()
 		if err == nil {
 			header = chain.Head().Block.Header
 		}
@@ -188,7 +188,7 @@ func (h *Handler) stateByBlockID(
 	switch blockID.Type() {
 	case preConfirmed:
 		var chain preconfirmed.ChainReader
-		chain, err = h.syncReader.PreConfirmedChain()
+		chain, err = h.syncReader.RequestPreConfirmedChain()
 		if err == nil {
 			reader, closer, err = chain.PreConfirmedStateAt(chain.Head().Block.Number, h.bcReader)
 		}

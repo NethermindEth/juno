@@ -46,7 +46,7 @@ func TestStateUpdate(t *testing.T) {
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 			logger := log.NewNopZapLogger()
@@ -193,7 +193,7 @@ func TestStateUpdate(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		preConfirmed := pending.NewPreConfirmed(nil, update21656, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := blockIDPreConfirmed(t)
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)
@@ -220,7 +220,7 @@ func TestStateUpdate(t *testing.T) {
 			"",
 		)
 
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
 		preConfirmedID := blockIDPreConfirmed(t)
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)

@@ -96,7 +96,8 @@ func TestGetMessageStatus(t *testing.T) {
 					},
 				},
 			}
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
+			mockSyncReader.EXPECT().RequestPreConfirmedChain().
+				Return(mustNewChain(t, preConfirmed), nil).AnyTimes()
 
 			mockL1Client.EXPECT().TransactionReceipt(
 				gomock.Any(), gomock.Any(),

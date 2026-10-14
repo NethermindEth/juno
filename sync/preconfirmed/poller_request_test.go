@@ -19,7 +19,7 @@ import (
 // through reads, so a tick would blur which poll served a read.
 const longTick = 10 * time.Second
 
-// chainRead is what one PreConfirmedChain call returned and how long it waited for it.
+// chainRead is what one RequestPreConfirmedChain call returned and how long it waited for it.
 type chainRead struct {
 	view    preconfirmed.ChainReader
 	err     error
@@ -35,7 +35,7 @@ func (h harness) requestChain() <-chan chainRead {
 	// Buffered so that a result nobody collects never leaves the goroutine parked.
 	done := make(chan chainRead, 1)
 	go func() {
-		view, err := h.poller.PreConfirmedChain()
+		view, err := h.poller.RequestPreConfirmedChain()
 		done <- chainRead{view: view, err: err, elapsed: time.Since(start)}
 	}()
 	return done
@@ -349,5 +349,68 @@ func TestPollerRequestStopsWaitingForSlowPoll(t *testing.T) {
 		fresh := requireReadReturned(t, harness.requestChain())
 		require.Zero(t, fresh.elapsed, "a fresh read waited")
 		assertChain(t, &fresh.view, entry(1, &block1, &delta))
+	})
+}
+
+// A read that is not a request never asks for a poll nor waits for one
+func TestPollerReadDoesNotPoll(t *testing.T) {
+	t.Parallel()
+	fx := newChainFixture(t)
+
+	block1 := makeTestPreConfirmedBlock("r0", 1)
+	delta := makeTestDelta("r0", 1)
+
+	var release chan struct{}
+	slowPoll := func(
+		context.Context, string, uint64,
+	) (starknet.PreConfirmedUpdate, uint64, error) {
+		<-release
+		return delta, uint64(1), nil
+	}
+
+	ctrl := gomock.NewController(t)
+	ds := mocks.NewMockPreConfirmedDataSource(ctrl)
+	// Only the requests poll: any poll asked for by a plain read is an unexpected call.
+	gomock.InOrder(
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "", uint64(0)).
+			Return(block1, uint64(1), nil),
+		ds.EXPECT().PreConfirmedBlockLatest(gomock.Any(), "r0", uint64(1)).
+			DoAndReturn(slowPoll),
+	)
+
+	synctest.Test(t, func(t *testing.T) {
+		release = make(chan struct{})
+		releaseOnce := sync.OnceFunc(func() { close(release) })
+		defer releaseOnce()
+
+		harness := wirePoller(t, fx.bc, fx.head, ds, preconfirmed.WithPollInterval(longTick))
+		go harness.poller.Run(t.Context())
+		synctest.Wait()
+
+		bootstrap := requireReadReturned(t, harness.requestChain())
+		assertChain(t, &bootstrap.view, entry(1, &block1))
+
+		// The chain is stale, yet a plain read neither polls nor waits.
+		synctest.Sleep(staleAfter + time.Nanosecond)
+		stale, err := harness.poller.ReadPreConfirmedChain()
+		require.NoError(t, err)
+		assertChain(t, &stale, entry(1, &block1))
+
+		// A request starts a poll that does not finish; plain reads keep answering right away
+		// with the stored chain while the request waits.
+		request := harness.requestChain()
+		requireReadsWaiting(t, request)
+		duringPoll, err := harness.poller.ReadPreConfirmedChain()
+		require.NoError(t, err)
+		assertChain(t, &duringPoll, entry(1, &block1))
+		requireReadsWaiting(t, request)
+
+		// Once the poll is done the request returns with it, and so do later plain reads.
+		releaseOnce()
+		polled := requireReadReturned(t, request)
+		assertChain(t, &polled.view, entry(1, &block1, &delta))
+		afterPoll, err := harness.poller.ReadPreConfirmedChain()
+		require.NoError(t, err)
+		assertChain(t, &afterPoll, entry(1, &block1, &delta))
 	})
 }

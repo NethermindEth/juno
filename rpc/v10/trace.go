@@ -292,7 +292,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 func (h *Handler) findAndTraceInPreConfirmed(
 	hash *felt.TransactionHash,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
-	chain, err := h.syncReader.PreConfirmedChain()
+	chain, err := h.syncReader.RequestPreConfirmedChain()
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
 			return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound

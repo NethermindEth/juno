@@ -46,7 +46,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 			logger := log.NewNopZapLogger()
@@ -161,7 +161,7 @@ func TestStateUpdate(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
 		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
@@ -188,7 +188,7 @@ func TestStateUpdate(t *testing.T) {
 			"",
 		)
 
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
@@ -228,7 +228,7 @@ func TestStateUpdate(t *testing.T) {
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
 			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}
 

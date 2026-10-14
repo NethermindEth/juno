@@ -252,7 +252,7 @@ func (s *eventSubscriberState) processHistoricalEvents(
 		addresses,
 		keys,
 		func() (blockchain.PreConfirmedReader, error) {
-			chain, err := s.handler.syncReader.PreConfirmedChain()
+			chain, err := s.handler.syncReader.RequestPreConfirmedChain()
 			if err != nil {
 				return nil, err
 			}

@@ -632,10 +632,10 @@ func TestEvents(t *testing.T) {
 
 			// Set up mock expectations
 			if tc.preConfirmed != nil {
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(*tc.preConfirmed, nil).AnyTimes()
+				mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(*tc.preConfirmed, nil).AnyTimes()
 			} else {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 					AnyTimes()
 			}
@@ -664,7 +664,7 @@ func TestEvents_FilterWithLimit(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockSyncReader.EXPECT().
-		PreConfirmedChain().
+		RequestPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 		AnyTimes()
 	handler := rpc.New(chain, mockSyncReader, nil, log.NewNopZapLogger())
