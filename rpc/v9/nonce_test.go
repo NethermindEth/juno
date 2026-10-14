@@ -153,7 +153,8 @@ func TestNonce(t *testing.T) {
 			Block:       &core.Block{Header: &core.Header{Number: 3}},
 			StateUpdate: &core.StateUpdate{StateDiff: &tipStateDiff},
 		}
-		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, baseEntry, tipEntry), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, baseEntry, tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(uint64(1)).Return(mockState, nopCloser, nil)
 
 		preConfirmedBlockID := blockIDPreConfirmed(t)
