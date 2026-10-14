@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -15,7 +15,6 @@ import (
 
 func TestStateDiffCommitment(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
-	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
 		blockNum uint64
@@ -39,8 +38,7 @@ func TestStateDiffCommitment(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			su := adaptfeedertest.StateUpdate(t, client, test.blockNum)
 			commitment := su.StateDiff.Commitment()
 			assert.Equal(t, felt.UnsafeFromString[felt.Felt](test.expected), commitment)
 		})
@@ -49,7 +47,6 @@ func TestStateDiffCommitment(t *testing.T) {
 
 func TestStateDiffHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
 		blockNum uint64
@@ -77,8 +74,7 @@ func TestStateDiffHash(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("blockNum_%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			su := adaptfeedertest.StateUpdate(t, client, test.blockNum)
 			assert.Equal(t, felt.UnsafeFromString[felt.Felt](test.expected), su.StateDiff.Hash())
 		})
 	}
@@ -86,9 +82,7 @@ func TestStateDiffHash(t *testing.T) {
 
 func BenchmarkStateDiffHash(b *testing.B) {
 	client := feeder.NewTestClient(b, &networks.SepoliaIntegration)
-	gw := adaptfeeder.New(client)
-	su, err := gw.StateUpdate(b.Context(), 38748)
-	require.NoError(b, err)
+	su := adaptfeedertest.StateUpdate(b, client, 38748)
 
 	b.ResetTimer()
 	for range b.N {
@@ -98,7 +92,6 @@ func BenchmarkStateDiffHash(b *testing.B) {
 
 func TestStateDiffLength(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
 		blockNum       uint64
@@ -109,8 +102,7 @@ func TestStateDiffLength(t *testing.T) {
 		{blockNum: 2, expectedLength: 1},
 	} {
 		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			su := adaptfeedertest.StateUpdate(t, client, test.blockNum)
 			length := su.StateDiff.Length()
 			assert.Equal(t, test.expectedLength, length)
 		})

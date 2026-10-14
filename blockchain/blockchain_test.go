@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -29,7 +30,6 @@ var emptyCommitments = core.BlockCommitments{}
 
 func TestNew(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(
 			memory.New(),
@@ -42,11 +42,8 @@ func TestNew(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-
-		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+		block0 := adaptfeedertest.Block(t, client, 0)
+		stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 		testDB := memory.New()
 		chain := blockchain.New(
@@ -69,7 +66,6 @@ func TestNew(t *testing.T) {
 
 func TestHeight(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(
 			memory.New(),
@@ -80,11 +76,8 @@ func TestHeight(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-
-		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+		block0 := adaptfeedertest.Block(t, client, 0)
+		stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 		testDB := memory.New()
 		chain := blockchain.New(
@@ -113,12 +106,9 @@ func TestBlockByNumberAndHash(t *testing.T) {
 	)
 	t.Run("same block is returned for both core.GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &networks.Mainnet)
-		gw := adaptfeeder.New(client)
 
-		block, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		update, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 0)
+		update := adaptfeedertest.StateUpdate(t, client, 0)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, update, nil))
 
@@ -152,45 +142,34 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
-	gw := adaptfeeder.New(client)
-
-	mainnetBlock0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	mainnetStateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	mainnetBlock0 := adaptfeedertest.Block(t, client, 0)
+	mainnetStateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	require.NoError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
-		mainnetBlock1, err := gw.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
-		_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
+		_, err := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 		assert.EqualError(t, err, "block hashes do not match")
 	})
 
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
-			mainnetBlock1, err := gw.BlockByNumber(t.Context(), 1)
-			require.NoError(t, err)
+			mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
-			_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
+			_, err := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 			assert.EqualError(t, err, "block's GlobalStateRoot does not match state update's NewRoot")
 		})
 }
 
 func TestStore(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		testDB := memory.New()
@@ -221,11 +200,8 @@ func TestStore(t *testing.T) {
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		testDB := memory.New()
 
-		block1, err := gw.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
-
-		stateUpdate1, err := gw.StateUpdate(t.Context(), 1)
-		require.NoError(t, err)
+		block1 := adaptfeedertest.Block(t, client, 1)
+		stateUpdate1 := adaptfeedertest.StateUpdate(t, client, 1)
 
 		chain := blockchain.New(
 			testDB,
@@ -254,7 +230,6 @@ func TestStore(t *testing.T) {
 
 func TestStoreL1HandlerTxnHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 	chain := blockchain.New(
 		memory.New(),
 		&networks.Sepolia,
@@ -262,10 +237,8 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	)
 	var stateUpdate *core.StateUpdate
 	for i := range uint64(7) {
-		block, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		stateUpdate, err = gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, i)
+		stateUpdate = adaptfeedertest.StateUpdate(t, client, i)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
 	l1HandlerMsgHash := eth.HashFromString(
@@ -285,13 +258,9 @@ func TestBlockCommitments(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	b, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	su, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	b := adaptfeedertest.Block(t, client, 0)
+	su := adaptfeedertest.StateUpdate(t, client, 0)
 
 	expectedCommitments := &core.BlockCommitments{
 		TransactionCommitment: new(felt.Felt).SetUint64(1),
@@ -316,15 +285,11 @@ func TestTransactionAndReceipt(t *testing.T) {
 	)
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	stateDiffLengths := make([]uint64, 3)
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 
 		stateDiffLengths[i] = su.StateDiff.Length()
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{
@@ -353,8 +318,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("TransactionAndReceipt returns what was stored", func(t *testing.T) {
-		block, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 0)
 		require.NotEmpty(t, block.Transactions)
 
 		// The full header decode is the reference the block hash projection must reproduce.
@@ -381,8 +345,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(t.Context(), i)
-				require.NoError(t, err)
+				block := adaptfeedertest.Block(t, client, i)
 
 				for j, expectedTx := range block.Transactions {
 					gotTx, err := chain.TransactionByHash(expectedTx.Hash())
@@ -437,8 +400,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("TransactionsByBlockNumber returns all transactions for a block", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(t.Context(), i)
-				require.NoError(t, err)
+				block := adaptfeedertest.Block(t, client, i)
 
 				txns, err := chain.TransactionsByBlockNumber(i)
 				require.NoError(t, err)
@@ -450,8 +412,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(t.Context(), i)
-				require.NoError(t, err)
+				block := adaptfeedertest.Block(t, client, i)
 
 				for _, expectedR := range block.Receipts {
 					gotR, hash, number, err := chain.Receipt(expectedR.TransactionHash)
@@ -493,14 +454,11 @@ func TestStateAtBlockNumberWithRetentionFloor(t *testing.T) {
 			)
 
 			client := feeder.NewTestClient(t, &networks.Mainnet)
-			gw := adaptfeeder.New(client)
 
 			var lastHash *felt.Felt
 			for i := range uint64(3) {
-				block, err := gw.BlockByNumber(t.Context(), i)
-				require.NoError(t, err)
-				su, err := gw.StateUpdate(t.Context(), i)
-				require.NoError(t, err)
+				block := adaptfeedertest.Block(t, client, i)
+				su := adaptfeedertest.StateUpdate(t, client, i)
 				require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
 				lastHash = block.Hash
 			}
@@ -538,7 +496,6 @@ func TestState(t *testing.T) {
 	)
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	t.Run("head with no blocks", func(t *testing.T) {
 		_, _, err := chain.HeadState()
@@ -547,10 +504,8 @@ func TestState(t *testing.T) {
 
 	var existingBlockHash *felt.Felt
 	for i := range uint64(2) {
-		block, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
 		existingBlockHash = block.Hash
@@ -615,7 +570,6 @@ func TestEvents(t *testing.T) {
 	)
 
 	client := feeder.NewTestClient(t, &networks.Goerli2)
-	gw := adaptfeeder.New(client)
 
 	const (
 		numBlocksToFetch     = 7
@@ -623,10 +577,8 @@ func TestEvents(t *testing.T) {
 	)
 
 	for i := range numBlocksToFetch {
-		b, err := gw.BlockByNumber(t.Context(), uint64(i))
-		require.NoError(t, err)
-		s, err := gw.StateUpdate(t.Context(), uint64(i))
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, uint64(i))
+		s := adaptfeedertest.StateUpdate(t, client, uint64(i))
 
 		if b.Number < firstPendingBlockNum {
 			require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
@@ -861,7 +813,6 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	)
 
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 
 	const (
 		numCanonicalBlocks       = uint64(5) // store blocks 0..4
@@ -871,18 +822,14 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	)
 
 	for i := range numCanonicalBlocks {
-		block, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-
-		stateUpdate, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, i)
+		stateUpdate := adaptfeedertest.StateUpdate(t, client, i)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
 
 	pcEntries := make([]*pending.PreConfirmed, preConfirmedChainLength)
 	for i := firstPreConfirmedBlock; i <= lastPreConfirmedBlockNum; i++ {
-		block, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, i)
 
 		preconfirmed := pending.NewPreConfirmed(block, nil, nil, "")
 		pcEntries[i-firstPreConfirmedBlock] = &preconfirmed
@@ -1119,13 +1066,12 @@ func TestEventsHeadAdvancesDuringQuery(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Sepolia))
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+
 	store := func(t *testing.T, blockNum uint64) {
 		t.Helper()
-		block, err := gw.BlockByNumber(t.Context(), blockNum)
-		require.NoError(t, err)
-		stateUpdate, err := gw.StateUpdate(t.Context(), blockNum)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, blockNum)
+		stateUpdate := adaptfeedertest.StateUpdate(t, client, blockNum)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
 	for blockNum := range headAtStart + 1 {
@@ -1137,8 +1083,7 @@ func TestEventsHeadAdvancesDuringQuery(t *testing.T) {
 	preConfirmedFn := func() (blockchain.PreConfirmedReader, error) {
 		store(t, committedMidQuery)
 
-		block, err := gw.BlockByNumber(t.Context(), preConfirmedNum)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, preConfirmedNum)
 		block.Hash = nil // a pre-confirmed block has no hash
 		entry := pending.NewPreConfirmed(block, nil, nil, "")
 		preConfChain, err := preconfirmed.NewChain(&entry)
@@ -1201,15 +1146,13 @@ func TestEventsChainHeightReads(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Sepolia))
-	block, err := gw.BlockByNumber(t.Context(), canonicalHead)
-	require.NoError(t, err)
-	stateUpdate, err := gw.StateUpdate(t.Context(), canonicalHead)
-	require.NoError(t, err)
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+
+	block := adaptfeedertest.Block(t, client, canonicalHead)
+	stateUpdate := adaptfeedertest.StateUpdate(t, client, canonicalHead)
 	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 
-	preConfirmedBlock, err := gw.BlockByNumber(t.Context(), preConfirmedNum)
-	require.NoError(t, err)
+	preConfirmedBlock := adaptfeedertest.Block(t, client, preConfirmedNum)
 	preConfirmedBlock.Hash = nil
 	entry := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, "")
 	preConfChain, err := preconfirmed.NewChain(&entry)
@@ -1253,14 +1196,10 @@ func TestRevert(t *testing.T) {
 	)
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 
 		require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
 	}

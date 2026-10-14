@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -175,10 +175,8 @@ func TestBlockHash(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			client := feeder.NewTestClient(t, &tc.chain)
-			gw := adaptfeeder.New(client)
 
-			block, err := gw.BlockByNumber(t.Context(), tc.number)
-			require.NoError(t, err)
+			block := adaptfeedertest.Block(t, client, tc.number)
 
 			commitments, err := core.VerifyBlockHash(block, &tc.chain, nil, testTrieBackend())
 			assert.NoError(t, err)
@@ -189,10 +187,8 @@ func TestBlockHash(t *testing.T) {
 	h1 := felt.NewRandom[felt.Felt]()
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
 		mainnetBlock1.Hash = h1
 
@@ -204,9 +200,7 @@ func TestBlockHash(t *testing.T) {
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &networks.Goerli)
-		goerliGW := adaptfeeder.New(client)
-		block119802, err := goerliGW.BlockByNumber(t.Context(), 119802)
-		require.NoError(t, err)
+		block119802 := adaptfeedertest.Block(t, client, 119802)
 
 		commitments, err := core.VerifyBlockHash(block119802, &networks.Goerli, nil, testTrieBackend())
 		assert.NoError(t, err)
@@ -214,8 +208,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("error if len of transactions do not match len of receipts", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
 		mainnetBlock1.Transactions = mainnetBlock1.Transactions[:len(mainnetBlock1.Transactions)-1]
 
@@ -228,8 +221,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("error if hash of transaction doesn't match corresponding receipt hash", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
 		mainnetBlock1.Receipts[1].TransactionHash = h1
 		expectedErr := fmt.Sprintf(
@@ -246,7 +238,6 @@ func TestBlockHash(t *testing.T) {
 func Test0132BlockHash(t *testing.T) {
 	t.Parallel()
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
 		blockNum uint64
@@ -255,11 +246,8 @@ func Test0132BlockHash(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
 			t.Parallel()
-			b, err := gw.BlockByNumber(t.Context(), test.blockNum)
-			require.NoError(t, err)
-
-			su, err := gw.StateUpdate(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			b := adaptfeedertest.Block(t, client, test.blockNum)
+			su := adaptfeedertest.StateUpdate(t, client, test.blockNum)
 
 			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, testTrieBackend())
 			require.NoError(t, err)
@@ -272,7 +260,6 @@ func Test0132BlockHash(t *testing.T) {
 func Test0134BlockHash(t *testing.T) {
 	t.Parallel()
 	client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {
 		blockNum uint64
@@ -281,11 +268,8 @@ func Test0134BlockHash(t *testing.T) {
 	} { //nolint:dupl
 		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
 			t.Parallel()
-			b, err := gw.BlockByNumber(t.Context(), test.blockNum)
-			require.NoError(t, err)
-
-			su, err := gw.StateUpdate(t.Context(), test.blockNum)
-			require.NoError(t, err)
+			b := adaptfeedertest.Block(t, client, test.blockNum)
+			su := adaptfeedertest.StateUpdate(t, client, test.blockNum)
 
 			c, err := core.VerifyBlockHash(b, &networks.SepoliaIntegration, su.StateDiff, testTrieBackend())
 			require.NoError(t, err)

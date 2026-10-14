@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -562,10 +562,8 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
 
-		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
-		require.NoError(t, err)
+		expectedBlock := adaptfeedertest.Block(t, client, 147)
 
 		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{
 			Hash:   expectedBlock.Hash,
@@ -590,12 +588,9 @@ func TestBlockTransactionCount(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
 
@@ -1299,10 +1294,8 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 
 	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 	require.NotNil(t, block)
 	require.Greater(t, len(block.Transactions), 0)
 
@@ -1397,10 +1390,8 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 	require.NotNil(t, block)
 	require.Greater(t, len(block.Transactions), 0)
 	require.Equal(

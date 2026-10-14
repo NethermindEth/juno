@@ -187,25 +187,6 @@ type Transaction struct {
 	ProofFacts            *[]felt.Felt                 `json:"proof_facts,omitempty"`
 }
 
-// Deprecated: Use TransactionStatus with Client.DeprecatedTransactionStatus() instead.
-type DeprecatedTransactionStatus struct {
-	Status           string                    `json:"status"`
-	FinalityStatus   FinalityStatus            `json:"finality_status"`
-	ExecutionStatus  ExecutionStatus           `json:"execution_status"`
-	BlockHash        *felt.Felt                `json:"block_hash"`
-	BlockNumber      uint64                    `json:"block_number"`
-	TransactionIndex uint64                    `json:"transaction_index"`
-	Transaction      *Transaction              `json:"transaction"`
-	RevertError      string                    `json:"revert_error"`
-	FailureReason    *TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
-}
-
-// TODO: placeholder for now to avoid compiler errors. A proper validation
-// should be implemented in a follow-up PR.
-func (val *DeprecatedTransactionStatus) Validate() error {
-	return nil
-}
-
 // TransactionStatus represents the response from the get_transaction_status endpoint.
 type TransactionStatus struct {
 	TxStatus        string                   `json:"tx_status"`

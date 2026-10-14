@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -97,13 +97,10 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 
 		b.EventsBloom = nil
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
@@ -210,13 +207,10 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		&networks.Mainnet,
 	)
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 		require.NoError(t, state.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
@@ -237,13 +231,10 @@ func TestL1HandlerTxns(t *testing.T) {
 		&networks.Sepolia,
 	)
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 
 	for i := range uint64(7) { // First l1 handler txn is in block 6
-		b, err := gw.BlockByNumber(t.Context(), i)
-		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, i)
+		su := adaptfeedertest.StateUpdate(t, client, i)
 		require.NoError(t, state.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 

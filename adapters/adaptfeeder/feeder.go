@@ -4,7 +4,6 @@ package adaptfeeder
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -26,18 +25,6 @@ func New(client feeder.Reader) *Feeder {
 	}
 }
 
-// BlockByNumber gets the block for a given block number from the feeder,
-// then adapts it to the core.Block type.
-func (f *Feeder) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
-	return f.block(ctx, strconv.FormatUint(blockNumber, 10))
-}
-
-// BlockLatest gets the latest block from the feeder,
-// then adapts it to the core.Block type.
-func (f *Feeder) BlockLatest(ctx context.Context) (*core.Block, error) {
-	return f.block(ctx, latestID)
-}
-
 // BlockHeaderLatest gets only the block hash and number for the latest block from the feeder,
 // using the headerOnly=true parameter to minimise bandwidth.
 func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
@@ -50,36 +37,6 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 		Hash:   response.Hash,
 		Number: response.Number,
 	}, nil
-}
-
-func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error) {
-	response, err := f.client.Block(ctx, blockID)
-	if err != nil {
-		return nil, err
-	}
-
-	sig, err := f.client.Signature(ctx, blockID)
-	if err != nil {
-		return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
-	}
-
-	return sn2core.AdaptBlock(&response, sig.Signature)
-}
-
-// Deprecated: Transaction gets the transaction for a given transaction hash from the feeder,
-// then adapts it to the appropriate core.Transaction types.
-// Uses the old get_transaction endpoint; prefer get_transaction_status for status-only queries.
-func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	response, err := f.client.Transaction(ctx, transactionHash)
-	if err != nil {
-		return nil, err
-	}
-	tx, err := sn2core.AdaptTransaction(response.Transaction)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx, nil
 }
 
 // Class gets the class for a given class hash from the feeder,
@@ -110,21 +67,6 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDef
 	default:
 		return nil, errors.New("empty class")
 	}
-}
-
-func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUpdate, error) {
-	response, err := f.client.StateUpdate(ctx, blockID)
-	if err != nil {
-		return nil, err
-	}
-
-	return sn2core.AdaptStateUpdate(&response)
-}
-
-// StateUpdate gets the state update for a given block number from the feeder,
-// then adapts it to the core.StateUpdate type.
-func (f *Feeder) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	return f.stateUpdate(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
