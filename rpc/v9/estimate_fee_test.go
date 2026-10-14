@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -26,9 +27,10 @@ func TestEstimateFee(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	logger := log.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, mockVM, logger)
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, logger)
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -87,6 +89,41 @@ func TestEstimateFee(t *testing.T) {
 			rpc.BroadcastedTransactionInputs{},
 			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
 			&blockID,
+		)
+		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+	})
+
+	t.Run("pre_confirmed", func(t *testing.T) {
+		stateDiff := core.EmptyStateDiff()
+		preConfirmed := pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
+		mockVM.EXPECT().EstimateFee(
+			[]core.Transaction{},
+			nil,
+			&vm.BlockInfo{Header: preConfirmed.Block.Header},
+			gomock.Any(),
+			vm.EstimateFeeOptions{}).
+			Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{},
+				DataAvailability: []core.DataAvailability{},
+				GasConsumed:      []core.GasConsumed{},
+				Traces:           []vm.TransactionTrace{},
+				NumSteps:         uint64(123),
+			}, nil)
+
+		preConfirmedID := blockIDPreConfirmed(t)
+		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{},
+			&preConfirmedID,
 		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
@@ -154,8 +191,9 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -204,6 +242,37 @@ func TestEstimateMessageFee(t *testing.T) {
 		}, nil)
 
 		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.Equal(t, want, *got.OverallFee)
+	})
+
+	t.Run("pre_confirmed", func(t *testing.T) {
+		stateDiff := core.EmptyStateDiff()
+		preConfirmed := pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
+
+		want := felt.FromUint64[felt.Felt](60_000_000_000_000)
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			&vm.BlockInfo{Header: preConfirmed.Block.Header},
+			gomock.Any(),
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{&want},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+		}, nil)
+
+		preConfirmedID := blockIDPreConfirmed(t)
+		got, _, err := handler.EstimateMessageFee(t.Context(), msg, &preConfirmedID)
 		require.Nil(t, err)
 		assert.Equal(t, want, *got.OverallFee)
 	})
