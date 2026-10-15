@@ -148,6 +148,10 @@ fxamacker is upgraded.
 - `route.go` keys routes on the runtime's interface type word (`unsafe`), saving about 20 ns a
   decode, and `isZero` compares bytes before asking reflect. Both rely on Go's layout.
 - Felts are read through an unsafe cast from `[4]uint64`.
+- The per-field helpers are concrete on purpose. One generic reader for every integer type
+  measured 1.5% slower across the record benchmarks (4.5% on an L1 handler transaction), and a
+  function for the felt-shape test, even an inlined one, 1 to 2% slower on `BenchmarkReadFeltArray`.
+  Measure with an interleaved `benchstat` run before merging two of them.
 - The generator must not import `utils/cbor/registry` (it imports `records`, which panics at init
   when `readers_gen.go` is stale). Keep overrides to one call of a compiled helper. For the same
   reason it cannot know which types carry a tag; `TestNoTaggedTypeIsAPlainField` does.
