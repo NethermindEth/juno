@@ -62,30 +62,11 @@ var (
 
 // fill sets v, which must be settable, to a random value.
 func (f *filler) fill(v reflect.Value, depth int) {
-	switch v.Type() {
-	case bigIntType:
-		f.fillBigInt(v)
-		return
-	case transactionType:
-		f.fillOneOf(v, depth,
-			&core.DeclareTransaction{}, &core.DeployTransaction{}, &core.InvokeTransaction{},
-			&core.L1HandlerTransaction{}, &core.DeployAccountTransaction{})
-		return
-	case classType:
-		// A Cairo 0 class is one the fast decoder leaves to fxamacker, which must give the same.
-		f.fillOneOf(v, depth, &core.SierraClass{}, &core.SierraClass{}, &core.DeprecatedCairoClass{})
+	if f.fillSpecial(v, depth) || f.fillScalar(v) {
 		return
 	}
 
 	switch v.Kind() {
-	case reflect.Bool:
-		v.SetBool(f.rng.IntN(2) == 0)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v.SetUint(f.uint(v.Type().Bits()))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v.SetInt(int64(f.uint(v.Type().Bits()-1)) * f.sign())
-	case reflect.String:
-		v.SetString(f.text())
 	case reflect.Array:
 		for i := range v.Len() {
 			f.fill(v.Index(i), depth+1)
@@ -110,6 +91,41 @@ func (f *filler) fill(v reflect.Value, depth int) {
 	default:
 		panic(fmt.Sprintf("the property test cannot fill a %s; teach filler.fill about it", v.Type()))
 	}
+}
+
+// fillSpecial fills the types that are not made field by field, and reports whether v was one.
+func (f *filler) fillSpecial(v reflect.Value, depth int) bool {
+	switch v.Type() {
+	case bigIntType:
+		f.fillBigInt(v)
+	case transactionType:
+		f.fillOneOf(v, depth,
+			&core.DeclareTransaction{}, &core.DeployTransaction{}, &core.InvokeTransaction{},
+			&core.L1HandlerTransaction{}, &core.DeployAccountTransaction{})
+	case classType:
+		// A Cairo 0 class is one the fast decoder leaves to fxamacker, which must give the same.
+		f.fillOneOf(v, depth, &core.SierraClass{}, &core.SierraClass{}, &core.DeprecatedCairoClass{})
+	default:
+		return false
+	}
+	return true
+}
+
+// fillScalar fills a boolean, an integer or a string, and reports whether v was one.
+func (f *filler) fillScalar(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Bool:
+		v.SetBool(f.rng.IntN(2) == 0)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(f.uint(v.Type().Bits()))
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(int64(f.uint(v.Type().Bits()-1)) * f.sign())
+	case reflect.String:
+		v.SetString(f.text())
+	default:
+		return false
+	}
+	return true
 }
 
 // uint returns a random number of at most bits bits. Its length is random too, so that every

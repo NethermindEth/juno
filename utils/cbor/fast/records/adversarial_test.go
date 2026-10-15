@@ -256,14 +256,10 @@ func hasNullResourceKey(data []byte) bool {
 }
 
 func TestShortFeltsInASliceMatchFxamacker(t *testing.T) {
-	if limbSliceBoundBug() {
-	}
 	require.True(t, agree(t, "receipt", shortFelts))
 }
 
 func TestNullResourceBoundsKeyMatchesFxamacker(t *testing.T) {
-	if nullResourceKeyBug() {
-	}
 	require.True(t, agree(t, "transaction", nullResourceKey()))
 }
 

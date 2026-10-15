@@ -5,6 +5,7 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
 
+//nolint:gocritic // dst is given the map made here when there is none
 func readMigratedClasses(r *fast.Reader, dst *map[felt.SierraClassHash]felt.CasmClassHash) error {
 	if r.Null() {
 		*dst = nil

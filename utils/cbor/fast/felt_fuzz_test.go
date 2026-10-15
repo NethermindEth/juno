@@ -86,8 +86,6 @@ func TestSkipCountsAFeltAsALevel(t *testing.T) {
 		_, fxErr := fxSkip(item)
 		r := fast.NewReader(wrapped(item))
 		err := r.Skip()
-		if fxErr != nil && err == nil {
-		}
 		require.Equalf(t, fxErr == nil, err == nil, "%d tags: fx=%v fast=%v", tags, fxErr, err)
 	}
 }

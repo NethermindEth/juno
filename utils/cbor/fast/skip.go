@@ -16,6 +16,8 @@ func (r *Reader) Skip() error {
 }
 
 // skip takes the number of arrays, maps and chained tags already open around the item.
+//
+//nolint:gocyclo // one switch over the CBOR major types
 func (r *Reader) skip(depth int) error {
 	// A felt is the bulk of what a record holds, and its shape needs no head decoding. It is an
 	// array, so it opens a nesting level of its own.
@@ -74,7 +76,7 @@ func (r *Reader) skip(depth int) error {
 
 // skipElements skips count*perCount items. count is rejected, before any work, when it exceeds
 // what the remaining input could hold (limit).
-func (r *Reader) skipElements(count, limit uint64, perCount int, depth int) error {
+func (r *Reader) skipElements(count, limit uint64, perCount, depth int) error {
 	depth++
 	if depth > MaxNestedLevels {
 		return ErrDepth

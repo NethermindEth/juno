@@ -3,6 +3,7 @@ package records
 import (
 	"fmt"
 	"maps"
+	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -86,7 +87,7 @@ func readByte(r *fast.Reader, dst *byte) error {
 	if err != nil {
 		return err
 	}
-	if value > 255 {
+	if value > math.MaxUint8 {
 		return fast.ErrType
 	}
 	*dst = byte(value)
@@ -307,6 +308,8 @@ func readFeltPtrSlice(r *fast.Reader, dst *[]*felt.Felt) error {
 // readFeltMap reads a map from felt to felt, or null as nil. Keys and values are read in
 // place, with no generic function value in the way, so nothing but the map and one array
 // holding its values is allocated.
+//
+//nolint:gocritic // dst is given the map made here when there is none
 func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 	var spare []felt.Felt
 	return readFeltMapFrom(r, dst, &spare, 0)
@@ -314,6 +317,8 @@ func readFeltMap(r *fast.Reader, dst *map[felt.Felt]*felt.Felt) error {
 
 // readFeltMapFrom is readFeltMap taking the values from spare. When spare runs out it is
 // refilled with room for the values left in the map and extra more.
+//
+//nolint:gocritic // dst is given the map made here when there is none
 func readFeltMapFrom(r *fast.Reader, dst *map[felt.Felt]*felt.Felt, spare *[]felt.Felt, extra int) error {
 	if r.Null() {
 		*dst = nil
@@ -358,6 +363,8 @@ func nextFelt(spare *[]felt.Felt, want int) *felt.Felt {
 }
 
 // readStorageDiffs reads a map from contract address to its map of storage updates.
+//
+//nolint:gocritic // dst is given the map made here when there is none
 func readStorageDiffs(r *fast.Reader, dst *map[felt.Felt]map[felt.Felt]*felt.Felt) error {
 	if r.Null() {
 		*dst = nil

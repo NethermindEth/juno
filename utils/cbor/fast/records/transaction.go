@@ -49,6 +49,8 @@ func ReadTransaction(tags TransactionTags) func(r *fast.Reader, dst *core.Transa
 }
 
 // readResourceBounds reads the map of resource bounds of a version 3 transaction.
+//
+//nolint:gocritic // dst is given the map made here when there is none
 func readResourceBounds(r *fast.Reader, dst *map[core.Resource]core.ResourceBounds) error {
 	if r.Null() {
 		*dst = nil
