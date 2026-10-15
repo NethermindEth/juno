@@ -22,11 +22,9 @@ const randomValues = 1000
 // up as a value that differs, so a new field needs no new fixture, and a new field type that the
 // filler cannot make fails loudly in fill.
 func TestRandomValuesDecodeLikeFxamacker(t *testing.T) {
-	checkRandomValues[core.TransactionReceipt](t)
-	checkRandomValues[core.Header](t)
-	checkRandomValues[core.StateUpdate](t)
-	checkRandomValues[core.Transaction](t)
-	checkRandomValues[core.ClassDefinition](t)
+	for _, kind := range routedTypes {
+		kind.random(t)
+	}
 }
 
 func checkRandomValues[T any](t *testing.T) {
@@ -219,14 +217,13 @@ func (f *filler) fillBigInt(v reflect.Value) {
 // but would never take the fast path, and no other test would notice. The generator cannot tell,
 // as the registry imports the readers, so this test walks the stored types for it.
 func TestNoTaggedTypeIsAPlainField(t *testing.T) {
-	for _, root := range []reflect.Type{
-		reflect.TypeFor[core.TransactionReceipt](), reflect.TypeFor[core.Header](),
-		reflect.TypeFor[core.StateUpdate](),
-		reflect.TypeFor[core.DeclareTransaction](), reflect.TypeFor[core.DeployTransaction](),
-		reflect.TypeFor[core.InvokeTransaction](), reflect.TypeFor[core.L1HandlerTransaction](),
-		reflect.TypeFor[core.DeployAccountTransaction](), reflect.TypeFor[core.SierraClass](),
-	} {
-		require.Empty(t, taggedInside(root, map[reflect.Type]bool{}, true), "in %s", root)
+	// The roots are the types of the fixtures, which are pointers to what is stored: the concrete
+	// types behind the interfaces too.
+	for _, kind := range routedTypes {
+		for _, value := range kind.fixtures {
+			root := reflect.TypeOf(value).Elem()
+			require.Empty(t, taggedInside(root, map[reflect.Type]bool{}, true), "in %s", root)
+		}
 	}
 
 	type held struct{ Invoke *core.InvokeTransaction }

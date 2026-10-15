@@ -135,8 +135,10 @@ fxamacker is upgraded.
   need a `known` entry. A field whose old records must still read needs both forms, or a fallback.
 - **New routed type:** add it to `readers` in `internal/gen/main.go` and regenerate, or, if it needs
   more than a `case` per field, write the reader by hand (`readExecutionResources` is a model). Then
-  register it in `records/register.go`, add it to the random-value, key-order and differential
-  tests, add a fuzz target, and run the sweep. A type with no reader decodes through fxamacker,
+  register it in `records/register.go`, add it to `routedTypes` in `records/routed_test.go` (which
+  gives it the random-value, adversarial and fuzz-seed tests) with a one-line fuzz target in
+  `records/fuzz_test.go`, add its fields to `fields_test.go`, and run the sweep, whose tests and
+  `sweep/fuzz.sh` list the types themselves. A type with no reader decodes through fxamacker,
   correctly and slower.
 - **New endpoint:** nothing, if it reads types already routed. Needing a few fields of a big record
   is a projection in `core/partial_cbor_fast.go`.

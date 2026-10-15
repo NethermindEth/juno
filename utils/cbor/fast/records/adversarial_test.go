@@ -37,43 +37,21 @@ func corpusDir() string {
 
 type sample struct {
 	name string
-	kind string // receipt, header, transaction, state or class
+	kind *routed
 	data []byte
-}
-
-func kindOf(name string) string {
-	lower := strings.ToLower(name)
-	switch {
-	case strings.Contains(lower, "receipt"):
-		return "receipt"
-	case strings.HasPrefix(lower, "header"):
-		return "header"
-	case strings.HasPrefix(lower, "state"):
-		return "state"
-	case strings.Contains(lower, "class"):
-		return "class"
-	case strings.Contains(lower, "transaction") && !strings.Contains(lower, "indexes"):
-		return "transaction"
-	}
-	return ""
 }
 
 // samples returns the built-in, golden and (if present) real records of up to maxSize bytes.
 func samples(t *testing.T, maxSize int) []sample {
 	t.Helper()
 	var out []sample
-	add := func(name string, v any) {
-		data, err := cbor.Marshal(v)
-		require.NoError(t, err)
-		out = append(out, sample{"built-in " + name, kindOf(name), data})
-	}
-	add("receipt", receipt())
-	add("header", header())
-	add("state", stateUpdate())
-	class := core.ClassDefinition(sierraClass())
-	add("class", &class)
-	for name, tx := range transactions() {
-		add("transaction "+name, &tx)
+	for i := range routedTypes {
+		kind := &routedTypes[i]
+		for name, v := range kind.fixtures {
+			data, err := cbor.Marshal(v)
+			require.NoError(t, err)
+			out = append(out, sample{"built-in " + name, kind, data})
+		}
 	}
 
 	raw, err := os.ReadFile("../../compatibility/testdata/golden_bytes.json")
@@ -81,8 +59,8 @@ func samples(t *testing.T, maxSize int) []sample {
 	var golden map[string]string
 	require.NoError(t, json.Unmarshal(raw, &golden))
 	for name, value := range golden {
-		kind := kindOf(name)
-		if kind == "" {
+		kind := routedFor(name)
+		if kind == nil {
 			continue
 		}
 		data, err := hex.DecodeString(value)
@@ -98,47 +76,18 @@ func samples(t *testing.T, maxSize int) []sample {
 		data, err := os.ReadFile(file)
 		require.NoError(t, err)
 		name := strings.TrimSuffix(filepath.Base(file), ".bin")
-		kind := kindOf(name)
-		if kind == "class" {
-			data = data[8:]
-		}
-		if kind == "" {
+		kind := routedFor(name)
+		if kind == nil {
 			continue
+		}
+		if kind.name == "class" {
+			data = data[8:]
 		}
 		out = append(out, sample{"mainnet " + name, kind, data})
 	}
 	out = slices.DeleteFunc(out, func(s sample) bool { return len(s.data) > maxSize })
 	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
 	return out
-}
-
-// decodeAs decodes data into a fresh value of the kind's type with decode. With pointer, the
-// destination is a nil *T instead (the **T route).
-func decodeAs(kind string, data []byte, pointer bool, decode func([]byte, any) error) (any, error) {
-	switch kind {
-	case "receipt":
-		return into[core.TransactionReceipt](data, pointer, decode)
-	case "header":
-		return into[core.Header](data, pointer, decode)
-	case "state":
-		return into[core.StateUpdate](data, pointer, decode)
-	case "transaction":
-		return into[core.Transaction](data, false, decode)
-	case "class":
-		return into[core.ClassDefinition](data, false, decode)
-	}
-	panic(kind)
-}
-
-func into[T any](data []byte, pointer bool, decode func([]byte, any) error) (any, error) {
-	if pointer {
-		var dst *T
-		err := decode(data, &dst)
-		return dst, err
-	}
-	var dst T
-	err := decode(data, &dst)
-	return dst, err
 }
 
 // fastTypeMismatch is the wrapper's error for a type the fast reader does not coerce.
@@ -149,11 +98,11 @@ func fastTypeMismatch(err error) bool {
 
 // agree requires the wrapper and fxamacker to agree on data. It returns whether fxamacker
 // accepted it.
-func agree(t *testing.T, kind string, data []byte, msgAndArgs ...any) bool {
+func agree(t *testing.T, kind *routed, data []byte, msgAndArgs ...any) bool {
 	t.Helper()
-	pointer := len(data)%2 == 1 && kind != "transaction" && kind != "class"
-	want, wantErr := decodeAs(kind, data, pointer, fxamacker.Unmarshal)
-	got, gotErr := decodeAs(kind, data, pointer, cbor.Unmarshal)
+	pointer := kind.pointer && len(data)%2 == 1
+	want, wantErr := kind.decode(data, pointer, fxamacker.Unmarshal)
+	got, gotErr := kind.decode(data, pointer, cbor.Unmarshal)
 	if wantErr != nil {
 		require.Error(t, gotErr, append([]any{"the wrapper accepts what fxamacker rejects (%v): %x"}, wantErr, data)...)
 		return false
@@ -192,7 +141,7 @@ func TestTruncatedRecordsAreRejected(t *testing.T) {
 			for _, cut := range sampleOffsets(len(s.data)) {
 				data := s.data[:cut]
 				require.False(t, agree(t, s.kind, data, "cut at", cut), "a truncated record decodes")
-				_, err := decodeAs(s.kind, data, false, func(d []byte, v any) error {
+				_, err := s.kind.decode(data, false, func(d []byte, v any) error {
 					_, err := cbor.UnmarshalFirst(d, v)
 					return err
 				})
@@ -282,7 +231,7 @@ func TestReplacedItemsAgree(t *testing.T) {
 			for _, n := range root.all() {
 				for _, name := range names {
 					data := splice(original, n.start, n.end, replacements[name])
-					allocated := allocatedBy(func() { _, _ = decodeAs(s.kind, data, false, cbor.Unmarshal) })
+					allocated := allocatedBy(func() { _, _ = s.kind.decode(data, false, cbor.Unmarshal) })
 					// fxamacker itself may take memory in proportion to the input; nothing may
 					// take memory in proportion to a declared length.
 					require.Less(t, allocated, uint64(1<<20+256*len(data)), "%s at %d", name, n.start)
@@ -381,8 +330,8 @@ func TestIndefiniteLengthItemsMatchFxamacker(t *testing.T) {
 				item = append(item, 0xff)
 				data := splice(s.data, n.start, n.end, item)
 
-				want, wantErr := decodeAs(s.kind, data, false, fxamacker.Unmarshal)
-				got, gotErr := decodeAs(s.kind, data, false, cbor.Unmarshal)
+				want, wantErr := s.kind.decode(data, false, fxamacker.Unmarshal)
+				got, gotErr := s.kind.decode(data, false, cbor.Unmarshal)
 				require.NoError(t, wantErr, "at %d", n.start)
 				require.NoError(t, gotErr, "at %d", n.start)
 				require.Equal(t, want, got, "at %d", n.start)
@@ -396,17 +345,17 @@ func TestTrailingBytes(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			for _, trailer := range [][]byte{{0x00}, {0xf6}, {0xff}, {0x1b}, s.data[:min(len(s.data), 40)]} {
 				data := append(bytes.Clone(s.data), trailer...)
-				_, err := decodeAs(s.kind, data, false, cbor.Unmarshal)
+				_, err := s.kind.decode(data, false, cbor.Unmarshal)
 				require.Error(t, err)
-				_, err = decodeAs(s.kind, data, false, fxamacker.Unmarshal)
+				_, err = s.kind.decode(data, false, fxamacker.Unmarshal)
 				require.Error(t, err)
 
 				var wantRest, gotRest []byte
-				want, wantErr := decodeAs(s.kind, data, false, func(d []byte, v any) (err error) {
+				want, wantErr := s.kind.decode(data, false, func(d []byte, v any) (err error) {
 					wantRest, err = fxamacker.UnmarshalFirst(d, v)
 					return err
 				})
-				got, gotErr := decodeAs(s.kind, data, false, func(d []byte, v any) (err error) {
+				got, gotErr := s.kind.decode(data, false, func(d []byte, v any) (err error) {
 					gotRest, err = cbor.UnmarshalFirst(d, v)
 					return err
 				})
@@ -428,13 +377,13 @@ func TestDecodingDoesNotRetainInput(t *testing.T) {
 	for _, s := range samples(t, 1<<30) {
 		t.Run(s.name, func(t *testing.T) {
 			for _, pointer := range []bool{false, true} {
-				if pointer && (s.kind == "transaction" || s.kind == "class") {
+				if pointer && !s.kind.pointer {
 					continue
 				}
-				want, err := decodeAs(s.kind, s.data, pointer, fxamacker.Unmarshal)
+				want, err := s.kind.decode(s.data, pointer, fxamacker.Unmarshal)
 				require.NoError(t, err)
 				data := bytes.Clone(s.data)
-				got, err := decodeAs(s.kind, data, pointer, cbor.Unmarshal)
+				got, err := s.kind.decode(data, pointer, cbor.Unmarshal)
 				require.NoError(t, err)
 				for i := range data {
 					data[i] = 0xa5
@@ -449,7 +398,7 @@ func TestDecodingDoesNotRetainInput(t *testing.T) {
 // record of the same kind, or a partial value, which the wrapper leaves to fxamacker.
 func TestNonZeroDestinations(t *testing.T) {
 	all := samples(t, 1<<20)
-	byKind := map[string][]sample{}
+	byKind := map[*routed][]sample{}
 	for _, s := range all {
 		byKind[s.kind] = append(byKind[s.kind], s)
 	}
@@ -473,8 +422,8 @@ func TestNonZeroDestinations(t *testing.T) {
 		for i, s := range list {
 			from := list[(i+1)%len(list)]
 			t.Run(s.name+" over "+from.name, func(t *testing.T) {
-				got, gotErr := decodeAs(kind, s.data, false, prefill(from.data))
-				want, wantErr := decodeAs(kind, s.data, false, prefillFx(from.data))
+				got, gotErr := kind.decode(s.data, false, prefill(from.data))
+				want, wantErr := kind.decode(s.data, false, prefillFx(from.data))
 				require.Equal(t, wantErr == nil, gotErr == nil, "fx=%v wrapper=%v", wantErr, gotErr)
 				require.Equal(t, want, got)
 			})
