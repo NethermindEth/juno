@@ -263,7 +263,7 @@ func TestHelpers(t *testing.T) {
 	_, err := seq.RunOnce()
 	require.NoError(t, err)
 
-	preConfirmed, err := seq.PreConfirmedChain()
+	preConfirmed, err := seq.RequestPreConfirmedChain()
 	require.NoError(t, err)
 	require.NotNil(t, preConfirmed)
 

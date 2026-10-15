@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -27,7 +28,7 @@ import (
 const timeout = time.Second
 
 func TestNoopSynchronizerPreConfirmedChain(t *testing.T) {
-	_, err := new(sync.NoopSynchronizer).PreConfirmedChain()
+	_, err := new(sync.NoopSynchronizer).RequestPreConfirmedChain()
 	require.ErrorIs(t, err, pending.ErrPreConfirmedNotFound)
 }
 
@@ -36,26 +37,20 @@ func TestSyncBlocks(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
 		t.Helper()
-		assert.NoError(t, func() error {
-			headBlock, err := bc.Head()
+		headBlock, err := bc.Head()
+		require.NoError(t, err)
+
+		height := int(headBlock.Number)
+		assert.Equal(t, 2, height)
+		for height >= 0 {
+			b := adaptfeedertest.Block(t, client, uint64(height))
+
+			block, err := bc.BlockByNumber(uint64(height))
 			require.NoError(t, err)
 
-			height := int(headBlock.Number)
-			assert.Equal(t, 2, height)
-			for height >= 0 {
-				b, err := gw.BlockByNumber(t.Context(), uint64(height))
-				if err != nil {
-					return err
-				}
-
-				block, err := bc.BlockByNumber(uint64(height))
-				require.NoError(t, err)
-
-				assert.Equal(t, b, block)
-				height--
-			}
-			return nil
-		}())
+			assert.Equal(t, b, block)
+			height--
+		}
 	}
 	logger := log.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
@@ -84,10 +79,8 @@ func TestSyncBlocks(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		b0, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		s0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+		b0 := adaptfeedertest.Block(t, client, 0)
+		s0 := adaptfeedertest.StateUpdate(t, client, 0)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
@@ -218,8 +211,7 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
 
 	testDB := memory.New()
 	bc := blockchain.New(
@@ -438,8 +430,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	cancel()
 	got, ok := <-sub.Recv()
 	require.True(t, ok)
-	want, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
+	want := adaptfeedertest.Block(t, feeder, 0)
 
 	require.Equal(t, want, got)
 	sub.Unsubscribe()
@@ -449,11 +440,10 @@ func TestPreConfirmed(t *testing.T) {
 	t.Parallel()
 	logger := log.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	// The stored-snapshot fast path is covered by the poller tests in
 	// sync/preconfirmed/poller_test.go, which fill the chain through Run's
-	// pre-confirmed poller and read it back with PreConfirmedChain.
+	// pre-confirmed poller and read it back with RequestPreConfirmedChain.
 
 	t.Run("Returns empty pre_confirmed when nothing stored", func(t *testing.T) {
 		t.Parallel()
@@ -463,10 +453,8 @@ func TestPreConfirmed(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		b0, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		s0, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+		b0 := adaptfeedertest.Block(t, client, 0)
+		s0 := adaptfeedertest.StateUpdate(t, client, 0)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		synchronizer := sync.New(
@@ -475,7 +463,7 @@ func TestPreConfirmed(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
-		result, err := synchronizer.PreConfirmedChain()
+		result, err := synchronizer.RequestPreConfirmedChain()
 		require.NoError(t, err)
 		require.Equal(t, 1, result.Length())
 		tip := result.Head()

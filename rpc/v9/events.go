@@ -113,7 +113,7 @@ func (h *Handler) Events(args EventArgs) (EventsChunk, *jsonrpc.Error) {
 		addresses,
 		args.EventFilter.Keys,
 		func() (blockchain.PreConfirmedReader, error) {
-			chain, err := h.syncReader.PreConfirmedChain()
+			chain, err := h.syncReader.RequestPreConfirmedChain()
 			if err != nil {
 				return nil, err
 			}

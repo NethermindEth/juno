@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/throttler"
 	"go.uber.org/zap"
@@ -542,6 +543,13 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Error) {
+	// The stored pre_confirmed chain answers without waiting for a poll.
+	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
+		if preConfirmedTxn, err := chain.TransactionByHash(hash); err == nil {
+			return AdaptTransaction(preConfirmedTxn), nil
+		}
+	}
+
 	txn, rpcErr := h.finalisedTransactionByHash(hash)
 	if rpcErr == nil {
 		return AdaptTransaction(txn), nil
@@ -550,15 +558,15 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Erro
 		return Transaction{}, rpcErr
 	}
 
-	// Not in a finalised block, so try the pre_confirmed chain.
-	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+	// Not in a finalised block either, so request a fresher pre_confirmed chain.
+	if chain, err := h.syncReader.RequestPreConfirmedChain(); err == nil {
 		if preConfirmedTxn, err := chain.TransactionByHash(hash); err == nil {
 			return AdaptTransaction(preConfirmedTxn), nil
 		}
 	}
 
-	// We need to read the disk again because it could've been updated while we were checking
-	// the pre-confirmed data.
+	// We need to read the disk again because it could've been updated while we were waiting
+	// for the pre-confirmed data.
 	txn, rpcErr = h.finalisedTransactionByHash(hash)
 	if rpcErr != nil {
 		return Transaction{}, rpcErr
@@ -597,7 +605,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	var err error
 	switch blockID.Type() {
 	case preConfirmed:
-		chain, err := h.syncReader.PreConfirmedChain()
+		chain, err := h.syncReader.RequestPreConfirmedChain()
 		if err != nil {
 			return Transaction{}, rpccore.ErrBlockNotFound
 		}
@@ -635,24 +643,20 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	return AdaptTransaction(txn), nil
 }
 
-// getPendingTransactionReceipt searches for a transaction receipt in the pre-confirmed block.
-// Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
-func (h *Handler) getPendingTransactionReceipt(
+// preConfirmedTransactionReceipt searches for a transaction receipt in the pre_confirmed chain.
+// Reports whether the chain holds the transaction.
+func preConfirmedTransactionReceipt(
+	chain *preconfirmed.ChainReader,
 	hash *felt.Felt,
-) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
-	chain, err := h.syncReader.PreConfirmedChain()
-	if err != nil {
-		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
-	}
-
+) (TransactionReceiptWithBlockInfo, bool) {
 	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
-		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, false
 	}
 
 	txn, err := chain.TransactionByHash(hash)
 	if err != nil {
-		return TransactionReceiptWithBlockInfo{}, rpccore.ErrTxnHashNotFound
+		return TransactionReceiptWithBlockInfo{}, false
 	}
 
 	return AdaptReceiptWithBlockInfo(
@@ -661,7 +665,7 @@ func (h *Handler) getPendingTransactionReceipt(
 		TxnPreConfirmed,
 		nil,
 		blockNumber,
-	), nil
+	), true
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -671,22 +675,27 @@ func (h *Handler) getPendingTransactionReceipt(
 func (h *Handler) TransactionReceiptByHash(
 	hash *felt.Felt,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
+	// The stored pre_confirmed chain answers without waiting for a poll.
+	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
+		if adaptedReceipt, found := preConfirmedTransactionReceipt(&chain, hash); found {
+			return adaptedReceipt, nil
+		}
+	}
+
 	adaptedReceipt, rpcErr := h.getFinalisedTransactionReceipt(hash)
-	if rpcErr == nil {
-		return adaptedReceipt, nil
-	}
 	if rpcErr != rpccore.ErrTxnHashNotFound {
-		return TransactionReceiptWithBlockInfo{}, rpcErr
+		return adaptedReceipt, rpcErr
 	}
 
-	// Not in a finalised block, so try the pre_confirmed chain.
-	adaptedReceipt, rpcErr = h.getPendingTransactionReceipt(hash)
-	if rpcErr == nil {
-		return adaptedReceipt, nil
+	// Not in a finalised block either, so request a fresher pre_confirmed chain.
+	if chain, err := h.syncReader.RequestPreConfirmedChain(); err == nil {
+		if adaptedReceipt, found := preConfirmedTransactionReceipt(&chain, hash); found {
+			return adaptedReceipt, nil
+		}
 	}
 
-	// We need to read the disk again because it could've been updated while we were checking
-	// the pre-confirmed data.
+	// We need to read the disk again because it could've been updated while we were waiting
+	// for the pre-confirmed data.
 	return h.getFinalisedTransactionReceipt(hash)
 }
 
@@ -926,16 +935,8 @@ func (h *Handler) TransactionStatus(
 func (h *Handler) transactionStatusFromStore(
 	hash *felt.Felt,
 ) (TransactionStatus, *jsonrpc.Error) {
-	status, rpcErr := h.finalisedTransactionStatus(hash)
-	if rpcErr == nil {
-		return status, nil
-	}
-	if rpcErr != rpccore.ErrTxnHashNotFound {
-		return TransactionStatus{}, rpcErr
-	}
-
-	// Not in a finalised block, so try the pre_confirmed chain.
-	if chain, err := h.syncReader.PreConfirmedChain(); err == nil {
+	// The stored pre_confirmed chain answers without waiting for a poll.
+	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
 		if receipt, _, err := chain.ReceiptByHash(hash); err == nil {
 			return newTransactionStatus(
 				TxnStatusPreConfirmed, receipt.Reverted, receipt.RevertReason,
@@ -943,8 +944,22 @@ func (h *Handler) transactionStatusFromStore(
 		}
 	}
 
-	// We need to read the disk again because it could've been updated while we were checking
-	// the pre-confirmed data.
+	status, rpcErr := h.finalisedTransactionStatus(hash)
+	if rpcErr != rpccore.ErrTxnHashNotFound {
+		return status, rpcErr
+	}
+
+	// Not in a finalised block either, so request a fresher pre_confirmed chain.
+	if chain, err := h.syncReader.RequestPreConfirmedChain(); err == nil {
+		if receipt, _, err := chain.ReceiptByHash(hash); err == nil {
+			return newTransactionStatus(
+				TxnStatusPreConfirmed, receipt.Reverted, receipt.RevertReason,
+			), nil
+		}
+	}
+
+	// We need to read the disk again because it could've been updated while we were waiting
+	// for the pre-confirmed data.
 	return h.finalisedTransactionStatus(hash)
 }
 

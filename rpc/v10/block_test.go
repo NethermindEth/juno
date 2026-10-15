@@ -1,10 +1,11 @@
 package rpcv10_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -32,6 +33,20 @@ func mustNewChain(t *testing.T, entries ...*pending.PreConfirmed) preconfirmed.C
 	chain, err := preconfirmed.NewChain(entries...)
 	require.NoError(t, err)
 	return chain
+}
+
+// emptyPreConfirmedChain is a pre_confirmed chain that holds no transactions, as the poller
+// stores before it has seen any for the slot above the head.
+func emptyPreConfirmedChain(t *testing.T) preconfirmed.ChainReader {
+	t.Helper()
+	stateDiff := core.EmptyStateDiff()
+	empty := pending.NewPreConfirmed(
+		&core.Block{Header: &core.Header{Number: 1}},
+		&core.StateUpdate{StateDiff: &stateDiff},
+		nil,
+		"",
+	)
+	return mustNewChain(t, &empty)
 }
 
 type blockTestCase struct {
@@ -462,7 +477,8 @@ func setupMockBlockTest(
 		// entry), not a base entry or an aggregate.
 		tipEntry := rpc.CreateTestPreConfirmed(t, block, int(block.TransactionCount))
 		entries := append(append([]*pending.PreConfirmed{}, preConfirmedBase...), &tipEntry)
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, entries...), nil).MaxTimes(1)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, entries...), nil).MaxTimes(1)
 	case blockID.IsLatest():
 		mockChain.EXPECT().Head().Return(block, nil).MaxTimes(1)
 		mockChain.EXPECT().HeadsHeader().Return(block.Header, nil).MaxTimes(1)
@@ -547,10 +563,8 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
 
-		expectedBlock, err := gw.BlockByNumber(t.Context(), 147)
-		require.NoError(t, err)
+		expectedBlock := adaptfeedertest.Block(t, client, 147)
 
 		expectedBlockHashAndNumber := &rpc.BlockHashAndNumber{
 			Hash:   expectedBlock.Hash,
@@ -575,12 +589,9 @@ func TestBlockTransactionCount(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
-
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, latestBlockNumber)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
 
@@ -601,7 +612,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 
 	t.Run("non-existent pre_confirmed block", func(t *testing.T) {
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 		preConfirmed := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -683,7 +695,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
@@ -701,7 +713,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		baseHeader.TransactionCount = 0
 		baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
 
-		mockSyncReader.EXPECT().PreConfirmedChain().
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
 		preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -737,7 +749,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
@@ -884,7 +896,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
@@ -1037,7 +1049,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 
 			if description == "pre_confirmed" {
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 
@@ -1283,10 +1295,8 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 
 	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 	require.NotNil(t, block)
 	require.Greater(t, len(block.Transactions), 0)
 
@@ -1381,10 +1391,8 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 
 	network := &networks.Sepolia
 	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
 
-	block, err := gw.BlockByNumber(t.Context(), 4072139)
-	require.NoError(t, err)
+	block := adaptfeedertest.Block(t, client, 4072139)
 	require.NotNil(t, block)
 	require.Greater(t, len(block.Transactions), 0)
 	require.Equal(
@@ -1471,5 +1479,33 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 				)
 			}
 		})
+	})
+}
+
+func TestL1DAModeJSON(t *testing.T) {
+	tests := []struct {
+		mode rpc.L1DAMode
+		data string
+	}{
+		{rpc.Blob, `"BLOB"`},
+		{rpc.Calldata, `"CALLDATA"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.data, func(t *testing.T) {
+			data, err := json.Marshal(test.mode)
+			require.NoError(t, err)
+			assert.Equal(t, test.data, string(data))
+
+			var decoded rpc.L1DAMode
+			require.NoError(t, json.Unmarshal(data, &decoded))
+			assert.Equal(t, test.mode, decoded)
+		})
+	}
+
+	t.Run("unknown", func(t *testing.T) {
+		var decoded rpc.L1DAMode
+		err := json.Unmarshal([]byte(`"VOLATILE"`), &decoded)
+		require.ErrorContains(t, err, `unknown L1DAMode "VOLATILE"`)
 	})
 }

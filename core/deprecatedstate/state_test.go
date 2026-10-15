@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -28,20 +29,14 @@ var (
 
 func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 	state := deprecatedstate.New(txn)
 
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	su1, err := gw.StateUpdate(t.Context(), 1)
-	require.NoError(t, err)
-
-	su2, err := gw.StateUpdate(t.Context(), 2)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
+	su2 := adaptfeedertest.StateUpdate(t, client, 2)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
 		require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
@@ -83,7 +78,7 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, su1.NewRoot, &gotNewRoot)
 
 		require.NoError(t, state.Update(&core.Header{Number: 2}, su2, nil, false))
-		gotNewRoot, err = state.Commitment("")
+		gotNewRoot, err := state.Commitment("")
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, &gotNewRoot)
 	})
@@ -160,25 +155,21 @@ func TestUpdate(t *testing.T) {
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
 		}
-		err = state.Update(&core.Header{Number: 5}, su5, nil, false)
+		err := state.Update(&core.Header{Number: 5}, su5, nil, false)
 		assert.ErrorIs(t, err, deprecatedstate.ErrContractNotDeployed)
 	})
 }
 
 func TestContractClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
 	state := deprecatedstate.New(txn)
 
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	su1, err := gw.StateUpdate(t.Context(), 1)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
 
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
 	require.NoError(t, state.Update(&core.Header{Number: 1}, su1, nil, false))
@@ -274,11 +265,9 @@ func TestStateHistoricalReads(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	state := deprecatedstate.New(txn)
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
 
 	contractAddr := felt.NewUnsafeFromString[felt.Felt](
@@ -423,18 +412,14 @@ func TestHistory(t *testing.T) {
 
 func TestContractIsDeployedAt(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
 	state := deprecatedstate.New(txn)
 
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	su1, err := gw.StateUpdate(t.Context(), 1)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
 
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
 	require.NoError(t, state.Update(&core.Header{Number: 1}, su1, nil, false))
@@ -492,8 +477,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 
 	state := deprecatedstate.New(txn)
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
@@ -514,14 +498,11 @@ func TestRevert(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	state := deprecatedstate.New(txn)
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
-	su1, err := gw.StateUpdate(t.Context(), 1)
-	require.NoError(t, err)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
 	require.NoError(t, state.Update(&core.Header{Number: 1}, su1, nil, false))
 
 	t.Run("revert a replaced class", func(t *testing.T) {
@@ -638,7 +619,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(&core.Header{Number: 2}, declaredClassesStateUpdate))
 
 		var decClass *core.DeclaredClassDefinition
-		decClass, err = state.Class(deprecatedCairoAddr)
+		decClass, err := state.Class(deprecatedCairoAddr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 		assert.Nil(t, decClass)
 
@@ -647,8 +628,7 @@ func TestRevert(t *testing.T) {
 		assert.Nil(t, decClass)
 	})
 
-	su2, err := gw.StateUpdate(t.Context(), 2)
-	require.NoError(t, err)
+	su2 := adaptfeedertest.StateUpdate(t, client, 2)
 	t.Run("should be able to apply new update after a Revert", func(t *testing.T) {
 		require.NoError(t, state.Update(&core.Header{Number: 2}, su2, nil, false))
 	})
@@ -705,20 +685,17 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 
 func TestRevertSystemContracts(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
 	state := deprecatedstate.New(txn)
 
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, nil, false))
 
-	su1, err := gw.StateUpdate(t.Context(), 1)
-	require.NoError(t, err)
+	su1 := adaptfeedertest.StateUpdate(t, client, 1)
 
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762

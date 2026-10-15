@@ -197,7 +197,7 @@ func TestStorageAt(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
 			Return(mockState, nopCloser, nil)
 		preConfirmedID := blockIDPreConfirmed(t)
@@ -224,7 +224,8 @@ func TestStorageAt(t *testing.T) {
 			Block:       &core.Block{Header: &core.Header{Number: 3}},
 			StateUpdate: &core.StateUpdate{StateDiff: &tipStateDiff},
 		}
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, baseEntry, tipEntry), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, baseEntry, tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(uint64(1)).Return(mockState, nopCloser, nil)
 
 		preConfirmedID := blockIDPreConfirmed(t)

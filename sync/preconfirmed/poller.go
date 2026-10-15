@@ -65,10 +65,10 @@ type Poller struct {
 }
 
 // NewPoller builds a poller over dataSource. It ticks every [DefaultPollInterval] and serves
-// [Poller.PreConfirmedChain] reads from the stored chain, polling first when that chain is older
-// than [DefaultStaleAfter] and waiting at most [DefaultOnDemandWait] for the poll. Every poll is
-// reported to the listener. highestBlockHeader gates polling to when the node is at the tip.
-// See [Option] for overriding the defaults.
+// [Poller.RequestPreConfirmedChain] reads from the stored chain, polling first when that chain
+// is older than [DefaultStaleAfter] and waiting at most [DefaultOnDemandWait] for the poll.
+// Every poll is reported to the listener. highestBlockHeader gates polling to when the node is
+// at the tip. See [Option] for overriding the defaults.
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
@@ -104,13 +104,19 @@ func (p *Poller) Subscribe() Subscription {
 	return Subscription{p.feed.Subscribe()}
 }
 
-// PreConfirmedChain returns the pre-confirmed chain. If current chain is older than
+// RequestPreConfirmedChain returns the pre-confirmed chain. If current chain is older than
 // [RequestSync.dataFreshnessTime], a new poll will return and it will block until the work is
 // done. In case the works take longer than [RequestSync.requestWaitTime], it will stop waiting
 // for the poll result (without interrupting) and return the current available chain.
-func (p *Poller) PreConfirmedChain() (ChainReader, error) {
+// Use [Poller.ReadPreConfirmedChain] to read the stored chain without waiting.
+func (p *Poller) RequestPreConfirmedChain() (ChainReader, error) {
 	p.requestSync.Request()
+	return p.ReadPreConfirmedChain()
+}
 
+// ReadPreConfirmedChain returns the stored pre-confirmed chain as it is, without polling and
+// waiting for fresher data. See [Poller.RequestPreConfirmedChain].
+func (p *Poller) ReadPreConfirmedChain() (ChainReader, error) {
 	// note(rdr): maybe querying for the height here can be skipped, since this system
 	// should be aware what is the latest block that was stored and if it is synced (the height)
 	height, err := p.blockchain.Height()

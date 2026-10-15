@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -101,7 +101,11 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+func (fs *fakeSyncer) RequestPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return preconfirmed.ChainReader{}, db.ErrKeyNotFound
+}
+
+func (fs *fakeSyncer) ReadPreConfirmedChain() (preconfirmed.ChainReader, error) {
 	return preconfirmed.ChainReader{}, db.ErrKeyNotFound
 }
 
@@ -221,16 +225,10 @@ func TestSubscribeEvents(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	b2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
-
-	b3, err := gw.BlockByNumber(t.Context(), 56379)
-	require.NoError(t, err)
+	b1 := adaptfeedertest.Block(t, client, 56377)
+	b2 := adaptfeedertest.Block(t, client, 56378)
+	b3 := adaptfeedertest.Block(t, client, 56379)
 
 	b1Filtered, b1Emitted := createTestEvents(
 		t,
@@ -754,7 +752,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			(*felt.TransactionHash)(txHash),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
-			PreConfirmedChain().
+			ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+			AnyTimes()
+		mockSyncer.EXPECT().
+			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -777,7 +779,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, logger)
 		handler.WithFeeder(feeder.NewTestClient(t, &networks.SepoliaIntegration))
 		mockSyncer.EXPECT().
-			PreConfirmedChain().
+			ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
+			AnyTimes()
+		mockSyncer.EXPECT().
+			RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -809,7 +815,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 		mockGateway := mocks.NewMockGateway(mockCtrl)
-		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
@@ -818,8 +823,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
-		require.NoError(t, err)
+		block := adaptfeedertest.Block(t, client, 38748)
 
 		txToBroadcast := BroadcastedTransaction{Transaction: AdaptTransaction(block.Transactions[0])}
 
@@ -846,7 +850,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
 			uint64(0), uint64(0), db.ErrKeyNotFound,
 		).Times(2)
-		mockSyncer.EXPECT().PreConfirmedChain().
+		mockSyncer.EXPECT().ReadPreConfirmedChain().
+			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
@@ -869,15 +875,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
 			},
 		}
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
-			uint64(0), uint64(0), db.ErrKeyNotFound,
-		)
-		mockSyncer.EXPECT().PreConfirmedChain().
-			Return(mustNewChain(t, preConfirmed), nil).Times(1)
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 		handler.preConfirmedFeed.Send(preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
 
-		// Accepted on l2 Status
+		// Accepted on l2 Status. The stored chain now starts above the committed block.
+		chainAboveBlock := mustNewChain(t, &pending.PreConfirmed{
+			Block: &core.Block{Header: &core.Header{Number: block.Number + 1}},
+		})
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
@@ -893,6 +899,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
 		l1Head := core.L1Head{BlockNumber: block.Number}
+		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(txHash),
 		).Return(block.Number, uint64(0), nil)
@@ -1023,13 +1030,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -1078,13 +1081,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 
 func TestSubscribeNewHeadsHistoricalByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	testDB := memory.New()
 	chain := blockchain.New(
@@ -1320,13 +1319,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	toTransactionsWithFinalityStatus := func(txs []core.Transaction, finalityStatus TxnStatusWithoutL1) []*SubscriptionNewTransaction {
 		txsWithStatus := make([]*SubscriptionNewTransaction, len(txs))
@@ -1716,13 +1711,9 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	n := &networks.Sepolia
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
-
-	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
-	require.NoError(t, err)
+	newHead1 := adaptfeedertest.Block(t, client, 56377)
+	newHead2 := adaptfeedertest.Block(t, client, 56378)
 
 	type stepInfo struct {
 		description string
@@ -2204,10 +2195,8 @@ func testHeadBlock(t *testing.T) *core.Block {
 
 	n := new(networks.Sepolia)
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(t.Context(), 56377)
-	require.NoError(t, err)
+	b1 := adaptfeedertest.Block(t, client, 56377)
 
 	return b1
 }

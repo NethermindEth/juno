@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -38,21 +38,6 @@ import (
 
 var validate = rpc.Validator()
 
-// loadBlockFromFeederTestdata loads a block from feeder testdata and adapts it to core.Block.
-// This allows us to use testdata blocks without fetching from a real gateway.
-func loadBlockFromFeederTestdata(
-	t *testing.T,
-	network *networks.Network,
-	blockNumber uint64,
-) *core.Block {
-	t.Helper()
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-	block, err := gw.BlockByNumber(t.Context(), blockNumber)
-	require.NoError(t, err)
-	return block
-}
-
 func TestTransactionByHashNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -63,7 +48,10 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -92,7 +80,8 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		},
 	}
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
@@ -105,6 +94,8 @@ func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash           string
 		network        *networks.Network
+		block          uint64
+		index          int
 		expected       string
 		responseFlags  rpc.ResponseFlags
 		withProofFacts bool
@@ -112,6 +103,8 @@ func TestTransactionByHash(t *testing.T) {
 		"DECLARE v1": {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
 			network: &networks.Mainnet,
+			block:   16697,
+			index:   22,
 			expected: `{
 			"type": "DECLARE",
 			"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
@@ -130,6 +123,8 @@ func TestTransactionByHash(t *testing.T) {
 		"DECLARE v0": {
 			hash:    "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 			network: &networks.Mainnet,
+			block:   2889,
+			index:   46,
 			expected: `{
 				"transaction_hash": "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 				"type": "DECLARE",
@@ -144,6 +139,8 @@ func TestTransactionByHash(t *testing.T) {
 		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
 			network: &networks.Mainnet,
+			block:   1059,
+			index:   14,
 			expected: `{
        "type": "L1_HANDLER",
        "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
@@ -163,6 +160,8 @@ func TestTransactionByHash(t *testing.T) {
 		"L1 Handler v0 without nonce": {
 			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
 			network: &networks.Mainnet,
+			block:   192,
+			index:   22,
 			expected: `{
 				"type": "L1_HANDLER",
 				"transaction_hash":  "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
@@ -182,6 +181,8 @@ func TestTransactionByHash(t *testing.T) {
 		"Invoke v1": {
 			hash:    "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
 			network: &networks.Mainnet,
+			block:   16730,
+			index:   251,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
@@ -218,6 +219,8 @@ func TestTransactionByHash(t *testing.T) {
 		"DEPLOY v0": {
 			hash:    "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
 			network: &networks.Mainnet,
+			block:   16259,
+			index:   245,
 			expected: `{
        "type": "DEPLOY",
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
@@ -237,6 +240,8 @@ func TestTransactionByHash(t *testing.T) {
 		"DEPLOY ACCOUNT v1": {
 			hash:    "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
 			network: &networks.Mainnet,
+			block:   7320,
+			index:   31,
 			expected: `{
        "type": "DEPLOY_ACCOUNT",
        "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
@@ -258,6 +263,8 @@ func TestTransactionByHash(t *testing.T) {
 		"INVOKE v0": {
 			hash:    "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			network: &networks.Mainnet,
+			block:   8,
+			index:   12,
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
@@ -275,30 +282,35 @@ func TestTransactionByHash(t *testing.T) {
    }`,
 		},
 		"DECLARE v3": {
-			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-			network: &networks.Integration,
+			hash:    "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
+			network: &networks.Sepolia,
+			block:   570000,
+			index:   6,
 			expected: `{
-		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+		"transaction_hash": "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
 		"type": "DECLARE",
 		"version": "0x3",
-		"nonce": "0x1",
-		"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
-		"class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
-		"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
+		"nonce": "0x2b",
+		"sender_address": "0x36d67ab362562a97f9fba8a1051cf8e37ff1a1449530fb9f1f0e32ac2da7d06",
+		"class_hash": "0x224518978adb773cfd4862a894e9d333192fbd24bc83841dc7d4167c09b89c5",
+		"compiled_class_hash": "0x6ff9f7df06da94198ee535f41b214dce0b8bafbdb45e6c6b09d4b3b693b1f17",
 		"signature": [
-			"0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
-			"0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
+			"0x5c6a94302ef4b6d80a4c6a3eaf5ad30e11fa13aa78f7397a4f69901ceb12b7",
+			"0x25bf97f481061f8abf5eb93e67eaebe6bb74dda34d7378a506f5ee2ff1daef1"
 		],
 		"resource_bounds": {
 			"l1_gas": {
-				"max_amount": "0x186a0",
-				"max_price_per_unit": "0x2540be400"
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x10968159929e"
 			},
 			"l1_data_gas": {
-				"max_amount": "0x186a0",
-				"max_price_per_unit": "0x2540be400"
+				"max_amount": "0x120",
+				"max_price_per_unit": "0x99f"
 			},
-			"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+			"l2_gas": {
+				"max_amount": "0x1ff3ec0",
+				"max_price_per_unit": "0x197aa1ce3"
+			}
 		},
 		"tip": "0x0",
 		"paymaster_data": [],
@@ -308,10 +320,92 @@ func TestTransactionByHash(t *testing.T) {
 	   }`,
 		},
 		"INVOKE v3": {
-			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &networks.Integration,
+			hash:    "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea",
+			network: &networks.Sepolia,
+			block:   567941,
+			index:   0,
 			expected: `{
 				"type": "INVOKE",
+				"transaction_hash": "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea",
+				"version": "0x3",
+				"signature": [
+					"0x17bacc700df6c82682139e8e550078a5daa75dfe356577f78f7e57fd7c56245",
+					"0x4eb8734727eb9412b79ba6d14ff1c9a6beb0dc0b811e3f97168c747f8d427b3"
+				],
+				"nonce": "0x9803",
+				"resource_bounds": {
+					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x2d79883d20000"
+					},
+					"l1_data_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x2d79883d20000"
+					},
+					"l2_gas": {
+						"max_amount": "0x5f5e100",
+						"max_price_per_unit": "0xba43b7400"
+					}
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x745d525a3582e91299d8d7c71730ffc4b1f191f5b219d800334bc0edad0983b",
+				"calldata": [
+					"0x1",
+					"0x4138fd51f90d171df37e9d4419c8cdb67d525840c58f8a5c347be93a1c5277d",
+					"0x2468d193cd15b621b24c2a602b8dbcfa5eaa14f88416c40c09d7fd12592cb4b",
+					"0x0"
+				],
+				"account_deployment_data": [],
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1"
+			}`,
+		},
+		"DEPLOY ACCOUNT v3": {
+			hash:    "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
+			network: &networks.Sepolia,
+			block:   571531,
+			index:   6,
+			expected: `{
+				"transaction_hash": "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
+				"version": "0x3",
+				"signature": [
+					"0x3ef7f047c95592a04d4d754888dd8f125480a48dee23ee86c115d5da2a86573",
+					"0x65e8661ab1526b4f8ea50b76fea1a0e82543de1eb3885e415790d7e1b5a93c7"
+				],
+				"nonce": "0x0",
+				"resource_bounds": {
+					"l1_gas": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x1597b3274d88"
+					},
+					"l1_data_gas": {
+						"max_amount": "0x210",
+						"max_price_per_unit": "0x97c"
+					},
+					"l2_gas": {
+						"max_amount": "0xe6fa0",
+						"max_price_per_unit": "0x1920d1317"
+					}
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"contract_address_salt": "0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3",
+				"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
+				"constructor_calldata": [
+					"0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3"
+				],
+				"type": "DEPLOY_ACCOUNT",
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1"
+			}`,
+		},
+		"INVOKE v3 without l1_data_gas": {
+			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+			network: &networks.Integration,
+			block:   319132,
+			index:   0,
+			expected: `{
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 				"version": "0x3",
 				"signature": [
@@ -325,10 +419,13 @@ func TestTransactionByHash(t *testing.T) {
 						"max_price_per_unit": "0x5af3107a4000"
 					},
 					"l1_data_gas": {
-						"max_amount": "0x186a0",
-						"max_price_per_unit": "0x5af3107a4000"
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x0"
 					},
-					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+					"l2_gas": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x0"
+					}
 				},
 				"tip": "0x0",
 				"paymaster_data": [],
@@ -351,95 +448,6 @@ func TestTransactionByHash(t *testing.T) {
 					"0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587"
 				],
 				"account_deployment_data": [],
-				"nonce_data_availability_mode": "L1",
-				"fee_data_availability_mode": "L1"
-			}`,
-		},
-		"DEPLOY ACCOUNT v3": {
-			hash:    "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-			network: &networks.Integration,
-			expected: `{
-				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-				"version": "0x3",
-				"signature": [
-					"0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec",
-					"0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"
-				],
-				"nonce": "0x0",
-				"resource_bounds": {
-					"l1_gas": {
-						"max_amount": "0x186a0",
-						"max_price_per_unit": "0x5af3107a4000"
-					},
-					"l1_data_gas": {
-						"max_amount": "0x186a0",
-						"max_price_per_unit": "0x5af3107a4000"
-					},
-					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
-				},
-				"tip": "0x0",
-				"paymaster_data": [],
-				"contract_address_salt": "0x0",
-				"class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
-				"constructor_calldata": [
-					"0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c"
-				],
-				"type": "DEPLOY_ACCOUNT",
-				"nonce_data_availability_mode": "L1",
-				"fee_data_availability_mode": "L1"
-			}`,
-		},
-		"INVOKE v3 without l1_data_gas": {
-			hash:    "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
-			network: &networks.Integration,
-			expected: `{
-				"transaction_hash": "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
-				"version": "0x3",
-				"signature": [
-					"0x6b67b53231b0ad782b651cb529004258ac79f8bd069042127e0f58edd40fd89",
-					"0x36cc9eaeb31b0b3d990624cf105aa0cea86590452e188dadb75edc02ddeea51"
-				],
-				"nonce": "0x12c0c",
-				"resource_bounds": {
-					"l1_gas": {
-						"max_amount": "0x60",
-						"max_price_per_unit": "0x13ac02cbe617"
-					},
-					"l1_data_gas": {
-						"max_amount": "0x0",
-						"max_price_per_unit": "0x0"
-					},
-					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
-				},
-				"tip": "0x0",
-				"paymaster_data": [],
-				"sender_address": "0x573ea9a8602e03417a4a31d55d115748f37a08bbb23adf6347cb699743a998d",
-				"calldata": [
-					"0x1",
-					"0x53d5cb0de4f03f9ac31f83621cef64b9372bf1f690fdfa2ba8a07c316e67817",
-					"0xc844fd57777b0cd7e75c8ea68deec0adf964a6308da7a58de32364b7131cc8",
-					"0x13",
-					"0x4c7fb0cc02a3432253dcc76f8ab04ed11bc804ca36312d9fbd0777541f266",
-					"0x192603",
-					"0xd34ba8c515a574cd724301a5b50e997abcfd377f705e70a8330c706f3ccf34",
-					"0x663c8f59",
-					"0x204030100000000000000000000000000000000000000000000000000000000",
-					"0x4",
-					"0x5444abc7",
-					"0x54497b21",
-					"0x54497b21",
-					"0x54497b21",
-					"0xb6d5fbd139a7d956f",
-					"0x1",
-					"0x2",
-					"0x723516b6471960da09efa937c31abd5c46590e7b9df4773a5a6111497541508",
-					"0x385effc19083082f432ed7ab855de96b575e14a21b0a6d7a4395ff4d99e30f6",
-					"0x2cb74dff29a13dd5d855159349ec92f943bacf0547ff3734e7d84a15d08cbc5",
-					"0xb5eb2dec854e82a991956a933cd3b20b888bcb1737427e829efc5cd7e241e7",
-					"0xb71581436348419b44d939dc2af69a310c7a4b7d4f16b07f71d1957e9d5ceb",
-					"0x4225d1c8ee8e451a25e30c10689ef898e11ccf5c0f68d0fc7876c47b318e946"
-				],
-				"account_deployment_data": [],
 				"type": "INVOKE",
 				"nonce_data_availability_mode": "L1",
 				"fee_data_availability_mode": "L1"
@@ -448,6 +456,8 @@ func TestTransactionByHash(t *testing.T) {
 		"INVOKE v3 with response flags": {
 			hash:           "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			network:        &networks.Integration,
+			block:          319132,
+			index:          0,
 			withProofFacts: true,
 			expected: `{
 				"type": "INVOKE",
@@ -464,8 +474,8 @@ func TestTransactionByHash(t *testing.T) {
 						"max_price_per_unit": "0x5af3107a4000"
 					},
 					"l1_data_gas": {
-						"max_amount": "0x186a0",
-						"max_price_per_unit": "0x5af3107a4000"
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x0"
 					},
 					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
 				},
@@ -499,6 +509,8 @@ func TestTransactionByHash(t *testing.T) {
 		"INVOKE v3 with response flags and no proof facts": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			network: &networks.Integration,
+			block:   319132,
+			index:   0,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -514,8 +526,8 @@ func TestTransactionByHash(t *testing.T) {
 						"max_price_per_unit": "0x5af3107a4000"
 					},
 					"l1_data_gas": {
-						"max_amount": "0x186a0",
-						"max_price_per_unit": "0x5af3107a4000"
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x0"
 					},
 					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
 				},
@@ -550,17 +562,16 @@ func TestTransactionByHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw := adaptfeeder.New(feeder.NewTestClient(t, test.network))
+			client := feeder.NewTestClient(t, test.network)
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().TransactionByHash(
 				gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-				tx, err := gw.Transaction(t.Context(), hash)
-				if err != nil {
-					return nil, err
-				}
+				tx := adaptfeedertest.Block(t, client, test.block).Transactions[test.index]
+				require.Equal(t, hash, tx.Hash())
 				// Mock the gateway to include proof_facts for "INVOKE v3 with response flags" test
 				invokeTx, ok := tx.(*core.InvokeTransaction)
 				if ok && test.withProofFacts {
@@ -604,8 +615,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
-		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PreConfirmedChain().
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &adaptedPreConfirmed), nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash(), rpc.ResponseFlags{})
 		require.Nil(t, err)
@@ -665,8 +675,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	t.Run("TransactionByHash resolves tx in any block in the chain", func(t *testing.T) {
 		for i, hash := range hashes {
 			t.Run(fmt.Sprintf("block-%d", receiptBlockNumbers[i]), func(t *testing.T) {
-				mockReader.EXPECT().TransactionByHash(hash).Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
+				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(chain, nil)
 				tx, rpcErr := handler.TransactionByHash(hash, rpc.ResponseFlags{})
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, tx.Hash)
@@ -678,10 +687,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 		for i, hash := range hashes {
 			wantBlock := receiptBlockNumbers[i]
 			t.Run(fmt.Sprintf("block-%d", wantBlock), func(t *testing.T) {
-				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(hash),
-				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(chain, nil)
+				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(chain, nil)
 				receipt, rpcErr := handler.TransactionReceiptByHash(hash)
 				require.Nil(t, rpcErr)
 				require.Equal(t, hash, receipt.Hash)
@@ -703,9 +709,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 
 	n := &networks.Mainnet
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
-	latestBlock, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.BlockLatest(t, client)
 	latestBlock.Hash = nil
 	latestBlock.GlobalStateRoot = nil
 
@@ -716,7 +720,7 @@ func TestTransactionByBlockIDAndIndex_PreConfirmedMultiBlockChain(t *testing.T) 
 	baseEntry := pending.PreConfirmed{Block: &core.Block{Header: &baseHeader}}
 	tipEntry := pending.NewPreConfirmed(latestBlock, nil, nil, "")
 
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
 		Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 
 	preConfirmedID := rpc.BlockIDPreConfirmed()
@@ -734,11 +738,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
 	var latestBlockNumber uint64 = 19199
-	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
-	require.NoError(t, err)
+	latestBlock := adaptfeedertest.Block(t, client, 19199)
 	latestBlockHash := latestBlock.Hash
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
@@ -892,7 +894,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := pending.NewPreConfirmed(latestBlock, nil, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil).Times(2)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil).Times(2)
 		blockID := rpc.BlockIDPreConfirmed()
 
 		t.Run("invalid index", func(t *testing.T) {
@@ -924,15 +927,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("response flags", func(t *testing.T) {
 		network := &networks.Sepolia
 		client := feeder.NewTestClient(t, network)
-		gw := adaptfeeder.New(client)
-		txnHash := felt.NewUnsafeFromString[felt.Felt](
-			"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
-		)
-		invokeTx, err := gw.Transaction(t.Context(), txnHash)
-		require.NoError(t, err)
+		invokeTx := adaptfeedertest.Block(t, client, 5508517).Transactions[5]
 		require.IsType(t, &core.InvokeTransaction{}, invokeTx)
 		invokeTxCore := invokeTx.(*core.InvokeTransaction)
-		require.NotNil(t, invokeTxCore.ProofFacts)
 
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -1117,7 +1114,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			loadedBlock := loadBlockFromFeederTestdata(t, test.network, expected.BlockNumber)
+			client := feeder.NewTestClient(t, test.network)
+			loadedBlock := adaptfeedertest.Block(t, client, expected.BlockNumber)
 			var transaction core.Transaction
 			var transactionIndex int
 			// find the transaction in the block
@@ -1133,8 +1131,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			preConfirmed := test.preConfirmedFn(t, loadedBlock)
 			_, err := preConfirmed.ReceiptByHash((*felt.TransactionHash)(transaction.Hash()))
 			if err != nil {
-				// receipt belongs to a canonical block: the store answers and the
-				// pre_confirmed chain is never consulted
+				// receipt belongs to a canonical block: the stored pre_confirmed chain
+				// misses, the store answers and the pre_confirmed chain is never requested
+				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 					(*felt.TransactionHash)(expected.Hash),
 				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
@@ -1148,11 +1147,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				)
 				mockReader.EXPECT().L1Head().Return(test.l1Head, nil)
 			} else {
-				// receipt lives in the pre_confirmed chain: the store misses first
-				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(expected.Hash),
-				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
+				// receipt lives in the stored pre_confirmed chain, which answers on its own
+				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 			}
 
 			receipt, rpcErr := handler.TransactionReceiptByHash(expected.Hash)
@@ -1175,7 +1171,10 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 		(*felt.TransactionHash)(txHash),
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
-	mockSyncReader.EXPECT().PreConfirmedChain().Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
+		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 
 	tx, rpcErr := handler.TransactionReceiptByHash(txHash)
 	assert.Empty(t, tx)
@@ -1227,11 +1226,11 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	n := &networks.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
-		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
-		require.NoError(t, err)
+	txWithoutClass := func(
+		network *networks.Network, blockNumber uint64, index int,
+	) rpc.BroadcastedTransaction {
+		client := feeder.NewTestClient(t, network)
+		tx := adaptfeedertest.Block(t, client, blockNumber).Transactions[index]
 		return rpc.BroadcastedTransaction{
 			Transaction: rpc.AdaptCoreTransaction(tx),
 		}
@@ -1241,7 +1240,7 @@ func TestAddTransaction(t *testing.T) {
 		expectedJSON string
 	}{
 		"invoke v3": {
-			txn: txWithoutClass("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			txn: txWithoutClass(&networks.Integration, 319132, 0),
 			expectedJSON: `{
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 				"version": "0x3",
@@ -1258,8 +1257,8 @@ func TestAddTransaction(t *testing.T) {
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
 					"L1_DATA_GAS": {
-					"max_amount": "0x186a0",
-					"max_price_per_unit": "0x5af3107a4000"
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
 				  },
 				  "L2_GAS": {
 					"max_amount": "0x0",
@@ -1292,9 +1291,7 @@ func TestAddTransaction(t *testing.T) {
 		},
 		"declare v3": {
 			txn: func() rpc.BroadcastedTransaction {
-				tx := txWithoutClass(
-					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-				)
+				tx := txWithoutClass(&networks.Sepolia, 570000, 6)
 				tx.ContractClass = &rpc.ContractClass{
 					SierraProgram:        []felt.Felt{},
 					ContractClassVersion: "0.1.0",
@@ -1307,34 +1304,34 @@ func TestAddTransaction(t *testing.T) {
 				return tx
 			}(),
 			expectedJSON: `{
-				"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				"transaction_hash": "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
 				"version": "0x3",
 				"signature": [
-				  "0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
-				  "0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
+					"0x5c6a94302ef4b6d80a4c6a3eaf5ad30e11fa13aa78f7397a4f69901ceb12b7",
+					"0x25bf97f481061f8abf5eb93e67eaebe6bb74dda34d7378a506f5ee2ff1daef1"
 				],
-				"nonce": "0x1",
+				"nonce": "0x2b",
 				"nonce_data_availability_mode": 0,
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
-				  "L1_GAS": {
-					"max_amount": "0x186a0",
-					"max_price_per_unit": "0x2540be400"
-				  },
-				  "L1_DATA_GAS": {
-					"max_amount": "0x186a0",
-					"max_price_per_unit": "0x2540be400"
-				  },
-				  "L2_GAS": {
-					"max_amount": "0x0",
-					"max_price_per_unit": "0x0"
-				  }
+					"L1_GAS": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x10968159929e"
+					},
+					"L1_DATA_GAS": {
+						"max_amount": "0x120",
+						"max_price_per_unit": "0x99f"
+					},
+					"L2_GAS": {
+						"max_amount": "0x1ff3ec0",
+						"max_price_per_unit": "0x197aa1ce3"
+					}
 				},
 				"tip": "0x0",
 				"paymaster_data": [],
-				"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
-				"class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
-				"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
+				"sender_address": "0x36d67ab362562a97f9fba8a1051cf8e37ff1a1449530fb9f1f0e32ac2da7d06",
+				"class_hash": "0x224518978adb773cfd4862a894e9d333192fbd24bc83841dc7d4167c09b89c5",
+				"compiled_class_hash": "0x6ff9f7df06da94198ee535f41b214dce0b8bafbdb45e6c6b09d4b3b693b1f17",
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
@@ -1349,37 +1346,37 @@ func TestAddTransaction(t *testing.T) {
 			}`,
 		},
 		"deploy account v3": {
-			txn: txWithoutClass("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			txn: txWithoutClass(&networks.Sepolia, 571531, 6),
 			expectedJSON: `{
-				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
+				"transaction_hash": "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
 				"version": "0x3",
 				"signature": [
-				  "0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec",
-				  "0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"
+					"0x3ef7f047c95592a04d4d754888dd8f125480a48dee23ee86c115d5da2a86573",
+					"0x65e8661ab1526b4f8ea50b76fea1a0e82543de1eb3885e415790d7e1b5a93c7"
 				],
 				"nonce": "0x0",
 				"nonce_data_availability_mode": 0,
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
-				  "L1_GAS": {
-					"max_amount": "0x186a0",
-					"max_price_per_unit": "0x5af3107a4000"
-				  },
-				  "L1_DATA_GAS": {
-					"max_amount": "0x186a0",
-					"max_price_per_unit": "0x5af3107a4000"
-				  },
-				  "L2_GAS": {
-					"max_amount": "0x0",
-					"max_price_per_unit": "0x0"
-				  }
+					"L1_GAS": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x1597b3274d88"
+					},
+					"L1_DATA_GAS": {
+						"max_amount": "0x210",
+						"max_price_per_unit": "0x97c"
+					},
+					"L2_GAS": {
+						"max_amount": "0xe6fa0",
+						"max_price_per_unit": "0x1920d1317"
+					}
 				},
 				"tip": "0x0",
 				"paymaster_data": [],
-				"contract_address_salt": "0x0",
-				"class_hash": "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738",
+				"contract_address_salt": "0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3",
+				"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
 				"constructor_calldata": [
-				  "0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c"
+					"0x2e94ba2293dfa45f86dfcf9952d7a33dc50ce2b00b932999fbe0844772604f3"
 				],
 				"type": "DEPLOY_ACCOUNT"
 			  }`,
@@ -1563,15 +1560,9 @@ func TestAddTransaction(t *testing.T) {
 		defer sub.Unsubscribe()
 		recv := sub.Recv()
 
-		gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-		//nolint:staticcheck // Intention here is reading the transaction, not its status
-		tx, err := gw.Transaction(
-			t.Context(),
-			felt.NewUnsafeFromString[felt.Felt](
-				"0x435f87f1eecd5968ba8190744fee1f3ef69f17471f8902ce1e7d444c4e0c8cb",
-			),
-		)
-		require.NoError(t, err)
+		client := feeder.NewTestClient(t, n)
+
+		tx := adaptfeedertest.Block(t, client, 5508517).Transactions[5]
 
 		broadcastedTxn := rpc.BroadcastedTransaction{
 			Transaction: rpc.AdaptTransaction(tx, false),
@@ -1606,10 +1597,8 @@ func TestAddTransaction(t *testing.T) {
 
 func TestTransactionStatus(t *testing.T) {
 	mainnetClient := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(mainnetClient)
 
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	block := adaptfeedertest.BlockLatest(t, mainnetClient)
 	tx := block.Transactions[0]
 	targetTxnHash := tx.Hash()
 	type testCase struct {
@@ -1630,8 +1619,10 @@ func TestTransactionStatus(t *testing.T) {
 			},
 		},
 	}
-	// A store hit never consults the pre_confirmed chain.
-	mockFoundInDB := func(mockReader *mocks.MockReader) {
+	// A store hit after the stored pre_confirmed chain misses never requests the chain.
+	mockFoundInDB := func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(tx.Hash()),
 		).Return(block.Number, uint64(0), nil)
@@ -1652,12 +1643,20 @@ func TestTransactionStatus(t *testing.T) {
 			gomock.Any(),
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			ReadPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
+		mockSyncReader.EXPECT().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 	}
 
-	mockFoundInDBReverted := func(mockReader *mocks.MockReader) {
+	mockFoundInDBReverted := func(
+		mockReader *mocks.MockReader,
+		mockSyncReader *mocks.MockSyncReader,
+	) {
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
 			(*felt.TransactionHash)(tx.Hash()),
 		).Return(block.Number, uint64(0), nil)
@@ -1678,8 +1677,8 @@ func TestTransactionStatus(t *testing.T) {
 				Finality:  rpc.TxnStatusAcceptedOnL2,
 				Execution: rpc.TxnSuccess,
 			},
-			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
-				mockFoundInDB(mockReader)
+			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockFoundInDB(mockReader, mockSyncReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},
@@ -1692,8 +1691,8 @@ func TestTransactionStatus(t *testing.T) {
 				Execution:     rpc.TxnFailure,
 				FailureReason: "some revert reason",
 			},
-			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
-				mockFoundInDBReverted(mockReader)
+			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockFoundInDBReverted(mockReader, mockSyncReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: 0}, nil)
 			},
 		},
@@ -1705,8 +1704,8 @@ func TestTransactionStatus(t *testing.T) {
 				Finality:  rpc.TxnStatusAcceptedOnL1,
 				Execution: rpc.TxnSuccess,
 			},
-			setupMocks: func(mockReader *mocks.MockReader, _ *mocks.MockSyncReader) {
-				mockFoundInDB(mockReader)
+			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				mockFoundInDB(mockReader, mockSyncReader)
 				mockReader.EXPECT().L1Head().Return(core.L1Head{BlockNumber: math.MaxUint64}, nil)
 			},
 		},
@@ -1718,11 +1717,9 @@ func TestTransactionStatus(t *testing.T) {
 				Finality:  rpc.TxnStatusPreConfirmed,
 				Execution: rpc.TxnSuccess,
 			},
-			setupMocks: func(mockReader *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
-				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(targetTxnHash),
-				).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t,
+			setupMocks: func(_ *mocks.MockReader, mockSyncReader *mocks.MockSyncReader) {
+				// The stored pre_confirmed chain answers on its own.
+				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t,
 					&pending.PreConfirmed{
 						Block: &core.Block{
 							Header: &core.Header{
@@ -1803,9 +1800,7 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mainnetClient := feeder.NewTestClient(t, &networks.Mainnet)
-	gw := adaptfeeder.New(mainnetClient)
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	block := adaptfeedertest.BlockLatest(t, mainnetClient)
 	tx := block.Transactions[0]
 	hash := tx.Hash()
 
@@ -1823,10 +1818,7 @@ func TestTransactionStatus_PreConfirmedMultiBlockChain(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-		(*felt.TransactionHash)(hash),
-	).Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().
 		Return(mustNewChain(t, baseEntry, tipEntry), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil).WithFeeder(mainnetClient)
@@ -1899,7 +1891,10 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			&res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			ReadPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
+		mockSyncReader.EXPECT().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 
@@ -1931,7 +1926,10 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			&res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
-			PreConfirmedChain().
+			ReadPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
+		mockSyncReader.EXPECT().
+			RequestPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 
@@ -2304,15 +2302,15 @@ func TestContractClassToGatewayPayload(t *testing.T) {
 // chain behave as the node does when the block holding the returned block's transactions
 // is committed while a request for one of them is in flight.
 // In other words, we want to make sure that data in disk is not available until data in memory
-// (pre-confirmed data) is read. This simulates the real world race of data moving from
-// the pre-confirmed chain to disk just before being read. If the node doesn't check the disk
-// after reading the pre-confirmed (or doesn't check it at all), then the handler would never
-// retured the actual data, exposing the race.
+// (pre-confirmed data) is requested, which is the only pre-confirmed read that can wait for the
+// commit. This simulates the real world race of data moving from the pre-confirmed chain to
+// disk just before being read. If the node doesn't check the disk after reading the
+// pre-confirmed (or doesn't check it at all), then the handler would never retured the actual
+// data, exposing the race.
 func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Block) {
 	t.Helper()
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &networks.Mainnet))
-	block, err := gw.BlockLatest(t.Context())
-	require.NoError(t, err)
+	client := feeder.NewTestClient(t, &networks.Mainnet)
+	block := adaptfeedertest.BlockLatest(t, client)
 	txn := block.Transactions[0]
 	txHash := (*felt.TransactionHash)(txn.Hash())
 	pastBlock := &pending.PreConfirmed{
@@ -2324,8 +2322,11 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
+	// The stored chain predates the transaction, so the read does not find it either.
+	mockSyncReader.EXPECT().ReadPreConfirmedChain().
+		Return(mustNewChain(t, pastBlock), nil).AnyTimes()
 	committed := false
-	mockSyncReader.EXPECT().PreConfirmedChain().
+	mockSyncReader.EXPECT().RequestPreConfirmedChain().
 		DoAndReturn(func() (preconfirmed.ChainReader, error) {
 			committed = true
 			return mustNewChain(t, pastBlock), nil

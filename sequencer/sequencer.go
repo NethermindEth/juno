@@ -200,7 +200,13 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+// RequestPreConfirmedChain is the same as [Sequencer.ReadPreConfirmedChain]: the sequencer
+// builds the pre-confirmed block itself, so there is nothing to poll for.
+func (s *Sequencer) RequestPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return s.ReadPreConfirmedChain()
+}
+
+func (s *Sequencer) ReadPreConfirmedChain() (preconfirmed.ChainReader, error) {
 	if s.buildState.PreConfirmed == nil {
 		return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 	}

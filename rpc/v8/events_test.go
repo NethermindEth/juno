@@ -3,7 +3,7 @@ package rpcv8_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -34,12 +34,9 @@ func TestEvents(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
 	for i := range 7 {
-		b, err := gw.BlockByNumber(t.Context(), uint64(i))
-		require.NoError(t, err)
-		s, err := gw.StateUpdate(t.Context(), uint64(i))
-		require.NoError(t, err)
+		b := adaptfeedertest.Block(t, client, uint64(i))
+		s := adaptfeedertest.StateUpdate(t, client, uint64(i))
 
 		if b.Number < 6 {
 			require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))

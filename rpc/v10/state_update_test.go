@@ -3,7 +3,7 @@ package rpcv10_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -46,7 +46,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 			if description == "pre_confirmed" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().
-					PreConfirmedChain().
+					RequestPreConfirmedChain().
 					Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
 			}
 			logger := log.NewNopZapLogger()
@@ -70,11 +70,9 @@ func TestStateUpdate(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv10.New(mockReader, mockSyncReader, nil, logger)
 	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
 
 	targetBlockNumber := uint64(3077642)
-	update3077642, err := mainnetGw.StateUpdate(t.Context(), targetBlockNumber)
-	require.NoError(t, err)
+	update3077642 := adaptfeedertest.StateUpdate(t, client, targetBlockNumber)
 
 	t.Run("latest", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(targetBlockNumber, nil)
@@ -103,7 +101,6 @@ func TestStateUpdate(t *testing.T) {
 
 	t.Run("post v0.11.0", func(t *testing.T) {
 		integrationClient := feeder.NewTestClient(t, &networks.Integration)
-		integGw := adaptfeeder.New(integrationClient)
 
 		for name, height := range map[string]uint64{
 			"declared Cairo0 classes": 283746,
@@ -111,8 +108,7 @@ func TestStateUpdate(t *testing.T) {
 			"replaced classes":        283428,
 		} {
 			t.Run(name, func(t *testing.T) {
-				gwUpdate, err := integGw.StateUpdate(t.Context(), height)
-				require.NoError(t, err)
+				gwUpdate := adaptfeedertest.StateUpdate(t, integrationClient, height)
 				number := rpcv10.BlockIDFromNumber(height)
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
 				update, rpcErr := handler.StateUpdate(&number, nil)
@@ -161,7 +157,7 @@ func TestStateUpdate(t *testing.T) {
 		update3077642.BlockHash = nil
 		update3077642.NewRoot = nil
 		preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
@@ -188,7 +184,7 @@ func TestStateUpdate(t *testing.T) {
 			"",
 		)
 
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &basePc, &tipPc), nil)
 		preConfirmedID := rpcv10.BlockIDPreConfirmed()
 		update, rpcErr := handler.StateUpdate(&preConfirmedID, nil)
 		require.Nil(t, rpcErr)
@@ -228,7 +224,7 @@ func TestStateUpdate(t *testing.T) {
 
 		t.Run("empty filter returns full state diff", func(t *testing.T) {
 			preConfirmed := pending.NewPreConfirmed(nil, update3077642, nil, "")
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().RequestPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 			id := rpcv10.BlockIDPreConfirmed()
 			emptyFilter := rpcv10.AddressList{}
 

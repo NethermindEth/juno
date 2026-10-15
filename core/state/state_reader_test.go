@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -176,8 +177,7 @@ func TestClass(t *testing.T) {
 	state, err := New(&felt.Zero, stateDB, batch)
 	require.NoError(t, err)
 
-	su0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	su0 := adaptfeedertest.StateUpdate(t, client, 0)
 	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, map[felt.Felt]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,

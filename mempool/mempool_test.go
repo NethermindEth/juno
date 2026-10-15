@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -190,7 +190,6 @@ func TestRestoreMempool(t *testing.T) {
 
 func TestWait(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
-	gw := adaptfeeder.New(client)
 	logger := log.NewNopZapLogger()
 	testDB, dbCloser, err := setupDatabase("testwait", true)
 	require.NoError(t, err)
@@ -202,10 +201,8 @@ func TestWait(t *testing.T) {
 		&networks.Sepolia,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
+	block0 := adaptfeedertest.Block(t, client, 0)
+	stateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
 	var address felt.Felt
 	for k := range stateUpdate0.StateDiff.Nonces {

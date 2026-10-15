@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/adaptfeeder"
+	"github.com/NethermindEth/juno/adapters/adaptfeeder/adaptfeedertest"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -112,25 +112,18 @@ func AssertTracedBlockTransactions(
 	t.Cleanup(mockCtrl.Finish)
 
 	client := feeder.NewTestClient(t, n)
-	gateway := adaptfeeder.New(client)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
 	mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).DoAndReturn(
 		func(number uint64) (*core.Header, error) {
-			block, err := gateway.BlockByNumber(t.Context(), number)
-			if err != nil {
-				return nil, err
-			}
+			block := adaptfeedertest.Block(t, client, number)
 			return block.Header, nil
 		}).AnyTimes()
 
 	mockReader.EXPECT().TransactionsAndReceiptsByBlockNumber(gomock.Any()).DoAndReturn(
 		func(number uint64) ([]core.Transaction, []*core.TransactionReceipt, error) {
-			block, err := gateway.BlockByNumber(t.Context(), number)
-			if err != nil {
-				return nil, nil, err
-			}
+			block := adaptfeedertest.Block(t, client, number)
 
 			// Simulate gas consumption in block receipts
 			for _, receipt := range block.Receipts {
@@ -173,16 +166,12 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 
 		network := networks.Sepolia
 		client := feeder.NewTestClient(t, &network)
-		gateway := adaptfeeder.New(client)
 
 		blockNumber := uint64(40000)
 
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).DoAndReturn(
 			func(number uint64) (*core.Header, error) {
-				block, err := gateway.BlockByNumber(t.Context(), number)
-				if err != nil {
-					return nil, err
-				}
+				block := adaptfeedertest.Block(t, client, number)
 				return block.Header, nil
 			})
 		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).AnyTimes()
@@ -323,8 +312,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-			preConfirmed := pending.NewPreConfirmed(&core.Block{}, nil, nil, "")
-			mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
@@ -335,6 +323,7 @@ func TestTraceTransaction(t *testing.T) {
 		t.Run("other error", func(t *testing.T) {
 			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xBBBB")
 			// The tx-hash index lookup fails for a non-missing-key reason
+			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 				Return(uint64(0), uint64(0), errors.New("database error"))
 
@@ -371,6 +360,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.SierraClass{},
 		}
 
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).Return(header.Number, uint64(0), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil)
 		mockReader.EXPECT().TransactionsByBlockNumber(header.Number).
@@ -439,8 +429,6 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := pending.PreConfirmed{
 			Block: block,
@@ -448,7 +436,7 @@ func TestTraceTransaction(t *testing.T) {
 				StateDiff: &preConfirmedStateDiff,
 			},
 		}
-		mockSyncReader.EXPECT().PreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, &preConfirmed), nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockNumber(header.Number-1).
 			Return(headState, nopCloser, nil)
@@ -490,7 +478,7 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	// Multi-block pre_confirmed chain: target tx lives in the BASE entry, not
-	// the tip. findAndTraceInPreConfirmed must walk newest-first and
+	// the tip. TraceTransaction must walk newest-first and
 	// reconstruct state at the matching entry.
 	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
@@ -522,9 +510,7 @@ func TestTraceTransaction(t *testing.T) {
 			StateUpdate: &core.StateUpdate{StateDiff: &tipDiff},
 		}
 
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash(hash).
-			Return(uint64(0), uint64(0), db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PreConfirmedChain().
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil)
 		mockReader.EXPECT().StateAtBlockNumber(baseHeader.Number-1).
 			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
@@ -559,7 +545,6 @@ func TestTraceTransaction(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
-		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
 		revertedTxHash := felt.NewUnsafeFromString[felt.TransactionHash](
@@ -568,13 +553,13 @@ func TestTraceTransaction(t *testing.T) {
 
 		blockNumber := uint64(18)
 
-		gatewayBlock, gatewayErr := gateway.BlockByNumber(t.Context(), blockNumber)
-		require.NoError(t, gatewayErr)
+		gatewayBlock := adaptfeedertest.Block(t, client, blockNumber)
 		revertedTxIndex := slices.IndexFunc(gatewayBlock.Transactions, func(tx core.Transaction) bool {
 			return tx.Hash().Equal((*felt.Felt)(revertedTxHash))
 		})
 		require.NotEqual(t, -1, revertedTxIndex)
 
+		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(revertedTxHash).
 			Return(blockNumber, uint64(revertedTxIndex), nil)
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).

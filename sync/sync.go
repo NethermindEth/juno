@@ -74,7 +74,11 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePreConfirmed() preconfirmed.Subscription
-	PreConfirmedChain() (preconfirmed.ChainReader, error)
+	// ReadPreConfirmedChain returns the stored pre-confirmed chain
+	ReadPreConfirmedChain() (preconfirmed.ChainReader, error)
+	// RequestPreConfirmedChain returns the pre-confirmed chain, polling for fresher data if
+	// the stored one is stale. It can block for a while doing so.
+	RequestPreConfirmedChain() (preconfirmed.ChainReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -100,7 +104,11 @@ func (n *NoopSynchronizer) SubscribePreConfirmed() preconfirmed.Subscription {
 	return preconfirmed.Subscription{Subscription: feed.New[*pending.PreConfirmed]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
+func (n *NoopSynchronizer) RequestPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
+}
+
+func (n *NoopSynchronizer) ReadPreConfirmedChain() (preconfirmed.ChainReader, error) {
 	return preconfirmed.ChainReader{}, pending.ErrPreConfirmedNotFound
 }
 
@@ -648,8 +656,12 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	}
 }
 
-func (s *Synchronizer) PreConfirmedChain() (preconfirmed.ChainReader, error) {
-	return s.preConfirmedPoller.PreConfirmedChain()
+func (s *Synchronizer) RequestPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return s.preConfirmedPoller.RequestPreConfirmedChain()
+}
+
+func (s *Synchronizer) ReadPreConfirmedChain() (preconfirmed.ChainReader, error) {
+	return s.preConfirmedPoller.ReadPreConfirmedChain()
 }
 
 // note(rdr): shouldn't it be called pollPreconfirmedData?
