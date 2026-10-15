@@ -552,19 +552,20 @@ func (s *Server) handleBatchRequest(
 	return concatBatchResponses(responses), finalHeaders, nil
 }
 
-// unmarshal decodes data into v with decodeOptions. Clients get the error text,
-// so on failure it decodes again with v1 for a stable text: v2 wraps the errors
+// unmarshal decodes data into v with decodeOptions. On failure, v1 decides:
+// decodeOptions rejects some input that v1 accepts (ambiguous names, misused
+// string tags), and clients need a stable error text, while v2 wraps the errors
 // of unmarshal methods and picks "cannot" or "unable to" at random per process.
 func unmarshal(data []byte, v any) error {
-	err := json.Unmarshal(data, v, decodeOptions)
-	if err == nil {
+	if json.Unmarshal(data, v, decodeOptions) == nil {
 		return nil
 	}
-	fresh := reflect.New(reflect.TypeOf(v).Elem()).Interface()
-	if v1Err := jsonv1.Unmarshal(data, fresh); v1Err != nil {
-		return v1Err
+	fresh := reflect.New(reflect.TypeOf(v).Elem())
+	if err := jsonv1.Unmarshal(data, fresh.Interface()); err != nil {
+		return err
 	}
-	return err
+	reflect.ValueOf(v).Elem().Set(fresh.Elem())
+	return nil
 }
 
 func isBatch(reader *bufio.Reader) bool {

@@ -100,6 +100,13 @@ func (*rejectingParam) UnmarshalJSON([]byte) error {
 	return errors.New("unknown block tag 'foo'")
 }
 
+// caseClashParam has two names that differ only in case. v1 accepts a key that
+// matches both, while v2 rejects it as ambiguous.
+type caseClashParam struct {
+	Lower int `json:"foo"`
+	Upper int `json:"FOO"`
+}
+
 func TestHandle(t *testing.T) {
 	type validationStruct struct {
 		A int `validate:"min=1"`
@@ -224,6 +231,11 @@ func TestHandle(t *testing.T) {
 			Name:    "rejecting",
 			Params:  []jsonrpc.Parameter{{Name: "param"}},
 			Handler: func(param rejectingParam) (int, *jsonrpc.Error) { return 0, nil },
+		},
+		{
+			Name:    "caseClash",
+			Params:  []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param caseClashParam) (int, *jsonrpc.Error) { return param.Lower + param.Upper, nil },
 		},
 	}
 
@@ -647,6 +659,11 @@ func TestHandle(t *testing.T) {
 		"named param keeps its bytes": {
 			req: `{"jsonrpc": "2.0", "method": "raw", "params": {"param": {"b":1,"a":2.50}}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
+		},
+
+		"param that only v1 accepts": {
+			req: `{"jsonrpc": "2.0", "method": "caseClash", "params": [{"Foo": 7}], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":7,"id":1}`,
 		},
 
 		"param unmarshal method error is returned as is": {
