@@ -18,6 +18,10 @@ const (
 	feltLen = 1 + Limbs*(1+8)
 )
 
+// The test for the all-uint64 form, an array head and four 0x1b heads, is written out where it
+// sits in a loop (here, in Limbs, and in Skip). A function for it, even one the compiler inlines,
+// measured 1 to 2% slower on BenchmarkReadFeltArray.
+
 // Limbs reads a felt: an array of four unsigned integers. The 37 byte all-uint64 form
 // takes a single bounds check and four loads; every other width goes through the slow path.
 // dst is written only on success.

@@ -3,6 +3,7 @@ package fast
 import (
 	"cmp"
 	"encoding/binary"
+	"math"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -259,4 +260,70 @@ func (f *Fields) match(key []byte) (int, bool) {
 	}
 	field, ok := f.folded[string(buf[:len(key)])]
 	return field, ok
+}
+
+// Key reads a map key the way fxamacker reads the keys of a struct. A text key is returned
+// as a sub-slice of the input, valid only while the input is, after a UTF-8 check. An
+// integer key can match no field, so it is consumed and reported as not text; one too large
+// for int64 is an error, as is a key of any other type.
+func (r *Reader) Key() (key []byte, isText bool, err error) {
+	// A short text key with its length in the head or the byte after it.
+	buf := r.buf[r.pos:]
+	if len(buf) > 0 {
+		length, size := int(buf[0]-MajorString), 1
+		if length == info1Byte && len(buf) > 1 {
+			length, size = int(buf[1]), 2
+		}
+		if length < info1Byte || size == 2 {
+			if end := size + length; end <= len(buf) && ascii(buf[size:end]) {
+				r.pos += end
+				return buf[size:end], true, nil
+			}
+		}
+	}
+	return r.keySlow()
+}
+
+func (r *Reader) keySlow() (key []byte, isText bool, err error) {
+	start := r.pos
+	major, argument, err := r.head()
+	if err != nil {
+		return nil, false, err
+	}
+	switch major {
+	case MajorString:
+		if argument > uint64(r.Len()) {
+			r.pos = start
+			return nil, false, ErrTruncated
+		}
+		end := r.pos + int(argument)
+		key = r.buf[r.pos:end]
+		if !utf8.Valid(key) {
+			r.pos = start
+			return nil, false, ErrSyntax
+		}
+		r.pos = end
+		return key, true, nil
+	case MajorUint, MajorNegInt:
+		if argument > math.MaxInt64 {
+			r.pos = start
+			return nil, false, ErrType
+		}
+		return nil, false, nil
+	default:
+		r.pos = start
+		return nil, false, ErrType
+	}
+}
+
+// ascii reports whether s is all ASCII, eight bytes at a time.
+func ascii(s []byte) bool {
+	var bits uint64
+	for ; len(s) >= 8; s = s[8:] {
+		bits |= binary.LittleEndian.Uint64(s)
+	}
+	for _, c := range s {
+		bits |= uint64(c)
+	}
+	return bits&0x8080808080808080 == 0
 }

@@ -696,7 +696,7 @@ func readCasmEntryPoint(r *fast.Reader, dst *core.CasmEntryPoint) error {
 		case casmEntryPointOffset:
 			err = readUint64(r, &dst.Offset)
 		case casmEntryPointBuiltins:
-			err = readStringSlice(r, &dst.Builtins)
+			err = readSlice(r, &dst.Builtins, readString)
 		case casmEntryPointSelector:
 			err = readFelt(r, &dst.Selector)
 		default:

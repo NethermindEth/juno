@@ -205,26 +205,6 @@ func readPtrSlice[T any](r *fast.Reader, dst *[]*T, read func(*fast.Reader, *T) 
 	return nil
 }
 
-func readStringSlice(r *fast.Reader, dst *[]string) error {
-	if r.Null() {
-		*dst = nil
-		return nil
-	}
-	count, err := r.ArrayLen()
-	if err != nil {
-		return err
-	}
-	out := make([]string, count)
-	for i := range out {
-		if err := readString(r, &out[i]); err != nil {
-			return err
-		}
-	}
-	r.Leave()
-	*dst = out
-	return nil
-}
-
 // fieldsOf returns the Fields of T, whose field number i has the wire name names[i]. It panics
 // unless the names are the wire names fxamacker gives the fields of T, so a reader cannot leave
 // a field of T unread.

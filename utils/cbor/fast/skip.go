@@ -31,7 +31,7 @@ func (r *Reader) skip(depth int) error {
 	if r.pos < len(r.buf) {
 		head = r.buf[r.pos]
 	}
-	major, argument, err := r.Head()
+	major, argument, err := r.head()
 	if err != nil {
 		return err
 	}

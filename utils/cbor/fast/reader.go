@@ -55,7 +55,7 @@ type Reader struct {
 
 // NewReader returns a Reader positioned at the start of data.
 func NewReader(data []byte) Reader {
-	return Reader{buf: data, pos: 0, depth: 0}
+	return Reader{buf: data}
 }
 
 // Remaining returns the unread suffix of the input. It aliases the input buffer.
@@ -75,10 +75,10 @@ func (r *Reader) Peek() (byte, error) {
 	return r.buf[r.pos], nil
 }
 
-// Head reads the head of the next item: its major type and its argument. The argument is
+// head reads the head of the next item: its major type and its argument. The argument is
 // the value of an integer or simple item, the length of a string, the element count of an
 // array or map, or the number of a tag. It consumes nothing on error.
-func (r *Reader) Head() (major byte, argument uint64, err error) {
+func (r *Reader) head() (major byte, argument uint64, err error) {
 	// The argument is small enough to live in the info bits.
 	if r.pos < len(r.buf) {
 		if head := r.buf[r.pos]; head&infoMask < info1Byte {
@@ -89,7 +89,7 @@ func (r *Reader) Head() (major byte, argument uint64, err error) {
 	return r.headSlow()
 }
 
-// headSlow is Head for a missing head or an argument that follows the head byte.
+// headSlow is head for a missing head or an argument that follows the head byte.
 func (r *Reader) headSlow() (major byte, argument uint64, err error) {
 	if r.pos >= len(r.buf) {
 		return 0, 0, ErrTruncated
