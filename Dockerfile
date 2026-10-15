@@ -44,14 +44,37 @@ COPY . .
 # Build with make juno
 RUN make juno
 
+# --- Runtime base stage ---
+# Builds a Wolfi filesystem with glibc and no shell or package manager from the packages pinned in
+# docker/apko.lock.json. It runs on the build platform, so a cross-arch build needs no emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS base
+
+# Keep in sync with APKO_VERSION in the Makefile.
+ARG APKO_VERSION=v1.4.11
+ARG TARGETARCH
+
+RUN go install chainguard.dev/apko@${APKO_VERSION}
+
+WORKDIR /base
+COPY docker/apko.yaml docker/apko.lock.json ./
+
+# apko writes an image tarball with one layer. Extract that layer as the root filesystem.
+RUN apko build --arch ${TARGETARCH} --lockfile apko.lock.json --sbom=false apko.yaml juno-base image.tar \
+    && tar -xf image.tar \
+    && mkdir /rootfs \
+    && tar -xzf "$(sed -n 's/.*"Layers":\["\([^"]*\)".*/\1/p' manifest.json)" -C /rootfs
+
 # --- Final stage ---
-# Wolfi glibc runtime with no shell or package manager. The free tier publishes only the latest
-# tag, so the digest pins it and Dependabot bumps it.
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:2a3f1ec8a825dfbb1211b5835a9b8b3fb8d76c7bd22a189b1f84157ed2028293 AS final
+FROM scratch AS final
 
-# The base image runs as uid 65532. Data directories that earlier images made are owned by root.
-USER root
-
+COPY --from=base /rootfs/ /
 COPY --from=builder /app/build/juno /usr/local/bin/
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
+LABEL org.opencontainers.image.title="juno" \
+      org.opencontainers.image.vendor="Nethermind" \
+      org.opencontainers.image.source="https://github.com/NethermindEth/juno" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 ENTRYPOINT ["juno"]
