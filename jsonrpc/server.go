@@ -46,7 +46,7 @@ var (
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 
 	// decodeOptions keeps the v1 decode rules but reports v2 errors. The v1 error
-	// mode validates each value before it decodes it, which doubles the cost.
+	// mode validates each value before it decodes it, which adds a full pass.
 	decodeOptions = json.JoinOptions(
 		jsonv1.DefaultOptionsV1(),
 		jsonv1.ReportErrorsWithLegacySemantics(false),
@@ -490,7 +490,7 @@ func (s *Server) handleBatchRequest(
 	skipped := 0
 	for _, rawReq := range batchReq {
 		req := new(Request)
-		if err := json.Unmarshal(rawReq, req, decodeOptions); err != nil {
+		if err := unmarshal(rawReq, req); err != nil {
 			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
 			continue
 		}
@@ -550,6 +550,21 @@ func (s *Server) handleBatchRequest(
 
 	// todo: fix batch request aggregate header
 	return concatBatchResponses(responses), finalHeaders, nil
+}
+
+// unmarshal decodes data into v with decodeOptions. Clients get the error text,
+// so on failure it decodes again with v1 for a stable text: v2 wraps the errors
+// of unmarshal methods and picks "cannot" or "unable to" at random per process.
+func unmarshal(data []byte, v any) error {
+	err := json.Unmarshal(data, v, decodeOptions)
+	if err == nil {
+		return nil
+	}
+	fresh := reflect.New(reflect.TypeOf(v).Elem()).Interface()
+	if v1Err := jsonv1.Unmarshal(data, fresh); v1Err != nil {
+		return v1Err
+	}
+	return err
 }
 
 func isBatch(reader *bufio.Reader) bool {
@@ -687,9 +702,9 @@ func (s *Server) buildArguments(
 	if params != nil {
 		var err error
 		if params[0] == '[' {
-			err = json.Unmarshal(params, &positional, decodeOptions)
+			err = unmarshal(params, &positional)
 		} else {
-			err = json.Unmarshal(params, &named, decodeOptions)
+			err = unmarshal(params, &named)
 		}
 		if err != nil {
 			return nil, err
@@ -769,7 +784,7 @@ func (s *Server) buildArguments(
 
 func (s *Server) parseParam(param jsontext.Value, t reflect.Type) (reflect.Value, error) {
 	handlerParam := reflect.New(t)
-	if err := json.Unmarshal(param, handlerParam.Interface(), decodeOptions); err != nil {
+	if err := unmarshal(param, handlerParam.Interface()); err != nil {
 		return reflect.ValueOf(nil), err
 	}
 

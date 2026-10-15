@@ -93,6 +93,13 @@ func TestServer_RegisterMethod(t *testing.T) {
 	})
 }
 
+// rejectingParam fails in its unmarshal method, as rpc param types do on bad input
+type rejectingParam struct{}
+
+func (*rejectingParam) UnmarshalJSON([]byte) error {
+	return errors.New("unknown block tag 'foo'")
+}
+
 func TestHandle(t *testing.T) {
 	type validationStruct struct {
 		A int `validate:"min=1"`
@@ -212,6 +219,11 @@ func TestHandle(t *testing.T) {
 			Handler: func(param jsontext.Value) (string, *jsonrpc.Error) {
 				return string(param), nil
 			},
+		},
+		{
+			Name:    "rejecting",
+			Params:  []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param rejectingParam) (int, *jsonrpc.Error) { return 0, nil },
 		},
 	}
 
@@ -403,7 +415,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON array into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON array into Go jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 
 		"no method": {
@@ -468,7 +480,7 @@ func TestHandle(t *testing.T) {
 
 		"wrong param type": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : ["3", false, "error message"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal JSON string into Go int"},"id":3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
 		},
 
 		"multiple versions in batch": {
@@ -583,12 +595,12 @@ func TestHandle(t *testing.T) {
 
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 
 		"rpc call with invalid Batch": {
 			req: `[1,2,3]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal JSON number into Go jsonrpc.Request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 
 		"fails internally": {
@@ -635,6 +647,11 @@ func TestHandle(t *testing.T) {
 		"named param keeps its bytes": {
 			req: `{"jsonrpc": "2.0", "method": "raw", "params": {"param": {"b":1,"a":2.50}}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
+		},
+
+		"param unmarshal method error is returned as is": {
+			req: `{"jsonrpc": "2.0", "method": "rejecting", "params": ["foo"], "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unknown block tag 'foo'"},"id":1}`,
 		},
 
 		"junk + valid params": {
