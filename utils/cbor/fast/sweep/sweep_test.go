@@ -49,7 +49,6 @@ type kindStats struct {
 	count     uint64
 	fxTime    time.Duration
 	fastTime  time.Duration
-	skipped   uint64 // Cairo 0 classes, decoded by both but not routed
 	maxSize   int
 	sizeTotal uint64
 }
@@ -60,7 +59,6 @@ type worker struct {
 }
 
 type sweeper struct {
-	t          *testing.T
 	mismatches atomic.Uint64
 	failures   atomic.Uint64
 	reportMu   sync.Mutex
@@ -179,7 +177,6 @@ func (s *sweeper) class(w *worker, j job) {
 	r := fast.NewReader(body)
 	if tag, err := r.Tag(); err != nil || tag != s.sierraTag {
 		// Cairo 0: the wrapper reads the tag, gives up and falls back. Still compared.
-		w.stat("class Cairo 0 (fallback)").skipped++
 		compare[core.ClassDefinition](s, w, "class Cairo 0 (fallback)", j.key, body, false)
 		return
 	}
@@ -285,7 +282,7 @@ func TestMainnetSweep(t *testing.T) {
 	if !ok {
 		t.Fatal("SierraClass has no tag")
 	}
-	s := &sweeper{t: t, sierraTag: tag}
+	s := &sweeper{sierraTag: tag}
 	started := time.Now()
 
 	jobs := make(chan job, 256)
@@ -432,7 +429,6 @@ func merge(results []*worker) map[string]*kindStats {
 				total[k] = acc
 			}
 			acc.count += st.count
-			acc.skipped += st.skipped
 			acc.sizeTotal += st.sizeTotal
 			acc.maxSize = max(acc.maxSize, st.maxSize)
 			acc.fxTime += st.fxTime

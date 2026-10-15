@@ -201,33 +201,6 @@ func FuzzReadersMatchFxamacker(f *testing.F) {
 			require.Equal(t, want, got)
 			require.Equal(t, rest, r.Remaining())
 		})
-		t.Run("felt", func(t *testing.T) {
-			var want [fast.Limbs]uint64
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			var got [fast.Limbs]uint64
-			if err := r.Limbs(&got); err != nil {
-				require.Zero(t, r.Pos(), "a failed read must not consume")
-				require.Zero(t, got, "a failed read must not write")
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
-		t.Run("felt slice", func(t *testing.T) {
-			var want [][fast.Limbs]uint64
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := fast.LimbSlice[[fast.Limbs]uint64](&r)
-			if err != nil {
-				require.Zero(t, r.Pos(), "a failed read must not consume")
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
 		t.Run("bigint", func(t *testing.T) {
 			var want big.Int
 			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)

@@ -13,9 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
-	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +42,7 @@ func TestWriteFuzzSeeds(t *testing.T) {
 	goldenBytes := loadGolden(t)
 	records := loadRecords(t, corpus)
 
-	pick := func(limit int, golden func(string) bool, corpus func(string) bool) [][]byte {
+	pick := func(limit int, fromGolden, fromCorpus func(string) bool) [][]byte {
 		var out [][]byte
 		add := func(set map[string][]byte, match func(string) bool) {
 			keys := make([]string, 0, len(set))
@@ -58,8 +56,8 @@ func TestWriteFuzzSeeds(t *testing.T) {
 				}
 			}
 		}
-		add(goldenBytes, golden)
-		add(records, corpus)
+		add(goldenBytes, fromGolden)
+		add(records, fromCorpus)
 		return out
 	}
 	prefix := func(p string) func(string) bool { return func(s string) bool { return strings.HasPrefix(s, p) } }
@@ -131,10 +129,6 @@ func loadRecords(t *testing.T, corpus string) map[string][]byte {
 		b, err := os.ReadFile(file)
 		require.NoError(t, err)
 		name := strings.TrimSuffix(filepath.Base(file), ".bin")
-		if strings.HasPrefix(name, "header") {
-			var h core.Header
-			require.NoError(t, fxamacker.Unmarshal(b, &h), file)
-		}
 		out[name] = b
 	}
 	return out

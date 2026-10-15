@@ -16,11 +16,11 @@ import (
 const randomValues = 1000
 
 // The readers are generated or written by hand, one per stored type, so a field added to a core
-// type can be left out of its reader or read with the wrong helper. This test fills every exported field of every routed type, found
-// by reflection and not by a list of fields, with random data, and requires the fast decoder to
-// read what fxamacker reads. A field a reader does not know shows up as a value that differs, so
-// a new field needs no new fixture, and a new field type that the filler cannot make fails
-// loudly in fill.
+// type can be left out of its reader or read with the wrong helper. This test fills every exported
+// field of every routed type, found by reflection and not by a list of fields, with random data,
+// and requires the fast decoder to read what fxamacker reads. A field a reader does not know shows
+// up as a value that differs, so a new field needs no new fixture, and a new field type that the
+// filler cannot make fails loudly in fill.
 func TestRandomValuesDecodeLikeFxamacker(t *testing.T) {
 	checkRandomValues[core.TransactionReceipt](t)
 	checkRandomValues[core.Header](t)

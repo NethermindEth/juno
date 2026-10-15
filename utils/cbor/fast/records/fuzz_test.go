@@ -67,5 +67,6 @@ func FuzzSierraClass(f *testing.F) {
 }
 
 func FuzzStateUpdate(f *testing.F) {
-	fuzzAgainstFxamacker[core.StateUpdate](f, marshal(f, stateUpdate()), marshal(f, &core.StateUpdate{}))
+	fuzzAgainstFxamacker[core.StateUpdate](f, marshal(f, stateUpdate()), marshal(f, &core.StateUpdate{}),
+		marshal(f, &core.StateUpdate{StateDiff: &core.StateDiff{}}))
 }

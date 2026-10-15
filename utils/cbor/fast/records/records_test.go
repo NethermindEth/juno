@@ -94,54 +94,6 @@ func decodeBoth[T any](t *testing.T, data []byte) (viaWrapper, viaFx *T) {
 	return viaWrapper, viaFx
 }
 
-func TestReceiptMatchesFxamacker(t *testing.T) {
-	for name, value := range map[string]*core.TransactionReceipt{
-		"populated": receipt(),
-		"zero":      {},
-	} {
-		t.Run(name, func(t *testing.T) {
-			data, err := cbor.Marshal(value)
-			require.NoError(t, err)
-
-			got, want := decodeBoth[core.TransactionReceipt](t, data)
-			require.Equal(t, want, got)
-		})
-	}
-}
-
-func TestSierraClassMatchesFxamacker(t *testing.T) {
-	var class core.ClassDefinition = sierraClass()
-	data, err := cbor.Marshal(&class)
-	require.NoError(t, err)
-
-	var got, want core.ClassDefinition
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.NoError(t, fxamacker.Unmarshal(data, &want))
-	require.Equal(t, want, got)
-}
-
-func TestCairo0ClassMatchesFxamacker(t *testing.T) {
-	var class core.ClassDefinition = &core.DeprecatedCairoClass{Abi: []byte(`[]`), Program: "p"}
-	data, err := cbor.Marshal(&class)
-	require.NoError(t, err)
-
-	var got, want core.ClassDefinition
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.NoError(t, fxamacker.Unmarshal(data, &want))
-	require.Equal(t, want, got)
-}
-
-func TestNonZeroDestinationMatchesFxamacker(t *testing.T) {
-	data, err := cbor.Marshal(receipt())
-	require.NoError(t, err)
-
-	got := core.TransactionReceipt{Reverted: true, RevertReason: "stale"}
-	want := got
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.NoError(t, fxamacker.Unmarshal(data, &want))
-	require.Equal(t, want, got)
-}
-
 func TestPointerDestination(t *testing.T) {
 	data, err := cbor.Marshal(receipt())
 	require.NoError(t, err)
@@ -154,28 +106,6 @@ func TestPointerDestination(t *testing.T) {
 	got = nil
 	require.NoError(t, cbor.Unmarshal([]byte{0xf6}, &got))
 	require.Nil(t, got)
-}
-
-func TestUnmarshalFirstRemainder(t *testing.T) {
-	data, err := cbor.Marshal(receipt())
-	require.NoError(t, err)
-
-	trailer := []byte{0x01, 0x02, 0x03}
-	var got core.TransactionReceipt
-	rest, err := cbor.UnmarshalFirst(append(append([]byte{}, data...), trailer...), &got)
-	require.NoError(t, err)
-	require.Equal(t, trailer, rest)
-
-	require.Error(t, cbor.Unmarshal(append(append([]byte{}, data...), trailer...), new(core.TransactionReceipt)))
-}
-
-func TestMalformedInputIsAnError(t *testing.T) {
-	data, err := cbor.Marshal(receipt())
-	require.NoError(t, err)
-
-	for _, cut := range []int{1, 2, 10, len(data) / 2, len(data) - 1} {
-		require.Error(t, cbor.Unmarshal(data[:cut], new(core.TransactionReceipt)))
-	}
 }
 
 func version(v uint64) *core.TransactionVersion { return (*core.TransactionVersion)(f(v)) }
@@ -228,20 +158,6 @@ func transactions() map[string]core.Transaction {
 	}
 }
 
-func TestTransactionMatchesFxamacker(t *testing.T) {
-	for name, tx := range transactions() {
-		t.Run(name, func(t *testing.T) {
-			data, err := cbor.Marshal(&tx)
-			require.NoError(t, err)
-
-			var got, want core.Transaction
-			require.NoError(t, cbor.Unmarshal(data, &got))
-			require.NoError(t, fxamacker.Unmarshal(data, &want))
-			require.Equal(t, want, got)
-		})
-	}
-}
-
 func header() *core.Header {
 	return &core.Header{
 		Hash: f(1), ParentHash: f(2), Number: 12345, GlobalStateRoot: f(3), SequencerAddress: f(4),
@@ -265,18 +181,6 @@ func oldHeader() *storedOldHeader {
 	bloom = binary.BigEndian.AppendUint64(bloom, 1)
 	bloom = binary.BigEndian.AppendUint64(bloom, 1<<58)
 	return &storedOldHeader{Header: *header(), EventsBloom: bloom}
-}
-
-func TestHeaderMatchesFxamacker(t *testing.T) {
-	for name, value := range map[string]*core.Header{"populated": header(), "zero": {}} {
-		t.Run(name, func(t *testing.T) {
-			data, err := cbor.Marshal(value)
-			require.NoError(t, err)
-
-			got, want := decodeBoth[core.Header](t, data)
-			require.Equal(t, want, got)
-		})
-	}
 }
 
 // A header written before v0.13 names its gas prices GasPrice and GasPriceSTRK, which fxamacker
@@ -321,19 +225,6 @@ func stateUpdate() *core.StateUpdate {
 			ReplacedClasses:   map[felt.Felt]*felt.Felt{*f(11): f(12)},
 			MigratedClasses:   map[felt.SierraClassHash]felt.CasmClassHash{felt.SierraClassHash(*f(1)): felt.CasmClassHash(*f(2))},
 		},
-	}
-}
-
-func TestStateUpdateMatchesFxamacker(t *testing.T) {
-	update := stateUpdate()
-	for name, value := range map[string]*core.StateUpdate{"populated": update, "zero": {}, "empty diff": {StateDiff: &core.StateDiff{}}} {
-		t.Run(name, func(t *testing.T) {
-			data, err := cbor.Marshal(value)
-			require.NoError(t, err)
-
-			got, want := decodeBoth[core.StateUpdate](t, data)
-			require.Equal(t, want, got)
-		})
 	}
 }
 

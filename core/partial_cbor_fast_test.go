@@ -169,29 +169,6 @@ func cborMap(pairs ...[]byte) []byte {
 	return out
 }
 
-func TestHeaderProjectionReadersMatchFxamacker(t *testing.T) {
-	requireMatchesFxamacker(t, sampleHeaderBytes(t), headerProjections())
-	requireMatchesFxamacker(t, marshalled(t, &Header{}), headerProjections())
-}
-
-func TestReceiptProjectionReadersMatchFxamacker(t *testing.T) {
-	withNullEvent := sampleReceipt()
-	withNullEvent.Events = append(withNullEvent.Events, nil, &Event{})
-	noEvents := sampleReceipt()
-	noEvents.Events = []*Event{}
-	for _, receipt := range []*TransactionReceipt{sampleReceipt(), withNullEvent, noEvents, {}} {
-		requireMatchesFxamacker(t, marshalled(t, receipt), receiptProjections())
-	}
-}
-
-func TestTransactionHashProjectionReaderMatchesFxamacker(t *testing.T) {
-	for _, tx := range wideSampleTransactions() {
-		stored, untagged := transactionForms(t, tx)
-		requireMatchesFxamacker(t, stored, transactionProjections())
-		requireMatchesFxamacker(t, untagged, transactionProjections())
-	}
-}
-
 // TestProjectionReadersFollowFxamackerKeys covers keys Juno never writes but fxamacker accepts:
 // other case, repeats, unknown and integer keys, and nulls.
 func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
@@ -251,10 +228,11 @@ func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
 // to fxamacker, with the same outcome.
 func TestProjectionReadersLeaveTagsToFxamacker(t *testing.T) {
 	stored, untagged := transactionForms(t, wideSampleTransactions()[0])
-	for _, wrapped := range [][]byte{
-		append([]byte{0xc2}, untagged...),           // a bignum tag
-		append([]byte{0xd9, 0xd9, 0xf7}, stored...), // a chain of tags
-	} {
+	wrappers := [][]byte{append([]byte{0xd9, 0xd9, 0xf7}, stored...)} // a chain of tags
+	for tag := byte(0xc0); tag <= 0xc3; tag++ {                       // tags 0 to 3: times and bignums
+		wrappers = append(wrappers, append([]byte{tag}, untagged...))
+	}
+	for _, wrapped := range wrappers {
 		for _, projection := range transactionProjections() {
 			got, want, gotErr, wantErr := projection.decode(wrapped)
 			require.Equal(t, wantErr == nil, gotErr == nil, "%v / %v", gotErr, wantErr)
@@ -267,8 +245,8 @@ func TestProjectionReadersLeaveTagsToFxamacker(t *testing.T) {
 	requireMatchesFxamacker(t, withTag, headerProjections())
 }
 
-// TestProjectionReadersRejectMalformed checks the readers error on broken input, in the fields
-// they read and in the ones they skip, without fxamacker's help.
+// TestProjectionReadersRejectMalformed checks that the readers and fxamacker both error on broken
+// input, in the fields the readers read and in the ones they skip.
 func TestProjectionReadersRejectMalformed(t *testing.T) {
 	all := append(append(headerProjections(), receiptProjections()...), transactionProjections()...)
 	only := func(names ...string) []projectionCase {
@@ -381,8 +359,12 @@ func FuzzHeaderProjections(f *testing.F) {
 }
 
 func FuzzReceiptProjections(f *testing.F) {
-	fuzzProjections(f, receiptProjections(),
-		marshalled(f, sampleReceipt()), marshalled(f, &TransactionReceipt{}))
+	withNullEvent := sampleReceipt()
+	withNullEvent.Events = append(withNullEvent.Events, nil, &Event{})
+	noEvents := sampleReceipt()
+	noEvents.Events = []*Event{}
+	fuzzProjections(f, receiptProjections(), marshalled(f, sampleReceipt()), marshalled(f, withNullEvent),
+		marshalled(f, noEvents), marshalled(f, &TransactionReceipt{}))
 }
 
 func FuzzTransactionHashProjection(f *testing.F) {
@@ -412,13 +394,7 @@ func indexesCases(t testing.TB) map[string][]byte {
 	}
 }
 
-func TestBlockTransactionsIndexesReaderMatchesFxamacker(t *testing.T) {
-	for name, data := range indexesCases(t) {
-		t.Run(name, func(t *testing.T) {
-			requireMatchesFxamacker(t, data,
-				[]projectionCase{projectionCaseFor[BlockTransactionsIndexes]()})
-		})
-	}
+func TestBlockTransactionsIndexesReaderKeepsTheRestAndRejectsMalformed(t *testing.T) {
 	// Partial reads decode the indexes as the first item and keep the rest.
 	data := slices.Concat(indexesCases(t)["stored"], []byte{0x01, 0x02})
 	var got, want BlockTransactionsIndexes

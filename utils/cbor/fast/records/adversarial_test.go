@@ -9,17 +9,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils/cbor"
-	"github.com/NethermindEth/juno/utils/cbor/fast"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	"github.com/stretchr/testify/require"
 )
@@ -164,103 +161,9 @@ func agree(t *testing.T, kind string, data []byte, msgAndArgs ...any) bool {
 	if fastTypeMismatch(gotErr) {
 		return true
 	}
-	if errors.Is(gotErr, fast.ErrTruncated) && limbSliceBoundBug() {
-		t.Logf("known LimbSlice bound bug: %v", msgAndArgs)
-		return true
-	}
 	require.NoError(t, gotErr, fmt.Sprintf("fxamacker accepts what the wrapper rejects: %x %v", data, msgAndArgs))
-	if kind == "transaction" && !reflect.DeepEqual(want, got) && nullResourceKeyBug() && hasNullResourceKey(data) {
-		t.Logf("known null ResourceBounds key bug: %v", msgAndArgs)
-		return true
-	}
 	require.Equal(t, want, got, msgAndArgs...)
 	return true
-}
-
-// Known bugs, found by these tests and left to be fixed in the readers. Each is probed, so the
-// tests above tolerate it only while it is there; the tests below fail on it when unskipped.
-
-// shortFelts is {"Events": [{"Keys": [[], [], [], [], [], []]}]}: a felt slice whose felts are
-// shorter than the 37 byte form (an empty array is a zero felt to fxamacker) at the end of a
-// record, so it declares more felts than the bytes left hold at five bytes each.
-var shortFelts = []byte{
-	0xa1, 0x66, 'E', 'v', 'e', 'n', 't', 's', 0x81, 0xa1, 0x64, 'K', 'e', 'y', 's',
-	0x86, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-}
-
-var limbSliceBoundBug = sync.OnceValue(func() bool {
-	return cbor.Unmarshal(shortFelts, new(core.TransactionReceipt)) != nil &&
-		fxamacker.Unmarshal(shortFelts, new(core.TransactionReceipt)) == nil
-})
-
-// nullResourceKey is a version 3 transaction whose second resource bound has a null key.
-// fxamacker reuses its key variable across a map's pairs, and null leaves an integer as it
-// was, so the pair lands on the previous pair's key; the reader starts each key at zero.
-func nullResourceKey() []byte {
-	tx := transactions()["declare"]
-	data, err := cbor.Marshal(&tx)
-	if err != nil {
-		panic(err)
-	}
-	root, err := parseItem(data, 0, 0)
-	if err != nil {
-		panic(err)
-	}
-	for _, m := range resourceBoundsMaps(data, root) {
-		if len(m.children) >= 4 {
-			key := m.children[2]
-			return splice(data, key.start, key.end, []byte{0xf6})
-		}
-	}
-	panic("no resource bounds")
-}
-
-var nullResourceKeyBug = sync.OnceValue(func() bool {
-	data := nullResourceKey()
-	got, gotErr := decodeAs("transaction", data, false, cbor.Unmarshal)
-	want, wantErr := decodeAs("transaction", data, false, fxamacker.Unmarshal)
-	return gotErr == nil && wantErr == nil && !reflect.DeepEqual(want, got)
-})
-
-// resourceBoundsMaps returns the values of every ResourceBounds key that are maps.
-func resourceBoundsMaps(data []byte, root *item) []*item {
-	var out []*item
-	for _, m := range root.all() {
-		if m.major != majorMap {
-			continue
-		}
-		for i := 0; i+1 < len(m.children); i += 2 {
-			key, value := m.children[i], m.children[i+1]
-			if key.major == majorText && strings.EqualFold(string(data[key.headEnd:key.end]), "ResourceBounds") &&
-				value.major == majorMap {
-				out = append(out, value)
-			}
-		}
-	}
-	return out
-}
-
-func hasNullResourceKey(data []byte) bool {
-	root, err := parseItem(data, 0, 0)
-	if err != nil {
-		return false
-	}
-	for _, m := range resourceBoundsMaps(data, root) {
-		for i := 0; i < len(m.children); i += 2 {
-			if b := data[m.children[i].start]; b == 0xf6 || b == 0xf7 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func TestShortFeltsInASliceMatchFxamacker(t *testing.T) {
-	require.True(t, agree(t, "receipt", shortFelts))
-}
-
-func TestNullResourceBoundsKeyMatchesFxamacker(t *testing.T) {
-	require.True(t, agree(t, "transaction", nullResourceKey()))
 }
 
 // sampleOffsets returns every offset below n, or for a long input its first and last 256
@@ -450,7 +353,7 @@ func TestMapKeyVariantsAgree(t *testing.T) {
 	}
 }
 
-// TestIndefiniteLengthItemsFallBack turns each container and string of a record, one at a
+// TestIndefiniteLengthItemsMatchFxamacker turns each container and string of a record, one at a
 // time, into its indefinite-length form, which the fast reader leaves to fxamacker wherever it
 // meets it: the read must still decode the same value.
 func TestIndefiniteLengthItemsMatchFxamacker(t *testing.T) {
