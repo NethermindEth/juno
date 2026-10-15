@@ -22,7 +22,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
-	"github.com/bits-and-blooms/bloom/v3"
 )
 
 // reader is a struct to write a reader for.
@@ -98,7 +97,6 @@ var known = map[reflect.Type]string{
 	reflect.TypeFor[map[felt.Felt]map[felt.Felt]*felt.Felt]():      "err = readStorageDiffs(r, &%s)",
 	reflect.TypeFor[map[felt.SierraClassHash]felt.CasmClassHash](): "err = readMigratedClasses(r, &%s)",
 	reflect.TypeFor[eth.Address]():                                 "err = readEthAddress(r, &%s)",
-	reflect.TypeFor[*bloom.BloomFilter]():                          "err = readBloom(r, &%s)",
 	reflect.TypeFor[*big.Int]():                                    "err = readBigIntPtr(r, &%s)",
 	reflect.TypeFor[core.L1DAMode]():                               "err = readUint(r, &%s)",
 	reflect.TypeFor[core.FeeUnit]():                                "err = readByte(r, (*byte)(&%s))",

@@ -1,7 +1,6 @@
 package records_test
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 
@@ -17,18 +16,11 @@ import (
 // fxamacker. It is stricter in one way: it reports a type mismatch where fxamacker coerces
 // (a float, a bignum or a simple value for an integer, say), which Juno never writes; that is
 // the one disagreement allowed here.
-//
-// skip names key text that makes an input unsafe to give fxamacker. The bloom filter package
-// it calls allocates whatever bit count the bytes declare, which can take the whole process
-// down; the fast reader checks that count and has its own test.
-func fuzzAgainstFxamacker[T any](f *testing.F, skip string, seeds ...[]byte) {
+func fuzzAgainstFxamacker[T any](f *testing.F, seeds ...[]byte) {
 	for _, seed := range seeds {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		if skip != "" && bytes.Contains(bytes.ToLower(data), []byte(skip)) {
-			t.Skip()
-		}
 		got, want := new(T), new(T)
 		gotErr := cbor.Unmarshal(data, got)
 		wantErr := fxamacker.Unmarshal(data, want)
@@ -54,13 +46,11 @@ func marshal(f *testing.F, v any) []byte {
 }
 
 func FuzzReceipt(f *testing.F) {
-	fuzzAgainstFxamacker[core.TransactionReceipt](f, "", marshal(f, receipt()), marshal(f, &core.TransactionReceipt{}))
+	fuzzAgainstFxamacker[core.TransactionReceipt](f, marshal(f, receipt()), marshal(f, &core.TransactionReceipt{}))
 }
 
 func FuzzHeader(f *testing.F) {
-	noBloom := header()
-	noBloom.EventsBloom = nil
-	fuzzAgainstFxamacker[core.Header](f, "eventsbloom", marshal(f, noBloom), marshal(f, &core.Header{}))
+	fuzzAgainstFxamacker[core.Header](f, marshal(f, header()), marshal(f, oldHeader()), marshal(f, &core.Header{}))
 }
 
 func FuzzTransaction(f *testing.F) {
@@ -68,14 +58,14 @@ func FuzzTransaction(f *testing.F) {
 	for _, tx := range transactions() {
 		seeds = append(seeds, marshal(f, &tx))
 	}
-	fuzzAgainstFxamacker[core.Transaction](f, "", seeds...)
+	fuzzAgainstFxamacker[core.Transaction](f, seeds...)
 }
 
 func FuzzSierraClass(f *testing.F) {
 	class := core.ClassDefinition(sierraClass())
-	fuzzAgainstFxamacker[core.ClassDefinition](f, "", marshal(f, &class))
+	fuzzAgainstFxamacker[core.ClassDefinition](f, marshal(f, &class))
 }
 
 func FuzzStateUpdate(f *testing.F) {
-	fuzzAgainstFxamacker[core.StateUpdate](f, "", marshal(f, stateUpdate()), marshal(f, &core.StateUpdate{}))
+	fuzzAgainstFxamacker[core.StateUpdate](f, marshal(f, stateUpdate()), marshal(f, &core.StateUpdate{}))
 }

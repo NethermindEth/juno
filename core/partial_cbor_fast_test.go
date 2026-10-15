@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"reflect"
 	"slices"
@@ -11,9 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
-	"github.com/NethermindEth/juno/utils/cbor/fast"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,7 +47,6 @@ func headerProjections() []projectionCase {
 		projectionCaseFor[headerGlobalStateRootProjection](),
 		projectionCaseFor[headerTransactionCountProjection](),
 		projectionCaseFor[headerTimestampProjection](),
-		projectionCaseFor[headerEventsBloomProjection](),
 		projectionCaseFor[headerHashAndStateRootProjection](),
 	}
 }
@@ -210,11 +205,11 @@ func TestProjectionReadersFollowFxamackerKeys(t *testing.T) {
 		),
 		"unknown": cborMap(pair(t, "Unknown", []int{1}), pair(t, "Hash", header.Hash), pair(t, "Hashes", 1)),
 		"integer key": cborMap(
-			append(marshalled(t, 1), marshalled(t, header.Hash)...), pair(t, "EventsBloom", header.EventsBloom),
+			append(marshalled(t, 1), marshalled(t, header.Hash)...), pair(t, "Timestamp", header.Timestamp),
 		),
 		"nulls": cborMap(
 			pair(t, "Hash", nil), pair(t, "GlobalStateRoot", nil), pair(t, "Timestamp", nil),
-			pair(t, "EventsBloom", nil), pair(t, "TransactionCount", nil),
+			pair(t, "TransactionCount", nil),
 		),
 		"empty": cborMap(),
 	}
@@ -313,13 +308,6 @@ func TestProjectionReadersRejectMalformed(t *testing.T) {
 			require.Error(t, gotErr, "%s: %s", tc.name, projection.name)
 		}
 	}
-
-	// A bloom of 2^64-1 bits in 24 bytes, which is not given to fxamacker: the bloom package would
-	// try to allocate it.
-	bigBloom := cborMap(append(marshalled(t, "EventsBloom"), 0x58, 0x18, 0, 0, 0, 0, 0, 0, 0, 1,
-		0, 0, 0, 0, 0, 0, 0, 1, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff))
-	var filter headerEventsBloomProjection
-	require.ErrorIs(t, cbor.Unmarshal(bigBloom, &filter), errBloomSize)
 }
 
 // TestProjectionReadersCopyTheInput overwrites the input after a decode and checks the
@@ -337,12 +325,12 @@ func TestProjectionReadersCopyTheInput(t *testing.T) {
 	require.Equal(t, sampleReceipt().RevertReason, status.RevertReason)
 
 	headerData := sampleHeaderBytes(t)
-	var filter headerEventsBloomProjection
-	require.NoError(t, cbor.Unmarshal(headerData, &filter))
+	var header headerHashProjection
+	require.NoError(t, cbor.Unmarshal(headerData, &header))
 	for i := range headerData {
 		headerData[i] = 0xff
 	}
-	require.True(t, filter.EventsBloom.Test([]byte("sample-event")))
+	require.Equal(t, sampleHeader().Hash, header.Hash)
 }
 
 // TestProjectionFieldNamesDifferInMoreThanCase backs the readers' key matching: a key naming a
@@ -366,24 +354,12 @@ func TestProjectionFieldNamesDifferInMoreThanCase(t *testing.T) {
 // fuzzProjections decodes arbitrary bytes into each projection through the wrapper and through
 // fxamacker and requires them to agree, as the record readers' fuzz targets do: both succeed with
 // equal values, or both fail, except where fxamacker coerces a type the fast reader rejects.
-//
-// The bloom package allocates whatever bit count its bytes declare, so an input that may hold a
-// bloom filter is decoded into the bloom projection only once the fast reader, which checks that
-// count, accepted it on its own: the wrapper would give fxamacker a form the reader leaves to it.
 func fuzzProjections(f *testing.F, projections []projectionCase, seeds ...[]byte) {
 	for _, seed := range seeds {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		mayHoldBloom := bytes.Contains(bytes.ToLower(data), []byte("eventsbloom"))
 		for _, projection := range projections {
-			if mayHoldBloom && projection.name == "core.headerEventsBloomProjection" {
-				r := fast.NewReader(data)
-				if readHeaderEventsBloomProjection(&r, new(headerEventsBloomProjection)) != nil ||
-					r.Len() != 0 {
-					continue
-				}
-			}
 			got, gotErr := projection.viaFast(data)
 			want, wantErr := projection.viaFxamacker(data)
 			if wantErr == nil {
@@ -401,14 +377,7 @@ func fuzzProjections(f *testing.F, projections []projectionCase, seeds ...[]byte
 }
 
 func FuzzHeaderProjections(f *testing.F) {
-	noBloom := sampleHeader()
-	noBloom.EventsBloom = nil
-	small := bloom.New(64, 2)
-	small.Add([]byte("x"))
-	smallBloom := sampleHeader()
-	smallBloom.EventsBloom = small
-	fuzzProjections(f, headerProjections(),
-		marshalled(f, noBloom), marshalled(f, smallBloom), marshalled(f, &Header{}))
+	fuzzProjections(f, headerProjections(), marshalled(f, sampleHeader()), marshalled(f, &Header{}))
 }
 
 func FuzzReceiptProjections(f *testing.F) {
@@ -423,52 +392,6 @@ func FuzzTransactionHashProjection(f *testing.F) {
 		seeds = append(seeds, stored, untagged)
 	}
 	fuzzProjections(f, transactionProjections(), seeds...)
-}
-
-// TestEventsBloomReaderMatchesFxamacker covers bloom forms the fuzz target cannot give fxamacker:
-// a bit count that is not whole words, short words, bytes after the words, and odd m and k.
-func TestEventsBloomReaderMatchesFxamacker(t *testing.T) {
-	form := func(m, k, bits uint64, words []uint64, extra ...byte) []byte {
-		out := binary.BigEndian.AppendUint64(nil, m)
-		out = binary.BigEndian.AppendUint64(out, k)
-		out = binary.BigEndian.AppendUint64(out, bits)
-		for _, word := range words {
-			out = binary.BigEndian.AppendUint64(out, word)
-		}
-		return append(out, extra...)
-	}
-	words := []uint64{0x0123456789abcdef, 1 << 63, 0, 42}
-	cases := map[string]struct {
-		data  []byte
-		valid bool
-	}{
-		"whole words":       {form(256, 3, 256, words), true},
-		"no words":          {form(0, 0, 0, nil), true},
-		"m differs":         {form(1000, 7, 256, words), true},
-		"partial word":      {form(200, 3, 200, words), true},
-		"bytes after":       {form(256, 3, 256, words, 1, 2, 3), true},
-		"extra word":        {form(192, 3, 192, words), true},
-		"short words":       {form(256, 3, 256, words[:3], 1, 2, 3, 4), false},
-		"partial word cut":  {form(200, 3, 200, words[:3], 1), false},
-		"no bit count":      {form(1, 2, 0, nil)[:20], false},
-		"empty byte string": {[]byte{}, false},
-	}
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			data := cborMap(pair(t, "EventsBloom", tc.data))
-			var got, want headerEventsBloomProjection
-			gotErr := cbor.Unmarshal(data, &got)
-			wantErr := fxamacker.Unmarshal(data, &want)
-			if !tc.valid {
-				require.Error(t, wantErr)
-				require.Error(t, gotErr)
-				return
-			}
-			require.NoError(t, wantErr)
-			require.NoError(t, gotErr)
-			require.Equal(t, want, got)
-		})
-	}
 }
 
 func indexesCases(t testing.TB) map[string][]byte {

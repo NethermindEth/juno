@@ -267,28 +267,6 @@ func TestNullResourceBoundsKeyMatchesFxamacker(t *testing.T) {
 	require.True(t, agree(t, "transaction", nullResourceKey()))
 }
 
-// withoutBloom drops a header's EventsBloom, which must not reach fxamacker in a broken
-// record: the bloom package allocates the bit count it reads (see FuzzHeader).
-func withoutBloom(t *testing.T, s sample) []byte {
-	t.Helper()
-	if s.kind != "header" {
-		return s.data
-	}
-	root, err := parseItem(s.data, 0, 0)
-	require.NoError(t, err)
-	for i := 0; i+1 < len(root.children); i += 2 {
-		key := root.children[i]
-		if strings.EqualFold(string(s.data[key.headEnd:key.end]), "EventsBloom") {
-			var out []byte
-			out = appendHead(out, majorMap, uint64(len(root.children)/2-1))
-			out = append(out, s.data[root.headEnd:key.start]...)
-			out = append(out, s.data[root.children[i+1].end:root.end]...)
-			return out
-		}
-	}
-	return s.data
-}
-
 // sampleOffsets returns every offset below n, or for a long input its first and last 256
 // and a spread of 2048 in between.
 func sampleOffsets(n int) []int {
@@ -311,8 +289,7 @@ func sampleOffsets(n int) []int {
 func TestTruncatedRecordsAreRejected(t *testing.T) {
 	for _, s := range samples(t, 1<<20) {
 		t.Run(s.name, func(t *testing.T) {
-			// A truncated record is malformed, which fxamacker finds before it decodes
-			// anything, so even a header's bloom is safe here.
+			// A truncated record is malformed, which fxamacker finds before it decodes anything.
 			for _, cut := range sampleOffsets(len(s.data)) {
 				data := s.data[:cut]
 				require.False(t, agree(t, s.kind, data, "cut at", cut), "a truncated record decodes")
@@ -329,7 +306,7 @@ func TestTruncatedRecordsAreRejected(t *testing.T) {
 func TestMutatedRecordsAgree(t *testing.T) {
 	for _, s := range samples(t, 4096) {
 		t.Run(s.name, func(t *testing.T) {
-			original := withoutBloom(t, s)
+			original := s.data
 			data := make([]byte, len(original))
 			for i := range original {
 				for _, b := range []byte{original[i] ^ 0xff, original[i] + 1, original[i] - 1, 0x00, 0xf6, 0x1f} {
@@ -400,7 +377,7 @@ func TestReplacedItemsAgree(t *testing.T) {
 	sort.Strings(names)
 	for _, s := range samples(t, 2560) {
 		t.Run(s.name, func(t *testing.T) {
-			original := withoutBloom(t, s)
+			original := s.data
 			root, err := parseItem(original, 0, 0)
 			require.NoError(t, err)
 			for _, n := range root.all() {
@@ -428,7 +405,7 @@ func allocatedBy(f func()) uint64 {
 func TestMapKeyVariantsAgree(t *testing.T) {
 	for _, s := range samples(t, 2560) {
 		t.Run(s.name, func(t *testing.T) {
-			original := withoutBloom(t, s)
+			original := s.data
 			root, err := parseItem(original, 0, 0)
 			require.NoError(t, err)
 			for _, m := range root.all() {

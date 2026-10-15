@@ -1,15 +1,11 @@
 package core
 
 import (
-	"encoding/binary"
-	"errors"
 	"math"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/cbor/fast"
-	"github.com/bits-and-blooms/bitset"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 )
 
 // The projections are read by the fast decoder: only the fields a projection names with a typed
@@ -27,7 +23,6 @@ func init() {
 	cbor.RegisterReader(readHeaderGlobalStateRootProjection)
 	cbor.RegisterReader(readHeaderTransactionCountProjection)
 	cbor.RegisterReader(readHeaderTimestampProjection)
-	cbor.RegisterReader(readHeaderEventsBloomProjection)
 	cbor.RegisterReader(readHeaderHashAndStateRootProjection)
 	cbor.RegisterReader(readReceiptExecutionStatusProjection)
 	cbor.RegisterReader(readReceiptEventsProjection)
@@ -154,65 +149,12 @@ func readUint64Ptr(r *fast.Reader, dst **uint64) error {
 	return nil
 }
 
-// errBloomSize means a stored bloom filter declares more bits than its bytes hold.
-var errBloomSize = errors.New("core: bloom filter is shorter than it declares")
-
-// readBloomPtr reads a bloom filter, stored as its binary form in a byte string: m, k and the bit
-// count (8 bytes each), then the words of the bit set, big-endian. The bloom package allocates the
-// bit count the form declares before it reads the words, so a count the bytes cannot hold is
-// rejected first. The words are read here rather than through the package's stream reader, which
-// costs more than the rest of the header; bytes after them are ignored, as the package does.
-func readBloomPtr(r *fast.Reader, dst **bloom.BloomFilter) error {
-	if r.Null() {
-		*dst = nil
-		return nil
-	}
-	data, err := r.BytesNoCopy()
-	if err != nil {
-		return err
-	}
-	const header = 3 * 8
-	if len(data) < header {
-		return errBloomSize
-	}
-	words := data[header:]
-	bits := binary.BigEndian.Uint64(data[2*8:])
-	if bits > uint64(len(words))*8 {
-		return errBloomSize
-	}
-	count := (bits + 63) / 64
-	if count*8 > uint64(len(words)) {
-		return errBloomSize
-	}
-	// A bit count that is not a whole number of words, or a bit set package set to another byte
-	// order, takes the package's own reader. UnmarshalBinary copies what it keeps.
-	if bits != count*64 || bitset.BinaryOrder() != binary.BigEndian {
-		filter := new(bloom.BloomFilter)
-		if err := filter.UnmarshalBinary(data); err != nil {
-			return err
-		}
-		*dst = filter
-		return nil
-	}
-	var set []uint64 // the package leaves a filter of no words with a nil slice
-	if count != 0 {
-		set = make([]uint64, count)
-	}
-	for i := range set {
-		set[i] = binary.BigEndian.Uint64(words[8*i:])
-	}
-	m, k := binary.BigEndian.Uint64(data), binary.BigEndian.Uint64(data[8:])
-	*dst = bloom.FromWithM(set, uint(m), uint(k))
-	return nil
-}
-
 // The wire names of the fields each reader decodes, in the order its read callback numbers them.
 var (
 	hashField              = []string{"Hash"}
 	globalStateRootField   = []string{"GlobalStateRoot"}
 	transactionCountField  = []string{"TransactionCount"}
 	timestampField         = []string{"Timestamp"}
-	eventsBloomField       = []string{"EventsBloom"}
 	hashAndStateRootFields = []string{"Hash", "GlobalStateRoot"}
 	executionStatusFields  = []string{"Reverted", "RevertReason"}
 	eventsFields           = []string{"Events", "TransactionHash"}
@@ -244,12 +186,6 @@ func readHeaderTransactionCountProjection(
 func readHeaderTimestampProjection(r *fast.Reader, dst *headerTimestampProjection) error {
 	return walkFields(r, timestampField, func(int) error {
 		return readUint64Ptr(r, &dst.Timestamp)
-	})
-}
-
-func readHeaderEventsBloomProjection(r *fast.Reader, dst *headerEventsBloomProjection) error {
-	return walkFields(r, eventsBloomField, func(int) error {
-		return readBloomPtr(r, &dst.EventsBloom)
 	})
 }
 

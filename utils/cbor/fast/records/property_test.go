@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/utils/cbor"
-	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,7 +56,6 @@ const maxDepth = 6
 
 var (
 	bigIntType      = reflect.TypeFor[*big.Int]()
-	bloomType       = reflect.TypeFor[*bloom.BloomFilter]()
 	transactionType = reflect.TypeFor[core.Transaction]()
 	classType       = reflect.TypeFor[core.ClassDefinition]()
 )
@@ -67,9 +65,6 @@ func (f *filler) fill(v reflect.Value, depth int) {
 	switch v.Type() {
 	case bigIntType:
 		f.fillBigInt(v)
-		return
-	case bloomType:
-		f.fillBloom(v)
 		return
 	case transactionType:
 		f.fillOneOf(v, depth,
@@ -200,17 +195,6 @@ func (f *filler) fillBigInt(v reflect.Value) {
 		n.Lsh(n, 64).Or(n, new(big.Int).SetUint64(f.rng.Uint64()))
 	}
 	v.Set(reflect.ValueOf(n))
-}
-
-func (f *filler) fillBloom(v reflect.Value) {
-	if f.rng.IntN(4) == 0 {
-		return // nil
-	}
-	filter := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	for range f.rng.IntN(20) {
-		filter.Add(fmt.Appendf(nil, "event %d", f.rng.Uint64()))
-	}
-	v.Set(reflect.ValueOf(filter))
 }
 
 // A type registered with a CBOR tag is written behind its tag, and the generated readers read a

@@ -314,7 +314,6 @@ const (
 	headerEventCount
 	headerTimestamp
 	headerProtocolVersion
-	headerEventsBloom
 	headerL1GasPriceETH
 	headerSignatures
 	headerL1GasPriceSTRK
@@ -333,7 +332,6 @@ var headerFields = fieldsOf[core.Header]([]string{
 	headerEventCount:       "EventCount",
 	headerTimestamp:        "Timestamp",
 	headerProtocolVersion:  "ProtocolVersion",
-	headerEventsBloom:      "EventsBloom",
 	headerL1GasPriceETH:    "gasprice",
 	headerSignatures:       "Signatures",
 	headerL1GasPriceSTRK:   "gaspricestrk",
@@ -371,8 +369,6 @@ func ReadHeader(r *fast.Reader, dst *core.Header) error {
 			err = readUint64(r, &dst.Timestamp)
 		case headerProtocolVersion:
 			err = readString(r, &dst.ProtocolVersion)
-		case headerEventsBloom:
-			err = readBloom(r, &dst.EventsBloom)
 		case headerL1GasPriceETH:
 			err = readFelt(r, &dst.L1GasPriceETH)
 		case headerSignatures:

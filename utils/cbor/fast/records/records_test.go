@@ -1,7 +1,7 @@
 package records_test
 
 import (
-	"bytes"
+	"encoding/binary"
 	"math/big"
 	"testing"
 
@@ -9,10 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/cbor"
-	"github.com/NethermindEth/juno/utils/cbor/fast/records"
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
-	bloom "github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -245,16 +243,28 @@ func TestTransactionMatchesFxamacker(t *testing.T) {
 }
 
 func header() *core.Header {
-	filter := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
-	filter.Add([]byte("event"))
 	return &core.Header{
 		Hash: f(1), ParentHash: f(2), Number: 12345, GlobalStateRoot: f(3), SequencerAddress: f(4),
 		TransactionCount: 70, EventCount: 300, Timestamp: 1_700_000_000, ProtocolVersion: "0.14.1",
-		EventsBloom: filter, L1GasPriceETH: f(5), L1GasPriceSTRK: f(6),
+		L1GasPriceETH: f(5), L1GasPriceSTRK: f(6),
 		Signatures: [][]*felt.Felt{{f(1), f(2)}, {}, nil, {nil}},
 		L1DAMode:   core.Blob, L1DataGasPrice: &core.GasPrice{PriceInWei: f(7), PriceInFri: f(8)},
 		L2GasPrice: &core.GasPrice{PriceInWei: f(9)},
 	}
+}
+
+// storedOldHeader is a header as it was stored before the events bloom left it.
+type storedOldHeader struct {
+	core.Header
+	EventsBloom []byte
+}
+
+// oldHeader is a header with an events bloom declaring 2^58 bits in no more than 24 bytes.
+func oldHeader() *storedOldHeader {
+	bloom := binary.BigEndian.AppendUint64(nil, 1)
+	bloom = binary.BigEndian.AppendUint64(bloom, 1)
+	bloom = binary.BigEndian.AppendUint64(bloom, 1<<58)
+	return &storedOldHeader{Header: *header(), EventsBloom: bloom}
 }
 
 func TestHeaderMatchesFxamacker(t *testing.T) {
@@ -327,32 +337,15 @@ func TestStateUpdateMatchesFxamacker(t *testing.T) {
 	}
 }
 
-func TestBloomDeclaringMoreBitsThanItHoldsIsRejected(t *testing.T) {
-	data, err := cbor.Marshal(header())
+// A database that has not been migrated holds headers written with an events bloom, a key Header
+// no longer has. Both decoders skip it, whatever the filter declares: the bloom package, which
+// allocates the bit count it is told, never sees it.
+func TestEventsBloomOfAnOldHeaderIsSkipped(t *testing.T) {
+	data, err := cbor.Marshal(oldHeader())
 	require.NoError(t, err)
-
-	// The bit count sits after m and k, in the bloom filter's byte string, which starts
-	// after the key "EventsBloom" and the byte string's own head.
-	key := []byte("EventsBloom")
-	at := bytes.Index(data, key) + len(key)
-	require.Equal(t, byte(0x59), data[at], "a two byte length byte string")
-	count := at + 3 + 2*8
-	for i := range 8 {
-		data[count+i] = 0
-	}
-	data[count] = 0x04 // 2^58 bits
-
-	require.ErrorIs(t, cbor.Unmarshal(data, new(core.Header)), records.ErrBloomSize)
-}
-
-// allocsOf counts allocations per decode of data into a fresh T with decode.
-func allocsOf[T any](data []byte, decode func([]byte, any) error) float64 {
-	return testing.AllocsPerRun(50, func() {
-		var dst T
-		if err := decode(data, &dst); err != nil {
-			panic(err)
-		}
-	})
+	got, want := decodeBoth[core.Header](t, data)
+	require.Equal(t, want, got)
+	require.Equal(t, *header(), *got)
 }
 
 // Elements of a pointer slice share an array only while the bytes left could hold them; small

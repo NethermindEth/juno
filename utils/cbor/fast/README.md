@@ -77,7 +77,7 @@ allocation). The output is the code you would write by hand, so it costs nothing
 
 Some readers stay hand-written because they need more than a `case` per field: the tag dispatch of
 `ReadTransaction` and `ReadClassDefinition`, `readExecutionResources` (three structs in one
-allocation, in `receipt.go`), `SegmentLengths`, the bloom reader and the felt-map helpers.
+allocation, in `receipt.go`), `SegmentLengths` and the felt-map helpers.
 
 `NextField` first compares the bytes at the cursor with the key it expects next, three words at a
 time, which suits canonical maps. Any other key is matched as fxamacker does: exactly, then ignoring
@@ -114,7 +114,8 @@ felt count, a null `ResourceBounds` key, and Cairo 0 classes.
 | `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
 | `TestNoTaggedTypeIsAPlainField` | a type with a CBOR tag held directly in a stored type, which no generated reader handles and so would always fall back |
 | `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records giving a different result |
-| `TestDecodingDoesNotRetainInput`, shared-array and bloom tests | aliasing the input, aliased arrays, a bloom declaring more bits than it holds |
+| `TestDecodingDoesNotRetainInput`, shared-array tests | aliasing the input, aliased arrays |
+| `TestEventsBloomOfAnOldHeaderIsSkipped` | an unmigrated header, which still holds an events bloom, reading differently than fxamacker reads it |
 | `Fuzz…` | arbitrary bytes giving a different result, or a panic |
 | `core/partial_cbor_fast_test.go` | projection readers drifting from their records |
 | `sweep/` (build tag `sweep`) | any difference on a real mainnet database; run before a release |
@@ -147,8 +148,6 @@ fxamacker is upgraded.
 - `route.go` keys routes on the runtime's interface type word (`unsafe`), saving about 20 ns a
   decode, and `isZero` compares bytes before asking reflect. Both rely on Go's layout.
 - Felts are read through an unsafe cast from `[4]uint64`.
-- The bloom package allocates the bit count a filter declares, so `records/bloom.go` builds filters
-  itself after checking the count against the bytes.
 - The generator must not import `utils/cbor/registry` (it imports `records`, which panics at init
   when `readers_gen.go` is stale). Keep overrides to one call of a compiled helper. For the same
   reason it cannot know which types carry a tag; `TestNoTaggedTypeIsAPlainField` does.

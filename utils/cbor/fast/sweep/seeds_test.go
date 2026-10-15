@@ -3,7 +3,6 @@
 package sweep
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -32,8 +31,6 @@ const (
 // TestWriteFuzzSeeds writes seed inputs for every differential fuzz target into the fuzz cache
 // directory FUZZ_SEED_DIR (the -test.fuzzcachedir of the target's package), one directory per
 // target: the golden vectors and the real records of the benchmark corpus (FUZZ_CORPUS).
-// Headers are written without their events bloom, which the header target cannot give
-// fxamacker (see FuzzHeader).
 func TestWriteFuzzSeeds(t *testing.T) {
 	dir := os.Getenv("FUZZ_SEED_DIR")
 	if dir == "" {
@@ -56,7 +53,7 @@ func TestWriteFuzzSeeds(t *testing.T) {
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				if match(k) && len(set[k]) <= limit && !bytes.Contains(bytes.ToLower(set[k]), []byte("eventsbloom")) {
+				if match(k) && len(set[k]) <= limit {
 					out = append(out, set[k])
 				}
 			}
@@ -98,34 +95,6 @@ func TestWriteFuzzSeeds(t *testing.T) {
 	}
 }
 
-// withoutKey drops one key and its value from the top-level map of a record.
-func withoutKey(t *testing.T, record []byte, drop string) []byte {
-	t.Helper()
-	r := fast.NewReader(record)
-	count, err := r.MapLen()
-	require.NoError(t, err)
-	var pairs []byte
-	kept := 0
-	for range count {
-		start := r.Pos()
-		key, _, err := r.Key()
-		require.NoError(t, err)
-		require.NoError(t, r.Skip())
-		if string(key) != drop {
-			pairs = append(pairs, record[start:r.Pos()]...)
-			kept++
-		}
-	}
-	require.Less(t, kept, 256)
-	out := make([]byte, 0, 2+len(pairs)+r.Len())
-	if kept < 24 {
-		out = append(out, 0xa0|byte(kept))
-	} else {
-		out = append(out, 0xb8, byte(kept))
-	}
-	return append(append(out, pairs...), r.Remaining()...)
-}
-
 // loadGolden returns the golden vectors, with a declared class unwrapped to the class.
 func loadGolden(t *testing.T) map[string][]byte {
 	t.Helper()
@@ -149,8 +118,7 @@ func loadGolden(t *testing.T) map[string][]byte {
 	return out
 }
 
-// loadRecords returns the records of the benchmark corpus by file name, headers without
-// their events bloom. corpus "-" means none.
+// loadRecords returns the records of the benchmark corpus by file name. corpus "-" means none.
 func loadRecords(t *testing.T, corpus string) map[string][]byte {
 	t.Helper()
 	out := map[string][]byte{}
@@ -164,7 +132,6 @@ func loadRecords(t *testing.T, corpus string) map[string][]byte {
 		require.NoError(t, err)
 		name := strings.TrimSuffix(filepath.Base(file), ".bin")
 		if strings.HasPrefix(name, "header") {
-			b = withoutKey(t, b, "EventsBloom")
 			var h core.Header
 			require.NoError(t, fxamacker.Unmarshal(b, &h), file)
 		}
