@@ -2,7 +2,6 @@ package historyprunner
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"runtime"
@@ -34,23 +33,28 @@ const (
 
 var _ migration.Migration = (*Migrator)(nil)
 
-// intermediateStateSize is the on-disk encoding length:
+// Migrator prunes the history of a database that ran without pruning. Instead
+// of deleting the pruned entries one by one, it copies the ones to keep aside,
+// wipes whole buckets and copies them back:
 //
-//	[0:8]   stagerProgress   (uint64 BE)
-//	[8:16]  restorerProgress (uint64 BE)
-//	[16:24] oldestBlockKept  (uint64 BE) — pinned from the first run so that
-//	                                      a config change (or wall-clock drift
-//	                                      of the minAge floor) between runs
-//	                                      does not retarget the cutoff mid-flight.
-const intermediateStateSize = 24
-
+//  1. Stage: delete the block data below the cutoff and the hash lookups, then
+//     copy the history entries to keep into the scratch space. Once complete,
+//     wipe the history buckets.
+//  2. Restore history: copy the scratch space back into the history buckets.
+//  3. Restore lookups: rebuild the hash lookups of the kept blocks, then wipe
+//     the scratch space.
+//
+// Every phase resumes from where it stopped, see [Migrator.encodeState].
 type Migrator struct {
-	retainedBlocks   uint64        // block-count floor input; only consulted on first run
-	minAge           time.Duration // wallclock floor input; only consulted on first run
-	oldestBlockKept  uint64        // pinned cutoff once computed; persisted across resumes
-	floorPinned      bool          // true once oldestBlockKept reflects a committed cutoff
-	stagerProgress   uint64
-	restorerProgress uint64
+	retainedBlocks uint64        // block-count floor input; only consulted on first run
+	minAge         time.Duration // wallclock floor input; only consulted on first run
+
+	floorPinned     bool // true once the fields below are set
+	oldestBlockKept uint64
+	layout          *layout
+	phase           phase
+	cursor          []byte // next key of the stage or restore scan
+	lookupsFrom     uint64 // next block whose hash lookups to restore
 }
 
 // New constructs a history pruner migrator. retainedBlocks is the number
@@ -66,23 +70,17 @@ func New(retainedBlocks uint64, minAge time.Duration) *Migrator {
 	}
 }
 
-// Before restores stager/restorer progress and the pinned cutoff from
-// persisted intermediate state. A nil/empty state means a fresh run — the
-// cutoff is computed on the first Migrate call. Once pinned, retainedBlocks
-// and minAge config changes between runs are ignored until completion.
+// Before restores the progress, the pinned cutoff and the history layout
+// from persisted intermediate state. A nil/empty state means a fresh run.
+// Once pinned, retainedBlocks and minAge config changes between runs are
+// ignored until completion.
 func (m *Migrator) Before(state []byte) error {
 	if len(state) == 0 {
 		return nil
 	}
-	if len(state) != intermediateStateSize {
-		return fmt.Errorf("historyprunner: invalid intermediate state size: got %d, want %d",
-			len(state),
-			intermediateStateSize,
-		)
+	if err := m.decodeState(state); err != nil {
+		return err
 	}
-	m.stagerProgress = binary.BigEndian.Uint64(state[0:8])
-	m.restorerProgress = binary.BigEndian.Uint64(state[8:16])
-	m.oldestBlockKept = binary.BigEndian.Uint64(state[16:24])
 	m.floorPinned = true
 	return nil
 }
@@ -101,38 +99,165 @@ func (m *Migrator) Migrate(
 		}
 		return nil, fmt.Errorf("getting chain height: %w", err)
 	}
-	l1Head, err := core.GetL1Head(database)
-	if err != nil {
-		return nil, fmt.Errorf("getting L1 head: %w", err)
-	}
-	// pivot is the highest block eligible to be considered kept;
-	// the retention floor is computed relative to it.
-	pivot := min(l1Head.BlockNumber, chainHeight)
-
 	if !m.floorPinned {
-		if pivot < m.retainedBlocks {
-			// Chain shorter than the retention window — nothing to prune yet.
-			return nil, nil
+		if pruning, err := m.pinFloor(database, chainHeight); err != nil || !pruning {
+			return nil, err
 		}
-		floor, err := m.retentionFloorWithMinAge(database, pivot)
-		if err != nil {
-			return nil, fmt.Errorf("computing oldest block kept: %w", err)
-		}
-		m.oldestBlockKept = floor
-		m.floorPinned = true
 	}
-	oldestBlockKept := m.oldestBlockKept
 
 	start := time.Now()
 	logger.Info("Starting history pruning migration",
 		zap.Uint64("chain_height", chainHeight),
-		zap.Uint64("oldest_block_kept", oldestBlockKept),
-		zap.Uint64("l1_head", l1Head.BlockNumber),
+		zap.Uint64("oldest_block_kept", m.oldestBlockKept),
+		zap.String("layout", m.layout.name),
+		zap.Stringer("phase", m.phase),
 	)
-
-	if err := m.setupBeforeStager(database, oldestBlockKept); err != nil {
-		return nil, fmt.Errorf("setting up before stager: %w", err)
+	for ; m.phase < phaseDone; m.phase++ {
+		done, err := m.runPhase(ctx, database, logger, chainHeight)
+		if err != nil {
+			return nil, fmt.Errorf("%v: %w", m.phase, err)
+		}
+		if !done {
+			logger.Info("History pruning migration interrupted", zap.Stringer("phase", m.phase))
+			return m.encodeState(), nil
+		}
 	}
+	logger.Info("History pruning migration completed", zap.Duration("elapsed", time.Since(start)))
+	return nil, nil
+}
+
+// pinFloor computes the cutoff and detects the history layout on the first
+// run. It returns false when there is nothing below the retention window.
+func (m *Migrator) pinFloor(database db.KeyValueStore, chainHeight uint64) (bool, error) {
+	l1Head, err := core.GetL1Head(database)
+	if err != nil {
+		return false, fmt.Errorf("getting L1 head: %w", err)
+	}
+	// pivot is the highest block eligible to be considered kept;
+	// the retention floor is computed relative to it.
+	pivot := min(l1Head.BlockNumber, chainHeight)
+	if pivot < m.retainedBlocks {
+		return false, nil
+	}
+	floor, err := m.retentionFloorWithMinAge(database, pivot)
+	if err != nil {
+		return false, fmt.Errorf("computing oldest block kept: %w", err)
+	}
+	if floor == 0 {
+		return false, nil
+	}
+	l, err := detectLayout(database)
+	if err != nil {
+		return false, err
+	}
+	m.oldestBlockKept, m.layout, m.floorPinned = floor, l, true
+	return true, nil
+}
+
+// runPhase runs the current phase and reports whether it completed.
+func (m *Migrator) runPhase(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+	chainHeight uint64,
+) (bool, error) {
+	switch m.phase {
+	case phaseStage:
+		return m.runStage(ctx, database, logger)
+	case phaseRestoreHistory:
+		return m.runRestoreHistory(ctx, database, logger)
+	default:
+		return m.runRestoreLookups(ctx, database, logger, chainHeight)
+	}
+}
+
+// runStage deletes the block data below the cutoff and the hash lookups, both
+// idempotent and only run before the restore phases, then stages the history
+// to keep. Once staged, it wipes the history buckets.
+func (m *Migrator) runStage(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+) (bool, error) {
+	batch := database.NewBatch()
+	if err := pruner.PruneBlockDataUpto(batch, m.oldestBlockKept); err != nil {
+		return false, fmt.Errorf("pruning block data upto %d: %w", m.oldestBlockKept, err)
+	}
+	if err := wipeReverseLookupBuckets(batch); err != nil {
+		return false, fmt.Errorf("wiping reverse lookup buckets: %w", err)
+	}
+	if err := batch.Write(); err != nil {
+		return false, fmt.Errorf("writing batch: %w", err)
+	}
+
+	counter := newScanCounter(logger, m.phase)
+	next, err := stageHistory(ctx, database, m.layout, m.oldestBlockKept, m.cursor, &counter)
+	if err != nil {
+		return false, err
+	}
+	m.cursor = next
+	if next != nil {
+		return false, nil
+	}
+	return true, m.wipeHistory(database)
+}
+
+// wipeHistory wipes the history buckets and seeds the hash lookup of the block
+// below the cutoff, which StateAtBlockHash of the oldest kept block's parent
+// resolves.
+func (m *Migrator) wipeHistory(database db.KeyValueStore) error {
+	batch := database.NewBatch()
+	for _, bucket := range m.layout.buckets {
+		if err := wipeBucket(batch, byte(bucket)); err != nil {
+			return err
+		}
+	}
+	parent := m.oldestBlockKept - 1
+	hash, err := core.GetBlockHeaderHashByNumber(database, parent)
+	if err != nil {
+		return fmt.Errorf("getting block hash at %d: %w", parent, err)
+	}
+	if err := core.WriteBlockHeaderNumberByHash(batch, hash, parent); err != nil {
+		return fmt.Errorf("writing block header number by hash at %d: %w", parent, err)
+	}
+	return batch.Write()
+}
+
+func (m *Migrator) runRestoreHistory(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+) (bool, error) {
+	counter := newScanCounter(logger, m.phase)
+	next, err := restoreHistory(ctx, database, m.layout, m.cursor, &counter)
+	if err != nil {
+		return false, err
+	}
+	m.cursor = next
+	if next != nil {
+		return false, nil
+	}
+	m.lookupsFrom = m.oldestBlockKept
+	return true, nil
+}
+
+// runRestoreLookups rebuilds the hash lookups of every kept block. On cancel
+// the pipeline finishes the blocks it handed out, so the cursor only ever
+// points past written work. Once complete, it wipes the scratch space.
+func (m *Migrator) runRestoreLookups(
+	ctx context.Context,
+	database db.KeyValueStore,
+	logger log.StructuredLogger,
+	chainHeight uint64,
+) (bool, error) {
+	progressTracker := progresslogger.NewBlockProgressTracker(
+		m.phase.String(),
+		logger,
+		chainHeight-m.oldestBlockKept+1,
+		m.lookupsFrom-m.oldestBlockKept,
+	)
+	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
+	defer loggerCancel()
 
 	maxWorkers := runtime.GOMAXPROCS(0)
 	batchSemaphore := semaphore.New(
@@ -141,209 +266,35 @@ func (m *Migrator) Migrate(
 			return database.NewBatchWithSize(int(batchByteSize))
 		},
 	)
-	state, done, err := m.runStager(
-		ctx,
-		database,
-		batchSemaphore,
-		logger,
-		oldestBlockKept,
-		chainHeight,
-		maxWorkers,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("running stager: %w", err)
-	}
-	if !done {
-		return state, nil
-	}
-
-	if err := m.setupBeforeRestorer(database, oldestBlockKept); err != nil {
-		return nil, fmt.Errorf("setting up before restorer: %w", err)
-	}
-
-	state, done, err = m.runRestorer(
-		ctx,
-		database,
-		batchSemaphore,
-		logger,
-		oldestBlockKept,
-		chainHeight,
-		maxWorkers,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("running restorer: %w", err)
-	}
-	if !done {
-		return state, nil
-	}
-
-	logger.Info("History pruning migration completed", zap.Duration("elapsed", time.Since(start)))
-	return nil, nil
-}
-
-// setupBeforeStager range-deletes the cold number-keyed buckets and wipes the
-// reverse-lookup buckets. Gated by restorerProgress because the restorer rebuilds
-// the reverse-lookup buckets — re-running this after the restorer has started would
-// delete restored data and corrupt the db.
-func (m *Migrator) setupBeforeStager(
-	database db.KeyValueStore,
-	oldestBlockKept uint64,
-) error {
-	if m.restorerProgress != 0 {
-		return nil
-	}
-	batch := database.NewBatch()
-	if err := pruner.PruneBlockDataUpto(batch, oldestBlockKept); err != nil {
-		return fmt.Errorf("pruning block data upto %d: %w", oldestBlockKept, err)
-	}
-	if err := wipeReverseLookupBuckets(batch); err != nil {
-		return fmt.Errorf("wiping reverse lookup buckets: %w", err)
-	}
-	if err := batch.Write(); err != nil {
-		return fmt.Errorf("writing batch: %w", err)
-	}
-	return nil
-}
-
-// setupBeforeRestorer wipes the live history buckets so the per-block restore
-// can copy staged keepers back, and seeds the reverse-lookup for the block
-// immediately below the keeper window. Gated by restorerProgress so a resumed
-// restorer doesn't re-wipe partial work.
-func (m *Migrator) setupBeforeRestorer(database db.KeyValueStore, oldestBlockKept uint64) error {
-	if m.restorerProgress != 0 {
-		return nil
-	}
-	batch := database.NewBatch()
-	if err := wipeStorageHistoryBuckets(batch); err != nil {
-		return fmt.Errorf("wiping storage history buckets: %w", err)
-	}
-	header, err := core.GetBlockHeaderByNumber(database, oldestBlockKept-uint64(1))
-	if err != nil {
-		return fmt.Errorf("getting block header at %d: %w", oldestBlockKept-1, err)
-	}
-	err = core.WriteBlockHeaderNumberByHash(batch, header.Hash, oldestBlockKept-uint64(1))
-	if err != nil {
-		return fmt.Errorf(
-			"writing block header number by hash at %d: %w",
-			oldestBlockKept-1, err,
-		)
-	}
-	if err := batch.Write(); err != nil {
-		return fmt.Errorf("writing batch: %w", err)
-	}
-	return nil
-}
-
-// runStager stages the keeper-window history into the scratch namespace.
-// The first invocation also range-deletes the cold (pre-cutoff) number-keyed
-// buckets and wipes the reverse-lookup buckets; they remain empty until
-// runRestorer rebuilds them.
-//
-// done=false signals the stager was interrupted (state is the resume blob);
-// done=true signals completion.
-func (m *Migrator) runStager(
-	ctx context.Context,
-	database db.KeyValueStore,
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	logger log.StructuredLogger,
-	oldestBlockKept, chainHeight uint64,
-	maxWorkers int,
-) ([]byte, bool, error) {
-	if m.stagerProgress > chainHeight {
-		logger.Info("Stager already completed in a previous run, skipping")
-		return nil, true, nil
-	}
-	m.stagerProgress = max(oldestBlockKept, m.stagerProgress)
-
-	// Progress is reported relative to the keeper window [oldestBlockKept,
-	// chainHeight] — passing absolute block numbers would start the readout
-	// near 100% and never visibly advance.
-	keeperWindow := chainHeight - oldestBlockKept + 1
-	progressTracker := progresslogger.NewBlockProgressTracker(
-		"stager", logger, keeperWindow, m.stagerProgress-oldestBlockKept,
-	)
-	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
-	defer loggerCancel()
-
 	resumeFrom, err := migrateRange(
 		ctx,
 		logger,
 		batchSemaphore,
-		m.stagerProgress,
-		chainHeight,
-		maxWorkers,
-		newStager(database, batchSemaphore, maxWorkers, progressTracker),
-	)
-	if err != nil {
-		return nil, false, fmt.Errorf(
-			"staging range [%d, %d]: %w",
-			m.stagerProgress, chainHeight, err,
-		)
-	}
-
-	if resumeFrom <= chainHeight {
-		logger.Info("Stager interrupted",
-			zap.Uint64("resume_from", resumeFrom),
-		)
-		return encodeIntermediateState(resumeFrom, 0, m.oldestBlockKept), false, nil
-	}
-	return nil, true, nil
-}
-
-// runRestorer wipes the live history buckets, then for each keeper block
-// copies its state history back from scratch and rebuilds the
-// (hash → block-number) reverse-lookup indices. On successful completion
-// the scratch namespace is wiped before returning.
-func (m *Migrator) runRestorer(
-	ctx context.Context,
-	database db.KeyValueStore,
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	logger log.StructuredLogger,
-	oldestBlockKept,
-	chainHeight uint64,
-	maxWorkers int,
-) ([]byte, bool, error) {
-	m.restorerProgress = max(oldestBlockKept, m.restorerProgress)
-
-	keeperWindow := chainHeight - oldestBlockKept + 1
-	progressTracker := progresslogger.NewBlockProgressTracker(
-		"restorer", logger, keeperWindow, m.restorerProgress-oldestBlockKept,
-	)
-	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
-	defer loggerCancel()
-
-	resumeFrom, err := migrateRange(
-		ctx,
-		logger,
-		batchSemaphore,
-		m.restorerProgress,
+		m.lookupsFrom,
 		chainHeight,
 		maxWorkers,
 		newRestorer(database, batchSemaphore, maxWorkers, progressTracker),
 	)
 	if err != nil {
-		return nil, false, fmt.Errorf(
-			"restoring range [%d, %d]: %w",
-			m.restorerProgress, chainHeight, err,
-		)
+		return false, fmt.Errorf("restoring range [%d, %d]: %w", m.lookupsFrom, chainHeight, err)
 	}
-
+	m.lookupsFrom = resumeFrom
 	if resumeFrom <= chainHeight {
-		logger.Info("Restorer interrupted",
-			zap.Uint64("resume_from", resumeFrom),
-		)
-		return encodeIntermediateState(chainHeight+1, resumeFrom, m.oldestBlockKept), false, nil
+		return false, nil
 	}
 
-	// Restorer completed: wipe the scratch namespace.
 	batch := database.NewBatch()
 	if err := wipeScratchSpace(batch); err != nil {
-		return nil, false, fmt.Errorf("wiping scratch space: %w", err)
+		return false, fmt.Errorf("wiping scratch space: %w", err)
 	}
-	if err := batch.Write(); err != nil {
-		return nil, false, fmt.Errorf("writing scratch-wipe batch: %w", err)
-	}
-	return nil, true, nil
+	return true, batch.Write()
+}
+
+// newScanCounter logs the progress of a history scan, which has no total.
+func newScanCounter(logger log.StructuredLogger, p phase) progresslogger.Counter {
+	counter := progresslogger.NewCounter(logger, timeLogRate, p.String())
+	counter.SetProgress("scanned", 0, 0)
+	return counter
 }
 
 func migrateRange(
@@ -377,14 +328,6 @@ func migrateRange(
 	}
 
 	return nextBlockNumber, nil
-}
-
-func encodeIntermediateState(stagerCompletion, restorerCompletion, oldestBlockKept uint64) []byte {
-	buf := make([]byte, intermediateStateSize)
-	binary.BigEndian.PutUint64(buf[0:8], stagerCompletion)
-	binary.BigEndian.PutUint64(buf[8:16], restorerCompletion)
-	binary.BigEndian.PutUint64(buf[16:24], oldestBlockKept)
-	return buf
 }
 
 // retentionFloorWithMinAge returns min(standardFloor, minAgeFloor).
@@ -423,21 +366,6 @@ func wipeReverseLookupBuckets(batch db.Batch) error {
 
 	if err := wipeBucket(batch, byte(db.BlockHeaderNumbersByHash)); err != nil {
 		return fmt.Errorf("wiping BlockHeaderNumbersByHash: %w", err)
-	}
-	return nil
-}
-
-func wipeStorageHistoryBuckets(batch db.Batch) error {
-	if err := wipeBucket(batch, byte(db.DeprecatedContractStorageHistory)); err != nil {
-		return fmt.Errorf("wiping DeprecatedContractStorageHistory: %w", err)
-	}
-
-	if err := wipeBucket(batch, byte(db.DeprecatedContractClassHashHistory)); err != nil {
-		return fmt.Errorf("wiping DeprecatedContractClassHashHistory: %w", err)
-	}
-
-	if err := wipeBucket(batch, byte(db.DeprecatedContractNonceHistory)); err != nil {
-		return fmt.Errorf("wiping DeprecatedContractNonceHistory: %w", err)
 	}
 	return nil
 }

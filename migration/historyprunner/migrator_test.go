@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/pruner/testutils"
@@ -28,10 +29,21 @@ func setupChain(
 	totalBlocks uint64,
 ) (db.KeyValueStore, []*testutils.StoredBlock) {
 	t.Helper()
+	return setupChainWith(t, totalBlocks, testutils.StoreBlock)
+}
+
+type storeFunc = func(*testing.T, db.KeyValueStore, uint64) *testutils.StoredBlock
+
+func setupChainWith(
+	t *testing.T,
+	totalBlocks uint64,
+	store storeFunc,
+) (db.KeyValueStore, []*testutils.StoredBlock) {
+	t.Helper()
 	database := testutils.NewPebbleTestDB(t)
 	blocks := make([]*testutils.StoredBlock, totalBlocks)
 	for i := range totalBlocks {
-		blocks[i] = testutils.StoreBlock(t, database, i)
+		blocks[i] = store(t, database, i)
 	}
 	tip := totalBlocks - 1
 	require.NoError(t, core.WriteChainHeight(database, tip))
@@ -186,38 +198,62 @@ func TestMigrate_NoOpOnEmptyDB(t *testing.T) {
 	require.Nil(t, state)
 }
 
-// cancelAfterBlocks wraps a KeyValueStore and cancels the supplied context
-// after the n-th state-update Get. Both stager and restorer call
-// GetStateUpdateByBlockNum exactly once at the top of each block, so
-// counting only Gets against the StateUpdatesByBlockNumber bucket gives a
-// per-block cancellation point that is decoupled from how many state-diff
-// entries (storage / nonce / replaced-class) any given block happens to
-// have. Other Gets (chain height, l1 head, parent header, transactions)
-// are ignored.
-//
-// The pipeline runs maxWorkers Get-callers concurrently, so the counter
-// uses atomic.Int64 — a non-atomic ++/== pair would let the trigger value
-// be skipped or fired multiple times under racing increments.
-type cancelAfterBlocks struct {
+// cancelAfterReads wraps a KeyValueStore and cancels the supplied context on
+// the n-th read: a block header Get or an iterator step. Those are the units
+// every phase advances by, history entries in the scans and blocks in the
+// lookup restore, so each run gets some work done before it is cancelled. The
+// lookup restore reads from concurrent workers, hence the atomic counter.
+type cancelAfterReads struct {
 	db.KeyValueStore
 	cancel context.CancelFunc
 	after  int64
 	count  atomic.Int64
 }
 
-func (c *cancelAfterBlocks) Get(key []byte, cb func([]byte) error) error {
-	if len(key) > 0 && key[0] == byte(db.StateUpdatesByBlockNumber) {
-		if c.count.Add(1) == c.after {
-			c.cancel()
-		}
+func (c *cancelAfterReads) read() {
+	if c.count.Add(1) == c.after {
+		c.cancel()
+	}
+}
+
+func (c *cancelAfterReads) Get(key []byte, cb func([]byte) error) error {
+	if len(key) > 0 && key[0] == byte(db.BlockHeadersByNumber) {
+		c.read()
 	}
 	return c.KeyValueStore.Get(key, cb)
 }
 
+func (c *cancelAfterReads) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	it, err := c.KeyValueStore.NewIterator(prefix, withUpperBound)
+	if err != nil {
+		return nil, err
+	}
+	return &countingIterator{Iterator: it, read: c.read}, nil
+}
+
+type countingIterator struct {
+	db.Iterator
+	read func()
+}
+
+func (i *countingIterator) First() bool {
+	i.read()
+	return i.Iterator.First()
+}
+
+func (i *countingIterator) Next() bool {
+	i.read()
+	return i.Iterator.Next()
+}
+
+func (i *countingIterator) Seek(key []byte) bool {
+	i.read()
+	return i.Iterator.Seek(key)
+}
+
 // runCancellable runs Migrate with a wrapped DB that cancels the context
-// after `cancelAfter` per-block state-update Gets. Returns the
-// intermediate state blob the migrator persisted, or nil if it ran to
-// completion.
+// after `cancelAfter` reads. Returns the intermediate state blob the migrator
+// persisted, or nil if it ran to completion.
 func runCancellable(
 	t *testing.T,
 	prevState []byte,
@@ -228,7 +264,7 @@ func runCancellable(
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	wrapped := &cancelAfterBlocks{KeyValueStore: database, cancel: cancel, after: int64(cancelAfter)}
+	wrapped := &cancelAfterReads{KeyValueStore: database, cancel: cancel, after: int64(cancelAfter)}
 
 	m := historyprunner.New(retainedBlocks, 0)
 	require.NoError(t, m.Before(prevState))
@@ -237,45 +273,104 @@ func runCancellable(
 	return state
 }
 
-// TestMigrate_CancelAndResume verifies that a migration interrupted partway
-// through can be resumed by reconstructing a Migrator with the persisted
-// intermediate state. The end-state must be identical to a single-shot
-// run: blocks below the lag floor gone, lag-window headers kept,
-// hash→number carve-out at oldestBlockKept-1, blocks ≥ oldestBlockKept
-// fully restored.
-//
-// The test cancels MULTIPLE times to also exercise cancellation crossing
-// the stager→restorer phase boundary. The keeper window has 10 blocks;
-// stager and restorer each visit it once, so there are 20 per-block
-// state-update Gets total, and cancelling every 2 forces several resumes.
+// TestMigrate_CancelAndResume verifies that a migration interrupted again and
+// again, in every phase, ends in the same database as a single-shot run, in
+// both history layouts.
 func TestMigrate_CancelAndResume(t *testing.T) {
 	const totalBlocks uint64 = 30
 	const retainedBlocks uint64 = 10
 	const oldestBlockKept = totalBlocks - retainedBlocks - 1 // 19
 	lag := core.BlockHashLag
 
-	database, blocks := setupChain(t, totalBlocks)
+	for name, store := range map[string]storeFunc{
+		"deprecated": testutils.StoreBlock,
+		"new state":  testutils.StoreNewStateBlock,
+	} {
+		t.Run(name, func(t *testing.T) {
+			database, blocks := setupChainWith(t, totalBlocks, store)
+			want := testutils.NewStateHistoryAnswers(t, database, blocks, oldestBlockKept-1, totalBlocks-1)
 
-	// Cancel every 2 blocks until the migration completes. Each iteration
-	// must either return a non-nil intermediate state (still going) or
-	// nil (done). The number of attempts is not deterministic — concurrent
-	// workers in the pipeline race against ctx cancellation. We only assert that cancellation
-	// was actually exercised (>= 2 attempts) and that the loop terminates.
-	var (
-		state    []byte
-		attempts int
-	)
-	for {
-		attempts++
-		state = runCancellable(t, state, database, 2, retainedBlocks)
-		if state == nil {
-			break
-		}
+			var (
+				state    []byte
+				attempts int
+			)
+			for {
+				attempts++
+				require.Less(t, attempts, 1000, "every run must make progress")
+				state = runCancellable(t, state, database, 2, retainedBlocks)
+				if state == nil {
+					break
+				}
+			}
+			assert.Greater(t, attempts, 10,
+				"the test should actually exercise cancellation in every phase")
+
+			testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
+			if blocks[0].NewState {
+				assert.Equal(t, want,
+					testutils.NewStateHistoryAnswers(t, database, blocks, oldestBlockKept-1, totalBlocks-1))
+			}
+		})
 	}
-	assert.GreaterOrEqual(t, attempts, 2,
-		"the test should actually exercise cancellation, not complete on the first try")
+}
 
-	// End-state after multiple cancel/resume cycles must be byte-for-byte
-	// identical to a single-shot run.
-	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, lag)
+// TestMigrate_RejectsMixedHistoryLayouts covers a new-state migration that was
+// interrupted midway: some history is converted, the rest is not.
+func TestMigrate_RejectsMixedHistoryLayouts(t *testing.T) {
+	database, _ := setupChain(t, 30)
+	addr, value := felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](1)
+	require.NoError(t, state.WriteNonceHistory(database, &addr, 0, &value))
+
+	_, err := historyprunner.New(10, 0).
+		Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.ErrorContains(t, err, "history is partly migrated to the new state")
+}
+
+// TestMigrate_NewState checks that the migration on new-state history keeps
+// every answer at or above the retention floor and leaves each key only its
+// latest entry below it.
+func TestMigrate_NewState(t *testing.T) {
+	const totalBlocks uint64 = 30
+	const retainedBlocks uint64 = 10
+	const oldestBlockKept = totalBlocks - retainedBlocks - 1
+	floor := oldestBlockKept - 1
+
+	database, blocks := setupChainWith(t, totalBlocks, testutils.StoreNewStateBlock)
+	want := testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1)
+
+	m := historyprunner.New(retainedBlocks, 0)
+	state, err := m.Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, state)
+
+	testutils.AssertPostPruneState(t, database, blocks, oldestBlockKept, core.BlockHashLag)
+	assert.Equal(t, want, testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1))
+
+	has := func(key []byte) bool {
+		ok, err := database.Has(key)
+		require.NoError(t, err)
+		return ok
+	}
+	for b := range totalBlocks {
+		kept := b >= floor
+		assert.Equal(t, kept, has(db.ContractStorageHistoryAtBlockKey(
+			testutils.SharedAddr1, testutils.SharedSlot, b)), "shared slot at %d", b)
+		assert.Equal(t, kept, has(db.ContractNonceHistoryAtBlockKey(testutils.SharedAddr1, b)))
+		assert.Equal(t, kept, has(db.ContractClassHashHistoryAtBlockKey(testutils.SharedAddr2, b)))
+	}
+	assert.False(t, bucketHasKeys(t, database, db.Temporary), "scratch space must be wiped")
+
+	// Re-running on the pruned history must not change any answer
+	_, err = historyprunner.New(retainedBlocks, 0).
+		Migrate(t.Context(), database, &networks.Mainnet, log.NewNopZapLogger())
+	require.NoError(t, err)
+	assert.Equal(t, want, testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1))
+}
+
+func bucketHasKeys(t *testing.T, r db.KeyValueReader, bucket db.Bucket) bool {
+	t.Helper()
+	it, err := r.NewIterator(bucket.Key(), true)
+	require.NoError(t, err)
+	defer it.Close()
+	return it.First()
 }
