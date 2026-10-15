@@ -51,7 +51,9 @@ func storeBlocks(
 	for number := range blocks {
 		block := adaptfeedertest.Block(t, client, number)
 		stateUpdate := adaptfeedertest.StateUpdate(t, client, number)
-		require.NoError(t, chain.Store(block, &core.BlockCommitments{}, stateUpdate, classes))
+		require.NoError(t, chain.Store(
+			block, &core.BlockCommitments{}, stateUpdate, classes, core.EventsBloom(block.Receipts),
+		))
 		classes = nil
 	}
 	return rpcv10.New(chain, nil, nil, log.NewNopZapLogger()), client

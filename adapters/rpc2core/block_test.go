@@ -202,7 +202,6 @@ func singleTransactionBlock(transaction core.Transaction) *core.Block {
 			SequencerAddress: &felt.One,
 			TransactionCount: 1,
 			ProtocolVersion:  "0.13.4",
-			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    &felt.One,
 			L1GasPriceSTRK:   &felt.One,
 			L1DAMode:         core.Blob,

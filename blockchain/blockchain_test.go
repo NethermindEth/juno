@@ -51,7 +51,13 @@ func TestNew(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+		assert.NoError(t, chain.Store(
+			block0,
+			&emptyCommitments,
+			stateUpdate0,
+			nil,
+			core.EventsBloom(block0.Receipts),
+		))
 
 		chain = blockchain.New(
 			testDB,
@@ -85,7 +91,13 @@ func TestHeight(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+		assert.NoError(t, chain.Store(
+			block0,
+			&emptyCommitments,
+			stateUpdate0,
+			nil,
+			core.EventsBloom(block0.Receipts),
+		))
 
 		chain = blockchain.New(
 			testDB,
@@ -110,7 +122,13 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		block := adaptfeedertest.Block(t, client, 0)
 		update := adaptfeedertest.StateUpdate(t, client, 0)
 
-		require.NoError(t, chain.Store(block, &emptyCommitments, update, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			update,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 
 		storedByNumber, err := chain.BlockByNumber(block.Number)
 		require.NoError(t, err)
@@ -145,7 +163,13 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	mainnetBlock0 := adaptfeedertest.Block(t, client, 0)
 	mainnetStateUpdate0 := adaptfeedertest.StateUpdate(t, client, 0)
 
-	require.NoError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
+	require.NoError(t, chain.Store(
+		mainnetBlock0,
+		&emptyCommitments,
+		mainnetStateUpdate0,
+		nil,
+		core.EventsBloom(mainnetBlock0.Receipts),
+	))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
 		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
@@ -179,7 +203,13 @@ func TestStore(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+		require.NoError(t, chain.Store(
+			block0,
+			&emptyCommitments,
+			stateUpdate0,
+			nil,
+			core.EventsBloom(block0.Receipts),
+		))
 
 		headBlock, err := chain.Head()
 		require.NoError(t, err)
@@ -208,8 +238,20 @@ func TestStore(t *testing.T) {
 			&networks.Mainnet,
 			blockchain.WithNewState(statetestutils.UseNewState()),
 		)
-		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
-		require.NoError(t, chain.Store(block1, &emptyCommitments, stateUpdate1, nil))
+		require.NoError(t, chain.Store(
+			block0,
+			&emptyCommitments,
+			stateUpdate0,
+			nil,
+			core.EventsBloom(block0.Receipts),
+		))
+		require.NoError(t, chain.Store(
+			block1,
+			&emptyCommitments,
+			stateUpdate1,
+			nil,
+			core.EventsBloom(block1.Receipts),
+		))
 
 		headBlock, err := chain.Head()
 		require.NoError(t, err)
@@ -239,7 +281,13 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	for i := range uint64(7) {
 		block := adaptfeedertest.Block(t, client, i)
 		stateUpdate = adaptfeedertest.StateUpdate(t, client, i)
-		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			stateUpdate,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 	}
 	l1HandlerMsgHash := eth.HashFromString(
 		"0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
@@ -270,7 +318,13 @@ func TestBlockCommitments(t *testing.T) {
 		StateDiffLength:       su.StateDiff.Length(),
 	}
 
-	require.NoError(t, chain.Store(b, expectedCommitments, su, nil))
+	require.NoError(t, chain.Store(
+		b,
+		expectedCommitments,
+		su,
+		nil,
+		core.EventsBloom(b.Receipts),
+	))
 
 	commitments, err := chain.BlockCommitmentsByNumber(0)
 	require.NoError(t, err)
@@ -292,11 +346,17 @@ func TestTransactionAndReceipt(t *testing.T) {
 		su := adaptfeedertest.StateUpdate(t, client, i)
 
 		stateDiffLengths[i] = su.StateDiff.Length()
-		require.NoError(t, chain.Store(b, &core.BlockCommitments{
-			TransactionCommitment: new(felt.Felt).SetUint64(i),
-			EventCommitment:       new(felt.Felt).SetUint64(2 * i),
-			StateDiffLength:       stateDiffLengths[i],
-		}, su, nil))
+		require.NoError(t, chain.Store(
+			b,
+			&core.BlockCommitments{
+				TransactionCommitment: new(felt.Felt).SetUint64(i),
+				EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+				StateDiffLength:       stateDiffLengths[i],
+			},
+			su,
+			nil,
+			core.EventsBloom(b.Receipts),
+		))
 	}
 
 	t.Run("GetTransactionByBlockNumberAndIndex returns error if transaction does not exist", func(t *testing.T) {
@@ -377,7 +437,6 @@ func TestTransactionAndReceipt(t *testing.T) {
 				GlobalStateRoot:  head.GlobalStateRoot,
 				ProtocolVersion:  head.ProtocolVersion,
 				SequencerAddress: &felt.Zero,
-				EventsBloom:      core.EventsBloom(nil),
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
@@ -390,7 +449,13 @@ func TestTransactionAndReceipt(t *testing.T) {
 			BlockHash: emptyBlock.Hash,
 			StateDiff: &core.StateDiff{},
 		}
-		require.NoError(t, chain.Store(emptyBlock, &core.BlockCommitments{}, emptySU, nil))
+		require.NoError(t, chain.Store(
+			emptyBlock,
+			&core.BlockCommitments{},
+			emptySU,
+			nil,
+			core.EventsBloom(emptyBlock.Receipts),
+		))
 
 		txns, err := chain.TransactionsByBlockNumber(3)
 		require.NoError(t, err)
@@ -459,7 +524,9 @@ func TestStateAtBlockNumberWithRetentionFloor(t *testing.T) {
 			for i := range uint64(3) {
 				block := adaptfeedertest.Block(t, client, i)
 				su := adaptfeedertest.StateUpdate(t, client, i)
-				require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
+				require.NoError(t, chain.Store(
+					block, &emptyCommitments, su, nil, core.EventsBloom(block.Receipts),
+				))
 				lastHash = block.Hash
 			}
 
@@ -507,7 +574,13 @@ func TestState(t *testing.T) {
 		block := adaptfeedertest.Block(t, client, i)
 		su := adaptfeedertest.StateUpdate(t, client, i)
 
-		require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			su,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 		existingBlockHash = block.Hash
 	}
 
@@ -581,7 +654,13 @@ func TestEvents(t *testing.T) {
 		s := adaptfeedertest.StateUpdate(t, client, uint64(i))
 
 		if b.Number < firstPendingBlockNum {
-			require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
+			require.NoError(t, chain.Store(
+				b,
+				&emptyCommitments,
+				s,
+				nil,
+				core.EventsBloom(b.Receipts),
+			))
 		} else {
 			pendingB = b
 		}
@@ -824,7 +903,13 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 	for i := range numCanonicalBlocks {
 		block := adaptfeedertest.Block(t, client, i)
 		stateUpdate := adaptfeedertest.StateUpdate(t, client, i)
-		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			stateUpdate,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 	}
 
 	pcEntries := make([]*pending.PreConfirmed, preConfirmedChainLength)
@@ -1072,7 +1157,9 @@ func TestEventsHeadAdvancesDuringQuery(t *testing.T) {
 		t.Helper()
 		block := adaptfeedertest.Block(t, client, blockNum)
 		stateUpdate := adaptfeedertest.StateUpdate(t, client, blockNum)
-		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+		require.NoError(t, chain.Store(
+			block, &emptyCommitments, stateUpdate, nil, core.EventsBloom(block.Receipts),
+		))
 	}
 	for blockNum := range headAtStart + 1 {
 		store(t, blockNum)
@@ -1150,7 +1237,9 @@ func TestEventsChainHeightReads(t *testing.T) {
 
 	block := adaptfeedertest.Block(t, client, canonicalHead)
 	stateUpdate := adaptfeedertest.StateUpdate(t, client, canonicalHead)
-	require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+	require.NoError(t, chain.Store(
+		block, &emptyCommitments, stateUpdate, nil, core.EventsBloom(block.Receipts),
+	))
 
 	preConfirmedBlock := adaptfeedertest.Block(t, client, preConfirmedNum)
 	preConfirmedBlock.Hash = nil
@@ -1201,7 +1290,13 @@ func TestRevert(t *testing.T) {
 		b := adaptfeedertest.Block(t, client, i)
 		su := adaptfeedertest.StateUpdate(t, client, i)
 
-		require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
+		require.NoError(t, chain.Store(
+			b,
+			&emptyCommitments,
+			su,
+			nil,
+			core.EventsBloom(b.Receipts),
+		))
 	}
 
 	require.NoError(t, chain.RevertHead())
@@ -1297,7 +1392,6 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 			ParentHash:       &felt.Zero,
 			Number:           0,
 			SequencerAddress: &felt.Zero,
-			EventsBloom:      core.EventsBloom(receipts0),
 			L1GasPriceETH:    &felt.Zero,
 			L1GasPriceSTRK:   &felt.Zero,
 			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
@@ -1318,7 +1412,13 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, chain.Finalise(block0, stateUpdate0, newClasses, nil))
+	require.NoError(t, chain.Finalise(
+		block0,
+		stateUpdate0,
+		newClasses,
+		nil,
+		core.EventsBloom(block0.Receipts),
+	))
 
 	receipts1 := make([]*core.TransactionReceipt, 0)
 	//nolint:dupl // Similar to block1 in `TestRevertHeadDeclaredV2CasmClasses`
@@ -1327,7 +1427,6 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 			ParentHash:       block0.Hash,
 			Number:           1,
 			SequencerAddress: &felt.Zero,
-			EventsBloom:      core.EventsBloom(receipts1),
 			L1GasPriceETH:    &felt.Zero,
 			L1GasPriceSTRK:   &felt.Zero,
 			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
@@ -1348,7 +1447,13 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, chain.Finalise(block1, stateUpdate1, nil, nil))
+	require.NoError(t, chain.Finalise(
+		block1,
+		stateUpdate1,
+		nil,
+		nil,
+		core.EventsBloom(block1.Receipts),
+	))
 
 	// verify the state is migrated
 	state, closer, err := chain.HeadState()
@@ -1414,7 +1519,6 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 			ParentHash:       &felt.Zero,
 			Number:           0,
 			SequencerAddress: &felt.Zero,
-			EventsBloom:      core.EventsBloom(receipts0),
 			L1GasPriceETH:    &felt.Zero,
 			L1GasPriceSTRK:   &felt.Zero,
 			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
@@ -1429,7 +1533,13 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		OldRoot:   &felt.Zero,
 		StateDiff: &core.StateDiff{},
 	}
-	require.NoError(t, chain.Finalise(block0, stateUpdate0, nil, nil))
+	require.NoError(t, chain.Finalise(
+		block0,
+		stateUpdate0,
+		nil,
+		nil,
+		core.EventsBloom(block0.Receipts),
+	))
 
 	// Block 1: declare a class with V2 CASM hash (protocol >= 0.14.1)
 	receipts1 := make([]*core.TransactionReceipt, 0)
@@ -1439,7 +1549,6 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 			ParentHash:       block0.Hash,
 			Number:           1,
 			SequencerAddress: &felt.Zero,
-			EventsBloom:      core.EventsBloom(receipts1),
 			L1GasPriceETH:    &felt.Zero,
 			L1GasPriceSTRK:   &felt.Zero,
 			L1DataGasPrice:   &core.GasPrice{PriceInFri: &felt.Zero, PriceInWei: &felt.Zero},
@@ -1460,7 +1569,13 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, chain.Finalise(block1, stateUpdate1, newClasses, nil))
+	require.NoError(t, chain.Finalise(
+		block1,
+		stateUpdate1,
+		newClasses,
+		nil,
+		core.EventsBloom(block1.Receipts),
+	))
 
 	// Verify the class exists in state with the V2 CASM hash
 	state, closer, err := chain.HeadState()

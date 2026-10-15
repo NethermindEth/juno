@@ -80,10 +80,11 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 }
 
 // fillRunningEventFilter walks [from, end] and Inserts each block's
-// EventsBloom into rf. Reads go through reader (a consistent snapshot) so
-// the range stays within retained headers under concurrent pruning; writes
-// go through rf's live database. Callers must clamp from to the retention
-// floor — a missing header is treated as an error, not silently skipped.
+// event bloom filter into rf, reconstructing the bloom from the block's
+// receipts. Reads go through reader (a consistent snapshot) so the range
+// stays within retained receipts under concurrent pruning; writes go through
+// rf's live database. Callers must clamp from to the retention floor — missing
+// receipts are treated as an error, not silently skipped.
 func fillRunningEventFilter(
 	reader db.KeyValueReader,
 	rf *core.RunningEventFilter,
@@ -91,11 +92,11 @@ func fillRunningEventFilter(
 	end uint64,
 ) error {
 	for blockNum := from; blockNum <= end; blockNum++ {
-		eventsBloom, err := core.GetBlockHeaderEventsBloomByNumber(reader, blockNum)
+		receipts, err := core.GetReceiptsByBlockNumber(reader, blockNum)
 		if err != nil {
-			return fmt.Errorf("getting events bloom for block %d: %w", blockNum, err)
+			return fmt.Errorf("getting receipts by block number %d: %w", blockNum, err)
 		}
-		if err := rf.Insert(eventsBloom, blockNum); err != nil {
+		if err := rf.Insert(core.EventsBloom(receipts), blockNum); err != nil {
 			return fmt.Errorf("inserting block %d in events bloom: %w", blockNum, err)
 		}
 	}
