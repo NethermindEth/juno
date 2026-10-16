@@ -94,7 +94,9 @@ func NewFields(names ...string) *Fields {
 	return out
 }
 
-// Order returns the wire names in the order a canonical encoder writes them.
+// Order returns the wire names in the order a canonical encoder writes them. Only tests use it,
+// to check a field list against what the encoder writes; the records package's tests are outside
+// this package, so it is exported.
 func (f *Fields) Order() []string {
 	out := make([]string, len(f.order))
 	for i, key := range f.order {

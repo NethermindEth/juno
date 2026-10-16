@@ -121,53 +121,19 @@ func FuzzReadersMatchFxamacker(f *testing.F) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		t.Run("uint64", func(t *testing.T) {
-			var want uint64
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.Uint64()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
-		t.Run("int64", func(t *testing.T) {
-			var want int64
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.Int64()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
-		t.Run("bool", func(t *testing.T) {
-			var want bool
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.Bool()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
-		t.Run("string", func(t *testing.T) {
-			var want string
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.String()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
+		t.Run("uint64", func(t *testing.T) { readerMatches(t, data, (*fast.Reader).Uint64, same[uint64]) })
+		t.Run("int64", func(t *testing.T) { readerMatches(t, data, (*fast.Reader).Int64, same[int64]) })
+		t.Run("bool", func(t *testing.T) { readerMatches(t, data, (*fast.Reader).Bool, same[bool]) })
+		t.Run("string", func(t *testing.T) { readerMatches(t, data, (*fast.Reader).String, same[string]) })
+		t.Run("bytes", func(t *testing.T) { readerMatches(t, data, (*fast.Reader).Bytes, bytes.Equal) })
+		t.Run("bigint", func(t *testing.T) {
+			readerMatches(t, data, func(r *fast.Reader) (big.Int, error) {
+				got, err := r.BigInt()
+				if err != nil {
+					return big.Int{}, err
+				}
+				return *got, nil
+			}, func(want, got big.Int) bool { return want.Cmp(&got) == 0 })
 		})
 		t.Run("key", func(t *testing.T) {
 			r := fast.NewReader(data)
@@ -189,31 +155,25 @@ func FuzzReadersMatchFxamacker(f *testing.F) {
 			require.NoError(t, fxErr)
 			require.Equal(t, rest, r.Remaining())
 		})
-		t.Run("bytes", func(t *testing.T) {
-			var want []byte
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.Bytes()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Equal(t, want, got)
-			require.Equal(t, rest, r.Remaining())
-		})
-		t.Run("bigint", func(t *testing.T) {
-			var want big.Int
-			rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-			r := fast.NewReader(data)
-			got, err := r.BigInt()
-			if err != nil {
-				return
-			}
-			require.NoError(t, fxErr)
-			require.Zero(t, want.Cmp(got))
-			require.Equal(t, rest, r.Remaining())
-		})
 	})
+}
+
+func same[T comparable](want, got T) bool { return want == got }
+
+// readerMatches checks one typed reader against fxamacker decoding the same data into a T: if
+// the reader succeeds, fxamacker succeeds with an equal value and the same remainder.
+func readerMatches[T any](t *testing.T, data []byte, read func(*fast.Reader) (T, error), equal func(want, got T) bool) {
+	t.Helper()
+	var want T
+	rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+	r := fast.NewReader(data)
+	got, err := read(&r)
+	if err != nil {
+		return
+	}
+	require.NoError(t, fxErr)
+	require.True(t, equal(want, got), "fx=%v fast=%v", want, got)
+	require.Equal(t, rest, r.Remaining())
 }
 
 // FuzzNeverPanics drives every reader over arbitrary bytes, as a decoder does when it walks
