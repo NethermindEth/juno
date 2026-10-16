@@ -25,19 +25,18 @@ func scratchKey(key []byte) []byte {
 }
 
 // stageHistory copies to the scratch space every history entry that reads at
-// or above floor reach, see [layout], starting at cursor. The source buckets
-// are only wiped once staging completes, so a repeated run stages the same
-// entries. On cancel it commits what it staged and returns the key to resume
-// from.
+// or above floor reach, starting at resumeHistoryFrom. The source buckets are only wiped
+// once staging completes, so a repeated run stages the same entries. On cancel
+// it commits what it staged and returns the history key to resume from.
 func stageHistory(
 	ctx context.Context,
 	database db.KeyValueStore,
-	l *layout,
+	l layout,
 	floor uint64,
-	cursor []byte,
+	resumeHistoryFrom []byte,
 	counter *progresslogger.Counter,
 ) ([]byte, error) {
-	buckets, err := l.bucketsFrom(cursor, 0)
+	buckets, err := l.bucketsFrom(resumeHistoryFrom, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -45,29 +44,30 @@ func stageHistory(
 	defer w.close()
 
 	for _, bucket := range buckets {
-		next, err := stageBucket(ctx, database, w, l, bucket, floor, cursor, counter)
+		next, err := stageBucket(ctx, database, w, l, bucket, floor, resumeHistoryFrom, counter)
 		if err != nil {
 			return nil, fmt.Errorf("staging %v: %w", bucket, err)
 		}
 		if next != nil {
 			return next, w.flush()
 		}
-		cursor = nil
+		resumeHistoryFrom = nil
 	}
 	return nil, w.flush()
 }
 
-// stageBucket stages bucket from cursor on. It checks ctx between history
-// keys, so a key's entries are staged all or none, and returns the first key
-// left unstaged.
+// stageBucket stages bucket from resumeHistoryFrom on, one history key at a time: it
+// moves to the key's first entry to keep and copies everything from there to
+// the key's end. ctx is checked between keys, and the first key left unstaged
+// is returned.
 func stageBucket(
 	ctx context.Context,
 	r db.KeyValueReader,
 	w *batchWriter,
-	l *layout,
+	l layout,
 	bucket db.Bucket,
 	floor uint64,
-	cursor []byte,
+	resumeHistoryFrom []byte,
 	counter *progresslogger.Counter,
 ) ([]byte, error) {
 	it, err := r.NewIterator(bucket.Key(), true)
@@ -76,70 +76,51 @@ func stageBucket(
 	}
 	defer it.Close()
 
-	keep := func(key, val []byte) error {
-		counter.Log(0, 0, 1)
-		return w.put(scratchKey(key), val)
-	}
-	// The history key being scanned, and its latest entry below floor
-	var historyKey, latestKey, latestVal []byte
-	keepLatest := func() error {
-		if latestKey == nil {
-			return nil
-		}
-		err := keep(latestKey, latestVal)
-		latestKey, latestVal = nil, nil
-		return err
-	}
-
 	var ok bool
-	if cursor != nil {
-		ok = it.Seek(cursor)
+	if resumeHistoryFrom != nil {
+		ok = it.Seek(resumeHistoryFrom)
 	} else {
 		ok = it.First()
 	}
-	for ; ok; ok = it.Next() {
+	for ok {
 		key := it.Key()
-		entryKey := key[:len(key)-blockNumberSuffixLen]
-		if !bytes.Equal(entryKey, historyKey) {
-			if err := keepLatest(); err != nil {
+		historyKey := key[:len(key)-blockNumberSuffixLen]
+		if ctx.Err() != nil {
+			return historyKey, nil
+		}
+		if binary.BigEndian.Uint64(key[len(historyKey):]) < floor {
+			ok = l.seekStart(it, binary.BigEndian.AppendUint64(historyKey, floor))
+		}
+		for ; ok; ok = it.Next() {
+			key := it.Key()
+			if !bytes.HasPrefix(key, historyKey) {
+				break
+			}
+			val, err := it.UncopiedValue()
+			if err != nil {
 				return nil, err
 			}
-			if ctx.Err() != nil {
-				return entryKey, nil
-			}
-			historyKey = entryKey
-		}
-
-		val, err := it.Value()
-		if err != nil {
-			return nil, err
-		}
-		counter.Log(uint64(len(key)+len(val)), 1, 0)
-		if binary.BigEndian.Uint64(key[len(entryKey):]) >= floor {
-			if err := keepLatest(); err != nil {
+			if err := w.put(scratchKey(key), val); err != nil {
 				return nil, err
 			}
-			if err := keep(key, val); err != nil {
-				return nil, err
-			}
-		} else if l.keepsLatestAtFloor {
-			latestKey, latestVal = key, val
+			counter.Log(uint64(len(key)+len(val)), 0, 1)
 		}
+		counter.Log(0, 1, 0)
 	}
-	return nil, keepLatest()
+	return nil, nil
 }
 
 // restoreHistory copies the staged entries back into their buckets, starting
-// at cursor. On cancel it commits what it copied and returns the scratch key
+// at resumeHistoryFrom. On cancel it commits what it copied and returns the scratch key
 // to resume from.
 func restoreHistory(
 	ctx context.Context,
 	database db.KeyValueStore,
-	l *layout,
-	cursor []byte,
+	l layout,
+	resumeHistoryFrom []byte,
 	counter *progresslogger.Counter,
 ) ([]byte, error) {
-	buckets, err := l.bucketsFrom(cursor, 1)
+	buckets, err := l.bucketsFrom(resumeHistoryFrom, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -147,14 +128,14 @@ func restoreHistory(
 	defer w.close()
 
 	for _, bucket := range buckets {
-		next, err := restoreBucket(ctx, database, w, bucket, cursor, counter)
+		next, err := restoreBucket(ctx, database, w, bucket, resumeHistoryFrom, counter)
 		if err != nil {
 			return nil, fmt.Errorf("restoring %v: %w", bucket, err)
 		}
 		if next != nil {
 			return next, w.flush()
 		}
-		cursor = nil
+		resumeHistoryFrom = nil
 	}
 	return nil, w.flush()
 }
@@ -164,7 +145,7 @@ func restoreBucket(
 	r db.KeyValueReader,
 	w *batchWriter,
 	bucket db.Bucket,
-	cursor []byte,
+	resumeHistoryFrom []byte,
 	counter *progresslogger.Counter,
 ) ([]byte, error) {
 	it, err := r.NewIterator(scratchPrefix(bucket), true)
@@ -174,8 +155,8 @@ func restoreBucket(
 	defer it.Close()
 
 	var ok bool
-	if cursor != nil {
-		ok = it.Seek(cursor)
+	if resumeHistoryFrom != nil {
+		ok = it.Seek(resumeHistoryFrom)
 	} else {
 		ok = it.First()
 	}
@@ -184,7 +165,7 @@ func restoreBucket(
 			return it.Key(), nil
 		}
 		key := it.Key()
-		val, err := it.Value()
+		val, err := it.UncopiedValue()
 		if err != nil {
 			return nil, err
 		}
