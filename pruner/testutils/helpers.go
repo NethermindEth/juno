@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // reads old history
+	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // old reader
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
@@ -106,7 +106,8 @@ type historyReader interface {
 func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyReader {
 	t.Helper()
 	if l == DeprecatedLayout {
-		return deprecatedstate.New(database.NewIndexedBatch()) //nolint:staticcheck,nolintlint // old state reader needs it
+		//nolint:staticcheck,nolintlint // old state reader needs it
+		return deprecatedstate.New(database.NewIndexedBatch())
 	}
 	stateDB := state.NewStateDB(database, triedb.New(database, nil))
 	reader, err := state.NewStateReader(&felt.Zero, stateDB)
@@ -210,8 +211,8 @@ func StoreBlockWithLayout(
 	// Build state diff with overlapping addresses across blocks.
 	// SharedAddr1: storage + nonce change in every block
 	// SharedAddr2: class hash change in every block
-	// Plus a unique address per block for variety.
-	uniqueAddr := felt.NewFromUint64[felt.Felt](0xB000 + blockNum) //nolint:mnd // test fixture
+	// Plus a unique address per block
+	uniqueAddr := felt.NewFromUint64[felt.Felt](0xBFFF - blockNum) //nolint:mnd // test fixture
 	uniqueSlot := felt.NewFromUint64[felt.Felt](0xC000 + blockNum) //nolint:mnd // test fixture
 	oldValue := felt.NewFromUint64[felt.Felt](blockNum * 100)      //nolint:mnd // test fixture
 
