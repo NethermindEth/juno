@@ -110,4 +110,10 @@ bench/              # RPC (k6) and sync (feeder-sim) benchmark harnesses
 
 ## Branch Naming
 
-Use `kebab-case` with prefixes: `feature/<name>` or `fix/<name>`. Reference issues when applicable.
+Name branches `<prefix>/<name>` in `kebab-case`, where `<prefix>` is the handle the person piloting the agent uses for their own branches (e.g. `rdr/agents`). This handle doesn't always match their GitHub username. Find it from the branches they've already pushed, or ask them:
+
+```bash
+git for-each-ref --format='%(authoremail) %(refname:lstrip=3)' refs/remotes/origin | grep -iF "<$(git config user.email)>"
+```
+
+If you can't determine their prefix, use their GitHub username (`gh api user --jq .login`). Reference issues when applicable.
