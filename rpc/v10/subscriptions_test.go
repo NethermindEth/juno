@@ -805,16 +805,16 @@ func TestSubscribeEventsReplayReadsStoredPreConfirmedChain(t *testing.T) {
 		network,
 		blockchain.WithNewState(statetestutils.UseNewState()),
 	)
-	gateway := adaptfeeder.New(feeder.NewTestClient(t, network))
+	client := feeder.NewTestClient(t, network)
 
 	const reorgedHeight = uint64(4)
 	var replayedEvents []SubscriptionEmittedEvent
 	for number := range reorgedHeight + 1 {
-		block, err := gateway.BlockByNumber(t.Context(), number)
-		require.NoError(t, err)
-		stateUpdate, err := gateway.StateUpdate(t.Context(), number)
-		require.NoError(t, err)
-		require.NoError(t, chain.Store(block, &core.BlockCommitments{}, stateUpdate, nil))
+		block := adaptfeedertest.Block(t, client, number)
+		stateUpdate := adaptfeedertest.StateUpdate(t, client, number)
+		require.NoError(t, chain.Store(
+			block, &core.BlockCommitments{}, stateUpdate, nil, core.EventsBloom(block.Receipts),
+		))
 		if number >= reorgedHeight-1 {
 			_, emitted := createTestEvents(t, block, nil, nil, TxnAcceptedOnL2)
 			replayedEvents = append(replayedEvents, emitted...)
