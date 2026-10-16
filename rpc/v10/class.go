@@ -38,13 +38,17 @@ type ClassEntryPoint struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L484
 func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
-	state, stateCloser, rpcErr := h.stateByBlockID(id)
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
 
-	declared, err := state.Class(classHash)
+	return class(stateReader, classHash)
+}
+
+func class(stateReader core.StateReader, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+	declared, err := stateReader.Class(classHash)
 	if err != nil {
 		return nil, rpccore.ErrClassHashNotFound
 	}
@@ -85,21 +89,27 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L573
 func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
-	classHash, err := h.ClassHashAt(id, address)
-	if err != nil {
-		return nil, err
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassAt")
+
+	classHash, rpcErr := classHashAt(stateReader, address)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
-	class, err := h.Class(id, classHash)
-	if err != nil {
+	contractClass, rpcErr := class(stateReader, classHash)
+	if rpcErr != nil {
 		// getClassAt only returns CONTRACT_NOT_FOUND / BLOCK_NOT_FOUND per spec;
 		// a class-hash miss here means the contract is not properly deployed.
-		if err.Code == rpccore.ErrClassHashNotFound.Code {
+		if rpcErr.Code == rpccore.ErrClassHashNotFound.Code {
 			return nil, rpccore.ErrContractNotFound
 		}
-		return nil, err
+		return nil, rpcErr
 	}
-	return class, nil
+	return contractClass, nil
 }
 
 // ClassHashAt gets the class hash for the contract deployed at the given address
@@ -114,6 +124,10 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
+	return classHashAt(stateReader, address)
+}
+
+func classHashAt(stateReader core.StateReader, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
 	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
 	if state.IsSystemContract(address) {
 		return nil, rpccore.ErrContractNotFound

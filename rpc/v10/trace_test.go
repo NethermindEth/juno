@@ -1139,8 +1139,9 @@ func TestCall(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv10.New(mockReader, nil, mockVM, log.NewNopZapLogger())
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -1223,6 +1224,56 @@ func TestCall(t *testing.T) {
 		).Return(expectedRes, nil)
 
 		blockID := rpcv10.BlockIDLatest()
+		res, rpcErr := handler.Call(
+			&rpcv10.FunctionCall{
+				ContractAddress:    *contractAddr,
+				EntryPointSelector: *selector,
+				Calldata:           rpcv10.CalldataInputs{Data: calldata},
+			},
+			&blockID,
+		)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedRes.Result, res)
+	})
+
+	t.Run("pre_confirmed", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
+
+		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		selector := felt.NewFromUint64[felt.Felt](2)
+		classHash := felt.NewFromUint64[felt.Felt](3)
+		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		expectedRes := vm.CallResult{Result: []*felt.Felt{felt.NewFromUint64[felt.Felt](5)}}
+
+		// The contract is only deployed in the pre_confirmed block
+		stateDiff := core.EmptyStateDiff()
+		stateDiff.DeployedContracts[*contractAddr] = classHash
+		preConfirmed := pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{
+				Header: preConfirmed.Block.Header,
+			},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			true,
+			false,
+		).Return(expectedRes, nil)
+
+		blockID := rpcv10.BlockIDPreConfirmed()
 		res, rpcErr := handler.Call(
 			&rpcv10.FunctionCall{
 				ContractAddress:    *contractAddr,

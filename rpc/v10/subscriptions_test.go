@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	stdsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +22,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
@@ -789,6 +792,76 @@ func TestSubscribeEvents(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A reorg that shortens the chain while the replay runs leaves the replay's end above the
+// canonical head. The filter then reaches for the pre-confirmed chain to find that head, and the
+// stored chain is enough for it: the replay sends the canonical events without requesting a
+// fresh chain.
+func TestSubscribeEventsReplayReadsStoredPreConfirmedChain(t *testing.T) {
+	network := &networks.Sepolia
+	chain := blockchain.New(
+		memory.New(),
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+	client := feeder.NewTestClient(t, network)
+
+	const reorgedHeight = uint64(4)
+	var replayedEvents []SubscriptionEmittedEvent
+	for number := range reorgedHeight + 1 {
+		block := adaptfeedertest.Block(t, client, number)
+		stateUpdate := adaptfeedertest.StateUpdate(t, client, number)
+		require.NoError(t, chain.Store(
+			block, &core.BlockCommitments{}, stateUpdate, nil, core.EventsBloom(block.Receipts),
+		))
+		if number >= reorgedHeight-1 {
+			_, emitted := createTestEvents(t, block, nil, nil, TxnAcceptedOnL2)
+			replayedEvents = append(replayedEvents, emitted...)
+		}
+	}
+	require.NotEmpty(t, replayedEvents)
+
+	emptyStateDiff := core.EmptyStateDiff()
+	placeholder := pending.PreConfirmed{
+		Block: &core.Block{
+			Header:       &core.Header{Number: reorgedHeight + 1},
+			Transactions: []core.Transaction{},
+			Receipts:     []*core.TransactionReceipt{},
+		},
+		StateUpdate:     &core.StateUpdate{StateDiff: &emptyStateDiff},
+		BlockIdentifier: feeder.PreConfirmedBlankIdentifier,
+	}
+
+	mockCtrl := gomock.NewController(t)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	// The subscription was made at the height before the reorg; the filter runs on the
+	// shortened chain.
+	mockChain.EXPECT().Height().Return(reorgedHeight+1, nil)
+	mockChain.EXPECT().L1Head().Return(core.L1Head{}, nil)
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(chain.EventFilter)
+	// The calls are counted rather than left unexpected: the replay runs off the test goroutine,
+	// where an unexpected call would leave the test waiting for events instead of failing it.
+	var reads, requests atomic.Int32
+	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+	mockSyncer.EXPECT().ReadPreConfirmedChain().
+		DoAndReturn(func() (preconfirmed.ChainReader, error) {
+			reads.Add(1)
+			return mustNewChain(t, &placeholder), nil
+		}).AnyTimes()
+	mockSyncer.EXPECT().RequestPreConfirmedChain().
+		DoAndReturn(func() (preconfirmed.ChainReader, error) {
+			requests.Add(1)
+			return mustNewChain(t, &placeholder), nil
+		}).AnyTimes()
+	handler := New(mockChain, mockSyncer, nil, log.NewNopZapLogger())
+
+	blockID := SubscriptionBlockID(BlockIDFromNumber(reorgedHeight - 1))
+	subscriptionID, conn := createTestEventsWebsocket(t, handler, nil, nil, &blockID, nil)
+	assertNextEvents(t, conn, subscriptionID, replayedEvents)
+	require.Positive(t, reads.Load(), "the replay never reached for the pre-confirmed chain")
+	require.Zero(t, requests.Load())
 }
 
 func TestSubscribeTxnStatus(t *testing.T) {

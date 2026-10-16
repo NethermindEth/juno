@@ -196,20 +196,20 @@ func (h *Handler) simulateBroadcastedTransactions(
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 
-	state, closer, rpcErr := h.stateByBlockID(id)
+	state, closer, header, rpcErr := h.stateAndHeaderByBlockID(id)
 	if rpcErr != nil {
 		return SimulateTransactionsResponse{}, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state after simulating transactions")
 
 	return h.simulateTransactions(
-		state, id, txns, classes, simulationFlags, errOnRevert, isEstimateFee,
+		state, header, txns, classes, simulationFlags, errOnRevert, isEstimateFee,
 	)
 }
 
 func (h *Handler) simulateTransactions(
 	state core.StateReader,
-	id *BlockID,
+	header *core.Header,
 	txns []core.Transaction,
 	classes []core.ClassDefinition,
 	simulationFlags []SimulationFlag,
@@ -222,11 +222,6 @@ func (h *Handler) simulateTransactions(
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
-
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return SimulateTransactionsResponse{}, httpHeader, rpcErr
-	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
