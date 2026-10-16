@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/clients/starknetrpc"
 	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -43,6 +44,7 @@ import (
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -138,6 +140,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 	DisableSync              bool `mapstructure:"disable-sync"`
 
+	RPCSyncURL string `mapstructure:"rpc-sync-url"`
+
 	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
 	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
 	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
@@ -172,6 +176,7 @@ type Node struct {
 	// retentionFloor is shared with the blockchain and pruner; seeded in
 	// Run after migrations.
 	retentionFloor *pruner.RetentionFloor
+	rpcSyncSource  *rpcsource.Source
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
 	services      []service.Service
@@ -214,6 +219,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 		logger.Warn("L2 synchronization and plugin block events are disabled. " +
 			"Use /ready/rpc for readiness (/ready and /ready/sync will report 503).")
+	}
+
+	if cfg.RPCSyncURL != "" {
+		if cfg.Sequencer {
+			return nil, errors.New("--rpc-sync-url has no effect in sequencer mode; " +
+				"remove --seq-enable or --rpc-sync-url")
+		}
+		if cfg.P2P {
+			return nil, errors.New("--rpc-sync-url cannot be combined with --p2p; " +
+				"remove --p2p or --rpc-sync-url")
+		}
+		if cfg.DisableSync {
+			return nil, errors.New("--rpc-sync-url requires synchronization; " +
+				"remove --rpc-sync-url or --disable-sync")
+		}
 	}
 
 	// History pruning needs an L1-finalised cutoff to know which blocks are
@@ -328,6 +348,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var synchronizer *sync.Synchronizer
 	var rpcHandler *rpc.Handler
 	var client *feeder.Client
+	var rpcSyncClient *starknetrpc.Client
+	var rpcSyncSource *rpcsource.Source
 	var gatewayClient *gateway.Client
 	var p2pService *p2p.Service
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
@@ -451,6 +473,31 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		nodeVM = vm.New(&chainInfo, false, logger)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, uint64(cfg.MaxVMQueue))
 
+		if cfg.RPCSyncURL != "" {
+			rpcSyncURL, err := url.Parse(cfg.RPCSyncURL)
+			if err != nil {
+				return nil, fmt.Errorf("invalid RPC sync URL: %w", err)
+			}
+			rpcSyncOpts := []starknetrpc.Option{starknetrpc.WithUserAgent(ua)}
+			if cfg.Metrics {
+				rpcSyncOpts = append(rpcSyncOpts, starknetrpc.WithListener(makeRPCSyncMetrics()))
+			}
+			rpcSyncClient, err = starknetrpc.New(
+				context.Background(),
+				rpcSyncURL,
+				timeout.New(timeouts, fixed),
+				logger,
+				rpcSyncOpts...,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("set up RPC sync client: %w", err)
+			}
+			rpcSyncSource = rpcsource.New(chain, rpcSyncClient, logger)
+			logger.Info("Syncing committed blocks from an RPC node; "+
+				"pre-confirmed data still comes from the feeder gateway",
+				zap.String("url", log.SanitizeString(cfg.RPCSyncURL)))
+		}
+
 		if !cfg.DisableSync {
 			preConfirmedOpts := []preconfirmed.Option{
 				preconfirmed.WithPollInterval(cfg.PreConfirmedPollInterval),
@@ -464,9 +511,13 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			}
 
 			gw := adaptfeeder.New(client)
+			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+			if rpcSyncSource != nil {
+				dataSource = rpcSyncSource
+			}
 			synchronizer = sync.New(
 				chain,
-				sync.NewFeederGatewayDataSource(chain, gw),
+				dataSource,
 				gw,
 				logger,
 				sync.WithPreConfirmed(preConfirmedOpts...),
@@ -659,9 +710,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
-		timeoutClients := make([]timeout.Client, 0, 1)
+		timeoutClients := make([]timeout.Client, 0, 2) //nolint:mnd // feeder and RPC sync clients
 		if client != nil {
 			timeoutClients = append(timeoutClients, client)
+		}
+		if rpcSyncClient != nil {
+			timeoutClients = append(timeoutClients, rpcSyncClient)
 		}
 		httpUpdateAddr := cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort)
 		if len(timeoutClients) > 0 {
@@ -714,6 +768,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		services:       services,
 		earlyServices:  earlyServices,
 		retentionFloor: retentionFloor,
+		rpcSyncSource:  rpcSyncSource,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -883,6 +938,13 @@ func (n *Node) Run(ctx context.Context) {
 		)
 		if err != nil {
 			n.logger.Error("Error building genesis state", zap.Error(err))
+			return
+		}
+	}
+
+	if n.rpcSyncSource != nil {
+		if err := n.rpcSyncSource.CheckRemote(ctx); err != nil {
+			n.logger.Error("RPC sync node is not usable", zap.Error(err))
 			return
 		}
 	}
