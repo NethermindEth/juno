@@ -2,6 +2,7 @@ package historyprunner
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"runtime"
@@ -35,26 +36,63 @@ var _ migration.Migration = (*Migrator)(nil)
 
 // Migrator prunes the history of a database that ran without pruning. Instead
 // of deleting the pruned entries one by one, it copies the ones to keep aside,
-// wipes whole buckets and copies them back:
+// wipes whole buckets and copies them back, in resumable steps:
 //
-//  1. Stage: delete the block data below the cutoff and the hash lookups, then
-//     copy the history entries to keep into the scratch space. Once complete,
-//     wipe the history buckets.
+//  1. Stage history: delete the block data below the cutoff and the hash
+//     lookups, then copy the history entries to keep into the scratch space.
+//     Once complete, wipe the history buckets.
 //  2. Restore history: copy the scratch space back into the history buckets.
-//  3. Restore lookups: rebuild the hash lookups of the kept blocks, then wipe
-//     the scratch space.
-//
-// Every phase resumes from where it stopped, see [Migrator.encodeState].
+//  3. Restore hash lookups: rebuild them for the kept blocks, then wipe the
+//     scratch space.
 type Migrator struct {
 	retainedBlocks uint64        // block-count floor input; only consulted on first run
 	minAge         time.Duration // wallclock floor input; only consulted on first run
 
-	floorPinned     bool // true once the fields below are set
-	oldestBlockKept uint64
-	layout          *layout
-	phase           phase
-	cursor          []byte // next key of the stage or restore scan
-	lookupsFrom     uint64 // next block whose hash lookups to restore
+	floorPinned       bool // true once the fields below are set
+	oldestBlockKept   uint64
+	step              uint8
+	resumeHistoryFrom []byte // history key the stage or restore scan resumes from
+	resumeLookupsFrom uint64 // block the hash lookup restore resumes from
+
+	layout      layout // detected on every run, see [detectLayout]
+	chainHeight uint64
+}
+
+type step struct {
+	name string
+	run  func(
+		m *Migrator,
+		ctx context.Context,
+		database db.KeyValueStore,
+		logger log.StructuredLogger,
+	) (bool, error)
+}
+
+var steps = []step{
+	{name: "stage history", run: (*Migrator).runStage},
+	{name: "restore history", run: (*Migrator).runRestoreHistory},
+	{name: "restore hash lookups", run: (*Migrator).runRestoreLookups},
+}
+
+// stateHeaderSize is the fixed part of the intermediate state:
+//
+//	[0]     step to resume
+//	[1:9]   oldestBlockKept (uint64 BE), pinned on the first run so a config
+//	        change between runs does not retarget the cutoff mid-flight
+//	[9:17]  resumeLookupsFrom (uint64 BE)
+//	[17:]   resumeHistoryFrom, empty when the scan has not started
+const stateHeaderSize = 17
+
+func encodeState(
+	step uint8,
+	oldestBlockKept,
+	resumeLookupsFrom uint64,
+	resumeHistoryFrom []byte,
+) []byte {
+	state := []byte{step}
+	state = binary.BigEndian.AppendUint64(state, oldestBlockKept)
+	state = binary.BigEndian.AppendUint64(state, resumeLookupsFrom)
+	return append(state, resumeHistoryFrom...)
 }
 
 // New constructs a history pruner migrator. retainedBlocks is the number
@@ -70,16 +108,21 @@ func New(retainedBlocks uint64, minAge time.Duration) *Migrator {
 	}
 }
 
-// Before restores the progress, the pinned cutoff and the history layout
-// from persisted intermediate state. A nil/empty state means a fresh run.
-// Once pinned, retainedBlocks and minAge config changes between runs are
-// ignored until completion.
+// Before restores the step to resume, its progress and the pinned cutoff.
+// A nil/empty state means a fresh run. Once pinned, retainedBlocks and minAge
+// config changes between runs are ignored until completion.
 func (m *Migrator) Before(state []byte) error {
 	if len(state) == 0 {
 		return nil
 	}
-	if err := m.decodeState(state); err != nil {
-		return err
+	if len(state) < stateHeaderSize || int(state[0]) >= len(steps) {
+		return fmt.Errorf("historyprunner: invalid intermediate state %x", state)
+	}
+	m.step = state[0]
+	m.oldestBlockKept = binary.BigEndian.Uint64(state[1:9])
+	m.resumeLookupsFrom = binary.BigEndian.Uint64(state[9:17])
+	if len(state) > stateHeaderSize {
+		m.resumeHistoryFrom = state[stateHeaderSize:]
 	}
 	m.floorPinned = true
 	return nil
@@ -104,30 +147,35 @@ func (m *Migrator) Migrate(
 			return nil, err
 		}
 	}
+	if m.layout, err = detectLayout(database); err != nil {
+		return nil, err
+	}
+	m.chainHeight = chainHeight
 
 	start := time.Now()
 	logger.Info("Starting history pruning migration",
 		zap.Uint64("chain_height", chainHeight),
 		zap.Uint64("oldest_block_kept", m.oldestBlockKept),
-		zap.String("layout", m.layout.name),
-		zap.Stringer("phase", m.phase),
+		zap.Stringer("layout", m.layout),
+		zap.String("step", steps[m.step].name),
 	)
-	for ; m.phase < phaseDone; m.phase++ {
-		done, err := m.runPhase(ctx, database, logger, chainHeight)
+	for ; int(m.step) < len(steps); m.step++ {
+		s := steps[m.step]
+		done, err := s.run(m, ctx, database, logger)
 		if err != nil {
-			return nil, fmt.Errorf("%v: %w", m.phase, err)
+			return nil, fmt.Errorf("%s: %w", s.name, err)
 		}
 		if !done {
-			logger.Info("History pruning migration interrupted", zap.Stringer("phase", m.phase))
-			return m.encodeState(), nil
+			logger.Info("History pruning migration interrupted", zap.String("step", s.name))
+			return encodeState(m.step, m.oldestBlockKept, m.resumeLookupsFrom, m.resumeHistoryFrom), nil
 		}
 	}
 	logger.Info("History pruning migration completed", zap.Duration("elapsed", time.Since(start)))
 	return nil, nil
 }
 
-// pinFloor computes the cutoff and detects the history layout on the first
-// run. It returns false when there is nothing below the retention window.
+// pinFloor computes the cutoff on the first run. It returns false when there
+// is nothing below the retention window.
 func (m *Migrator) pinFloor(database db.KeyValueStore, chainHeight uint64) (bool, error) {
 	l1Head, err := core.GetL1Head(database)
 	if err != nil {
@@ -146,33 +194,12 @@ func (m *Migrator) pinFloor(database db.KeyValueStore, chainHeight uint64) (bool
 	if floor == 0 {
 		return false, nil
 	}
-	l, err := detectLayout(database)
-	if err != nil {
-		return false, err
-	}
-	m.oldestBlockKept, m.layout, m.floorPinned = floor, l, true
+	m.oldestBlockKept, m.floorPinned = floor, true
 	return true, nil
 }
 
-// runPhase runs the current phase and reports whether it completed.
-func (m *Migrator) runPhase(
-	ctx context.Context,
-	database db.KeyValueStore,
-	logger log.StructuredLogger,
-	chainHeight uint64,
-) (bool, error) {
-	switch m.phase {
-	case phaseStage:
-		return m.runStage(ctx, database, logger)
-	case phaseRestoreHistory:
-		return m.runRestoreHistory(ctx, database, logger)
-	default:
-		return m.runRestoreLookups(ctx, database, logger, chainHeight)
-	}
-}
-
 // runStage deletes the block data below the cutoff and the hash lookups, both
-// idempotent and only run before the restore phases, then stages the history
+// idempotent and only run before the restore steps, then stages the history
 // to keep. Once staged, it wipes the history buckets.
 func (m *Migrator) runStage(
 	ctx context.Context,
@@ -190,12 +217,14 @@ func (m *Migrator) runStage(
 		return false, fmt.Errorf("writing batch: %w", err)
 	}
 
-	counter := newScanCounter(logger, m.phase)
-	next, err := stageHistory(ctx, database, m.layout, m.oldestBlockKept, m.cursor, &counter)
+	counter := newScanCounter(logger, "stage history", "historyKeys")
+	next, err := stageHistory(
+		ctx, database, m.layout, m.oldestBlockKept, m.resumeHistoryFrom, &counter,
+	)
 	if err != nil {
 		return false, err
 	}
-	m.cursor = next
+	m.resumeHistoryFrom = next
 	if next != nil {
 		return false, nil
 	}
@@ -207,7 +236,7 @@ func (m *Migrator) runStage(
 // resolves.
 func (m *Migrator) wipeHistory(database db.KeyValueStore) error {
 	batch := database.NewBatch()
-	for _, bucket := range m.layout.buckets {
+	for _, bucket := range m.layout.buckets() {
 		if err := wipeBucket(batch, byte(bucket)); err != nil {
 			return err
 		}
@@ -228,33 +257,32 @@ func (m *Migrator) runRestoreHistory(
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
 ) (bool, error) {
-	counter := newScanCounter(logger, m.phase)
-	next, err := restoreHistory(ctx, database, m.layout, m.cursor, &counter)
+	counter := newScanCounter(logger, "restore history", "restored")
+	next, err := restoreHistory(ctx, database, m.layout, m.resumeHistoryFrom, &counter)
 	if err != nil {
 		return false, err
 	}
-	m.cursor = next
+	m.resumeHistoryFrom = next
 	if next != nil {
 		return false, nil
 	}
-	m.lookupsFrom = m.oldestBlockKept
+	m.resumeLookupsFrom = m.oldestBlockKept
 	return true, nil
 }
 
 // runRestoreLookups rebuilds the hash lookups of every kept block. On cancel
-// the pipeline finishes the blocks it handed out, so the cursor only ever
-// points past written work. Once complete, it wipes the scratch space.
+// the pipeline finishes the blocks it handed out, so the resume point only
+// ever points past written work. Once complete, it wipes the scratch space.
 func (m *Migrator) runRestoreLookups(
 	ctx context.Context,
 	database db.KeyValueStore,
 	logger log.StructuredLogger,
-	chainHeight uint64,
 ) (bool, error) {
 	progressTracker := progresslogger.NewBlockProgressTracker(
-		m.phase.String(),
+		"restore hash lookups",
 		logger,
-		chainHeight-m.oldestBlockKept+1,
-		m.lookupsFrom-m.oldestBlockKept,
+		m.chainHeight-m.oldestBlockKept+1,
+		m.resumeLookupsFrom-m.oldestBlockKept,
 	)
 	loggerCancel := progresslogger.CallEveryInterval(ctx, timeLogRate, progressTracker.LogProgress)
 	defer loggerCancel()
@@ -266,20 +294,20 @@ func (m *Migrator) runRestoreLookups(
 			return database.NewBatchWithSize(int(batchByteSize))
 		},
 	)
-	resumeFrom, err := migrateRange(
+	next, err := migrateRange(
 		ctx,
 		logger,
 		batchSemaphore,
-		m.lookupsFrom,
-		chainHeight,
+		m.resumeLookupsFrom,
+		m.chainHeight,
 		maxWorkers,
 		newRestorer(database, batchSemaphore, maxWorkers, progressTracker),
 	)
 	if err != nil {
-		return false, fmt.Errorf("restoring range [%d, %d]: %w", m.lookupsFrom, chainHeight, err)
+		return false, fmt.Errorf("restoring range [%d, %d]: %w", m.resumeLookupsFrom, m.chainHeight, err)
 	}
-	m.lookupsFrom = resumeFrom
-	if resumeFrom <= chainHeight {
+	m.resumeLookupsFrom = next
+	if next <= m.chainHeight {
 		return false, nil
 	}
 
@@ -291,9 +319,9 @@ func (m *Migrator) runRestoreLookups(
 }
 
 // newScanCounter logs the progress of a history scan, which has no total.
-func newScanCounter(logger log.StructuredLogger, p phase) progresslogger.Counter {
-	counter := progresslogger.NewCounter(logger, timeLogRate, p.String())
-	counter.SetProgress("scanned", 0, 0)
+func newScanCounter(logger log.StructuredLogger, name, unit string) progresslogger.Counter {
+	counter := progresslogger.NewCounter(logger, timeLogRate, name)
+	counter.SetProgress(unit, 0, 0)
 	return counter
 }
 
