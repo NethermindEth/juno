@@ -12,15 +12,7 @@ func readEthAddress(r *fast.Reader, dst *eth.Address) error {
 	if r.Null() {
 		return nil
 	}
-	value, err := r.BytesNoCopy()
-	if err != nil {
-		return err
-	}
-	if len(value) != len(dst) {
-		return fast.ErrType
-	}
-	copy(dst[:], value)
-	return nil
+	return r.BytesInto(dst[:])
 }
 
 const (

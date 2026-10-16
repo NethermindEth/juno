@@ -68,10 +68,20 @@ func (r *Reader) payload(want byte) ([]byte, error) {
 	return out, nil
 }
 
-// BytesNoCopy reads a byte string and returns a sub-slice of the input,
-// valid only while the input is.
-func (r *Reader) BytesNoCopy() ([]byte, error) {
-	return r.payload(MajorBytes)
+// BytesInto reads a byte string of exactly len(dst) bytes into dst. A string of another length
+// is ErrType and consumes nothing.
+func (r *Reader) BytesInto(dst []byte) error {
+	start := r.pos
+	borrowed, err := r.payload(MajorBytes)
+	if err != nil {
+		return err
+	}
+	if len(borrowed) != len(dst) {
+		r.pos = start
+		return ErrType
+	}
+	copy(dst, borrowed)
+	return nil
 }
 
 // Bytes reads a byte string into a new slice. An empty string gives an empty, non-nil slice.
@@ -85,26 +95,16 @@ func (r *Reader) Bytes() ([]byte, error) {
 	return out, nil
 }
 
-// StringNoCopy reads a text string, checks it is valid UTF-8 and returns a sub-slice of the input,
-// valid only while the input is.
-func (r *Reader) StringNoCopy() ([]byte, error) {
+// String reads a text string into a new string and checks it is valid UTF-8.
+func (r *Reader) String() (string, error) {
 	start := r.pos
 	borrowed, err := r.payload(MajorString)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if !utf8.Valid(borrowed) {
 		r.pos = start
-		return nil, ErrSyntax
-	}
-	return borrowed, nil
-}
-
-// String reads a text string into a new string and checks it is valid UTF-8.
-func (r *Reader) String() (string, error) {
-	borrowed, err := r.StringNoCopy()
-	if err != nil {
-		return "", err
+		return "", ErrSyntax
 	}
 	return string(borrowed), nil
 }

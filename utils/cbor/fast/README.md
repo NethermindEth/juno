@@ -89,7 +89,7 @@ only the needed fields in projections.
 
 ## Rules for every reader
 
-1. Never keep a reference to the input; copy what you keep (`BytesNoCopy` and `StringNoCopy` borrow).
+1. Never keep a reference to the input. Every reader returns a copy; only `Key` and `Remaining` return a slice of the input.
 2. Write only the destination; `ErrUnsupported` may come before or after writing, since the wrapper resets it.
 3. Count nesting through the `Reader` (`ArrayLen`/`MapLen`, then `Leave`), for fxamacker's limit of 32.
 4. Never panic or hang, and never allocate more than the input can back.

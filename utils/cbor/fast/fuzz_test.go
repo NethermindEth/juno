@@ -194,9 +194,9 @@ func FuzzNeverPanics(f *testing.F) {
 			case 2:
 				_, _ = r.BigInt()
 			case 3:
-				_, _ = r.StringNoCopy()
+				_, _ = r.String()
 			case 4:
-				_, _ = r.BytesNoCopy()
+				_, _ = r.Bytes()
 			case 5:
 				_, _ = r.Tag()
 			default:

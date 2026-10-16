@@ -107,7 +107,7 @@ func loadGolden(t *testing.T) map[string][]byte {
 		if strings.HasPrefix(name, "DeclaredClassDefinition") {
 			// A byte string holding the declaring block number and then the class.
 			r := fast.NewReader(b)
-			payload, err := r.BytesNoCopy()
+			payload, err := r.Bytes()
 			require.NoError(t, err, name)
 			b = payload[8:]
 		}

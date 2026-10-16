@@ -164,7 +164,7 @@ func (s *sweeper) process(w *worker, j job) {
 
 func (s *sweeper) class(w *worker, j job) {
 	outer := fast.NewReader(j.raw)
-	payload, err := outer.BytesNoCopy()
+	payload, err := outer.Bytes()
 	if err != nil || outer.Len() != 0 {
 		s.failf("class", j.key, "class envelope: %v", err)
 		return
