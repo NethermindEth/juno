@@ -4,25 +4,25 @@ This file provides guidance to AI coding agents when working with code in this r
 
 ## Project Overview
 
-Juno is a Go implementation of a Starknet full-node client by Nethermind. It's a mixed Go/Rust codebase where Go handles the main application logic and Rust provides Cairo VM execution, core cryptographic types, and compiler bindings.
+Juno is a Go implementation of a Starknet full-node client by Nethermind. It's a mixed Go/Rust codebase where Go handles the main application logic and Rust (a single static library built from `vm/rust`) provides Cairo VM execution and Sierra-to-CASM compiler bindings.
 
 ## Build Commands
 
 ```bash
 make juno              # Full build (compiles Rust deps + Go binary)
-make juno-cached       # Fast build (skips Rust rebuild if unchanged)
+make juno-cached       # Fast Go-only build (run make rustdeps once first)
 make rustdeps          # Build only Rust dependencies
 make clean             # Clean all build artifacts
 ```
 
 The binary is output to `build/juno`.
 
-**Requirements**: Go 1.25+, Rust 1.87+. On macOS, jemalloc is required. On Linux, libjemalloc-dev and libbz2-dev are needed.
+**Requirements**: Go 1.27+, Rust 1.94.1+ (`rust-toolchain.toml` pins 1.98). On macOS, jemalloc and pkg-config are required. On Linux, libjemalloc-dev, libbz2-dev, and pkg-config are needed.
 
 ## Testing
 
 ```bash
-make test              # Run all tests (clears cache first)
+make test              # Run tests (clears cache first)
 make test-cached       # Run tests with cache
 make test-cover        # Run with coverage (outputs to coverage/)
 make benchmarks        # Run benchmark tests
@@ -32,6 +32,8 @@ go test ./core/...                    # Test a package
 go test -run TestBlockHash ./core/    # Run specific test
 go test -v ./rpc/...                  # Verbose output
 ```
+
+The `make test*` targets pass `-short`, which skips slow tests such as the consensus cluster test. Set `FULL_TESTS=true` to include them (with a 30m timeout). When running `go test` directly, add `-short` to match.
 
 ### Test behavior, not implementation
 
@@ -75,24 +77,28 @@ make generate-buf      # Generate protobuf only
 cmd/juno/           # CLI entry point (cobra-based)
 node/               # Node orchestration and configuration
 core/               # Starknet core types (blocks, transactions, classes, felt)
-rpc/                # JSON-RPC API with versioned implementations (v6-v10)
+rpc/                # JSON-RPC API with versioned implementations (v8-v10)
   └── rpccore/      # Shared RPC implementation
+jsonrpc/            # JSON-RPC 2.0 server (HTTP and WebSocket)
 db/                 # Database layer
   ├── pebble/       # Pebble DB v1
   ├── pebblev2/     # Pebble DB v2
   └── remote/       # gRPC remote DB client
 blockchain/         # Block validation and chain state
 sync/               # Block synchronization
+l1/                 # Ethereum (L1) client that tracks the Starknet L1 head
 p2p/                # libp2p networking layer
 mempool/            # Transaction mempool
-vm/rust/            # Cairo VM (Rust, FFI bindings)
-core/rust/          # Core Rust types
-starknet/
-  ├── compiler/rust/ # Starknet compiler bindings
-  └── ...           # Starknet-specific Go types
+sequencer/          # Block production (sequencer mode)
+builder/            # Block building and execution (used by sequencer and consensus)
+pruner/             # Background pruning of old block data
+vm/rust/            # Cairo VM and Sierra compiler (Rust, FFI bindings)
+starknet/           # Starknet-specific Go types
+  └── compiler/     # Sierra-to-CASM compilation in isolated child processes
 adapters/           # Type conversions (core ↔ p2p, core ↔ starknet)
 migration/          # Database migrations
 consensus/          # Tendermint-based consensus
+bench/              # RPC (k6) and sync (feeder-sim) benchmark harnesses
 ```
 
 **Key entry points**:
