@@ -61,8 +61,11 @@ COPY docker/apko.yaml docker/apko.lock.json ./
 # apko writes an image tarball with one layer. Extract that layer as the root filesystem.
 RUN apko build --arch ${TARGETARCH} --lockfile apko.lock.json --sbom=false apko.yaml juno-base image.tar \
     && tar -xf image.tar \
+    && layer="$(python3 -c 'import json, sys; m = json.load(open("manifest.json")); \
+        (len(m) == 1 and len(m[0]["Layers"]) == 1) or sys.exit("apko manifest.json: want 1 image with 1 layer"); \
+        print(m[0]["Layers"][0])')" \
     && mkdir /rootfs \
-    && tar -xzf "$(sed -n 's/.*"Layers":\["\([^"]*\)".*/\1/p' manifest.json)" -C /rootfs
+    && tar -xzf "$layer" -C /rootfs
 
 # --- Final stage ---
 FROM scratch AS final
