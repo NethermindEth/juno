@@ -18,15 +18,15 @@ func Register() {
 		return tag
 	}
 
-	cbor.RegisterReader(ReadReceipt)
-	cbor.RegisterReader(ReadHeader)
-	cbor.RegisterReader(ReadStateUpdate)
-	cbor.RegisterReader(ReadTransaction(TransactionTags{
+	cbor.RegisterReader(readReceipt)
+	cbor.RegisterReader(readHeader)
+	cbor.RegisterReader(readStateUpdate)
+	cbor.RegisterReader(readTransaction(transactionTags{
 		Deploy:        tag(reflect.TypeFor[core.DeployTransaction]()),
 		DeployAccount: tag(reflect.TypeFor[core.DeployAccountTransaction]()),
 		Declare:       tag(reflect.TypeFor[core.DeclareTransaction]()),
 		Invoke:        tag(reflect.TypeFor[core.InvokeTransaction]()),
 		L1Handler:     tag(reflect.TypeFor[core.L1HandlerTransaction]()),
 	}))
-	cbor.RegisterReader(ReadClassDefinition(tag(reflect.TypeFor[core.SierraClass]())))
+	cbor.RegisterReader(readClassDefinition(tag(reflect.TypeFor[core.SierraClass]())))
 }

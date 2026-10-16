@@ -49,7 +49,7 @@ its concrete type. Pointers and slices are the value or `null`.
 ## A reader
 
 Each struct has a constant per field, a table of wire names, and a loop. Most are generated into
-`records/readers_gen.go` (see `ReadReceipt`):
+`records/readers_gen.go` (see `readReceipt`):
 
 ```go
 s, err := r.OpenStruct(receiptFields)
@@ -76,7 +76,7 @@ the type and field named. A few fields are overrides (the two gas prices of a he
 allocation). The output is the code you would write by hand, so it costs nothing at run time.
 
 Some readers stay hand-written because they need more than a `case` per field: the tag dispatch of
-`ReadTransaction` and `ReadClassDefinition`, `readExecutionResources` (three structs in one
+`readTransaction` and `readClassDefinition`, `readExecutionResources` (three structs in one
 allocation, in `receipt.go`), `SegmentLengths` and the felt-map helpers.
 
 `NextField` first compares the bytes at the cursor with the key it expects next, three words at a
@@ -142,13 +142,15 @@ fxamacker is upgraded.
   correctly and slower.
 - **New endpoint:** nothing, if it reads types already routed. Needing a few fields of a big record
   is a projection in `core/partial_cbor_fast.go`.
-- **Turn it off:** `JUNO_CBOR_FAST=off`, or `cbor.SetFastEnabled(false)`. To remove it, delete the
+- **Turn it off:** start Juno with `JUNO_CBOR_FAST=off`. To remove it, delete the
   `records.Register()` call and the `RegisterReader` calls in `core/partial_cbor_fast.go`.
 
 ## Sharp edges
 
-- `route.go` keys routes on the runtime's interface type word (`unsafe`), saving about 20 ns a
-  decode, and `isZero` compares bytes before asking reflect. Both rely on Go's layout.
+- `route.go` keys routes on the runtime's interface type word (`unsafe`), and `isZero` compares
+  bytes before asking reflect. Both rely on Go's layout. Measured against `map[reflect.Type]`, the
+  type word saves 5 to 10 ns a decode (about 3% on the smallest records); the byte compare, against
+  reflect's `IsZero`, saves about 20 ns on a struct of three fields and 12% on a header.
 - Felts are read through an unsafe cast from `[4]uint64`.
 - The per-field helpers are concrete on purpose. One generic reader for every integer type
   measured 1.5% slower across the record benchmarks (4.5% on an L1 handler transaction), and a

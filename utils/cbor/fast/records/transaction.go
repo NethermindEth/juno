@@ -5,14 +5,14 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor/fast"
 )
 
-// TransactionTags are the CBOR tags of the concrete transaction types.
-type TransactionTags struct {
+// transactionTags are the CBOR tags of the concrete transaction types.
+type transactionTags struct {
 	Deploy, DeployAccount, Declare, Invoke, L1Handler uint64
 }
 
-// ReadTransaction reads a stored transaction: a tag naming its type, then the transaction.
+// readTransaction reads a stored transaction: a tag naming its type, then the transaction.
 // A tag that is none of the five is an error in the data, not an unsupported form.
-func ReadTransaction(tags TransactionTags) func(r *fast.Reader, dst *core.Transaction) error {
+func readTransaction(tags transactionTags) func(r *fast.Reader, dst *core.Transaction) error {
 	return func(r *fast.Reader, dst *core.Transaction) error {
 		if r.Null() {
 			*dst = nil
@@ -25,10 +25,10 @@ func ReadTransaction(tags TransactionTags) func(r *fast.Reader, dst *core.Transa
 		switch tag {
 		case tags.Invoke:
 			tx := new(core.InvokeTransaction)
-			err, *dst = ReadInvoke(r, tx), tx
+			err, *dst = readInvoke(r, tx), tx
 		case tags.Declare:
 			tx := new(core.DeclareTransaction)
-			err, *dst = ReadDeclare(r, tx), tx
+			err, *dst = readDeclare(r, tx), tx
 		case tags.Deploy:
 			tx := new(core.DeployTransaction)
 			err, *dst = readDeploy(r, tx), tx

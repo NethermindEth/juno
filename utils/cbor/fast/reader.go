@@ -23,10 +23,10 @@ const (
 
 // Head bytes of the simple values the stored records use.
 const (
-	SimpleFalse     = MajorSimple | 20
-	SimpleTrue      = MajorSimple | 21
-	SimpleNull      = MajorSimple | 22
-	SimpleUndefined = MajorSimple | 23
+	simpleFalse     = MajorSimple | 20
+	simpleTrue      = MajorSimple | 21
+	simpleNull      = MajorSimple | 22
+	simpleUndefined = MajorSimple | 23
 )
 
 // Additional info values. Below info1Byte the argument is the info itself.
@@ -38,9 +38,9 @@ const (
 	infoIndefinite = 31
 )
 
-// MaxNestedLevels is how deep arrays, maps and tags may nest. It matches the default of
+// maxNestedLevels is how deep arrays, maps and tags may nest. It matches the default of
 // the fxamacker decoder the wrapper uses today, so both accept the same records.
-const MaxNestedLevels = 32
+const maxNestedLevels = 32
 
 // Reader is a cursor over a CBOR buffer. The zero value reads an empty buffer.
 // A Reader is not safe for concurrent use.
@@ -48,7 +48,7 @@ type Reader struct {
 	buf []byte
 	pos int
 	// depth is how many arrays and maps are open around the next item. ArrayLen and MapLen
-	// open one and Leave closes it, so Skip can hold what it passes over to MaxNestedLevels
+	// open one and Leave closes it, so Skip can hold what it passes over to maxNestedLevels
 	// counted from the start of the record.
 	depth int
 }
@@ -170,7 +170,7 @@ func mismatch(found byte) error {
 // bytes left, since every element takes at least one, so it is safe to size an allocation
 // from it for one-byte elements; scale by the element size before presizing anything bigger.
 func (r *Reader) ArrayLen() (int, error) {
-	if r.pos < len(r.buf) && r.depth < MaxNestedLevels {
+	if r.pos < len(r.buf) && r.depth < maxNestedLevels {
 		// count < bytes left including the head is count <= bytes left after it.
 		if count := r.buf[r.pos] - MajorArray; count < info1Byte && int(count) < len(r.buf)-r.pos {
 			r.pos++
@@ -184,7 +184,7 @@ func (r *Reader) ArrayLen() (int, error) {
 // MapLen reads a map head and returns its pair count, capped by the bytes left
 // since every pair takes at least two.
 func (r *Reader) MapLen() (int, error) {
-	if r.pos < len(r.buf) && r.depth < MaxNestedLevels {
+	if r.pos < len(r.buf) && r.depth < maxNestedLevels {
 		if count := r.buf[r.pos] - MajorMap; count < info1Byte && 2*int(count) < len(r.buf)-r.pos {
 			r.pos++
 			r.depth++
@@ -213,7 +213,7 @@ func (r *Reader) containerLen(want byte, perItem uint64) (int, error) {
 }
 
 func (r *Reader) enter() error {
-	if r.depth >= MaxNestedLevels {
+	if r.depth >= maxNestedLevels {
 		return ErrDepth
 	}
 	r.depth++
@@ -231,7 +231,7 @@ func (r *Reader) Tag() (uint64, error) {
 // Null consumes the next item if it is null or undefined, reporting whether it was.
 // fxamacker decodes both the same way.
 func (r *Reader) Null() bool {
-	if r.pos < len(r.buf) && (r.buf[r.pos] == SimpleNull || r.buf[r.pos] == SimpleUndefined) {
+	if r.pos < len(r.buf) && (r.buf[r.pos] == simpleNull || r.buf[r.pos] == simpleUndefined) {
 		r.pos++
 		return true
 	}

@@ -11,9 +11,9 @@ import (
 // an array of the 32 nesting levels a record may have, and the record has three above them.
 const maxSegmentDepth = 14
 
-// ReadClassDefinition reads a stored class: a tag naming its type, then the class. Only
+// readClassDefinition reads a stored class: a tag naming its type, then the class. Only
 // Sierra classes are read here; the tag of anything else makes the read unsupported.
-func ReadClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassDefinition) error {
+func readClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassDefinition) error {
 	return func(r *fast.Reader, dst *core.ClassDefinition) error {
 		if r.Null() {
 			*dst = nil
@@ -27,7 +27,7 @@ func ReadClassDefinition(sierraTag uint64) func(r *fast.Reader, dst *core.ClassD
 			return fast.ErrUnsupported
 		}
 		class := new(core.SierraClass)
-		if err := ReadSierraClass(r, class); err != nil {
+		if err := readSierraClass(r, class); err != nil {
 			return err
 		}
 		*dst = class

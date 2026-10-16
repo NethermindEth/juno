@@ -40,10 +40,10 @@ func (r *Reader) Bool() (bool, error) {
 		return false, err
 	}
 	switch head {
-	case SimpleFalse:
+	case simpleFalse:
 		r.pos++
 		return false, nil
-	case SimpleTrue:
+	case simpleTrue:
 		r.pos++
 		return true, nil
 	default:

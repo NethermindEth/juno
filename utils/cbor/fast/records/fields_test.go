@@ -48,9 +48,8 @@ func TestFieldsFollowTheEncoder(t *testing.T) {
 			require.NoError(t, err)
 
 			r := fast.NewReader(data)
-			if head, _ := r.Peek(); head&0xe0 == fast.MajorTag {
-				_, err = r.Tag() // the tag of a registered type
-				require.NoError(t, err)
+			if _, err = r.Tag(); err != nil { // the tag of a registered type, if it has one
+				require.ErrorIs(t, err, fast.ErrType)
 			}
 			count, err := r.MapLen()
 			require.NoError(t, err)

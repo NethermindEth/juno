@@ -39,7 +39,7 @@ type reader struct {
 
 // readers lists the readers to write, in the order they are written.
 var readers = []reader{
-	{typ: reflect.TypeFor[core.TransactionReceipt](), name: "ReadReceipt", doc: "reads a stored TransactionReceipt."},
+	{typ: reflect.TypeFor[core.TransactionReceipt](), name: "readReceipt", doc: "reads a stored TransactionReceipt."},
 	{typ: reflect.TypeFor[core.Event](), name: "readEvent"},
 	{typ: reflect.TypeFor[core.L1ToL2Message](), name: "readL1ToL2Message"},
 	{typ: reflect.TypeFor[core.L2ToL1Message](), name: "readL2ToL1Message"},
@@ -47,7 +47,7 @@ var readers = []reader{
 	{typ: reflect.TypeFor[core.GasConsumed](), name: "readGasConsumed"},
 	{typ: reflect.TypeFor[core.BuiltinInstanceCounter](), name: "readBuiltinInstanceCounter"},
 	{
-		typ: reflect.TypeFor[core.Header](), name: "ReadHeader",
+		typ: reflect.TypeFor[core.Header](), name: "readHeader",
 		doc: "reads a stored block header. The keys of the legacy fields GasPrice,\n" +
 			"GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.",
 		locals: "var prices *[2]core.GasPrice",
@@ -58,19 +58,19 @@ var readers = []reader{
 		},
 	},
 	{typ: reflect.TypeFor[core.GasPrice](), name: "readGasPrice"},
-	{typ: reflect.TypeFor[core.StateUpdate](), name: "ReadStateUpdate", doc: "reads a stored state update."},
+	{typ: reflect.TypeFor[core.StateUpdate](), name: "readStateUpdate", doc: "reads a stored state update."},
 	{typ: reflect.TypeFor[core.StateDiff](), name: "readStateDiff"},
-	{typ: reflect.TypeFor[core.SierraClass](), name: "ReadSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
+	{typ: reflect.TypeFor[core.SierraClass](), name: "readSierraClass", doc: "reads the map of a stored Sierra class, after its tag."},
 	{typ: reflect.TypeFor[core.SierraEntryPointsByType](), name: "readSierraEntryPoints"},
 	{typ: reflect.TypeFor[core.SierraEntryPoint](), name: "readSierraEntryPoint"},
 	{typ: reflect.TypeFor[core.CasmClass](), name: "readCasmClass"},
 	{typ: reflect.TypeFor[core.CasmEntryPoint](), name: "readCasmEntryPoint"},
 	{
-		typ: reflect.TypeFor[core.InvokeTransaction](), name: "ReadInvoke",
+		typ: reflect.TypeFor[core.InvokeTransaction](), name: "readInvoke",
 		doc: "reads the map of a stored invoke transaction, after its tag.",
 	},
 	{
-		typ: reflect.TypeFor[core.DeclareTransaction](), name: "ReadDeclare",
+		typ: reflect.TypeFor[core.DeclareTransaction](), name: "readDeclare",
 		doc: "reads the map of a stored declare transaction, after its tag.",
 	},
 	{typ: reflect.TypeFor[core.DeployTransaction](), name: "readDeploy"},

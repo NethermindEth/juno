@@ -10,7 +10,7 @@ var (
 	// ErrType means a well-formed item has a different type than the reader expects,
 	// or its value does not fit the Go type.
 	ErrType = errors.New("cbor: item does not fit the destination")
-	// ErrDepth means the items nest deeper than MaxNestedLevels.
+	// ErrDepth means the items nest deeper than maxNestedLevels.
 	ErrDepth = errors.New("cbor: nesting too deep")
 	// ErrUnsupported means the item starts with a form this package does not read, an
 	// indefinite-length string or container. It says nothing about whether the rest of the

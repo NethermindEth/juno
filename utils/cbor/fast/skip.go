@@ -1,7 +1,7 @@
 package fast
 
 // Skip consumes the next item, whatever it is, and checks its syntax on the way: heads must
-// be well-formed, lengths must fit the input and nesting must stay within MaxNestedLevels.
+// be well-formed, lengths must fit the input and nesting must stay within maxNestedLevels.
 // Indefinite-length items return ErrUnsupported. It consumes nothing on error.
 //
 // Like fxamacker's decoder, it checks neither UTF-8 nor the content type of tags 0-3: only
@@ -21,7 +21,7 @@ func (r *Reader) Skip() error {
 func (r *Reader) skip(depth int) error {
 	// A felt is the bulk of what a record holds, and its shape needs no head decoding. It is an
 	// array, so it opens a nesting level of its own.
-	if buf := r.buf[r.pos:]; depth < MaxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
+	if buf := r.buf[r.pos:]; depth < maxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
 		buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
 		r.pos += feltLen
 		return nil
@@ -59,7 +59,7 @@ func (r *Reader) skip(depth int) error {
 		// so a single tag is free.
 		if next, err := r.Peek(); err == nil && next&majorMask == MajorTag {
 			depth++
-			if depth > MaxNestedLevels {
+			if depth > maxNestedLevels {
 				return ErrDepth
 			}
 		}
@@ -78,14 +78,14 @@ func (r *Reader) skip(depth int) error {
 // what the remaining input could hold (limit).
 func (r *Reader) skipElements(count, limit uint64, perCount, depth int) error {
 	depth++
-	if depth > MaxNestedLevels {
+	if depth > maxNestedLevels {
 		return ErrDepth
 	}
 	if count > limit {
 		return ErrTruncated
 	}
 	for n := count * uint64(perCount); n > 0; n-- {
-		if buf := r.buf[r.pos:]; depth < MaxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
+		if buf := r.buf[r.pos:]; depth < maxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
 			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
 			r.pos += feltLen
 			continue

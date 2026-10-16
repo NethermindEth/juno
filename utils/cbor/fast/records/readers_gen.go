@@ -32,8 +32,8 @@ var receiptFields = fieldsOf[core.TransactionReceipt]([]string{
 	receiptRevertReason:       "RevertReason",
 })
 
-// ReadReceipt reads a stored TransactionReceipt.
-func ReadReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
+// readReceipt reads a stored TransactionReceipt.
+func readReceipt(r *fast.Reader, dst *core.TransactionReceipt) error {
 	s, err := r.OpenStruct(receiptFields)
 	for err == nil {
 		var field int
@@ -340,9 +340,9 @@ var headerFields = fieldsOf[core.Header]([]string{
 	headerL2GasPrice:       "L2GasPrice",
 })
 
-// ReadHeader reads a stored block header. The keys of the legacy fields GasPrice,
+// readHeader reads a stored block header. The keys of the legacy fields GasPrice,
 // GasPriceSTRK and ExtraData are skipped, as fxamacker skips them.
-func ReadHeader(r *fast.Reader, dst *core.Header) error {
+func readHeader(r *fast.Reader, dst *core.Header) error {
 	var prices *[2]core.GasPrice
 	s, err := r.OpenStruct(headerFields)
 	for err == nil {
@@ -431,8 +431,8 @@ var stateUpdateFields = fieldsOf[core.StateUpdate]([]string{
 	stateUpdateStateDiff: "StateDiff",
 })
 
-// ReadStateUpdate reads a stored state update.
-func ReadStateUpdate(r *fast.Reader, dst *core.StateUpdate) error {
+// readStateUpdate reads a stored state update.
+func readStateUpdate(r *fast.Reader, dst *core.StateUpdate) error {
 	s, err := r.OpenStruct(stateUpdateFields)
 	for err == nil {
 		var field int
@@ -524,8 +524,8 @@ var sierraClassFields = fieldsOf[core.SierraClass]([]string{
 	sierraClassCompiled:        "Compiled",
 })
 
-// ReadSierraClass reads the map of a stored Sierra class, after its tag.
-func ReadSierraClass(r *fast.Reader, dst *core.SierraClass) error {
+// readSierraClass reads the map of a stored Sierra class, after its tag.
+func readSierraClass(r *fast.Reader, dst *core.SierraClass) error {
 	s, err := r.OpenStruct(sierraClassFields)
 	for err == nil {
 		var field int
@@ -744,8 +744,8 @@ var invokeFields = fieldsOf[core.InvokeTransaction]([]string{
 	invokeProofFacts:            "ProofFacts",
 })
 
-// ReadInvoke reads the map of a stored invoke transaction, after its tag.
-func ReadInvoke(r *fast.Reader, dst *core.InvokeTransaction) error {
+// readInvoke reads the map of a stored invoke transaction, after its tag.
+func readInvoke(r *fast.Reader, dst *core.InvokeTransaction) error {
 	s, err := r.OpenStruct(invokeFields)
 	for err == nil {
 		var field int
@@ -826,8 +826,8 @@ var declareFields = fieldsOf[core.DeclareTransaction]([]string{
 	declareFeeDAMode:             "FeeDAMode",
 })
 
-// ReadDeclare reads the map of a stored declare transaction, after its tag.
-func ReadDeclare(r *fast.Reader, dst *core.DeclareTransaction) error {
+// readDeclare reads the map of a stored declare transaction, after its tag.
+func readDeclare(r *fast.Reader, dst *core.DeclareTransaction) error {
 	s, err := r.OpenStruct(declareFields)
 	for err == nil {
 		var field int

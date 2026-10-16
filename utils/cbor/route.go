@@ -19,18 +19,10 @@ import (
 var (
 	// routes is keyed by the type word of the destination's interface value, which is
 	// what reflect.TypeOf returns, without hashing an interface.
-	routes  = map[unsafe.Pointer]*route{}
-	enabled atomic.Bool
+	routes = map[unsafe.Pointer]*route{}
+	// enabled is false when JUNO_CBOR_FAST=off, which sends every read to fxamacker.
+	enabled = os.Getenv("JUNO_CBOR_FAST") != "off"
 )
-
-//nolint:gochecknoinits
-func init() {
-	enabled.Store(os.Getenv("JUNO_CBOR_FAST") != "off")
-}
-
-// SetFastEnabled turns routing to the fast decoder on or off, for A/B runs. The environment
-// variable JUNO_CBOR_FAST=off sets the initial state.
-func SetFastEnabled(on bool) { enabled.Store(on) }
 
 // A route serves one destination type, *T or **T, and gets the destination as the
 // pointer itself. The routes of *T and **T share their name and their record of what was logged.
@@ -167,7 +159,7 @@ var readers = sync.Pool{New: func() any { return new(fast.Reader) }}
 // decode tries the fast decoder for v. It returns handled=false when the caller must
 // use fxamacker, with v untouched.
 func decode(data []byte, v any) (rest []byte, handled bool, err error) {
-	if len(routes) == 0 || !enabled.Load() {
+	if len(routes) == 0 || !enabled {
 		return nil, false, nil
 	}
 	value := (*eface)(unsafe.Pointer(&v))
