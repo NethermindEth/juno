@@ -186,6 +186,7 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range uint64(85) - core.BlockHashLag {
 			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
+		testutils.AssertStateHistoryPruned(t, database, blocks[:85])
 	})
 
 	t.Run("prune raises the shared retention floor for readers", func(t *testing.T) {
@@ -383,6 +384,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		for i := range uint64(89) - lag {
 			testutils.AssertBlockPruned(t, database, blocks[i])
 		}
+		testutils.AssertStateHistoryPruned(t, database, blocks[:89])
 		for i := uint64(89); i < totalBlocks; i++ {
 			testutils.AssertBlockExists(t, database, blocks[i])
 		}

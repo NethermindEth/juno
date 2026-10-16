@@ -152,6 +152,7 @@ func TestPruneUpto_ResumeAfterMidwayCancel(t *testing.T) {
 	for i := range endExclusive - core.BlockHashLag {
 		testutils.AssertBlockPruned(t, database, blocks[i])
 	}
+	testutils.AssertStateHistoryPruned(t, database, blocks[:endExclusive])
 	for i := endExclusive; i < totalBlocks; i++ {
 		testutils.AssertBlockExists(t, database, blocks[i])
 	}
