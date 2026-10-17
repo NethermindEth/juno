@@ -76,3 +76,82 @@ func TestRegisteredDecoderSelection(t *testing.T) {
 		require.Error(t, cbor.Unmarshal(numberOne, (*routed)(nil)))
 	})
 }
+
+type shape interface{ sides() int }
+
+type square struct{ Side uint64 }
+
+func (*square) sides() int { return 4 }
+
+type circle struct{ Radius uint64 }
+
+func (*circle) sides() int { return 0 }
+
+func TestRegisteredInterface(t *testing.T) {
+	require.NoError(t, cbor.RegisterType(reflect.TypeFor[square]()))
+	require.NoError(t, cbor.RegisterType(reflect.TypeFor[circle]()))
+	var contents [][]byte
+	cbor.RegisterDecoder(reflect.TypeFor[square](), func(data []byte, v any) error {
+		contents = append(contents, data)
+		out := reflect.ValueOf(v).Elem()
+		if out.Kind() == reflect.Pointer {
+			out.Set(reflect.New(out.Type().Elem()))
+			out = out.Elem()
+		}
+		out.Set(reflect.ValueOf(square{Side: 7}))
+		return nil
+	})
+	cbor.RegisterInterface(reflect.TypeFor[shape]())
+
+	tagged, err := cbor.Marshal(&square{Side: 1})
+	require.NoError(t, err)
+	untagged, err := cbor.Marshal(struct{ Side uint64 }{Side: 1})
+	require.NoError(t, err)
+	require.Greater(t, len(tagged), len(untagged))
+	content := tagged[len(tagged)-len(untagged):]
+
+	t.Run("the tag selects the type, whose decoder reads the content", func(t *testing.T) {
+		contents = nil
+		var value shape
+		require.NoError(t, cbor.Unmarshal(tagged, &value))
+		require.Equal(t, &square{Side: 7}, value)
+
+		var pointer *shape
+		require.NoError(t, cbor.Unmarshal(tagged, &pointer))
+		require.Equal(t, &square{Side: 7}, *pointer)
+		require.Equal(t, [][]byte{content, content}, contents)
+	})
+
+	t.Run("reads of a tagged type require its tag", func(t *testing.T) {
+		contents = nil
+		var value *square
+		require.NoError(t, cbor.Unmarshal(tagged, &value))
+		require.Equal(t, &square{Side: 7}, value)
+		require.Equal(t, [][]byte{content}, contents)
+
+		value = nil
+		require.Error(t, cbor.Unmarshal(untagged, &value), "fxamacker requires the tag too")
+		require.Len(t, contents, 1)
+	})
+
+	t.Run("types without a decoder use fxamacker", func(t *testing.T) {
+		contents = nil
+		data, err := cbor.Marshal(&circle{Radius: 2})
+		require.NoError(t, err)
+		var value shape
+		require.NoError(t, cbor.Unmarshal(data, &value))
+		require.Equal(t, &circle{Radius: 2}, value)
+		require.Empty(t, contents)
+	})
+
+	t.Run("untagged, unknown and truncated tags use fxamacker", func(t *testing.T) {
+		contents = nil
+		unknown := append([]byte{0xd9, 0x01, 0x00}, untagged...) // tag 256
+		for _, data := range [][]byte{untagged, unknown, tagged[:3], tagged[:5]} {
+			var value shape
+			require.Error(t, cbor.Unmarshal(data, &value))
+			require.Nil(t, value)
+		}
+		require.Empty(t, contents)
+	})
+}
