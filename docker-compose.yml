@@ -4,7 +4,7 @@ services:
     image: juno:latest
     build: .
     healthcheck:
-      test: ["CMD", "sleep", "4"]
+      test: ["CMD", "juno", "--help"]
       interval: 4s
       timeout: 10s
       retries: 1

@@ -1,0 +1,19 @@
+# Runtime filesystem of the Docker image, built from Wolfi packages by the Dockerfile base stage.
+# Run `make apko-lock` after a change here, or to pick up new package versions.
+contents:
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  repositories:
+    - https://packages.wolfi.dev/os
+  packages:
+    - wolfi-baselayout
+    - ca-certificates-bundle
+    - glibc-2.44
+    - ld-linux-2.44
+    - libgcc
+    # Lets TZ select a local time zone for log timestamps.
+    - tzdata
+
+archs:
+  - x86_64
+  - aarch64
