@@ -3,6 +3,7 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -90,6 +91,20 @@ func TestServer_RegisterMethod(t *testing.T) {
 		})
 		assert.NoError(t, err)
 	})
+}
+
+// rejectingParam fails in its unmarshal method, as rpc param types do on bad input
+type rejectingParam struct{}
+
+func (*rejectingParam) UnmarshalJSON([]byte) error {
+	return errors.New("unknown block tag 'foo'")
+}
+
+// caseClashParam has two names that differ only in case. v1 accepts a key that
+// matches both, while v2 rejects it as ambiguous.
+type caseClashParam struct {
+	Lower int `json:"foo"`
+	Upper int `json:"FOO"`
 }
 
 func TestHandle(t *testing.T) {
@@ -204,6 +219,23 @@ func TestHandle(t *testing.T) {
 			Handler: func(param1 *int, param2 []int, param3 *int, param4 []int) (int, *jsonrpc.Error) {
 				return 0, nil
 			},
+		},
+		{
+			Name:   "raw",
+			Params: []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param jsontext.Value) (string, *jsonrpc.Error) {
+				return string(param), nil
+			},
+		},
+		{
+			Name:    "rejecting",
+			Params:  []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param rejectingParam) (int, *jsonrpc.Error) { return 0, nil },
+		},
+		{
+			Name:    "caseClash",
+			Params:  []jsonrpc.Parameter{{Name: "param"}},
+			Handler: func(param caseClashParam) (int, *jsonrpc.Error) { return param.Lower + param.Upper, nil },
 		},
 	}
 
@@ -609,6 +641,36 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 
+		"null params": {
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": null, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+
+		"null params with a required param": {
+			req: `{"jsonrpc": "2.0", "method": "method", "params": null, "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing required params: num"},"id":1}`,
+		},
+
+		"positional param keeps its bytes": {
+			req: `{"jsonrpc": "2.0", "method": "raw", "params": [{"b":1,"a":2.50}], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
+		},
+
+		"named param keeps its bytes": {
+			req: `{"jsonrpc": "2.0", "method": "raw", "params": {"param": {"b":1,"a":2.50}}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":"{\"b\":1,\"a\":2.50}","id":1}`,
+		},
+
+		"param that only v1 accepts": {
+			req: `{"jsonrpc": "2.0", "method": "caseClash", "params": [{"Foo": 7}], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":7,"id":1}`,
+		},
+
+		"param unmarshal method error is returned as is": {
+			req: `{"jsonrpc": "2.0", "method": "rejecting", "params": ["foo"], "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unknown block tag 'foo'"},"id":1}`,
+		},
+
 		"junk + valid params": {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3], "junk": "junk"}, "id": 1}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unexpected params: junk"},"id":1}`,
@@ -731,6 +793,37 @@ func BenchmarkHandle(b *testing.B) {
 	benchHandleR = header
 }
 
+func BenchmarkHandleParams(b *testing.B) {
+	type blockID struct {
+		Number uint64 `json:"block_number"`
+	}
+	type eventFilter struct {
+		From      blockID    `json:"from_block"`
+		To        string     `json:"to_block"`
+		Address   string     `json:"address"`
+		Keys      [][]string `json:"keys"`
+		ChunkSize uint64     `json:"chunk_size"`
+	}
+	server := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger()).
+		WithValidator(validator.New())
+	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
+		Name:    "events",
+		Params:  []jsonrpc.Parameter{{Name: "filter"}},
+		Handler: func(filter eventFilter) (uint64, *jsonrpc.Error) { return filter.ChunkSize, nil },
+	}))
+
+	const request = `{"jsonrpc":"2.0","id":1,"method":"events","params":[{` +
+		`"from_block":{"block_number":123456},"to_block":"latest",` +
+		`"address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",` +
+		`"keys":[["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"]],` +
+		`"chunk_size":100}]}`
+	var err error
+	for b.Loop() {
+		_, _, err = server.HandleReader(b.Context(), strings.NewReader(request))
+		require.NoError(b, err)
+	}
+}
+
 // BenchmarkHandleLargeRequest measures large bodies (up to the 10MB request
 // limit), where the TeeReader copy scales with the input size.
 func BenchmarkHandleLargeRequest(b *testing.B) {
@@ -787,7 +880,7 @@ func TestHandleReaderReadError(t *testing.T) {
 	)
 	res, _, err := server.HandleReader(t.Context(), body)
 	require.NoError(t, err)
-	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"connection reset"},"id":null}`, string(res))
+	require.Equal(t, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error","data":"jsontext: read error: connection reset"},"id":null}`, string(res))
 }
 
 // stallReader returns (0, nil) before each read of the underlying reader
@@ -930,14 +1023,14 @@ func TestRequest_MarshalLogObject(t *testing.T) {
 			req: &jsonrpc.Request{
 				Version: "2.0",
 				Method:  "starknet_getBlockWithTxs",
-				Params:  []any{"latest"},
+				Params:  json.RawMessage(`["latest"]`),
 				ID:      json.RawMessage("1"),
 			},
 			want: map[string]any{
 				"jsonrpc": "2.0",
 				"method":  "starknet_getBlockWithTxs",
 				"id":      json.RawMessage("1"),
-				"params":  []any{"latest"},
+				"params":  json.RawMessage(`["latest"]`),
 			},
 		},
 		"nil id and params omitted": {

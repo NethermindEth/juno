@@ -5,7 +5,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -42,13 +44,20 @@ var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
+
+	// decodeOptions keeps the v1 decode rules but reports v2 errors. The v1 error
+	// mode validates each value before it decodes it, which adds a full pass.
+	decodeOptions = json.JoinOptions(
+		jsonv1.DefaultOptionsV1(),
+		jsonv1.ReportErrorsWithLegacySemantics(false),
+	)
 )
 
 type Request struct {
-	Version string          `json:"jsonrpc"`
-	Method  string          `json:"method"`
-	Params  any             `json:"params,omitempty"`
-	ID      json.RawMessage `json:"id,omitempty"` // nil when absent, which marks a notification
+	Version string         `json:"jsonrpc"`
+	Method  string         `json:"method"`
+	Params  jsontext.Value `json:"params,omitempty"`
+	ID      jsontext.Value `json:"id,omitempty"` // nil when absent, which marks a notification
 }
 
 // MarshalLogObject implements [zapcore.ObjectMarshaler].
@@ -71,10 +80,10 @@ func (r *Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 type response struct {
-	Version string          `json:"jsonrpc"`
-	Result  any             `json:"result,omitempty"`
-	Error   *Error          `json:"error,omitempty"`
-	ID      json.RawMessage `json:"id"`
+	Version string         `json:"jsonrpc"`
+	Result  any            `json:"result,omitempty"`
+	Error   *Error         `json:"error,omitempty"`
+	ID      jsontext.Value `json:"id"`
 }
 
 func errResponse(code int, data any) response {
@@ -122,8 +131,9 @@ func (r *Request) isSane() error {
 	}
 
 	if r.Params != nil {
-		paramType := reflect.TypeOf(r.Params)
-		if paramType.Kind() != reflect.Slice && paramType.Kind() != reflect.Map {
+		switch r.Params[0] {
+		case '[', '{', 'n':
+		default:
 			return errors.New("params should be an array or an object")
 		}
 	}
@@ -137,7 +147,7 @@ func (r *Request) isSane() error {
 
 // validID reports whether id is a valid JSON-RPC request id: a string, null,
 // or a number with no fractional part.
-func validID(id json.RawMessage) bool {
+func validID(id jsontext.Value) bool {
 	// The decoder never produces an empty value, so id[0] is safe
 	switch id[0] {
 	case '"', 'n':
@@ -395,12 +405,9 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	var resp *response
 	var header http.Header
 
-	dec := json.NewDecoder(bufferedReader)
-	dec.UseNumber()
-
 	if !requestIsBatch {
 		req := new(Request)
-		if jsonErr := decodeOne(dec, bufferedReader, req); jsonErr != nil {
+		if jsonErr := json.UnmarshalRead(bufferedReader, req, decodeOptions); jsonErr != nil {
 			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, jsonErr)))
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			resp = new(errResponse(InvalidRequest, handleErr.Error()))
@@ -413,10 +420,10 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 			header = httpHeader
 		}
 	} else if !s.disableBatchRequests {
-		var batchReq []json.RawMessage
+		var batchReq []jsontext.Value
 
-		if batchJSONErr := decodeOne(dec, bufferedReader, &batchReq); batchJSONErr != nil {
-			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, batchJSONErr)))
+		if err := json.UnmarshalRead(bufferedReader, &batchReq, decodeOptions); err != nil {
+			resp = new(errResponse(InvalidJSON, prettyParseError(&errorRecoverBuffer, err)))
 		} else if len(batchReq) == 0 {
 			resp = new(errResponse(InvalidRequest, "empty batch"))
 		} else if s.maxBatchElements > 0 && len(batchReq) > s.maxBatchElements {
@@ -438,15 +445,17 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		return nil, header, nil
 	}
 
-	result, err := json.Marshal(resp)
+	result, err := jsonv1.Marshal(resp)
 	return result, header, err
 }
 
 //nolint:gocyclo // one loop handling every step for each request in the batch
-func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
+func (s *Server) handleBatchRequest(
+	ctx context.Context, batchReq []jsontext.Value,
+) ([]byte, http.Header, error) {
 	var (
 		mutex     sync.Mutex
-		responses = make([]json.RawMessage, 0, len(batchReq))
+		responses = make([][]byte, 0, len(batchReq))
 		headers   = make([]http.Header, 0, len(batchReq))
 		// totalBytes mirrors what json.Marshal will emit: one byte for the closing
 		// bracket plus, per element, its own length and the leading '[' or ','
@@ -454,7 +463,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	)
 
 	addResponse := func(response any, header http.Header) {
-		responseJSON, err := json.Marshal(response)
+		responseJSON, err := jsonv1.Marshal(response)
 		if err != nil {
 			s.logger.Error("failed to marshal response", zap.Error(err))
 			return
@@ -480,11 +489,8 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	var wg sync.WaitGroup
 	skipped := 0
 	for _, rawReq := range batchReq {
-		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
-		reqDec.UseNumber()
-
 		req := new(Request)
-		if err := reqDec.Decode(req); err != nil {
+		if err := unmarshal(rawReq, req); err != nil {
 			addResponse(errResponse(InvalidRequest, err.Error()), http.Header{})
 			continue
 		}
@@ -546,42 +552,20 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	return concatBatchResponses(responses), finalHeaders, nil
 }
 
-// trailingDataError marks bytes after the single JSON value of a request body
-type trailingDataError struct {
-	offset int
-}
-
-func (e *trailingDataError) Error() string {
-	return "unexpected data after the request"
-}
-
-// decodeOne decodes the next JSON value from dec, which reads from src, and
-// rejects anything but whitespace after it, as a request body holds exactly
-// one value
-func decodeOne(dec *json.Decoder, src io.Reader, v any) error {
-	if err := dec.Decode(v); err != nil {
+// unmarshal decodes data into v with decodeOptions. On failure, v1 decides:
+// decodeOptions rejects some input that v1 accepts (ambiguous names, misused
+// string tags), and clients need a stable error text, while v2 wraps the errors
+// of unmarshal methods and picks "cannot" or "unable to" at random per process.
+func unmarshal(data []byte, v any) error {
+	if json.Unmarshal(data, v, decodeOptions) == nil {
+		return nil
+	}
+	fresh := reflect.New(reflect.TypeOf(v).Elem())
+	if err := jsonv1.Unmarshal(data, fresh.Interface()); err != nil {
 		return err
 	}
-	rest := io.MultiReader(dec.Buffered(), src)
-	offset := int(dec.InputOffset())
-	var buf [bufferSize]byte
-	for {
-		n, err := rest.Read(buf[:])
-		for _, b := range buf[:n] {
-			switch b {
-			case ' ', '\t', '\r', '\n':
-				offset++
-			default:
-				return &trailingDataError{offset: offset}
-			}
-		}
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-	}
+	reflect.ValueOf(v).Elem().Set(fresh.Elem())
+	return nil
 }
 
 func isBatch(reader *bufio.Reader) bool {
@@ -599,23 +583,10 @@ func isBatch(reader *bufio.Reader) bool {
 	}
 }
 
-func isNilOrEmpty(i any) (bool, error) {
-	if utils.IsNil(i) {
-		return true, nil
-	}
-
-	switch reflect.TypeOf(i).Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map:
-		return reflect.ValueOf(i).Len() == 0, nil
-	default:
-		return false, fmt.Errorf("impossible param type: check request.isSane")
-	}
-}
-
 // concatBatchResponses builds the JSON array from elements that already valid
 // JSON, so it joins bytes instead of re-encoding. json.Marshal would run every
 // byte through compact() again, which is costly
-func concatBatchResponses(responses []json.RawMessage) []byte {
+func concatBatchResponses(responses [][]byte) []byte {
 	size := len(responses) + 1
 	for _, response := range responses {
 		size += len(response)
@@ -693,8 +664,8 @@ func (s *Server) callMethod(ctx context.Context, req *Request) (*response, http.
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
-			reqJSON, _ := json.Marshal(req)
-			errJSON, _ := json.Marshal(res.Error)
+			reqJSON, _ := jsonv1.Marshal(req)
+			errJSON, _ := jsonv1.Marshal(res.Error)
 			s.logger.Debug("Failed handing RPC request",
 				zap.String("req", log.SanitizeString(string(reqJSON))),
 				zap.String("res", log.SanitizeString(string(errJSON))),
@@ -704,14 +675,16 @@ func (s *Server) callMethod(ctx context.Context, req *Request) (*response, http.
 	}
 	res.Result = tuple[0].Interface()
 	if res.Result == nil { // omitempty would drop the key, and the spec requires it
-		res.Result = json.RawMessage("null")
+		res.Result = jsontext.Value("null")
 	}
 
 	return res, header
 }
 
 //nolint:gocyclo
-func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
+func (s *Server) buildArguments(
+	ctx context.Context, params jsontext.Value, method Method,
+) ([]reflect.Value, error) {
 	handlerType := reflect.TypeOf(method.Handler)
 
 	numArgs := handlerType.NumIn()
@@ -723,12 +696,23 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		addContext = 1
 	}
 
-	isNilOrEmpty, err := isNilOrEmpty(params)
-	if err != nil {
-		return nil, err
+	var (
+		positional []jsontext.Value
+		named      map[string]jsontext.Value
+	)
+	if params != nil {
+		var err error
+		if params[0] == '[' {
+			err = unmarshal(params, &positional)
+		} else {
+			err = unmarshal(params, &named)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if isNilOrEmpty {
+	if len(positional) == 0 && len(named) == 0 {
 		required := utils.Map(
 			utils.Filter(method.Params, func(p Parameter) bool { return !p.Optional }),
 			func(p Parameter) string { return p.Name },
@@ -745,17 +729,14 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		return args, nil
 	}
 
-	switch reflect.TypeOf(params).Kind() {
-	case reflect.Slice:
-		paramsList := params.([]any)
-
+	if positional != nil {
 		// Ensure that the number of provided parameters is between required and total parameters
-		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
+		if len(positional) < method.requiredParamCount || len(positional) > len(method.Params) {
 			return nil, fmt.Errorf("expected between %d and %d params, got %d",
-				method.requiredParamCount, len(method.Params), len(paramsList))
+				method.requiredParamCount, len(method.Params), len(positional))
 		}
 
-		for i, param := range paramsList {
+		for i, param := range positional {
 			v, err := s.parseParam(param, handlerType.In(i+addContext))
 			if err != nil {
 				return nil, err
@@ -763,63 +744,54 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 			args = append(args, v)
 		}
 		// Add remaining optional parameters if available
-		for i := addContext + len(paramsList); i < numArgs; i++ {
+		for i := addContext + len(positional); i < numArgs; i++ {
 			args = append(args, reflect.New(handlerType.In(i)).Elem())
 		}
-	case reflect.Map:
-		paramsMap := params.(map[string]any)
+		return args, nil
+	}
 
-		for i, configuredParam := range method.Params {
-			var v reflect.Value
-			if param, found := paramsMap[configuredParam.Name]; found {
-				var err error
-				v, err = s.parseParam(param, handlerType.In(i+addContext))
-				if err != nil {
-					return nil, err
-				}
-
-				delete(paramsMap, configuredParam.Name)
-			} else if configuredParam.Optional {
-				// optional parameter
-				v = reflect.New(handlerType.In(i + addContext)).Elem()
-			} else {
-				return nil, errors.New("missing non-optional param: " + configuredParam.Name)
+	for i, configuredParam := range method.Params {
+		var v reflect.Value
+		if param, found := named[configuredParam.Name]; found {
+			var err error
+			v, err = s.parseParam(param, handlerType.In(i+addContext))
+			if err != nil {
+				return nil, err
 			}
 
-			args = append(args, v)
+			delete(named, configuredParam.Name)
+		} else if configuredParam.Optional {
+			// optional parameter
+			v = reflect.New(handlerType.In(i + addContext)).Elem()
+		} else {
+			return nil, errors.New("missing non-optional param: " + configuredParam.Name)
 		}
 
-		// If there are any remaining parameters in the given parameters, it means that
-		// there are extra junks in the request, which could be a typo. We return an error
-		// to ensure that the request only contains the expected parameters.
-		remainingKeys := make([]string, 0, len(paramsMap))
-		for k := range paramsMap {
-			remainingKeys = append(remainingKeys, k)
-		}
-		if len(remainingKeys) > 0 {
-			return nil, errors.New("unexpected params: " + strings.Join(remainingKeys, ", "))
-		}
-	default:
-		// Todo: consider returning InternalError
-		return nil, errors.New("impossible param type: check request.isSane")
+		args = append(args, v)
+	}
+
+	// If there are any remaining parameters in the given parameters, it means that
+	// there are extra junks in the request, which could be a typo. We return an error
+	// to ensure that the request only contains the expected parameters.
+	remainingKeys := make([]string, 0, len(named))
+	for k := range named {
+		remainingKeys = append(remainingKeys, k)
+	}
+	if len(remainingKeys) > 0 {
+		return nil, errors.New("unexpected params: " + strings.Join(remainingKeys, ", "))
 	}
 	return args, nil
 }
 
-func (s *Server) parseParam(param any, t reflect.Type) (reflect.Value, error) {
+func (s *Server) parseParam(param jsontext.Value, t reflect.Type) (reflect.Value, error) {
 	handlerParam := reflect.New(t)
-	valueMarshaled, err := json.Marshal(param) // we have to marshal the value into JSON again
-	if err != nil {
-		return reflect.ValueOf(nil), err
-	}
-	err = json.Unmarshal(valueMarshaled, handlerParam.Interface())
-	if err != nil {
+	if err := unmarshal(param, handlerParam.Interface()); err != nil {
 		return reflect.ValueOf(nil), err
 	}
 
 	elem := handlerParam.Elem()
 	if s.validator != nil {
-		if err = s.validateParam(elem); err != nil {
+		if err := s.validateParam(elem); err != nil {
 			return reflect.ValueOf(nil), err
 		}
 	}
