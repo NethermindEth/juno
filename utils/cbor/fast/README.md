@@ -109,7 +109,6 @@ felt count, a null `ResourceBounds` key, and Cairo 0 classes.
 |---|---|
 | `fieldsOf` panic at init | a core field added or renamed without its reader |
 | `TestGeneratedFilesAreFresh` | `readers_gen.go` left behind a change to a core type or to the generator |
-| `internal/gen` tests | the generator accepting an unknown or self-encoding type |
 | `TestFieldsFollowTheEncoder` | the encoder's key order changing, which would slow every key |
 | `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
 | `TestNoTaggedTypeIsAPlainField` | a type with a CBOR tag held directly in a stored type, which no generated reader handles and so would always fall back |
