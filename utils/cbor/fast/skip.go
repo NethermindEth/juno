@@ -4,8 +4,8 @@ package fast
 // be well-formed, lengths must fit the input and nesting must stay within maxNestedLevels.
 // Indefinite-length items return ErrUnsupported. It consumes nothing on error.
 //
-// Like fxamacker's decoder, it checks neither UTF-8 nor the content type of tags 0-3: only
-// a reader that returns the value does. A skipped field that breaks those is accepted by both.
+// It checks neither UTF-8 nor the content type of tags 0-3: only a reader that returns the
+// value does, so a skipped item that breaks those is accepted.
 func (r *Reader) Skip() error {
 	start := r.pos
 	if err := r.skip(r.depth); err != nil {
@@ -55,8 +55,7 @@ func (r *Reader) skip(depth int) error {
 		return nil
 
 	case MajorTag:
-		// Like fxamacker, only a tag whose content is another tag counts as a level,
-		// so a single tag is free.
+		// Only a tag whose content is another tag counts as a level, so a single tag is free.
 		if next, err := r.Peek(); err == nil && next&majorMask == MajorTag {
 			depth++
 			if depth > maxNestedLevels {

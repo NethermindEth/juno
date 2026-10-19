@@ -1,3 +1,14 @@
+// Package fast holds the primitives of Juno's custom CBOR decoder: a cursor over the input with
+// bounds-checked readers for heads, integers, strings, tags and big integers, for felts as four
+// limbs, and for the keys of a struct's map, matched to field numbers in canonical order, plus a
+// Skip that checks the syntax of what it passes over.
+//
+// Decoding is single pass. Every length, count, nesting depth and UTF-8 check happens inline, so
+// malformed input returns an error and never panics, hangs or allocates more than the input can
+// back. The values the readers return are copies; only Key and Remaining return a slice of the
+// input. A form a reader does not take is ErrUnsupported, which leaves the item to the caller.
+//
+// The package sits below core: it must not import core, core/felt or the cbor wrapper.
 package fast
 
 import "encoding/binary"
@@ -38,8 +49,7 @@ const (
 	infoIndefinite = 31
 )
 
-// maxNestedLevels is how deep arrays, maps and tags may nest. It matches the default of
-// the fxamacker decoder the wrapper uses today, so both accept the same records.
+// maxNestedLevels is how deep arrays, maps and tags may nest. Deeper input is ErrDepth.
 const maxNestedLevels = 32
 
 // Reader is a cursor over a CBOR buffer. The zero value reads an empty buffer.
@@ -157,8 +167,8 @@ func (r *Reader) expectSlow(want byte) (uint64, error) {
 }
 
 // mismatch is the error for finding an item of the given major type where another was
-// expected. A tag is not a mismatch of data: fxamacker looks through tags it has no use for,
-// which this package leaves to it.
+// expected. A tag is not a mismatch of data: a decoder may look through a tag it has no use for,
+// which this package leaves to the caller as ErrUnsupported.
 func mismatch(found byte) error {
 	if found == MajorTag {
 		return ErrUnsupported
@@ -229,7 +239,7 @@ func (r *Reader) Tag() (uint64, error) {
 }
 
 // Null consumes the next item if it is null or undefined, reporting whether it was.
-// fxamacker decodes both the same way.
+// The two are the same to a reader.
 func (r *Reader) Null() bool {
 	if r.pos < len(r.buf) && (r.buf[r.pos] == simpleNull || r.buf[r.pos] == simpleUndefined) {
 		r.pos++

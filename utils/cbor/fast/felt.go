@@ -92,8 +92,8 @@ func (r *Reader) limbsSlow(dst *[Limbs]uint64) error {
 		r.pos = start
 		return err
 	}
-	// Like a Go array in fxamacker, a shorter array leaves the rest zero and a longer one is
-	// cut off. Juno never writes either.
+	// As with a Go array, a shorter array leaves the rest zero and a longer one is cut off. Juno
+	// never writes either.
 	var limbs [Limbs]uint64
 	for i := range count {
 		if i >= Limbs {
@@ -126,8 +126,8 @@ func LimbSlice[F ~[Limbs]uint64](r *Reader) ([]F, error) {
 	}
 	if count > uint64(r.Len())/(1+Limbs) {
 		// Every felt Juno writes takes at least five bytes, so this count is a damaged one or a
-		// felt written in a form fxamacker also takes (an empty array is a zero felt). It is
-		// never worth an allocation the input cannot back; fxamacker decides.
+		// felt written in another form (an empty array is a zero felt). It is never worth an
+		// allocation the input cannot back, so the caller decides.
 		r.pos = start
 		return nil, ErrUnsupported
 	}

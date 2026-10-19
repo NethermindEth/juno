@@ -19,8 +19,8 @@ const (
 // maxFields is how many fields a Struct can track; the repeated-key check is one bit per field.
 const maxFields = 64
 
-// Fields matches the keys of a struct's map to field numbers the way fxamacker matches them to
-// fields: an exact name first, then a name that differs only in case.
+// Fields matches the keys of a struct's map to field numbers: an exact name first, then a name
+// that differs only in case.
 type Fields struct {
 	// order holds each key as the encoder writes it, head and name, in the order a canonical
 	// encoder sorts them: shorter first, then bytewise.
@@ -117,8 +117,8 @@ type Struct struct {
 	open bool
 }
 
-// OpenStruct reads the head of a struct's map. Null reads as a struct with no pairs, since
-// fxamacker leaves the struct as it was.
+// OpenStruct reads the head of a struct's map. Null reads as a struct with no pairs: the struct
+// is left as it was.
 func (r *Reader) OpenStruct(fields *Fields) (Struct, error) {
 	if r.Null() {
 		return Struct{}, nil
@@ -135,8 +135,8 @@ func (r *Reader) OpenStruct(fields *Fields) (Struct, error) {
 //
 // Stored maps are canonical, so the key is first compared with the fields after the last one
 // matched, as encoded, which needs no UTF-8 check: a key equal to an ASCII name is valid. Any
-// other key is read and matched like fxamacker. A field named twice is ErrUnsupported, since
-// fxamacker has its own rule for a repeated key.
+// other key is read and matched by exact name, then ignoring case. A field named twice is
+// ErrUnsupported, which leaves the rule for a repeated key to the caller.
 func (r *Reader) NextField(s *Struct) (int, error) {
 	// The common case first: the key is the one expected next, and its field is not yet read.
 	if s.left > 0 && s.next < len(s.fields.order) && r.pos+keyWords*8 <= len(r.buf) {
@@ -156,7 +156,7 @@ func (r *Reader) NextField(s *Struct) (int, error) {
 	return r.nextField(s)
 }
 
-// nextField looks for the key among all the fields after the last one matched, then like fxamacker.
+// nextField looks for the key among all the fields after the last one matched, then by name, as match does.
 func (r *Reader) nextField(s *Struct) (int, error) {
 	if s.left == 0 {
 		if s.open {
@@ -240,9 +240,10 @@ func (s *Struct) mark(field int) (int, error) {
 	return field, nil
 }
 
-// match finds the field a key names exactly or, failing that, ignoring case. fxamacker folds
-// case with strings.EqualFold but only between strings of the same byte length, and every rune
-// that folds to an ASCII letter outside ASCII takes more than one byte, so ASCII folding is the same.
+// match finds the field a key names exactly or, failing that, ignoring case. Case is folded as
+// strings.EqualFold folds it, between strings of the same byte length only; a rune outside ASCII
+// that folds to an ASCII letter takes more than one byte, so folding ASCII letters alone gives the
+// same result.
 func (f *Fields) match(key []byte) (int, bool) {
 	for i, name := range f.names {
 		if string(key) == name {
@@ -263,7 +264,7 @@ func (f *Fields) match(key []byte) (int, bool) {
 	return field, ok
 }
 
-// Key reads a map key the way fxamacker reads the keys of a struct. A text key is returned
+// Key reads a map key as the name of a struct field. A text key is returned
 // as a sub-slice of the input, valid only while the input is, after a UTF-8 check. An
 // integer key can match no field, so it is consumed and reported as not text; one too large
 // for int64 is an error, as is a key of any other type.
