@@ -53,6 +53,11 @@ FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS base
 ARG APKO_VERSION=v1.4.11
 ARG TARGETARCH
 
+# The golang image has python3 only as a dependency of mercurial. Install it explicitly for the
+# manifest lookup below.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 RUN go install chainguard.dev/apko@${APKO_VERSION}
 
 WORKDIR /base
