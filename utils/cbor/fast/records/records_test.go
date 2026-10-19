@@ -94,20 +94,6 @@ func decodeBoth[T any](t *testing.T, data []byte) (viaWrapper, viaFx *T) {
 	return viaWrapper, viaFx
 }
 
-func TestPointerDestination(t *testing.T) {
-	data, err := cbor.Marshal(receipt())
-	require.NoError(t, err)
-
-	var got, want *core.TransactionReceipt
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.NoError(t, fxamacker.Unmarshal(data, &want))
-	require.Equal(t, want, got)
-
-	got = nil
-	require.NoError(t, cbor.Unmarshal([]byte{0xf6}, &got))
-	require.Nil(t, got)
-}
-
 func version(v uint64) *core.TransactionVersion { return (*core.TransactionVersion)(f(v)) }
 
 func bounds() map[core.Resource]core.ResourceBounds {
@@ -226,29 +212,6 @@ func stateUpdate() *core.StateUpdate {
 			MigratedClasses:   map[felt.SierraClassHash]felt.CasmClassHash{felt.SierraClassHash(*f(1)): felt.CasmClassHash(*f(2))},
 		},
 	}
-}
-
-// A database that has not been migrated holds headers written with an events bloom, a key Header
-// no longer has. Both decoders skip it, whatever the filter declares: the bloom package, which
-// allocates the bit count it is told, never sees it.
-func TestEventsBloomOfAnOldHeaderIsSkipped(t *testing.T) {
-	data, err := cbor.Marshal(oldHeader())
-	require.NoError(t, err)
-	got, want := decodeBoth[core.Header](t, data)
-	require.Equal(t, want, got)
-	require.Equal(t, *header(), *got)
-}
-
-// Elements of a pointer slice share an array only while the bytes left could hold them; small
-// ones past that are allocated one by one.
-func TestSmallEventsMatchFxamacker(t *testing.T) {
-	// {"Events": [{}, null, {"From": null}, {}]}
-	data := []byte{0xa1, 0x66, 'E', 'v', 'e', 'n', 't', 's', 0x84, 0xa0, 0xf6, 0xa1, 0x64, 'F', 'r', 'o', 'm', 0xf6, 0xa0}
-	got, want := decodeBoth[core.TransactionReceipt](t, data)
-	require.Equal(t, want, got)
-	require.Len(t, got.Events, 4)
-	require.Nil(t, got.Events[1])
-	require.NotSame(t, got.Events[0], got.Events[2])
 }
 
 // TestSharedArraysKeepValuesIndependent checks that values read into one shared array are

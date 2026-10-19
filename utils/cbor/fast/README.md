@@ -113,9 +113,8 @@ felt count, a null `ResourceBounds` key, and Cairo 0 classes.
 | `TestFieldsFollowTheEncoder` | the encoder's key order changing, which would slow every key |
 | `TestRandomValuesDecodeLikeFxamacker` | a field read differently than fxamacker reads it, with no fixtures to update |
 | `TestNoTaggedTypeIsAPlainField` | a type with a CBOR tag held directly in a stored type, which no generated reader handles and so would always fall back |
-| `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records giving a different result |
+| `…MatchesFxamacker`, `adversarial_test.go` | hand-built and mutated records, among them a header that still holds an events bloom, giving a different result |
 | `TestDecodingDoesNotRetainInput`, shared-array tests | aliasing the input, aliased arrays |
-| `TestEventsBloomOfAnOldHeaderIsSkipped` | an unmigrated header, which still holds an events bloom, reading differently than fxamacker reads it |
 | `Fuzz…` | arbitrary bytes giving a different result, or a panic |
 | `core/partial_cbor_fast_test.go` | projection readers drifting from their records |
 | `sweep/` (build tag `sweep`) | any difference on a real mainnet database; run before a release |

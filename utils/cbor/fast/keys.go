@@ -1,7 +1,6 @@
 package fast
 
 import (
-	"cmp"
 	"encoding/binary"
 	"math"
 	"slices"
@@ -88,9 +87,9 @@ func NewFields(names ...string) *Fields {
 		out.folded[lower] = i
 		out.order[i] = newFieldKey(head+name, i)
 	}
-	slices.SortFunc(out.order, func(a, b fieldKey) int {
-		return cmp.Or(cmp.Compare(len(a.encoded), len(b.encoded)), strings.Compare(a.encoded, b.encoded))
-	})
+	// The head of an encoded name holds its length, so comparing the bytes puts shorter names first,
+	// as a canonical encoder does.
+	slices.SortFunc(out.order, func(a, b fieldKey) int { return strings.Compare(a.encoded, b.encoded) })
 	return out
 }
 

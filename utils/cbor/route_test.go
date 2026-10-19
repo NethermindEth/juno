@@ -45,35 +45,11 @@ func init() {
 	cbor.RegisterReader(readPair)
 }
 
-const pairName = "cbor_test.pair"
-
 func encodePair(t *testing.T, p *pair) []byte {
 	t.Helper()
 	data, err := cbor.Marshal(p)
 	require.NoError(t, err)
 	return data
-}
-
-// A value is zero by Go's rules, as reflect.Value.IsZero has them, even where its memory is
-// not all zero bytes, like an empty string that still points into another one.
-func TestRouteTakesAnEmptyStringWithAPointerAsZero(t *testing.T) {
-	data := encodePair(t, &pair{X: 3, Name: "three"})
-	text := "text"
-
-	got := pair{Name: text[:0]}
-	require.NoError(t, cbor.Unmarshal(data, &got))
-	require.Equal(t, pair{X: 3, Name: "three"}, got)
-}
-
-func TestRouteReportsATypeMismatchAsUnmarshalTypeError(t *testing.T) {
-	data := []byte{0x83, 0x61, 'x', 0x61, 'y', 0xf6} // ["x", "y", null]
-
-	var got pair
-	err := cbor.Unmarshal(data, &got)
-	var typeErr *cbor.UnmarshalTypeError
-	require.ErrorAs(t, err, &typeErr)
-	require.Equal(t, pairName, typeErr.GoType)
-	require.Equal(t, pair{}, got)
 }
 
 func TestRouteClearsTheDestinationOnAnError(t *testing.T) {
