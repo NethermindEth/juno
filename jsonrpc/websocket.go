@@ -199,11 +199,18 @@ func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
 }
 
 func busyResponse(body []byte) []byte {
-	dec := json.NewDecoder(bytes.NewReader(body))
+	reader := bytes.NewReader(body)
+	dec := json.NewDecoder(reader)
 	dec.UseNumber()
 
 	var req Request
-	if dec.Decode(&req) != nil || req.ID == nil || !validID(req.ID) {
+	if decodeOne(dec, reader, &req) != nil {
+		return serverBusyResponse
+	}
+	if req.ID == nil && req.isSane() == nil {
+		return nil
+	}
+	if req.ID == nil || !validID(req.ID) {
 		return serverBusyResponse
 	}
 
@@ -221,8 +228,11 @@ func (ws *Websocket) handleMessage(wsc *websocketConn, body []byte) error {
 	if ws.gate != nil {
 		if !ws.gate.TryAcquire() {
 			ws.logServerBusy()
-			_, err := wsc.Write(busyResponse(body))
-			return err
+			if response := busyResponse(body); response != nil {
+				_, err := wsc.Write(response)
+				return err
+			}
+			return nil
 		}
 		defer ws.gate.Release()
 	}
