@@ -81,7 +81,7 @@ func TestSkipCountsAFeltAsALevel(t *testing.T) {
 		0x1b, 1, 2, 3, 4, 5, 6, 7, 8, 0x1b, 1, 2, 3, 4, 5, 6, 7, 8,
 	}
 	for tags := 28; tags <= 32; tags++ {
-		item := append([]byte{0xa1, 0x61, 'a'}, bytes.Repeat([]byte{0xc1}, tags)...)
+		item := append([]byte{0xa1, 0x61, 'a'}, bytes.Repeat([]byte{0xc6}, tags)...)
 		item = append(item, felt...)
 		_, fxErr := fxSkip(item)
 		r := fast.NewReader(wrapped(item))

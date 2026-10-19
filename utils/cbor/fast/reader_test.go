@@ -32,3 +32,18 @@ func TestBytesInto(t *testing.T) {
 	require.ErrorIs(t, r.BytesInto(exact[:]), fast.ErrType)
 	require.Zero(t, r.Pos())
 }
+
+// Tags 0-3 hold a time or a big integer, whose content Skip does not check, so it leaves them
+// to the caller.
+func TestSkipLeavesContentTagsToTheCaller(t *testing.T) {
+	for tag := byte(0xc0); tag <= 0xc4; tag++ {
+		r := fast.NewReader([]byte{tag, 0x01})
+		err := r.Skip()
+		if tag <= 0xc3 {
+			require.ErrorIs(t, err, fast.ErrUnsupported)
+			require.Zero(t, r.Pos())
+		} else {
+			require.NoError(t, err)
+		}
+	}
+}

@@ -100,8 +100,9 @@ only the needed fields in projections.
 We match: exact then case-insensitive keys (old headers use `GasPrice`), skipped unknown and
 integer keys, `null` equal to `undefined` and leaving a plain field alone, short and long felt
 arrays, nesting of 32 counted over the whole record. We differ: a wrong CBOR type is an error.
-We fall back on: indefinite lengths, a tag where a value is expected, a repeated key, an unusual
-felt count, a null `ResourceBounds` key, and Cairo 0 classes.
+We fall back on: indefinite lengths, a tag where a value is expected, a tag 0-3 (time or bignum) in
+a skipped value, a repeated key, an unusual felt count, a null `ResourceBounds` key, and Cairo 0
+classes.
 
 ## Tests
 

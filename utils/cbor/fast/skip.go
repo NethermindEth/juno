@@ -4,8 +4,9 @@ package fast
 // be well-formed, lengths must fit the input and nesting must stay within maxNestedLevels.
 // Indefinite-length items return ErrUnsupported. It consumes nothing on error.
 //
-// It checks neither UTF-8 nor the content type of tags 0-3: only a reader that returns the
-// value does, so a skipped item that breaks those is accepted.
+// Tags 0-3 (times and big integers) return ErrUnsupported: their content has a type to check,
+// which only a reader that returns the value does, so what to make of one is left to the caller.
+// Skip checks no UTF-8 either, for the same reason.
 func (r *Reader) Skip() error {
 	start := r.pos
 	if err := r.skip(r.depth); err != nil {
@@ -55,6 +56,9 @@ func (r *Reader) skip(depth int) error {
 		return nil
 
 	case MajorTag:
+		if argument <= 3 {
+			return ErrUnsupported
+		}
 		// Only a tag whose content is another tag counts as a level, so a single tag is free.
 		if next, err := r.Peek(); err == nil && next&majorMask == MajorTag {
 			depth++
