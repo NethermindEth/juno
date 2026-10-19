@@ -10,21 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWrapperGoldenBytes runs the golden contract through the cbor package, which sends the
-// types that have a fast reader to it and the rest to fxamacker.
-func TestWrapperGoldenBytes(t *testing.T) {
-	cases := goldenCases()
-	t.Run("encoding", func(t *testing.T) {
-		assertEncodesToGolden(t, cbor.Marshal, cases)
-	})
-	t.Run("decoding", func(t *testing.T) {
-		assertDecodesFromGolden(t, cbor.Unmarshal, cases)
-	})
+// TestCborGoldenBytes runs the decoding contract through the cbor package, which reads the
+// types that have a fast reader with it and the rest with fxamacker. Encoding is not run again:
+// cbor.Marshal is fxamacker's.
+func TestCborGoldenBytes(t *testing.T) {
+	assertDecodesFromGolden(t, cbor.Unmarshal, goldenCases())
 }
 
-// TestWrapperGoldenBytesThroughInterfaces decodes the stored transactions and classes into the
+// TestCborGoldenBytesThroughInterfaces decodes the stored transactions and classes into the
 // interfaces the database code reads them through, where the type is named by a tag.
-func TestWrapperGoldenBytesThroughInterfaces(t *testing.T) {
+func TestCborGoldenBytesThroughInterfaces(t *testing.T) {
 	golden := goldenBytes(t)
 	read := func(t *testing.T, name string, value any, into any) {
 		t.Helper()
