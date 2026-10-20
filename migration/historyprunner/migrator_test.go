@@ -308,7 +308,7 @@ func TestMigrate_CancelAndResume(t *testing.T) {
 			for {
 				attempts++
 				require.Less(t, attempts, 1000, "every run must make progress")
-				state = runCancellable(t, state, database, 2, retainedBlocks)
+				state = runCancellable(t, state, database, 10, retainedBlocks)
 				if state == nil {
 					break
 				}
