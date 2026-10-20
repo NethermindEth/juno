@@ -122,7 +122,7 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 	}
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize, false)
+	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
 	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
@@ -189,7 +189,7 @@ func setupSameWindowResume(
 	}
 	require.NoError(t, core.WriteRunningEventFilter(database, snap))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize, false)
+	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
 	rf = core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)
@@ -310,7 +310,7 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	require.NoError(t, batch.Write())
 	require.NoError(t, core.WriteChainHeight(database, latest))
 
-	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize, false)
+	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
 
 	rf := core.NewRunningEventFilterLazy(database, pruner.InitializeRunningEventFilter)

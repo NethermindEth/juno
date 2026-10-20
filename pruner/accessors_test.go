@@ -15,6 +15,23 @@ import (
 
 const testTargetBatchByteSize = 96 * db.Megabyte
 
+var layouts = []testutils.Layout{testutils.DeprecatedLayout, testutils.NewStateLayout}
+
+// storeBlocks stores blocks [from, to) with history in the given layout.
+func storeBlocks(
+	t *testing.T,
+	from, to uint64,
+	layout testutils.Layout,
+) (db.KeyValueStore, []*testutils.StoredBlock) {
+	t.Helper()
+	database := testutils.NewPebbleTestDB(t)
+	blocks := make([]*testutils.StoredBlock, to)
+	for i := from; i < to; i++ {
+		blocks[i] = testutils.StoreBlockWithLayout(t, database, i, 0, layout)
+	}
+	return database, blocks
+}
+
 // TestPruneUpto verifies the complete prune lifecycle with realistic block
 // counts: what survives, what gets deleted, and the two intentional
 // carve-outs (BlockHashLag headers and the single hash→number mapping at
@@ -36,31 +53,32 @@ func TestPruneUpto(t *testing.T) {
 	lag := core.BlockHashLag
 	require.GreaterOrEqual(t, endExclusive, lag)
 
-	database := testutils.NewPebbleTestDB(t)
-	blocks := make([]*testutils.StoredBlock, totalBlocks)
-	for i := range totalBlocks {
-		blocks[i] = testutils.StoreBlock(t, database, i)
-	}
-	pruned, oldestKept, err := pruner.PruneUpto(
-		t.Context(),
-		database,
-		endExclusive,
-		testTargetBatchByteSize,
-		false,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, endExclusive, pruned)
-	assert.Equal(t, endExclusive, oldestKept)
+	for _, layout := range layouts {
+		t.Run(layout.String(), func(t *testing.T) {
+			database, blocks := storeBlocks(t, 0, totalBlocks, layout)
+			want := testutils.HistoryAnswers(t, database, blocks, endExclusive-1, totalBlocks-1)
 
-	testutils.AssertPostPruneState(t, database, blocks, endExclusive, lag)
+			pruned, oldestKept, err := pruner.PruneUpto(
+				t.Context(),
+				database,
+				endExclusive,
+				testTargetBatchByteSize,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, endExclusive, pruned)
+			assert.Equal(t, endExclusive, oldestKept)
+
+			testutils.AssertPostPruneState(t, database, blocks, endExclusive, lag)
+			assert.Equal(t, want,
+				testutils.HistoryAnswers(t, database, blocks, endExclusive-1, totalBlocks-1))
+		})
+	}
 }
 
 func TestPruneUpto_NoOp(t *testing.T) {
 	t.Run("empty database returns 0", func(t *testing.T) {
 		database := testutils.NewPebbleTestDB(t)
-		pruned, oldestKept, err := pruner.PruneUpto(
-			t.Context(), database, 20, testTargetBatchByteSize, false,
-		)
+		pruned, oldestKept, err := pruner.PruneUpto(t.Context(), database, 20, testTargetBatchByteSize)
 		require.NoError(t, err)
 		assert.Zero(t, pruned)
 		assert.Zero(t, oldestKept)
@@ -75,27 +93,24 @@ func TestPruneUpto_NoOp(t *testing.T) {
 		{"endExclusive at oldestKept", 5, 5, 5},
 		{"endExclusive below oldestKept", 10, 5, 10},
 	}
-	for _, tc := range cases {
-		t.Run(tc.name+" is a no-op", func(t *testing.T) {
-			database := testutils.NewPebbleTestDB(t)
-			blocks := make([]*testutils.StoredBlock, 30)
-			for i := tc.chainStart; i < 30; i++ {
-				blocks[i] = testutils.StoreBlock(t, database, i)
-			}
-			pruned, oldestKept, err := pruner.PruneUpto(
-				t.Context(),
-				database,
-				tc.endExclusive,
-				testTargetBatchByteSize,
-				false,
-			)
-			require.NoError(t, err)
-			assert.Zero(t, pruned)
-			assert.Equal(t, tc.wantOldestKept, oldestKept)
-			for i := tc.chainStart; i < 30; i++ {
-				testutils.AssertBlockExists(t, database, blocks[i])
-			}
-		})
+	for _, layout := range layouts {
+		for _, tc := range cases {
+			t.Run(layout.String()+"/"+tc.name+" is a no-op", func(t *testing.T) {
+				database, blocks := storeBlocks(t, tc.chainStart, 30, layout)
+				pruned, oldestKept, err := pruner.PruneUpto(
+					t.Context(),
+					database,
+					tc.endExclusive,
+					testTargetBatchByteSize,
+				)
+				require.NoError(t, err)
+				assert.Zero(t, pruned)
+				assert.Equal(t, tc.wantOldestKept, oldestKept)
+				for i := tc.chainStart; i < 30; i++ {
+					testutils.AssertBlockExists(t, database, blocks[i])
+				}
+			})
+		}
 	}
 }
 
@@ -127,41 +142,44 @@ func TestPruneUpto_ResumeAfterMidwayCancel(t *testing.T) {
 	const endExclusive uint64 = 25
 	const cancelAfter = 10 // cancel after the 10th state-update Get
 
-	database := testutils.NewPebbleTestDB(t)
-	blocks := make([]*testutils.StoredBlock, totalBlocks)
-	for i := range totalBlocks {
-		blocks[i] = testutils.StoreBlock(t, database, i)
-	}
+	for _, layout := range layouts {
+		t.Run(layout.String(), func(t *testing.T) {
+			database, blocks := storeBlocks(t, 0, totalBlocks, layout)
+			want := testutils.HistoryAnswers(t, database, blocks, endExclusive-1, totalBlocks-1)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	wrapped := &cancelAfterGets{KeyValueStore: database, cancel: cancel, after: cancelAfter}
+			ctx, cancel := context.WithCancel(t.Context())
+			wrapped := &cancelAfterGets{KeyValueStore: database, cancel: cancel, after: cancelAfter}
 
-	pruned1, oldestKept1, err := pruner.PruneUpto(
-		ctx, wrapped, endExclusive, testTargetBatchByteSize, false,
-	)
-	require.NoError(t, err)
-	require.Greater(t, pruned1, uint64(0), "first call should make progress before cancel")
-	require.Less(t, pruned1, endExclusive, "first call must not finish the full window")
-	assert.Equal(t, pruned1, oldestKept1, "oldestKept after partial prune == pruned (start was 0)")
+			pruned1, oldestKept1, err := pruner.PruneUpto(
+				ctx, wrapped, endExclusive, testTargetBatchByteSize,
+			)
+			require.NoError(t, err)
+			require.Greater(t, pruned1, uint64(0), "first call should make progress before cancel")
+			require.Less(t, pruned1, endExclusive, "first call must not finish the full window")
+			assert.Equal(t, pruned1, oldestKept1,
+				"oldestKept after partial prune == pruned (start was 0)")
 
-	pruned2, oldestKept2, err := pruner.PruneUpto(
-		t.Context(), database, endExclusive, testTargetBatchByteSize,
-		false,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, endExclusive, oldestKept2)
+			pruned2, oldestKept2, err := pruner.PruneUpto(
+				t.Context(), database, endExclusive, testTargetBatchByteSize,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, endExclusive, oldestKept2)
 
-	assert.Equal(t, endExclusive, pruned1+pruned2,
-		"sum of blocks pruned across both calls must equal the full window — "+
-			"any duplicate or skipped block would break this invariant")
+			assert.Equal(t, endExclusive, pruned1+pruned2,
+				"sum of blocks pruned across both calls must equal the full window — "+
+					"any duplicate or skipped block would break this invariant")
 
-	// End-state: blocks below the lag floor are gone, blocks ≥ endExclusive intact.
-	for i := range endExclusive - core.BlockHashLag {
-		testutils.AssertBlockPruned(t, database, blocks[i])
-	}
-	testutils.AssertStateHistoryPruned(t, database, blocks[:endExclusive])
-	for i := endExclusive; i < totalBlocks; i++ {
-		testutils.AssertBlockExists(t, database, blocks[i])
+			// End-state: blocks below the lag floor are gone, blocks ≥ endExclusive intact.
+			for i := range endExclusive - core.BlockHashLag {
+				testutils.AssertBlockPruned(t, database, blocks[i])
+			}
+			testutils.AssertStateHistoryPruned(t, database, blocks[:endExclusive])
+			for i := endExclusive; i < totalBlocks; i++ {
+				testutils.AssertBlockExists(t, database, blocks[i])
+			}
+			assert.Equal(t, want,
+				testutils.HistoryAnswers(t, database, blocks, endExclusive-1, totalBlocks-1))
+		})
 	}
 }
 
@@ -173,29 +191,27 @@ func TestPruneUpto_RollingCarveOut(t *testing.T) {
 	const totalBlocks uint64 = 40
 	lag := core.BlockHashLag
 
-	database := testutils.NewPebbleTestDB(t)
-	blocks := make([]*testutils.StoredBlock, totalBlocks)
-	for i := range totalBlocks {
-		blocks[i] = testutils.StoreBlock(t, database, i)
+	for _, layout := range layouts {
+		t.Run(layout.String(), func(t *testing.T) {
+			database, blocks := storeBlocks(t, 0, totalBlocks, layout)
+			want := testutils.HistoryAnswers(t, database, blocks, 29, totalBlocks-1)
+
+			// Call 1: prune up to 20.
+			pruned, oldestKept, err := pruner.PruneUpto(t.Context(), database, 20, testTargetBatchByteSize)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(20), pruned)
+			assert.Equal(t, uint64(20), oldestKept)
+			testutils.AssertPostPruneState(t, database, blocks, 20, lag)
+
+			// Call 2: prune up to 30. OldestRetainedBlock returns 20 now, so we prune 10 more.
+			pruned, oldestKept, err = pruner.PruneUpto(t.Context(), database, 30, testTargetBatchByteSize)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(10), pruned)
+			assert.Equal(t, uint64(30), oldestKept)
+			testutils.AssertPostPruneState(t, database, blocks, 30, lag)
+			assert.Equal(t, want, testutils.HistoryAnswers(t, database, blocks, 29, totalBlocks-1))
+		})
 	}
-
-	// Call 1: prune up to 20.
-	pruned, oldestKept, err := pruner.PruneUpto(
-		t.Context(), database, 20, testTargetBatchByteSize, false,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, uint64(20), pruned)
-	assert.Equal(t, uint64(20), oldestKept)
-	testutils.AssertPostPruneState(t, database, blocks, 20, lag)
-
-	// Call 2: prune up to 30. OldestRetainedBlock returns 20 now, so we prune 10 more.
-	pruned, oldestKept, err = pruner.PruneUpto(
-		t.Context(), database, 30, testTargetBatchByteSize, false,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, uint64(10), pruned)
-	assert.Equal(t, uint64(30), oldestKept)
-	testutils.AssertPostPruneState(t, database, blocks, 30, lag)
 }
 
 // TestPruneBlockDataUpto exercises the range-tombstone half on its own,
@@ -247,51 +263,5 @@ func TestPruneBlockDataUpto(t *testing.T) {
 			"state update at block %d should be untouched", i)
 		assert.True(t, testutils.TransactionsExist(database, i),
 			"transactions at block %d should be untouched", i)
-	}
-}
-
-// TestPruneUpto_NewStateHistory checks that pruning new-state history keeps
-// every answer at or above the retention floor (endExclusive-1) and drops
-// only the entries a later pruned block supersedes.
-func TestPruneUpto_NewStateHistory(t *testing.T) {
-	const totalBlocks uint64 = 30
-	const endExclusive uint64 = 20
-	floor := endExclusive - 1
-
-	database := testutils.NewPebbleTestDB(t)
-	blocks := make([]*testutils.StoredBlock, totalBlocks)
-	for i := range totalBlocks {
-		blocks[i] = testutils.StoreNewStateBlock(t, database, i)
-	}
-	want := testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1)
-
-	_, _, err := pruner.PruneUpto(t.Context(), database, endExclusive, testTargetBatchByteSize, true)
-	require.NoError(t, err)
-
-	testutils.AssertPostPruneState(t, database, blocks, endExclusive, core.BlockHashLag)
-	assert.Equal(t, want, testutils.NewStateHistoryAnswers(t, database, blocks, floor, totalBlocks-1))
-
-	has := func(key []byte) bool {
-		ok, err := database.Has(key)
-		require.NoError(t, err)
-		return ok
-	}
-	for b := range totalBlocks {
-		// Touched every block: entries below the floor are superseded
-		superseded := b < floor
-		assert.Equal(t, !superseded, has(db.ContractStorageHistoryAtBlockKey(
-			testutils.SharedAddr1, testutils.SharedSlot, b)), "shared slot at %d", b)
-		assert.Equal(t, !superseded, has(db.ContractNonceHistoryAtBlockKey(testutils.SharedAddr1, b)))
-		assert.Equal(t, !superseded, has(db.ContractClassHashHistoryAtBlockKey(testutils.SharedAddr2, b)))
-
-		// Touched once: its only entry is the latest one at the floor
-		for addr, slots := range blocks[b].StateUpdate.StateDiff.StorageDiffs {
-			if addr.Equal(testutils.SharedAddr1) {
-				continue
-			}
-			for slot := range slots {
-				assert.True(t, has(db.ContractStorageHistoryAtBlockKey(&addr, &slot, b)))
-			}
-		}
 	}
 }

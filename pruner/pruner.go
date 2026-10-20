@@ -98,8 +98,6 @@ type Pruner struct {
 	l1HeadSub *feed.Subscription[*core.L1Head]
 	listener  EventListener
 	logger    log.StructuredLogger
-	// newState selects the new-state history layout, see [PruneUpto].
-	newState bool
 }
 
 type options struct {
@@ -108,7 +106,6 @@ type options struct {
 	minAge              time.Duration
 	floorTickInterval   time.Duration
 	listener            EventListener
-	newState            bool
 }
 
 type Option func(*options)
@@ -130,13 +127,6 @@ func WithTargetBatchByteSize(size int) Option {
 func WithL2HeadsPerPrune(n uint64) Option {
 	return func(o *options) {
 		o.l2HeadsPerPrune = n
-	}
-}
-
-// WithNewState prunes the new-state history layout instead of the deprecated one.
-func WithNewState(newState bool) Option {
-	return func(o *options) {
-		o.newState = newState
 	}
 }
 
@@ -197,7 +187,6 @@ func New(
 		l1HeadSub:           l1HeadSub,
 		listener:            o.listener,
 		logger:              logger,
-		newState:            o.newState,
 	}
 }
 
@@ -426,7 +415,6 @@ func (p *Pruner) pruneUpto(ctx context.Context, oldestBlockToKeep uint64) error 
 		p.database,
 		oldestBlockToKeep,
 		p.targetBatchByteSize,
-		p.newState,
 	)
 	if err != nil {
 		return err
