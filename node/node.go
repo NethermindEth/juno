@@ -389,15 +389,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 		if cfg.Prune {
-			prunerOpts := make([]pruner.Option, 0, 3)
+			prunerOpts := make([]pruner.Option, 0, 2)
 			if cfg.Metrics {
 				prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 			}
 
-			prunerOpts = append(prunerOpts,
-				pruner.WithMinAge(cfg.PruneMinAge),
-				pruner.WithNewState(cfg.NewState),
-			)
+			prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 			p := pruner.New(
 				database,
 				retentionFloor,
@@ -536,15 +533,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 			if cfg.Prune {
-				prunerOpts := make([]pruner.Option, 0, 3)
+				prunerOpts := make([]pruner.Option, 0, 2)
 				if cfg.Metrics {
 					prunerOpts = append(prunerOpts, pruner.WithListener(makePrunerMetrics()))
 				}
 
-				prunerOpts = append(prunerOpts,
-					pruner.WithMinAge(cfg.PruneMinAge),
-					pruner.WithNewState(cfg.NewState),
-				)
+				prunerOpts = append(prunerOpts, pruner.WithMinAge(cfg.PruneMinAge))
 				p := pruner.New(
 					database,
 					retentionFloor,

@@ -79,7 +79,6 @@ func PruneUpto(
 	database db.KeyValueStore,
 	endExclusive uint64,
 	targetBatchByteSize int,
-	newState bool,
 ) (blocksPruned, oldestKept uint64, err error) {
 	start, err := OldestRetainedBlock(database)
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -90,6 +89,10 @@ func PruneUpto(
 	}
 	if start >= endExclusive {
 		return 0, start, nil
+	}
+	newState, err := hasNewStateHistory(database)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	blockNum, err := pruneHashKeyedUpto(
@@ -313,6 +316,28 @@ func pruneStateHistoryFromUpdate(
 		}
 	}
 	return nil
+}
+
+// hasNewStateHistory reports whether the state history is in the new-state layout.
+func hasNewStateHistory(r db.KeyValueReader) (bool, error) {
+	for _, bucket := range []db.Bucket{
+		db.ContractStorageHistory,
+		db.ContractNonceHistory,
+		db.ContractClassHashHistory,
+	} {
+		it, err := r.NewIterator(bucket.Key(), true)
+		if err != nil {
+			return false, err
+		}
+		found := it.First()
+		if err := it.Close(); err != nil {
+			return false, err
+		}
+		if found {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // pruneNewStateHistoryFromUpdate deletes the new-state history entries that
