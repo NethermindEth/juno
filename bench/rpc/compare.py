@@ -23,8 +23,10 @@ METRICS = (
     Metric("p95", "p95 latency", "p95 latency (ms); lower is better.", False),
 )
 COLUMNS = ("reqs", "rps", "err", "avg", "med", "p90", "p95", "p99", "max")
-# profiles: {profile: {case: {"sets": [run], "warmup": [run]}}}; trials: {profile: count}
-Node = namedtuple("Node", "name dir profiles trials events")
+# profiles: {profile: {case: {"sets": {trial: [run]}, "warmup": {trial: [run]}}}};
+# trials: {profile: count}; cases: every case, in report order
+Node = namedtuple("Node", "name dir profiles trials cases events")
+NOT_RUN = {"sets": {}, "warmup": {}}
 
 
 def read_report(path):
@@ -37,31 +39,51 @@ def read_report(path):
         yield case, run, row
 
 
+def merge_cases(order, cases):
+    """Add the cases missing from order, each right after the case before it in cases."""
+    at = 0
+    for case in cases:
+        if case in order:
+            at = order.index(case) + 1
+        else:
+            order.insert(at, case)
+            at += 1
+
+
 def load(name, root):
     """Pool each case's runs per profile across trials. A run without a single
     timed response means the node stopped answering: the cases that trial
     starts afterwards are dropped, since they no longer measure the node."""
-    node = Node(name, root, {}, {}, [])
+    node = Node(name, root, {}, {}, [], [])
     for report in sorted(root.glob("*/*/report.md")):
         profile, trial = report.parent.parent.name, report.parent.name
         cases = node.profiles.setdefault(profile, {})
         node.trials[profile] = node.trials.get(profile, 0) + 1
-        current, skip, down = None, False, False
+        current, skip, down, order = None, False, False, []
         for case, run, row in read_report(report):
-            entry = cases.setdefault(case, {"sets": [], "warmup": []})
+            entry = cases.setdefault(case, {"sets": {}, "warmup": {}})
             if case != current:
                 current, skip = case, down
+                order.append(case)
             if skip:
                 continue
             if row["max"] == 0 and not down:
                 down = True
                 node.events.append(f"{name}, {profile} trial {trial}: stopped answering at {case}.{run}")
-            entry["warmup" if run == "warmup" else "sets"].append(row)
+            entry["warmup" if run == "warmup" else "sets"].setdefault(trial, []).append(row)
+        merge_cases(node.cases, order)
+    if not node.profiles:
+        sys.exit(f"{root}: no <profile>/<trial>/report.md\n{USAGE}")
     return node
 
 
 def median(rows, key):
     return statistics.median(r[key] for r in rows)
+
+
+def pick(entry, trials):
+    """The entry's runs from the given trials, pooled."""
+    return {part: [r for trial in trials for r in entry[part].get(trial, [])] for part in ("sets", "warmup")}
 
 
 def status(entry):
@@ -99,14 +121,31 @@ def fmt(value):
     return f"{value:,.0f}" if value >= 100 else f"{value:.3g}"
 
 
-def describe(name, entry, key):
+def spread(rows, key):
+    values = [r[key] for r in rows]
+    return f"{fmt(statistics.median(values))} ({fmt(min(values))}–{fmt(max(values))})"
+
+
+def trial_names(trials):
+    return ("trial " if len(trials) == 1 else "trials ") + ", ".join(trials)
+
+
+def describe(name, entry, shared, key):
+    if entry is NOT_RUN:
+        return f"{name}: not run"
     if not entry["sets"]:
         return f"{name}: not answering"
-    values = [r[key] for r in entry["sets"]]
-    text = f"{name}: {fmt(statistics.median(values))} ({fmt(min(values))}–{fmt(max(values))})"
-    if entry["warmup"]:
-        text += f", warmup {fmt(median(entry['warmup'], key))}"
-    worst = max(r["err"] for r in entry["sets"])
+    measured = list(entry["sets"])
+    all_sets = pick(entry, measured)["sets"]
+    if not shared:
+        return f"{name}: no shared trial; {trial_names(measured)}: {spread(all_sets, key)}"
+    runs = pick(entry, shared)
+    text = f"{name}: {spread(runs['sets'], key)}, {trial_names(shared)}"
+    if len(measured) > len(shared):
+        text += f" (all {len(measured)} trials: {fmt(median(all_sets, key))})"
+    if runs["warmup"]:
+        text += f", warmup {fmt(median(runs['warmup'], key))}"
+    worst = max(r["err"] for r in runs["sets"])
     if worst:
         text += f", errors up to {worst:.2%}"
     return text
@@ -121,10 +160,13 @@ def section(index, metric, cases, profiles, juno, trailseeker, plan):
         method = case.split("-")[0]
         cells = []
         for profile in profiles:
-            j, t = juno.profiles[profile][case], trailseeker.profiles[profile][case]
-            winner, step, text = verdict(j, t, metric)
+            j, t = juno.profiles[profile].get(case, NOT_RUN), trailseeker.profiles[profile].get(case, NOT_RUN)
+            shared = sorted(j["sets"].keys() & t["sets"].keys())
+            winner, step, text = verdict(pick(j, shared), pick(t, shared), metric)
             score[profile][winner] += 1
-            tip = "&#10;".join(html.escape(describe(n.name, e, metric.key)) for n, e in ((juno, j), (trailseeker, t)))
+            tip = "&#10;".join(
+                html.escape(describe(n.name, e, shared, metric.key)) for n, e in ((juno, j), (trailseeker, t))
+            )
             cells.append(f'<td class="{winner}{step}" title="{tip}">{text}</td>')
         rows.append(f"<tr><th>{html.escape(case)}</th>{''.join(cells)}</tr>")
 
@@ -158,7 +200,8 @@ def main():
     trailseeker = load("Trailseeker", Path(sys.argv[2]))
     plan = json.loads(PLAN.read_text())["profiles"]
     profiles = [p for p in plan if p in juno.profiles and p in trailseeker.profiles]
-    cases = list(juno.profiles[profiles[0]])
+    cases = list(juno.cases)
+    merge_cases(cases, trailseeker.cases)
 
     tabs = "".join(
         f'<input type="radio" name="metric" id="m{i}"{" checked" if i == 0 else ""}><label for="m{i}">{m.tab}</label>'
@@ -234,11 +277,11 @@ ul {{ padding-left: 20px; }}
 {sections}
 <h2>How to read</h2>
 <ul>
-<li>Each cell compares the median of sets 1–5 over all trials. Warmup runs (seed 0, different data) are left out; hover a cell for them, the min–max range and errors.</li>
+<li>Each cell compares the median of sets 1–5 over the trials both nodes measured. Warmup runs (seed 0, different data) are left out; hover a cell for them, the min–max range, trials and errors.</li>
 <li>{HIGHER} / {LOWER} Juno's value is higher / lower than Trailseeker's, by the shown factor. Color shows who wins: <span class="j2">Juno</span>, <span class="t2">Trailseeker</span>. <span class="tie0">≈</span> within ±{TIE - 1:.0%}. Darker means a gap of at least {STEPS[0]}× or {STEPS[1]}×.</li>
 <li>Throughput counts successful requests only. <b>!</b> marks cells where some runs had errors.</li>
 <li><b>✕</b> the losing node failed the case: at least {FAILED_ERRORS:.0%} errors in the median set.</li>
-<li><span class="na0">—</span> not measured: the node had stopped answering before the case started.</li>
+<li><span class="na0">—</span> not measured: the node did not run the case, had stopped answering before it started, or the nodes share no trial for it.</li>
 </ul>
 {f"<h2>Unresponsive</h2><ul>{events}</ul>" if events else ""}
 </body>
