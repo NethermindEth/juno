@@ -437,13 +437,10 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	// Get max finalised Starknet head.
 	var maxFinalisedNumber uint64
 	var maxFinalisedHead *StateUpdate
-	for l1BlockNumber := range c.nonFinalisedLogs {
-		if l1BlockNumber <= finalisedHeight {
-			if l1BlockNumber >= maxFinalisedNumber {
-				maxFinalisedNumber = l1BlockNumber
-				maxFinalisedHead = c.nonFinalisedLogs[maxFinalisedNumber]
-			}
-			delete(c.nonFinalisedLogs, l1BlockNumber)
+	for l1BlockNumber, stateUpdate := range c.nonFinalisedLogs {
+		if l1BlockNumber <= finalisedHeight && l1BlockNumber >= maxFinalisedNumber {
+			maxFinalisedNumber = l1BlockNumber
+			maxFinalisedHead = stateUpdate
 		}
 	}
 
@@ -462,6 +459,15 @@ func (c *Client) setL1Head(ctx context.Context) error {
 			"setting l1 head for block %d and state root %s: %w",
 			head.BlockNumber, head.StateRoot.String(), err,
 		)
+	}
+
+	// Evict the committed entries only after the head is persisted: a failed
+	// write leaves them buffered, so the next poll retries with the same
+	// updates instead of waiting for a new on-chain LogStateUpdate.
+	for l1BlockNumber := range c.nonFinalisedLogs {
+		if l1BlockNumber <= maxFinalisedNumber {
+			delete(c.nonFinalisedLogs, l1BlockNumber)
+		}
 	}
 	c.listener.OnNewL1Head(head)
 	c.logger.Info(

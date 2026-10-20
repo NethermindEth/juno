@@ -1,8 +1,10 @@
 package l1_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mocks"
@@ -742,6 +745,77 @@ func TestCatchUpHeadAndCachePartition(t *testing.T) {
 		_, present := client.NonFinalisedLogs()[l1Block]
 		assert.Falsef(t, present, "finalised l1=%d should be deleted from cache", l1Block)
 	}
+}
+
+// failingL1HeadStore rejects the first `failures` writes to the L1 head key so
+// tests can drive setL1Head's persist-failure path.
+type failingL1HeadStore struct {
+	db.KeyValueStore
+	failures atomic.Int32
+}
+
+func (s *failingL1HeadStore) Put(key, value []byte) error {
+	if bytes.Equal(key, db.L1Height.Key()) && s.failures.Add(-1) >= 0 {
+		return errors.New("injected l1 head write failure")
+	}
+	return s.KeyValueStore.Put(key, value)
+}
+
+// TestSetL1HeadRetriesAfterWriteFailure asserts that a failed L1 head write
+// does not discard the finalised updates the head was built from. The catch-up
+// scan is best-effort — Run logs the error and continues with the live
+// subscription — so evicting them would leave the head stale until the next
+// on-chain LogStateUpdate arrives. Here the first write fails and the live
+// poll must retry from the buffered update and persist it.
+func TestSetL1HeadRetriesAfterWriteFailure(t *testing.T) {
+	t.Parallel()
+
+	network := networks.Mainnet
+	store := &failingL1HeadStore{KeyValueStore: memory.New()}
+	store.failures.Store(1)
+	chain := blockchain.New(store, &network, blockchain.WithNewState(statetestutils.UseNewState()))
+
+	ctrl := gomock.NewController(t)
+	provider := mocks.NewMockL1StateProvider(ctrl)
+	provider.EXPECT().ChainID(gomock.Any()).Return(network.L1ChainID, nil).Times(1)
+	provider.EXPECT().Close().Times(1)
+	provider.
+		EXPECT().
+		WatchStateUpdate(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		AnyTimes()
+
+	// LatestHeight=10, FinalisedHeight=5 → the single event at l1=3 is
+	// finalised and is the only candidate for the head.
+	provider.EXPECT().LatestHeight(gomock.Any()).Return(uint64(10), nil).Times(1)
+	provider.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(5), nil).AnyTimes()
+
+	finalised := (&logStateUpdate{l1BlockNumber: 3, l2BlockNumber: 30}).ToStateUpdate()
+	provider.
+		EXPECT().
+		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
+		Return([]*StateUpdate{finalised}, nil).
+		Times(1)
+
+	client := NewClient(
+		provider, chain, log.NewNopZapLogger(),
+		WithResubscribeDelay(0),
+		WithPollFinalisedInterval(time.Millisecond),
+	)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+	require.NoError(t, client.Run(ctx))
+	cancel()
+
+	// The catch-up write failed; the poll that follows must commit the update
+	// that is still buffered. Dropping it leaves no head on disk at all.
+	got, err := chain.L1Head()
+	require.NoError(t, err, "failed head write must be retried from the buffered update")
+	assert.Equal(t, core.L1Head{
+		BlockNumber: 30,
+		BlockHash:   new(felt.Felt).SetUint64(30),
+		StateRoot:   new(felt.Felt).SetUint64(30),
+	}, got)
 }
 
 // TestCatchUpPartialProgressPreserved asserts the best-effort contract: when
