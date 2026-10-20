@@ -217,10 +217,7 @@ func (m *Migrator) runStage(
 		return false, fmt.Errorf("writing batch: %w", err)
 	}
 
-	counter := newScanCounter(logger, "stage history", "historyKeys")
-	next, err := stageHistory(
-		ctx, database, m.layout, m.oldestBlockKept, m.resumeHistoryFrom, &counter,
-	)
+	next, err := stageHistory(ctx, database, m.layout, m.oldestBlockKept, m.resumeHistoryFrom, logger)
 	if err != nil {
 		return false, err
 	}

@@ -1,13 +1,18 @@
 package historyprunner
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"iter"
+	"runtime"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/progresslogger"
+	"github.com/NethermindEth/juno/migration/semaphore"
+	"github.com/NethermindEth/juno/utils/log"
 )
 
 // migrationScratchTag leads every scratch key: [Temporary][original key]. The
@@ -24,90 +29,83 @@ func scratchKey(key []byte) []byte {
 	return append([]byte{migrationScratchTag}, key...)
 }
 
+// addrRanges is how many address ranges a bucket is split into, by the first
+// two bytes of the address, which is below 2^251.
+const addrRanges = 0x0800
+
 // stageHistory copies to the scratch space every history entry that reads at
-// or above floor reach, starting at resumeHistoryFrom. The source buckets are only wiped
-// once staging completes, so a repeated run stages the same entries. On cancel
-// it commits what it staged and returns the history key to resume from.
+// or above floor reach, starting at resumeHistoryFrom. A source hands address
+// ranges to workers; on cancel the ranges already
+// handed out are finished and written, so it returns the start of the first
+// range never handed out, the exact point to resume from.
 func stageHistory(
 	ctx context.Context,
 	database db.KeyValueStore,
 	l layout,
 	floor uint64,
 	resumeHistoryFrom []byte,
-	counter *progresslogger.Counter,
+	logger log.StructuredLogger,
 ) ([]byte, error) {
 	buckets, err := l.bucketsFrom(resumeHistoryFrom, 0)
 	if err != nil {
 		return nil, err
 	}
-	w := newBatchWriter(database)
-	defer w.close()
+	workers := runtime.GOMAXPROCS(0)
+	sem := semaphore.New(workers+1, func() db.Batch {
+		return database.NewBatchWithSize(int(batchByteSize))
+	})
 
-	for _, bucket := range buckets {
-		next, err := stageBucket(ctx, database, w, l, bucket, floor, resumeHistoryFrom, counter)
-		if err != nil {
-			return nil, fmt.Errorf("staging %v: %w", bucket, err)
-		}
-		if next != nil {
-			return next, w.flush()
-		}
-		resumeHistoryFrom = nil
+	s := newStager(database, sem, l, floor, workers)
+	counter := newScanCounter(logger, "stage history", "historyKeys")
+	stopLog := progresslogger.CallEveryInterval(ctx, timeLogRate, func() {
+		counter.Log(s.size.Swap(0), int(s.keys.Swap(0)), int(s.entries.Swap(0)))
+	})
+	defer stopLog()
+
+	var next []byte
+	seq := stageTasks(buckets, resumeHistoryFrom, &next)
+	stagers := pipeline.New(pipeline.Source(seq), workers, s)
+	committers := pipeline.New(stagers, 1, newCommitter(logger, sem))
+	_, wait := committers.Run(ctx)
+	res := wait()
+	if res.Err != nil {
+		return nil, res.Err
 	}
-	return nil, w.flush()
+	if res.IsDone {
+		return nil, nil
+	}
+	if next == nil {
+		return nil, errors.New("stage stopped without a resume point")
+	}
+	return next, nil
 }
 
-// stageBucket stages bucket from resumeHistoryFrom on, one history key at a time: it
-// moves to the key's first entry to keep and copies everything from there to
-// the key's end. ctx is checked between keys, and the first key left unstaged
-// is returned.
-func stageBucket(
-	ctx context.Context,
-	r db.KeyValueReader,
-	w *batchWriter,
-	l layout,
-	bucket db.Bucket,
-	floor uint64,
-	resumeHistoryFrom []byte,
-	counter *progresslogger.Counter,
-) ([]byte, error) {
-	it, err := r.NewIterator(bucket.Key(), true)
-	if err != nil {
-		return nil, err
-	}
-	defer it.Close()
-
-	var ok bool
-	if resumeHistoryFrom != nil {
-		ok = it.Seek(resumeHistoryFrom)
-	} else {
-		ok = it.First()
-	}
-	for ok {
-		key := it.Key()
-		historyKey := key[:len(key)-blockNumberSuffixLen]
-		if ctx.Err() != nil {
-			return historyKey, nil
-		}
-		if binary.BigEndian.Uint64(key[len(historyKey):]) < floor {
-			ok = l.seekStart(it, binary.BigEndian.AppendUint64(historyKey, floor))
-		}
-		for ; ok; ok = it.Next() {
-			key := it.Key()
-			if !bytes.HasPrefix(key, historyKey) {
-				break
+// stageTasks yields the address ranges of buckets from resumeHistoryFrom on.
+// When yield refuses a range it sets *next to its start.
+func stageTasks(buckets []db.Bucket, resumeHistoryFrom []byte, next *[]byte) iter.Seq[stageTask] {
+	return func(yield func(stageTask) bool) {
+		for _, bucket := range buckets {
+			from := 0
+			if resumeHistoryFrom != nil {
+				from = int(binary.BigEndian.Uint16(resumeHistoryFrom[1:]))
+				resumeHistoryFrom = nil
 			}
-			val, err := it.UncopiedValue()
-			if err != nil {
-				return nil, err
+			for i := from; i < addrRanges; i++ {
+				task := stageTask{
+					bucket: bucket,
+					start:  binary.BigEndian.AppendUint16(bucket.Key(), uint16(i)),
+					end:    binary.BigEndian.AppendUint16(bucket.Key(), uint16(i+1)),
+				}
+				if i == addrRanges-1 {
+					task.end = []byte{byte(bucket) + 1}
+				}
+				if !yield(task) {
+					*next = task.start
+					return
+				}
 			}
-			if err := w.put(scratchKey(key), val); err != nil {
-				return nil, err
-			}
-			counter.Log(uint64(len(key)+len(val)), 0, 1)
 		}
-		counter.Log(0, 1, 0)
 	}
-	return nil, nil
 }
 
 // restoreHistory copies the staged entries back into their buckets, starting
