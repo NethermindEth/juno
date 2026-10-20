@@ -1,6 +1,8 @@
 package historyprunner
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -46,9 +48,16 @@ func (l layout) buckets() []db.Bucket {
 
 // seekStart moves it from a history key's first entry, below the floor, to
 // the key's first entry to keep: the first at or above the floor, and for
-// new-state the latest below it, which reads at the floor resolve to.
-func (l layout) seekStart(it db.Iterator, floorKey []byte) bool {
-	ok := it.Seek(floorKey)
+// new-state the latest below it, which reads at floor-1 resolve to. Most keys
+// have one or two entries, so it tries Next before seeking.
+func (l layout) seekStart(it db.Iterator, historyKey []byte, floor uint64) bool {
+	ok := it.Next()
+	if ok {
+		key := it.Key()
+		if bytes.HasPrefix(key, historyKey) && binary.BigEndian.Uint64(key[len(historyKey):]) < floor {
+			ok = it.Seek(binary.BigEndian.AppendUint64(historyKey, floor))
+		}
+	}
 	if l == newStateLayout {
 		return it.Prev()
 	}
