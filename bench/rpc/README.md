@@ -6,10 +6,9 @@ Sample a Starknet node into a seeded JSON-RPC corpus, then replay it with
 ## Methods
 
 Run `./build/corpus-gen --help` for the full list. One subcommand per method
-(`starknet_` prefix dropped), covering the read and trace APIs plus
-`starknet_getCompiledCasm`; the write and websocket APIs and the execution
-methods (`starknet_call`, `starknet_estimateFee`, `starknet_estimateMessageFee`,
-`starknet_simulateTransactions`, `starknet_getMessagesStatus`) are not
+(`starknet_` prefix dropped), covering the read, trace and execution APIs plus
+`starknet_getCompiledCasm`; the write and websocket APIs,
+`starknet_estimateMessageFee` and `starknet_getMessagesStatus` are not
 generated.
 
 Method-specific flags:
@@ -25,6 +24,42 @@ Method-specific flags:
 | `getEvents`       | `--addresses`                               | emitter addresses in the filter (0 = no address filter) |
 | `getEvents`       | `--keys`                                    | key counts per position, e.g. `1,0,2` (0 = wildcard; omit for no keys filter) |
 | `getStorageProof` | `--num-classes`/`--num-contracts`/`--num-keys` | trie members per request (queried at `latest`)  |
+| `estimateFee`/`simulateTransactions` | `--num-txs`          | broadcasted transactions per request, one value or `min,max` uniform draw (default 1) |
+| `estimateFee`/`simulateTransactions` | `--tx-types`         | transaction types to take from the block: `INVOKE`, `DECLARE`, `DEPLOY_ACCOUNT` (default `INVOKE,DEPLOY_ACCOUNT`) |
+| `estimateFee`     | `--skip-validate`                           | add `SKIP_VALIDATE` to `simulation_flags`          |
+| `simulateTransactions` | `--skip-validate`/`--skip-fee-charge`/`--return-initial-reads` | add those flags to `simulation_flags` |
+| execution subcommands | `--verify`                              | replay each sample against the source node and draw again when it fails (default on) |
+
+### Execution methods
+
+`estimateFee`, `simulateTransactions` and `call` sample a block N, then build the
+request from the transactions of block N+1, which ran on the state of block N:
+
+- `estimateFee` and `simulateTransactions` send a leading run of block N+1's
+  transactions. Real transactions keep their nonces and signatures valid, so
+  `SKIP_VALIDATE` stays optional. The run stops at the first transaction with a
+  version below `0x3` or a type outside `--tx-types`. A block whose run is
+  shorter than `--num-txs` is skipped.
+- `call` takes one call out of an account multicall in block N+1.
+- `--block-id latest` is not supported, because block N+1 must exist.
+- `--block-start` defaults to 10000 blocks below `--block-end`. Older ranges need
+  a node that keeps their state, and blocks before the Starknet 0.13.0 upgrade
+  carry no `0x3` transactions at all.
+- `--verify` keeps the corpus clean: `run.js` counts a JSON-RPC error as a
+  failure, and a real transaction can still revert or run short of resources
+  when it replays against the gas prices of block N. Generation therefore runs
+  execution work on the source node, and `--batch N` multiplies it by N. The
+  check only covers the source node: another node can still reject a request
+  that `--source-url` accepted.
+- `--tx-types` selects the cost class under measurement: `INVOKE` executes,
+  `DEPLOY_ACCOUNT` also runs `__validate_deploy__` and a deployment, `DECLARE`
+  compiles. It is not a filter over the block: a transaction of any other type
+  ends the run, so a narrow list draws more blocks per entry. Watch the
+  `sampling attempts` line that generation prints. `L1_HANDLER` and `DEPLOY`
+  are rejected, since the execution methods do not take them.
+- `DECLARE` sends a full contract class per transaction, which the node compiles
+  on every request. The corpus grows by ~100KB-1MB per entry, and the benchmark
+  then measures compilation instead of execution.
 
 ## Use
 
