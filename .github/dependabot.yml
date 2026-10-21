@@ -5,6 +5,11 @@ updates:
     open-pull-requests-limit: 3
     schedule:
       interval: "weekly"
+    groups:
+      # init, autobuild, analyze and upload-sarif must run the same version.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
   - package-ecosystem: "docker"
     directory: "/"
     open-pull-requests-limit: 3
