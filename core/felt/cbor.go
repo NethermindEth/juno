@@ -9,7 +9,7 @@ import (
 )
 
 // Fast, felt-specialized CBOR marshaling.
-func (z *Felt) MarshalCBOR() ([]byte, error) {
+func (z *Typed[K]) MarshalCBOR() ([]byte, error) {
 	data := make([]byte, maxCBORFeltLen)
 	n := encodeLimbs(data, z)
 	return data[:n], nil
@@ -17,11 +17,16 @@ func (z *Felt) MarshalCBOR() ([]byte, error) {
 
 // Fast, felt-specialized CBOR unmarshaling.
 // Falls back to the generic decoder on shape mismatch
-func (z *Felt) UnmarshalCBOR(data []byte) error {
-	if decodeFelt(data, z) {
+func (z *Typed[K]) UnmarshalCBOR(data []byte) error {
+	return unmarshalCBOR(data, (*fp.Element)(z))
+}
+
+// unmarshalCBOR tries the limb fast path and falls back to the generic decoder.
+func unmarshalCBOR(data []byte, value *fp.Element) error {
+	if decodeFelt(data, value) {
 		return nil
 	}
-	return cbor.Unmarshal(data, (*fp.Element)(z))
+	return cbor.Unmarshal(data, value)
 }
 
 const (
@@ -186,8 +191,8 @@ func decodeVariableLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 
 // decodeFelt decodes a single felt that must span all of data, rejecting trailing bytes.
 // It returns a flag to signal success, and writes value only on success.
-func decodeFelt(data []byte, value *Felt) bool {
-	var felt Felt
+func decodeFelt(data []byte, value *fp.Element) bool {
+	var felt fp.Element
 	consumed, ok := decodeLimbs(data, &felt)
 	if !ok || consumed != len(data) {
 		return false
