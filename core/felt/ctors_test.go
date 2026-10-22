@@ -9,7 +9,10 @@ import (
 
 // feltoid is the minimal implementation satisfying [felt.FeltLike] defined to test
 // the package generic methods.
-type feltoid [4]uint64
+// A kind declared outside core/felt still gets the full Typed API.
+type feltoidKind struct{}
+
+type feltoid = felt.Typed[feltoidKind]
 
 func TestNumberCtor(t *testing.T) {
 	const posValue = 100

@@ -4,8 +4,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-// Interface that represents all types that implement Felt as a sublying type
-// E.g: Hash and Address
+// FeltLike is the constraint for generic code over felts: every Typed[K] satisfies it, as does any
+// type declared over one. It exists because a generic type such as Slice cannot infer K.
 type FeltLike interface {
 	~[4]uint64
 }
