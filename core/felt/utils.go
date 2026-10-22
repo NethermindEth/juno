@@ -1,15 +1,11 @@
 package felt
 
-import "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-
-// IsZero reports whether v is zero, as the field element implementation defines it.
+// IsZero reports whether v is zero; limb equality is the field element's own definition.
 func IsZero[F FeltLike](v *F) bool {
-	element := fp.Element(*v)
-	return element.IsZero()
+	return *v == F{}
 }
 
-// Equal reports whether a and b hold the same value, as the field element defines it.
+// Equal reports whether a and b are equal; limb equality is the field element's own definition.
 func Equal[F FeltLike](a, b *F) bool {
-	x, y := fp.Element(*a), fp.Element(*b)
-	return x.Equal(&y)
+	return *a == *b
 }
