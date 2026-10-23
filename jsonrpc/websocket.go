@@ -199,9 +199,17 @@ func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
+// busyResponse returns a server-busy response, or nil for a valid notification
+// that must not receive a reply.
 func busyResponse(body []byte) []byte {
 	var req Request
-	if json.Unmarshal(body, &req, decodeOptions) != nil || req.ID == nil || !validID(req.ID) {
+	if json.Unmarshal(body, &req, decodeOptions) != nil {
+		return serverBusyResponse
+	}
+	if req.ID == nil && req.isSane() == nil {
+		return nil
+	}
+	if req.ID == nil || !validID(req.ID) {
 		return serverBusyResponse
 	}
 
@@ -219,8 +227,11 @@ func (ws *Websocket) handleMessage(wsc *websocketConn, body []byte) error {
 	if ws.gate != nil {
 		if !ws.gate.TryAcquire() {
 			ws.logServerBusy()
-			_, err := wsc.Write(busyResponse(body))
-			return err
+			if response := busyResponse(body); response != nil {
+				_, err := wsc.Write(response)
+				return err
+			}
+			return nil
 		}
 		defer ws.gate.Release()
 	}
