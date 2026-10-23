@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,4 +24,23 @@ func TestEqual(t *testing.T) {
 
 	v2[0] += 100
 	require.False(t, felt.Equal(&v1, &v2))
+}
+
+// The helpers must agree with the field element's own comparisons on every input.
+func TestHelpersMatchElement(t *testing.T) {
+	values := []felt.Felt{
+		{},
+		felt.One,
+		felt.FromUint64[felt.Felt](1 << 40),
+		felt.Random[felt.Felt](),
+		felt.Random[felt.Felt](),
+	}
+	for _, a := range values {
+		elementA := fp.Element(a)
+		require.Equal(t, elementA.IsZero(), felt.IsZero(&a))
+		for _, b := range values {
+			elementB := fp.Element(b)
+			require.Equal(t, elementA.Equal(&elementB), felt.Equal(&a, &b))
+		}
+	}
 }
