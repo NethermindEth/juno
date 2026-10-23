@@ -25,44 +25,6 @@ var (
 	)
 )
 
-// Deprecated: Pending is the pre-0.14.0 pending block variant. It is retained solely as a
-// placeholder returned by rpc/v6/v8's Pending() and MakeEmptyPendingForParent to satisfy
-// the "pending" block ID in the v6/v8 RPC spec. Remove this type when rpc/v6/v8 are deprecated.
-type Pending struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.ClassDefinition
-}
-
-// Deprecated: NewPending constructs the deprecated Pending type.
-func NewPending(
-	block *core.Block,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
-) Pending {
-	return Pending{
-		Block:       block,
-		StateUpdate: stateUpdate,
-		NewClasses:  newClasses,
-	}
-}
-
-func (p *Pending) GetBlock() *core.Block {
-	return p.Block
-}
-
-func (p *Pending) GetHeader() *core.Header {
-	return p.Block.Header
-}
-
-func (p *Pending) GetTransactions() []core.Transaction {
-	return p.Block.Transactions
-}
-
-func (p *Pending) GetStateUpdate() *core.StateUpdate {
-	return p.StateUpdate
-}
-
 type PreConfirmed struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate

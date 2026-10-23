@@ -520,8 +520,8 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 	go s.pollLatest(syncCtx)
 
-	pollPendingWg := &stdsync.WaitGroup{}
-	pollPendingWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
+	pollPreConfirmedWg := &stdsync.WaitGroup{}
+	pollPreConfirmedWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
 
 	for {
 		select {
@@ -529,7 +529,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			streamCancel()
 			fetchers.Wait()
 			verifiers.Wait()
-			pollPendingWg.Wait()
+			pollPreConfirmedWg.Wait()
 
 			select {
 			case <-syncCtx.Done():
@@ -538,7 +538,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
-				pollPendingWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
+				pollPreConfirmedWg.Go(func() { s.pollPreConfirmedData(streamCtx) })
 				s.logger.Warn("Restarting sync process",
 					zap.Uint64("height", nextHeight),
 					zap.Bool("catchUpMode", s.catchUpMode),

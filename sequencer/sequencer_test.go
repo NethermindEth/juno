@@ -16,7 +16,7 @@ import (
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
+	rpc "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils/log"
@@ -270,7 +270,7 @@ func TestHelpers(t *testing.T) {
 	block := seq.PreConfirmedBlock()
 	require.NotNil(t, block)
 
-	state, closer, err := seq.PendingState()
+	state, closer, err := seq.PreConfirmedState()
 	require.NoError(t, err)
 	require.NotNil(t, state)
 	require.NotNil(t, closer)
