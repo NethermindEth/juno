@@ -107,12 +107,12 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 		name:       "nonce",
 		deprecated: db.DeprecatedContractNonceHistory,
 		newIngestor: func(
-			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader,
+			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader, floor uint64,
 		) pipeline.State[felt.Address, common.Task] {
-			return &cancelAfter{State: newNonceIngestor(sem, r), cancel: cancel, n: 5}
+			return &cancelAfter{State: newNonceIngestor(sem, r, floor), cancel: cancel, n: 5}
 		},
 	}
-	done, err := runPhase(ctx, memDB, logger, &interrupted, &progress)
+	done, err := runPhase(ctx, memDB, logger, &interrupted, &progress, 0)
 	require.NoError(t, err)
 	require.False(t, done, "the walk must have been interrupted")
 
@@ -134,11 +134,11 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 	// Resume from the recorded address with the plain ingestor and finish.
 	resumed := interrupted
 	resumed.newIngestor = func(
-		sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader,
+		sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader, floor uint64,
 	) pipeline.State[felt.Address, common.Task] {
-		return newNonceIngestor(sem, r)
+		return newNonceIngestor(sem, r, floor)
 	}
-	done, err = runPhase(context.Background(), memDB, logger, &resumed, &progress)
+	done, err = runPhase(context.Background(), memDB, logger, &resumed, &progress, 0)
 	require.NoError(t, err)
 	require.True(t, done)
 	for i := range addrs {
