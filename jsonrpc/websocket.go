@@ -3,7 +3,8 @@ package jsonrpc
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -23,7 +24,7 @@ const (
 )
 
 var serverBusyResponse = func() []byte {
-	b, err := json.Marshal(&response{
+	b, err := jsonv1.Marshal(&response{
 		Version: "2.0",
 		Error:   &Error{Code: ServerBusy, Message: ErrServerBusy.Error()},
 	})
@@ -198,13 +199,11 @@ func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
+// busyResponse returns a server-busy response, or nil for a valid notification
+// that must not receive a reply.
 func busyResponse(body []byte) []byte {
-	reader := bytes.NewReader(body)
-	dec := json.NewDecoder(reader)
-	dec.UseNumber()
-
 	var req Request
-	if decodeOne(dec, reader, &req) != nil {
+	if json.Unmarshal(body, &req, decodeOptions) != nil {
 		return serverBusyResponse
 	}
 	if req.ID == nil && req.isSane() == nil {
@@ -216,7 +215,7 @@ func busyResponse(body []byte) []byte {
 
 	resp := errResponse(ServerBusy, nil)
 	resp.ID = req.ID
-	out, err := json.Marshal(resp)
+	out, err := jsonv1.Marshal(resp)
 	if err != nil {
 		return serverBusyResponse
 	}
