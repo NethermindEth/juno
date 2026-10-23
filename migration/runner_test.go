@@ -2,6 +2,7 @@ package migration_test
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"testing"
 	"time"
@@ -176,6 +177,30 @@ func TestNewRunner(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, runner)
 		require.Contains(t, err.Error(), "database is from a newer, incompatible version of Juno")
+	})
+
+	t.Run("Success with all deprecated migrations applied", func(t *testing.T) {
+		testDB := setupTestDB(t)
+		version := binary.BigEndian.AppendUint64(nil, 22)
+		require.NoError(t, testDB.Put(db.DeprecatedSchemaVersion.Key(), version))
+
+		runner := createRunner(t, testDB, migration.NewRegistry().With(&mockMigration{}))
+		require.NotNil(t, runner)
+	})
+
+	t.Run("Error on pending deprecated migrations", func(t *testing.T) {
+		testDB := setupTestDB(t)
+		// Missing the last deprecated migration, which Juno v0.15.17 introduced
+		version := binary.BigEndian.AppendUint64(nil, 21)
+		require.NoError(t, testDB.Put(db.DeprecatedSchemaVersion.Key(), version))
+
+		_, err := migration.NewRunner(
+			migration.NewRegistry().With(&mockMigration{}),
+			testDB,
+			&networks.Mainnet,
+			log.NewNopZapLogger(),
+		)
+		require.ErrorContains(t, err, "database is from an older, unsupported version of Juno")
 	})
 }
 

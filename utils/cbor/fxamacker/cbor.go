@@ -7,9 +7,6 @@ import (
 	fxcbor "github.com/fxamacker/cbor/v2"
 )
 
-// UnmarshalTypeError is a wire item that does not fit the Go type, as opposed to malformed input.
-type UnmarshalTypeError = fxcbor.UnmarshalTypeError
-
 var (
 	ts = fxcbor.NewTagSet()
 	// https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml

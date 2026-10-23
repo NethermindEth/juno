@@ -11,10 +11,9 @@ type Serializer[V any] interface {
 var Uint64 = uint64Serializer{}
 
 var (
-	Felt          = feltBytesSerializer[*felt.Felt]{}
-	Hash          = feltBytesSerializer[*felt.Hash]{}
-	ClassHash     = feltBytesSerializer[*felt.ClassHash]{}
-	CasmClassHash = feltBytesSerializer[*felt.CasmClassHash]{}
+	Felt      = feltBytesSerializer[*felt.Felt]{}
+	Hash      = feltBytesSerializer[*felt.Hash]{}
+	ClassHash = feltBytesSerializer[*felt.ClassHash]{}
 )
 
 var Bytes = BytesSerializer{}
