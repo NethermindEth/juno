@@ -100,7 +100,13 @@ func prepareDB(t *testing.T, network *networks.Network, syncToBlock uint64) stri
 		block := adaptfeedertest.Block(t, client, blockNumber)
 		stateUpdate := adaptfeedertest.StateUpdate(t, client, blockNumber)
 
-		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+		require.NoError(t, chain.Store(
+			block,
+			&emptyCommitments,
+			stateUpdate,
+			nil,
+			core.EventsBloom(block.Receipts),
+		))
 	}
 	require.NoError(t, testDB.Close())
 

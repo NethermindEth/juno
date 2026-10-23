@@ -75,7 +75,7 @@ func (h *Handler) EstimateMessageFee(
 		calldata[i+1] = msg.Payload[i]
 	}
 
-	state, closer, rpcErr := h.stateByBlockID(id)
+	state, closer, header, rpcErr := h.stateAndHeaderByBlockID(id)
 	if rpcErr != nil {
 		return FeeEstimate{}, nil, rpcErr
 	}
@@ -106,7 +106,7 @@ func (h *Handler) EstimateMessageFee(
 
 	result, httpHeader, err := h.simulateTransactions(
 		state,
-		id,
+		header,
 		[]core.Transaction{&l1Handler},
 		nil,  // classes
 		nil,  // simulation flags

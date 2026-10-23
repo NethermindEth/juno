@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
@@ -28,9 +29,10 @@ func TestEstimateFee(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	logger := log.NewNopZapLogger()
-	handler := rpcv10.New(mockReader, nil, mockVM, logger)
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, logger)
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -91,6 +93,41 @@ func TestEstimateFee(t *testing.T) {
 				rpcv10.EstimateSkipValidateFlag,
 			},
 			&blockID,
+		)
+		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "123")
+	})
+
+	t.Run("pre_confirmed", func(t *testing.T) {
+		stateDiff := core.EmptyStateDiff()
+		preConfirmed := pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mockState, nopCloser, nil)
+		mockVM.EXPECT().EstimateFee(
+			[]core.Transaction{},
+			nil,
+			&vm.BlockInfo{Header: preConfirmed.Block.Header},
+			gomock.Any(),
+			vm.EstimateFeeOptions{}).
+			Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{},
+				DataAvailability: []core.DataAvailability{},
+				GasConsumed:      []core.GasConsumed{},
+				Traces:           []vm.TransactionTrace{},
+				NumSteps:         uint64(123),
+			}, nil)
+
+		preConfirmedID := rpcv10.BlockIDPreConfirmed()
+		_, httpHeader, err := handler.EstimateFee(
+			t.Context(),
+			rpcv10.BroadcastedTransactionInputs{},
+			[]rpcv10.EstimateFlag{},
+			&preConfirmedID,
 		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv10.ExecutionStepsHeader), "123")
@@ -164,9 +201,10 @@ func TestEstimateMessageFee(t *testing.T) {
 	n := &networks.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	logger := log.NewNopZapLogger()
-	handler := rpcv10.New(mockReader, nil, mockVM, logger)
+	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, logger)
 
 	blockID := rpcv10.BlockIDLatest()
 	to := felt.FromUint64[felt.Felt](0xABCD)
@@ -179,6 +217,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	t.Run("contract not found returns ErrContractNotFound", func(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, errors.New("missing"))
 
 		_, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
@@ -213,6 +252,39 @@ func TestEstimateMessageFee(t *testing.T) {
 		}, nil)
 
 		feeEstimate, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
+		require.Nil(t, err)
+		assert.NotEmpty(t, feeEstimate)
+	})
+
+	t.Run("pre_confirmed", func(t *testing.T) {
+		// The receiving contract is only deployed in the pre_confirmed block
+		stateDiff := core.EmptyStateDiff()
+		stateDiff.DeployedContracts[msg.To] = felt.NewFromUint64[felt.Felt](0x1234)
+		preConfirmed := pending.PreConfirmed{
+			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
+			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
+		}
+		mockSyncReader.EXPECT().RequestPreConfirmedChain().
+			Return(mustNewChain(t, &preConfirmed), nil)
+		mockReader.EXPECT().StateAtBlockNumber(preConfirmed.Block.Number-1).
+			Return(mocks.NewMockStateReader(mockCtrl), nopCloser, nil)
+
+		mockVM.EXPECT().EstimateFee(
+			gomock.Any(),
+			nil,
+			&vm.BlockInfo{Header: preConfirmed.Block.Header},
+			gomock.Any(),
+			gomock.Any(),
+		).Return(vm.ExecutionResults{
+			OverallFees:      []*felt.Felt{felt.NewFromUint64[felt.Felt](42)},
+			DataAvailability: []core.DataAvailability{{}},
+			GasConsumed:      []core.GasConsumed{{L1Gas: 1, L2Gas: 2, L1DataGas: 3}},
+			Traces:           []vm.TransactionTrace{{Type: vm.TxnL1Handler}},
+			NumSteps:         10,
+		}, nil)
+
+		preConfirmedID := rpcv10.BlockIDPreConfirmed()
+		feeEstimate, _, err := handler.EstimateMessageFee(t.Context(), msg, &preConfirmedID)
 		require.Nil(t, err)
 		assert.NotEmpty(t, feeEstimate)
 	})

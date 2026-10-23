@@ -123,6 +123,42 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	return header, nil
 }
 
+// stateAndHeaderByBlockID returns the state and the header at blockID
+func (h *Handler) stateAndHeaderByBlockID(
+	blockID *BlockID,
+) (core.StateReader, blockchain.StateCloser, *core.Header, *jsonrpc.Error) {
+	if !blockID.IsPreConfirmed() {
+		state, closer, rpcErr := h.stateByBlockID(blockID)
+		if rpcErr != nil {
+			return nil, nil, nil, rpcErr
+		}
+		header, rpcErr := h.blockHeaderByID(blockID)
+		if rpcErr != nil {
+			h.callAndLogErr(closer, "Failed to close state after failing to get its header")
+			return nil, nil, nil, rpcErr
+		}
+		return state, closer, header, nil
+	}
+
+	var state core.StateReader
+	var closer blockchain.StateCloser
+	var header *core.Header
+	chain, err := h.syncReader.RequestPreConfirmedChain()
+	if err == nil {
+		head := chain.Head()
+		header = head.GetHeader()
+		state, closer, err = chain.PreConfirmedStateAt(head.Block.Number, h.bcReader)
+	}
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, pending.ErrPreConfirmedNotFound) {
+			return nil, nil, nil, rpccore.ErrBlockNotFound
+		}
+		return nil, nil, nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+	return state, closer, header, nil
+}
+
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 	if blockNumber < core.BlockHashLag {
 		return nil, nil

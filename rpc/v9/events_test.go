@@ -123,7 +123,13 @@ func fetchAndStoreBlock(
 	t.Helper()
 	b := adaptfeedertest.Block(t, client, blockNumber)
 	s := adaptfeedertest.StateUpdate(t, client, blockNumber)
-	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, s, nil))
+	require.NoError(t, chain.Store(
+		b,
+		&core.BlockCommitments{},
+		s,
+		nil,
+		core.EventsBloom(b.Receipts),
+	))
 }
 
 // setupTestChain sets up a test chain with the given number of blocks

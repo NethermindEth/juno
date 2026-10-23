@@ -370,8 +370,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			}
 			coreBlock.Receipts = coreReceipts
 
-			eventsBloom := core.EventsBloom(coreBlock.Receipts)
-			header, err := p2p2core.AdaptBlockHeader(header, eventsBloom)
+			header, err := p2p2core.AdaptBlockHeader(header)
 			if err != nil {
 				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt block header: %w", err)}
 				return

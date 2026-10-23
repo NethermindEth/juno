@@ -92,16 +92,11 @@ func (h *Handler) simulateTransactions(
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	state, closer, rpcErr := h.stateByBlockID(id)
+	state, closer, header, rpcErr := h.stateAndHeaderByBlockID(id)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
-
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
-	}
 
 	network := h.bcReader.Network()
 	txns, classes, rpcErr := h.prepareTransactions(

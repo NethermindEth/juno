@@ -71,16 +71,11 @@ func (h *Handler) Call(
 	funcCall *FunctionCall,
 	id *BlockID,
 ) ([]*felt.Felt, *jsonrpc.Error) {
-	state, closer, rpcErr := h.stateByBlockID(id)
+	state, closer, header, rpcErr := h.stateAndHeaderByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
-
-	header, rpcErr := h.blockHeaderByID(id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
 
 	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
 	if err != nil {
