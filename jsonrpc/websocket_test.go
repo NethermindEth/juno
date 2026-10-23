@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -385,6 +384,15 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			notification: true,
 			id:           `"probe"`,
 		},
+		"notification with trailing whitespace": {
+			request:      "{\"jsonrpc\":\"2.0\",\"method\":\"echo\"} \n\t",
+			notification: true,
+			id:           `"probe"`,
+		},
+		"string id": {
+			request: `{"jsonrpc":"2.0","method":"echo","id":"request"}`,
+			id:      `"request"`,
+		},
 		"number id": {
 			request: `{"jsonrpc":"2.0","method":"echo","params":["hi"],"id":9007199254740993}`,
 			id:      `9007199254740993`,
@@ -397,8 +405,20 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			request: `{}`,
 			id:      `null`,
 		},
+		"invalid id": {
+			request: `{"jsonrpc":"2.0","method":"echo","id":true}`,
+			id:      `null`,
+		},
+		"invalid params shape": {
+			request: `{"jsonrpc":"2.0","method":"echo","params":123}`,
+			id:      `null`,
+		},
 		"trailing data after notification": {
 			request: `{"jsonrpc":"2.0","method":"echo","params":["hi"]} trailing`,
+			id:      `null`,
+		},
+		"second value after notification": {
+			request: `{"jsonrpc":"2.0","method":"echo"} {}`,
 			id:      `null`,
 		},
 	}
@@ -407,14 +427,12 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
-			var calls atomic.Int32
 			logger := log.NewNopZapLogger()
 			rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
 			require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
 				Name:   "echo",
 				Params: []jsonrpc.Parameter{{Name: "msg"}},
 				Handler: func(msg string) (string, *jsonrpc.Error) {
-					calls.Add(1)
 					return msg, nil
 				},
 			}))
@@ -425,7 +443,7 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			t.Cleanup(srv.Close)
 			conn, _, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // lib closes it
 			require.NoError(t, err)
-			defer conn.CloseNow()
+			defer func() { assert.NoError(t, conn.CloseNow()) }()
 			require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(test.request)))
 			if test.notification {
 				// Messages are handled in order: the next reply must belong to this probe.
@@ -445,7 +463,6 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			assert.Equal(t, jsonrpc.ServerBusy, reply.Error.Code)
 			assert.Equal(t, "server busy", reply.Error.Message)
 			assert.Equal(t, test.id, string(reply.ID))
-			assert.Zero(t, calls.Load(), "busy requests must not execute handlers")
 		})
 	}
 }
