@@ -38,3 +38,9 @@ require_priority_files = true
 require_risk_assessment = true
 
 enable_review_labels_effort = false
+
+[pr_description]
+# Posts /describe output as a comment instead of rewriting the PR description, which stays
+# the author's. Persistent keeps it to one comment, edited in place on each push.
+publish_description_as_comment = true
+publish_description_as_comment_persistent = true
