@@ -3,11 +3,13 @@
 package node
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
@@ -46,6 +48,20 @@ func TestMigrateIfNeeded_WrapsPruneFetchError(t *testing.T) {
 	}
 	err := migrateIfNeeded(t.Context(), memory.New(), cfg, nil, log.NewNopZapLogger())
 	require.ErrorContains(t, err, "fetching L1 head for pruning")
+}
+
+func TestMigrateIfNeeded_RejectsTooOldDBBeforeL1Fetch(t *testing.T) {
+	database := memory.New()
+	version := binary.BigEndian.AppendUint64(nil, 21)
+	require.NoError(t, database.Put(db.DeprecatedSchemaVersion.Key(), version))
+
+	cfg := &Config{
+		Prune:   true,
+		EthNode: "",
+		Network: networks.Sepolia,
+	}
+	err := migrateIfNeeded(t.Context(), database, cfg, nil, log.NewNopZapLogger())
+	require.ErrorContains(t, err, "database is from an older, unsupported version of Juno")
 }
 
 func TestMigrateIfNeeded_SkipsMigrationsForRemoteDB(t *testing.T) {

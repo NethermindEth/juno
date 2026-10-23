@@ -108,6 +108,13 @@ This error suggests your database is corrupted, likely due to the node being int
 </details>
 
 <details>
+  <summary>After updating Juno, I receive **database is from an older, unsupported version of Juno**. How should I proceed?</summary>
+
+Since v0.17.0, Juno can no longer migrate a database last used with a version older than v0.15.17. Run the node once with Juno v0.16.x on the same database so it completes its migrations, then update again. Alternatively, resynchronise the node from the beginning or start from a [snapshot](snapshots).
+
+</details>
+
+<details>
   <summary>I receive **Error: unable to verify latest block hash; are the database and --network option compatible?** while running Juno. How should I proceed?</summary>
 
 To resolve this issue, ensure that the `eth-node` configuration aligns with the `network` option for the Starknet network.

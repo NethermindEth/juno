@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blockeventsbloom"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
-	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/migration/state/newstate"
 	"github.com/NethermindEth/juno/migration/statedifflength"
@@ -37,7 +36,7 @@ func registerMigrations(cfg *Config) *migration.Registry {
 	return registry
 }
 
-// migrateIfNeeded runs all migrations (deprecated and new) if needed.
+// migrateIfNeeded runs all migrations if needed.
 // If HTTP is enabled in config, it will start a status server to expose
 // migration progress via health check endpoints.
 func migrateIfNeeded(
@@ -53,24 +52,7 @@ func migrateIfNeeded(
 	}
 
 	migrateFn := func() error {
-		// Run deprecated migrations first
-		if err := deprecated.MigrateIfNeeded(
-			ctx,
-			database,
-			&config.Network,
-			logger,
-		); err != nil {
-			return fmt.Errorf("deprecated migration failed: %w", err)
-		}
-
-		// Make sure there is an available L1 head before starting pruning migration
-		if config.Prune {
-			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
-				return fmt.Errorf("fetching L1 head for pruning: %w", err)
-			}
-		}
-
-		// Run new migrations
+		// Created first so an incompatible database is rejected before reaching out to L1
 		registry := registerMigrations(config)
 		runner, err := migration.NewRunner(
 			registry,
@@ -80,6 +62,13 @@ func migrateIfNeeded(
 		)
 		if err != nil {
 			return fmt.Errorf("creating migration runner: %w", err)
+		}
+
+		// Make sure there is an available L1 head before starting pruning migration
+		if config.Prune {
+			if err := fetchL1HeadIfMissing(ctx, database, config, chain, logger); err != nil {
+				return fmt.Errorf("fetching L1 head for pruning: %w", err)
+			}
 		}
 
 		return runner.Run(ctx)

@@ -13,9 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/migration"
-	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint // deprecated package will be removed later
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/utils/log"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -104,23 +102,9 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	// Try new migration system metadata first, fall back to deprecated if not found
-	var schemaVersion uint64
+	// A database the migration runner never touched reports schema version 0
 	metadata, err := migration.GetSchemaMetadata(database)
-	if err == nil {
-		// Use the raw uint64 value of the bitset to preserve all migration information
-		schemaVersion = uint64(metadata.CurrentVersion)
-	} else if errors.Is(err, db.ErrKeyNotFound) {
-		// Fall back to deprecated migration system
-		deprecatedMetadata, err := deprecated.SchemaMetadata(
-			log.NewNopZapLogger(),
-			database,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get deprecated schema metadata: %v", err)
-		}
-		schemaVersion = deprecatedMetadata.Version
-	} else {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
 
@@ -133,7 +117,8 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		trieBackend = core.TrieBackend
 	}
 
-	info.SchemaVersion = schemaVersion
+	// Use the raw uint64 value of the bitset to preserve all migration information
+	info.SchemaVersion = uint64(metadata.CurrentVersion)
 	info.Network = getNetwork(headBlock, stateUpdate.StateDiff, trieBackend)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
