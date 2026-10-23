@@ -11,3 +11,5 @@ func MaxFDLimit() (uint64, error) {
 	}
 	return lim.Cur, nil
 }
+
+// Dummy line to check the AI review's /describe output. This PR is closed without merging.
