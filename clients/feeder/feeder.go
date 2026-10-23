@@ -168,9 +168,12 @@ func (c *Client) buildRequest(ctx context.Context, queryURL *url.URL) (*http.Req
 // the response body on 200, a StatusError on any other status, and transport
 // errors unchanged.
 func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser, error) {
-	c.client.Timeout = timeout
+	// Copy so Timeout covers reading the body without mutating c.client.
+	httpClient := *c.client
+	httpClient.Timeout = timeout
+
 	reqTimer := time.Now()
-	res, err := c.client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
