@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
@@ -85,8 +86,20 @@ func encodeState(phase uint8, resumeFrom *felt.Address) []byte {
 	return state
 }
 
+// historyFloor is the lowest block with readable state, 0 on an unpruned database.
+func historyFloor(r db.KeyValueReader) (uint64, error) {
+	oldest, err := pruner.OldestRetainedBlock(r)
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("getting oldest retained block: %w", err)
+	}
+	return max(oldest, 1) - 1, nil
+}
+
 type newIngestorFunc = func(
-	semaphore.ResourceSemaphore[db.Batch], db.KeyValueReader,
+	semaphore.ResourceSemaphore[db.Batch], db.KeyValueReader, uint64,
 ) pipeline.State[felt.Address, common.Task]
 
 // phase is one rewrite over the whole Contract bucket.
@@ -101,7 +114,7 @@ var phases = [...]phase{
 		name:       "class-hash",
 		deprecated: db.DeprecatedContractClassHashHistory,
 		newIngestor: func(
-			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader,
+			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader, _ uint64,
 		) pipeline.State[felt.Address, common.Task] {
 			return newClassHashIngestor(sem, r)
 		},
@@ -110,18 +123,18 @@ var phases = [...]phase{
 		name:       "nonce",
 		deprecated: db.DeprecatedContractNonceHistory,
 		newIngestor: func(
-			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader,
+			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader, floor uint64,
 		) pipeline.State[felt.Address, common.Task] {
-			return newNonceIngestor(sem, r)
+			return newNonceIngestor(sem, r, floor)
 		},
 	},
 	{
 		name:       "storage",
 		deprecated: db.DeprecatedContractStorageHistory,
 		newIngestor: func(
-			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader,
+			sem semaphore.ResourceSemaphore[db.Batch], r db.KeyValueReader, floor uint64,
 		) pipeline.State[felt.Address, common.Task] {
-			return newStorageIngestor(sem, r)
+			return newStorageIngestor(sem, r, floor)
 		},
 	},
 }
@@ -142,13 +155,18 @@ func (m *Migrator) Migrate(
 		)
 	}
 
+	floor, err := historyFloor(database)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := int(m.phase); i < len(phases); i++ {
 		var progress felt.Address
 		if i == int(m.phase) {
 			progress = m.resumeFrom
 		}
 
-		done, err := runPhase(ctx, database, logger, &phases[i], &progress)
+		done, err := runPhase(ctx, database, logger, &phases[i], &progress, floor)
 		if err != nil {
 			return nil, err
 		}
@@ -182,6 +200,7 @@ func runPhase(
 	logger log.StructuredLogger,
 	p *phase,
 	progress *felt.Address,
+	floor uint64,
 ) (bool, error) {
 	sem := semaphore.New(common.IngestorCount+1, func() db.Batch {
 		return database.NewBatchWithSize(common.BatchByteSize)
@@ -195,7 +214,9 @@ func runPhase(
 	defer stopLog()
 
 	seq, sourceErr := addressSeq(database, progress)
-	ingestors := pipeline.New(pipeline.Source(seq), common.IngestorCount, p.newIngestor(sem, database))
+	ingestors := pipeline.New(
+		pipeline.Source(seq), common.IngestorCount, p.newIngestor(sem, database, floor),
+	)
 	committers := pipeline.New(ingestors, 1, common.NewCommitter(logger, sem, p.name))
 
 	start := time.Now()
