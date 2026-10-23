@@ -20,7 +20,6 @@ var MinL1ToL2MessageFee = felt.FromUint64[felt.Felt](minL1ToL2MessageFeeWei)
 const (
 	MaxEventChunkSize             = 10240
 	MaxEventFilterKeys            = 1024
-	TraceCacheSize                = 128
 	ThrottledVMErr                = "VM throughput limit reached"
 	ThrottledCompilerErr          = "Compiler throughput limit reached"
 	MaxBlocksBack                 = 1024
@@ -92,9 +91,6 @@ var (
 	ErrCallOnPreConfirmed                = &jsonrpc.Error{
 		Code: 70, Message: "This method does not support being called on the pre_confirmed block",
 	}
-	// TODO: This error is not present in the spec and should be removed.
-	// Giving it a temporary code 71 for now to avoid conflicts with existing errors.
-	ErrCallOnPending = &jsonrpc.Error{Code: 71, Message: "This method does not support being called on the pending block"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}

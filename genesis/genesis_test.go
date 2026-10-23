@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	"github.com/NethermindEth/juno/genesis"
+	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
@@ -82,5 +84,32 @@ func TestGenesisStateDiff(t *testing.T) {
 		}
 		require.Equal(t, len(genesisConfig.BootstrapAccounts), numFundedAccounts)
 		require.True(t, v3InvokeTxnTriggered)
+
+		// see the DEPLOY_ACCOUNT and INVOKE txns in genesis_prefund_accounts.json
+		deployedClassHash := felt.NewUnsafeFromString[felt.Felt](
+			"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+		)
+		deployedAddress := core.ContractAddress(&felt.Zero, deployedClassHash, &felt.Zero, nil)
+		require.Equal(t, deployedClassHash, stateDiff.DeployedContracts[deployedAddress])
+		invokeSender := felt.NewUnsafeFromString[felt.Felt](
+			"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+		)
+		require.Equal(t, &felt.One, stateDiff.Nonces[*invokeSender])
 	})
+}
+
+func TestReadTransactions(t *testing.T) {
+	genesisConfig, err := genesis.Read("./genesis_prefund_accounts.json")
+	require.NoError(t, err)
+	require.Len(t, genesisConfig.Txns, 2)
+
+	invoke := genesisConfig.Txns[1]
+	require.Equal(t, rpcv10.TxnInvoke, invoke.Type)
+	bound := felt.NewUnsafeFromString[felt.Felt]("0x128")
+	l2GasAmount := felt.NewUnsafeFromString[felt.Felt]("0x6b6c1")
+	require.Equal(t, &rpcv10.ResourceBoundsMap{
+		L1Gas:     rpcv10.ResourceBounds{MaxAmount: bound, MaxPricePerUnit: bound},
+		L2Gas:     rpcv10.ResourceBounds{MaxAmount: l2GasAmount, MaxPricePerUnit: bound},
+		L1DataGas: rpcv10.ResourceBounds{MaxAmount: bound, MaxPricePerUnit: bound},
+	}, invoke.ResourceBounds)
 }
