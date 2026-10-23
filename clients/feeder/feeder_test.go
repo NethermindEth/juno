@@ -1359,7 +1359,7 @@ func TestPreConfirmedBlockLatest(t *testing.T) {
 	})
 }
 
-func TestConcurrentTryGetRace(t *testing.T) {
+func TestClientConcurrentRequests(t *testing.T) {
 	initialDefaultTimeout := http.DefaultClient.Timeout
 
 	const blockBody = `{"block_hash": "0x123", "block_number": 1}`

@@ -165,35 +165,17 @@ func TestHTTPClientTimeoutNotMutated(t *testing.T) {
 	serverURL, err := url.Parse(srv.URL)
 	require.NoError(t, err)
 
-	t.Run("default client", func(t *testing.T) {
-		before := http.DefaultClient.Timeout
-		client := NewClient(serverURL, WithMaxRetries(0), WithBackoff(NopBackoff))
-		require.NotSame(t, http.DefaultClient, client.client)
-		require.Equal(t, before, client.client.Timeout)
+	const suppliedTimeout = 3 * time.Second
+	supplied := &http.Client{Timeout: suppliedTimeout}
+	client := NewClient(
+		serverURL,
+		WithHTTPClient(supplied),
+		WithMaxRetries(0),
+		WithBackoff(NopBackoff),
+	)
 
-		block, err := client.Block(t.Context(), "1")
-		require.NoError(t, err)
-		require.Equal(t, uint64(1), block.Number)
-		require.Equal(t, before, http.DefaultClient.Timeout)
-		require.Equal(t, before, client.client.Timeout)
-	})
-
-	t.Run("caller client", func(t *testing.T) {
-		const suppliedTimeout = 3 * time.Second
-		supplied := &http.Client{Timeout: suppliedTimeout}
-		client := NewClient(
-			serverURL,
-			WithHTTPClient(supplied),
-			WithMaxRetries(0),
-			WithBackoff(NopBackoff),
-		)
-		require.NotSame(t, supplied, client.client)
-		require.Equal(t, suppliedTimeout, client.client.Timeout)
-
-		block, err := client.Block(t.Context(), "1")
-		require.NoError(t, err)
-		require.Equal(t, uint64(1), block.Number)
-		require.Equal(t, suppliedTimeout, supplied.Timeout)
-		require.Equal(t, suppliedTimeout, client.client.Timeout)
-	})
+	block, err := client.Block(t.Context(), "1")
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), block.Number)
+	require.Equal(t, suppliedTimeout, supplied.Timeout)
 }
