@@ -119,9 +119,18 @@ func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyRe
 // realistic state history where the same contract is touched repeatedly.
 var (
 	SharedAddr1 = felt.NewFromUint64[felt.Felt](0xA001) //nolint:mnd // test fixture
-	SharedAddr2 = felt.NewFromUint64[felt.Felt](0xA002) //nolint:mnd // test fixture
+	SharedAddr2 = addrWithPrefix(0x07FF, 0xA002)        //nolint:mnd // test fixture
 	SharedSlot  = felt.NewFromUint64[felt.Felt](0x5001) //nolint:mnd // test fixture
 )
+
+// Address prefixes the unique addresses cycle through, so the history spans
+// several of the migration's address ranges.
+var uniqueAddrPrefixes = []uint16{0x0000, 0x0001, 0x0099, 0x07FF}
+
+// addrWithPrefix returns an address whose first two bytes are prefix.
+func addrWithPrefix(prefix uint16, low uint64) *felt.Felt {
+	return felt.NewUnsafeFromString[felt.Felt](fmt.Sprintf("0x%04x%060x", prefix, low))
+}
 
 // StoreBlock writes a complete block into the database covering all pruned buckets:
 //   - Bucket 7:  BlockHeaderNumbersByHash
@@ -212,7 +221,10 @@ func StoreBlockWithLayout(
 	// SharedAddr1: storage + nonce change in every block
 	// SharedAddr2: class hash change in every block
 	// Plus a unique address per block
-	uniqueAddr := felt.NewFromUint64[felt.Felt](0xBFFF - blockNum) //nolint:mnd // test fixture
+	uniqueAddr := addrWithPrefix(
+		uniqueAddrPrefixes[blockNum%uint64(len(uniqueAddrPrefixes))],
+		0xBFFF-blockNum, //nolint:mnd // test fixture
+	)
 	uniqueSlot := felt.NewFromUint64[felt.Felt](0xC000 + blockNum) //nolint:mnd // test fixture
 	oldValue := felt.NewFromUint64[felt.Felt](blockNum * 100)      //nolint:mnd // test fixture
 
