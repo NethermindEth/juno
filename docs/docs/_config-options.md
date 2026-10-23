@@ -59,7 +59,7 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `prune-min-age` | `1h` | Protect blocks whose on-chain timestamp is younger than this duration from being pruned. Acts as an additional floor on top of --prune-mode: a block is retained if either the block-count window or this minimum-age window covers it. Set 0 to disable. Default 1h. Requires --prune-mode |
-| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor. Cannot be combined with --new-state |
+| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor |
 
 ### Logging
 
@@ -169,5 +169,5 @@
 | Config Option | Default Value | Description |
 | - | - | - |
 | `config` |  | The YAML configuration file |
-| `new-state` | `false` | EXPERIMENTAL: Use the new state package implementation. Cannot be combined with --prune-mode |
+| `new-state` | `false` | EXPERIMENTAL: Use the new state package implementation |
 | `plugin-path` |  | Path to the plugin .so file |
