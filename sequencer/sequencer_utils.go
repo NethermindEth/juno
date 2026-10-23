@@ -13,12 +13,12 @@ import (
 
 // Execute a single block. Useful for tests.
 func (s *Sequencer) RunOnce() (*core.Header, error) {
-	err := s.buildState.ClearPending()
+	err := s.buildState.ClearPreConfirmed()
 	if err != nil {
-		s.logger.Error("clearing pending", zap.Error(err))
+		s.logger.Error("clearing pre-confirmed", zap.Error(err))
 	}
 
-	if err := s.initPendingBlock(); err != nil {
+	if err := s.initPreConfirmedBlock(); err != nil {
 		return nil, err
 	}
 
@@ -51,7 +51,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	// push the new head to the feed
 	s.subNewHeads.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
 
-	if err := s.initPendingBlock(); err != nil {
+	if err := s.initPreConfirmedBlock(); err != nil {
 		return nil, err
 	}
 	return preConfirmed.Block.Header, nil

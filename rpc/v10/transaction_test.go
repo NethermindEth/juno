@@ -624,7 +624,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 }
 
 // TestTransactionByHash_MultiplePreConfirmed verifies that TransactionByHash
-// and the pending-receipt path resolve a transaction living in a non-tip
+// and TransactionReceiptByHash resolve a transaction living in a non-tip
 // preconfirmed block by walking the full ChainReader (head+1 .. tip), not
 // just the tip's transactions.
 func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {

@@ -36,7 +36,6 @@ import (
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
@@ -584,16 +583,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		return nil, err
 	}
 
-	jsonrpcServerV08 := jsonrpc.NewServer(batchPool, logger).
-		WithValidator(rpcv8.Validator()).
-		WithMaxBatchElements(int(cfg.RPCMaxBatchSize)).
-		WithMaxBatchResponseBytes(maxBatchResponseBytes).
-		DisableBatchRequests(cfg.ForbidRPCBatchRequests)
-	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
-	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
-		return nil, err
-	}
-
 	// All the following endpoints will be available for both HTTP and WS.
 	// Also, additional WS endpoints will be created in the following format: /ws/<path>
 	// E.g.:
@@ -608,10 +597,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 		pathV10:          jsonrpcServerV10,
 		pathV09:          jsonrpcServerV09,
-		pathV08:          jsonrpcServerV08,
 		"/rpc" + pathV10: jsonrpcServerV10,
 		"/rpc" + pathV09: jsonrpcServerV09,
-		"/rpc" + pathV08: jsonrpcServerV08,
 	}
 	var rpcGate *jsonrpc.Gate
 	if (cfg.HTTP || cfg.Websocket) && cfg.RPCMaxConcurrentRequests > 0 {
@@ -682,10 +669,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		makePebbleMetrics(database)
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics := makeRPCMetrics(pathV10, pathV09, pathV08)
+		rpcMetrics := makeRPCMetrics(pathV10, pathV09)
 		jsonrpcServerV10.WithListener(rpcMetrics[0])
 		jsonrpcServerV09.WithListener(rpcMetrics[1])
-		jsonrpcServerV08.WithListener(rpcMetrics[2])
 		if !cfg.Sequencer {
 			gatewayClient.WithListener(makeGatewayMetrics())
 			if synchronizer != nil {

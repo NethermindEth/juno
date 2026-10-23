@@ -221,9 +221,9 @@ You can track the status of transactions using the `starknet_subscribeTransactio
 </TabItem>
 </Tabs>
 
-## Subscribe to pending transactions
+## Subscribe to new transactions
 
-You can subscribe to pending transactions using the `starknet_subscribePendingTransactions` method:
+You can subscribe to new transactions using the `starknet_subscribeNewTransactions` method. The optional `finality_status` and `sender_address` parameters filter which transactions you receive; by default, only `ACCEPTED_ON_L2` transactions are sent:
 
 <Tabs>
 <TabItem value="request" label="Request">
@@ -231,7 +231,10 @@ You can subscribe to pending transactions using the `starknet_subscribePendingTr
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "starknet_subscribePendingTransactions",
+  "method": "starknet_subscribeNewTransactions",
+  "params": {
+    "finality_status": ["PRE_CONFIRMED"]
+  },
   "id": 1
 }
 ```
@@ -297,7 +300,6 @@ Juno supports the following Starknet API versions:
 
 - **v0.10.1**: Accessible via endpoint `/v0_10`, `/ws/v0_10` or the defaults `/ws` and `/`
 - **v0.9.0**: Accessible via endpoint `/v0_9`, `/ws/v0_9`
-- **v0.8.1**: Accessible via endpoint `/v0_8`, `/ws/v0_8`
 
 To use a specific API version, specify the version endpoint in your WS calls:
 
@@ -317,16 +319,6 @@ $ wscat -c ws://localhost:6061/ws/v0_10
 ```bash
 # wscat
 $ wscat -c ws://localhost:6061/ws/v0_9
-    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
-```
-
-</TabItem>
-<TabItem value="v8" label="v0.8.0">
-
-```bash
-# wscat
-$ wscat -c ws://localhost:6061/ws/v0_8
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
     < {"jsonrpc": "2.0", "result": "v0.16.0", "id": 1}
 ```

@@ -1,8 +1,6 @@
 package builder
 
 import (
-	"errors"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -19,10 +17,7 @@ const (
 	NumTxnsToBatchExecute = 10
 )
 
-var (
-	ErrPendingParentHash   = errors.New("pending block parent hash does not match chain head")
-	CurrentStarknetVersion = semver.MustParse("0.14.0")
-)
+var CurrentStarknetVersion = semver.MustParse("0.14.0")
 
 type BuildParams struct {
 	Builder           felt.Felt
@@ -135,7 +130,7 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	return b.blockchain.BlockHeaderHashByNumber(blockHeight - BlockHashLag)
 }
 
-func (b *Builder) PendingState(
+func (b *Builder) PreConfirmedState(
 	buildState *BuildState,
 ) (core.StateReader, func() error, error) {
 	if buildState.PreConfirmed == nil {
