@@ -9,7 +9,8 @@ permissions:
 jobs:
   check-docs-version:
     name: Check Documentation Version
-    if: github.repository_owner == 'NethermindEth'
+    # Tags that the release App pushes belong to release.yml. Remove this workflow in phase 3.
+    if: github.repository_owner == 'NethermindEth' && !endsWith(github.actor, '[bot]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
