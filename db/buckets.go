@@ -26,9 +26,6 @@ const (
 	// aggregated filter not full yet
 	RunningEventFilter = Bucket(runningEventFilter)
 
-	// TODO: remove this variable when removing the deprecated migrations
-	Unused = Bucket(unused)
-
 	/****************************************************
 			Block
 	*****************************************************/
@@ -109,11 +106,11 @@ const (
 			Migration
 	*****************************************************/
 	// used temporarily for migrations
-	Temporary                         = Bucket(temporary)
-	SchemaIntermediateState           = Bucket(schemaIntermediateState)
-	SchemaMetadata                    = Bucket(schemaMetadata)
-	DeprecatedSchemaIntermediateState = Bucket(deprecatedSchemaIntermediateState)
-	DeprecatedSchemaVersion           = Bucket(deprecatedSchemaVersion)
+	Temporary               = Bucket(temporary)
+	SchemaIntermediateState = Bucket(schemaIntermediateState)
+	SchemaMetadata          = Bucket(schemaMetadata)
+	// schema version of the removed deprecated migration system
+	DeprecatedSchemaVersion = Bucket(deprecatedSchemaVersion)
 
 	/****************************************************
 			State

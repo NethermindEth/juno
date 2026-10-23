@@ -6,8 +6,8 @@ import (
 )
 
 // migrationScratchTag is the leading byte of every history-pruner scratch
-// key. We reuse db.Temporary, the canonical scratch bucket also used by
-// deprecated migrations. Production iterators scoped to a single-byte bucket
+// key. We reuse db.Temporary, the canonical scratch bucket for
+// migrations. Production iterators scoped to a single-byte bucket
 // prefix (e.g. NewIterator([]byte{14}, ...) for DeprecatedContractStorageHistory)
 // cannot observe scratch keys.
 var migrationScratchTag = byte(db.Temporary)

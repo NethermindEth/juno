@@ -21,9 +21,6 @@ type SelfDecoder = fxamacker.SelfDecoder
 // Encoder writes CBOR values to a stream.
 type Encoder = fxamacker.Encoder
 
-// UnmarshalTypeError identifies a wire item that does not fit the Go type.
-type UnmarshalTypeError = fxamacker.UnmarshalTypeError
-
 // Marshal returns the CBOR encoding of v.
 func Marshal(v any) ([]byte, error) {
 	return fxamacker.Marshal(v)

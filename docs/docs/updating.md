@@ -14,6 +14,8 @@ It is important to run the latest version of Juno as each update brings new feat
 
 :::info
 When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database. The commands below use paths relative to your current directory, so run them from the same directory as the previous node.
+
+Since v0.17.0, Juno can't migrate a database last used with a version older than v0.15.17. Update such a node to v0.16.x first and let it complete its migrations, or resynchronise it from the beginning.
 :::
 
 <Tabs groupId="install">

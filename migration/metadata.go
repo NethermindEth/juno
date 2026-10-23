@@ -33,6 +33,17 @@ var SchemaIntermediateState = typed.NewBucket(
 	value.Bytes,
 )
 
+// Schema version of the removed deprecated migration system represented as uint64
+var deprecatedSchemaVersionBucket = typed.NewBucket(
+	db.DeprecatedSchemaVersion,
+	key.Empty,
+	value.Uint64,
+)
+
+// lastDeprecatedSchemaVersion is the deprecated schema version of a database that applied
+// every deprecated migration, as Juno v0.15.17 to v0.16.x do.
+const lastDeprecatedSchemaVersion = 22
+
 // GetSchemaMetadata gets the schema metadata from the database.
 func GetSchemaMetadata(r db.KeyValueReader) (SchemaMetadata, error) {
 	return SchemaMetadataBucket.Get(r, struct{}{})
