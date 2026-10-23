@@ -185,8 +185,8 @@ const (
 	defaultDBMemtableCount                    = 2
 	defaultDBCompression                      = "zstd"
 	defaultRPCRequestTimeout                  = 1 * time.Minute
-	defaultRPCMaxConcurrentRequests           = 256000
-	defaultRPCMaxQueuedRequests               = 256000
+	defaultRPCMaxConcurrentRequests           = 1024
+	defaultRPCMaxQueuedRequests               = 2048
 	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
