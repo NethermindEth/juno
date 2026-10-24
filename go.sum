@@ -65,8 +65,8 @@ github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb h1:3bCgBvB
 github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb/go.mod h1:7nc4anLGjupUW/PeY5qiNYsdNXj7zopG+eqsS7To5IQ=
 github.com/coder/websocket v1.8.15 h1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=
 github.com/coder/websocket v1.8.15/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
-github.com/consensys/gnark-crypto v0.21.0 h1:FDHibVIk4T5LkOKAkiN38g8gEvOxNcM10mLHOqvFTD0=
-github.com/consensys/gnark-crypto v0.21.0/go.mod h1:hdTjDNjdkYJ1oVuc8emh9XEhfM1SbyZhJigFqItiOLk=
+github.com/consensys/gnark-crypto v0.22.0 h1:RYH7FX1/zkmNrSiABo70HAqew41SRUsoluKundObo3o=
+github.com/consensys/gnark-crypto v0.22.0/go.mod h1:HL8XflRG4cvau1PEG3CWBTD2kkzUzdlqZF6BBgy57F8=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/cpuguy83/go-md2man/v2 v2.0.7 h1:zbFlGlXEAKlwXpmvle3d8Oe3YnkKIK4xSRTd3sHPnBo=
 github.com/cpuguy83/go-md2man/v2 v2.0.7/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
