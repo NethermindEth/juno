@@ -36,6 +36,26 @@ func runLiteralTest[S value.Serializer[V], V any](
 	})
 }
 
+// runLegacyLiteralTest checks that bytes written by an older encoding still decode to value.
+func runLegacyLiteralTest[S value.Serializer[V], V any](
+	t *testing.T,
+	_ S,
+	value V,
+	stored string,
+) {
+	t.Helper()
+	t.Run(fmt.Sprintf("legacy %T", *new(S)), func(t *testing.T) {
+		var s S
+
+		storedBytes, err := hex.DecodeString(stored)
+		require.NoError(t, err)
+
+		var unmarshalled V
+		require.NoError(t, s.Unmarshal(storedBytes, &unmarshalled))
+		require.Equal(t, value, unmarshalled)
+	})
+}
+
 func runRandomTest[S value.Serializer[V], V any](
 	t *testing.T,
 	_ S,
@@ -86,6 +106,18 @@ func TestValueSerializer(t *testing.T) {
 		)
 
 		runLiteralTest(
+			t,
+			value.Cbor[core.L1Head](),
+			core.L1Head{
+				BlockNumber: 2025112420251124,
+				BlockHash:   felt.NewFromUint64[felt.Felt](2025112520251125),
+				StateRoot:   felt.NewFromUint64[felt.Felt](2025112620251126),
+			},
+			//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
+			"a369426c6f636b48617368470731d4406656f5695374617465526f6f74470731d4465c37f66b426c6f636b4e756d6265721b000731d43a7075f4",
+		)
+
+		runLegacyLiteralTest(
 			t,
 			value.Cbor[core.L1Head](),
 			core.L1Head{

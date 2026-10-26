@@ -2,101 +2,302 @@ package felt
 
 import (
 	"encoding/binary"
-	"math"
+	"errors"
+	"fmt"
+	"math/bits"
 
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-// Fast, felt-specialized CBOR marshaling.
+// Felts encode as a CBOR uint below 24, a byte string of up to 30 trimmed big-endian bytes, or a
+// 32-byte string of Montgomery limbs for values whose canonical form needs 31 or 32 bytes, so the
+// length alone tells the forms apart. Legacy rows hold an array of 4 Montgomery limbs and still
+// decode.
+
+var (
+	_ cbor.SelfEncoder = (*Felt)(nil)
+	_ cbor.SelfDecoder = (*Felt)(nil)
+)
+
+// MarshalCBOR encodes z in the size-based compact felt form.
 func (z *Typed[K]) MarshalCBOR() ([]byte, error) {
-	data := make([]byte, maxCBORFeltLen)
-	n := encodeLimbs(data, z)
-	return data[:n], nil
+	return appendCBOR(make([]byte, 0, maxCBORFeltLen), (*fp.Element)(z)), nil
 }
 
-// Fast, felt-specialized CBOR unmarshaling.
-// Falls back to the generic decoder on shape mismatch
+// UnmarshalCBOR decodes a compact or legacy felt that spans all of data, writing z only on success.
 func (z *Typed[K]) UnmarshalCBOR(data []byte) error {
-	if decodeFelt(data, (*fp.Element)(z)) {
-		return nil
+	if len(data) == 0 {
+		return fmt.Errorf("decoding felt: %w", errFeltEmpty)
 	}
-	return cbor.Unmarshal(data, (*fp.Element)(z))
+	if !isCompactCBOR(data[0]) {
+		return unmarshalLegacyCBOR(data, (*fp.Element)(z))
+	}
+
+	var decoded fp.Element
+	consumed, err := decodeCompact(data, &decoded)
+	if err != nil {
+		return fmt.Errorf("decoding felt: %w", err)
+	}
+	if consumed != len(data) {
+		return fmt.Errorf("decoding felt: %w", errFeltTrailingBytes)
+	}
+	*(*fp.Element)(z) = decoded
+	return nil
 }
 
 const (
-	// These derive from the CBOR spec
-	// Limb types are always unsigned int
-	// The following numbers represent the unsigned integer size
-	// See: https://www.rfc-editor.org/rfc/rfc8949.html#section-3
+	// These derive from the CBOR spec, see https://www.rfc-editor.org/rfc/rfc8949.html#section-3
 	cborUint8AdditionalInfo  = 24 // 1 byte follows
 	cborUint16AdditionalInfo = 25 // 2 bytes follow
 	cborUint32AdditionalInfo = 26 // 4 bytes follow
 	cborUint64AdditionalInfo = 27 // 8 bytes follow
 
-	// cborArrayMajor the major type that represents an Array
-	// Top 3 bits are the major type (4 = array), low 5 bits are the length.
-	cborArrayMajor = 4 << 5
+	// The top 3 bits of a CBOR header byte are the major type, the low 5 the additional info.
+	cborMajorTypeMask      = 0b1110_0000
+	cborAdditionalInfoMask = 0b0001_1111
 
-	// cborArrayHeader4 is the first byte of a CBOR array of Limbs items.
-	// 0b100_00100: an array with Limbs (4) elements.
-	cborArrayHeader4 = cborArrayMajor | Limbs
+	cborUintMajor       = 0 << 5
+	cborByteStringMajor = 2 << 5
+	cborArrayMajor      = 4 << 5
+
+	// cborLegacyArrayHeader is the first byte of a legacy felt: an array of Limbs items.
+	cborLegacyArrayHeader = cborArrayMajor | Limbs
 
 	// Header + 8 bytes following
 	maxCBORUintLen = 1 + 8
 	// Header + Limbs * maxCBORUintLen
-	maxCBORFeltLen = 1 + Limbs*maxCBORUintLen
-	// Header + Limbs
-	minCBORFeltLen = 1 + Limbs
+	maxCBORLegacyFeltLen = 1 + Limbs*maxCBORUintLen
+
+	// feltByteLen is the length of a big-endian felt, and of a Montgomery-form byte string.
+	feltByteLen = Limbs * 8
+	// maxCanonicalByteLen is the longest canonical byte string; longer values use Montgomery form.
+	maxCanonicalByteLen = feltByteLen - 2
+	// Two header bytes + the full big-endian value
+	maxCBORFeltLen = 2 + feltByteLen
+	// A value below 24 is a single header byte
+	minCBORFeltLen = 1
 )
 
-// encodeLimbs puts one CBOR felt to data, returning the number of bytes written.
-func encodeLimbs[F FeltLike](data []byte, value *F) int {
-	// The format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3].
-	data[0] = cborArrayHeader4
+var (
+	errFeltEmpty          = errors.New("empty input")
+	errFeltTrailingBytes  = errors.New("trailing bytes")
+	errFeltTruncated      = errors.New("truncated byte string")
+	errFeltUintTooLarge   = errors.New("uint of 24 or more must be a byte string")
+	errFeltSmallBytes     = errors.New("byte string holds a value below 24")
+	errFeltLeadingZero    = errors.New("byte string has a leading zero byte")
+	errFeltTooLong        = errors.New("byte string longer than 32 bytes")
+	errFeltLengthHeader   = errors.New("non-minimal byte string length")
+	errFeltLengthEncoding = errors.New("unsupported byte string length encoding")
+	errFeltOutOfRange     = errors.New("value is not below the field modulus")
+	errFeltReservedLength = errors.New("31-byte byte string is reserved")
+	errFeltUnexpectedType = errors.New("unexpected CBOR major type")
+)
 
-	offset := 1
-	for limbIndex := range Limbs {
-		limb := (*value)[limbIndex]
-
-		// Starting with the most common path, which is a large limb
-		switch {
-		case limb > math.MaxUint32:
-			data[offset] = cborUint64AdditionalInfo
-			binary.BigEndian.PutUint64(data[offset+1:], limb)
-			offset += 1 + 8
-
-		case limb > math.MaxUint16:
-			data[offset] = cborUint32AdditionalInfo
-			binary.BigEndian.PutUint32(data[offset+1:], uint32(limb))
-			offset += 1 + 4
-
-		case limb > math.MaxUint8:
-			data[offset] = cborUint16AdditionalInfo
-			binary.BigEndian.PutUint16(data[offset+1:], uint16(limb))
-			offset += 1 + 2
-
-		case limb >= cborUint8AdditionalInfo:
-			data[offset] = cborUint8AdditionalInfo
-			data[offset+1] = byte(limb)
-			offset += 2
-
-		default:
-			data[offset] = byte(limb)
-			offset++
-		}
+// smallMontgomery holds the Montgomery form of every value a one-byte CBOR uint can carry, so
+// decoding one is a copy instead of a field multiplication.
+var smallMontgomery = func() [cborUint8AdditionalInfo]fp.Element {
+	var table [cborUint8AdditionalInfo]fp.Element
+	for index := range table {
+		table[index].SetUint64(uint64(index))
 	}
+	return table
+}()
 
-	return offset
+// modulusLimbs holds the field modulus as little-endian limbs.
+var modulusLimbs = func() [Limbs]uint64 {
+	var buffer [feltByteLen]byte
+	fp.Modulus().FillBytes(buffer[:])
+	return [Limbs]uint64{
+		binary.BigEndian.Uint64(buffer[24:32]),
+		binary.BigEndian.Uint64(buffer[16:24]),
+		binary.BigEndian.Uint64(buffer[8:16]),
+		binary.BigEndian.Uint64(buffer[0:8]),
+	}
+}()
+
+// unmarshalLegacyCBOR decodes a Montgomery-limb felt, falling back to the generic decoder.
+func unmarshalLegacyCBOR(data []byte, value *fp.Element) error {
+	var decoded fp.Element
+	if consumed, ok := decodeLegacyLimbs(data, &decoded); ok && consumed == len(data) {
+		*value = decoded
+		return nil
+	}
+	if err := cbor.Unmarshal(data, value); err != nil {
+		return fmt.Errorf("decoding legacy felt: %w", err)
+	}
+	return nil
 }
 
-// decodeLimbs decodes one limb-encoded felt at data[0:],
-// returning the number of bytes consumed and a flag to signal succes.
+// isCompactCBOR reports whether header starts a compact felt rather than a legacy one.
+func isCompactCBOR(header byte) bool {
+	majorType := header & cborMajorTypeMask
+	return majorType == cborUintMajor || majorType == cborByteStringMajor
+}
+
+// appendCBOR appends the compact CBOR encoding of value to data.
+func appendCBOR(data []byte, value *fp.Element) []byte {
+	limbs := value.Bits()
+	if limbs[3]|limbs[2]|limbs[1] == 0 && limbs[0] < cborUint8AdditionalInfo {
+		return append(data, cborUintMajor|byte(limbs[0]))
+	}
+
+	length := trimmedLength(&limbs)
+	if length > maxCanonicalByteLen {
+		montgomery := bigEndianBytes((*[Limbs]uint64)(value))
+		data = append(data, cborByteStringMajor|cborUint8AdditionalInfo, feltByteLen)
+		return append(data, montgomery[:]...)
+	}
+	if length < cborUint8AdditionalInfo {
+		data = append(data, cborByteStringMajor|byte(length))
+	} else {
+		data = append(data, cborByteStringMajor|cborUint8AdditionalInfo, byte(length))
+	}
+
+	buffer := bigEndianBytes(&limbs)
+	return append(data, buffer[feltByteLen-length:]...)
+}
+
+// bigEndianBytes returns little-endian limbs as 32 big-endian bytes.
+func bigEndianBytes(limbs *[Limbs]uint64) [feltByteLen]byte {
+	var buffer [feltByteLen]byte
+	binary.BigEndian.PutUint64(buffer[0:], limbs[3])
+	binary.BigEndian.PutUint64(buffer[8:], limbs[2])
+	binary.BigEndian.PutUint64(buffer[16:], limbs[1])
+	binary.BigEndian.PutUint64(buffer[24:], limbs[0])
+	return buffer
+}
+
+// trimmedLength returns the big-endian byte length of canonical limbs without leading zeros.
+func trimmedLength(limbs *[Limbs]uint64) int {
+	for index := Limbs - 1; index >= 0; index-- {
+		if limbs[index] != 0 {
+			return index*8 + (bits.Len64(limbs[index])+7)/8
+		}
+	}
+	return 0
+}
+
+// decodeCompact decodes one compact felt at data[0:], returning the number of bytes consumed.
+// It accepts only the single compact encoding of each value.
+func decodeCompact(data []byte, value *fp.Element) (int, error) {
+	if len(data) == 0 {
+		return 0, errFeltEmpty
+	}
+
+	header := data[0]
+	additionalInfo := header & cborAdditionalInfoMask
+	switch header & cborMajorTypeMask {
+	case cborUintMajor:
+		// Values below 24 are the header byte itself; wider uints are never written, so a
+		// multi-byte uint header is rejected rather than decoded.
+		if additionalInfo >= cborUint8AdditionalInfo {
+			return 0, errFeltUintTooLarge
+		}
+		*value = smallMontgomery[additionalInfo]
+		return 1, nil
+	case cborByteStringMajor:
+		length, offset, err := decodeByteStringHeader(data)
+		if err != nil {
+			return 0, err
+		}
+		if length > feltByteLen {
+			return 0, errFeltTooLong
+		}
+		if len(data)-offset < length {
+			return 0, errFeltTruncated
+		}
+		if err := decodeByteStringBody(data[offset:offset+length], value); err != nil {
+			return 0, err
+		}
+		return offset + length, nil
+	default:
+		return 0, errFeltUnexpectedType
+	}
+}
+
+// decodeByteStringHeader reads the minimal length header of the byte string at data[0:],
+// returning the body length and the header size.
+func decodeByteStringHeader(data []byte) (length, offset int, err error) {
+	additionalInfo := data[0] & cborAdditionalInfoMask
+	switch {
+	case additionalInfo < cborUint8AdditionalInfo:
+		return int(additionalInfo), 1, nil
+	case additionalInfo == cborUint8AdditionalInfo && len(data) >= 2:
+		if data[1] < cborUint8AdditionalInfo {
+			return 0, 0, errFeltLengthHeader
+		}
+		return int(data[1]), 2, nil
+	case additionalInfo == cborUint8AdditionalInfo:
+		return 0, 0, errFeltTruncated
+	default:
+		// Wider length headers and indefinite lengths never hold a felt
+		return 0, 0, errFeltLengthEncoding
+	}
+}
+
+// decodeByteStringBody decodes a felt byte string body, telling Montgomery and canonical values
+// apart by length.
+func decodeByteStringBody(body []byte, value *fp.Element) error {
+	length := len(body)
+	switch {
+	case length == feltByteLen:
+		montgomery := [Limbs]uint64{
+			binary.BigEndian.Uint64(body[24:32]),
+			binary.BigEndian.Uint64(body[16:24]),
+			binary.BigEndian.Uint64(body[8:16]),
+			binary.BigEndian.Uint64(body[0:8]),
+		}
+		if !belowModulus(&montgomery) {
+			return errFeltOutOfRange
+		}
+		*value = fp.Element(montgomery)
+		return nil
+	case length > maxCanonicalByteLen:
+		return errFeltReservedLength
+	case length == 0 || (length == 1 && body[0] < cborUint8AdditionalInfo):
+		return errFeltSmallBytes
+	case body[0] == 0:
+		return errFeltLeadingZero
+	}
+
+	var buffer [feltByteLen]byte
+	copy(buffer[feltByteLen-length:], body)
+	element, err := fp.BigEndian.Element(&buffer)
+	if err != nil {
+		return errFeltOutOfRange
+	}
+	*value = element
+	return nil
+}
+
+// belowModulus reports whether little-endian limbs hold a value below the field modulus.
+func belowModulus(limbs *[Limbs]uint64) bool {
+	for index := Limbs - 1; index >= 0; index-- {
+		if limbs[index] != modulusLimbs[index] {
+			return limbs[index] < modulusLimbs[index]
+		}
+	}
+	return false
+}
+
+// decodeCBOR decodes one compact or legacy felt at data[0:], returning the bytes consumed.
+// It reports false on anything the fast path rejects, so the caller can fall back.
+func decodeCBOR(data []byte, value *fp.Element) (int, bool) {
+	if len(data) > 0 && isCompactCBOR(data[0]) {
+		consumed, err := decodeCompact(data, value)
+		return consumed, err == nil
+	}
+	return decodeLegacyLimbs(data, value)
+}
+
+// decodeLegacyLimbs decodes one limb-encoded felt at data[0:],
+// returning the number of bytes consumed and a flag to signal success.
 // It writes value only on success, so a rejected input can't partially
 // corrupt it before falling back to the generic decoder.
-func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
-	// The data format is: [cborArrayHeader4] [limb 0] [limb 1] [limb 2] [limb 3]
-	if len(data) == 0 || data[0] != cborArrayHeader4 {
+func decodeLegacyLimbs(data []byte, value *fp.Element) (int, bool) {
+	// The data format is: [cborLegacyArrayHeader] [limb 0] [limb 1] [limb 2] [limb 3]
+	if len(data) == 0 || data[0] != cborLegacyArrayHeader {
 		return 0, false
 	}
 
@@ -108,10 +309,10 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 		limb3Header = limb2Header + maxCBORUintLen
 	)
 
-	// Felts are stored in Montgomery form, so in practice every limb exceeds MaxUint32 and
+	// Legacy felts are in Montgomery form, so in practice every limb exceeds MaxUint32 and
 	// encodes as a full uint64, giving one fixed 37-byte shape. Decode it without the
 	// per-limb header switch; anything else falls through to the general loop.
-	if len(data) >= maxCBORFeltLen &&
+	if len(data) >= maxCBORLegacyFeltLen &&
 		data[limb0Header] == cborUint64AdditionalInfo &&
 		data[limb1Header] == cborUint64AdditionalInfo &&
 		data[limb2Header] == cborUint64AdditionalInfo &&
@@ -119,17 +320,17 @@ func decodeLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 		(*value)[0] = binary.BigEndian.Uint64(data[limb0Header+1 : limb1Header])
 		(*value)[1] = binary.BigEndian.Uint64(data[limb1Header+1 : limb2Header])
 		(*value)[2] = binary.BigEndian.Uint64(data[limb2Header+1 : limb3Header])
-		(*value)[3] = binary.BigEndian.Uint64(data[limb3Header+1 : maxCBORFeltLen])
-		return maxCBORFeltLen, true
+		(*value)[3] = binary.BigEndian.Uint64(data[limb3Header+1 : maxCBORLegacyFeltLen])
+		return maxCBORLegacyFeltLen, true
 	}
 
-	return decodeVariableLimbs(data, value)
+	return decodeVariableLegacyLimbs(data, value)
 }
 
-// decodeVariableLimbs decodes the limbs at data[1:] one header byte at a time, covering the shapes
-// the fixed-shape fast path rejects; data[0] must already be a validated array header.
-func decodeVariableLimbs[F FeltLike](data []byte, value *F) (int, bool) {
-	var limbs F
+// decodeVariableLegacyLimbs decodes the limbs at data[1:] one header byte at a time, covering the
+// shapes the fixed-shape fast path rejects; data[0] must already be a validated array header.
+func decodeVariableLegacyLimbs(data []byte, value *fp.Element) (int, bool) {
+	var limbs fp.Element
 	offset := 1
 
 	for limbIndex := range Limbs {
@@ -182,17 +383,4 @@ func decodeVariableLimbs[F FeltLike](data []byte, value *F) (int, bool) {
 
 	*value = limbs
 	return offset, true
-}
-
-// decodeFelt decodes a single felt that must span all of data, rejecting trailing bytes.
-// It returns a flag to signal success, and writes value only on success.
-func decodeFelt(data []byte, value *fp.Element) bool {
-	var felt fp.Element
-	consumed, ok := decodeLimbs(data, &felt)
-	if !ok || consumed != len(data) {
-		return false
-	}
-
-	*value = felt
-	return true
 }

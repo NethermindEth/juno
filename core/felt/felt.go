@@ -1,6 +1,7 @@
 package felt
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json/jsontext"
@@ -217,6 +218,32 @@ func (z *Typed[K]) Equal(x *Typed[K]) bool {
 // Marshal forwards the call to underlying field element implementation
 func (z *Typed[K]) Marshal() []byte {
 	return (*fp.Element)(z).Marshal()
+}
+
+// MinimalBytes returns the big-endian value without leading zero bytes; zero is one zero byte.
+func (z *Typed[K]) MinimalBytes() []byte {
+	limbs := (*fp.Element)(z).Bits()
+	length := max(trimmedLength(&limbs), 1)
+	buffer := bigEndianBytes(&limbs)
+	return bytes.Clone(buffer[feltByteLen-length:])
+}
+
+// SetMinimalBytes sets z from a big-endian value of 1 to 32 bytes below the modulus.
+func (z *Typed[K]) SetMinimalBytes(data []byte) error {
+	switch {
+	case len(data) == 0:
+		return errFeltEmpty
+	case len(data) > feltByteLen:
+		return errFeltTooLong
+	}
+	var buffer [feltByteLen]byte
+	copy(buffer[feltByteLen-len(data):], data)
+	element, err := fp.BigEndian.Element(&buffer)
+	if err != nil {
+		return errFeltOutOfRange
+	}
+	*(*fp.Element)(z) = element
+	return nil
 }
 
 // Unmarshal forwards the call to underlying field element implementation
