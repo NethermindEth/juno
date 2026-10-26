@@ -47,9 +47,6 @@ var bigIntPool = sync.Pool{
 
 // Typed is a field element told apart at compile time by a phantom kind. Every Typed[K] shares one
 // implementation, so all felt types behave and encode the same and converting between them is free.
-// Keep its methods inlinable (check with -gcflags=-m=2), typically by delegating to a concrete
-// fp.Element helper: the per-kind symbol that method tables point at then calls the helper
-// directly instead of bouncing through the dictionary-passing shape body.
 type Typed[K any] fp.Element
 
 // Impl returns the underlying field element type
@@ -157,11 +154,6 @@ func (z *Typed[K]) SetBytesCanonical(e []byte) error {
 
 // SetString forwards the call to underlying field element implementation
 func (z *Typed[K]) SetString(number string) (*Typed[K], error) {
-	return z, setString((*fp.Element)(z), number)
-}
-
-// setString parses a decimal or hex number into z.
-func setString(z *fp.Element, number string) error {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 	// release object into pool
@@ -169,17 +161,17 @@ func setString(z *fp.Element, number string) error {
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		if _, ok := vv.SetString(number, Base16); !ok {
-			return errors.New("can't parse into a big.Int: " + number)
+			return z, errors.New("can't parse into a big.Int: " + number)
 		}
 	}
 
 	if vv.BitLen() > fp.Bits {
-		return errors.New("can't fit in felt: " + number)
+		return z, errors.New("can't fit in felt: " + number)
 	}
 
 	var bytes [32]byte
 	vv.FillBytes(bytes[:])
-	return z.SetBytesCanonical(bytes[:])
+	return z, (*fp.Element)(z).SetBytesCanonical(bytes[:])
 }
 
 // SetUint64 forwards the call to underlying field element implementation
@@ -190,15 +182,10 @@ func (z *Typed[K]) SetUint64(v uint64) *Typed[K] {
 
 // SetRandom forwards the call to underlying field element implementation
 func (z *Typed[K]) SetRandom() *Typed[K] {
-	setRandom((*fp.Element)(z))
-	return z
-}
-
-// setRandom fills z from crypto/rand, which is not expected to fail.
-func setRandom(z *fp.Element) {
-	if _, err := z.SetRandom(); err != nil {
+	if _, err := (*fp.Element)(z).SetRandom(); err != nil {
 		panic(fmt.Sprintf("unexpected error from rand.Reader: %s", err.Error()))
 	}
+	return z
 }
 
 // String forwards the call to underlying field element implementation
@@ -208,13 +195,8 @@ func (z *Typed[K]) String() string {
 
 // ShortString prints the felt to a string in a shortened format
 func (z *Typed[K]) ShortString() string {
-	return shortString((*fp.Element)(z))
-}
-
-// shortString prints the first and last hex digits of z.
-func shortString(z *fp.Element) string {
 	shortFelt := 8
-	hex := z.Text(Base16)
+	hex := (*fp.Element)(z).Text(Base16)
 
 	if len(hex) <= shortFelt {
 		return fmt.Sprintf("0x%s", hex)

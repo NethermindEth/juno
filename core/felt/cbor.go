@@ -18,15 +18,10 @@ func (z *Typed[K]) MarshalCBOR() ([]byte, error) {
 // Fast, felt-specialized CBOR unmarshaling.
 // Falls back to the generic decoder on shape mismatch
 func (z *Typed[K]) UnmarshalCBOR(data []byte) error {
-	return unmarshalCBOR(data, (*fp.Element)(z))
-}
-
-// unmarshalCBOR tries the limb fast path and falls back to the generic decoder.
-func unmarshalCBOR(data []byte, value *fp.Element) error {
-	if decodeFelt(data, value) {
+	if decodeFelt(data, (*fp.Element)(z)) {
 		return nil
 	}
-	return cbor.Unmarshal(data, value)
+	return cbor.Unmarshal(data, (*fp.Element)(z))
 }
 
 const (
