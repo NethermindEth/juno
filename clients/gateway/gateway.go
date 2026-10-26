@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/transport"
 	"github.com/NethermindEth/juno/utils/compression"
 	"github.com/NethermindEth/juno/utils/log"
 )
@@ -67,7 +68,8 @@ func NewClient(gatewayURL *url.URL, logger log.StructuredLogger) *Client {
 	return &Client{
 		url: gatewayURL,
 		client: &http.Client{
-			Timeout: time.Minute,
+			Transport: transport.New(),
+			Timeout:   time.Minute,
 		},
 		listener: &SelectiveListener{},
 		logger:   logger,
