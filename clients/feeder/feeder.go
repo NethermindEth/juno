@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -182,6 +183,24 @@ func (c *Client) tryGet(req *http.Request, timeout time.Duration) (io.ReadCloser
 	return nil, &StatusError{Code: res.StatusCode}
 }
 
+func isTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+
+	if statusErr, ok := errors.AsType[*StatusError](err); ok {
+		return statusErr.Code == http.StatusRequestTimeout ||
+			statusErr.Code == http.StatusGatewayTimeout
+	}
+
+	return false
+}
+
 // logRetry reports a failed attempt, promoting the retries from debug to warn
 // once the adaptive timeout has grown past timeout.MediumGrowThreshold.
 func (c *Client) logRetry(
@@ -243,6 +262,10 @@ func (c *Client) get(
 			if err == nil {
 				timeouts.DecreaseTimeout()
 				return body, nil
+			}
+
+			if isTimeout(err) {
+				c.client.CloseIdleConnections()
 			}
 
 			code := 0

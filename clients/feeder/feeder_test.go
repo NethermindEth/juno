@@ -1147,6 +1147,39 @@ func TestEventListener(t *testing.T) {
 }
 
 func TestClientRetryBehavior(t *testing.T) {
+	t.Run("uses a new connection after configured timeout expires", func(t *testing.T) {
+		requestCount := 0
+		var remoteAddrs []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+			remoteAddrs = append(remoteAddrs, r.RemoteAddr)
+
+			if requestCount == 1 {
+				time.Sleep(200 * time.Millisecond)
+			}
+			_, err := w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			if err != nil && r.Context().Err() == nil {
+				t.Errorf("failed to write response: %v", err)
+			}
+		}))
+		defer srv.Close()
+
+		feederURL, err := url.Parse(srv.URL)
+		require.NoError(t, err)
+		client := feeder.NewClient(
+			feederURL,
+			feeder.WithTimeouts([]time.Duration{100 * time.Millisecond}, true),
+			feeder.WithMaxRetries(1),
+			feeder.WithBackoff(feeder.NopBackoff),
+		)
+
+		block, err := client.Block(t.Context(), "1")
+		require.NoError(t, err)
+		require.NotZero(t, block)
+		require.Equal(t, 2, requestCount)
+		require.NotEqual(t, remoteAddrs[0], remoteAddrs[1])
+	})
+
 	t.Run("succeeds after retrying with increased timeout", func(t *testing.T) {
 		requestCount := 0
 		srv := httptest.
