@@ -39,14 +39,14 @@ func (s Slice[F]) MarshalCBOR() ([]byte, error) {
 		return []byte{cborNull}, nil
 	}
 
-	data := make([]byte, maxCBORArrayHeaderLen+len(s)*maxCBORFeltLen)
-
-	offset := encodeCBORArrayHeader(data, uint32(len(s)))
+	data := make([]byte, 0, maxCBORArrayHeaderLen+len(s)*maxCBORFeltLen)
+	data = appendCBORArrayHeader(data, uint32(len(s)))
 	for idx := range s {
-		offset += encodeLimbs(data[offset:], &s[idx])
+		element := fp.Element(s[idx])
+		data = appendCBOR(data, &element)
 	}
 
-	return data[:offset], nil
+	return data, nil
 }
 
 func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
@@ -63,10 +63,12 @@ func (s *Slice[F]) UnmarshalCBOR(data []byte) error {
 
 	buffer := make([]F, size)
 	for i := range buffer {
-		consumed, ok := decodeLimbs(data[offset:], &buffer[i])
+		var element fp.Element
+		consumed, ok := decodeCBOR(data[offset:], &element)
 		if !ok {
 			return s.unmarshalGeneric(data)
 		}
+		buffer[i] = F(element)
 		offset += consumed
 	}
 
@@ -89,27 +91,21 @@ func (s *Slice[F]) unmarshalGeneric(data []byte) error {
 	return nil
 }
 
-// encodeCBORArrayHeader writes the CBOR array header for arraySize items into data
-// starting at index 0, returning the number of bytes written.
-func encodeCBORArrayHeader(data []byte, arraySize uint32) int {
+// appendCBORArrayHeader appends the CBOR array header for arraySize items to data.
+func appendCBORArrayHeader(data []byte, arraySize uint32) []byte {
 	// Starting with the most common path, which is a small array in this case
 	switch {
 	case arraySize < cborUint8AdditionalInfo:
-		data[0] = cborArrayMajor | byte(arraySize)
-		return 1
+		return append(data, cborArrayMajor|byte(arraySize))
 	case arraySize <= math.MaxUint8:
-		data[0] = cborArrayMajor | cborUint8AdditionalInfo
-		data[1] = byte(arraySize)
-		return 2
+		return append(data, cborArrayMajor|cborUint8AdditionalInfo, byte(arraySize))
 	case arraySize <= math.MaxUint16:
-		data[0] = cborArrayMajor | cborUint16AdditionalInfo
-		binary.BigEndian.PutUint16(data[1:], uint16(arraySize))
-		return 3
+		data = append(data, cborArrayMajor|cborUint16AdditionalInfo)
+		return binary.BigEndian.AppendUint16(data, uint16(arraySize))
 	default:
 		// The larger size should fit into an uint32, bigger arrays do not fit the memory
-		data[0] = cborArrayMajor | cborUint32AdditionalInfo
-		binary.BigEndian.PutUint32(data[1:], arraySize)
-		return maxCBORArrayHeaderLen
+		data = append(data, cborArrayMajor|cborUint32AdditionalInfo)
+		return binary.BigEndian.AppendUint32(data, arraySize)
 	}
 }
 
