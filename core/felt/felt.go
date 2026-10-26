@@ -47,12 +47,10 @@ var bigIntPool = sync.Pool{
 
 // Typed is a field element told apart at compile time by a phantom kind. Every Typed[K] shares one
 // implementation, so all felt types behave and encode the same and converting between them is free.
+// Keep its methods inlinable (check with -gcflags=-m=2), typically by delegating to a concrete
+// fp.Element helper: the per-kind symbol that method tables point at then calls the helper
+// directly instead of bouncing through the dictionary-passing shape body.
 type Typed[K any] fp.Element
-
-type feltKind struct{}
-
-// Felt is the untyped field element.
-type Felt = Typed[feltKind]
 
 // Impl returns the underlying field element type
 func (z *Typed[K]) Impl() *fp.Element {
