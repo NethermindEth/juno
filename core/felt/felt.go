@@ -45,15 +45,17 @@ var bigIntPool = sync.Pool{
 	},
 }
 
-type Felt fp.Element
+// Typed is a field element told apart at compile time by a phantom kind. Every Typed[K] shares one
+// implementation, so all felt types behave and encode the same and converting between them is free.
+type Typed[K any] fp.Element
 
 // Impl returns the underlying field element type
-func (z *Felt) Impl() *fp.Element {
+func (z *Typed[K]) Impl() *fp.Element {
 	return (*fp.Element)(z)
 }
 
 // UnmarshalJSONFrom sets z from a quoted 0x-prefixed hex JSON string; any other JSON value fails.
-func (z *Felt) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (z *Typed[K]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	value, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -61,18 +63,18 @@ func (z *Felt) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if value.Kind() != '"' {
 		return errors.New("felt: expected a quoted 0x hex string")
 	}
-	return z.setHex(value[1 : len(value)-1])
+	return setHex((*fp.Element)(z), value[1:len(value)-1])
 }
 
 // UnmarshalText sets z from an unquoted 0x-prefixed hex string, as map keys and text
 // decoders pass it.
-func (z *Felt) UnmarshalText(text []byte) error {
-	return z.setHex(text)
+func (z *Typed[K]) UnmarshalText(text []byte) error {
+	return setHex((*fp.Element)(z), text)
 }
 
 // setHex parses a 0x-prefixed hex string (without surrounding quotes) into z.
 // It is shared by Felt and Slice JSON decoding.
-func (z *Felt) setHex(data []byte) error {
+func setHex(z *fp.Element, data []byte) error {
 	if len(data) < len("0x0") || data[0] != '0' || (data[1] != 'x' && data[1] != 'X') {
 		return errors.New("felt: expected hex string starting with 0x")
 	}
@@ -95,23 +97,28 @@ func (z *Felt) setHex(data []byte) error {
 		return fmt.Errorf("felt: couldn't decode hex value: %w", err)
 	}
 
-	return (*fp.Element)(z).SetBytesCanonical(buffer[:])
+	return z.SetBytesCanonical(buffer[:])
 }
 
 // MarshalText returns the felt as an unquoted 0x hex string with no
 // unnecessary leading zeros. The quotes are placed at the encoding/json level.
 // Uses a value receiver so encoding/json can call it on non-addressable
 // values (struct fields in `any`).
-func (z Felt) MarshalText() ([]byte, error) {
-	return z.AppendText(make([]byte, 0, MaxFeltAsHexSize))
+func (z Typed[K]) MarshalText() ([]byte, error) {
+	return appendHex(make([]byte, 0, MaxFeltAsHexSize), fp.Element(z)), nil
 }
 
 // AppendText appends the felt's 0x hex representation to data.
 // The quotes are placed at the encoding/json level.
 // It is a json/v2 interface and enforces appending.
-func (z Felt) AppendText(data []byte) ([]byte, error) {
+func (z Typed[K]) AppendText(data []byte) ([]byte, error) {
+	return appendHex(data, fp.Element(z)), nil
+}
+
+// appendHex appends the 0x hex form of element, without leading zeros, to data.
+func appendHex(data []byte, element fp.Element) []byte {
 	var raw [Bytes]byte
-	fp.BigEndian.PutElement(&raw, fp.Element(z))
+	fp.BigEndian.PutElement(&raw, element)
 
 	// Find the first non zero byte
 	firstByteIdx := Bytes - 1
@@ -131,22 +138,22 @@ func (z Felt) AppendText(data []byte) ([]byte, error) {
 		firstByteIdx++
 	}
 
-	return hex.AppendEncode(data, raw[firstByteIdx:]), nil
+	return hex.AppendEncode(data, raw[firstByteIdx:])
 }
 
 // SetBytes forwards the call to underlying field element implementation
-func (z *Felt) SetBytes(e []byte) *Felt {
+func (z *Typed[K]) SetBytes(e []byte) *Typed[K] {
 	(*fp.Element)(z).SetBytes(e)
 	return z
 }
 
 // SetBytesCanonical forwards the call to underlying field element implementation
-func (z *Felt) SetBytesCanonical(e []byte) error {
+func (z *Typed[K]) SetBytesCanonical(e []byte) error {
 	return (*fp.Element)(z).SetBytesCanonical(e)
 }
 
 // SetString forwards the call to underlying field element implementation
-func (z *Felt) SetString(number string) (*Felt, error) {
+func (z *Typed[K]) SetString(number string) (*Typed[K], error) {
 	// get temporary big int from the pool
 	vv := bigIntPool.Get().(*big.Int)
 	// release object into pool
@@ -168,27 +175,26 @@ func (z *Felt) SetString(number string) (*Felt, error) {
 }
 
 // SetUint64 forwards the call to underlying field element implementation
-func (z *Felt) SetUint64(v uint64) *Felt {
+func (z *Typed[K]) SetUint64(v uint64) *Typed[K] {
 	(*fp.Element)(z).SetUint64(v)
 	return z
 }
 
 // SetRandom forwards the call to underlying field element implementation
-func (z *Felt) SetRandom() *Felt {
-	_, err := (*fp.Element)(z).SetRandom()
-	if err != nil {
+func (z *Typed[K]) SetRandom() *Typed[K] {
+	if _, err := (*fp.Element)(z).SetRandom(); err != nil {
 		panic(fmt.Sprintf("unexpected error from rand.Reader: %s", err.Error()))
 	}
 	return z
 }
 
 // String forwards the call to underlying field element implementation
-func (z *Felt) String() string {
+func (z *Typed[K]) String() string {
 	return "0x" + (*fp.Element)(z).Text(Base16)
 }
 
 // ShortString prints the felt to a string in a shortened format
-func (z *Felt) ShortString() string {
+func (z *Typed[K]) ShortString() string {
 	shortFelt := 8
 	hex := (*fp.Element)(z).Text(Base16)
 
@@ -199,100 +205,100 @@ func (z *Felt) ShortString() string {
 }
 
 // Text forwards the call to underlying field element implementation
-func (z *Felt) Text(base int) string {
+func (z *Typed[K]) Text(base int) string {
 	return (*fp.Element)(z).Text(base)
 }
 
 // Equal forwards the call to underlying field element implementation
-func (z *Felt) Equal(x *Felt) bool {
+func (z *Typed[K]) Equal(x *Typed[K]) bool {
 	return (*fp.Element)(z).Equal((*fp.Element)(x))
 }
 
 // Marshal forwards the call to underlying field element implementation
-func (z *Felt) Marshal() []byte {
+func (z *Typed[K]) Marshal() []byte {
 	return (*fp.Element)(z).Marshal()
 }
 
 // Unmarshal forwards the call to underlying field element implementation
-func (z *Felt) Unmarshal(e []byte) {
+func (z *Typed[K]) Unmarshal(e []byte) {
 	(*fp.Element)(z).Unmarshal(e)
 }
 
 // Bytes forwards the call to underlying field element implementation.
 // Returns the value of z as a big-endian byte array
-func (z *Felt) Bytes() [32]byte {
+func (z *Typed[K]) Bytes() [32]byte {
 	return (*fp.Element)(z).Bytes()
 }
 
 // IsOne forwards the call to underlying field element implementation
-func (z *Felt) IsOne() bool {
+func (z *Typed[K]) IsOne() bool {
 	return (*fp.Element)(z).IsOne()
 }
 
 // IsZero forwards the call to underlying field element implementation
-func (z *Felt) IsZero() bool {
+func (z *Typed[K]) IsZero() bool {
 	return (*fp.Element)(z).IsZero()
 }
 
 // Add forwards the call to underlying field element implementation
-func (z *Felt) Add(x, y *Felt) *Felt {
+func (z *Typed[K]) Add(x, y *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Add((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Halve forwards the call to underlying field element implementation
-func (z *Felt) Halve() {
+func (z *Typed[K]) Halve() {
 	(*fp.Element)(z).Halve()
 }
 
 // Bits forwards the call to underlying field element implementation.
 // Provides access to z by returning its value as a little-endian [4]uint64 array.
-func (z *Felt) Bits() [4]uint64 {
+func (z *Typed[K]) Bits() [4]uint64 {
 	return (*fp.Element)(z).Bits()
 }
 
 // BigInt forwards the call to underlying field element implementation
-func (z *Felt) BigInt(res *big.Int) *big.Int {
+func (z *Typed[K]) BigInt(res *big.Int) *big.Int {
 	return (*fp.Element)(z).BigInt(res)
 }
 
 // Set forwards the call to underlying field element implementation
-func (z *Felt) Set(x *Felt) *Felt {
+func (z *Typed[K]) Set(x *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Set((*fp.Element)(x))
 	return z
 }
 
 // Double forwards the call to underlying field element implementation
-func (z *Felt) Double(x *Felt) *Felt {
+func (z *Typed[K]) Double(x *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Double((*fp.Element)(x))
 	return z
 }
 
 // Sub forwards the call to underlying field element implementation
-func (z *Felt) Sub(x, y *Felt) *Felt {
+func (z *Typed[K]) Sub(x, y *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Sub((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
-func (z *Felt) Neg(x *Felt) *Felt {
+func (z *Typed[K]) Neg(x *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Neg((*fp.Element)(x))
 	return z
 }
 
 // Exp forwards the call to underlying field element implementation
-func (z *Felt) Exp(x *Felt, y *big.Int) *Felt {
+func (z *Typed[K]) Exp(x *Typed[K], y *big.Int) *Typed[K] {
 	(*fp.Element)(z).Exp(fp.Element(*x), y)
 	return z
 }
 
 // Mul forwards the call to underlying field element implementation
-func (z *Felt) Mul(x, y *Felt) *Felt {
+func (z *Typed[K]) Mul(x, y *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Mul((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Div forwards the call to underlying field element implementation
-func (z *Felt) Div(x, y *Felt) *Felt {
+func (z *Typed[K]) Div(x, y *Typed[K]) *Typed[K] {
 	(*fp.Element)(z).Div((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
@@ -303,23 +309,23 @@ func (z *Felt) Div(x, y *Felt) *Felt {
 //	-1 if z <  x
 //	 0 if z == x
 //	+1 if z >  x
-func (z *Felt) Cmp(x *Felt) int {
+func (z *Typed[K]) Cmp(x *Typed[K]) int {
 	return (*fp.Element)(z).Cmp((*fp.Element)(x))
 }
 
 // SetBigInt forwards the call to underlying field element implementation
-func (z *Felt) SetBigInt(v *big.Int) *Felt {
+func (z *Typed[K]) SetBigInt(v *big.Int) *Typed[K] {
 	(*fp.Element)(z).SetBigInt(v)
 	return z
 }
 
 // Uint64 forwards the call to underlying field element implementation
-func (z *Felt) Uint64() uint64 {
+func (z *Typed[K]) Uint64() uint64 {
 	return (*fp.Element)(z).Uint64()
 }
 
 // TODO: look where this is used, the clone shouldn't return a pointer
-func (z *Felt) Clone() *Felt {
+func (z *Typed[K]) Clone() *Typed[K] {
 	clone := *z
 	return &clone
 }
