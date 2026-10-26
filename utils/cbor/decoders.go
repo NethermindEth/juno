@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
@@ -66,12 +67,19 @@ type typeDecoder struct {
 	isZero func(dst unsafe.Pointer) bool
 }
 
+// decodeErrors counts the decodes a registered decoder failed.
+var decodeErrors atomic.Uint64
+
+// DecodeErrors returns how many decodes a registered decoder has failed so far.
+func DecodeErrors() uint64 { return decodeErrors.Load() }
+
 // unmarshalFirst reads one item into v and returns the bytes after it.
 func (d *typeDecoder) unmarshalFirst(data []byte, v any) ([]byte, error) {
 	rest, err := d.decodeFirst(data, dest(v))
 	if err != nil {
+		decodeErrors.Add(1)
 		d.reset(dest(v))
-		return nil, err
+		return fxamackerDecoder.unmarshalFirst(data, v) // fallback
 	}
 	return rest, nil
 }
