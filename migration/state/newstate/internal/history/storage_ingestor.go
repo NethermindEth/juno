@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/semaphore"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
@@ -90,15 +91,6 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 	}
 	defer deprecatedHistoryIt.Close()
 
-	hasHistory := deprecatedHistoryIt.First()
-	if !hasHistory {
-		// No deprecated rows and new ones exist: a rerun after the phase completed.
-		migrated, err := hasEntries(i.Database, db.ContractStorageHistory.Key(addrBytes))
-		if err != nil || migrated {
-			return err
-		}
-	}
-
 	//nolint:staticcheck,nolintlint // old state layout
 	leafPrefix := db.DeprecatedContractStorage.Key(addrBytes)
 	leafPrefix = append(leafPrefix, deprecatedstate.ContractStorageTrieHeight)
@@ -108,13 +100,29 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 		return fmt.Errorf("storage: open leaf iter(%s): %w", addrFelt, err)
 	}
 	defer headStorageTrieIt.Close()
+
+	// A rerun after the wipe must skip: head leaves at the floor would overwrite history.
+	// Leaves are written in slot order, so only a written last leaf means the contract is done.
+	hasHistory := deprecatedHistoryIt.First()
+	if !hasHistory && !headStorageTrieIt.Seek(dbutils.UpperBound(leafPrefix)) &&
+		headStorageTrieIt.Prev() {
+		lastSlot := felt.FromBytes[felt.Felt](headStorageTrieIt.Key()[len(leafPrefix):])
+		migrated, err := hasEntries(i.Database, db.ContractStorageHistoryKey(addrFelt, &lastSlot))
+		if err != nil || migrated {
+			return err
+		}
+	}
 	leafValid := headStorageTrieIt.First()
 
 	// writeLeavesBefore writes leaves before slot (all when nil) at the floor: they have no history.
 	writeLeavesBefore := func(slot *felt.Felt) error {
+		var slotBytes []byte
+		if slot != nil {
+			slotBytes = slot.Marshal()
+		}
 		for leafValid {
 			leafKey := headStorageTrieIt.Key()[len(leafPrefix):]
-			if slot != nil && bytes.Compare(leafKey, slot.Marshal()) >= 0 {
+			if slot != nil && bytes.Compare(leafKey, slotBytes) >= 0 {
 				return nil
 			}
 			leafSlot := felt.FromBytes[felt.Felt](leafKey)
