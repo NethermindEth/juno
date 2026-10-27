@@ -17,12 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	goldenFile = "testdata/golden_bytes.json"
-	// legacyGoldenFile holds records written before the compact felt form; decode only.
-	legacyGoldenFile = "testdata/golden_bytes_legacy.json"
-)
-
 // goldenBytes is each record's hex, keyed by name.
 // It is how the records were written, so it is byte for byte what a database holds.
 func goldenBytes(t *testing.T, file string) map[string]string {
