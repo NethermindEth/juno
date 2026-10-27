@@ -1,10 +1,11 @@
+//go:build compactfelt
+
 package felt
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/bits"
 
 	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -69,8 +70,6 @@ const (
 	// Header + Limbs * maxCBORUintLen
 	maxCBORLegacyFeltLen = 1 + Limbs*maxCBORUintLen
 
-	// feltByteLen is the length of a big-endian felt, and of a Montgomery-form byte string.
-	feltByteLen = Limbs * 8
 	// maxCanonicalByteLen is the longest canonical byte string; longer values use Montgomery form.
 	maxCanonicalByteLen = feltByteLen - 2
 	// Two header bytes + the full big-endian value
@@ -80,16 +79,13 @@ const (
 )
 
 var (
-	errFeltEmpty          = errors.New("empty input")
 	errFeltTrailingBytes  = errors.New("trailing bytes")
 	errFeltTruncated      = errors.New("truncated byte string")
 	errFeltUintTooLarge   = errors.New("uint of 24 or more must be a byte string")
 	errFeltSmallBytes     = errors.New("byte string holds a value below 24")
 	errFeltLeadingZero    = errors.New("byte string has a leading zero byte")
-	errFeltTooLong        = errors.New("byte string longer than 32 bytes")
 	errFeltLengthHeader   = errors.New("non-minimal byte string length")
 	errFeltLengthEncoding = errors.New("unsupported byte string length encoding")
-	errFeltOutOfRange     = errors.New("value is not below the field modulus")
 	errFeltReservedLength = errors.New("31-byte byte string is reserved")
 	errFeltUnexpectedType = errors.New("unexpected CBOR major type")
 )
@@ -156,26 +152,6 @@ func appendCBOR(data []byte, value *fp.Element) []byte {
 
 	buffer := bigEndianBytes(&limbs)
 	return append(data, buffer[feltByteLen-length:]...)
-}
-
-// bigEndianBytes returns little-endian limbs as 32 big-endian bytes.
-func bigEndianBytes(limbs *[Limbs]uint64) [feltByteLen]byte {
-	var buffer [feltByteLen]byte
-	binary.BigEndian.PutUint64(buffer[0:], limbs[3])
-	binary.BigEndian.PutUint64(buffer[8:], limbs[2])
-	binary.BigEndian.PutUint64(buffer[16:], limbs[1])
-	binary.BigEndian.PutUint64(buffer[24:], limbs[0])
-	return buffer
-}
-
-// trimmedLength returns the big-endian byte length of canonical limbs without leading zeros.
-func trimmedLength(limbs *[Limbs]uint64) int {
-	for index := Limbs - 1; index >= 0; index-- {
-		if limbs[index] != 0 {
-			return index*8 + (bits.Len64(limbs[index])+7)/8
-		}
-	}
-	return 0
 }
 
 // decodeCompact decodes one compact felt at data[0:], returning the number of bytes consumed.

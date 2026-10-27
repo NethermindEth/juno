@@ -1,3 +1,5 @@
+//go:build compactfelt
+
 package felt_test
 
 import (
@@ -18,14 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// cborArrayHeader is the CBOR header byte for an array of 4 items, the legacy felt shape.
-const cborArrayHeader = 0x84
-
 // largestFeltHex is p - 1, the largest canonical felt, as 32 big-endian bytes.
 const largestFeltHex = "0800000000000011000000000000000000000000000000000000000000000000"
-
-// modulusHex is the field modulus p as 32 big-endian bytes.
-const modulusHex = "0800000000000011000000000000000000000000000000000000000000000001"
 
 // modulusPlusOneHex is p + 1 as 32 big-endian bytes.
 const modulusPlusOneHex = "0800000000000011000000000000000000000000000000000000000000000002"
@@ -59,28 +55,12 @@ var legacyDecodeCornerCases = []struct {
 	}},
 }
 
-func mustDecodeHex(t testing.TB, value string) []byte {
-	t.Helper()
-	data, err := hex.DecodeString(strings.ReplaceAll(value, " ", ""))
-	require.NoError(t, err)
-	return data
-}
-
 // largestFelt returns p - 1.
 func largestFelt(t testing.TB) felt.Felt {
 	t.Helper()
 	var decoded felt.Felt
 	require.NoError(t, decoded.SetBytesCanonical(mustDecodeHex(t, largestFeltHex)))
 	return decoded
-}
-
-// legacyCBOR returns the Montgomery-limb encoding the previous encoder wrote for value.
-func legacyCBOR(t testing.TB, value *felt.Felt) []byte {
-	t.Helper()
-	encoded, err := cbor.Marshal((*fp.Element)(value))
-	require.NoError(t, err)
-	require.Equal(t, byte(cborArrayHeader), encoded[0])
-	return encoded
 }
 
 // decodeLegacyGeneric decodes data the way fxamacker reads a plain limb array.
@@ -94,13 +74,6 @@ func feltFromBigInt(n *big.Int) felt.Felt {
 	var value felt.Felt
 	value.SetBigInt(n)
 	return value
-}
-
-// randomFelt returns a reduced felt drawn from rng.
-func randomFelt[F felt.FeltLike](rng *rand.Rand) F {
-	var data [32]byte
-	_, _ = rng.Read(data[:])
-	return felt.FromBytes[F](data[:])
 }
 
 // requireCompactRoundTrip checks that value encodes to its expected length and decodes back.
