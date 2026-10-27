@@ -32,8 +32,18 @@ func testCase[K any](key K, keyHex, valueHex string) testCaseData[K] {
 	}
 }
 
-// legacyTestCase is a row stored with Montgomery-limb felts that a write re-encodes as writtenHex.
+// compactFeltWrites reports whether the linked felt codec writes the compact form.
+var compactFeltWrites = func() bool {
+	data, err := felt.Zero.MarshalCBOR()
+	return err == nil && len(data) == 1
+}()
+
+// legacyTestCase is a row stored with Montgomery-limb felts that a compact write re-encodes as
+// writtenHex; the legacy codec writes it back unchanged.
 func legacyTestCase[K any](key K, keyHex, valueHex, writtenHex string) testCaseData[K] {
+	if !compactFeltWrites {
+		writtenHex = valueHex
+	}
 	return testCaseData[K]{
 		key:        key,
 		keyHex:     keyHex,

@@ -87,6 +87,9 @@ jobs:
           FULL_TESTS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.consensus == 'true' }}
         run: make test
 
+      - name: Tests (compact felt codec)
+        run: make test-compactfelt
+
       #    Tests with race condition detector are flaky; we're disabling them for now
       #      - name: Tests (Race Detection)
       #        if: matrix.os == 'ubuntu-latest'

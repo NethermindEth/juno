@@ -37,3 +37,15 @@ jobs:
           version: latest
           args: --config=./.golangci_diff.yaml
           only-new-issues: true
+      # Both passes again with the compact felt codec built in; only core/felt differs under the tag
+      - name: golangci-lint (compactfelt)
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: latest
+          args: --build-tags compactfelt ./core/felt/...
+      - name: golangci-lint-diffs (compactfelt)
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: latest
+          args: --config=./.golangci_diff.yaml --build-tags compactfelt
+          only-new-issues: true

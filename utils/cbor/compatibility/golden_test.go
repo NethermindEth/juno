@@ -5,8 +5,30 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/require"
 )
+
+// compactFeltWrites reports whether the linked felt codec writes the compact form.
+var compactFeltWrites = func() bool {
+	data, err := felt.Zero.MarshalCBOR()
+	return err == nil && len(data) == 1
+}()
+
+const (
+	// compactGoldenFile holds each record as the compact felt codec writes it.
+	compactGoldenFile = "testdata/golden_bytes.json"
+	// legacyGoldenFile holds the same records as the legacy felt codec writes them.
+	legacyGoldenFile = "testdata/golden_bytes_legacy.json"
+)
+
+// goldenFile returns the vectors the linked felt codec writes.
+func goldenFile() string {
+	if compactFeltWrites {
+		return compactGoldenFile
+	}
+	return legacyGoldenFile
+}
 
 // assertEncodesToGolden checks exact stored bytes without relying on a matching decoder.
 func assertEncodesToGolden(
@@ -49,17 +71,4 @@ func assertDecodesFromGolden(
 			require.Equal(t, c.value, back.Elem().Interface())
 		})
 	}
-}
-
-// legacyCases keeps the cases that have a vector in golden, failing on a vector with no case.
-func legacyCases(t *testing.T, golden map[string]string, cases []goldenCase) []goldenCase {
-	t.Helper()
-	var matched []goldenCase
-	for _, c := range cases {
-		if _, ok := golden[c.name]; ok {
-			matched = append(matched, c)
-		}
-	}
-	require.Len(t, matched, len(golden), "a legacy vector lost its case")
-	return matched
 }

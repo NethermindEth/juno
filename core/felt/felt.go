@@ -220,6 +220,35 @@ func (z *Typed[K]) Marshal() []byte {
 	return (*fp.Element)(z).Marshal()
 }
 
+// feltByteLen is the length of a big-endian felt, and of a Montgomery-form byte string.
+const feltByteLen = Limbs * 8
+
+var (
+	errFeltEmpty      = errors.New("empty input")
+	errFeltTooLong    = errors.New("byte string longer than 32 bytes")
+	errFeltOutOfRange = errors.New("value is not below the field modulus")
+)
+
+// bigEndianBytes returns little-endian limbs as 32 big-endian bytes.
+func bigEndianBytes(limbs *[Limbs]uint64) [feltByteLen]byte {
+	var buffer [feltByteLen]byte
+	binary.BigEndian.PutUint64(buffer[0:], limbs[3])
+	binary.BigEndian.PutUint64(buffer[8:], limbs[2])
+	binary.BigEndian.PutUint64(buffer[16:], limbs[1])
+	binary.BigEndian.PutUint64(buffer[24:], limbs[0])
+	return buffer
+}
+
+// trimmedLength returns the big-endian byte length of canonical limbs without leading zeros.
+func trimmedLength(limbs *[Limbs]uint64) int {
+	for index := Limbs - 1; index >= 0; index-- {
+		if limbs[index] != 0 {
+			return index*8 + (bits.Len64(limbs[index])+7)/8
+		}
+	}
+	return 0
+}
+
 // MinimalBytes returns the big-endian value without leading zero bytes; zero is one zero byte.
 func (z *Typed[K]) MinimalBytes() []byte {
 	limbs := (*fp.Element)(z).Bits()
