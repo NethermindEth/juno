@@ -11,11 +11,13 @@ import (
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
+// restorer rebuilds the hash lookups of one block per run: block hash to
+// number, transaction hash to block and index, and L1 message hash to
+// transaction hash.
 type restorer struct {
 	reader          db.KeyValueReader
 	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
 	batches         []db.Batch
-	scratchPool     []copyScratch
 	progressTracker *progresslogger.BlockProgressTracker
 }
 
@@ -33,7 +35,6 @@ func newRestorer(
 		reader:          reader,
 		batchSemaphore:  batchSemaphore,
 		batches:         batches,
-		scratchPool:     make([]copyScratch, maxWorkers),
 		progressTracker: progressTracker,
 	}
 }
@@ -41,26 +42,13 @@ func newRestorer(
 var _ pipeline.State[uint64, db.Batch] = (*restorer)(nil)
 
 func (r *restorer) Run(index int, blockNumber uint64, outputs chan<- db.Batch) error {
-	update, err := core.GetStateUpdateByBlockNum(r.reader, blockNumber)
+	blockHash, err := core.GetBlockHeaderHashByNumber(r.reader, blockNumber)
 	if err != nil {
-		return fmt.Errorf("load state update for block %d: %w", blockNumber, err)
+		return fmt.Errorf("load block hash %d: %w", blockNumber, err)
 	}
 
 	batch := r.batches[index]
-
-	if err := copyStateHistory(
-		r.reader,
-		batch,
-		&r.scratchPool[index],
-		update.StateDiff,
-		blockNumber,
-		scratchToHistory,
-	); err != nil {
-		return err
-	}
-
-	err = core.WriteBlockHeaderNumberByHash(batch, update.BlockHash, blockNumber)
-	if err != nil {
+	if err := core.WriteBlockHeaderNumberByHash(batch, blockHash, blockNumber); err != nil {
 		return err
 	}
 
