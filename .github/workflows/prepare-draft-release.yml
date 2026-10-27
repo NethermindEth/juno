@@ -96,6 +96,8 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
       - name: Tag non-official image as latest
         run: docker buildx imagetools create --tag nethermindeth/juno:latest nethermindeth/juno:${{ needs.docker-image.outputs.tag }}
+      - name: Tag non-official distroless image as latest-distroless
+        run: docker buildx imagetools create --tag nethermindeth/juno:latest-distroless nethermindeth/juno:${{ needs.docker-image.outputs.tag }}-distroless
       - name: Clean up Docker config
         if: always()
         run: rm -f ${HOME}/.docker/config.json

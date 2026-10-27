@@ -44,6 +44,25 @@ COPY . .
 # Build with make juno
 RUN make juno
 
+# --- Debian image ---
+# The earlier runtime image with a shell and utilities. Releases publish it as nethermind/juno:<tag>
+# for users that cannot move to the distroless image yet. Build it with --target debian.
+FROM debian:bookworm-slim AS debian
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gawk \
+    grep \
+    libjemalloc-dev \
+    libjemalloc2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/build/juno /usr/local/bin/
+
+ENTRYPOINT ["juno"]
+
 # --- Runtime base stage ---
 # Builds a Wolfi filesystem with glibc and no shell or package manager from the packages pinned in
 # docker/apko.lock.json. It runs on the build platform, so a cross-arch build needs no emulation.
@@ -72,8 +91,9 @@ RUN apko build --arch ${TARGETARCH} --lockfile apko.lock.json --sbom=false apko.
     && mkdir /rootfs \
     && tar -xzf "$layer" -C /rootfs
 
-# --- Final stage ---
-FROM scratch AS final
+# --- Distroless image ---
+# The default target. Releases publish it as nethermind/juno:<tag>-distroless.
+FROM scratch AS distroless
 
 COPY --from=base /rootfs/ /
 COPY --from=builder /app/build/juno /usr/local/bin/

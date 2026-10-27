@@ -32,6 +32,8 @@ Juno Docker images can be found at the [nethermind/juno](https://hub.docker.com/
 docker pull nethermind/juno
 ```
 
+Each release also has a distroless image, `nethermind/juno:<version>-distroless` (`nethermind/juno:latest-distroless` for the latest release). It contains only Juno and the libraries that it needs, with no shell and no package manager. Start `juno` directly with arguments or `JUNO_*` environment variables, not through a shell script.
+
 You can also build the image locally:
 
 ```bash
@@ -39,7 +41,7 @@ You can also build the image locally:
 git clone https://github.com/NethermindEth/juno
 cd juno
 
-# Build the Docker image
+# Build the Docker image (distroless). To build the Debian image, add --target debian.
 docker build -t nethermind/juno:latest .
 ```
 
