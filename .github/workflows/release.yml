@@ -1,0 +1,393 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to release: main or release/vX.Y.Z"
+        required: true
+        type: string
+      version:
+        description: "Release tag, for example v0.16.9 or v0.16.9-rc.1"
+        required: true
+        type: string
+      dry_run:
+        description: "Run the checks and the builds only. Publish nothing."
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  STAGING_REPO: ${{ vars.DOCKER_STAGING_REPO || 'nethermindeth/juno' }}
+  OFFICIAL_REPO: ${{ vars.DOCKER_OFFICIAL_REPO || 'nethermind/juno' }}
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to list draft releases and to create a missing notes draft
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+      review: ${{ steps.check.outputs.review }}
+    steps:
+      - name: Check that a person started the run
+        env:
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          # "Prevent self-review" stops only the account that started the run. When a workflow on a
+          # branch starts this one with its token, that account is a bot and the author can approve.
+          for login in "$ACTOR" "$TRIGGERING_ACTOR"; do
+            if [[ "$login" == *'[bot]' ]]; then
+              echo "::error::$login started this run. A person must start the release."
+              exit 1
+            fi
+          done
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Check the version and the commits
+        id: check
+        env:
+          REF: ${{ inputs.ref }}
+          VERSION: ${{ inputs.version }}
+        run: >-
+          go run ./scripts/release/check
+          -ref "$REF" -version "$VERSION" -repo "$GITHUB_REPOSITORY"
+          -summary "$GITHUB_STEP_SUMMARY" -output "$GITHUB_OUTPUT"
+
+      - name: Check the docs version
+        env:
+          SHA: ${{ steps.check.outputs.sha }}
+          REF: ${{ inputs.ref }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/release-src" "$SHA"
+          CORE="${VERSION%%-*}"
+          if ! .github/workflow-scripts/check-docs-version.sh "$CORE" "$RUNNER_TEMP/release-src" > docs-check.log; then
+            cat docs-check.log
+            { echo "## Docs are not versioned for $CORE"; echo
+              echo "Fix the docs on \`$REF\`, push, and run the release again:"; echo
+              echo '```'; grep -v '^::' docs-check.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          cat docs-check.log
+
+      - name: Read the release notes draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ steps.check.outputs.sha }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          drafts=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '[.[] | select(.draft and (.name == env.VERSION or .tag_name == env.VERSION))]' | jq -s 'add // []')
+          count=$(jq length <<<"$drafts")
+          if [ "$count" -gt 1 ]; then
+            echo "::error::$count draft releases are named $VERSION. Keep one."
+            exit 1
+          fi
+          if [ "$count" -eq 0 ]; then
+            # A draft does not create the tag. Publish deletes this draft and creates the release again.
+            url=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$VERSION" -f name="$VERSION" \
+              -f target_commitish="$SHA" -F draft=true -F generate_release_notes=true --jq .html_url)
+            echo "No release notes draft for $VERSION. Created [a draft with generated notes]($url). Review it, then run the release again." \
+              >> "$GITHUB_STEP_SUMMARY"
+            if [ "$DRY_RUN" = true ]; then
+              echo "::warning::No release notes draft for $VERSION. Created one with generated notes: $url"
+              exit 0
+            fi
+            echo "::error::No release notes draft for $VERSION. Created one with generated notes: $url. Review it, then run the release again."
+            exit 1
+          fi
+          jq -r '.[0].body // ""' <<<"$drafts" > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::The release notes draft for $VERSION is empty. Write the notes, then run the release again."
+            exit 1
+          fi
+          { echo "## Release notes"; echo; cat notes.md; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the release notes
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: release-notes
+          path: notes.md
+          retention-days: 7
+
+  build-binaries:
+    name: Build binaries
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-binaries.yml
+    with:
+      ref: ${{ needs.verify.outputs.sha }}
+      version: ${{ inputs.version }}
+      no-cache: true
+
+  build-image:
+    name: Build image (${{ matrix.arch }})
+    needs: verify
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ${{ vars.ARM64_LINUX_RUNNER || 'ubuntu-arm64-4-core' }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+
+      - name: Tag the release commit locally
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Only the release tag may decide git describe: a fetched tag could win and carry shell code.
+          git for-each-ref --format='delete %(refname)' refs/tags | git update-ref --stdin
+          git tag "$VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image
+        env:
+          ARCH: ${{ matrix.arch }}
+          SHA: ${{ needs.verify.outputs.sha }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          docker buildx build --platform "linux/$ARCH" --provenance=false --sbom=false \
+            --label "org.opencontainers.image.revision=$SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --output "type=oci,dest=juno-$ARCH.tar" .
+
+      - name: Upload the image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: image-${{ matrix.arch }}
+          path: juno-${{ matrix.arch }}.tar
+          retention-days: 7
+
+  publish:
+    name: Publish
+    if: ${{ !inputs.dry_run }}
+    needs: [verify, build-binaries, build-image]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      actions: read # to read who approved the run
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+      SHA: ${{ needs.verify.outputs.sha }}
+      PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check that the approver did not make a commit to review
+        if: needs.verify.outputs.review != ''
+        env:
+          REVIEW: ${{ needs.verify.outputs.review }}
+        run: |
+          approvers=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/approvals" \
+            --jq '.[] | select(.state == "approved") | .user.login')
+          for sha in $REVIEW; do
+            commit=$(gh api "repos/$GH_REPO/commits/$sha")
+            # A verified signature binds the committer to an account. Commits that github.com makes
+            # (web-flow) can keep a forged author, for example after "Rebase and merge".
+            committer=$(jq -r '.committer.login // empty' <<<"$commit")
+            if [ "$(jq -r .commit.verification.verified <<<"$commit")" != true ] || [ -z "$committer" ] || [ "$committer" = web-flow ]; then
+              echo "::error::Commit $sha is not signed by the account that committed it. Push it signed from your own account."
+              exit 1
+            fi
+            for login in $committer $(jq -r '.author.login // empty' <<<"$commit"); do
+              if grep -qxF "$login" <<<"$approvers"; then
+                echo "::error::$login approved this run and made commit $sha. Another person must approve."
+                exit 1
+              fi
+            done
+          done
+
+      - name: Download the binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.0
+        with:
+          pattern: juno-*.zip
+          merge-multiple: true
+          path: binaries
+
+      - name: Download the images
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.0
+        with:
+          pattern: image-*
+          merge-multiple: true
+          path: images
+
+      - name: Download the release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.0
+        with:
+          name: release-notes
+          path: notes
+
+      - name: Write SHA256SUMS
+        working-directory: binaries
+        run: |
+          sha256sum juno-*.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Install crane
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/crane.tar.gz" \
+            https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_x86_64.tar.gz
+          echo "0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0  $RUNNER_TEMP/crane.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/crane.tar.gz" -C "$RUNNER_TEMP" crane
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Get the release App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Create the tag
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if ref=$(gh api "repos/$GH_REPO/git/ref/tags/$VERSION" 2>/dev/null); then
+            target=$(gh api "repos/$GH_REPO/git/tags/$(jq -r .object.sha <<<"$ref")" --jq .object.sha)
+            if [ "$target" != "$SHA" ]; then
+              echo "::error::Tag $VERSION exists on $target, not on $SHA"
+              exit 1
+            fi
+            echo "Tag $VERSION exists on $SHA from an earlier attempt."
+            exit 0
+          fi
+          tag=$(gh api "repos/$GH_REPO/git/tags" -f tag="$VERSION" -f message="Juno $VERSION" \
+            -f object="$SHA" -f type=commit --jq .sha)
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$VERSION" -f sha="$tag" > /dev/null
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push the images
+        id: push
+        run: |
+          refs=()
+          for arch in amd64 arm64; do
+            mkdir -p "images/$arch"
+            tar -xf "images/juno-$arch.tar" -C "images/$arch"
+            crane push "images/$arch" "$STAGING_REPO:$VERSION-$arch" --image-refs "images/$arch.ref"
+            refs+=(-m "$(cat "images/$arch.ref")")
+          done
+          # Use only the digest pushed here: anyone who can push to a repository can move its tags.
+          index=$(crane index append "${refs[@]}" -t "$STAGING_REPO:$VERSION")
+          digest=${index#*@}
+          crane copy "$STAGING_REPO@$digest" "$OFFICIAL_REPO:$VERSION"
+          for repo in "$STAGING_REPO" "$OFFICIAL_REPO"; do
+            if [ "$(crane digest "$repo:$VERSION")" != "$digest" ]; then
+              echo "::error::$repo:$VERSION does not point to $digest, the image that this run pushed. Investigate now."
+              exit 1
+            fi
+          done
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest the staging image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: index.docker.io/${{ env.STAGING_REPO }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest the official image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: index.docker.io/${{ env.OFFICIAL_REPO }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest the binaries
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: binaries/SHA256SUMS
+
+      - name: Publish the GitHub release
+        run: |
+          # Remove the notes draft and drafts from earlier attempts. The notes are in notes/notes.md.
+          gh api --paginate "repos/$GH_REPO/releases" \
+            --jq '.[] | select(.draft and (.name == env.VERSION or .tag_name == env.VERSION)) | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GH_REPO/releases/$id"; done
+
+          # Work only with the id of this draft: another writer can create drafts with the same tag.
+          id=$(gh api "repos/$GH_REPO/releases" -f tag_name="$VERSION" -f name="$VERSION" -F draft=true \
+            -F prerelease="$PRERELEASE" -F body=@notes/notes.md --jq .id)
+          for f in binaries/juno-*.zip binaries/SHA256SUMS; do
+            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/octet-stream" \
+              --data-binary @"$f" "https://uploads.github.com/repos/$GH_REPO/releases/$id/assets?name=$(basename "$f")" > /dev/null
+          done
+
+          # Any writer can change a draft, so compare its files with the files built here.
+          want=$(cd binaries && sha256sum juno-*.zip SHA256SUMS | awk '{print "sha256:" $1, $2}' | sort)
+          assets() { gh api --paginate "repos/$GH_REPO/releases/$id/assets" --jq '.[] | "\(.digest) \(.name)"' | sort; }
+          if [ "$(assets)" != "$want" ]; then
+            echo "::error::The draft files differ from the files that this run built."
+            diff <(echo "$want") <(assets) || true
+            exit 1
+          fi
+          latest=true
+          if [ "$PRERELEASE" = true ]; then latest=false; fi
+          gh api -X PATCH "repos/$GH_REPO/releases/$id" -F draft=false -f make_latest="$latest" > /dev/null
+          if [ "$(assets)" != "$want" ]; then
+            echo "::error::The published release has files that this run did not build. Investigate now."
+            exit 1
+          fi
+
+      - name: Move the latest tags
+        if: needs.verify.outputs.prerelease == 'false'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          for repo in "$STAGING_REPO" "$OFFICIAL_REPO"; do
+            crane tag "$repo@$DIGEST" latest
+            if [ "$(crane digest "$repo:latest")" != "$DIGEST" ]; then
+              echo "::error::$repo:latest does not point to $DIGEST, the image that this run pushed. Investigate now."
+              exit 1
+            fi
+          done
+
+      - name: Log out of Docker Hub
+        if: always()
+        run: rm -f "$HOME/.docker/config.json"
