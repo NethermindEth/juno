@@ -120,12 +120,3 @@ func (i *nonceIngestor) write(
 	t.EntryCount++
 	return i.Flush(t, outputs)
 }
-
-func hasEntries(r db.KeyValueReader, prefix []byte) (bool, error) {
-	it, err := r.NewIterator(prefix, true)
-	if err != nil {
-		return false, err
-	}
-	found := it.First()
-	return found, it.Close()
-}
