@@ -200,8 +200,22 @@ func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
 }
 
 // busyResponse returns a server-busy response, or nil for a valid notification
-// that must not receive a reply.
+// or a non-empty batch of valid notifications that must not receive a reply.
 func busyResponse(body []byte) []byte {
+	body = bytes.TrimLeft(body, " \t\r\n")
+	if len(body) > 0 && body[0] == '[' {
+		var batch []Request
+		if json.Unmarshal(body, &batch, decodeOptions) != nil || len(batch) == 0 {
+			return serverBusyResponse
+		}
+		for _, req := range batch {
+			if req.ID != nil || req.isSane() != nil {
+				return serverBusyResponse
+			}
+		}
+		return nil
+	}
+
 	var req Request
 	if json.Unmarshal(body, &req, decodeOptions) != nil {
 		return serverBusyResponse

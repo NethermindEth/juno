@@ -421,6 +421,101 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			request: `{"jsonrpc":"2.0","method":"echo"} {}`,
 			id:      `null`,
 		},
+		"single notification batch": {
+			request:      `[{"jsonrpc":"2.0","method":"echo","params":["hi"]}]`,
+			notification: true,
+			id:           `"probe"`,
+		},
+		"multiple notification batch": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo","params":["first"]},
+				{"jsonrpc":"2.0","method":"echo","params":["second"]}
+			]`,
+			notification: true,
+			id:           `"probe"`,
+		},
+		"unknown method notification batch": {
+			request:      `[{"jsonrpc":"2.0","method":"unknown"}]`,
+			notification: true,
+			id:           `"probe"`,
+		},
+		"invalid arguments notification batch": {
+			request:      `[{"jsonrpc":"2.0","method":"echo","params":[123]}]`,
+			notification: true,
+			id:           `"probe"`,
+		},
+		"notification batch with whitespace": {
+			request:      " \n\t[{\"jsonrpc\":\"2.0\",\"method\":\"echo\"}] \n\t",
+			notification: true,
+			id:           `"probe"`,
+		},
+		"notification followed by string id": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo","id":"request"}
+			]`,
+			id: `null`,
+		},
+		"number id followed by notification": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo","id":9007199254740993},
+				{"jsonrpc":"2.0","method":"echo"}
+			]`,
+			id: `null`,
+		},
+		"notification batch with null id": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo","id":null}
+			]`,
+			id: `null`,
+		},
+		"notification batch with invalid id": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo","id":true}
+			]`,
+			id: `null`,
+		},
+		"notification batch with invalid request": {
+			request: `[{"jsonrpc":"2.0","method":"echo"},{}]`,
+			id:      `null`,
+		},
+		"notification batch with primitive": {
+			request: `[{"jsonrpc":"2.0","method":"echo"},1]`,
+			id:      `null`,
+		},
+		"notification batch with null element": {
+			request: `[{"jsonrpc":"2.0","method":"echo"},null]`,
+			id:      `null`,
+		},
+		"notification batch with nested batch": {
+			request: `[{"jsonrpc":"2.0","method":"echo"},[]]`,
+			id:      `null`,
+		},
+		"notification batch with invalid params shape": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo","params":123}
+			]`,
+			id: `null`,
+		},
+		"empty batch": {
+			request: `[]`,
+			id:      `null`,
+		},
+		"malformed notification batch": {
+			request: `[{"jsonrpc":"2.0","method":"echo"},]`,
+			id:      `null`,
+		},
+		"trailing data after notification batch": {
+			request: `[{"jsonrpc":"2.0","method":"echo"}] trailing`,
+			id:      `null`,
+		},
+		"second value after notification batch": {
+			request: `[{"jsonrpc":"2.0","method":"echo"}] []`,
+			id:      `null`,
+		},
 	}
 
 	for name, test := range tests {
