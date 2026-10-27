@@ -1,10 +1,13 @@
 package jsonrpc_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -368,6 +371,8 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 		request      string
 		notification bool
 		id           string
+		disableBatch bool
+		batchLimit   int
 	}{
 		"notification": {
 			request:      `{"jsonrpc":"2.0","method":"echo","params":["hi"]}`,
@@ -516,6 +521,55 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			request: `[{"jsonrpc":"2.0","method":"echo"}] []`,
 			id:      `null`,
 		},
+		"single notification with batches disabled": {
+			request:      `{"jsonrpc":"2.0","method":"echo"}`,
+			notification: true,
+			id:           `"probe"`,
+			disableBatch: true,
+		},
+		"notification batch with batches disabled": {
+			request:      `[{"jsonrpc":"2.0","method":"echo"}]`,
+			id:           `null`,
+			disableBatch: true,
+		},
+		"notification batch at one element limit": {
+			request:      `[{"jsonrpc":"2.0","method":"echo"}]`,
+			notification: true,
+			id:           `"probe"`,
+			batchLimit:   1,
+		},
+		"notification batch above one element limit": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo"}
+			]`,
+			id:         `null`,
+			batchLimit: 1,
+		},
+		"notification batch at two element limit": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo"}
+			]`,
+			notification: true,
+			id:           `"probe"`,
+			batchLimit:   2,
+		},
+		"notification batch above two element limit": {
+			request: `[
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo"},
+				{"jsonrpc":"2.0","method":"echo"}
+			]`,
+			id:         `null`,
+			batchLimit: 2,
+		},
+		"negative element limit allows notification batch": {
+			request:      `[{"jsonrpc":"2.0","method":"echo"}]`,
+			notification: true,
+			id:           `"probe"`,
+			batchLimit:   -1,
+		},
 	}
 
 	for name, test := range tests {
@@ -523,7 +577,9 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 			logger := log.NewNopZapLogger()
-			rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
+			rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger).
+				DisableBatchRequests(test.disableBatch).
+				WithMaxBatchElements(test.batchLimit)
 			require.NoError(t, rpc.RegisterMethods(jsonrpc.Method{
 				Name:   "echo",
 				Params: []jsonrpc.Parameter{{Name: "msg"}},
@@ -531,6 +587,18 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 					return msg, nil
 				},
 			}))
+			if test.disableBatch || test.batchLimit != 0 {
+				response, _, err := rpc.HandleReader(ctx, strings.NewReader(test.request))
+				require.NoError(t, err)
+				if test.notification {
+					require.Empty(t, response)
+				} else {
+					var reply struct{ Error *jsonrpc.Error }
+					require.NoError(t, json.Unmarshal(response, &reply))
+					require.NotNil(t, reply.Error)
+					require.Equal(t, jsonrpc.InvalidRequest, reply.Error.Code)
+				}
+			}
 			gate := jsonrpc.NewGate(1, 0)
 			require.True(t, gate.TryAcquire())
 			defer gate.Release()
@@ -540,11 +608,9 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { assert.NoError(t, conn.CloseNow()) }()
 			require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(test.request)))
-			if test.notification {
-				// Messages are handled in order: the next reply must belong to this probe.
-				require.NoError(t, conn.Write(ctx, websocket.MessageText,
-					[]byte(`{"jsonrpc":"2.0","method":"echo","params":["probe"],"id":"probe"}`)))
-			}
+			// Messages are handled in order: a suppressed request leaves only the probe's reply.
+			require.NoError(t, conn.Write(ctx, websocket.MessageText,
+				[]byte(`{"jsonrpc":"2.0","method":"echo","params":["probe"],"id":"probe"}`)))
 			_, got, err := conn.Read(ctx)
 			require.NoError(t, err)
 			var reply struct {
@@ -559,5 +625,53 @@ func TestWebsocketGateNotificationSemantics(t *testing.T) {
 			assert.Equal(t, "server busy", reply.Error.Message)
 			assert.Equal(t, test.id, string(reply.ID))
 		})
+	}
+}
+
+func BenchmarkWebsocketGateBusyBatch(b *testing.B) {
+	const notification = `{"jsonrpc":"2.0","method":"echo"}`
+	const probe = `{"jsonrpc":"2.0","method":"echo","id":"probe"}`
+	for _, test := range []struct {
+		name, first  string
+		notification bool
+	}{
+		{"first id", `{"jsonrpc":"2.0","method":"echo","id":1}`, false},
+		{"first invalid", `{}`, false},
+		{"notifications", notification, true},
+	} {
+		for _, elements := range []int{1, 100, 10000} {
+			b.Run(fmt.Sprintf("%s/%d", test.name, elements), func(b *testing.B) {
+				body := []byte("[" + test.first + strings.Repeat(","+notification, elements-1) + "]")
+				id := "null"
+				if test.notification {
+					id = `"probe"`
+				}
+				want := []byte(`{"jsonrpc":"2.0","error":{"code":-32004,"message":"server busy"},"id":` +
+					id + `}`)
+				logger := log.NewNopZapLogger()
+				rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), logger)
+				gate := jsonrpc.NewGate(1, 0)
+				require.True(b, gate.TryAcquire())
+				defer gate.Release()
+				srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, nil, logger).WithGate(gate))
+				b.Cleanup(srv.Close)
+				conn, _, err := websocket.Dial(b.Context(), srv.URL, nil) //nolint:bodyclose // lib closes it
+				require.NoError(b, err)
+				b.Cleanup(func() { assert.NoError(b, conn.CloseNow()) })
+				b.ReportAllocs()
+				b.SetBytes(int64(len(body)))
+				for b.Loop() {
+					require.NoError(b, conn.Write(b.Context(), websocket.MessageText, body))
+					if test.notification {
+						require.NoError(b, conn.Write(b.Context(), websocket.MessageText, []byte(probe)))
+					}
+					_, got, err := conn.Read(b.Context())
+					require.NoError(b, err)
+					if !bytes.Equal(got, want) {
+						b.Fatalf("unexpected busy reply: %s", got)
+					}
+				}
+			})
+		}
 	}
 }
