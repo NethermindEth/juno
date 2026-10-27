@@ -5,11 +5,16 @@
 package testutils
 
 import (
+	"errors"
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // deletes old history rows
+	"github.com/NethermindEth/juno/core/deprecatedstate" //nolint:staticcheck,nolintlint // old reader
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/stretchr/testify/assert"
@@ -39,15 +44,93 @@ type StoredBlock struct {
 	L1HandlerMsgHashes [][]byte
 	// StateUpdate is the state update written for this block.
 	StateUpdate *core.StateUpdate
+	// Layout is the layout the block's state history is written in.
+	Layout Layout
+}
+
+// Layout is a state history layout.
+type Layout byte
+
+const (
+	// DeprecatedLayout entries record the value before their block; pruning
+	// removes every entry below the floor.
+	DeprecatedLayout Layout = iota
+	// NewStateLayout entries record the value after their block; pruning keeps
+	// each key's latest entry below the floor, which reads at the floor need.
+	NewStateLayout
+)
+
+func (l Layout) String() string {
+	if l == NewStateLayout {
+		return "new-state"
+	}
+	return "deprecated"
+}
+
+// historyKeys returns the history keys a block's state diff writes.
+func (l Layout) historyKeys(blockNum uint64, diff *core.StateDiff) [][]byte {
+	//nolint:staticcheck,nolintlint // old state layout
+	var (
+		storageKey   = db.DeprecatedContractStorageHistoryAtBlockKey
+		nonceKey     = db.DeprecatedContractNonceHistoryAtBlockKey
+		classHashKey = db.DeprecatedContractClassHashHistoryAtBlockKey
+	)
+	if l == NewStateLayout {
+		storageKey = db.ContractStorageHistoryAtBlockKey
+		nonceKey = db.ContractNonceHistoryAtBlockKey
+		classHashKey = db.ContractClassHashHistoryAtBlockKey
+	}
+	var keys [][]byte
+	for addr, slots := range diff.StorageDiffs {
+		for slot := range slots {
+			keys = append(keys, storageKey(&addr, &slot, blockNum))
+		}
+	}
+	for addr := range diff.Nonces {
+		keys = append(keys, nonceKey(&addr, blockNum))
+	}
+	for addr := range diff.ReplacedClasses {
+		keys = append(keys, classHashKey(&addr, blockNum))
+	}
+	return keys
+}
+
+// historyReader reads state history at a height.
+type historyReader interface {
+	ContractStorageAt(addr, key *felt.Felt, height uint64) (felt.Felt, error)
+	ContractNonceAt(addr *felt.Felt, height uint64) (felt.Felt, error)
+	ContractClassHashAt(addr *felt.Felt, height uint64) (felt.Felt, error)
+}
+
+// historyReader returns the reader of the layout's state history.
+func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyReader {
+	t.Helper()
+	if l == DeprecatedLayout {
+		//nolint:staticcheck,nolintlint // old state reader needs it
+		return deprecatedstate.New(database.NewIndexedBatch())
+	}
+	stateDB := state.NewStateDB(database, triedb.New(database, nil))
+	reader, err := state.NewStateReader(&felt.Zero, stateDB)
+	require.NoError(t, err)
+	return reader
 }
 
 // Two fixed addresses that appear across multiple blocks to simulate
 // realistic state history where the same contract is touched repeatedly.
 var (
 	SharedAddr1 = felt.NewFromUint64[felt.Felt](0xA001) //nolint:mnd // test fixture
-	SharedAddr2 = felt.NewFromUint64[felt.Felt](0xA002) //nolint:mnd // test fixture
+	SharedAddr2 = addrWithPrefix(0x07FF, 0xA002)        //nolint:mnd // test fixture
 	SharedSlot  = felt.NewFromUint64[felt.Felt](0x5001) //nolint:mnd // test fixture
 )
+
+// Address prefixes the unique addresses cycle through, so the history spans
+// several of the migration's address ranges.
+var uniqueAddrPrefixes = []uint16{0x0000, 0x0001, 0x0099, 0x07FF}
+
+// addrWithPrefix returns an address whose first two bytes are prefix.
+func addrWithPrefix(prefix uint16, low uint64) *felt.Felt {
+	return felt.NewUnsafeFromString[felt.Felt](fmt.Sprintf("0x%04x%060x", prefix, low))
+}
 
 // StoreBlock writes a complete block into the database covering all pruned buckets:
 //   - Bucket 7:  BlockHeaderNumbersByHash
@@ -72,6 +155,19 @@ func StoreBlockWithTimestamp(
 	database db.KeyValueStore,
 	blockNum,
 	timestamp uint64,
+) *StoredBlock {
+	t.Helper()
+	return StoreBlockWithLayout(t, database, blockNum, timestamp, DeprecatedLayout)
+}
+
+// StoreBlockWithLayout is StoreBlockWithTimestamp with state history in the
+// given layout.
+func StoreBlockWithLayout(
+	t *testing.T,
+	database db.KeyValueStore,
+	blockNum,
+	timestamp uint64,
+	layout Layout,
 ) *StoredBlock {
 	t.Helper()
 
@@ -124,8 +220,11 @@ func StoreBlockWithTimestamp(
 	// Build state diff with overlapping addresses across blocks.
 	// SharedAddr1: storage + nonce change in every block
 	// SharedAddr2: class hash change in every block
-	// Plus a unique address per block for variety.
-	uniqueAddr := felt.NewFromUint64[felt.Felt](0xB000 + blockNum) //nolint:mnd // test fixture
+	// Plus a unique address per block
+	uniqueAddr := addrWithPrefix(
+		uniqueAddrPrefixes[blockNum%uint64(len(uniqueAddrPrefixes))],
+		0xBFFF-blockNum, //nolint:mnd // test fixture
+	)
 	uniqueSlot := felt.NewFromUint64[felt.Felt](0xC000 + blockNum) //nolint:mnd // test fixture
 	oldValue := felt.NewFromUint64[felt.Felt](blockNum * 100)      //nolint:mnd // test fixture
 
@@ -172,42 +271,18 @@ func StoreBlockWithTimestamp(
 		core.WriteL1HandlerTxnHashByMsgHash(database, msgHash, l1HandlerTx.TransactionHash),
 	)
 
-	writeDeprecatedHistory(t, database, blockNum, oldValue, stateUpdate.StateDiff)
-
-	return &StoredBlock{
+	block := &StoredBlock{
 		Header:             header,
 		TxHashes:           txHashes,
 		L1HandlerMsgHashes: [][]byte{msgHash},
 		StateUpdate:        stateUpdate,
+		Layout:             layout,
 	}
-}
-
-// writeDeprecatedHistory seeds the old pre-value history rows (buckets 14, 15, 16) for one block.
-func writeDeprecatedHistory(
-	t *testing.T,
-	database db.KeyValueStore,
-	blockNum uint64,
-	oldValue *felt.Felt,
-	diff *core.StateDiff,
-) {
-	t.Helper()
-	for addr, slots := range diff.StorageDiffs {
-		for slot := range slots {
-			require.NoError(
-				t,
-				deprecatedstate.WriteContractStorageHistory(database, &addr, &slot, oldValue, blockNum),
-			)
-		}
+	value := felt.NewFromUint64[felt.Felt](blockNum*100 + 1) //nolint:mnd // test fixture
+	for _, key := range layout.historyKeys(blockNum, stateUpdate.StateDiff) {
+		require.NoError(t, database.Put(key, value.Marshal()))
 	}
-	for addr := range diff.Nonces {
-		require.NoError(t, deprecatedstate.WriteContractNonceHistory(database, &addr, oldValue, blockNum))
-	}
-	for addr := range diff.ReplacedClasses {
-		require.NoError(
-			t,
-			deprecatedstate.WriteContractClassHashHistory(database, &addr, oldValue, blockNum),
-		)
-	}
+	return block
 }
 
 func WithBatch(t *testing.T, database db.KeyValueStore, fn func(db.Batch) error) {
@@ -241,7 +316,7 @@ func AssertBlockExists(t *testing.T, database db.KeyValueReader, block *StoredBl
 		assert.NoError(t, err, "block %d L1 handler msg hash should exist", blockNum)
 	}
 
-	AssertStateHistoryExists(t, database, blockNum, block.StateUpdate)
+	AssertStateHistoryExists(t, database, block)
 }
 
 // AssertBlockPruned verifies all data for a block is gone.
@@ -276,56 +351,34 @@ func AssertBlockPruned(t *testing.T, database db.KeyValueReader, block *StoredBl
 		_, err := core.GetL1HandlerTxnHashByMsgHash(database, msgHash)
 		assert.Error(t, err, "block %d L1 handler msg hash should be deleted", blockNum)
 	}
-
-	// Buckets 14, 15, 16: state history
-	AssertStateHistoryPruned(t, database, blockNum, block.StateUpdate)
 }
 
-//nolint:dupl // symmetric with AssertStateHistoryPruned.
-func AssertStateHistoryExists(
-	t *testing.T,
-	r db.KeyValueReader,
-	blockNum uint64,
-	su *core.StateUpdate,
-) {
+// AssertStateHistoryExists checks the block's history entries are present.
+func AssertStateHistoryExists(t *testing.T, r db.KeyValueReader, block *StoredBlock) {
 	t.Helper()
-	for addr, slots := range su.StateDiff.StorageDiffs {
-		for slot := range slots {
-			key := db.DeprecatedContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
-			assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
-		}
-	}
-	for addr := range su.StateDiff.Nonces {
-		key := db.DeprecatedContractNonceHistoryAtBlockKey(&addr, blockNum)
-		assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
-	}
-	for addr := range su.StateDiff.ReplacedClasses {
-		key := db.DeprecatedContractClassHashHistoryAtBlockKey(&addr, blockNum)
-		assert.NoError(t, r.Get(key, func([]byte) error { return nil }))
+	for _, key := range block.Layout.historyKeys(block.Header.Number, block.StateUpdate.StateDiff) {
+		ok, err := r.Has(key)
+		require.NoError(t, err)
+		assert.True(t, ok, "block %d history key %x should exist", block.Header.Number, key)
 	}
 }
 
-//nolint:dupl // symmetric with AssertStateHistoryExists; see note there.
-func AssertStateHistoryPruned(
-	t *testing.T,
-	r db.KeyValueReader,
-	blockNum uint64,
-	su *core.StateUpdate,
-) {
+// AssertStateHistoryPruned checks the history of the blocks below the floor,
+// given in block order: an entry survives only in the new-state layout, and
+// only if no later block below the floor rewrote its key.
+func AssertStateHistoryPruned(t *testing.T, r db.KeyValueReader, pruned []*StoredBlock) {
 	t.Helper()
-	for addr, slots := range su.StateDiff.StorageDiffs {
-		for slot := range slots {
-			key := db.DeprecatedContractStorageHistoryAtBlockKey(&addr, &slot, blockNum)
-			assert.Error(t, r.Get(key, func([]byte) error { return nil }))
+	rewritten := make(map[string]bool)
+	for _, block := range slices.Backward(pruned) {
+		for _, key := range block.Layout.historyKeys(block.Header.Number, block.StateUpdate.StateDiff) {
+			historyKey := string(key[:len(key)-8])
+			want := block.Layout == NewStateLayout && !rewritten[historyKey]
+			rewritten[historyKey] = true
+
+			ok, err := r.Has(key)
+			require.NoError(t, err)
+			assert.Equal(t, want, ok, "block %d history key %x", block.Header.Number, key)
 		}
-	}
-	for addr := range su.StateDiff.Nonces {
-		key := db.DeprecatedContractNonceHistoryAtBlockKey(&addr, blockNum)
-		assert.Error(t, r.Get(key, func([]byte) error { return nil }))
-	}
-	for addr := range su.StateDiff.ReplacedClasses {
-		key := db.DeprecatedContractClassHashHistoryAtBlockKey(&addr, blockNum)
-		assert.Error(t, r.Get(key, func([]byte) error { return nil }))
 	}
 }
 
@@ -407,8 +460,11 @@ func AssertPostPruneState(
 				assert.Error(t, err,
 					"block %d L1 handler msg hash should be deleted", i)
 			}
-			AssertStateHistoryPruned(t, database, i, blocks[i].StateUpdate)
 		}
+	})
+
+	t.Run("state history below oldestKept pruned", func(t *testing.T) {
+		AssertStateHistoryPruned(t, database, blocks[:oldestKept])
 	})
 
 	t.Run("hash→number carve-out preserved at oldestKept-1 only", func(t *testing.T) {
@@ -437,4 +493,49 @@ func AssertPostPruneState(
 			AssertBlockExists(t, database, blocks[i])
 		}
 	})
+}
+
+// HistoryAnswers reads every key touched by blocks at every height in
+// [from, to] through the history reader of the blocks' layout.
+func HistoryAnswers(
+	t *testing.T,
+	database db.KeyValueStore,
+	blocks []*StoredBlock,
+	from, to uint64,
+) map[string]felt.Felt {
+	t.Helper()
+	reader := blocks[0].Layout.historyReader(t, database)
+
+	answers := make(map[string]felt.Felt)
+	record := func(kind string, at uint64, get func() (felt.Felt, error), parts ...*felt.Felt) {
+		v, err := get()
+		if errors.Is(err, deprecatedstate.ErrCheckHeadState) {
+			return
+		}
+		require.NoError(t, err)
+		answers[fmt.Sprintf("%s/%d/%v", kind, at, parts)] = v
+	}
+	for height := from; height <= to; height++ {
+		for _, block := range blocks {
+			diff := block.StateUpdate.StateDiff
+			for addr, slots := range diff.StorageDiffs {
+				for slot := range slots {
+					record("storage", height, func() (felt.Felt, error) {
+						return reader.ContractStorageAt(&addr, &slot, height)
+					}, &addr, &slot)
+				}
+			}
+			for addr := range diff.Nonces {
+				record("nonce", height, func() (felt.Felt, error) {
+					return reader.ContractNonceAt(&addr, height)
+				}, &addr)
+			}
+			for addr := range diff.ReplacedClasses {
+				record("class", height, func() (felt.Felt, error) {
+					return reader.ContractClassHashAt(&addr, height)
+				}, &addr)
+			}
+		}
+	}
+	return answers
 }

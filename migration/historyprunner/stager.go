@@ -1,69 +1,98 @@
 package historyprunner
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/binary"
+	"sync/atomic"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
-	"github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/semaphore"
 )
 
+// stageTask is a key range [start, end) of one bucket.
+type stageTask struct {
+	bucket     db.Bucket
+	start, end []byte
+}
+
+// stager stages one task range per run into its worker's batch, and counts
+// what it scanned for the progress log.
 type stager struct {
-	reader          db.KeyValueReader
-	batchSemaphore  semaphore.ResourceSemaphore[db.Batch]
-	batches         []db.Batch
-	scratchPool     []copyScratch
-	progressTracker *progresslogger.BlockProgressTracker
+	reader  db.KeyValueReader
+	sem     semaphore.ResourceSemaphore[db.Batch]
+	layout  layout
+	floor   uint64
+	batches []db.Batch
+
+	size, keys, entries atomic.Uint64
 }
 
 func newStager(
 	reader db.KeyValueReader,
-	batchSemaphore semaphore.ResourceSemaphore[db.Batch],
-	maxWorkers int,
-	progressTracker *progresslogger.BlockProgressTracker,
+	sem semaphore.ResourceSemaphore[db.Batch],
+	l layout,
+	floor uint64,
+	workers int,
 ) *stager {
-	batches := make([]db.Batch, maxWorkers)
+	batches := make([]db.Batch, workers)
 	for i := range batches {
-		batches[i] = batchSemaphore.GetBlocking()
+		batches[i] = sem.GetBlocking()
 	}
-	return &stager{
-		reader:          reader,
-		batchSemaphore:  batchSemaphore,
-		batches:         batches,
-		scratchPool:     make([]copyScratch, maxWorkers),
-		progressTracker: progressTracker,
-	}
+	return &stager{reader: reader, sem: sem, layout: l, floor: floor, batches: batches}
 }
 
-var _ pipeline.State[uint64, db.Batch] = (*stager)(nil)
+var _ pipeline.State[stageTask, db.Batch] = (*stager)(nil)
 
-func (s *stager) Run(index int, blockNumber uint64, outputs chan<- db.Batch) error {
-	update, err := core.GetStateUpdateByBlockNum(s.reader, blockNumber)
+// Run stages task without watching ctx: a task handed out is always finished,
+// which keeps the source's position an exact resume point.
+func (s *stager) Run(index int, task stageTask, outputs chan<- db.Batch) error {
+	it, err := s.reader.NewIterator(task.bucket.Key(), true)
 	if err != nil {
-		return fmt.Errorf("load state update for block %d: %w", blockNumber, err)
-	}
-
-	batch := s.batches[index]
-
-	if err := copyStateHistory(
-		s.reader,
-		batch,
-		&s.scratchPool[index],
-		update.StateDiff,
-		blockNumber,
-		historyToScratch,
-	); err != nil {
 		return err
 	}
+	defer it.Close()
 
-	if batch.Size() >= targetBatchByteSize {
-		outputs <- batch
-		s.batches[index] = s.batchSemaphore.GetBlocking()
+	var size, keys, entries uint64
+	defer func() {
+		s.size.Add(size)
+		s.keys.Add(keys)
+		s.entries.Add(entries)
+	}()
+
+	batch := s.batches[index]
+	ok := it.Seek(task.start)
+	for ok {
+		key := it.Key()
+		if bytes.Compare(key, task.end) >= 0 {
+			break
+		}
+		historyKey := key[:len(key)-blockNumberSuffixLen]
+		if binary.BigEndian.Uint64(key[len(historyKey):]) < s.floor {
+			ok = s.layout.seekStart(it, historyKey, s.floor)
+		}
+		for ; ok; ok = it.Next() {
+			key := it.Key()
+			if !bytes.HasPrefix(key, historyKey) {
+				break
+			}
+			val, err := it.UncopiedValue()
+			if err != nil {
+				return err
+			}
+			if err := batch.Put(scratchKey(key), val); err != nil {
+				return err
+			}
+			size += uint64(len(key) + len(val))
+			entries++
+		}
+		keys++
+		if batch.Size() >= targetBatchByteSize {
+			outputs <- batch
+			batch = s.sem.GetBlocking()
+			s.batches[index] = batch
+		}
 	}
-
-	s.progressTracker.IncrementCompletedBlocks(1)
 	return nil
 }
 

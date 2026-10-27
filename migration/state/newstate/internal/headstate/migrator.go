@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/migration"
+	"github.com/NethermindEth/juno/migration/progresslogger"
 	"github.com/NethermindEth/juno/migration/state/newstate/internal/common"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
@@ -66,7 +67,7 @@ func migrateContracts(
 	logger log.StructuredLogger,
 ) error {
 	contracts, sourceErr := pendingContracts(database)
-	counter := common.NewCounter(logger, common.TimeLogRate, "")
+	counter := progresslogger.NewCounter(logger, common.TimeLogRate, "")
 	batch := database.NewBatchWithSize(common.BatchByteSize)
 	total, sinceLog := 0, 0
 
