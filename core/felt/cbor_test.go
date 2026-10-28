@@ -314,3 +314,15 @@ func FuzzCBORDecode(f *testing.F) {
 		require.Equal(t, data, reencoded, "accepted a non-compact encoding")
 	})
 }
+
+func TestStoredBytes(t *testing.T) {
+	values := []felt.Felt{
+		felt.Zero[felt.Felt](),
+		felt.One[felt.Felt](),
+		felt.FromUint64[felt.Felt](1 << 40),
+		largestFelt(t),
+	}
+	for _, value := range values {
+		require.Equal(t, value.MinimalBytes(), value.StoredBytes())
+	}
+}

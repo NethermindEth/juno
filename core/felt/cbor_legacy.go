@@ -9,7 +9,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-// The default build writes the legacy form with main's encoder, so it stores what main stores.
+// The default build writes the legacy forms with main's encoders, so it stores what main stores.
 
 // maxCBORFeltLen is the longest encoding this build writes.
 const maxCBORFeltLen = maxCBORLegacyFeltLen
@@ -65,4 +65,9 @@ func encodeLimbs[F FeltLike](data []byte, value *F) int {
 	}
 
 	return offset
+}
+
+// StoredBytes returns the form this build stores a standalone felt value in: the full 32 bytes.
+func (z *Typed[K]) StoredBytes() []byte {
+	return z.Marshal()
 }
