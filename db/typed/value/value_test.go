@@ -42,15 +42,16 @@ var compactFeltWrites = func() bool {
 	return err == nil && len(data) == 1
 }()
 
-// runLegacyLiteralTest checks that bytes written by an older encoding still decode to value.
-func runLegacyLiteralTest[S value.Serializer[V], V any](
+// runStoredLiteralTest checks that bytes stored by the named felt codec still decode to value.
+func runStoredLiteralTest[S value.Serializer[V], V any](
 	t *testing.T,
 	_ S,
+	codec string,
 	value V,
 	stored string,
 ) {
 	t.Helper()
-	t.Run(fmt.Sprintf("legacy %T", *new(S)), func(t *testing.T) {
+	t.Run(fmt.Sprintf("%s %T", codec, *new(S)), func(t *testing.T) {
 		var s S
 
 		storedBytes, err := hex.DecodeString(stored)
@@ -118,13 +119,15 @@ func TestValueSerializer(t *testing.T) {
 		}
 		//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
 		legacyL1HeadHex := "a369426c6f636b48617368841bff19c577f33521621bffffffffffffffff1bffffffffffffffff1b00b61cf726873781695374617465526f6f74841bff19c577347901421bffffffffffffffff1bffffffffffffffff1b00b61cea7c0915616b426c6f636b4e756d6265721b000731d43a7075f4"
+		//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
+		compactL1HeadHex := "a369426c6f636b48617368470731d4406656f5695374617465526f6f74470731d4465c37f66b426c6f636b4e756d6265721b000731d43a7075f4"
 		l1HeadHex := legacyL1HeadHex
 		if compactFeltWrites {
-			//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
-			l1HeadHex = "a369426c6f636b48617368470731d4406656f5695374617465526f6f74470731d4465c37f66b426c6f636b4e756d6265721b000731d43a7075f4"
+			l1HeadHex = compactL1HeadHex
 		}
 		runLiteralTest(t, value.Cbor[core.L1Head](), l1Head, l1HeadHex)
-		runLegacyLiteralTest(t, value.Cbor[core.L1Head](), l1Head, legacyL1HeadHex)
+		runStoredLiteralTest(t, value.Cbor[core.L1Head](), "legacy", l1Head, legacyL1HeadHex)
+		runStoredLiteralTest(t, value.Cbor[core.L1Head](), "compact", l1Head, compactL1HeadHex)
 	})
 
 	t.Run("Random tests", func(t *testing.T) {

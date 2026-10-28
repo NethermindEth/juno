@@ -13,19 +13,19 @@ func TestFxamackerGoldenBytes(t *testing.T) {
 	t.Run("encoding", func(t *testing.T) {
 		assertEncodesToGolden(t, fxamacker.Marshal, golden, cases)
 	})
-	t.Run("decoding", func(t *testing.T) {
-		assertDecodesFromGolden(t, fxamacker.Unmarshal, golden, cases)
-	})
 	require.Equal(t, len(cases), len(golden), "a case lost its vector")
 
-	if !compactFeltWrites {
-		return
+	// Every build decodes both felt forms
+	for _, stored := range []struct{ codec, file string }{
+		{"compact", compactGoldenFile},
+		{"legacy", legacyGoldenFile},
+	} {
+		golden := goldenBytes(t, stored.file)
+		t.Run("decoding "+stored.codec, func(t *testing.T) {
+			assertDecodesFromGolden(t, fxamacker.Unmarshal, golden, cases)
+		})
+		require.Equal(t, len(cases), len(golden), "a case lost its %s vector", stored.codec)
 	}
-	legacy := goldenBytes(t, legacyGoldenFile)
-	t.Run("decoding legacy", func(t *testing.T) {
-		assertDecodesFromGolden(t, fxamacker.Unmarshal, legacy, cases)
-	})
-	require.Equal(t, len(cases), len(legacy), "a case lost its legacy vector")
 }
 
 func TestFxamackerRawMessage(t *testing.T) {
