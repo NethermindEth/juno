@@ -127,7 +127,7 @@ func setupMockEventFilterer(
 		Return(filteredEvents, blockchain.ContinuationToken{}, nil)
 }
 
-// setupMockWithPending sets up mocks for multiple event lists
+// setupMockEventFiltererWithMultiple sets up mocks for multiple event lists
 func setupMockEventFiltererWithMultiple(
 	mockChain *mocks.MockReader,
 	mockEventFilterer *mocks.MockEventFilterer,

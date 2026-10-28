@@ -17,7 +17,7 @@ import (
 //
 // Sizes mirror production:
 //   - 16   AggregatedBloomFilterCacheSize
-//   - 128  TraceCacheSize
+//   - 128  mid-size
 //   - 8192 stress
 //
 // Run with: go test -bench=. -benchmem -count=10 ./utils/lru/
@@ -208,7 +208,7 @@ func BenchmarkParallel_Bloom_16(b *testing.B) { benchParallelMixed[bloomKey](b, 
 func BenchmarkParallel_Felt_128(b *testing.B) { benchParallelMixed[feltKey](b, 128, feltFromInt) }
 
 // --- Non-thread-safe variants (basiclru vs simplelru) ---
-// Mirrors sync/pending_polling.go preLatest cache: felt key, size=10.
+// Felt key, as in rpc/tracecache (simplelru behind its own lock), size=10.
 // No locks → measures pure data-structure cost.
 
 type simpleCache[K comparable] interface {

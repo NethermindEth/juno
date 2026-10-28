@@ -77,7 +77,7 @@ make generate-buf      # Generate protobuf only
 cmd/juno/           # CLI entry point (cobra-based)
 node/               # Node orchestration and configuration
 core/               # Starknet core types (blocks, transactions, classes, felt)
-rpc/                # JSON-RPC API with versioned implementations (v8-v10)
+rpc/                # JSON-RPC API with versioned implementations (v9-v10)
   └── rpccore/      # Shared RPC implementation
 jsonrpc/            # JSON-RPC 2.0 server (HTTP and WebSocket)
 db/                 # Database layer

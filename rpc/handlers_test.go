@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -59,7 +58,6 @@ func TestRun(t *testing.T) {
 	).AnyTimes()
 
 	handler := &Handler{
-		rpcv8Handler:  rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
 		rpcv9Handler:  rpcv9.New(mockBcReader, mockSyncReader, nil, nil),
 		rpcv10Handler: rpcv10.New(mockBcReader, mockSyncReader, nil, nil),
 		version:       "",
@@ -80,7 +78,6 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 
 	logger := log.NewNopZapLogger()
 	handler := &Handler{
-		rpcv8Handler:  rpcv8.New(nil, nil, nil, logger),
 		rpcv9Handler:  rpcv9.New(nil, nil, nil, logger),
 		rpcv10Handler: rpcv10.New(nil, nil, nil, logger),
 		version:       "test",
@@ -88,7 +85,6 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 
 	methodsV10, _ := handler.MethodsV0_10()
 	methodsV09, _ := handler.MethodsV0_9()
-	methodsV08, _ := handler.MethodsV0_8()
 
 	versionTests := []struct {
 		name      string
@@ -97,7 +93,6 @@ func TestHandlerParamValidatorCompatibility(t *testing.T) {
 	}{
 		{"v0.10", methodsV10, rpcv10.Validator()},
 		{"v0.9", methodsV09, rpcv9.Validator()},
-		{"v0.8", methodsV08, rpcv8.Validator()},
 	}
 
 	contextType := reflect.TypeFor[context.Context]()
