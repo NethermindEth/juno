@@ -1,5 +1,3 @@
-//go:build compactfelt
-
 package felt
 
 import (
@@ -11,20 +9,17 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
-// Felts encode as a CBOR uint below 24, a byte string of up to 30 trimmed big-endian bytes, or a
-// 32-byte string of Montgomery limbs for values whose canonical form needs 31 or 32 bytes, so the
-// length alone tells the forms apart. Legacy rows hold an array of 4 Montgomery limbs and still
-// decode.
+// A felt has two CBOR forms. The legacy form is an array of the 4 Montgomery limbs, each a
+// minimally sized uint. The compact form is a uint below 24, a byte string of up to 30 trimmed
+// big-endian bytes, or a 32-byte string of Montgomery limbs for values whose canonical form needs
+// 31 or 32 bytes, so the length alone tells the forms apart. Every build decodes both; the
+// compactfelt build tag picks which form MarshalCBOR and appendCBOR write (cbor_compact.go or
+// cbor_legacy.go).
 
 var (
 	_ cbor.SelfEncoder = (*Felt)(nil)
 	_ cbor.SelfDecoder = (*Felt)(nil)
 )
-
-// MarshalCBOR encodes z in the size-based compact felt form.
-func (z *Typed[K]) MarshalCBOR() ([]byte, error) {
-	return appendCBOR(make([]byte, 0, maxCBORFeltLen), (*fp.Element)(z)), nil
-}
 
 // UnmarshalCBOR decodes a compact or legacy felt that spans all of data, writing z only on success.
 func (z *Typed[K]) UnmarshalCBOR(data []byte) error {
@@ -72,9 +67,7 @@ const (
 
 	// maxCanonicalByteLen is the longest canonical byte string; longer values use Montgomery form.
 	maxCanonicalByteLen = feltByteLen - 2
-	// Two header bytes + the full big-endian value
-	maxCBORFeltLen = 2 + feltByteLen
-	// A value below 24 is a single header byte
+	// A compact value below 24 is a single header byte
 	minCBORFeltLen = 1
 )
 
@@ -129,29 +122,6 @@ func unmarshalLegacyCBOR(data []byte, value *fp.Element) error {
 func isCompactCBOR(header byte) bool {
 	majorType := header & cborMajorTypeMask
 	return majorType == cborUintMajor || majorType == cborByteStringMajor
-}
-
-// appendCBOR appends the compact CBOR encoding of value to data.
-func appendCBOR(data []byte, value *fp.Element) []byte {
-	limbs := value.Bits()
-	if limbs[3]|limbs[2]|limbs[1] == 0 && limbs[0] < cborUint8AdditionalInfo {
-		return append(data, cborUintMajor|byte(limbs[0]))
-	}
-
-	length := trimmedLength(&limbs)
-	if length > maxCanonicalByteLen {
-		montgomery := bigEndianBytes((*[Limbs]uint64)(value))
-		data = append(data, cborByteStringMajor|cborUint8AdditionalInfo, feltByteLen)
-		return append(data, montgomery[:]...)
-	}
-	if length < cborUint8AdditionalInfo {
-		data = append(data, cborByteStringMajor|byte(length))
-	} else {
-		data = append(data, cborByteStringMajor|cborUint8AdditionalInfo, byte(length))
-	}
-
-	buffer := bigEndianBytes(&limbs)
-	return append(data, buffer[feltByteLen-length:]...)
 }
 
 // decodeCompact decodes one compact felt at data[0:], returning the number of bytes consumed.
