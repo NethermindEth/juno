@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "run": {
-    "id": "20261009T030024Z-0dc7c697996c",
+    "id": "20261028T030307Z-2ccd217cae57",
     "status": "passed",
-    "startedAt": "2026-10-09T03:00:24Z",
-    "finishedAt": "2026-10-09T03:31:26Z",
+    "startedAt": "2026-10-28T03:03:07Z",
+    "finishedAt": "2026-10-28T03:33:01Z",
     "runnerExitCode": 0
   },
   "benchmark": {
-    "imageDigest": "sha256:e77358bce59e6817ae5edb4d12992b6de56a2dae2777c485e3103a6e418f2a1a"
+    "imageDigest": "sha256:878c35ba6c2245e6d13701e7c89228ef41ae333a2e9c7bffe416adfd97c66bdd"
   },
   "juno": {
-    "version": "v0.16.7-rc.0-61-g0599036bb",
-    "imageDigest": "sha256:0dc7c697996c7133820f0ad1266c64ed04740a7966eefb99e03ec09da2f05ef2",
+    "version": "v0.16.7-rc.0-104-g77f38a68e",
+    "imageDigest": "sha256:2ccd217cae57693720c026568293138ff8faffccf94aa81dae4a92c93c01aea0",
     "chainId": "0x534e5f4d41494e",
     "blockNumber": 12945535,
     "rpcVersion": "0.10.3"
@@ -68,23 +68,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 213171,
-        "rate": 7105.480928548998,
+        "count": 170538,
+        "rate": 5669.80322969834,
         "failureRate": 0
       },
       "checks": {
-        "passes": 213171,
+        "passes": 170538,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 6.79820741664681,
-        "med": 1.4849,
-        "p90": 4.696302,
-        "p95": 74.52812399999999,
-        "p99": 81.48547,
-        "max": 92.518285
+        "avg": 8.551663359222069,
+        "med": 1.973028,
+        "p90": 12.25196230000011,
+        "p95": 75.49727684999999,
+        "p99": 82.84502106000001,
+        "max": 93.756377
       }
     },
     {
@@ -92,23 +92,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 217402,
-        "rate": 7228.556514514092,
+        "count": 175835,
+        "rate": 5860.598262088076,
         "failureRate": 0
       },
       "checks": {
-        "passes": 217402,
+        "passes": 175835,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 6.679629753249872,
-        "med": 1.446132,
-        "p90": 4.649661999999998,
-        "p95": 74.20993049999998,
-        "p99": 81.97951389,
-        "max": 91.591129
+        "avg": 8.264850037068776,
+        "med": 1.845384,
+        "p90": 7.137983400000006,
+        "p95": 76.47559349999997,
+        "p99": 82.66308846,
+        "max": 99.691945
       }
     },
     {
@@ -116,23 +116,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 202979,
-        "rate": 6749.341542119407,
+        "count": 181057,
+        "rate": 6034.825229685302,
         "failureRate": 0
       },
       "checks": {
-        "passes": 202979,
+        "passes": 181057,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 7.180206717285994,
-        "med": 1.536928,
-        "p90": 5.318945200000002,
-        "p95": 74.72306309999998,
-        "p99": 82.82864322,
-        "max": 94.47165
+        "avg": 8.015435705241957,
+        "med": 1.737172,
+        "p90": 6.746838799999996,
+        "p95": 76.42836679999998,
+        "p99": 83.0090672,
+        "max": 96.17829
       }
     },
     {
@@ -140,23 +140,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 215133,
-        "rate": 7170.835836685974,
+        "count": 180846,
+        "rate": 6028.023128759367,
         "failureRate": 0
       },
       "checks": {
-        "passes": 215133,
+        "passes": 180846,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 6.747102732881467,
-        "med": 1.441188,
-        "p90": 4.837923,
-        "p95": 74.5741024,
-        "p99": 81.85392832,
-        "max": 94.795578
+        "avg": 8.050285845929672,
+        "med": 1.8324495,
+        "p90": 7.168486,
+        "p95": 75.63700650000001,
+        "p99": 81.72966889999996,
+        "max": 93.968444
       }
     },
     {
@@ -164,23 +164,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 137051,
-        "rate": 4568.285221754972,
+        "count": 116875,
+        "rate": 3895.6305120054826,
         "failureRate": 0
       },
       "checks": {
-        "passes": 137051,
+        "passes": 116875,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 10.811439872908654,
-        "med": 5.514684,
-        "p90": 43.738122,
-        "p95": 57.828767,
-        "p99": 76.6764115,
-        "max": 97.334339
+        "avg": 12.71867934220328,
+        "med": 6.488704,
+        "p90": 40.52183140000001,
+        "p95": 51.63832529999993,
+        "p99": 74.36596483999999,
+        "max": 122.185724
       }
     },
     {
@@ -188,23 +188,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 11736,
-        "rate": 390.0422201260998,
+        "count": 11682,
+        "rate": 387.18828925729514,
         "failureRate": 0
       },
       "checks": {
-        "passes": 11736,
+        "passes": 11682,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 119.11745613352097,
-        "med": 102.958179,
-        "p90": 195.5999745,
-        "p95": 205.012661,
-        "p99": 297.31415115,
-        "max": 416.920981
+        "avg": 121.29151849435054,
+        "med": 104.003941,
+        "p90": 196.534001,
+        "p95": 205.48790515,
+        "p99": 294.22204837000015,
+        "max": 500.439435
       }
     },
     {
@@ -212,23 +212,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 54257,
-        "rate": 1807.637032623092,
+        "count": 71177,
+        "rate": 2371.4667841665173,
         "failureRate": 0
       },
       "checks": {
-        "passes": 54257,
+        "passes": 71177,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 27.541928854543972,
-        "med": 23.637822,
-        "p90": 36.1894206,
-        "p95": 43.14987119999996,
-        "p99": 164.00975128000061,
-        "max": 285.816419
+        "avg": 20.970583981651316,
+        "med": 20.263243,
+        "p90": 29.5706254,
+        "p95": 32.8841234,
+        "p99": 41.134928760000115,
+        "max": 138.382597
       }
     },
     {
@@ -236,23 +236,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 22108,
-        "rate": 733.126299173884,
+        "count": 17813,
+        "rate": 591.8017190773082,
         "failureRate": 0
       },
       "checks": {
-        "passes": 22108,
+        "passes": 17813,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 66.2438662137687,
-        "med": 80.368012,
-        "p90": 103.457944,
-        "p95": 135.31783609999974,
-        "p99": 213.9359164000001,
-        "max": 516.912425
+        "avg": 82.95284338410161,
+        "med": 85.242494,
+        "p90": 164.4473044,
+        "p95": 187.92179639999998,
+        "p99": 224.3068980800001,
+        "max": 415.255562
       }
     },
     {
@@ -260,23 +260,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 48736,
-        "rate": 1620.864823279231,
+        "count": 23452,
+        "rate": 779.6593572150676,
         "failureRate": 0
       },
       "checks": {
-        "passes": 48736,
+        "passes": 23452,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 30.04655537231186,
-        "med": 9.749452,
-        "p90": 83.121172,
-        "p95": 86.36477925,
-        "p99": 92.39375580000001,
-        "max": 161.76432
+        "avg": 63.546944373528945,
+        "med": 73.23935449999999,
+        "p90": 103.0266297,
+        "p95": 112.06238085000001,
+        "p99": 134.16504297000006,
+        "max": 269.446155
       }
     },
     {
@@ -284,23 +284,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 296,
-        "rate": 4.976505539570392,
+        "count": 304,
+        "rate": 5.624161068892194,
         "failureRate": 0
       },
       "checks": {
-        "passes": 296,
+        "passes": 304,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 6710.423114527028,
-        "med": 496.9908735,
-        "p90": 16704.5329995,
-        "p95": 18552.7836135,
-        "p99": 25271.25677260001,
-        "max": 38469.426776
+        "avg": 6151.664031707237,
+        "med": 704.2122315,
+        "p90": 15508.6646398,
+        "p95": 16539.062997649995,
+        "p99": 22877.419602969996,
+        "max": 36462.067144
       }
     },
     {
@@ -308,23 +308,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 53354,
-        "rate": 1776.9105671488142,
+        "count": 47829,
+        "rate": 1590.6109525903867,
         "failureRate": 0
       },
       "checks": {
-        "passes": 53354,
+        "passes": 47829,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 28.00065093025831,
-        "med": 14.393552,
-        "p90": 69.47350420000004,
-        "p95": 79.67285369999999,
-        "p99": 95.60908788000002,
-        "max": 146.313456
+        "avg": 31.199495011541313,
+        "med": 10.8945,
+        "p90": 75.20918580000003,
+        "p95": 83.89602059999999,
+        "p99": 99.80800544000003,
+        "max": 174.750371
       }
     },
     {
@@ -332,23 +332,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 52754,
-        "rate": 1757.3545023757006,
+        "count": 55510,
+        "rate": 1843.756617402886,
         "failureRate": 0
       },
       "checks": {
-        "passes": 52754,
+        "passes": 55510,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 28.32538841519113,
-        "med": 21.5037015,
-        "p90": 42.329925500000016,
-        "p95": 62.32017294999996,
-        "p99": 170.81375965000004,
-        "max": 645.794792
+        "avg": 26.922900353846345,
+        "med": 17.7510125,
+        "p90": 44.871484099999996,
+        "p95": 104.43939225,
+        "p99": 158.33631975999987,
+        "max": 448.728676
       }
     },
     {
@@ -356,23 +356,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 51035,
-        "rate": 1693.5184419766333,
+        "count": 73543,
+        "rate": 2451.3055404838237,
         "failureRate": 0
       },
       "checks": {
-        "passes": 51035,
+        "passes": 73543,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 29.327849150543848,
-        "med": 23.58775,
-        "p90": 38.331941799999996,
-        "p95": 47.823257899999945,
-        "p99": 196.78247673999968,
-        "max": 865.57792
+        "avg": 20.266352202316888,
+        "med": 18.673969,
+        "p90": 29.774096600000004,
+        "p95": 35.2042898,
+        "p99": 48.79260256000001,
+        "max": 322.579472
       }
     },
     {
@@ -380,23 +380,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 57505,
-        "rate": 1910.3133619375808,
+        "count": 54806,
+        "rate": 1826.2928077230954,
         "failureRate": 0
       },
       "checks": {
-        "passes": 57505,
+        "passes": 54806,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 26.046486775775968,
-        "med": 17.181074,
-        "p90": 38.705820999999986,
-        "p95": 90.8111967999999,
-        "p99": 186.89829243999984,
-        "max": 620.842778
+        "avg": 27.27625820433887,
+        "med": 13.218308,
+        "p90": 80.928777,
+        "p95": 118.38722375,
+        "p99": 164.0232649499997,
+        "max": 529.987845
       }
     },
     {
@@ -404,23 +404,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 424,
-        "rate": 11.037454326274045,
+        "count": 431,
+        "rate": 11.482724599628378,
         "failureRate": 0
       },
       "checks": {
-        "passes": 424,
+        "passes": 431,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 3956.2997526226436,
-        "med": 1015.3536200000001,
-        "p90": 9439.874496,
-        "p95": 10921.298662349993,
-        "p99": 14306.026844049991,
-        "max": 19476.443879
+        "avg": 3800.772403410674,
+        "med": 1607.123683,
+        "p90": 9064.506215,
+        "p95": 10255.698666,
+        "p99": 13403.632264599995,
+        "max": 18690.957156
       }
     },
     {
@@ -428,23 +428,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 2557,
-        "rate": 83.83857817197742,
+        "count": 2596,
+        "rate": 84.84993223532396,
         "failureRate": 0
       },
       "checks": {
-        "passes": 2557,
+        "passes": 2596,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 465.6880998834579,
-        "med": 404.079708,
-        "p90": 797.4813062000001,
-        "p95": 989.8627341999999,
-        "p99": 1311.4557421200007,
-        "max": 2118.091841
+        "avg": 461.7259159861327,
+        "med": 402.665712,
+        "p90": 801.7605395,
+        "p95": 978.8194395,
+        "p99": 1302.786492100002,
+        "max": 1880.873498
       }
     },
     {
@@ -452,23 +452,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 2593,
-        "rate": 84.98740560951391,
+        "count": 2575,
+        "rate": 84.44652018239796,
         "failureRate": 0
       },
       "checks": {
-        "passes": 2593,
+        "passes": 2575,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 459.87284872464335,
-        "med": 404.284744,
-        "p90": 795.993953,
-        "p95": 903.4878758000001,
-        "p99": 1208.1422545599996,
-        "max": 1894.008212
+        "avg": 462.295295686214,
+        "med": 402.039144,
+        "p90": 801.6607787999999,
+        "p95": 989.7181857999999,
+        "p99": 1298.7546507599998,
+        "max": 2201.269092
       }
     },
     {
@@ -476,23 +476,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 165360,
-        "rate": 5511.857144421445,
+        "count": 113201,
+        "rate": 3764.225094702333,
         "failureRate": 0
       },
       "checks": {
-        "passes": 165360,
+        "passes": 113201,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 8.891362315160919,
-        "med": 2.0078940000000003,
-        "p90": 13.037633400000022,
-        "p95": 73.82550864999999,
-        "p99": 80.10355882,
-        "max": 95.72586
+        "avg": 13.098404853578977,
+        "med": 4.451702,
+        "p90": 32.585557,
+        "p95": 70.476732,
+        "p99": 79.35595,
+        "max": 127.423872
       }
     },
     {
@@ -500,23 +500,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 1586,
-        "rate": 50.49551919681512,
+        "count": 1571,
+        "rate": 51.03498660628959,
         "failureRate": 0
       },
       "checks": {
-        "passes": 1586,
+        "passes": 1571,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 664.5284664993712,
-        "med": 594.493847,
-        "p90": 1198.4025155,
-        "p95": 1398.144799,
-        "p99": 1806.3168379,
-        "max": 2896.368993
+        "avg": 656.8820110560152,
+        "med": 584.600715,
+        "p90": 1204.469061,
+        "p95": 1476.1263405,
+        "p99": 1999.7978683999997,
+        "max": 3110.178447
       }
     },
     {
@@ -524,23 +524,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 135291,
-        "rate": 4502.189267626102,
+        "count": 75735,
+        "rate": 2521.0569520995714,
         "failureRate": 0
       },
       "checks": {
-        "passes": 135291,
+        "passes": 75735,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 10.958418008751565,
-        "med": 4.540461,
-        "p90": 50.378354,
-        "p95": 65.2885565,
-        "p99": 77.7767754,
-        "max": 169.459889
+        "avg": 19.724245479131127,
+        "med": 6.458006,
+        "p90": 59.51046420000001,
+        "p95": 66.590007,
+        "p99": 83.45429928000001,
+        "max": 337.602985
       }
     },
     {
@@ -548,23 +548,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 97476,
-        "rate": 3247.20171536039,
+        "count": 96225,
+        "rate": 3205.4486974674655,
         "failureRate": 0
       },
       "checks": {
-        "passes": 97476,
+        "passes": 96225,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 15.303740211970094,
-        "med": 9.925602000000001,
-        "p90": 34.163237499999994,
-        "p95": 44.008562,
-        "p99": 63.43699,
-        "max": 269.112649
+        "avg": 15.50226690100274,
+        "med": 9.037724,
+        "p90": 36.29815380000001,
+        "p95": 45.8904716,
+        "p99": 66.06825535999995,
+        "max": 392.53232
       }
     },
     {
@@ -572,23 +572,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 3127,
-        "rate": 103.73694533122726,
+        "count": 5436,
+        "rate": 179.66780024610253,
         "failureRate": 0
       },
       "checks": {
-        "passes": 3127,
+        "passes": 5436,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 480.8260087454417,
-        "med": 409.501843,
-        "p90": 885.7622334,
-        "p95": 1052.200548,
-        "p99": 1376.7261728999986,
-        "max": 1961.786237
+        "avg": 276.41841493248734,
+        "med": 257.98209399999996,
+        "p90": 480.022709,
+        "p95": 533.2508105,
+        "p99": 676.7906101499996,
+        "max": 1012.768722
       }
     },
     {
@@ -596,23 +596,23 @@
       "status": "passed",
       "failureReason": null,
       "requests": {
-        "count": 17136,
-        "rate": 569.5656968847286,
+        "count": 17956,
+        "rate": 596.6376485647412,
         "failureRate": 0
       },
       "checks": {
-        "passes": 17136,
+        "passes": 17956,
         "failures": 0
       },
       "checkFailureRate": 0,
       "droppedIterations": 0,
       "latencyMs": {
-        "avg": 87.40011836076134,
-        "med": 61.845757,
-        "p90": 217.75957599999998,
-        "p95": 270.79119549999996,
-        "p99": 398.13757445000005,
-        "max": 724.829503
+        "avg": 83.34316103330362,
+        "med": 60.911289499999995,
+        "p90": 202.708697,
+        "p95": 251.8863495,
+        "p99": 375.1012124500004,
+        "max": 663.014092
       }
     }
   ]
