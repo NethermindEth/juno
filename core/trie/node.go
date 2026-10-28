@@ -46,6 +46,10 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int, error) {
 		return 0, errors.New("cannot marshal node with nil value")
 	}
 
+	if n.isLeaf() {
+		return buf.Write(n.Value.StoredBytes())
+	}
+
 	var totalBytes int
 
 	valueB := n.Value.Bytes()
@@ -91,16 +95,26 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int, error) {
 	return totalBytes, nil
 }
 
-// UnmarshalBinary deserializes a [Node] from a byte array
+// isLeaf reports whether the node is stored as its value alone; every other node encodes longer
+// than a felt.
+func (n *Node) isLeaf() bool {
+	return n.Left == nil && n.LeftHash == nil && n.RightHash == nil
+}
+
+// UnmarshalBinary deserializes a [Node] from a byte array. Data of at most a felt's size is a leaf,
+// stored full width or trimmed.
 func (n *Node) UnmarshalBinary(data []byte) error {
-	if len(data) < felt.Bytes {
-		return errors.New("size of input data is less than felt size")
+	if len(data) == 0 {
+		return errors.New("empty node data")
 	}
 	if n.Value == nil {
 		n.Value = new(felt.Felt)
 	}
-	n.Value.SetBytes(data[:felt.Bytes])
-	data = data[felt.Bytes:]
+	valueLength := min(len(data), felt.Bytes)
+	if err := n.Value.SetMinimalBytes(data[:valueLength]); err != nil {
+		return fmt.Errorf("decoding node value: %w", err)
+	}
+	data = data[valueLength:]
 
 	if len(data) == 0 {
 		n.Left = nil

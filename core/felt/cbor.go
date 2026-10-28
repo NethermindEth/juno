@@ -13,8 +13,8 @@ import (
 // minimally sized uint. The compact form is a uint below 24, a byte string of up to 30 trimmed
 // big-endian bytes, or a 32-byte string of Montgomery limbs for values whose canonical form needs
 // 31 or 32 bytes, so the length alone tells the forms apart. Every build decodes both; the
-// compactfelt build tag picks which form MarshalCBOR and appendCBOR write (cbor_compact.go or
-// cbor_legacy.go).
+// compactfelt build tag picks which form MarshalCBOR and appendCBOR write, and whether StoredBytes
+// trims standalone values (cbor_compact.go or cbor_legacy.go). SetMinimalBytes reads both.
 
 var (
 	_ cbor.SelfEncoder = (*Felt)(nil)
