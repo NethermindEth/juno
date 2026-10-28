@@ -108,7 +108,7 @@ func (c *ContractUpdater) Purge() error {
 func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 	//nolint:staticcheck,nolintlint // old state layout
 	nonceKey := db.DeprecatedContractNonceKey(c.Address)
-	return c.txn.Put(nonceKey, nonce.Marshal())
+	return c.txn.Put(nonceKey, nonce.StoredBytes())
 }
 
 // ContractRoot returns the root of the contract storage.

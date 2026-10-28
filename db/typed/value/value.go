@@ -11,6 +11,7 @@ type Serializer[V any] interface {
 var Uint64 = uint64Serializer{}
 
 var (
+	// Felt kinds store full width or trimmed depending on the build and read both widths.
 	Felt          = feltBytesSerializer[*felt.Felt]{}
 	Hash          = feltBytesSerializer[*felt.Hash]{}
 	ClassHash     = feltBytesSerializer[*felt.ClassHash]{}

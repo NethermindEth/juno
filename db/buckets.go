@@ -114,6 +114,8 @@ const (
 	SchemaMetadata                    = Bucket(schemaMetadata)
 	DeprecatedSchemaIntermediateState = Bucket(deprecatedSchemaIntermediateState)
 	DeprecatedSchemaVersion           = Bucket(deprecatedSchemaVersion)
+	// First block whose felts were all written in the compact form; set by the compactfelt migration.
+	CompactFeltHeight = Bucket(compactFeltHeight)
 
 	/****************************************************
 			State
@@ -213,4 +215,5 @@ const (
 	contractClassHashHistory
 	contractNonceHistory
 	contractStorageHistory
+	compactFeltHeight
 )

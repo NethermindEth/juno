@@ -36,6 +36,27 @@ func runLiteralTest[S value.Serializer[V], V any](
 	})
 }
 
+// runStoredLiteralTest checks that bytes stored by the named felt codec still decode to value.
+func runStoredLiteralTest[S value.Serializer[V], V any](
+	t *testing.T,
+	_ S,
+	codec string,
+	value V,
+	stored string,
+) {
+	t.Helper()
+	t.Run(fmt.Sprintf("%s %T", codec, *new(S)), func(t *testing.T) {
+		var s S
+
+		storedBytes, err := hex.DecodeString(stored)
+		require.NoError(t, err)
+
+		var unmarshalled V
+		require.NoError(t, s.Unmarshal(storedBytes, &unmarshalled))
+		require.Equal(t, value, unmarshalled)
+	})
+}
+
 func runRandomTest[S value.Serializer[V], V any](
 	t *testing.T,
 	_ S,
@@ -64,14 +85,24 @@ func TestValueSerializer(t *testing.T) {
 
 		feltInput := felt.FromUint64[felt.Felt](2025112120251121)
 		feltOutput := "000000000000000000000000000000000000000000000000000731d4288ed2f1"
+		compactFeltOutput := "0731d4288ed2f1"
 
-		runLiteralTest(t, value.Felt, feltInput, feltOutput)
+		storedFeltOutput := feltOutput
+		if felt.CompactWrites {
+			storedFeltOutput = compactFeltOutput
+		}
+		runLiteralTest(t, value.Felt, feltInput, storedFeltOutput)
+		runStoredLiteralTest(t, value.Felt, "legacy", feltInput, feltOutput)
+		runStoredLiteralTest(t, value.Felt, "compact", feltInput, compactFeltOutput)
 
-		runLiteralTest(t, value.Hash, felt.Hash(feltInput), feltOutput)
+		runLiteralTest(t, value.Hash, felt.Hash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.Hash, "legacy", felt.Hash(feltInput), feltOutput)
 
-		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), feltOutput)
+		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.ClassHash, "legacy", felt.ClassHash(feltInput), feltOutput)
 
-		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), feltOutput)
+		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.CasmClassHash, "legacy", felt.CasmClassHash(feltInput), feltOutput)
 
 		runLiteralTest(t, value.Bytes, []byte("hello"), "68656c6c6f")
 
@@ -85,17 +116,22 @@ func TestValueSerializer(t *testing.T) {
 			"000731d42e84b3f2000731d4347a94f3",
 		)
 
-		runLiteralTest(
-			t,
-			value.Cbor[core.L1Head](),
-			core.L1Head{
-				BlockNumber: 2025112420251124,
-				BlockHash:   felt.NewFromUint64[felt.Felt](2025112520251125),
-				StateRoot:   felt.NewFromUint64[felt.Felt](2025112620251126),
-			},
-			//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
-			"a369426c6f636b48617368841bff19c577f33521621bffffffffffffffff1bffffffffffffffff1b00b61cf726873781695374617465526f6f74841bff19c577347901421bffffffffffffffff1bffffffffffffffff1b00b61cea7c0915616b426c6f636b4e756d6265721b000731d43a7075f4",
-		)
+		l1Head := core.L1Head{
+			BlockNumber: 2025112420251124,
+			BlockHash:   felt.NewFromUint64[felt.Felt](2025112520251125),
+			StateRoot:   felt.NewFromUint64[felt.Felt](2025112620251126),
+		}
+		//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
+		legacyL1HeadHex := "a369426c6f636b48617368841bff19c577f33521621bffffffffffffffff1bffffffffffffffff1b00b61cf726873781695374617465526f6f74841bff19c577347901421bffffffffffffffff1bffffffffffffffff1b00b61cea7c0915616b426c6f636b4e756d6265721b000731d43a7075f4"
+		//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
+		compactL1HeadHex := "a369426c6f636b48617368470731d4406656f5695374617465526f6f74470731d4465c37f66b426c6f636b4e756d6265721b000731d43a7075f4"
+		l1HeadHex := legacyL1HeadHex
+		if felt.CompactWrites {
+			l1HeadHex = compactL1HeadHex
+		}
+		runLiteralTest(t, value.Cbor[core.L1Head](), l1Head, l1HeadHex)
+		runStoredLiteralTest(t, value.Cbor[core.L1Head](), "legacy", l1Head, legacyL1HeadHex)
+		runStoredLiteralTest(t, value.Cbor[core.L1Head](), "compact", l1Head, compactL1HeadHex)
 	})
 
 	t.Run("Random tests", func(t *testing.T) {

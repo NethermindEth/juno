@@ -1,6 +1,7 @@
 package felt_test
 
 import (
+	"bytes"
 	"encoding"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
@@ -147,6 +148,83 @@ func TestFeltMarshalAndUnmarshal(t *testing.T) {
 	f2.Unmarshal(fBytes)
 
 	assert.True(t, f2.Equal(f))
+}
+
+func TestMinimalBytes(t *testing.T) {
+	var largest felt.Felt
+	largest.Sub(&felt.Zero, &felt.One)
+
+	for _, tc := range []struct {
+		name  string
+		value felt.Felt
+		want  []byte
+	}{
+		{"zero is one zero byte", felt.Zero, []byte{0}},
+		{"one", felt.One, []byte{1}},
+		{"255", felt.FromUint64[felt.Felt](255), []byte{0xff}},
+		{"256", felt.FromUint64[felt.Felt](256), []byte{1, 0}},
+		{"largest uint64", felt.FromUint64[felt.Felt](^uint64(0)), bytes.Repeat([]byte{0xff}, 8)},
+		{"largest felt", largest, func() []byte { raw := largest.Bytes(); return raw[:] }()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			minimal := tc.value.MinimalBytes()
+			require.Equal(t, tc.want, minimal)
+
+			var decoded felt.Felt
+			require.NoError(t, decoded.SetMinimalBytes(minimal))
+			require.Equal(t, tc.value, decoded)
+		})
+	}
+}
+
+func TestSetMinimalBytes(t *testing.T) {
+	t.Run("accepts the legacy 32-byte form", func(t *testing.T) {
+		value := felt.FromUint64[felt.Felt](7)
+		full := value.Bytes()
+
+		var decoded felt.Felt
+		require.NoError(t, decoded.SetMinimalBytes(full[:]))
+		require.Equal(t, value, decoded)
+	})
+
+	modulus := mustDecodeHex(t, modulusHex)
+	for _, tc := range []struct {
+		name string
+		data []byte
+	}{
+		{"empty", nil},
+		{"longer than a felt", make([]byte, felt.Bytes+1)},
+		{"modulus", modulus},
+	} {
+		t.Run("rejects "+tc.name, func(t *testing.T) {
+			decoded := felt.FromUint64[felt.Felt](9)
+			require.Error(t, decoded.SetMinimalBytes(tc.data))
+			require.Equal(t, felt.FromUint64[felt.Felt](9), decoded)
+		})
+	}
+}
+
+func FuzzMinimalBytes(f *testing.F) {
+	f.Add([]byte{})
+	f.Add([]byte{0, 0, 7})
+	f.Add(bytes.Repeat([]byte{0xff}, 32))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > 32 {
+			data = data[:32]
+		}
+		var value felt.Felt
+		value.SetBytes(data)
+
+		minimal := value.MinimalBytes()
+		require.NotEmpty(t, minimal)
+		require.True(t, len(minimal) == 1 || minimal[0] != 0, "leading zero in % x", minimal)
+		full := value.Bytes()
+		require.Equal(t, bytes.TrimLeft(full[:], "\x00"), bytes.TrimLeft(minimal, "\x00"))
+
+		var decoded felt.Felt
+		require.NoError(t, decoded.SetMinimalBytes(minimal))
+		require.Equal(t, value, decoded)
+	})
 }
 
 func TestJSONMarshal(t *testing.T) {
@@ -479,5 +557,29 @@ func TestJSONMapKey(t *testing.T) {
 		var out map[felt.Felt]int
 		err := json.Unmarshal([]byte(`{"abc":1}`), &out)
 		require.ErrorContains(t, err, "expected hex string starting with 0x")
+	})
+}
+
+func TestFromMinimalBytes(t *testing.T) {
+	value := felt.FromUint64[felt.Felt](1 << 40)
+	full := value.Bytes()
+	for _, tc := range []struct {
+		name string
+		data []byte
+	}{
+		{"minimal form", value.MinimalBytes()},
+		{"32-byte form", full[:]},
+	} {
+		t.Run("accepts the "+tc.name, func(t *testing.T) {
+			decoded, err := felt.FromMinimalBytes[felt.Felt](tc.data)
+			require.NoError(t, err)
+			require.Equal(t, value, decoded)
+		})
+	}
+
+	t.Run("rejects empty input with a zero result", func(t *testing.T) {
+		decoded, err := felt.FromMinimalBytes[felt.Felt](nil)
+		require.Error(t, err)
+		require.Equal(t, felt.Zero, decoded)
 	})
 }

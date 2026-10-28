@@ -74,17 +74,17 @@ func DeleteContract(w db.KeyValueWriter, addr *felt.Felt) error {
 
 func WriteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, nonce *felt.Felt) error {
 	key := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
-	return w.Put(key, nonce.Marshal())
+	return w.Put(key, nonce.StoredBytes())
 }
 
 func WriteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, classHash *felt.Felt) error {
 	key := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
-	return w.Put(key, classHash.Marshal())
+	return w.Put(key, classHash.StoredBytes())
 }
 
 func WriteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64, value *felt.Felt) error {
 	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
-	return w.Put(dbKey, value.Marshal())
+	return w.Put(dbKey, value.StoredBytes())
 }
 
 func DeleteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64) error {
