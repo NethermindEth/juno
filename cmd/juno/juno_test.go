@@ -72,8 +72,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPreConfirmedStaleAfter := 250 * time.Millisecond
 	defaultPreConfirmedOnDemandWait := 300 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
-	defaultRPCMaxConcurrentRequests := uint(256000)
-	defaultRPCMaxRequestQueue := uint(256000)
+	defaultRPCMaxConcurrentRequests := uint(1024)
+	defaultRPCMaxRequestQueue := uint(2048)
 	defaultRPCMaxBatchSize := uint(1000)
 	defaultRPCMaxBatchResponseSize := uint(64)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
