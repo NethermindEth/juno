@@ -19,8 +19,9 @@ type testCaseData[K any] struct {
 	key      K
 	keyHex   string
 	valueHex string
-	// writtenHex is what a write stores now, when it differs from the stored valueHex.
-	writtenHex string
+	// compactHex is the row as the compact felt codec writes it; every build reads it, and a build
+	// with the compact codec writes it.
+	compactHex string
 }
 
 func testCase[K any](key K, keyHex, valueHex string) testCaseData[K] {
@@ -28,7 +29,7 @@ func testCase[K any](key K, keyHex, valueHex string) testCaseData[K] {
 		key:        key,
 		keyHex:     keyHex,
 		valueHex:   valueHex,
-		writtenHex: valueHex,
+		compactHex: valueHex,
 	}
 }
 
@@ -38,17 +39,14 @@ var compactFeltWrites = func() bool {
 	return err == nil && len(data) == 1
 }()
 
-// legacyTestCase is a row stored with Montgomery-limb felts that a compact write re-encodes as
-// writtenHex; the legacy codec writes it back unchanged.
-func legacyTestCase[K any](key K, keyHex, valueHex, writtenHex string) testCaseData[K] {
-	if !compactFeltWrites {
-		writtenHex = valueHex
-	}
+// legacyTestCase is a row stored with Montgomery-limb felts, with compactHex the same row as the
+// compact codec writes it.
+func legacyTestCase[K any](key K, keyHex, valueHex, compactHex string) testCaseData[K] {
 	return testCaseData[K]{
 		key:        key,
 		keyHex:     keyHex,
 		valueHex:   valueHex,
-		writtenHex: writtenHex,
+		compactHex: compactHex,
 	}
 }
 
@@ -61,7 +59,7 @@ func runTest[K any, V any, KS key.Serializer[K], VS value.Serializer[V]](
 		values := make([]V, len(testCases))
 		keyBytes := make([][]byte, len(testCases))
 		valueBytes := make([][]byte, len(testCases))
-		writtenBytes := make([][]byte, len(testCases))
+		compactBytes := make([][]byte, len(testCases))
 
 		var err error
 		for i, testCase := range testCases {
@@ -71,7 +69,7 @@ func runTest[K any, V any, KS key.Serializer[K], VS value.Serializer[V]](
 			valueBytes[i], err = hex.DecodeString(testCase.valueHex)
 			require.NoError(t, err)
 
-			writtenBytes[i], err = hex.DecodeString(testCase.writtenHex)
+			compactBytes[i], err = hex.DecodeString(testCase.compactHex)
 			require.NoError(t, err)
 		}
 
@@ -87,16 +85,16 @@ func runTest[K any, V any, KS key.Serializer[K], VS value.Serializer[V]](
 			}
 		})
 
-		t.Run("Read written", func(t *testing.T) {
+		t.Run("Read compact", func(t *testing.T) {
 			database, err := pebblev2.New(t.TempDir())
 			require.NoError(t, err)
 
 			for i, testCase := range testCases {
-				require.NoError(t, database.Put(keyBytes[i], writtenBytes[i]))
+				require.NoError(t, database.Put(keyBytes[i], compactBytes[i]))
 
-				written, err := bucket.Get(database, testCase.key)
+				compact, err := bucket.Get(database, testCase.key)
 				require.NoError(t, err)
-				require.Equal(t, values[i], written)
+				require.Equal(t, values[i], compact)
 			}
 		})
 
@@ -104,6 +102,11 @@ func runTest[K any, V any, KS key.Serializer[K], VS value.Serializer[V]](
 			database, err := pebblev2.New(t.TempDir())
 			require.NoError(t, err)
 
+			// The build's codec writes back either the stored row or its compact form
+			writtenBytes := valueBytes
+			if compactFeltWrites {
+				writtenBytes = compactBytes
+			}
 			for i, testCase := range testCases {
 				require.NoError(t, bucket.Put(database, testCase.key, &values[i]))
 
