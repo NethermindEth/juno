@@ -9,12 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// compactFeltWrites reports whether the linked felt codec writes the compact form.
-var compactFeltWrites = func() bool {
-	data, err := felt.Zero.MarshalCBOR()
-	return err == nil && len(data) == 1
-}()
-
 const (
 	// compactGoldenFile holds each record as the compact felt codec writes it.
 	compactGoldenFile = "testdata/golden_bytes.json"
@@ -24,7 +18,7 @@ const (
 
 // goldenFile returns the vectors the linked felt codec writes.
 func goldenFile() string {
-	if compactFeltWrites {
+	if felt.CompactWrites {
 		return compactGoldenFile
 	}
 	return legacyGoldenFile

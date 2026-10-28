@@ -36,12 +36,6 @@ func runLiteralTest[S value.Serializer[V], V any](
 	})
 }
 
-// compactFeltWrites reports whether the linked felt codec writes the compact form.
-var compactFeltWrites = func() bool {
-	data, err := felt.Zero.MarshalCBOR()
-	return err == nil && len(data) == 1
-}()
-
 // runStoredLiteralTest checks that bytes stored by the named felt codec still decode to value.
 func runStoredLiteralTest[S value.Serializer[V], V any](
 	t *testing.T,
@@ -94,7 +88,7 @@ func TestValueSerializer(t *testing.T) {
 		compactFeltOutput := "0731d4288ed2f1"
 
 		storedFeltOutput := feltOutput
-		if compactFeltWrites {
+		if felt.CompactWrites {
 			storedFeltOutput = compactFeltOutput
 		}
 		runLiteralTest(t, value.Felt, feltInput, storedFeltOutput)
@@ -132,7 +126,7 @@ func TestValueSerializer(t *testing.T) {
 		//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
 		compactL1HeadHex := "a369426c6f636b48617368470731d4406656f5695374617465526f6f74470731d4465c37f66b426c6f636b4e756d6265721b000731d43a7075f4"
 		l1HeadHex := legacyL1HeadHex
-		if compactFeltWrites {
+		if felt.CompactWrites {
 			l1HeadHex = compactL1HeadHex
 		}
 		runLiteralTest(t, value.Cbor[core.L1Head](), l1Head, l1HeadHex)

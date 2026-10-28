@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _innerBucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieDeprecatedContractStorageHistoryDeprecatedContractNonceHistoryDeprecatedContractClassHashHistoryContractDeploymentHeightL1HeightDeprecatedSchemaVersionUnusedBlockCommitmentsTemporaryDeprecatedSchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageContractStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilterClassCasmHashMetadataBlockTransactionsSchemaMetadataSchemaIntermediateStateContractClassHashHistoryContractNonceHistoryContractStorageHistory"
+const _innerBucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieDeprecatedContractStorageHistoryDeprecatedContractNonceHistoryDeprecatedContractClassHashHistoryContractDeploymentHeightL1HeightDeprecatedSchemaVersionUnusedBlockCommitmentsTemporaryDeprecatedSchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageContractStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilterClassCasmHashMetadataBlockTransactionsSchemaMetadataSchemaIntermediateStateContractClassHashHistoryContractNonceHistoryContractStorageHistoryCompactFeltHeight"
 
-var _innerBucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 287, 317, 351, 375, 383, 406, 412, 428, 437, 470, 495, 506, 517, 530, 541, 550, 570, 589, 597, 617, 624, 640, 651, 673, 691, 712, 729, 743, 766, 790, 810, 832}
+var _innerBucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 287, 317, 351, 375, 383, 406, 412, 428, 437, 470, 495, 506, 517, 530, 541, 550, 570, 589, 597, 617, 624, 640, 651, 673, 691, 712, 729, 743, 766, 790, 810, 832, 849}
 
-const _innerBucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriedeprecatedcontractstoragehistorydeprecatedcontractnoncehistorydeprecatedcontractclasshashhistorycontractdeploymentheightl1heightdeprecatedschemaversionunusedblockcommitmentstemporarydeprecatedschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragecontractstatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilterclasscasmhashmetadatablocktransactionsschemametadataschemaintermediatestatecontractclasshashhistorycontractnoncehistorycontractstoragehistory"
+const _innerBucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriedeprecatedcontractstoragehistorydeprecatedcontractnoncehistorydeprecatedcontractclasshashhistorycontractdeploymentheightl1heightdeprecatedschemaversionunusedblockcommitmentstemporarydeprecatedschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragecontractstatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilterclasscasmhashmetadatablocktransactionsschemametadataschemaintermediatestatecontractclasshashhistorycontractnoncehistorycontractstoragehistorycompactfeltheight"
 
 func (i innerBucket) String() string {
 	if i >= innerBucket(len(_innerBucketIndex)-1) {
@@ -70,9 +70,10 @@ func _innerBucketNoOp() {
 	_ = x[contractClassHashHistory-(43)]
 	_ = x[contractNonceHistory-(44)]
 	_ = x[contractStorageHistory-(45)]
+	_ = x[compactFeltHeight-(46)]
 }
 
-var _innerBucketValues = []innerBucket{stateTrie, peer, contractClassHash, contractStorage, class, contractNonce, chainHeight, blockHeaderNumbersByHash, blockHeadersByNumber, transactionBlockNumbersAndIndicesByHash, transactionsByBlockNumberAndIndex, receiptsByBlockNumberAndIndex, stateUpdatesByBlockNumber, classesTrie, deprecatedContractStorageHistory, deprecatedContractNonceHistory, deprecatedContractClassHashHistory, contractDeploymentHeight, l1Height, deprecatedSchemaVersion, unused, blockCommitments, temporary, deprecatedSchemaIntermediateState, l1HandlerTxnHashByMsgHash, mempoolHead, mempoolTail, mempoolLength, mempoolNode, classTrie, contractTrieContract, contractTrieStorage, contract, stateHashToTrieRoots, stateID, persistedStateID, trieJournal, aggregatedBloomFilters, runningEventFilter, classCasmHashMetadata, blockTransactions, schemaMetadata, schemaIntermediateState, contractClassHashHistory, contractNonceHistory, contractStorageHistory}
+var _innerBucketValues = []innerBucket{stateTrie, peer, contractClassHash, contractStorage, class, contractNonce, chainHeight, blockHeaderNumbersByHash, blockHeadersByNumber, transactionBlockNumbersAndIndicesByHash, transactionsByBlockNumberAndIndex, receiptsByBlockNumberAndIndex, stateUpdatesByBlockNumber, classesTrie, deprecatedContractStorageHistory, deprecatedContractNonceHistory, deprecatedContractClassHashHistory, contractDeploymentHeight, l1Height, deprecatedSchemaVersion, unused, blockCommitments, temporary, deprecatedSchemaIntermediateState, l1HandlerTxnHashByMsgHash, mempoolHead, mempoolTail, mempoolLength, mempoolNode, classTrie, contractTrieContract, contractTrieStorage, contract, stateHashToTrieRoots, stateID, persistedStateID, trieJournal, aggregatedBloomFilters, runningEventFilter, classCasmHashMetadata, blockTransactions, schemaMetadata, schemaIntermediateState, contractClassHashHistory, contractNonceHistory, contractStorageHistory, compactFeltHeight}
 
 var _innerBucketNameToValueMap = map[string]innerBucket{
 	_innerBucketName[0:9]:          stateTrie,
@@ -167,6 +168,8 @@ var _innerBucketNameToValueMap = map[string]innerBucket{
 	_innerBucketLowerName[790:810]: contractNonceHistory,
 	_innerBucketName[810:832]:      contractStorageHistory,
 	_innerBucketLowerName[810:832]: contractStorageHistory,
+	_innerBucketName[832:849]:      compactFeltHeight,
+	_innerBucketLowerName[832:849]: compactFeltHeight,
 }
 
 var _innerBucketNames = []string{
@@ -216,6 +219,7 @@ var _innerBucketNames = []string{
 	_innerBucketName[766:790],
 	_innerBucketName[790:810],
 	_innerBucketName[810:832],
+	_innerBucketName[832:849],
 }
 
 // innerBucketString retrieves an enum value from the enum constants string name.

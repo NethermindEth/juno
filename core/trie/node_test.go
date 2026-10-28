@@ -27,12 +27,6 @@ func TestNodeHash(t *testing.T) {
 	assert.Equal(t, expected, &hash, "TestTrieNode_Hash failed")
 }
 
-// compactFeltWrites reports whether the linked felt codec writes the compact form.
-var compactFeltWrites = func() bool {
-	data, err := felt.Zero.MarshalCBOR()
-	return err == nil && len(data) == 1
-}()
-
 func encodeNode(t *testing.T, node *trie.Node) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
@@ -55,7 +49,7 @@ func TestNodeEncoding(t *testing.T) {
 		for _, value := range leafValues {
 			encoded := encodeNode(t, &trie.Node{Value: &value})
 			full := value.Bytes()
-			if compactFeltWrites {
+			if felt.CompactWrites {
 				require.Equal(t, value.MinimalBytes(), encoded)
 			} else {
 				require.Equal(t, full[:], encoded)

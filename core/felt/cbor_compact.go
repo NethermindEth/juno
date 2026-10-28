@@ -6,6 +6,9 @@ import "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 
 // The compactfelt build writes the compact forms: CBOR felts and standalone stored values.
 
+// CompactWrites reports whether this build writes felts in the compact forms.
+const CompactWrites = true
+
 // maxCBORFeltLen is the longest encoding this build writes: two header bytes + the full value.
 const maxCBORFeltLen = 2 + feltByteLen
 

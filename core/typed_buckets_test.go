@@ -33,12 +33,6 @@ func testCase[K any](key K, keyHex, valueHex string) testCaseData[K] {
 	}
 }
 
-// compactFeltWrites reports whether the linked felt codec writes the compact form.
-var compactFeltWrites = func() bool {
-	data, err := felt.Zero.MarshalCBOR()
-	return err == nil && len(data) == 1
-}()
-
 // legacyTestCase is a row stored with Montgomery-limb felts, with compactHex the same row as the
 // compact codec writes it.
 func legacyTestCase[K any](key K, keyHex, valueHex, compactHex string) testCaseData[K] {
@@ -104,7 +98,7 @@ func runTest[K any, V any, KS key.Serializer[K], VS value.Serializer[V]](
 
 			// The build's codec writes back either the stored row or its compact form
 			writtenBytes := valueBytes
-			if compactFeltWrites {
+			if felt.CompactWrites {
 				writtenBytes = compactBytes
 			}
 			for i, testCase := range testCases {

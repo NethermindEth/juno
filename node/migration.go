@@ -7,17 +7,21 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blockeventsbloom"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
+	"github.com/NethermindEth/juno/migration/compactfelt"
 	"github.com/NethermindEth/juno/migration/deprecated" //nolint:staticcheck,nolintlint,lll // ignore statick check package will be removed in future, nolinlint because main config does not check
 	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/migration/state/newstate"
 	"github.com/NethermindEth/juno/migration/statedifflength"
 	"github.com/NethermindEth/juno/utils/log"
 )
+
+const CompactFeltMigrationName = "compact-felt"
 
 // registerMigrations creates and configures the migration registry with all migrations.
 // This is where all migrations should be registered. Optional migrations can use
@@ -32,7 +36,8 @@ func registerMigrations(cfg *Config) *migration.Registry {
 		).
 		WithOptional(newstate.New(), cfg.NewState, "new-state").
 		With(&statedifflength.Migrator{}).
-		With(&blockeventsbloom.Migrator{})
+		With(&blockeventsbloom.Migrator{}).
+		WithOptional(&compactfelt.Migrator{}, felt.CompactWrites, CompactFeltMigrationName)
 
 	return registry
 }

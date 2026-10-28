@@ -220,3 +220,10 @@ var BlockTransactionsAllTransactionHashesPartialBucket = partial.NewPartialBucke
 	BlockTransactionsBucket.Bucket,
 	BlockTransactionsAllTransactionHashesPartialSerializer,
 )
+
+// Bucket 46: First block whose felts were all written in the compact forms (uint64)
+var CompactFeltHeightBucket = typed.NewBucket(
+	db.CompactFeltHeight,
+	key.Empty,
+	value.Uint64,
+)

@@ -11,6 +11,9 @@ import (
 
 // The default build writes the legacy forms with main's encoders, so it stores what main stores.
 
+// CompactWrites reports whether this build writes felts in the compact forms.
+const CompactWrites = false
+
 // maxCBORFeltLen is the longest encoding this build writes.
 const maxCBORFeltLen = maxCBORLegacyFeltLen
 
