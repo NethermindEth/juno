@@ -15,7 +15,28 @@ import (
 func TestUgorjiSupportedGoldenReads(t *testing.T) {
 	cases := ugorjiGoldenCases()
 	require.NotEmpty(t, cases)
-	assertDecodesFromGolden(t, ugorji.Unmarshal, cases)
+	assertDecodesFromGolden(t, ugorjiContent, cases)
+}
+
+// ugorjiContent decodes a golden record with Ugorji after its outer tag, if any.
+func ugorjiContent(data []byte, v any) error {
+	if head := tagHead(data); head != nil {
+		data = data[len(head):]
+	}
+	return ugorji.Unmarshal(data, v)
+}
+
+// tagHead returns the leading tag head of an encoded item.
+func tagHead(item []byte) []byte {
+	const tagMajorType, oneByteNumber = 6, 24
+	if len(item) == 0 || item[0]>>5 != tagMajorType {
+		return nil
+	}
+	n := 1
+	if info := item[0] & 0x1f; info >= oneByteNumber {
+		n += 1 << (info - oneByteNumber)
+	}
+	return item[:n]
 }
 
 // Storage reads decode into **T from a buffer the database releases after the
@@ -30,7 +51,7 @@ func TestUgorjiReadsDoNotRetainInput(t *testing.T) {
 			expected := reflect.New(reflect.TypeOf(c.value))
 			expected.Elem().Set(reflect.ValueOf(c.value))
 			actual := reflect.New(expected.Type())
-			require.NoError(t, ugorji.Unmarshal(input, actual.Interface()))
+			require.NoError(t, ugorjiContent(input, actual.Interface()))
 			clear(input)
 			require.Equal(t, expected.Interface(), actual.Elem().Interface())
 		})
@@ -41,7 +62,9 @@ func ugorjiGoldenCases() []goldenCase {
 	var cases []goldenCase
 	for _, c := range goldenCases() {
 		switch c.value.(type) {
-		case core.Header, core.StateUpdate, core.TransactionReceipt:
+		case core.Header, core.StateUpdate, core.TransactionReceipt,
+			core.DeclareTransaction, core.DeployTransaction, core.InvokeTransaction,
+			core.L1HandlerTransaction, core.DeployAccountTransaction, core.SierraClass:
 			cases = append(cases, c)
 		}
 	}
