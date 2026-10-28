@@ -57,6 +57,13 @@ func FromBytes[F FeltLike](value []byte) F {
 	return F(*f)
 }
 
+// FromMinimalBytes creates a new Felt based type from 1 to 32 big-endian bytes below the modulus.
+func FromMinimalBytes[F FeltLike](value []byte) (F, error) {
+	var f Felt
+	err := f.SetMinimalBytes(value)
+	return F(f), err
+}
+
 // FromString crates a new Felt based type given a any string
 func FromString[F FeltLike](value string) (F, error) {
 	f, err := new(Felt).SetString(value)

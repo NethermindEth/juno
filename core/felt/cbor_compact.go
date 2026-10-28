@@ -4,7 +4,7 @@ package felt
 
 import "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 
-// The compactfelt build writes the compact form.
+// The compactfelt build writes the compact forms: CBOR felts and standalone stored values.
 
 // maxCBORFeltLen is the longest encoding this build writes: two header bytes + the full value.
 const maxCBORFeltLen = 2 + feltByteLen
@@ -35,4 +35,9 @@ func appendCBOR(data []byte, value *fp.Element) []byte {
 
 	buffer := bigEndianBytes(&limbs)
 	return append(data, buffer[feltByteLen-length:]...)
+}
+
+// StoredBytes returns the form this build stores a standalone felt value in: its minimal bytes.
+func (z *Typed[K]) StoredBytes() []byte {
+	return z.MinimalBytes()
 }

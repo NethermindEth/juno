@@ -559,3 +559,27 @@ func TestJSONMapKey(t *testing.T) {
 		require.ErrorContains(t, err, "expected hex string starting with 0x")
 	})
 }
+
+func TestFromMinimalBytes(t *testing.T) {
+	value := felt.FromUint64[felt.Felt](1 << 40)
+	full := value.Bytes()
+	for _, tc := range []struct {
+		name string
+		data []byte
+	}{
+		{"minimal form", value.MinimalBytes()},
+		{"32-byte form", full[:]},
+	} {
+		t.Run("accepts the "+tc.name, func(t *testing.T) {
+			decoded, err := felt.FromMinimalBytes[felt.Felt](tc.data)
+			require.NoError(t, err)
+			require.Equal(t, value, decoded)
+		})
+	}
+
+	t.Run("rejects empty input with a zero result", func(t *testing.T) {
+		decoded, err := felt.FromMinimalBytes[felt.Felt](nil)
+		require.Error(t, err)
+		require.Equal(t, felt.Zero, decoded)
+	})
+}

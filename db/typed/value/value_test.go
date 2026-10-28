@@ -91,14 +91,24 @@ func TestValueSerializer(t *testing.T) {
 
 		feltInput := felt.FromUint64[felt.Felt](2025112120251121)
 		feltOutput := "000000000000000000000000000000000000000000000000000731d4288ed2f1"
+		compactFeltOutput := "0731d4288ed2f1"
 
-		runLiteralTest(t, value.Felt, feltInput, feltOutput)
+		storedFeltOutput := feltOutput
+		if compactFeltWrites {
+			storedFeltOutput = compactFeltOutput
+		}
+		runLiteralTest(t, value.Felt, feltInput, storedFeltOutput)
+		runStoredLiteralTest(t, value.Felt, "legacy", feltInput, feltOutput)
+		runStoredLiteralTest(t, value.Felt, "compact", feltInput, compactFeltOutput)
 
-		runLiteralTest(t, value.Hash, felt.Hash(feltInput), feltOutput)
+		runLiteralTest(t, value.Hash, felt.Hash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.Hash, "legacy", felt.Hash(feltInput), feltOutput)
 
-		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), feltOutput)
+		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.ClassHash, "legacy", felt.ClassHash(feltInput), feltOutput)
 
-		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), feltOutput)
+		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), storedFeltOutput)
+		runStoredLiteralTest(t, value.CasmClassHash, "legacy", felt.CasmClassHash(feltInput), feltOutput)
 
 		runLiteralTest(t, value.Bytes, []byte("hello"), "68656c6c6f")
 
