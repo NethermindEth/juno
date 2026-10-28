@@ -71,8 +71,6 @@ func TestValueSerializer(t *testing.T) {
 
 		runLiteralTest(t, value.ClassHash, felt.ClassHash(feltInput), feltOutput)
 
-		runLiteralTest(t, value.CasmClassHash, felt.CasmClassHash(feltInput), feltOutput)
-
 		runLiteralTest(t, value.Bytes, []byte("hello"), "68656c6c6f")
 
 		runLiteralTest(
@@ -106,8 +104,6 @@ func TestValueSerializer(t *testing.T) {
 		runRandomTest(t, value.Hash, felt.Random[felt.Hash])
 
 		runRandomTest(t, value.ClassHash, felt.Random[felt.ClassHash])
-
-		runRandomTest(t, value.CasmClassHash, felt.Random[felt.CasmClassHash])
 
 		runRandomTest(t, value.Bytes, func() []byte {
 			return []byte(cryptorand.Text())
