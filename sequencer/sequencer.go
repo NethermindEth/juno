@@ -75,14 +75,14 @@ func (s *Sequencer) WithPlugin(junoPlugin plugin.JunoPlugin) *Sequencer {
 func (s *Sequencer) Run(ctx context.Context) error {
 	defer s.mempool.Close()
 
-	// Clear pending state on shutdown
+	// Clear pre-confirmed state on shutdown
 	defer func() {
-		if pErr := s.buildState.ClearPending(); pErr != nil {
-			s.logger.Error("clearing pending", zap.Error(pErr))
+		if pErr := s.buildState.ClearPreConfirmed(); pErr != nil {
+			s.logger.Error("clearing pre-confirmed", zap.Error(pErr))
 		}
 	}()
 
-	if err := s.initPendingBlock(); err != nil {
+	if err := s.initPreConfirmedBlock(); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			// push the new head to the feed
 			s.subNewHeads.Send(&core.WithBloom[*core.Block]{Value: preConfirmed.Block, Bloom: eventsBloom})
 
-			if err := s.initPendingBlock(); err != nil {
+			if err := s.initPreConfirmedBlock(); err != nil {
 				return err
 			}
 			s.mu.Unlock()
@@ -133,7 +133,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) initPendingBlock() error {
+func (s *Sequencer) initPreConfirmedBlock() error {
 	buildParams := builder.BuildParams{
 		Builder:           *s.sequencerAddress,
 		L2GasPriceFRI:     felt.One,
@@ -144,7 +144,7 @@ func (s *Sequencer) initPendingBlock() error {
 	}
 
 	var err error
-	if err = s.buildState.ClearPending(); err != nil {
+	if err = s.buildState.ClearPreConfirmed(); err != nil {
 		return err
 	}
 
@@ -181,7 +181,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 
 // depletePool pops all available transactions from the mempool,
 // and executes them in sequence, applying the state changes
-// to the pending state
+// to the pre-confirmed state
 func (s *Sequencer) depletePool(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -225,8 +225,8 @@ func (s *Sequencer) PreConfirmedBlock() *core.Block {
 	return s.buildState.PreConfirmedBlock()
 }
 
-func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
-	return s.builder.PendingState(s.buildState)
+func (s *Sequencer) PreConfirmedState() (core.StateReader, func() error, error) {
+	return s.builder.PreConfirmedState(s.buildState)
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {

@@ -322,7 +322,7 @@ func (e *EventFilter) canonicalEvents(
 	return matchedEvents, ContinuationToken{}, nil
 }
 
-// preConfirmedEvents processes pending events across every pre-confirmed block in
+// preConfirmedEvents processes events across every pre-confirmed block in
 // the chain (head+1 .. tip), oldest-first. fromBlock and the continuation
 // token's fromBlock select where to resume; the token's processedEvents
 // counter applies to the resume block only.

@@ -22,7 +22,7 @@ func (b *BuildState) PreConfirmedBlock() *core.Block {
 	return b.PreConfirmed.Block
 }
 
-func (b *BuildState) ClearPending() error {
+func (b *BuildState) ClearPreConfirmed() error {
 	b.L2GasConsumed = 0
 	b.PreConfirmed = &pending.PreConfirmed{}
 	b.RevealedBlockHash = nil

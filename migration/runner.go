@@ -72,6 +72,11 @@ func NewRunner(
 	network *networks.Network,
 	logger log.StructuredLogger,
 ) (*MigrationRunner, error) {
+	// Validate: check if database still needs deprecated migrations (too old to upgrade)
+	if err := validateNoPendingDeprecatedMigrations(database); err != nil {
+		return nil, err
+	}
+
 	metadata, err := GetSchemaMetadata(database)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, fmt.Errorf("getting schema metadata: %w", err)
@@ -193,6 +198,28 @@ func (mr *MigrationRunner) runMigration(ctx context.Context, migrationIndex uint
 	if err := txn.Write(); err != nil {
 		return fmt.Errorf("writing migration commit batch: %w", err)
 	}
+	return nil
+}
+
+// validateNoPendingDeprecatedMigrations checks if the database version of Juno is recent
+// enough. Anything below 22 (meaning 22 migrations were not applied) is not supported.
+func validateNoPendingDeprecatedMigrations(database db.KeyValueReader) error {
+	version, err := deprecatedSchemaVersionBucket.Get(database, struct{}{})
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("getting deprecated schema version: %w", err)
+	}
+
+	if version < lastDeprecatedSchemaVersion {
+		return errors.New(
+			"database is from an older, unsupported version of Juno; " +
+				"downgrade to Juno v0.16.x first, run it, wait for migration to finish " +
+				"and then upgrade back to the current version. Otherwise, resync from scratch",
+		)
+	}
+
 	return nil
 }
 

@@ -14,7 +14,6 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/rpc/tracecache"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
-	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
@@ -37,7 +36,6 @@ const (
 )
 
 type Handler struct {
-	rpcv8Handler  *rpcv8.Handler
 	rpcv9Handler  *rpcv9.Handler
 	rpcv10Handler *rpcv10.Handler
 	version       string
@@ -47,12 +45,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	logger log.Logger, network *networks.Network,
 ) *Handler {
 	cache := tracecache.New[felt.Felt, *tracecache.BlockTrace](tracecache.DefaultBlockCapacity)
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger).WithTraceCache(cache)
 	handlerv10 := rpcv10.New(bcReader, syncReader, virtualMachine, logger).WithTraceCache(cache)
 
 	return &Handler{
-		rpcv8Handler:  handlerv8,
 		rpcv9Handler:  handlerv9,
 		rpcv10Handler: handlerv10,
 		version:       version,
@@ -60,7 +56,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 }
 
 func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
-	h.rpcv8Handler.WithCompiler(compiler)
 	h.rpcv9Handler.WithCompiler(compiler)
 	h.rpcv10Handler.WithCompiler(compiler)
 	return h
@@ -68,63 +63,54 @@ func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
-	h.rpcv8Handler.WithFilterLimit(limit)
 	h.rpcv9Handler.WithFilterLimit(limit)
 	h.rpcv10Handler.WithFilterLimit(limit)
 	return h
 }
 
 func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
-	h.rpcv8Handler.WithL1Client(l1Client)
 	h.rpcv9Handler.WithL1Client(l1Client)
 	h.rpcv10Handler.WithL1Client(l1Client)
 	return h
 }
 
 func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
-	h.rpcv8Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv9Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv10Handler.WithCallMaxSteps(maxSteps)
 	return h
 }
 
 func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
-	h.rpcv8Handler.WithCallMaxGas(maxGas)
 	h.rpcv9Handler.WithCallMaxGas(maxGas)
 	h.rpcv10Handler.WithCallMaxGas(maxGas)
 	return h
 }
 
 func (h *Handler) WithFeeder(feederClient feeder.Reader) *Handler {
-	h.rpcv8Handler.WithFeeder(feederClient)
 	h.rpcv9Handler.WithFeeder(feederClient)
 	h.rpcv10Handler.WithFeeder(feederClient)
 	return h
 }
 
 func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
-	h.rpcv8Handler.WithGateway(gatewayClient)
 	h.rpcv9Handler.WithGateway(gatewayClient)
 	h.rpcv10Handler.WithGateway(gatewayClient)
 	return h
 }
 
 func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
-	h.rpcv8Handler.WithMempool(memPool)
 	h.rpcv9Handler.WithMempool(memPool)
 	h.rpcv10Handler.WithMempool(memPool)
 	return h
 }
 
 func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
-	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv9Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv10Handler.WithSubmittedTransactionsCache(cache)
 	return h
 }
 
 func (h *Handler) WithReceivedTransactionFeed(feed *feed.Feed[core.Transaction]) *Handler {
-	h.rpcv8Handler.WithReceivedTransactionFeed(feed)
 	h.rpcv9Handler.WithReceivedTransactionFeed(feed)
 	h.rpcv10Handler.WithReceivedTransactionFeed(feed)
 	return h
@@ -137,7 +123,6 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 func (h *Handler) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv9Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv10Handler.Run(ctx) })
 
@@ -597,209 +582,4 @@ func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) {
 			Handler: h.rpcv9Handler.StorageProof,
 		},
 	}, "/v0_9"
-}
-
-func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
-	return []jsonrpc.Method{
-		{
-			Name:    "starknet_chainId",
-			Handler: h.rpcv8Handler.ChainID,
-		},
-		{
-			Name:    "starknet_blockNumber",
-			Handler: h.rpcv8Handler.BlockNumber,
-		},
-		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: h.rpcv8Handler.BlockHashAndNumber,
-		},
-		{
-			Name:    "starknet_getBlockWithTxHashes",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.BlockWithTxHashes,
-		},
-		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.BlockWithTxs,
-		},
-		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.TransactionByHash,
-		},
-		{
-			Name:    "starknet_getTransactionReceipt",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.TransactionReceiptByHash,
-		},
-		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.BlockTransactionCount,
-		},
-		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: "index"}},
-			Handler: h.rpcv8Handler.TransactionByBlockIDAndIndex,
-		},
-		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.StateUpdate,
-		},
-		{
-			Name:    "starknet_syncing",
-			Handler: h.rpcv8Handler.Syncing,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
-			Handler: h.rpcv8Handler.Nonce,
-		},
-		{
-			Name:    "starknet_getStorageAt",
-			Params:  []jsonrpc.Parameter{{Name: paramContractAddress}, {Name: "key"}, {Name: paramBlockID}},
-			Handler: h.rpcv8Handler.StorageAt,
-		},
-		{
-			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
-			Handler: h.rpcv8Handler.ClassHashAt,
-		},
-		{
-			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramClassHash}},
-			Handler: h.rpcv8Handler.Class,
-		},
-		{
-			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}, {Name: paramContractAddress}},
-			Handler: h.rpcv8Handler.ClassAt,
-		},
-		{
-			Name:    "starknet_addInvokeTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: h.rpcv8Handler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeployAccountTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: h.rpcv8Handler.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeclareTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: h.rpcv8Handler.AddTransaction,
-		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.rpcv8Handler.Events,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
-		},
-		{
-			Name:    "starknet_getTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.TransactionStatus,
-		},
-		{
-			Name:    "starknet_call",
-			Params:  []jsonrpc.Parameter{{Name: paramRequest}, {Name: paramBlockID}},
-			Handler: h.rpcv8Handler.Call,
-		},
-		{
-			Name: "starknet_estimateFee",
-			Params: []jsonrpc.Parameter{
-				{Name: paramRequest}, {Name: paramSimulationFlags}, {Name: paramBlockID},
-			},
-			Handler: h.rpcv8Handler.EstimateFee,
-		},
-		{
-			Name:    "starknet_estimateMessageFee",
-			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: paramBlockID}},
-			Handler: h.rpcv8Handler.EstimateMessageFee,
-		},
-		{
-			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.TraceTransaction,
-		},
-		{
-			Name: "starknet_simulateTransactions",
-			Params: []jsonrpc.Parameter{
-				{Name: paramBlockID}, {Name: "transactions"}, {Name: paramSimulationFlags},
-			},
-			Handler: h.rpcv8Handler.SimulateTransactions,
-		},
-		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.TraceBlockTransactions,
-		},
-		{
-			Name:    "starknet_specVersion",
-			Handler: h.rpcv8Handler.SpecVersion,
-		},
-		{
-			Name: "starknet_subscribeEvents",
-			Params: []jsonrpc.Parameter{
-				{Name: "from_address", Optional: true},
-				{Name: "keys", Optional: true},
-				{Name: paramBlockID, Optional: true},
-			},
-			Handler: h.rpcv8Handler.SubscribeEvents,
-		},
-		{
-			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID, Optional: true}},
-			Handler: h.rpcv8Handler.SubscribeNewHeads,
-		},
-		{
-			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.SubscribeTransactionStatus,
-		},
-		{
-			Name: "starknet_subscribePendingTransactions",
-			Params: []jsonrpc.Parameter{
-				{Name: "transaction_details", Optional: true},
-				{Name: paramSenderAddress, Optional: true},
-			},
-			Handler: h.rpcv8Handler.SubscribePendingTxs,
-		},
-		{
-			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
-			Handler: h.rpcv8Handler.Unsubscribe,
-		},
-		{
-			Name:    "starknet_getBlockWithReceipts",
-			Params:  []jsonrpc.Parameter{{Name: paramBlockID}},
-			Handler: h.rpcv8Handler.BlockWithReceipts,
-		},
-		{
-			Name:    "starknet_getCompiledCasm",
-			Params:  []jsonrpc.Parameter{{Name: paramClassHash}},
-			Handler: h.rpcv8Handler.CompiledCasm,
-		},
-		{
-			Name:    "starknet_getMessagesStatus",
-			Params:  []jsonrpc.Parameter{{Name: paramTransactionHash}},
-			Handler: h.rpcv8Handler.GetMessageStatus,
-		},
-		{
-			Name: "starknet_getStorageProof",
-			Params: []jsonrpc.Parameter{
-				{Name: paramBlockID},
-				{Name: "class_hashes", Optional: true},
-				{Name: paramContractAddresses, Optional: true},
-				{Name: "contracts_storage_keys", Optional: true},
-			},
-			Handler: h.rpcv8Handler.StorageProof,
-		},
-	}, "/v0_8"
 }

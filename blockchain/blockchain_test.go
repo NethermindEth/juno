@@ -625,9 +625,9 @@ func TestState(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	var pendingB *core.Block
+	var preConfirmedBlock *core.Block
 	preConfirmedFunc := func() (blockchain.PreConfirmedReader, error) { //nolint:unparam // test stub
-		preConfirmed := pending.NewPreConfirmed(pendingB, nil, nil, "")
+		preConfirmed := pending.NewPreConfirmed(preConfirmedBlock, nil, nil, "")
 		chain, err := preconfirmed.NewChain(&preConfirmed)
 		if err != nil {
 			return nil, err
@@ -645,15 +645,15 @@ func TestEvents(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Goerli2)
 
 	const (
-		numBlocksToFetch     = 7
-		firstPendingBlockNum = 6
+		numBlocksToFetch          = 7
+		firstPreConfirmedBlockNum = 6
 	)
 
 	for i := range numBlocksToFetch {
 		b := adaptfeedertest.Block(t, client, uint64(i))
 		s := adaptfeedertest.StateUpdate(t, client, uint64(i))
 
-		if b.Number < firstPendingBlockNum {
+		if b.Number < firstPreConfirmedBlockNum {
 			require.NoError(t, chain.Store(
 				b,
 				&emptyCommitments,
@@ -662,7 +662,7 @@ func TestEvents(t *testing.T) {
 				core.EventsBloom(b.Receipts),
 			))
 		} else {
-			pendingB = b
+			preConfirmedBlock = b
 		}
 	}
 
@@ -698,7 +698,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(
 			blockchain.EventFilterTo,
-			firstPendingBlockNum,
+			firstPreConfirmedBlockNum,
 		))
 
 		allEvents := []blockchain.FilteredEvent{}
@@ -782,7 +782,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(
 			blockchain.EventFilterTo,
-			firstPendingBlockNum,
+			firstPreConfirmedBlockNum,
 		))
 		events, cToken, err := filter.Events(nil, 10)
 		require.NoError(t, err)
@@ -803,7 +803,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(
 			blockchain.EventFilterTo,
-			firstPendingBlockNum,
+			firstPreConfirmedBlockNum,
 		))
 
 		events, cToken, err := filter.Events(nil, 10)
@@ -835,7 +835,7 @@ func TestEvents(t *testing.T) {
 				require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 				require.NoError(t, filter.SetRangeEndBlockByNumber(
 					blockchain.EventFilterTo,
-					firstPendingBlockNum,
+					firstPreConfirmedBlockNum,
 				))
 
 				events, cToken, err := filter.Events(nil, 10)
@@ -867,13 +867,13 @@ func TestEvents(t *testing.T) {
 
 		t.Run("historical range never fetches", func(t *testing.T) {
 			fetches = 0
-			runQuery(t, firstPendingBlockNum-1) // toBlock == canonical head
+			runQuery(t, firstPreConfirmedBlockNum-1) // toBlock == canonical head
 			require.Zero(t, fetches)
 		})
 
 		t.Run("range past head fetches once", func(t *testing.T) {
 			fetches = 0
-			runQuery(t, firstPendingBlockNum)
+			runQuery(t, firstPreConfirmedBlockNum)
 			require.Equal(t, 1, fetches)
 		})
 	})

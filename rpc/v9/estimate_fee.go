@@ -60,7 +60,7 @@ type FeeEstimate struct {
 // TODO: Implement infrastructure for testing with actual vm execution.
 // Now error stack can be tested with this request:
 /*
-curl --location 'http://localhost:6060/rpc/v0_8' \
+curl --location 'http://localhost:6060/rpc/v0_9' \
 --header 'Content-Type: application/json' \
 --data '{
     "method": "starknet_estimateFee",
