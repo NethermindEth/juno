@@ -991,41 +991,39 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("contract storage proofs follow request order", func(t *testing.T) {
 		const contractCount = 20
-		// One call per contract for the expected proofs, then one batched call
+		// One call per request entry for the expected proofs, then one batched call
 		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
-			Return(headBlock.Header.Hash, nil).Times(contractCount + 1)
+			Return(headBlock.Header.Hash, nil).Times(contractCount + 2)
 
 		// Each contract stores its own value, so every expected proof is distinct
 		storageKeys := make([]rpc.StorageKeys, 0, contractCount+1)
-		expected := make([][]*rpc.HashToNode, 0, contractCount)
 		for i := range contractCount {
 			contract := felt.NewFromUint64[felt.Felt](uint64(0x1000 + i))
 			value := felt.NewFromUint64[felt.Felt](uint64(100 + i))
 			storageTrie := leafTrie(t, value, key, key2)
-			mockState.EXPECT().ContractStorageTrie(contract).Return(storageTrie, nil).Times(2)
+			// The first contract is requested twice, so it is proven twice as often
+			times := 2
+			if i == 0 {
+				times = 4
+			}
+			mockState.EXPECT().ContractStorageTrie(contract).Return(storageTrie, nil).Times(times)
 			storageKeys = append(
 				storageKeys,
 				rpc.StorageKeys{Contract: contract, Keys: []felt.Felt{*key}},
 			)
-
-			// The batch repeats the first contract with key2, so its proof must cover both keys
-			expectedKeys := []felt.Felt{*key}
-			if i == 0 {
-				expectedKeys = []felt.Felt{*key, *key2}
-			}
-			single, rpcErr := handler.StorageProof(
-				&blockLatest,
-				nil,
-				nil,
-				[]rpc.StorageKeys{{Contract: contract, Keys: expectedKeys}},
-			)
-			require.Nil(t, rpcErr)
-			expected = append(expected, single.ContractsStorageProofs[0])
 		}
+		// A repeated contract gets its own entry at its own position, it is not merged
 		storageKeys = append(
 			storageKeys,
 			rpc.StorageKeys{Contract: storageKeys[0].Contract, Keys: []felt.Felt{*key2}},
 		)
+
+		expected := make([][]*rpc.HashToNode, 0, len(storageKeys))
+		for _, storageKey := range storageKeys {
+			single, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{storageKey})
+			require.Nil(t, rpcErr)
+			expected = append(expected, single.ContractsStorageProofs[0])
+		}
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
 		require.Nil(t, rpcErr)

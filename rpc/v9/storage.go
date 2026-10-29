@@ -79,7 +79,7 @@ func (h *Handler) StorageProof(
 	// Do a sanity check and remove duplicates from the inputs
 	classes = utils.Set(classes)
 	contracts = utils.Set(contracts)
-	uniqueStorageKeys, rpcErr := processStorageKeys(storageKeys)
+	rpcErr := validateStorageKeys(storageKeys)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -119,7 +119,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	contractStorageProof, err := getContractStorageProof(state, uniqueStorageKeys)
+	contractStorageProof, err := getContractStorageProof(state, storageKeys)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -146,35 +146,17 @@ func (h *Handler) StorageProof(
 	}, nil
 }
 
-// Ensures each contract is unique and each storage key in each contract is unique
-func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Error) {
-	if len(storageKeys) == 0 {
-		return nil, nil
-	}
-
-	// Keep request order and merge repeated contracts: proofs are matched to the request by index.
-	// ProveMulti deduplicates keys itself.
-	uniqueStorageKeys := make([]StorageKeys, 0, len(storageKeys))
-	indexByContract := make(map[felt.Felt]int, len(storageKeys))
+// validateStorageKeys ensures every entry names a contract and at least one key
+func validateStorageKeys(storageKeys []StorageKeys) *jsonrpc.Error {
 	for _, sk := range storageKeys {
-		// Ensure that both contract and keys are provided
 		if sk.Contract == nil {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+			return jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
 		}
 		if len(sk.Keys) == 0 {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
+			return jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
 		}
-
-		index, seen := indexByContract[*sk.Contract]
-		if !seen {
-			index = len(uniqueStorageKeys)
-			indexByContract[*sk.Contract] = index
-			uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: sk.Contract})
-		}
-		uniqueStorageKeys[index].Keys = append(uniqueStorageKeys[index].Keys, sk.Keys...)
 	}
-
-	return uniqueStorageKeys, nil
+	return nil
 }
 
 // isBlockSupported checks if the block ID requested is supported for storage proofs
