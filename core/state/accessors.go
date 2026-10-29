@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils/cbor"
 )
 
 func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateObject, error) {
@@ -107,29 +106,15 @@ func WriteClass(
 	classHash *felt.Felt,
 	class *core.DeclaredClassDefinition,
 ) error {
-	enc, err := cbor.Marshal(class)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.ClassKey(classHash), enc)
+	return core.ClassBucket.Put(w, (*felt.ClassHash)(classHash), class)
 }
 
 func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
-	key := db.ClassKey(classHash)
-	return w.Delete(key)
+	return core.ClassBucket.Delete(w, (*felt.ClassHash)(classHash))
 }
 
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-	key := db.ClassKey(classHash)
-
-	var class core.DeclaredClassDefinition
-	if err := r.Get(key, func(data []byte) error {
-		return cbor.Unmarshal(data, &class)
-	}); err != nil {
-		return nil, err
-	}
-
-	return &class, nil
+	return core.ClassBucket.GetPtr(r, (*felt.ClassHash)(classHash))
 }
 
 func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {

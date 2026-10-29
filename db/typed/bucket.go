@@ -40,6 +40,17 @@ func (b Bucket[K, V, KS, VS]) Get(database db.KeyValueReader, key K) (V, error) 
 	return value, err
 }
 
+func (b Bucket[K, V, KS, VS]) GetPtr(database db.KeyValueReader, key K) (*V, error) {
+	value := new(V)
+	err := database.Get(b.Key(KS{}.Marshal(key)), func(data []byte) error {
+		return VS{}.Unmarshal(data, value)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 func (b Bucket[K, V, KS, VS]) Put(database db.KeyValueWriter, key K, value *V) error {
 	data, err := VS{}.Marshal(value)
 	if err != nil {

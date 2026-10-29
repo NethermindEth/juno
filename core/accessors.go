@@ -26,47 +26,27 @@ func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 }
 
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	var class *DeclaredClassDefinition
-
-	err := r.Get(db.ClassKey(classHash), func(data []byte) error {
-		return cbor.Unmarshal(data, &class)
-	})
-	return class, err
+	return ClassBucket.GetPtr(r, (*felt.ClassHash)(classHash))
 }
 
 func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
-	data, err := cbor.Marshal(class)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.ClassKey(classHash), data)
+	return ClassBucket.Put(w, (*felt.ClassHash)(classHash), class)
 }
 
 func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
-	return w.Delete(db.ClassKey(classHash))
+	return ClassBucket.Delete(w, (*felt.ClassHash)(classHash))
 }
 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdate, error) {
-	var stateUpdate *StateUpdate
-	err := r.Get(db.StateUpdateByBlockNumKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &stateUpdate)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return stateUpdate, nil
+	return StateUpdatesByBlockNumberBucket.GetPtr(r, blockNum)
 }
 
 func WriteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64, stateUpdate *StateUpdate) error {
-	data, err := cbor.Marshal(stateUpdate)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.StateUpdateByBlockNumKey(blockNum), data)
+	return StateUpdatesByBlockNumberBucket.Put(w, blockNum, stateUpdate)
 }
 
 func DeleteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64) error {
-	return w.Delete(db.StateUpdateByBlockNumKey(blockNum))
+	return StateUpdatesByBlockNumberBucket.Delete(w, blockNum)
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, error) {
@@ -128,15 +108,11 @@ func DeleteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 }
 
 func WriteBlockHeaderByNumber(w db.KeyValueWriter, header *Header) error {
-	data, err := cbor.Marshal(header)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.BlockHeaderByNumberKey(header.Number), data)
+	return BlockHeadersByNumberBucket.Put(w, header.Number, header)
 }
 
 func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
-	return w.Delete(db.BlockHeaderByNumberKey(number))
+	return BlockHeadersByNumberBucket.Delete(w, number)
 }
 
 func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*BlockCommitments, error) {
@@ -210,11 +186,7 @@ func DeleteChainHeight(w db.KeyValueWriter) error {
 }
 
 func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, error) {
-	var header *Header
-	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
-	})
-	return header, err
+	return BlockHeadersByNumberBucket.GetPtr(r, blockNum)
 }
 
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
