@@ -285,30 +285,33 @@ func TestMigratePrunedHistory(t *testing.T) {
 				storeDeprecatedChain(t, reference, diffs)
 				want := stateAnswers(t, reference, floor, true)
 
-				migratedFirst := testutils.NewPebbleTestDB(t)
-				storeDeprecatedChain(t, migratedFirst, diffs)
-				migrateNewState(t, migratedFirst, 0)
-				pruneHistory(t, migratedFirst, retained)
-				assert.Equal(t, want, stateAnswers(t, migratedFirst, floor, false),
-					"migrated, then pruned")
-				assertDeprecatedWiped(t, migratedFirst)
-
-				prunedFirst := testutils.NewPebbleTestDB(t)
-				storeDeprecatedChain(t, prunedFirst, diffs)
-				pruneHistory(t, prunedFirst, retained)
-				migrateNewState(t, prunedFirst, 20)
-				assert.Equal(t, want, stateAnswers(t, prunedFirst, floor, false),
-					"pruned, then migrated with cancellations")
-				assertDeprecatedWiped(t, prunedFirst)
-
-				crashed := testutils.NewPebbleTestDB(t)
-				storeDeprecatedChain(t, crashed, diffs)
-				pruneHistory(t, crashed, retained)
-				crashInTriePhase(t, crashed)
-				migrateNewState(t, crashed, 0)
-				assert.Equal(t, want, stateAnswers(t, crashed, floor, false),
-					"restarted from scratch after a crash in the trie phase")
-				assertDeprecatedWiped(t, crashed)
+				scenarios := []struct {
+					name string
+					run  func(t *testing.T, database db.KeyValueStore)
+				}{
+					{"migrated then pruned", func(t *testing.T, database db.KeyValueStore) {
+						migrateNewState(t, database, 0)
+						pruneHistory(t, database, retained)
+					}},
+					{"pruned then migrated with cancellations", func(t *testing.T, database db.KeyValueStore) {
+						pruneHistory(t, database, retained)
+						migrateNewState(t, database, 20)
+					}},
+					{"restarted after a crash in the trie phase", func(t *testing.T, database db.KeyValueStore) {
+						pruneHistory(t, database, retained)
+						crashInTriePhase(t, database)
+						migrateNewState(t, database, 0)
+					}},
+				}
+				for _, s := range scenarios {
+					t.Run(s.name, func(t *testing.T) {
+						database := testutils.NewPebbleTestDB(t)
+						storeDeprecatedChain(t, database, diffs)
+						s.run(t, database)
+						assert.Equal(t, want, stateAnswers(t, database, floor, false))
+						assertDeprecatedWiped(t, database)
+					})
+				}
 			})
 		}
 	}
