@@ -806,15 +806,24 @@ func TestStorageProof(t *testing.T) {
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error when keys in contract storage keys are empty", func(t *testing.T) {
+	t.Run("empty keys in contract storage keys return an empty storage proof", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).
+			Return(headBlock.Header.Hash, nil)
+		mockState.EXPECT().ContractStorageTrie(key).Return(contractTrie, nil)
+
 		proof, rpcErr := handler.StorageProof(
 			&blockLatest,
 			nil,
 			nil,
 			[]rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}},
 		)
-		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
-		require.Nil(t, proof)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		arityTest(t, proof, 0, 0, 0, 1)
+
+		storageProofsJSON, err := json.Marshal(proof.ContractsStorageProofs)
+		require.NoError(t, err)
+		require.JSONEq(t, `[[]]`, string(storageProofsJSON))
 	})
 	t.Run("empty request", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderHashByNumber(blockNumber).

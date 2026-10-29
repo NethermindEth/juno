@@ -255,7 +255,8 @@ func validateStorageKeys(storageKeys []StorageKeys) *jsonrpc.Error {
 		if sk.Contract == nil {
 			return jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
 		}
-		if len(sk.Keys) == 0 {
+		// An empty list is allowed: it asks only for the contract leaf
+		if sk.Keys == nil {
 			return jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
 		}
 	}
