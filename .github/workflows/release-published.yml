@@ -35,6 +35,9 @@ jobs:
       - name: Tag official image as latest
         run: docker buildx imagetools create --tag nethermind/juno:latest nethermind/juno:${{ needs.build-official-docker-image.outputs.tag }}
 
+      - name: Tag official distroless image as latest-distroless
+        run: docker buildx imagetools create --tag nethermind/juno:latest-distroless nethermind/juno:${{ needs.build-official-docker-image.outputs.tag }}-distroless
+
       - name: Clean up Docker config
         if: always()
         run: rm -f ${HOME}/.docker/config.json

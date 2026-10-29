@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/clients/timeout"
+	"github.com/NethermindEth/juno/clients/transport"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
@@ -109,7 +110,7 @@ func NopBackoff(d time.Duration) time.Duration {
 func NewClient(clientURL *url.URL, opts ...Option) *Client {
 	defaultTimeouts := timeout.Default()
 	o := options{
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Transport: transport.New()},
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~20s with default backoff and maxWait (block time on mainnet is 2s on average)
 		maxWait:    2 * time.Second,
