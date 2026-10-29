@@ -1,5 +1,5 @@
-// Package cbor provides Juno's CBOR API. Encoding and decoding currently use
-// the fxamacker adapter.
+// Package cbor provides Juno's CBOR API. Encoding uses fxamacker. Decoding uses the decoder
+// registered for the destination's type with [RegisterDecoder].
 package cbor
 
 import (
@@ -28,12 +28,12 @@ func Marshal(v any) ([]byte, error) {
 
 // Unmarshal decodes a CBOR value from data into v.
 func Unmarshal(data []byte, v any) error {
-	return fxamacker.Unmarshal(data, v)
+	return decoderFor(v).unmarshal(data, v)
 }
 
 // UnmarshalFirst decodes the first CBOR item and returns the remaining bytes.
 func UnmarshalFirst(data []byte, v any) ([]byte, error) {
-	return fxamacker.UnmarshalFirst(data, v)
+	return decoderFor(v).unmarshalFirst(data, v)
 }
 
 // UnmarshalStrict decodes without type tags and rejects unknown fields.
@@ -51,4 +51,17 @@ func NewEncoder(w io.Writer) Encoder {
 // Only call this from utils/cbor/registry's init, before concurrent use.
 func RegisterType(t reflect.Type) error {
 	return fxamacker.RegisterType(t)
+}
+
+// RegisterDecoder makes decode the decoder of *T and **T destinations.
+// decode reads one item from the start of data into a dst-owned item and returns the rest.
+// If it fails, the item is decoded with fxamacker instead.
+// Call it only from init, and decode must be safe for concurrent use.
+func RegisterDecoder[T any](decode func(data []byte, dst *T) (rest []byte, err error)) {
+	value, pointer := typeWord(new(T)), typeWord(new(*T))
+	if decoders[value] != nil || decoders[pointer] != nil {
+		panic("cbor: a decoder is already registered for " + reflect.TypeFor[T]().String())
+	}
+	decoders[value] = valueDecoder(decode)
+	decoders[pointer] = pointerDecoder(decode)
 }
