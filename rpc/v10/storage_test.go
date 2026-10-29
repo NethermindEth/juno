@@ -1001,19 +1001,30 @@ func TestStorageProof(t *testing.T) {
 		for i := range contractCount {
 			contract := felt.NewFromUint64[felt.Felt](uint64(0x1000 + i))
 			value := felt.NewFromUint64[felt.Felt](uint64(100 + i))
-			storageTrie := singleLeafTrie(t, key, value)
+			storageTrie := leafTrie(t, value, key, key2)
 			mockState.EXPECT().ContractStorageTrie(contract).Return(storageTrie, nil).Times(2)
-			contractKeys := rpc.StorageKeys{Contract: contract, Keys: []felt.Felt{*key}}
+			storageKeys = append(
+				storageKeys,
+				rpc.StorageKeys{Contract: contract, Keys: []felt.Felt{*key}},
+			)
 
-			single, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{contractKeys})
+			// The batch repeats the first contract with key2, so its proof must cover both keys
+			expectedKeys := []felt.Felt{*key}
+			if i == 0 {
+				expectedKeys = []felt.Felt{*key, *key2}
+			}
+			single, rpcErr := handler.StorageProof(
+				&blockLatest,
+				nil,
+				nil,
+				[]rpc.StorageKeys{{Contract: contract, Keys: expectedKeys}},
+			)
 			require.Nil(t, rpcErr)
 			expected = append(expected, single.ContractsStorageProofs[0])
-			storageKeys = append(storageKeys, contractKeys)
 		}
-		// A repeated contract merges into its first position instead of adding an entry
 		storageKeys = append(
 			storageKeys,
-			rpc.StorageKeys{Contract: storageKeys[0].Contract, Keys: []felt.Felt{*key}},
+			rpc.StorageKeys{Contract: storageKeys[0].Contract, Keys: []felt.Felt{*key2}},
 		)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
@@ -1666,21 +1677,25 @@ func emptyDeprecatedTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-// singleLeafTrie returns a trie holding one key/value pair
-func singleLeafTrie(t *testing.T, key, value *felt.Felt) core.TrieReader {
+// leafTrie returns a trie storing value under each of the given keys
+func leafTrie(t *testing.T, value *felt.Felt, keys ...*felt.Felt) core.TrieReader {
 	t.Helper()
 	if statetestutils.UseNewState() {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)
-		require.NoError(t, tempTrie.Update(key, value))
+		for _, key := range keys {
+			require.NoError(t, tempTrie.Update(key, value))
+		}
 		_, err = tempTrie.Hash()
 		require.NoError(t, err)
 		return tempTrie
 	}
 	tempTrie := emptyDeprecatedTrie(t)
-	_, err := tempTrie.Put(key, value)
-	require.NoError(t, err)
-	_, err = tempTrie.Hash()
+	for _, key := range keys {
+		_, err := tempTrie.Put(key, value)
+		require.NoError(t, err)
+	}
+	_, err := tempTrie.Hash()
 	require.NoError(t, err)
 	return tempTrie
 }
