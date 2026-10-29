@@ -65,9 +65,19 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
         with:
           context: .
+          target: debian
           platforms: linux/amd64
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}
+
+      - name: Build and push AMD64 distroless
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: .
+          target: distroless
+          platforms: linux/amd64
+          push: true
+          tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless
 
   build_and_push_docker_image_arm:
     needs: setup
@@ -92,9 +102,19 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
         with:
           context: .
+          target: debian
           platforms: linux/arm64
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-arm64
+
+      - name: Build and push ARM64 distroless
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: .
+          target: distroless
+          platforms: linux/arm64
+          push: true
+          tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless-arm64
 
       - name: Cleanup self-hosted
         run: docker system prune -af
@@ -122,6 +142,13 @@ jobs:
             nethermindeth/juno:${{ needs.setup.outputs.tag }} \
             nethermindeth/juno:${{ needs.setup.outputs.tag }}-arm64 \
             --tag nethermind/juno:${{ needs.setup.outputs.tag }}
+
+      - name: Create and push distroless manifest using buildx
+        run: |
+          docker buildx imagetools create \
+            nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless \
+            nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless-arm64 \
+            --tag nethermind/juno:${{ needs.setup.outputs.tag }}-distroless
 
       - name: Clean up Docker config
         if: always()

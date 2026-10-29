@@ -122,6 +122,12 @@ lint-diff:
 tidy: ## Add missing and remove unused modules
 	go mod tidy
 
+# Keep in sync with APKO_VERSION in the Dockerfile.
+APKO_VERSION := v1.4.11
+
+apko-lock: ## Pin the latest Wolfi packages for the Docker runtime image
+	go run chainguard.dev/apko@$(APKO_VERSION) lock -C docker apko.yaml --output apko.lock.json
+
 rust-format-check: ## Check Rust formatting across all crates
 	$(MAKE) -C vm/rust format-check
 
