@@ -152,7 +152,10 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 		return nil, nil
 	}
 
-	merged := make(map[felt.Felt][]felt.Felt, len(storageKeys))
+	// Keep request order and merge repeated contracts: proofs are matched to the request by index.
+	// ProveMulti deduplicates keys itself.
+	uniqueStorageKeys := make([]StorageKeys, 0, len(storageKeys))
+	indexByContract := make(map[felt.Felt]int, len(storageKeys))
 	for _, sk := range storageKeys {
 		// Ensure that both contract and keys are provided
 		if sk.Contract == nil {
@@ -162,13 +165,13 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
 		}
 
-		contract := *sk.Contract
-		merged[contract] = append(merged[contract], sk.Keys...)
-	}
-
-	uniqueStorageKeys := make([]StorageKeys, 0, len(merged))
-	for contract, keys := range merged {
-		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: &contract, Keys: utils.Set(keys)})
+		index, seen := indexByContract[*sk.Contract]
+		if !seen {
+			index = len(uniqueStorageKeys)
+			indexByContract[*sk.Contract] = index
+			uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: sk.Contract})
+		}
+		uniqueStorageKeys[index].Keys = append(uniqueStorageKeys[index].Keys, sk.Keys...)
 	}
 
 	return uniqueStorageKeys, nil

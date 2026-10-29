@@ -628,6 +628,37 @@ func TestStorageProof(t *testing.T) {
 
 		verifyIf(t, &trieRoot, key, value, proof.ContractsStorageProofs[0], contractTrie.HashFn())
 	})
+	t.Run("contract storage proofs follow request order", func(t *testing.T) {
+		const contractCount = 20
+		// One call per contract for the expected proofs, then one batched call
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
+			Return(headBlock.Header, nil).Times(contractCount + 1)
+
+		// Each contract stores its own value, so every expected proof is distinct
+		storageKeys := make([]rpc.StorageKeys, 0, contractCount+1)
+		expected := make([][]*rpc.HashToNode, 0, contractCount)
+		for i := range contractCount {
+			contract := felt.NewFromUint64[felt.Felt](uint64(0x1000 + i))
+			value := felt.NewFromUint64[felt.Felt](uint64(100 + i))
+			storageTrie := singleLeafTrie(t, key, value)
+			mockState.EXPECT().ContractStorageTrie(contract).Return(storageTrie, nil).Times(2)
+			contractKeys := rpc.StorageKeys{Contract: contract, Keys: []felt.Felt{*key}}
+
+			single, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{contractKeys})
+			require.Nil(t, rpcErr)
+			expected = append(expected, single.ContractsStorageProofs[0])
+			storageKeys = append(storageKeys, contractKeys)
+		}
+		// A repeated contract merges into its first position instead of adding an entry
+		storageKeys = append(
+			storageKeys,
+			rpc.StorageKeys{Contract: storageKeys[0].Contract, Keys: []felt.Felt{*key}},
+		)
+
+		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expected, proof.ContractsStorageProofs)
+	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
 			Return(headBlock.Header, nil)
@@ -1068,6 +1099,25 @@ func emptyDeprecatedTrie(t *testing.T) *trie.Trie {
 	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+	return tempTrie
+}
+
+// singleLeafTrie returns a trie holding one key/value pair
+func singleLeafTrie(t *testing.T, key, value *felt.Felt) core.TrieReader {
+	t.Helper()
+	if statetestutils.UseNewState() {
+		tempTrie, err := trie2.NewEmptyPedersen()
+		require.NoError(t, err)
+		require.NoError(t, tempTrie.Update(key, value))
+		_, err = tempTrie.Hash()
+		require.NoError(t, err)
+		return tempTrie
+	}
+	tempTrie := emptyDeprecatedTrie(t)
+	_, err := tempTrie.Put(key, value)
+	require.NoError(t, err)
+	_, err = tempTrie.Hash()
 	require.NoError(t, err)
 	return tempTrie
 }
