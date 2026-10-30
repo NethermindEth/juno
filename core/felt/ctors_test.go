@@ -122,7 +122,7 @@ func TestZeroOneCtor(t *testing.T) {
 	t.Run("values match the field constants for any felt type", func(t *testing.T) {
 		assert.Equal(t, felt.FromUint64[feltoid](0), felt.Zero[feltoid]())
 		assert.Equal(t, felt.FromUint64[feltoid](1), felt.One[feltoid]())
-		assert.Equal(t, felt.FromUint64[felt.Felt](1), *new(felt.One[felt.Felt]()))
+		assert.Equal(t, felt.FromUint64[felt.Felt](1), felt.One[felt.Felt]())
 	})
 
 	t.Run("new(One) returns independent values", func(t *testing.T) {
