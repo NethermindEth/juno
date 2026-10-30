@@ -206,21 +206,21 @@ func JunoAppendStateDiff(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C
 //export JunoAppendResponse
 func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.response = append(context.response, makeFeltFromPtr(ptr))
+	context.response = append(context.response, makeFeltFromPtr[felt.Felt](ptr))
 }
 
 //export JunoAppendActualFee
 func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
+	context.actualFees = append(context.actualFees, makeFeltFromPtr[felt.Felt](ptr))
 }
 
 //export JunoAppendDAGas
 func JunoAppendDAGas(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.daGas = append(context.daGas, core.DataAvailability{
-		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
-		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+		L1Gas:     makeFeltFromPtr[felt.Felt](ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr[felt.Felt](ptr2).Uint64(),
 	})
 }
 
@@ -228,9 +228,9 @@ func JunoAppendDAGas(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2, ptr3 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.gasConsumed = append(context.gasConsumed, core.GasConsumed{
-		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
-		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
-		L2Gas:     makeFeltFromPtr(ptr3).Uint64(),
+		L1Gas:     makeFeltFromPtr[felt.Felt](ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr[felt.Felt](ptr2).Uint64(),
+		L2Gas:     makeFeltFromPtr[felt.Felt](ptr3).Uint64(),
 	})
 }
 
@@ -247,8 +247,8 @@ func JunoAppendInitialReads(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLe
 	context.initialReads = json.RawMessage(byteSlice)
 }
 
-func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
-	return new(felt.Felt).SetBytes(C.GoBytes(ptr, felt.Bytes))
+func makeFeltFromPtr[F felt.FeltLike](ptr unsafe.Pointer) *F {
+	return felt.NewFromBytes[F](C.GoBytes(ptr, felt.Bytes))
 }
 
 type CallInfo struct {
@@ -268,7 +268,7 @@ type BlockInfo struct {
 	BlockHashToBeRevealed *felt.Felt
 }
 
-func copyFeltIntoCArray(f *felt.Felt, cArrPtr *C.uchar) {
+func copyFeltIntoCArray[K any](f *felt.Typed[K], cArrPtr *C.uchar) {
 	if f == nil {
 		return
 	}
