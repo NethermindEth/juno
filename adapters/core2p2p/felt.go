@@ -6,7 +6,7 @@ import (
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
-func AdaptHash(f *felt.Felt) *common.Hash {
+func AdaptHash[K any](f *felt.Typed[K]) *common.Hash {
 	if f == nil {
 		return nil
 	}
@@ -22,7 +22,7 @@ func AdaptAccountSignature(signature []felt.Felt) *transaction.AccountSignature 
 	}
 }
 
-func AdaptFelt(f *felt.Felt) *common.Felt252 {
+func AdaptFelt[K any](f *felt.Typed[K]) *common.Felt252 {
 	if f == nil {
 		return nil
 	}
@@ -43,7 +43,7 @@ func AdaptFeltSlice(slice []felt.Felt) []*common.Felt252 {
 	return result
 }
 
-func AdaptAddress(f *felt.Felt) *common.Address {
+func AdaptAddress[K any](f *felt.Typed[K]) *common.Address {
 	if f == nil {
 		return nil
 	}
@@ -53,7 +53,7 @@ func AdaptAddress(f *felt.Felt) *common.Address {
 	}
 }
 
-func AdaptUint128(f *felt.Felt) *common.Uint128 {
+func AdaptUint128[K any](f *felt.Typed[K]) *common.Uint128 {
 	// bits represents value in little endian byte order
 	// i.e. first is least significant byte
 	bits := f.Bits()
