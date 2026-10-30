@@ -454,10 +454,24 @@ func TestStorageProof(t *testing.T) {
 		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error when keys in contract storage keys are empty", func(t *testing.T) {
-		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}})
-		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
-		require.Nil(t, proof)
+	t.Run("empty keys in contract storage keys return an empty storage proof", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
+			Return(headBlock.Header, nil)
+		mockState.EXPECT().ContractStorageTrie(key).Return(contractTrie, nil)
+
+		proof, rpcErr := handler.StorageProof(
+			&blockLatest,
+			nil,
+			nil,
+			[]rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}},
+		)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		arityTest(t, proof, 0, 0, 0, 1)
+
+		storageProofsJSON, err := json.Marshal(proof.ContractsStorageProofs)
+		require.NoError(t, err)
+		require.JSONEq(t, `[[]]`, string(storageProofsJSON))
 	})
 	t.Run("empty request", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -627,6 +641,46 @@ func TestStorageProof(t *testing.T) {
 		require.Len(t, proof.ContractsStorageProofs[0], 3)
 
 		verifyIf(t, &trieRoot, key, value, proof.ContractsStorageProofs[0], contractTrie.HashFn())
+	})
+	t.Run("contract storage proofs follow request order", func(t *testing.T) {
+		const contractCount = 20
+		// One call per request entry for the expected proofs, then one batched call
+		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
+			Return(headBlock.Header, nil).Times(contractCount + 2)
+
+		// Each contract stores its own value, so every expected proof is distinct
+		storageKeys := make([]rpc.StorageKeys, 0, contractCount+1)
+		for i := range contractCount {
+			contract := felt.NewFromUint64[felt.Felt](uint64(0x1000 + i))
+			value := felt.NewFromUint64[felt.Felt](uint64(100 + i))
+			storageTrie := leafTrie(t, value, key, key2)
+			// The first contract is requested twice, so it is proven twice as often
+			times := 2
+			if i == 0 {
+				times = 4
+			}
+			mockState.EXPECT().ContractStorageTrie(contract).Return(storageTrie, nil).Times(times)
+			storageKeys = append(
+				storageKeys,
+				rpc.StorageKeys{Contract: contract, Keys: []felt.Felt{*key}},
+			)
+		}
+		// A repeated contract gets its own entry at its own position, it is not merged
+		storageKeys = append(
+			storageKeys,
+			rpc.StorageKeys{Contract: storageKeys[0].Contract, Keys: []felt.Felt{*key2}},
+		)
+
+		expected := make([][]*rpc.HashToNode, 0, len(storageKeys))
+		for _, storageKey := range storageKeys {
+			single, rpcErr := handler.StorageProof(&blockLatest, nil, nil, []rpc.StorageKeys{storageKey})
+			require.Nil(t, rpcErr)
+			expected = append(expected, single.ContractsStorageProofs[0])
+		}
+
+		proof, rpcErr := handler.StorageProof(&blockLatest, nil, nil, storageKeys)
+		require.Nil(t, rpcErr)
+		require.Equal(t, expected, proof.ContractsStorageProofs)
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(blockNumber).
@@ -1068,6 +1122,29 @@ func emptyDeprecatedTrie(t *testing.T) *trie.Trie {
 	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
+	require.NoError(t, err)
+	return tempTrie
+}
+
+// leafTrie returns a trie storing value under each of the given keys
+func leafTrie(t *testing.T, value *felt.Felt, keys ...*felt.Felt) core.TrieReader {
+	t.Helper()
+	if statetestutils.UseNewState() {
+		tempTrie, err := trie2.NewEmptyPedersen()
+		require.NoError(t, err)
+		for _, key := range keys {
+			require.NoError(t, tempTrie.Update(key, value))
+		}
+		_, err = tempTrie.Hash()
+		require.NoError(t, err)
+		return tempTrie
+	}
+	tempTrie := emptyDeprecatedTrie(t)
+	for _, key := range keys {
+		_, err := tempTrie.Put(key, value)
+		require.NoError(t, err)
+	}
+	_, err := tempTrie.Hash()
 	require.NoError(t, err)
 	return tempTrie
 }
