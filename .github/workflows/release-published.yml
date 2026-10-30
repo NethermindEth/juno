@@ -30,9 +30,9 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         env:
-          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_RELEASE_OIDC_CONNECTIONID }}
         with:
-          username: ${{ vars.DOCKERHUB_ORGANIZATION }}
+          username: ${{ vars.DOCKERHUB_RELEASE_ORGANIZATION }}
 
       - name: Tag official image as latest
         run: docker buildx imagetools create --tag nethermind/juno:latest nethermind/juno:${{ needs.build-official-docker-image.outputs.tag }}
