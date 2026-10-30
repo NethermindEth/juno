@@ -214,7 +214,12 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(3)
-	contractAddress := core.ContractAddress(&felt.Zero, &classHash, &contractAddressSalt, constructorCallData)
+	contractAddress := core.ContractAddress(
+		felt.ZeroPtr[felt.Felt](),
+		&classHash,
+		&contractAddressSalt,
+		constructorCallData,
+	)
 
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -342,7 +347,11 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	transactionHash, p2pHash := getTransactionHash(t, &consensusL1HandlerTransaction, network)
 	consensusL1HandlerTransaction.TransactionHash = &transactionHash
 
-	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
+	return b.ToCore(
+		&consensusL1HandlerTransaction,
+		nil,
+		new(felt.One[felt.Felt]()),
+	), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }
 
 // StripCompilerFields strips the some fields related to compiler in the compiled class.

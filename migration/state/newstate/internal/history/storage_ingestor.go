@@ -55,7 +55,7 @@ func newStorageIngestor(
 //     pre-value is exactly this block's post-value;
 //   - the head storage trie leaf for that slot, when there is no next
 //     deprecated entry on the same slot;
-//   - felt.Zero, when there is no head leaf for the slot (the slot was
+//   - zero, when there is no head leaf for the slot (the slot was
 //     eventually zeroed out and dropped from the trie).
 //
 // Both the deprecated history and the head trie are sorted by raw slot

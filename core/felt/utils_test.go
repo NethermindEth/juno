@@ -30,7 +30,7 @@ func TestEqual(t *testing.T) {
 func TestHelpersMatchElement(t *testing.T) {
 	values := []felt.Felt{
 		{},
-		felt.One,
+		felt.One[felt.Felt](),
 		felt.FromUint64[felt.Felt](1 << 40),
 		felt.Random[felt.Felt](),
 		felt.Random[felt.Felt](),

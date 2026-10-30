@@ -239,7 +239,7 @@ func adaptResourceBounds(
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
 		contractAddress := core.ContractAddress(
-			&felt.Zero,
+			felt.ZeroPtr[felt.Felt](),
 			t.ClassHash,
 			t.ContractAddressSalt,
 			*t.ConstructorCallData,

@@ -10,7 +10,7 @@ import (
 // TrieReader provides read-only access to a trie. It is the
 // view returned from state readers for proof generation and storage lookups.
 type TrieReader interface {
-	// Get returns the value stored at key in the trie. Missing keys map to felt.Zero.
+	// Get returns the value stored at key in the trie. Missing keys map to zero.
 	Get(key *felt.Felt) (felt.Felt, error)
 	// Hash returns the root hash of the trie.
 	Hash() (felt.Felt, error)

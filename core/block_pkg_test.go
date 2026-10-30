@@ -14,7 +14,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
 		c, err := transactionCommitmentPoseidon0134(nil, testTrieBackend())
 		require.NoError(t, err)
-		assert.Equal(t, felt.Zero, c)
+		assert.Equal(t, felt.Zero[felt.Felt](), c)
 	})
 
 	t.Run("txs with signature", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	t.Run("nil", func(t *testing.T) {
 		c, err := transactionCommitmentPoseidon0132(nil, testTrieBackend())
 		require.NoError(t, err)
-		assert.Equal(t, felt.Zero, c)
+		assert.Equal(t, felt.Zero[felt.Felt](), c)
 	})
 
 	t.Run("txs with signature", func(t *testing.T) {

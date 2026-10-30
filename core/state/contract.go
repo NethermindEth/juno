@@ -26,9 +26,9 @@ type stateContract struct {
 
 func newContractDeployed(classHash felt.Felt, deployHeight uint64) stateContract {
 	return stateContract{
-		Nonce:          felt.Zero,
+		Nonce:          felt.Zero[felt.Felt](),
 		ClassHash:      classHash,
-		StorageRoot:    felt.Zero,
+		StorageRoot:    felt.Zero[felt.Felt](),
 		DeployedHeight: deployHeight,
 	}
 }
@@ -97,5 +97,5 @@ func (s *stateContract) unmarshalEmptyRoot(data []byte) error {
 func (s *stateContract) commitment() felt.Felt {
 	h1 := crypto.Pedersen(&s.ClassHash, &s.StorageRoot)
 	h2 := crypto.Pedersen(&h1, &s.Nonce)
-	return crypto.Pedersen(&h2, &felt.Zero)
+	return crypto.Pedersen(&h2, felt.ZeroPtr[felt.Felt]())
 }

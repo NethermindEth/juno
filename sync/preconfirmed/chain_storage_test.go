@@ -840,7 +840,7 @@ func applyBlockWithStorageWrites(
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
-			Version:   &felt.One,
+			Version:   felt.OnePtr[felt.Felt](),
 			CallData:  &emptySlice,
 			Signature: &emptySlice,
 		}
@@ -864,11 +864,20 @@ func applyBlockWithStorageWrites(
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      feltOne,
-		L1GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
-		L2GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
-		L1DAMode:              starknet.Blob,
-		L1DataGasPrice:        &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
+		SequencerAddress:      felt.OnePtr[felt.Felt](),
+		L1GasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
+		L2GasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
+		L1DAMode: starknet.Blob,
+		L1DataGasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
 	}
 	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf, nil)
 	require.NoError(t, err)

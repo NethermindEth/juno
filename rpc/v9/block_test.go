@@ -298,7 +298,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
-		"hash":          blockIDHash(t, &felt.One),
+		"hash":          blockIDHash(t, felt.OnePtr[felt.Felt]()),
 		"number":        blockIDNumber(t, 2),
 	}
 	mockCtrl := gomock.NewController(t)
@@ -516,7 +516,7 @@ func TestBlockWithTxs(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
-		"hash":          blockIDHash(t, &felt.One),
+		"hash":          blockIDHash(t, felt.OnePtr[felt.Felt]()),
 		"number":        blockIDNumber(t, 1),
 	}
 
@@ -878,8 +878,8 @@ func TestBlockWithTxsV013(t *testing.T) {
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 			L2GasPrice: rpc.ResourcePrice{
-				InFri: &felt.One,
-				InWei: &felt.One,
+				InFri: felt.OnePtr[felt.Felt](),
+				InWei: felt.OnePtr[felt.Felt](),
 			},
 		},
 		Status: rpc.BlockAcceptedL2,
@@ -905,8 +905,8 @@ func TestBlockWithTxsV013(t *testing.T) {
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: &rpc.ResourceBounds{
-						MaxAmount:       &felt.Zero,
-						MaxPricePerUnit: &felt.Zero,
+						MaxAmount:       felt.ZeroPtr[felt.Felt](),
+						MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 					},
 				},
 				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
@@ -1124,11 +1124,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		blockID := blockIDLatest(t)
 		block, rpcErr := handler.BlockWithTxs(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
+		require.Equal(t, felt.ZeroPtr[felt.Felt](), block.BlockHeader.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
+		require.Equal(t, felt.ZeroPtr[felt.Felt](), blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }
 

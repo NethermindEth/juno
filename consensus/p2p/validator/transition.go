@@ -97,10 +97,10 @@ func (t *transition) OnEmptyBlockCommitment(
 	buildState, err := t.builder.InitPreconfirmedBlock(&builder.BuildParams{
 		Builder:           felt.Felt(state.Header.Sender),
 		Timestamp:         commitment.Timestamp,
-		L2GasPriceFRI:     felt.Zero,
-		L1GasPriceWEI:     felt.Zero,
-		L1DataGasPriceWEI: felt.Zero,
-		EthToStrkRate:     felt.Zero,
+		L2GasPriceFRI:     felt.Zero[felt.Felt](),
+		L1GasPriceWEI:     felt.Zero[felt.Felt](),
+		L1DataGasPriceWEI: felt.Zero[felt.Felt](),
+		EthToStrkRate:     felt.Zero[felt.Felt](),
 		L1DAMode:          core.L1DAMode(0), // Use 0 instead of Blob or CallData to explicitly set 0
 	})
 	if err != nil {

@@ -230,17 +230,18 @@ func buildProposalCommitment(
 	totalGasConsumed int,
 ) consensus.ProposalPart {
 	// TODO: This is only available starting from starknet 0.14.0. We needs to implement the proper formula.
-	nextL2GasPriceFri := new(felt.Felt).Add(block.L2GasPrice.PriceInFri, felt.One.Clone())
+	nextL2GasPriceFri := new(felt.Felt).Add(block.L2GasPrice.PriceInFri, new(felt.One[felt.Felt]()))
 	return consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Commitment{
 			Commitment: &consensus.ProposalCommitment{
-				BlockNumber:               block.Number,
-				ParentCommitment:          &common.Hash{Elements: ToBytes(*block.Header.ParentHash)},
-				Builder:                   proposer,
-				Timestamp:                 block.Header.Timestamp,
-				ProtocolVersion:           rawStateUpdate.Block.Version,
-				OldStateRoot:              &common.Hash{Elements: ToBytes(*previousBlock.GlobalStateRoot)},
-				VersionConstantCommitment: &common.Hash{Elements: ToBytes(felt.Zero)}, // TODO: Add version constant commitment
+				BlockNumber:      block.Number,
+				ParentCommitment: &common.Hash{Elements: ToBytes(*block.Header.ParentHash)},
+				Builder:          proposer,
+				Timestamp:        block.Header.Timestamp,
+				ProtocolVersion:  rawStateUpdate.Block.Version,
+				OldStateRoot:     &common.Hash{Elements: ToBytes(*previousBlock.GlobalStateRoot)},
+				// TODO: Add version constant commitment
+				VersionConstantCommitment: &common.Hash{Elements: ToBytes(felt.Zero[felt.Felt]())},
 				StateDiffCommitment:       &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.StateDiffCommitment)},
 				TransactionCommitment:     &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.TransactionCommitment)},
 				EventCommitment:           &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.EventCommitment)},

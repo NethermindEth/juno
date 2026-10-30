@@ -115,7 +115,7 @@ func GenesisStateDiff(
 	} else {
 		triedb := triedb.New(memDB, nil)
 		stateDB := st.NewStateDB(memDB, triedb)
-		state, err = st.NewStateReader(&felt.Zero, stateDB)
+		state, err = st.NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
 		if err != nil {
 			return core.StateDiff{}, nil, err
 		}

@@ -247,7 +247,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		&felt.Zero,
+		felt.ZeroPtr[felt.Felt](),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -283,7 +283,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		&felt.Zero, &classHash,
+		felt.ZeroPtr[felt.Felt](),
+		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
 	)
@@ -342,7 +343,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		&felt.Zero, &classHash,
+		felt.ZeroPtr[felt.Felt](),
+		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
 	)
@@ -601,7 +603,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	)
 	consensusL1HandlerTransaction.TransactionHash = &transactionHash
 
-	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()),
+	return b.ToCore(&consensusL1HandlerTransaction, nil, new(felt.One[felt.Felt]())),
 		convertToP2P(b.ToP2PL1Handler, &p2pTransaction, p2pHash)
 }
 

@@ -110,7 +110,7 @@ func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyRe
 		return deprecatedstate.New(database.NewIndexedBatch())
 	}
 	stateDB := state.NewStateDB(database, triedb.New(database, nil))
-	reader, err := state.NewStateReader(&felt.Zero, stateDB)
+	reader, err := state.NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
 	require.NoError(t, err)
 	return reader
 }

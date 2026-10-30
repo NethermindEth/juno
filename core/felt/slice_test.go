@@ -231,7 +231,7 @@ func TestSliceJSON(t *testing.T) {
 		{
 			"many",
 			felt.Slice[felt.Felt]{
-				felt.Zero,
+				felt.Zero[felt.Felt](),
 				felt.UnsafeFromString[felt.Felt]("0x1"),
 				felt.UnsafeFromString[felt.Felt](maxFelt),
 			},

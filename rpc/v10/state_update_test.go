@@ -27,7 +27,7 @@ func TestStateUpdate_ErrorCases(t *testing.T) {
 	errTests := map[string]rpcv10.BlockID{
 		"latest":        rpcv10.BlockIDLatest(),
 		"pre_confirmed": rpcv10.BlockIDPreConfirmed(),
-		"hash":          rpcv10.BlockIDFromHash(&felt.One),
+		"hash":          rpcv10.BlockIDFromHash(felt.OnePtr[felt.Felt]()),
 		"number":        rpcv10.BlockIDFromNumber(1),
 		"l1_accepted":   rpcv10.BlockIDL1Accepted(),
 	}

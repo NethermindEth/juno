@@ -356,7 +356,7 @@ func populateDatabase(
 
 func insertInvalidValue(t *testing.T, database db.KeyValueWriter) testKey {
 	// max felt === -1 mod module
-	maxFelt := new(felt.Felt).Sub(&felt.Zero, &felt.One)
+	maxFelt := new(felt.Felt).Sub(felt.ZeroPtr[felt.Felt](), felt.OnePtr[felt.Felt]())
 	t.Helper()
 	lastKey := testKey{
 		number:  math.MaxUint64,

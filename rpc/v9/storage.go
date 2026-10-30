@@ -483,7 +483,7 @@ func nodeFelt(n trienode.Node) (felt.Felt, error) {
 	case *trienode.ValueNode:
 		return felt.Felt(*n), nil
 	}
-	return felt.Zero, fmt.Errorf("unknown node type: %T", n)
+	return felt.Zero[felt.Felt](), fmt.Errorf("unknown node type: %T", n)
 }
 
 type StorageKeys struct {

@@ -23,8 +23,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-var feltOne = &felt.One
-
 const (
 	tickInterval = 100 * time.Millisecond
 	staleAfter   = 100 * time.Millisecond
@@ -44,7 +42,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
-			Version:   &felt.One,
+			Version:   felt.OnePtr[felt.Felt](),
 			CallData:  &emptySlice,
 			Signature: &emptySlice,
 		}
@@ -69,11 +67,20 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      feltOne,
-		L1GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
-		L2GasPrice:            &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
-		L1DAMode:              starknet.Blob,
-		L1DataGasPrice:        &starknet.GasPrice{PriceInWei: feltOne, PriceInFri: feltOne},
+		SequencerAddress:      felt.OnePtr[felt.Felt](),
+		L1GasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
+		L2GasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
+		L1DAMode: starknet.Blob,
+		L1DataGasPrice: &starknet.GasPrice{
+			PriceInWei: felt.OnePtr[felt.Felt](),
+			PriceInFri: felt.OnePtr[felt.Felt](),
+		},
 	}
 }
 
@@ -120,7 +127,7 @@ func newChainFixture(t *testing.T) *chainFixture {
 	header := &core.Header{
 		Number:     0,
 		Hash:       new(felt.Felt).SetUint64(1),
-		ParentHash: &felt.Zero,
+		ParentHash: felt.ZeroPtr[felt.Felt](),
 	}
 	require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
 	require.NoError(t, core.WriteChainHeight(testDB, 0))
@@ -309,7 +316,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 	genesis := &core.Header{
 		Number:     0,
 		Hash:       new(felt.Felt).SetUint64(1),
-		ParentHash: &felt.Zero,
+		ParentHash: felt.ZeroPtr[felt.Felt](),
 	}
 
 	block1 := makeTestPreConfirmedBlock("r0", 1)

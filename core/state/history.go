@@ -28,33 +28,33 @@ func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (stateH
 
 func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	ret, err := s.state.ContractClassHashAt(addr, s.blockNum)
 	if err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	return ret, nil
 }
 
 func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	ret, err := s.state.ContractNonceAt(addr, s.blockNum)
 	if err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	return ret, nil
 }
 
 func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	ret, err := s.state.ContractStorageAt(addr, key, s.blockNum)
 	if err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	return ret, nil
 }

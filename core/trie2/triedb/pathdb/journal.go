@@ -294,13 +294,23 @@ func (d *Database) getStateRoot() felt.StateRootHash {
 		return felt.StateRootHash{}
 	}
 
-	contractRootNode, err := trienode.DecodeNode(encContractRoot, &felt.Zero, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(
+		encContractRoot,
+		felt.ZeroPtr[felt.Felt](),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return felt.StateRootHash{}
 	}
 	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
 
-	classRootNode, err := trienode.DecodeNode(encStorageRoot, &felt.Zero, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(
+		encStorageRoot,
+		felt.ZeroPtr[felt.Felt](),
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return felt.StateRootHash{}
 	}

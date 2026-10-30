@@ -44,7 +44,7 @@ func TestProposer(t *testing.T) {
 	logger, err := log.NewZapLogger(log.NewLevel(logLevel), log.WithColour(true))
 	require.NoError(t, err)
 
-	proposerAddr := starknet.Address(felt.Zero)
+	proposerAddr := felt.Zero[starknet.Address]()
 	bc := getBlockchain(t)
 	b := getBuilder(t, logger, bc)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}

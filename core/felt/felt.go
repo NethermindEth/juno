@@ -28,17 +28,6 @@ const (
 	MaxFeltAsHexSize = len("0x") + Bytes*2
 )
 
-var Zero = Felt{}
-
-var One = Felt(fp.Element(
-	[4]uint64{
-		18446744073709551585,
-		18446744073709551615,
-		18446744073709551615,
-		576460752303422960,
-	},
-))
-
 var bigIntPool = sync.Pool{
 	New: func() any {
 		return new(big.Int)
@@ -322,10 +311,4 @@ func (z *Typed[K]) SetBigInt(v *big.Int) *Typed[K] {
 // Uint64 forwards the call to underlying field element implementation
 func (z *Typed[K]) Uint64() uint64 {
 	return (*fp.Element)(z).Uint64()
-}
-
-// TODO: look where this is used, the clone shouldn't return a pointer
-func (z *Typed[K]) Clone() *Typed[K] {
-	clone := *z
-	return &clone
 }

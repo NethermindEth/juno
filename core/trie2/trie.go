@@ -148,20 +148,20 @@ func (t *Trie) Update(key, value *felt.Felt) error {
 }
 
 // Retrieves the value associated with the given key.
-// Returns felt.Zero if the key doesn't exist.
+// Returns zero if the key doesn't exist.
 // May update the trie's internal structure if nodes need to be resolved.
 func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 	if t.committed {
-		return felt.Zero, ErrCommitted
+		return felt.Zero[felt.Felt](), ErrCommitted
 	}
 
 	k := trieutils.FeltToPath(key, t.height)
 
 	var ret felt.Felt
 	val, root, didResolve, err := t.get(t.root, new(Path), &k)
-	// In Starknet, a non-existent key is mapped to felt.Zero
+	// In Starknet, a non-existent key is mapped to zero
 	if val == nil {
-		ret = felt.Zero
+		ret = felt.Zero[felt.Felt]()
 	} else {
 		ret = *val
 	}
@@ -211,14 +211,14 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 	if t.root == nil {
 		paths := t.nodeTracer.deletedNodes()
 		if len(paths) == 0 { // case (a)
-			return felt.Zero, nil
+			return felt.Zero[felt.Felt](), nil
 		}
 		// case (b)
 		nodes := trienode.NewNodeSet(t.owner)
 		for _, path := range paths {
 			nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		return felt.Zero, &nodes
+		return felt.Zero[felt.Felt](), &nodes
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
@@ -555,7 +555,7 @@ func (t *Trie) resolveNodeWithHash(path *Path, hash *felt.Felt) (trienode.Node, 
 // Calculates the hash of the root node
 func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	if t.root == nil {
-		zero := felt.Zero
+		zero := felt.Zero[felt.Felt]()
 		return (*trienode.HashNode)(&zero), nil
 	}
 	h := newHasher(t.hashFn, t.pendingHashes > 100) //nolint:mnd //TODO(weiihann): 100 is arbitrary

@@ -247,8 +247,8 @@ func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
 	bounds := alias(r)
 	if bounds.L1DataGas.MaxAmount == nil && bounds.L1DataGas.MaxPricePerUnit == nil {
 		bounds.L1DataGas = ResourceBounds{
-			MaxAmount:       &felt.Zero,
-			MaxPricePerUnit: &felt.Zero,
+			MaxAmount:       felt.ZeroPtr[felt.Felt](),
+			MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 		}
 	}
 	return json.MarshalEncode(enc, &bounds)
