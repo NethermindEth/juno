@@ -471,16 +471,16 @@ func AdaptBlockHeader(
 	return blockHeader
 }
 
-func nilToZero(f *felt.Felt) *felt.Felt {
+func nilToZero[K any](f *felt.Typed[K]) *felt.Typed[K] {
 	if f == nil {
-		return felt.ZeroPtr[felt.Felt]()
+		return felt.ZeroPtr[felt.Typed[K]]()
 	}
 	return f
 }
 
-func nilToOne(f *felt.Felt) *felt.Felt {
+func nilToOne[K any](f *felt.Typed[K]) *felt.Typed[K] {
 	if f == nil {
-		return felt.OnePtr[felt.Felt]()
+		return felt.OnePtr[felt.Typed[K]]()
 	}
 	return f
 }
