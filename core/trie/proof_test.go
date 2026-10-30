@@ -58,6 +58,32 @@ func TestProveNonExistent(t *testing.T) {
 	}
 }
 
+// Keys 1 and 2 hang off a 4-bit edge below the root binary node; key 32 diverges inside that edge.
+func TestProveNonExistentStopsAtDivergingEdge(t *testing.T) {
+	t.Parallel()
+
+	memdb := memory.New()
+	tempTrie, err := trie.NewTriePedersen(memdb.NewIndexedBatch(), []byte{0}, 251)
+	require.NoError(t, err)
+	for _, key := range []uint64{1, 2, 64} {
+		_, err := tempTrie.Put(new(felt.Felt).SetUint64(key), new(felt.Felt).SetUint64(key))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tempTrie.Commit())
+	root, err := tempTrie.Hash()
+	require.NoError(t, err)
+
+	absentKey := new(felt.Felt).SetUint64(32)
+	proofSet := trie.NewProofNodeSet()
+	require.NoError(t, tempTrie.Prove(absentKey, proofSet))
+
+	// Root edge, root binary and the diverging edge; the edge's child is not on the path
+	require.Equal(t, 3, proofSet.Size())
+	val, err := trie.VerifyProof(&root, absentKey, proofSet, crypto.Pedersen)
+	require.NoError(t, err)
+	require.Equal(t, felt.Zero, val)
+}
+
 func TestProveRandom(t *testing.T) {
 	t.Parallel()
 	tempTrie, records := randomTrie(t, 1000)
