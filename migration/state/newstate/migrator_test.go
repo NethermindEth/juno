@@ -1,8 +1,11 @@
 package newstate_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
@@ -14,7 +17,9 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/migration/state/newstate"
+	"github.com/NethermindEth/juno/pruner/testutils"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,6 +173,13 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 		"storage at the change block must come from the deprecated head trie, "+
 			"which is only readable while the trie phase has not wiped it")
 
+	assertDeprecatedWiped(t, memDB)
+	assert.NotZero(t, bucketKeyCount(t, memDB, db.ContractTrieStorage),
+		"the storage trie must exist in the new layout")
+}
+
+func assertDeprecatedWiped(t *testing.T, r db.KeyValueReader) {
+	t.Helper()
 	for _, bucket := range []db.Bucket{
 		db.DeprecatedContractClassHash,        //nolint:staticcheck,nolintlint // old state layout
 		db.DeprecatedContractNonce,            //nolint:staticcheck,nolintlint // old state layout
@@ -182,38 +194,8 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 		//nolint:staticcheck // the deprecated buckets are this migration's input
 		db.DeprecatedContractStorage,
 	} {
-		assert.Zerof(t, bucketKeyCount(t, memDB, bucket), "bucket %v must be wiped", bucket)
+		assert.Zerof(t, bucketKeyCount(t, r, bucket), "bucket %v must be wiped", bucket)
 	}
-	assert.NotZero(t, bucketKeyCount(t, memDB, db.ContractTrieStorage),
-		"the storage trie must exist in the new layout")
-}
-
-func TestMigrateRunsEveryPhase(t *testing.T) {
-	memDB := newDB(t)
-	seedDeprecated(t, memDB)
-
-	m := newstate.New()
-	require.NoError(t, m.Before(nil))
-	res, err := m.Migrate(context.Background(), memDB, &networks.Sepolia, log.NewNopZapLogger())
-
-	require.NoError(t, err)
-	assert.Nil(t, res, "a completed run must report no intermediate state")
-	assertMigrated(t, memDB)
-}
-
-func TestMigrateIsIdempotent(t *testing.T) {
-	memDB := newDB(t)
-	seedDeprecated(t, memDB)
-
-	for range 2 {
-		m := newstate.New()
-		require.NoError(t, m.Before(nil))
-		res, err := m.Migrate(context.Background(), memDB, &networks.Sepolia, log.NewNopZapLogger())
-		require.NoError(t, err)
-		assert.Nil(t, res)
-	}
-
-	assertMigrated(t, memDB)
 }
 
 func TestMigrateOnEmptyDB(t *testing.T) {
@@ -281,4 +263,134 @@ func TestMigrateCheckpointsOnCancellation(t *testing.T) {
 		"the error must unwrap to context.Canceled, got %v", err)
 	require.NotNil(t, res, "a cancelled run must return a checkpoint")
 	assert.Equal(t, uint8(0), res[0], "cancellation happened in the first phase")
+}
+
+// TestMigratePrunedHistory runs the migration before and after pruning, with
+// cancellations and a restart after a crash, and checks every read from the
+// floor up against the deprecated state before pruning.
+// retained == blocks means no pruning.
+func TestMigratePrunedHistory(t *testing.T) {
+	const blocks = 40
+	const tip = blocks - 1
+	for _, retained := range []uint64{blocks, 25, 5, 0} {
+		for seed := range int64(3) {
+			t.Run(fmt.Sprintf("retained%d/seed%d", retained, seed), func(t *testing.T) {
+				diffs := randomStateDiffs(seed, blocks)
+				var floor uint64
+				if retained < tip {
+					floor = tip - retained - 1
+				}
+
+				reference := testutils.NewPebbleTestDB(t)
+				storeDeprecatedChain(t, reference, diffs)
+				want := stateAnswers(t, reference, floor, true)
+
+				scenarios := []struct {
+					name string
+					run  func(t *testing.T, database db.KeyValueStore)
+				}{
+					{"migrated then pruned", func(t *testing.T, database db.KeyValueStore) {
+						migrateNewState(t, database, 0)
+						pruneHistory(t, database, retained)
+					}},
+					{"pruned then migrated with cancellations", func(t *testing.T, database db.KeyValueStore) {
+						pruneHistory(t, database, retained)
+						migrateNewState(t, database, 20)
+					}},
+					{"restarted after a crash in the trie phase", func(t *testing.T, database db.KeyValueStore) {
+						pruneHistory(t, database, retained)
+						crashInTriePhase(t, database)
+						migrateNewState(t, database, 0)
+					}},
+				}
+				for _, s := range scenarios {
+					t.Run(s.name, func(t *testing.T) {
+						database := testutils.NewPebbleTestDB(t)
+						storeDeprecatedChain(t, database, diffs)
+						s.run(t, database)
+						assert.Equal(t, want, stateAnswers(t, database, floor, false))
+						assertDeprecatedWiped(t, database)
+					})
+				}
+			})
+		}
+	}
+}
+
+// migrateNewState runs the migration to completion, cancelling every run after
+// cancelAfter iterators (never when 0) and resuming from its checkpoint.
+func migrateNewState(t *testing.T, database db.KeyValueStore, cancelAfter int64) {
+	t.Helper()
+	var checkpoint []byte
+	for range 1000 {
+		ctx, cancel := context.WithCancel(t.Context())
+		wrapped := &cancelAfterIterators{KeyValueStore: database, cancel: cancel}
+		wrapped.left.Store(cancelAfter)
+		m := newstate.New()
+		require.NoError(t, m.Before(checkpoint))
+		var err error
+		checkpoint, err = m.Migrate(ctx, wrapped, &networks.Sepolia, log.NewNopZapLogger())
+		cancel()
+		if checkpoint == nil {
+			require.NoError(t, err)
+			return
+		}
+		if err != nil {
+			require.ErrorIs(t, err, context.Canceled)
+		}
+	}
+	t.Fatal("the migration made no progress")
+}
+
+// cancelAfterIterators cancels once left iterators have been opened.
+type cancelAfterIterators struct {
+	db.KeyValueStore
+	cancel context.CancelFunc
+	left   atomic.Int64
+}
+
+func (c *cancelAfterIterators) NewIterator(prefix []byte, upperBound bool) (db.Iterator, error) {
+	if c.left.Add(-1) == 0 {
+		c.cancel()
+	}
+	return c.KeyValueStore.NewIterator(prefix, upperBound)
+}
+
+// crashInTriePhase stops the migration once the trie phase starts, when the
+// history phases are done but the deprecated tries are still there, and drops
+// the checkpoint as a crash would.
+func crashInTriePhase(t *testing.T, database db.KeyValueStore) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	checkpoint, err := newstate.New().
+		Migrate(ctx, &cancelOnTrieRead{database, cancel}, &networks.Sepolia, log.NewNopZapLogger())
+	if err != nil {
+		require.ErrorIs(t, err, context.Canceled)
+	}
+	require.NotNil(t, checkpoint)
+	require.Equal(t, uint8(2), checkpoint[0], "stopped in the trie phase")
+}
+
+// cancelOnTrieRead cancels on the first read of a bucket only the trie phase reads.
+type cancelOnTrieRead struct {
+	db.KeyValueStore
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnTrieRead) NewIterator(prefix []byte, upperBound bool) (db.Iterator, error) {
+	//nolint:staticcheck,nolintlint // the deprecated tries are this migration's input
+	if bytes.HasPrefix(prefix, db.DeprecatedClassesTrie.Key()) ||
+		bytes.HasPrefix(prefix, db.DeprecatedStateTrie.Key()) {
+		c.cancel()
+	}
+	return c.KeyValueStore.NewIterator(prefix, upperBound)
+}
+
+func pruneHistory(t *testing.T, database db.KeyValueStore, retained uint64) {
+	t.Helper()
+	r, err := historyprunner.New(retained, 0).
+		Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
+	require.NoError(t, err)
+	require.Nil(t, r)
 }
