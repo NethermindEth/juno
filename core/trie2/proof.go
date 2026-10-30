@@ -237,7 +237,10 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 	for {
 		node, ok := proof.Get(expected)
 		if !ok {
-			return felt.Zero, fmt.Errorf("proof node not found, expected hash: %s", expected.String())
+			return felt.Zero[felt.Felt](), fmt.Errorf(
+				"proof node not found, expected hash: %s",
+				expected.String(),
+			)
 		}
 
 		nHash, _ := h.hash(node)
@@ -245,13 +248,17 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 		// Verify the hash matches
 		hashVal := felt.Felt(*nHash.(*trienode.HashNode))
 		if !hashVal.Equal(&expected) {
-			return felt.Zero, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expected.String(), nHash.String())
+			return felt.Zero[felt.Felt](), fmt.Errorf(
+				"proof node hash mismatch, expected hash: %s, got hash: %s",
+				expected.String(),
+				nHash.String(),
+			)
 		}
 
 		child := get(node, keyBits, false)
 		switch cld := child.(type) {
 		case nil:
-			return felt.Zero, nil
+			return felt.Zero[felt.Felt](), nil
 		case *trienode.HashNode:
 			// TODO(weiihann):
 			// There's a case where the leaf node is defined as a hash node instead of a value node
@@ -281,7 +288,7 @@ func verifyProofData(keys, values []*felt.Felt) error {
 			return errors.New("keys are not monotonic increasing")
 		}
 
-		if values[i] == nil || values[i].Equal(&felt.Zero) {
+		if values[i] == nil || values[i].IsZero() {
 			return errors.New("range contains empty leaf")
 		}
 	}

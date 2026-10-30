@@ -264,8 +264,8 @@ func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
 	bounds := alias(r)
 	if bounds.L1DataGas == nil {
 		bounds.L1DataGas = &ResourceBounds{
-			MaxAmount:       &felt.Zero,
-			MaxPricePerUnit: &felt.Zero,
+			MaxAmount:       felt.ZeroPtr[felt.Felt](),
+			MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 		}
 	}
 	return json.MarshalEncode(enc, &bounds)
@@ -441,8 +441,8 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 		}
 	} else {
 		l1DataGasResourceBounds = &ResourceBounds{
-			MaxAmount:       &felt.Zero,
-			MaxPricePerUnit: &felt.Zero,
+			MaxAmount:       felt.ZeroPtr[felt.Felt](),
+			MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 		}
 	}
 
@@ -794,7 +794,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	switch tx.Type {
 	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
-			&felt.Zero,
+			felt.ZeroPtr[felt.Felt](),
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,
@@ -1093,7 +1093,7 @@ func AdaptTransaction(t core.Transaction) Transaction {
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
-			nonce = &felt.Zero
+			nonce = felt.ZeroPtr[felt.Felt]()
 		}
 		txn = Transaction{
 			Type:               TxnL1Handler,

@@ -27,7 +27,7 @@ func TestStateContract_MarshalUnmarshal(t *testing.T) {
 			contract: &stateContract{
 				Nonce:          newFelt(123),
 				ClassHash:      newFelt(456),
-				StorageRoot:    felt.Zero,
+				StorageRoot:    felt.Zero[felt.Felt](),
 				DeployedHeight: 1000,
 			},
 		},

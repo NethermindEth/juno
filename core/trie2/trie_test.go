@@ -48,7 +48,7 @@ func TestDelete(t *testing.T) {
 
 			got, err := tr.Get(record.key)
 			require.NoError(t, err)
-			require.True(t, got.Equal(&felt.Zero), "expected %v, got %v", &felt.Zero, got)
+			require.True(t, got.IsZero(), "expected %v, got %v", felt.ZeroPtr[felt.Felt](), got)
 		}
 	}
 
@@ -72,7 +72,7 @@ func TestHash(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
 		hash, _ := tr.Hash()
-		require.Equal(t, felt.Zero, hash)
+		require.Equal(t, felt.Zero[felt.Felt](), hash)
 	})
 
 	t.Run("one leaf", func(t *testing.T) {
@@ -286,7 +286,7 @@ func runRandTestBool(rt randTest) bool {
 func runRandTest(rt randTest) error {
 	for _, scheme := range []dbScheme{PathScheme, HashScheme} {
 		db := memory.New()
-		curRoot := felt.Zero
+		curRoot := felt.Zero[felt.Felt]()
 		trieDB := NewTestNodeDatabase(db, scheme)
 		tr, err := New(
 			trieutils.NewContractTrieID(felt.StateRootHash(curRoot)),
@@ -325,7 +325,7 @@ func runRandTest(rt randTest) error {
 				}
 			case opProve:
 				hash, _ := tr.Hash()
-				if hash.Equal(&felt.Zero) {
+				if hash.IsZero() {
 					continue
 				}
 				proof := NewProofNodeSet()

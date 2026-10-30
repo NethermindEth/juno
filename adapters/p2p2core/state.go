@@ -66,7 +66,7 @@ func AdaptStateDiff(
 				classHash: diff.ClassHash,
 			}
 
-			stateClassHash := felt.Zero
+			stateClassHash := felt.Zero[felt.Felt]()
 			if reader != nil {
 				var err error
 				stateClassHash, err = reader.ContractClassHash(address)

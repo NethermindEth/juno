@@ -813,11 +813,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
 		)
 
-		payload0 := felt.Zero
+		payload0 := felt.Zero[felt.Felt]()
 		payload1 := felt.UnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
 		payload2 := felt.FromUint64[felt.Felt](0x455448)
 		payload3 := felt.FromUint64[felt.Felt](0x31da07977d000)
-		payload4 := felt.Zero
+		payload4 := felt.Zero[felt.Felt]()
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -872,40 +872,40 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &vm.StateDiff{ //nolint:dupl // Similar to line 1025, but they're different types
 				StorageDiffs: []vm.StorageDiff{
 					{
-						Address: felt.Zero,
+						Address: felt.Zero[felt.Felt](),
 						StorageEntries: []vm.Entry{
 							{
-								Key:   felt.Zero,
-								Value: felt.Zero,
+								Key:   felt.Zero[felt.Felt](),
+								Value: felt.Zero[felt.Felt](),
 							},
 						},
 					},
 				},
 				Nonces: []vm.Nonce{
 					{
-						ContractAddress: felt.Zero,
-						Nonce:           felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []vm.DeployedContract{
 					{
-						Address:   felt.Zero,
-						ClassHash: felt.Zero,
+						Address:   felt.Zero[felt.Felt](),
+						ClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					&felt.Zero,
+					felt.ZeroPtr[felt.Felt](),
 				},
 				DeclaredClasses: []vm.DeclaredClass{
 					{
-						ClassHash:         felt.Zero,
-						CompiledClassHash: felt.Zero,
+						ClassHash:         felt.Zero[felt.Felt](),
+						CompiledClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				ReplacedClasses: []vm.ReplacedClass{
 					{
-						ContractAddress: felt.Zero,
-						ClassHash:       felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						ClassHash:       felt.Zero[felt.Felt](),
 					},
 				},
 			},
@@ -956,40 +956,40 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &rpc.StateDiff{ //nolint:dupl // Similar to line 941, but they're different types
 				StorageDiffs: []rpc.StorageDiff{
 					{
-						Address: felt.Zero,
+						Address: felt.Zero[felt.Felt](),
 						StorageEntries: []rpc.Entry{
 							{
-								Key:   felt.Zero,
-								Value: felt.Zero,
+								Key:   felt.Zero[felt.Felt](),
+								Value: felt.Zero[felt.Felt](),
 							},
 						},
 					},
 				},
 				Nonces: []rpc.Nonce{
 					{
-						ContractAddress: felt.Zero,
-						Nonce:           felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []rpc.DeployedContract{
 					{
-						Address:   felt.Zero,
-						ClassHash: felt.Zero,
+						Address:   felt.Zero[felt.Felt](),
+						ClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					&felt.Zero,
+					felt.ZeroPtr[felt.Felt](),
 				},
 				DeclaredClasses: []rpc.DeclaredClass{
 					{
-						ClassHash:         felt.Zero,
-						CompiledClassHash: felt.Zero,
+						ClassHash:         felt.Zero[felt.Felt](),
+						CompiledClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				ReplacedClasses: []rpc.ReplacedClass{
 					{
-						ContractAddress: felt.Zero,
-						ClassHash:       felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						ClassHash:       felt.Zero[felt.Felt](),
 					},
 				},
 			},
@@ -1204,9 +1204,13 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+			nil,
+			nil,
+			db.ErrKeyNotFound,
+		)
 
-		blockID := blockIDHash(t, &felt.Zero)
+		blockID := blockIDHash(t, felt.ZeroPtr[felt.Felt]())
 		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -1226,7 +1230,10 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
+		mockState.EXPECT().ContractClassHash(felt.ZeroPtr[felt.Felt]()).Return(
+			felt.Zero[felt.Felt](),
+			errors.New("unknown contract"),
+		)
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)

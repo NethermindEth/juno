@@ -537,12 +537,12 @@ func (v *vm) execute(
 	return parseExecutionResults(inputs.context)
 }
 
-// Returns one felt.One per L1Handler in txns.
+// Returns a felt one per L1Handler in txns.
 func l1HandlerFees(txns []core.Transaction) []*felt.Felt {
 	fees := []*felt.Felt{}
 	for _, txn := range txns {
 		if _, ok := txn.(*core.L1HandlerTransaction); ok {
-			fees = append(fees, &felt.One)
+			fees = append(fees, felt.OnePtr[felt.Felt]())
 		}
 	}
 	return fees

@@ -80,7 +80,7 @@ func TestPendingState(t *testing.T) {
 			expectedClassHash := new(felt.Felt).SetUint64(37)
 			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
-			cH, cErr := state.ContractClassHash(&felt.Zero)
+			cH, cErr := state.ContractClassHash(felt.ZeroPtr[felt.Felt]())
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedClassHash, &cH)
 		})
@@ -93,13 +93,13 @@ func TestPendingState(t *testing.T) {
 
 			cN, cErr = state.ContractNonce(deployedAddr2)
 			require.NoError(t, cErr)
-			assert.Equal(t, felt.Zero, cN)
+			assert.Equal(t, felt.Zero[felt.Felt](), cN)
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedNonce := new(felt.Felt).SetUint64(1337)
 			mockState.EXPECT().ContractNonce(gomock.Any()).Return(*expectedNonce, nil)
 
-			cN, cErr := state.ContractNonce(&felt.Zero)
+			cN, cErr := state.ContractNonce(felt.ZeroPtr[felt.Felt]())
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedNonce, &cN)
 		})
@@ -112,17 +112,17 @@ func TestPendingState(t *testing.T) {
 
 			cV, cErr = state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF))
 			require.NoError(t, cErr)
-			assert.Equal(t, felt.Zero, cV)
+			assert.Equal(t, felt.Zero[felt.Felt](), cV)
 
 			cV, cErr = state.ContractStorage(deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF))
 			require.NoError(t, cErr)
-			assert.Equal(t, felt.Zero, cV)
+			assert.Equal(t, felt.Zero[felt.Felt](), cV)
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedValue, nil)
 
-			cV, cErr := state.ContractStorage(&felt.Zero, &felt.Zero)
+			cV, cErr := state.ContractStorage(felt.ZeroPtr[felt.Felt](), felt.ZeroPtr[felt.Felt]())
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, &cV)
 		})
@@ -191,7 +191,7 @@ func TestPendingState(t *testing.T) {
 			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClassDefinition{
 				Class: &core.SierraClass{},
 			}, nil)
-			pC, pErr := state.Class(&felt.Zero)
+			pC, pErr := state.Class(felt.ZeroPtr[felt.Felt]())
 			require.NoError(t, pErr)
 			_, ok := pC.Class.(*core.SierraClass)
 			assert.True(t, ok)

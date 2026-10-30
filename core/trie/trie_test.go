@@ -50,7 +50,7 @@ func TestTriePut(t *testing.T) {
 
 			value, err := tempTrie.Get(key)
 			assert.NoError(t, err)
-			assert.Equal(t, felt.Zero, value)
+			assert.Equal(t, felt.Zero[felt.Felt](), value)
 			// Trie's root should be nil
 			assert.Nil(t, tempTrie.RootKey())
 
@@ -141,7 +141,12 @@ func TestTrieDeleteBasic(t *testing.T) {
 					val, err := tempTrie.Get(key)
 
 					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
-					assert.Equal(t, felt.Zero, val, "should return zero value when access a deleted key")
+					assert.Equal(
+						t,
+						felt.Zero[felt.Felt](),
+						val,
+						"should return zero value when access a deleted key",
+					)
 				}
 
 				// Check the final rootKey
@@ -317,7 +322,7 @@ func TestOldData(t *testing.T) {
 
 		t.Run("delete key, expect old value", func(t *testing.T) {
 			// put zero value to delete current key
-			was, err := tempTrie.Put(key, &felt.Zero)
+			was, err := tempTrie.Put(key, felt.ZeroPtr[felt.Felt]())
 			require.NoError(t, err)
 
 			assert.Equal(t, old, was)
@@ -345,7 +350,7 @@ func TestMaxTrieHeight(t *testing.T) {
 
 	t.Run("insert invalid key", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTriePedersen(uint8(felt.Bits), func(tt *trie.Trie) error {
-			badKey := new(felt.Felt).Sub(&felt.Zero, new(felt.Felt).SetUint64(1))
+			badKey := new(felt.Felt).Sub(felt.ZeroPtr[felt.Felt](), new(felt.Felt).SetUint64(1))
 			_, err := tt.Put(badKey, new(felt.Felt))
 			assert.Error(t, err)
 			return nil

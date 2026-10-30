@@ -65,7 +65,7 @@ func (c *dirtyCache) getNode(
 
 	ownerNodes, ok := c.contractStorageNodes[*owner]
 	if !ok {
-		return trienode.NewLeaf(felt.Zero, nil), false
+		return trienode.NewLeaf(felt.Zero[felt.Felt](), nil), false
 	}
 
 	node, ok := ownerNodes[string(key)]

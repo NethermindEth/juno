@@ -32,7 +32,7 @@ func TestAdaptBlock(t *testing.T) {
 		{
 			number:        147,
 			network:       networks.Mainnet,
-			l1GasPriceWEI: &felt.Zero,
+			l1GasPriceWEI: felt.ZeroPtr[felt.Felt](),
 		},
 		{
 			number:          11817,
@@ -733,8 +733,9 @@ func TestClassV1(t *testing.T) {
 	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
 		snClass := starknet.SierraClass{
 			Program: []felt.Felt{
-				felt.Zero, // this value doesn't matter as long as their different from `SierraVersion010`
-				felt.Zero,
+				// this value doesn't matter as long as their different from `SierraVersion010`
+				felt.Zero[felt.Felt](),
+				felt.Zero[felt.Felt](),
 			},
 		}
 		class, err := sn2core.AdaptSierraClass(&snClass, nil)

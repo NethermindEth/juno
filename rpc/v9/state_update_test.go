@@ -27,7 +27,7 @@ func TestStateUpdate(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
 		"pre_confirmed": blockIDPreConfirmed(t),
-		"hash":          blockIDHash(t, &felt.One),
+		"hash":          blockIDHash(t, felt.OnePtr[felt.Felt]()),
 		"number":        blockIDNumber(t, 1),
 		"l1_accepted":   blockIDL1Accepted(t),
 	}

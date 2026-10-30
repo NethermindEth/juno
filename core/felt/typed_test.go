@@ -12,7 +12,7 @@ import (
 func TestTypedEncodesLikeFelt(t *testing.T) {
 	values := map[string]felt.Felt{
 		"zero":       {},
-		"one":        felt.One,
+		"one":        felt.One[felt.Felt](),
 		"small":      felt.FromUint64[felt.Felt](23),
 		"word":       felt.FromUint64[felt.Felt](1 << 63),
 		"full width": felt.Random[felt.Felt](),

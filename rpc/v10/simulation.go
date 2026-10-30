@@ -377,10 +377,10 @@ func createSimulatedTransactions(
 
 	l1GasPriceWei := header.L1GasPriceETH
 	l1GasPriceStrk := header.L1GasPriceSTRK
-	l2GasPriceWei := &felt.One
-	l2GasPriceStrk := &felt.One
-	l1DataGasPriceWei := &felt.One
-	l1DataGasPriceStrk := &felt.One
+	l2GasPriceWei := felt.OnePtr[felt.Felt]()
+	l2GasPriceStrk := felt.OnePtr[felt.Felt]()
+	l1DataGasPriceWei := felt.OnePtr[felt.Felt]()
+	l1DataGasPriceStrk := felt.OnePtr[felt.Felt]()
 
 	if gasPrice := header.L2GasPrice; gasPrice != nil {
 		l2GasPriceWei = gasPrice.PriceInWei

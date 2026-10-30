@@ -269,7 +269,7 @@ func fetchDeclaredClassesAndL1Fees(
 			declaredClasses = append(declaredClasses, class.Class)
 		case *core.L1HandlerTransaction:
 			// TODO (granza): use real L1 message fee.
-			paidFeesOnL1 = append(paidFeesOnL1, &felt.One)
+			paidFeesOnL1 = append(paidFeesOnL1, felt.OnePtr[felt.Felt]())
 		}
 	}
 

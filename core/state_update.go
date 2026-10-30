@@ -101,7 +101,7 @@ func (d *StateDiff) Hash() felt.Felt {
 	deprecatedDeclaredClassesDigest(d.DeclaredV0Classes, digest)
 
 	// Placeholder values
-	digest.Update(&felt.One, &felt.Zero)
+	digest.Update(felt.OnePtr[felt.Felt](), felt.ZeroPtr[felt.Felt]())
 
 	// storage_diffs
 	// Digest: [
@@ -134,7 +134,7 @@ func (d *StateDiff) Hash() felt.Felt {
 }
 
 func (d *StateDiff) Commitment() felt.Felt {
-	version := felt.Zero
+	version := felt.Zero[felt.Felt]()
 	var tmpFelt felt.Felt
 
 	/*

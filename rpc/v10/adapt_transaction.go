@@ -50,7 +50,7 @@ func AdaptCoreTransaction(t core.Transaction) Transaction {
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
-			nonce = &felt.Zero
+			nonce = felt.ZeroPtr[felt.Felt]()
 		}
 		txn = Transaction{
 			Type:               TxnL1Handler,
@@ -73,8 +73,8 @@ func AdaptCoreTransaction(t core.Transaction) Transaction {
 
 func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
 	l1DataGasResourceBounds := ResourceBounds{
-		MaxAmount:       &felt.Zero,
-		MaxPricePerUnit: &felt.Zero,
+		MaxAmount:       felt.ZeroPtr[felt.Felt](),
+		MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 	}
 	// Check if L1DataGas exists in the map
 	if _, ok := rb[core.ResourceL1DataGas]; ok {
@@ -478,7 +478,7 @@ func adaptBroadcastedDeployAccountToCore(
 	tx *BroadcastedTransaction,
 ) *core.DeployAccountTransaction {
 	contractAddress := core.ContractAddress(
-		&felt.Zero,
+		felt.ZeroPtr[felt.Felt](),
 		tx.ClassHash,
 		tx.ContractAddressSalt,
 		*tx.ConstructorCallData,

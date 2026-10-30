@@ -27,10 +27,10 @@ var (
 // of StateDiff.DeployedContracts and are auto-created during state commit so
 // their storage trie can exist.
 var (
-	SystemContract1Address = felt.One // block-hash storage contract
+	SystemContract1Address = felt.One[felt.Felt]() // block-hash storage contract
 	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
 	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
-	SystemContractsClassHash = felt.Zero
+	SystemContractsClassHash = felt.Zero[felt.Felt]()
 	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
 )
 
@@ -192,7 +192,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		}
 
 		if _, ok := dc.Class.(*core.SierraClass); ok {
-			if err := s.classTrie.Update(hash, &felt.Zero); err != nil {
+			if err := s.classTrie.Update(hash, felt.ZeroPtr[felt.Felt]()); err != nil {
 				return err
 			}
 		}
@@ -287,12 +287,12 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	}
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero, emptyStateUpdate, err
+		return felt.Zero[felt.Felt](), emptyStateUpdate, err
 	}
 
 	for i, addr := range keys {
 		if err := s.contractTrie.Update(&addr, &comms[i]); err != nil {
-			return felt.Zero, emptyStateUpdate, err
+			return felt.Zero[felt.Felt](), emptyStateUpdate, err
 		}
 
 		// As system contracts are not in StateDiff.DeployedContracts we can only purge them if
@@ -306,12 +306,12 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 			}
 			root, err := obj.getStorageRoot()
 			if err != nil {
-				return felt.Zero, emptyStateUpdate, err
+				return felt.Zero[felt.Felt](), emptyStateUpdate, err
 			}
 
 			if root.IsZero() {
-				if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
-					return felt.Zero, emptyStateUpdate, err
+				if err := s.contractTrie.Update(&addr, felt.ZeroPtr[felt.Felt]()); err != nil {
+					return felt.Zero[felt.Felt](), emptyStateUpdate, err
 				}
 
 				s.stateObjects[addr] = nil // mark for deletion
@@ -335,11 +335,11 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	})
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero, emptyStateUpdate, err
+		return felt.Zero[felt.Felt](), emptyStateUpdate, err
 	}
 
 	if err := merge(contractNodes); err != nil {
-		return felt.Zero, emptyStateUpdate, err
+		return felt.Zero[felt.Felt](), emptyStateUpdate, err
 	}
 
 	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)

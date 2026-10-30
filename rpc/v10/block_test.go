@@ -728,7 +728,7 @@ func TestBlockWithTxHashes_ErrorCases(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        rpc.BlockIDLatest(),
 		"pre_confirmed": rpc.BlockIDPreConfirmed(),
-		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"hash":          rpc.BlockIDFromHash(felt.OnePtr[felt.Felt]()),
 		"number":        rpc.BlockIDFromNumber(2),
 	}
 
@@ -874,7 +874,7 @@ func TestBlockWithTxs_ErrorCases(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        rpc.BlockIDLatest(),
 		"pre_confirmed": rpc.BlockIDPreConfirmed(),
-		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"hash":          rpc.BlockIDFromHash(felt.OnePtr[felt.Felt]()),
 		"number":        rpc.BlockIDFromNumber(1),
 	}
 
@@ -1028,7 +1028,7 @@ func TestBlockWithReceipts_ErrorCases(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        rpc.BlockIDLatest(),
 		"pre_confirmed": rpc.BlockIDPreConfirmed(),
-		"hash":          rpc.BlockIDFromHash(&felt.One),
+		"hash":          rpc.BlockIDFromHash(felt.OnePtr[felt.Felt]()),
 		"number":        rpc.BlockIDFromNumber(2),
 	}
 
@@ -1170,11 +1170,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		blockID := rpc.BlockIDLatest()
 		actual, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, &felt.Zero, actual.BlockHeader.SequencerAddress)
+		require.Equal(t, felt.ZeroPtr[felt.Felt](), actual.BlockHeader.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
+		require.Equal(t, felt.ZeroPtr[felt.Felt](), blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }
 
@@ -1223,8 +1223,8 @@ func TestBlockWithTxsV013(t *testing.T) {
 			SequencerAddress: block.SequencerAddress,
 			Timestamp:        block.Timestamp,
 			L2GasPrice: rpc.ResourcePrice{
-				InFri: &felt.One,
-				InWei: &felt.One,
+				InFri: felt.OnePtr[felt.Felt](),
+				InWei: felt.OnePtr[felt.Felt](),
 			},
 			TransactionCommitment: (*felt.Hash)(nilToZero(commitments.TransactionCommitment)),
 			EventCommitment:       (*felt.Hash)(nilToZero(commitments.EventCommitment)),
@@ -1261,8 +1261,8 @@ func TestBlockWithTxsV013(t *testing.T) {
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: rpc.ResourceBounds{
-						MaxAmount:       &felt.Zero,
-						MaxPricePerUnit: &felt.Zero,
+						MaxAmount:       felt.ZeroPtr[felt.Felt](),
+						MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 					},
 				},
 				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
@@ -1277,14 +1277,14 @@ func TestBlockWithTxsV013(t *testing.T) {
 
 func nilToZero(f *felt.Felt) *felt.Felt {
 	if f == nil {
-		return &felt.Zero
+		return felt.ZeroPtr[felt.Felt]()
 	}
 	return f
 }
 
 func nilToOne(f *felt.Felt) *felt.Felt {
 	if f == nil {
-		return &felt.One
+		return felt.OnePtr[felt.Felt]()
 	}
 	return f
 }
@@ -1336,10 +1336,10 @@ func TestBlockWithTxsWithResponseFlags(t *testing.T) {
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
 
 	mockReader.EXPECT().BlockCommitmentsByNumber(block.Header.Number).Return(&core.BlockCommitments{
-		TransactionCommitment: &felt.Zero,
-		EventCommitment:       &felt.Zero,
-		ReceiptCommitment:     &felt.Zero,
-		StateDiffCommitment:   &felt.Zero,
+		TransactionCommitment: felt.ZeroPtr[felt.Felt](),
+		EventCommitment:       felt.ZeroPtr[felt.Felt](),
+		ReceiptCommitment:     felt.ZeroPtr[felt.Felt](),
+		StateDiffCommitment:   felt.ZeroPtr[felt.Felt](),
 	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())
@@ -1427,10 +1427,10 @@ func TestBlockWithReceiptsWithResponseFlags(t *testing.T) {
 	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil).AnyTimes()
 
 	mockReader.EXPECT().BlockCommitmentsByNumber(block.Header.Number).Return(&core.BlockCommitments{
-		TransactionCommitment: &felt.Zero,
-		EventCommitment:       &felt.Zero,
-		ReceiptCommitment:     &felt.Zero,
-		StateDiffCommitment:   &felt.Zero,
+		TransactionCommitment: felt.ZeroPtr[felt.Felt](),
+		EventCommitment:       felt.ZeroPtr[felt.Felt](),
+		ReceiptCommitment:     felt.ZeroPtr[felt.Felt](),
+		StateDiffCommitment:   felt.ZeroPtr[felt.Felt](),
 	}, nil).AnyTimes()
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, log.NewNopZapLogger())

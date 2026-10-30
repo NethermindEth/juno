@@ -23,7 +23,7 @@ func (a *app) Value() starknet.Value {
 }
 
 func (a *app) Valid(v starknet.Value) bool {
-	return v != starknet.Value(felt.Zero)
+	return v != felt.Zero[starknet.Value]()
 }
 
 // Implements Validators[felt.Felt] interface

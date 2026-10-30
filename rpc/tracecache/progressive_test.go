@@ -42,7 +42,7 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 		}},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: &felt.One},
+		&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
 	}
 	result := vm.ExecutionResults{
@@ -123,7 +123,7 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 					{Key: untouchedKey, Value: felt.FromUint64[felt.Felt](6)},
 				},
 			}},
-			Nonces: []vm.Nonce{{ContractAddress: address, Nonce: felt.One}},
+			Nonces: []vm.Nonce{{ContractAddress: address, Nonce: felt.One[felt.Felt]()}},
 		},
 		{
 			StorageDiffs: []vm.StorageDiff{{
@@ -136,7 +136,7 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 		},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: &felt.One},
+		&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](3)},
 	}
@@ -149,7 +149,10 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 	plan, err := tracecache.PlanRange(prefix, txs, nil, false)
 	require.NoError(t, err)
 	parent := mocks.NewMockStateReader(gomock.NewController(t))
-	parent.EXPECT().ContractStorage(&address, &inheritedKey).Return(felt.One, nil).AnyTimes()
+	parent.EXPECT().ContractStorage(
+		&address,
+		&inheritedKey,
+	).Return(felt.One[felt.Felt](), nil).AnyTimes()
 	state, err := plan.ResumeState(parent, nil, 10)
 	require.NoError(t, err)
 
@@ -161,7 +164,7 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 	require.Equal(t, felt.FromUint64[felt.Felt](6), untouched)
 	inherited, err := state.ContractStorage(&address, &inheritedKey)
 	require.NoError(t, err)
-	require.Equal(t, felt.One, inherited)
+	require.Equal(t, felt.One[felt.Felt](), inherited)
 	nonce, err := state.ContractNonce(&address)
 	require.NoError(t, err)
 	require.Equal(t, felt.FromUint64[felt.Felt](2), nonce)
@@ -248,10 +251,10 @@ func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 		require.True(t, replayed.Covers(true))
 	}
 	for _, bad := range []*tracecache.TransactionTarget{
-		{Index: 3, Hash: (*felt.TransactionHash)(&felt.One)},
-		{Index: 0, Hash: (*felt.TransactionHash)(&felt.Zero)},
+		{Index: 3, Hash: felt.OnePtr[felt.TransactionHash]()},
+		{Index: 0, Hash: felt.ZeroPtr[felt.TransactionHash]()},
 		{Index: 0},
-		{Index: 2, Hash: (*felt.TransactionHash)(&felt.Zero)},
+		{Index: 2, Hash: felt.ZeroPtr[felt.TransactionHash]()},
 	} {
 		require.False(t, complete.ValidTarget(bad))
 		_, err := tracecache.PlanRange(nil, txs, bad, false)

@@ -27,16 +27,16 @@ func TestSimulateTransactions(t *testing.T) {
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    &felt.Zero,
-		L1GasPriceSTRK:   &felt.Zero,
+		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
+		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
 		L1DAMode:         0,
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: &felt.Zero,
-			PriceInFri: &felt.Zero,
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
 		},
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: &felt.Zero,
-			PriceInFri: &felt.Zero,
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
 		},
 	}
 	defaultMockBehavior := func(
@@ -136,7 +136,7 @@ func TestSimulateTransactions(t *testing.T) {
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{
-						OverallFees:      []*felt.Felt{&felt.Zero},
+						OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
 						DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
 						GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 						Traces:           []vm.TransactionTrace{{}},
@@ -264,7 +264,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpcv10.Transaction{
 						Version:       &version3,
 						Type:          rpcv10.TxnDeclare,
-						SenderAddress: &felt.Zero,
+						SenderAddress: felt.ZeroPtr[felt.Felt](),
 					},
 				},
 			},
@@ -295,7 +295,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpcv10.Transaction{
 						Version:       &version3,
 						Type:          rpcv10.TxnInvoke,
-						SenderAddress: &felt.Zero,
+						SenderAddress: felt.ZeroPtr[felt.Felt](),
 					},
 				},
 			},
@@ -433,11 +433,17 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    &felt.Zero,
-		L1GasPriceSTRK:   &felt.Zero,
+		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
+		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
 		L1DAMode:         0,
-		L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-		L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+		L1DataGasPrice: &core.GasPrice{
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
+		},
+		L2GasPrice: &core.GasPrice{
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
+		},
 	}
 
 	testCases := initialReadsTestCases()
@@ -468,9 +474,9 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 					Type:                  rpcv10.TxnInvoke,
 					SenderAddress:         &senderAddr,
 					Nonce:                 &nonce,
-					Tip:                   &felt.Zero,
+					Tip:                   felt.ZeroPtr[felt.Felt](),
 					CallData:              &felt.Slice[felt.Felt]{},
-					Signature:             &felt.Slice[felt.Felt]{felt.Zero},
+					Signature:             &felt.Slice[felt.Felt]{felt.Zero[felt.Felt]()},
 					PaymasterData:         &felt.Slice[felt.Felt]{},
 					AccountDeploymentData: &felt.Slice[felt.Felt]{},
 					NonceDAMode:           &daMode,
@@ -478,13 +484,16 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 					ResourceBounds: &rpcv10.ResourceBoundsMap{
 						L1Gas: rpcv10.ResourceBounds{
 							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-							MaxPricePerUnit: &felt.Zero,
+							MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 						},
 						L1DataGas: rpcv10.ResourceBounds{
 							MaxAmount:       felt.NewFromUint64[felt.Felt](1000),
-							MaxPricePerUnit: &felt.Zero,
+							MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
 						},
-						L2Gas: rpcv10.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+						L2Gas: rpcv10.ResourceBounds{
+							MaxAmount:       felt.ZeroPtr[felt.Felt](),
+							MaxPricePerUnit: felt.ZeroPtr[felt.Felt](),
+						},
 					},
 				},
 			}}
@@ -492,7 +501,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			mockVM.EXPECT().Simulate(gomock.Any(), gomock.Any(), gomock.Any(), mockState,
 				vm.SimulateOptions{ReturnInitialReads: returnInitialReads},
 			).Return(vm.ExecutionResults{
-				OverallFees:      []*felt.Felt{&felt.Zero},
+				OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 				Traces:           []vm.TransactionTrace{{}},

@@ -32,7 +32,10 @@ func TestAddressSeqEscapesResumePoint(t *testing.T) {
 		felt.FromUint64[felt.Felt](3),
 	}
 	for _, addr := range addrs {
-		require.NoError(t, state.WriteContract(memDB, &addr, felt.Zero, felt.Zero, 1))
+		require.NoError(
+			t,
+			state.WriteContract(memDB, &addr, felt.Zero[felt.Felt](), felt.Zero[felt.Felt](), 1),
+		)
 	}
 	// Accept the first address and refuse the second, which is what the
 	// pipeline's source does when the context ends mid-walk: a refused address
@@ -94,9 +97,12 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 	for i := range addrs {
 		addrs[i] = felt.FromUint64[felt.Felt](uint64(i + 1))
 		require.NoError(t, state.WriteContract(
-			memDB, &addrs[i], felt.FromUint64[felt.Felt](7), felt.Zero, 1,
+			memDB, &addrs[i], felt.FromUint64[felt.Felt](7), felt.Zero[felt.Felt](), 1,
 		))
-		require.NoError(t, deprecatedstate.WriteContractNonceHistory(memDB, &addrs[i], &felt.Zero, 200))
+		require.NoError(
+			t,
+			deprecatedstate.WriteContractNonceHistory(memDB, &addrs[i], felt.ZeroPtr[felt.Felt](), 200),
+		)
 	}
 	logger := log.NewNopZapLogger()
 

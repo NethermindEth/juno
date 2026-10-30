@@ -28,25 +28,37 @@ func TestVerifyBlockSuccession(t *testing.T) {
 
 	t.Run("rejects invalid version string", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ProtocolVersion: "notasemver", ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{
+			ProtocolVersion: "notasemver",
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
+		}}
 		assert.Error(t, verifyBlockSuccession(memDB, block))
 	})
 
 	t.Run("rejects unsupported version that needs padding", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ProtocolVersion: "99.0", ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{
+			ProtocolVersion: "99.0",
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
+		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
 
 	t.Run("rejects unsupported version that needs truncating", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ProtocolVersion: "99.0.0.0", ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{
+			ProtocolVersion: "99.0.0.0",
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
+		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
 
 	t.Run("rejects version greater than supported", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ProtocolVersion: "99.0.0", ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{
+			ProtocolVersion: "99.0.0",
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
+		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
 
@@ -54,7 +66,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncPatch().String(),
-			ParentHash:      &felt.Zero,
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
 		}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
@@ -63,7 +75,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncMinor().String(),
-			ParentHash:      &felt.Zero,
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
@@ -72,26 +84,30 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncMajor().String(),
-			ParentHash:      &felt.Zero,
+			ParentHash:      felt.ZeroPtr[felt.Felt](),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
 
 	t.Run("accepts empty version string", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{ParentHash: felt.ZeroPtr[felt.Felt]()}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
 
 	t.Run("empty chain accepts block 0 with zero parent hash", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ParentHash: &felt.Zero}}
+		block := &core.Block{Header: &core.Header{ParentHash: felt.ZeroPtr[felt.Felt]()}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
 
 	t.Run("rejects wrong block number after head", func(t *testing.T) {
 		memDB := memory.New()
-		storeTestHeader(t, memDB, &core.Header{Number: 0, Hash: h1, ParentHash: &felt.Zero})
+		storeTestHeader(
+			t,
+			memDB,
+			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+		)
 
 		block := &core.Block{Header: &core.Header{Number: 10}}
 		assert.EqualError(t, verifyBlockSuccession(memDB, block), "expected block #1, got block #10")
@@ -99,7 +115,11 @@ func TestVerifyBlockSuccession(t *testing.T) {
 
 	t.Run("rejects wrong parent hash after head", func(t *testing.T) {
 		memDB := memory.New()
-		storeTestHeader(t, memDB, &core.Header{Number: 0, Hash: h1, ParentHash: &felt.Zero})
+		storeTestHeader(
+			t,
+			memDB,
+			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+		)
 
 		wrongParent := felt.NewRandom[felt.Felt]()
 		block := &core.Block{Header: &core.Header{Number: 1, ParentHash: wrongParent}}
@@ -109,7 +129,11 @@ func TestVerifyBlockSuccession(t *testing.T) {
 
 	t.Run("accepts correct successor", func(t *testing.T) {
 		memDB := memory.New()
-		storeTestHeader(t, memDB, &core.Header{Number: 0, Hash: h1, ParentHash: &felt.Zero})
+		storeTestHeader(
+			t,
+			memDB,
+			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+		)
 
 		block := &core.Block{Header: &core.Header{Number: 1, ParentHash: h1}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))

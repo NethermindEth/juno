@@ -742,11 +742,11 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			"0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5",
 		)
 
-		payload0 := felt.Zero
+		payload0 := felt.Zero[felt.Felt]()
 		payload1 := felt.UnsafeFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
 		payload2 := felt.FromUint64[felt.Felt](0x455448)
 		payload3 := felt.FromUint64[felt.Felt](0x31da07977d000)
-		payload4 := felt.Zero
+		payload4 := felt.Zero[felt.Felt]()
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -801,46 +801,46 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &vm.StateDiff{ //nolint:dupl // false positive with rpcv10.StateDiff
 				StorageDiffs: []vm.StorageDiff{
 					{
-						Address: felt.Zero,
+						Address: felt.Zero[felt.Felt](),
 						StorageEntries: []vm.Entry{
 							{
-								Key:   felt.Zero,
-								Value: felt.Zero,
+								Key:   felt.Zero[felt.Felt](),
+								Value: felt.Zero[felt.Felt](),
 							},
 						},
 					},
 				},
 				Nonces: []vm.Nonce{
 					{
-						ContractAddress: felt.Zero,
-						Nonce:           felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []vm.DeployedContract{
 					{
-						Address:   felt.Zero,
-						ClassHash: felt.Zero,
+						Address:   felt.Zero[felt.Felt](),
+						ClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					&felt.Zero,
+					felt.ZeroPtr[felt.Felt](),
 				},
 				DeclaredClasses: []vm.DeclaredClass{
 					{
-						ClassHash:         felt.Zero,
-						CompiledClassHash: felt.Zero,
+						ClassHash:         felt.Zero[felt.Felt](),
+						CompiledClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				ReplacedClasses: []vm.ReplacedClass{
 					{
-						ContractAddress: felt.Zero,
-						ClassHash:       felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						ClassHash:       felt.Zero[felt.Felt](),
 					},
 				},
 				MigratedCompiledClasses: []vm.MigratedCompiledClass{
 					{
-						ClassHash:         felt.SierraClassHash(felt.Zero),
-						CompiledClassHash: felt.CasmClassHash(felt.Zero),
+						ClassHash:         felt.Zero[felt.SierraClassHash](),
+						CompiledClassHash: felt.Zero[felt.CasmClassHash](),
 					},
 				},
 			},
@@ -891,46 +891,46 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &rpcv10.StateDiff{ //nolint:dupl // false positive with vm.StateDiff
 				StorageDiffs: []rpcv10.StorageDiff{
 					{
-						Address: felt.Zero,
+						Address: felt.Zero[felt.Felt](),
 						StorageEntries: []rpcv10.Entry{
 							{
-								Key:   felt.Zero,
-								Value: felt.Zero,
+								Key:   felt.Zero[felt.Felt](),
+								Value: felt.Zero[felt.Felt](),
 							},
 						},
 					},
 				},
 				Nonces: []rpcv10.Nonce{
 					{
-						ContractAddress: felt.Zero,
-						Nonce:           felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []rpcv10.DeployedContract{
 					{
-						Address:   felt.Zero,
-						ClassHash: felt.Zero,
+						Address:   felt.Zero[felt.Felt](),
+						ClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					&felt.Zero,
+					felt.ZeroPtr[felt.Felt](),
 				},
 				DeclaredClasses: []rpcv10.DeclaredClass{
 					{
-						ClassHash:         felt.Zero,
-						CompiledClassHash: felt.Zero,
+						ClassHash:         felt.Zero[felt.Felt](),
+						CompiledClassHash: felt.Zero[felt.Felt](),
 					},
 				},
 				ReplacedClasses: []rpcv10.ReplacedClass{
 					{
-						ContractAddress: felt.Zero,
-						ClassHash:       felt.Zero,
+						ContractAddress: felt.Zero[felt.Felt](),
+						ClassHash:       felt.Zero[felt.Felt](),
 					},
 				},
 				MigratedCompiledClasses: []rpcv10.MigratedCompiledClass{
 					{
-						ClassHash:         felt.SierraClassHash(felt.Zero),
-						CompiledClassHash: felt.CasmClassHash(felt.Zero),
+						ClassHash:         felt.Zero[felt.SierraClassHash](),
+						CompiledClassHash: felt.Zero[felt.CasmClassHash](),
 					},
 				},
 			},
@@ -1153,9 +1153,13 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+			nil,
+			nil,
+			db.ErrKeyNotFound,
+		)
 
-		blockID := rpcv10.BlockIDFromHash(&felt.Zero)
+		blockID := rpcv10.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
 		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -1175,7 +1179,10 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
+		mockState.EXPECT().ContractClassHash(felt.ZeroPtr[felt.Felt]()).Return(
+			felt.Zero[felt.Felt](),
+			errors.New("unknown contract"),
+		)
 
 		blockID := rpcv10.BlockIDLatest()
 		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
@@ -1387,12 +1394,18 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    &felt.Zero,
-		L1GasPriceSTRK:   &felt.Zero,
+		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
+		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
 		L1DAMode:         0,
-		L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-		L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-		Number:           100,
+		L1DataGasPrice: &core.GasPrice{
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
+		},
+		L2GasPrice: &core.GasPrice{
+			PriceInWei: felt.ZeroPtr[felt.Felt](),
+			PriceInFri: felt.ZeroPtr[felt.Felt](),
+		},
+		Number: 100,
 	}
 
 	testCases := initialReadsTestCases()
@@ -1438,7 +1451,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
 				vm.TraceOptions{ReturnInitialReads: returnInitialReads},
 			).Return(vm.ExecutionResults{
-				OverallFees:      []*felt.Felt{&felt.Zero},
+				OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 				Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
@@ -1505,15 +1518,21 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		txHash := felt.FromUint64[felt.Felt](888)
 		header := &core.Header{
 			SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-			L1GasPriceETH:    &felt.Zero,
-			L1GasPriceSTRK:   &felt.Zero,
+			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
+			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
 			L1DAMode:         0,
-			L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-			L2GasPrice:       &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
-			Number:           100,
-			Hash:             &blockHash,
-			ParentHash:       &parentHash,
-			ProtocolVersion:  "0.13.2",
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: felt.ZeroPtr[felt.Felt](),
+			},
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: felt.ZeroPtr[felt.Felt](),
+			},
+			Number:          100,
+			Hash:            &blockHash,
+			ParentHash:      &parentHash,
+			ProtocolVersion: "0.13.2",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -1524,7 +1543,7 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 	execResultWithReads := func(reads *vm.InitialReads) vm.ExecutionResults {
 		return vm.ExecutionResults{
-			OverallFees:      []*felt.Felt{&felt.Zero},
+			OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
 			DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 			GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 			Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},

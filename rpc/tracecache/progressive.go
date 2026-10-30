@@ -205,27 +205,27 @@ func mergeVMStateDiff(result *core.StateDiff, diff *vm.StateDiff) {
 		}
 		for entryIndex := range storage.StorageEntries {
 			entry := &storage.StorageEntries[entryIndex]
-			entries[entry.Key] = entry.Value.Clone()
+			entries[entry.Key] = new(entry.Value)
 		}
 	}
 	for nonceIndex := range diff.Nonces {
 		nonce := &diff.Nonces[nonceIndex]
-		result.Nonces[nonce.ContractAddress] = nonce.Nonce.Clone()
+		result.Nonces[nonce.ContractAddress] = new(nonce.Nonce)
 	}
 	for deployedIndex := range diff.DeployedContracts {
 		deployed := &diff.DeployedContracts[deployedIndex]
-		result.DeployedContracts[deployed.Address] = deployed.ClassHash.Clone()
+		result.DeployedContracts[deployed.Address] = new(deployed.ClassHash)
 	}
 	for _, hash := range diff.DeprecatedDeclaredClasses {
-		result.DeclaredV0Classes = append(result.DeclaredV0Classes, hash.Clone())
+		result.DeclaredV0Classes = append(result.DeclaredV0Classes, new(*hash))
 	}
 	for declaredIndex := range diff.DeclaredClasses {
 		declared := &diff.DeclaredClasses[declaredIndex]
-		result.DeclaredV1Classes[declared.ClassHash] = declared.CompiledClassHash.Clone()
+		result.DeclaredV1Classes[declared.ClassHash] = new(declared.CompiledClassHash)
 	}
 	for replacedIndex := range diff.ReplacedClasses {
 		replaced := &diff.ReplacedClasses[replacedIndex]
-		result.ReplacedClasses[replaced.ContractAddress] = replaced.ClassHash.Clone()
+		result.ReplacedClasses[replaced.ContractAddress] = new(replaced.ClassHash)
 	}
 	for migratedIndex := range diff.MigratedCompiledClasses {
 		migrated := &diff.MigratedCompiledClasses[migratedIndex]

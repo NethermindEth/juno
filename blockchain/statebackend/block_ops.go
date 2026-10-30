@@ -33,7 +33,7 @@ func verifyBlockSuccession(reader db.KeyValueReader, block *core.Block) error {
 	}
 
 	expectedBlockNumber := uint64(0)
-	expectedParentHash := &felt.Zero
+	expectedParentHash := felt.ZeroPtr[felt.Felt]()
 
 	blockNumber, blockHash, err := headNumberAndHash(reader)
 	if err == nil {

@@ -182,7 +182,12 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 	}
 
 	var err error
-	if edge.Child, err = DecodeNode(blob[:hashOrValueNodeSize], &felt.Zero, pathLen, maxPathLen); err != nil {
+	if edge.Child, err = DecodeNode(
+		blob[:hashOrValueNodeSize],
+		felt.ZeroPtr[felt.Felt](),
+		pathLen,
+		maxPathLen,
+	); err != nil {
 		return nil, err
 	}
 	if err := edge.Path.UnmarshalBinary(blob[hashOrValueNodeSize:]); err != nil {
@@ -201,7 +206,9 @@ func DecodeTriesRoots(val []byte) (felt.Felt, felt.Felt, error) {
 	var classRoot, contractRoot felt.Felt
 
 	if len(val) != 2*felt.Bytes {
-		return felt.Zero, felt.Zero, fmt.Errorf("invalid state hash value length")
+		return felt.Zero[felt.Felt](),
+			felt.Zero[felt.Felt](),
+			fmt.Errorf("invalid state hash value length")
 	}
 	classRoot.SetBytes(val[:felt.Bytes])
 	contractRoot.SetBytes(val[felt.Bytes:])

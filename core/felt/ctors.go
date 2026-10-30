@@ -1,6 +1,8 @@
 package felt
 
 import (
+	"unsafe"
+
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -8,6 +10,35 @@ import (
 // type declared over one. It exists because a generic type such as Slice cannot infer K.
 type FeltLike interface {
 	~[4]uint64
+}
+
+// Zero returns the zero value of F.
+func Zero[F FeltLike]() F {
+	var zero F
+	return zero
+}
+
+// One returns the multiplicative identity of F.
+func One[F FeltLike]() F {
+	return F(fp.One())
+}
+
+// sharedZero and sharedOne back ZeroPtr and OnePtr; nothing may write through those pointers.
+var (
+	sharedZero fp.Element
+	sharedOne  = fp.One()
+)
+
+// ZeroPtr returns the shared zero viewed as F without allocating; callers must not mutate it.
+// For a pointer you can write through, use new(F).
+func ZeroPtr[F FeltLike]() *F {
+	return (*F)(unsafe.Pointer(&sharedZero))
+}
+
+// OnePtr returns the shared one viewed as F without allocating; callers must not mutate it.
+// For a pointer you can write through, use new(One[F]()).
+func OnePtr[F FeltLike]() *F {
+	return (*F)(unsafe.Pointer(&sharedOne))
 }
 
 // NewFromUint64 crates a new Felt based type given a uint64. Use this function with

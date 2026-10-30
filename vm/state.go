@@ -30,7 +30,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 			context.logger.Error("JunoStateGetStorageAt failed to read contract storage", zap.Error(err))
 			return 0
 		}
-		val = felt.Zero
+		val = felt.Zero[felt.Felt]()
 	}
 
 	return fillBufferWithFelt(&val, buffer)
@@ -47,7 +47,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 			context.logger.Error("JunoStateGetNonceAt failed to read contract nonce", zap.Error(err))
 			return 0
 		}
-		val = felt.Zero
+		val = felt.Zero[felt.Felt]()
 	}
 
 	return fillBufferWithFelt(&val, buffer)
@@ -64,7 +64,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 			context.logger.Error("JunoStateGetClassHashAt failed to read contract class", zap.Error(err))
 			return 0
 		}
-		val = felt.Zero
+		val = felt.Zero[felt.Felt]()
 	}
 
 	return fillBufferWithFelt(&val, buffer)

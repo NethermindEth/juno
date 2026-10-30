@@ -162,7 +162,12 @@ func AdaptDeployTxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
-	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
+	contractAddress := core.ContractAddress(
+		felt.ZeroPtr[felt.Felt](),
+		classHash,
+		addressSalt,
+		callData,
+	)
 	return &core.DeployTransaction{
 		TransactionHash:     AdaptHash(t.TransactionHash),
 		ContractAddress:     &contractAddress,
@@ -180,7 +185,12 @@ func AdaptDeployAccountV1TxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
-	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
+	contractAddress := core.ContractAddress(
+		felt.ZeroPtr[felt.Felt](),
+		classHash,
+		addressSalt,
+		callData,
+	)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     AdaptHash(t.TransactionHash),
@@ -225,7 +235,12 @@ func AdaptDeployAccountV3TxnCommon(
 	addressSalt := AdaptFelt(tx.AddressSalt)
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
-	contractAddress := core.ContractAddress(&felt.Zero, classHash, addressSalt, callData)
+	contractAddress := core.ContractAddress(
+		felt.ZeroPtr[felt.Felt](),
+		classHash,
+		addressSalt,
+		callData,
+	)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
 			TransactionHash:     AdaptHash(txnHash),

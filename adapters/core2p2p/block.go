@@ -38,15 +38,15 @@ func AdaptHeader(blockHeader *core.Header, commitments *core.BlockCommitments,
 		l1DataGasPriceFri = l1DataGasPrice.PriceInFri
 		l1DataGasPriceWei = l1DataGasPrice.PriceInWei
 	} else {
-		l1DataGasPriceFri = &felt.Zero
-		l1DataGasPriceWei = &felt.Zero
+		l1DataGasPriceFri = felt.ZeroPtr[felt.Felt]()
+		l1DataGasPriceWei = felt.ZeroPtr[felt.Felt]()
 	}
 	if l2GasPrice := blockHeader.L2GasPrice; l2GasPrice != nil {
 		l2GasPriceFri = l2GasPrice.PriceInFri
 		l2GasPriceWei = l2GasPrice.PriceInWei
 	} else {
-		l2GasPriceFri = &felt.Zero
-		l2GasPriceWei = &felt.Zero
+		l2GasPriceFri = felt.ZeroPtr[felt.Felt]()
+		l2GasPriceWei = felt.ZeroPtr[felt.Felt]()
 	}
 	return &header.SignedBlockHeader{
 		BlockHash:        AdaptHash(blockHeader.Hash),

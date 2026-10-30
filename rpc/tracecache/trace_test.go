@@ -21,7 +21,7 @@ func TestBlockTraceCovers(t *testing.T) {
 		{
 			name: "incomplete VM block",
 			block: tracecache.BlockTrace{
-				Traces:       []tracecache.TransactionTrace{{Hash: felt.One}},
+				Traces:       []tracecache.TransactionTrace{{Hash: felt.One[felt.Felt]()}},
 				InitialReads: &vm.InitialReads{},
 			},
 		},
@@ -29,7 +29,7 @@ func TestBlockTraceCovers(t *testing.T) {
 			name: "complete VM block without reads",
 			block: tracecache.BlockTrace{
 				Complete: true,
-				Traces:   []tracecache.TransactionTrace{{Hash: felt.One}},
+				Traces:   []tracecache.TransactionTrace{{Hash: felt.One[felt.Felt]()}},
 			},
 			withoutReads: true,
 		},
@@ -37,7 +37,7 @@ func TestBlockTraceCovers(t *testing.T) {
 			name: "complete VM block with reads",
 			block: tracecache.BlockTrace{
 				Complete:     true,
-				Traces:       []tracecache.TransactionTrace{{Hash: felt.One}},
+				Traces:       []tracecache.TransactionTrace{{Hash: felt.One[felt.Felt]()}},
 				InitialReads: &vm.InitialReads{},
 			},
 			withoutReads: true,
@@ -163,7 +163,7 @@ func TestBlockTraceValidTarget(t *testing.T) {
 
 func TestTransactionTraceSourceAccessors(t *testing.T) {
 	t.Run("VM", func(t *testing.T) {
-		txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: &felt.One}}
+		txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()}}
 		result := vm.ExecutionResults{
 			Traces:      []vm.TransactionTrace{{Type: vm.TxnInvoke}},
 			GasConsumed: []core.GasConsumed{{}},
@@ -175,8 +175,8 @@ func TestTransactionTraceSourceAccessors(t *testing.T) {
 	})
 	t.Run("feeder", func(t *testing.T) {
 		source := starknet.BlockTrace{Traces: []starknet.TransactionTrace{
-			{TransactionHash: felt.One},
-			{TransactionHash: felt.Zero},
+			{TransactionHash: felt.One[felt.Felt]()},
+			{TransactionHash: felt.Zero[felt.Felt]()},
 		}}
 		block, err := tracecache.FromFeeder(
 			[]vm.TransactionType{vm.TxnDeploy, vm.TxnL1Handler},

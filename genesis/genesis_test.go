@@ -89,12 +89,17 @@ func TestGenesisStateDiff(t *testing.T) {
 		deployedClassHash := felt.NewUnsafeFromString[felt.Felt](
 			"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
 		)
-		deployedAddress := core.ContractAddress(&felt.Zero, deployedClassHash, &felt.Zero, nil)
+		deployedAddress := core.ContractAddress(
+			felt.ZeroPtr[felt.Felt](),
+			deployedClassHash,
+			felt.ZeroPtr[felt.Felt](),
+			nil,
+		)
 		require.Equal(t, deployedClassHash, stateDiff.DeployedContracts[deployedAddress])
 		invokeSender := felt.NewUnsafeFromString[felt.Felt](
 			"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 		)
-		require.Equal(t, &felt.One, stateDiff.Nonces[*invokeSender])
+		require.Equal(t, felt.OnePtr[felt.Felt](), stateDiff.Nonces[*invokeSender])
 	})
 }
 

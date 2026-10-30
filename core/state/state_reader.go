@@ -61,7 +61,7 @@ func (s *StateReader) ContractMetadata(
 }
 
 // ContractStorage reads a storage slot directly from the trie at this reader's
-// root. Missing slots read as felt.Zero.
+// root. Missing slots read as zero.
 func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	path := trieutils.FeltToPath(key, ContractStorageTrieHeight)
 	v, err := trieutils.GetNodeByPath(
@@ -73,9 +73,9 @@ func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
 	)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.Zero, nil
+			return felt.Zero[felt.Felt](), nil
 		}
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 
 	return felt.FromBytes[felt.Felt](v), nil
@@ -187,7 +187,7 @@ func (s *StateReader) GetReverseStateDiff(
 	for addr, stDiffs := range diff.StorageDiffs {
 		reverse.StorageDiffs[addr] = make(map[felt.Felt]*felt.Felt, len(stDiffs))
 		for key := range stDiffs {
-			value := felt.Zero
+			value := felt.Zero[felt.Felt]()
 			if blockNum > 0 {
 				oldValue, err := s.ContractStorageAt(&addr, &key, blockNum-1)
 				if err != nil {
@@ -200,7 +200,7 @@ func (s *StateReader) GetReverseStateDiff(
 	}
 
 	for addr := range diff.Nonces {
-		oldNonce := felt.Zero
+		oldNonce := felt.Zero[felt.Felt]()
 		if blockNum > 0 {
 			var err error
 			oldNonce, err = s.ContractNonceAt(&addr, blockNum-1)
@@ -212,7 +212,7 @@ func (s *StateReader) GetReverseStateDiff(
 	}
 
 	for addr := range diff.ReplacedClasses {
-		oldCh := felt.Zero
+		oldCh := felt.Zero[felt.Felt]()
 		if blockNum > 0 {
 			var err error
 			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
@@ -275,9 +275,9 @@ func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.F
 	})
 	if err != nil {
 		if errors.Is(err, ErrNoHistoryValue) {
-			return felt.Zero, nil
+			return felt.Zero[felt.Felt](), nil
 		}
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 
 	return ret, nil
@@ -355,7 +355,7 @@ func (s *StateReader) lastUpdatedBlockNumber(
 // Since v0.14.0, the Poseidon hash is always applied even when classRoot is zero.
 func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string) felt.Felt {
 	if classRoot.IsZero() && contractRoot.IsZero() {
-		return felt.Zero
+		return felt.Zero[felt.Felt]()
 	}
 
 	ver, _ := core.ParseBlockVersion(protocolVersion)

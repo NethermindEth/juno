@@ -23,7 +23,7 @@ const BlockHashLag uint64 = 10
 // Contract stores block number to block hash mapping,
 // and serve this information through [get_block_hash_syscall].
 // Queriable range is [first_v0_12_0_block, current_block - 10]
-var BlockHashStorageContract = &felt.One
+var BlockHashStorageContract = felt.OnePtr[felt.Felt]()
 
 type L1Head struct {
 	BlockNumber uint64
@@ -137,7 +137,7 @@ func VerifyBlockHash(
 		}
 	}
 
-	fallbackSeqAddresses := []*felt.Felt{&felt.Zero}
+	fallbackSeqAddresses := []*felt.Felt{felt.ZeroPtr[felt.Felt]()}
 	if metaInfo.FallBackSequencerAddress != nil {
 		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
 	}
@@ -217,18 +217,18 @@ func pre07Hash(
 		sdLength = stateDiff.Length()
 	}
 	return crypto.PedersenElems(
-		new(felt.Felt).SetUint64(b.Number), // block number
-		b.GlobalStateRoot,                  // global state root
-		&felt.Zero,                         // reserved: sequencer address
-		&felt.Zero,                         // reserved: block timestamp
+		new(felt.Felt).SetUint64(b.Number),           // block number
+		b.GlobalStateRoot,                            // global state root
+		felt.ZeroPtr[felt.Felt](),                    // reserved: sequencer address
+		felt.ZeroPtr[felt.Felt](),                    // reserved: block timestamp
 		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
-		&txCommitment, // transaction commitment
-		&felt.Zero,    // reserved: number of events
-		&felt.Zero,    // reserved: event commitment
-		&felt.Zero,    // reserved: protocol version
-		&felt.Zero,    // reserved: extra data
-		chain,         // extra data: chain id
-		b.ParentHash,  // parent hash
+		&txCommitment,                                // transaction commitment
+		felt.ZeroPtr[felt.Felt](),                    // reserved: number of events
+		felt.ZeroPtr[felt.Felt](),                    // reserved: event commitment
+		felt.ZeroPtr[felt.Felt](),                    // reserved: protocol version
+		felt.ZeroPtr[felt.Felt](),                    // reserved: extra data
+		chain,                                        // extra data: chain id
+		b.ParentHash,                                 // parent hash
 	), &BlockCommitments{TransactionCommitment: &txCommitment, StateDiffLength: sdLength}, nil
 }
 
@@ -294,8 +294,8 @@ func post0134Hash(
 		&rCommitment,  // receipt commitment
 		&pricesHash,   // gas prices hash
 		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
+		felt.ZeroPtr[felt.Felt](), // reserved: extra data
+		b.ParentHash,              // parent block hash
 	), &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,
@@ -346,10 +346,10 @@ func Post0132Hash(
 
 	// These values are nil for some pre 0.13.2 blocks
 	// `crypto.PoseidonArray` panics if any of the values are nil
-	seqAddr := &felt.Zero
-	gasPriceStrk := &felt.Zero
-	l1DataGasPriceInWei := &felt.Zero
-	l1DataGasPriceInFri := &felt.Zero
+	seqAddr := felt.ZeroPtr[felt.Felt]()
+	gasPriceStrk := felt.ZeroPtr[felt.Felt]()
+	l1DataGasPriceInWei := felt.ZeroPtr[felt.Felt]()
+	l1DataGasPriceInFri := felt.ZeroPtr[felt.Felt]()
 
 	if b.SequencerAddress != nil {
 		seqAddr = b.SequencerAddress
@@ -383,8 +383,8 @@ func Post0132Hash(
 		l1DataGasPriceInWei,
 		l1DataGasPriceInFri,
 		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
+		felt.ZeroPtr[felt.Felt](), // reserved: extra data
+		b.ParentHash,              // parent block hash
 	), &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,
@@ -456,10 +456,10 @@ func post07Hash(
 		felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
 		&txCommitment, // transaction commitment
 		felt.NewFromUint64[felt.Felt](b.EventCount), // number of events
-		&eCommitment, // event commitment
-		&felt.Zero,   // reserved: protocol version
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
+		&eCommitment,              // event commitment
+		felt.ZeroPtr[felt.Felt](), // reserved: protocol version
+		felt.ZeroPtr[felt.Felt](), // reserved: extra data
+		b.ParentHash,              // parent block hash
 	), &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,

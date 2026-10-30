@@ -35,8 +35,8 @@ func TestStateHistory(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: felt.ZeroPtr[felt.Felt](),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{addrFelt: initialClassHash},
 			Nonces:            map[felt.Felt]*felt.Felt{addrFelt: initialNonce},
@@ -51,7 +51,7 @@ func TestStateHistory(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: &felt.Zero,
+		NewRoot: felt.ZeroPtr[felt.Felt](),
 		StateDiff: &core.StateDiff{
 			ReplacedClasses: map[felt.Felt]*felt.Felt{addrFelt: updatedClassHash},
 			Nonces:          map[felt.Felt]*felt.Felt{addrFelt: updatedNonce},
@@ -199,7 +199,7 @@ func TestStateHistory(t *testing.T) {
 		unsetKey := felt.NewFromUint64[felt.Felt](999)
 		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, unsetKey)
 		require.NoError(t, err)
-		require.Equal(t, felt.Zero, storage)
+		require.Equal(t, felt.Zero[felt.Felt](), storage)
 	})
 
 	t.Run(
@@ -232,8 +232,8 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: felt.ZeroPtr[felt.Felt](),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -247,7 +247,7 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: &felt.Zero,
+		NewRoot: felt.ZeroPtr[felt.Felt](),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*addr: {*storageKey: updatedValue},

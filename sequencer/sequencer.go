@@ -136,10 +136,10 @@ func (s *Sequencer) Run(ctx context.Context) error {
 func (s *Sequencer) initPreConfirmedBlock() error {
 	buildParams := builder.BuildParams{
 		Builder:           *s.sequencerAddress,
-		L2GasPriceFRI:     felt.One,
-		L1GasPriceWEI:     felt.One,
-		L1DataGasPriceWEI: felt.One,
-		EthToStrkRate:     felt.One,
+		L2GasPriceFRI:     felt.One[felt.Felt](),
+		L1GasPriceWEI:     felt.One[felt.Felt](),
+		L1DataGasPriceWEI: felt.One[felt.Felt](),
+		EthToStrkRate:     felt.One[felt.Felt](),
 		L1DAMode:          core.Calldata,
 	}
 

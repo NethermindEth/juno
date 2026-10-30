@@ -54,7 +54,7 @@ func TestProveNonExistent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed for key %s", keyFelt.String())
 		}
-		require.Equal(t, felt.Zero, val)
+		require.Equal(t, felt.Zero[felt.Felt](), val)
 	}
 }
 
@@ -490,7 +490,7 @@ func TestOneElementRangeProof(t *testing.T) {
 		require.NoError(t, err)
 
 		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(&felt.Zero, records[0].key, proof)
+		err = tr.GetRangeProof(felt.ZeroPtr[felt.Felt](), records[0].key, proof)
 		require.NoError(t, err)
 
 		_, err = trie.VerifyRangeProof(
@@ -542,7 +542,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 
 	for i := 0; i < len(records); i += 100 {
 		proof := trie.NewProofNodeSet()
-		err := tr.GetRangeProof(&felt.Zero, records[i].key, proof)
+		err := tr.GetRangeProof(felt.ZeroPtr[felt.Felt](), records[i].key, proof)
 		require.NoError(t, err)
 
 		keys := make([]*felt.Felt, i+1)
@@ -552,7 +552,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 			values[j] = records[j].value
 		}
 
-		_, err = trie.VerifyRangeProof(&root, &felt.Zero, keys, values, proof)
+		_, err = trie.VerifyRangeProof(&root, felt.ZeroPtr[felt.Felt](), keys, values, proof)
 		require.NoError(t, err)
 	}
 }
@@ -645,7 +645,7 @@ func TestHasRightElement(t *testing.T) {
 			proof = trie.NewProofNodeSet()
 		)
 		if start == -1 {
-			first = &felt.Zero
+			first = felt.ZeroPtr[felt.Felt]()
 			start = 0
 		} else {
 			first = records[start].key
@@ -707,9 +707,9 @@ func TestBadRangeProof(t *testing.T) {
 			keys[index], keys[index2] = keys[index2], keys[index]
 			values[index], values[index2] = values[index2], values[index]
 		case 3: // set random key to empty
-			keys[index] = &felt.Zero
+			keys[index] = felt.ZeroPtr[felt.Felt]()
 		case 4: // set random value to empty
-			values[index] = &felt.Zero
+			values[index] = felt.ZeroPtr[felt.Felt]()
 			// TODO(weiihann): gapped proof will fail sometimes
 			// case 5: // gapped
 			// 	if end-start < 100 || index == 0 || index == end-start-1 {
@@ -1094,7 +1094,7 @@ func TestProveAfterDelete(t *testing.T) {
 	require.NoError(t, tempTrie.Prove(deleted.key, proofSet))
 	val, err = trie.VerifyProof(&root, deleted.key, proofSet, crypto.Pedersen)
 	require.NoError(t, err)
-	require.Equal(t, felt.Zero, val)
+	require.Equal(t, felt.Zero[felt.Felt](), val)
 }
 
 func TestProveAfterDeleteToEmpty(t *testing.T) {

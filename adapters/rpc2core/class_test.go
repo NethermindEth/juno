@@ -96,7 +96,11 @@ func TestAdaptClass(t *testing.T) {
 
 func sierraClass(entryPoints rpcv10.ClassEntryPointsByType) *rpcv10.Class {
 	return &rpcv10.Class{
-		SierraProgram:        felt.Slice[felt.Felt]{felt.One, felt.One, felt.One},
+		SierraProgram: felt.Slice[felt.Felt]{
+			felt.One[felt.Felt](),
+			felt.One[felt.Felt](),
+			felt.One[felt.Felt](),
+		},
 		ContractClassVersion: "0.1.0",
 		EntryPoints:          entryPoints,
 		Abi:                  "[]",
@@ -165,8 +169,12 @@ func TestAdaptClassErrors(t *testing.T) {
 		{
 			name: "sierra abi is not a string",
 			class: &rpcv10.Class{
-				SierraProgram: felt.Slice[felt.Felt]{felt.One, felt.One, felt.One},
-				Abi:           42,
+				SierraProgram: felt.Slice[felt.Felt]{
+					felt.One[felt.Felt](),
+					felt.One[felt.Felt](),
+					felt.One[felt.Felt](),
+				},
+				Abi: 42,
 			},
 			err: "sierra class abi is int, want string",
 		},
@@ -176,14 +184,17 @@ func TestAdaptClassErrors(t *testing.T) {
 			err:   "sierra program size is too small",
 		},
 		{
-			name:  "sierra program shorter than its version",
-			class: &rpcv10.Class{SierraProgram: felt.Slice[felt.Felt]{felt.One, felt.One}},
-			err:   "sierra program size is too small",
+			name: "sierra program shorter than its version",
+			class: &rpcv10.Class{SierraProgram: felt.Slice[felt.Felt]{
+				felt.One[felt.Felt](),
+				felt.One[felt.Felt](),
+			}},
+			err: "sierra program size is too small",
 		},
 		{
 			name: "sierra entry point missing function_idx",
 			class: sierraClass(rpcv10.ClassEntryPointsByType{
-				External: []rpcv10.ClassEntryPoint{{Selector: &felt.One}},
+				External: []rpcv10.ClassEntryPoint{{Selector: felt.OnePtr[felt.Felt]()}},
 			}),
 			err: "EXTERNAL entry point 0 is missing function_idx",
 		},
@@ -231,14 +242,14 @@ func TestAdaptClassErrors(t *testing.T) {
 		{
 			name: "deprecated entry point missing selector",
 			class: &rpcv10.Class{Program: program, EntryPoints: rpcv10.ClassEntryPointsByType{
-				Constructor: []rpcv10.ClassEntryPoint{{Offset: &felt.One}},
+				Constructor: []rpcv10.ClassEntryPoint{{Offset: felt.OnePtr[felt.Felt]()}},
 			}},
 			err: "CONSTRUCTOR entry point 0 is missing selector",
 		},
 		{
 			name: "deprecated entry point missing offset",
 			class: &rpcv10.Class{Program: program, EntryPoints: rpcv10.ClassEntryPointsByType{
-				External: []rpcv10.ClassEntryPoint{{Selector: &felt.One}},
+				External: []rpcv10.ClassEntryPoint{{Selector: felt.OnePtr[felt.Felt]()}},
 			}},
 			err: "EXTERNAL entry point 0 is missing offset",
 		},

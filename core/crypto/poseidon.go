@@ -15,7 +15,7 @@ const (
 // Caches the {0, 1, 0} input (state for hashing a single zero felt).
 // emptyDataOutput is computed in initializePoseidon.
 var (
-	emptyDataInput  = [3]felt.Felt{{}, felt.One, {}}
+	emptyDataInput  = [3]felt.Felt{{}, felt.One[felt.Felt](), {}}
 	emptyDataOutput [3]felt.Felt
 )
 
@@ -88,7 +88,7 @@ func PoseidonElems(elems ...*felt.Felt) felt.Felt {
 	if rem == 1 {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], &felt.One)
+	state[rem].Add(&state[rem], felt.OnePtr[felt.Felt]())
 	HadesPermutation(&state)
 
 	return state[0]
@@ -114,7 +114,7 @@ func PoseidonArray(elems []felt.Felt) felt.Felt {
 	if rem == 1 {
 		state[0].Add(&state[0], &elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], &felt.One)
+	state[rem].Add(&state[rem], felt.OnePtr[felt.Felt]())
 	HadesPermutation(&state)
 
 	return state[0]
@@ -187,10 +187,10 @@ func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 
 func (d *PoseidonDigest) Finish() felt.Felt {
 	if !d.hasLast {
-		d.state[0].Add(&d.state[0], &felt.One)
+		d.state[0].Add(&d.state[0], felt.OnePtr[felt.Felt]())
 	} else {
 		d.state[0].Add(&d.state[0], &d.lastElem)
-		d.state[1].Add(&d.state[1], &felt.One)
+		d.state[1].Add(&d.state[1], felt.OnePtr[felt.Felt]())
 	}
 	HadesPermutation(&d.state)
 	return d.state[0]
