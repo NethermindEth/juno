@@ -13,8 +13,8 @@ import (
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
-func toHash(felt *felt.Felt) *common.Hash {
-	feltBytes := felt.Bytes()
+func toHash[K any](f *felt.Typed[K]) *common.Hash {
+	feltBytes := f.Bytes()
 	return &common.Hash{Elements: feltBytes[:]}
 }
 

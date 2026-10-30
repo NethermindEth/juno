@@ -234,7 +234,7 @@ func (t *transition) finishAndValidateBlock(
 // Todo: the validator interface assumes that the msgs are prevalidated before it is called.
 // This is an issue because proto3 may leave messages empty, whereas starknet requires them
 // to be present
-func compareFeltField(name string, received, computed *felt.Felt) error {
+func compareFeltField[K any](name string, received, computed *felt.Typed[K]) error {
 	if received.Equal(computed) {
 		return nil
 	}
