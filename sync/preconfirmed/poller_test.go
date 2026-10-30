@@ -122,8 +122,8 @@ func newChainFixture(t *testing.T) *chainFixture {
 		Hash:       new(felt.Felt).SetUint64(1),
 		ParentHash: &felt.Zero,
 	}
-	require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
-	require.NoError(t, core.WriteChainHeight(testDB, 0))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
+	require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(uint64(0))))
 
 	return &chainFixture{bc: bc, db: testDB, head: header}
 }
@@ -137,8 +137,8 @@ func (f *chainFixture) advanceHead(t *testing.T) *core.Header {
 		Hash:       new(felt.Felt).SetUint64(f.head.Number + 2),
 		ParentHash: f.head.Hash,
 	}
-	require.NoError(t, core.WriteBlockHeaderByNumber(f.db, next))
-	require.NoError(t, core.WriteChainHeight(f.db, next.Number))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(f.db, next.Number, next))
+	require.NoError(t, core.ChainHeightBucket.Put(f.db, struct{}{}, &next.Number))
 	f.head = next
 	return next
 }
@@ -336,8 +336,8 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 		// Genesis lands.
-		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, genesis))
-		require.NoError(t, core.WriteChainHeight(testDB, 0))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, genesis.Number, genesis))
+		require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(uint64(0))))
 
 		// One interval for the guard to observe the new head, one more for the
 		// first real polling tick.

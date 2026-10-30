@@ -70,7 +70,7 @@ func TestWriteTransactionsAndReceipts(t *testing.T) {
 	clearEmptyProofFacts(block.Transactions)
 
 	// required for GetBlockByNumber
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 	blockFromDB, err := core.GetBlockByNumber(memDB, block.Number)
 	require.NoError(t, err)
@@ -366,7 +366,7 @@ func TestGetBlockByNumber(t *testing.T) {
 
 	t.Run("valid block", func(t *testing.T) {
 		t.Parallel()
-		require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 		blockFromDB, err := core.GetBlockByNumber(memDB, block.Number)
 		require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestDeleteTransactionsAndReceipts(t *testing.T) {
 func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 	tests := []struct {
 		name               string
@@ -446,11 +446,11 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 
 			t.Run("matches full header decode", func(t *testing.T) {
 				t.Parallel()
-				header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+				header, err := core.BlockHeadersByNumberBucket.Get(memDB, block.Number)
 				require.NoError(t, err)
 				got, err := tt.readPartial(memDB, block.Number)
 				require.NoError(t, err)
-				assert.Equal(t, tt.getExpected(header), got)
+				assert.Equal(t, tt.getExpected(&header), got)
 			})
 
 			t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
@@ -476,11 +476,11 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 	t.Run("matches full header decode", func(t *testing.T) {
 		t.Parallel()
-		header, err := core.GetBlockHeaderByNumber(memDB, block.Number)
+		header, err := core.BlockHeadersByNumberBucket.Get(memDB, block.Number)
 		require.NoError(t, err)
 		count, err := core.GetBlockTransactionCountByNumber(memDB, block.Number)
 		require.NoError(t, err)
@@ -515,7 +515,7 @@ func TestGetBlockTransactionCountByNumber(t *testing.T) {
 func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 	t.Run("matches full header decode", func(t *testing.T) {
 		t.Parallel()
@@ -545,7 +545,7 @@ func TestGetBlockHeaderTimestampByNumber(t *testing.T) {
 func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 	t.Parallel()
 	memDB, block := setupForTxsAndReceiptsTests(t)
-	require.NoError(t, core.WriteBlockHeaderByNumber(memDB, block.Header))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
 	t.Run("matches full header decode", func(t *testing.T) {
 		t.Parallel()

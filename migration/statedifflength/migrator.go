@@ -69,7 +69,7 @@ func (m *Migrator) Migrate(
 	_ *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	height, err := core.GetChainHeight(database)
+	height, err := core.ChainHeightBucket.Get(database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, nil // empty database, nothing to backfill

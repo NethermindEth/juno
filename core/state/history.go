@@ -113,7 +113,7 @@ func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, er
 func (s *stateHistory) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.state.db.disk, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.state.db.disk, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}

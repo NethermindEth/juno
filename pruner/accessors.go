@@ -193,7 +193,7 @@ func pruneHashKeyedUpto(
 		if err != nil {
 			return 0, err
 		}
-		if err := core.DeleteBlockHeaderNumberByHash(batch, blockHash); err != nil {
+		if err := core.BlockHeaderNumbersByHashBucket.Delete(batch, blockHash); err != nil {
 			return 0, err
 		}
 	}
@@ -204,7 +204,7 @@ func pruneHashKeyedUpto(
 			break
 		}
 
-		su, err := core.GetStateUpdateByBlockNum(database, blockNum)
+		su, err := core.StateUpdatesByBlockNumberBucket.Get(database, blockNum)
 		if err != nil {
 			return 0, err
 		}
@@ -213,7 +213,7 @@ func pruneHashKeyedUpto(
 		// resolved by StateAtBlockHash(endExclusive.parentHash). Cleaned up
 		// by the next PruneUpto call via the start-1 branch above.
 		if blockNum != endExclusive-1 {
-			if err := core.DeleteBlockHeaderNumberByHash(batch, su.BlockHash); err != nil {
+			if err := core.BlockHeaderNumbersByHashBucket.Delete(batch, su.BlockHash); err != nil {
 				return 0, err
 			}
 		}
@@ -223,9 +223,9 @@ func pruneHashKeyedUpto(
 		}
 
 		if newState {
-			err = pruneNewStateHistoryFromUpdate(database, batch, blockNum, su)
+			err = pruneNewStateHistoryFromUpdate(database, batch, blockNum, &su)
 		} else {
-			err = pruneStateHistoryFromUpdate(batch, blockNum, su)
+			err = pruneStateHistoryFromUpdate(batch, blockNum, &su)
 		}
 		if err != nil {
 			return 0, err

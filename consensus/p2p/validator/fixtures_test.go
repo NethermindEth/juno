@@ -48,7 +48,7 @@ type TestFixture struct {
 
 func SetChainHeight(t *testing.T, database db.KeyValueStore, chainHeight types.Height) {
 	require.NoError(t, database.Update(func(txn db.IndexedBatch) error {
-		return core.WriteChainHeight(txn, uint64(chainHeight))
+		return core.ChainHeightBucket.Put(txn, struct{}{}, new(uint64(chainHeight)))
 	}))
 }
 
@@ -67,8 +67,12 @@ func LoadBlockDependencies(
 	revealedBlock = adaptfeedertest.Block(t, client, headBlock.Number-builder.BlockHashLag)
 
 	err = database.Update(func(txn db.IndexedBatch) error {
-		require.NoError(t, core.WriteBlockHeaderByNumber(txn, revealedBlock.Header))
-		require.NoError(t, core.WriteBlockHeaderByNumber(txn, headBlock.Header))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(
+			txn,
+			revealedBlock.Number,
+			revealedBlock.Header,
+		))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(txn, headBlock.Number, headBlock.Header))
 		return nil
 	})
 	require.NoError(t, err)

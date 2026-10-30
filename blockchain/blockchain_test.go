@@ -1648,9 +1648,9 @@ func TestSubscribeL1Head(t *testing.T) {
 }
 
 func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.Felt {
-	height, err := core.GetChainHeight(database)
+	height, err := core.ChainHeightBucket.Get(database, struct{}{})
 	require.NoError(t, err)
-	header, err := core.GetBlockHeaderByNumber(database, height)
+	header, err := core.BlockHeadersByNumberBucket.Get(database, height)
 	require.NoError(t, err)
 
 	if !statetestutils.UseNewState() {

@@ -39,7 +39,6 @@ var DeprecatedContractNonceBucket = typed.NewBucket(
 )
 
 // Bucket 6: Chain height (uint64)
-// TODO: Integrate this bucket
 var ChainHeightBucket = typed.NewBucket(
 	db.ChainHeight,
 	key.Empty,
@@ -47,7 +46,6 @@ var ChainHeightBucket = typed.NewBucket(
 )
 
 // Bucket 7: Block hash (Felt) -> Block number (uint64)
-// TODO: Integrate this bucket
 var BlockHeaderNumbersByHashBucket = typed.NewBucket(
 	db.BlockHeaderNumbersByHash,
 	key.Felt,
@@ -55,7 +53,6 @@ var BlockHeaderNumbersByHashBucket = typed.NewBucket(
 )
 
 // Bucket 8: Block number (uint64) -> Header
-// TODO: Integrate this bucket
 var BlockHeadersByNumberBucket = typed.NewBucket(
 	db.BlockHeadersByNumber,
 	key.Uint64,
@@ -96,7 +93,6 @@ var DeprecatedReceiptsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 )
 
 // Bucket 12: Block number (uint64) -> StateUpdate
-// TODO: Integrate this bucket
 var StateUpdatesByBlockNumberBucket = typed.NewBucket(
 	db.StateUpdatesByBlockNumber,
 	key.Uint64,
@@ -115,7 +111,6 @@ var DeprecatedContractDeploymentHeightBucket = typed.NewBucket(
 )
 
 // Bucket 18: L1 height (uint64) -> L1 head (L1Head)
-// TODO: Integrate this bucket
 var L1HeightBucket = typed.NewBucket(
 	db.L1Height,
 	key.Empty,
@@ -125,7 +120,6 @@ var L1HeightBucket = typed.NewBucket(
 // TODO: Bucket 19, 20, 22, 23 are buckets only used for migrations.
 
 // Bucket 21: Block number (uint64) -> Block commitments (BlockCommitments)
-// TODO: Integrate this bucket
 var BlockCommitmentsBucket = typed.NewBucket(
 	db.BlockCommitments,
 	key.Uint64,
@@ -144,7 +138,6 @@ var L1HandlerTxnHashByMsgHashBucket = typed.NewBucket(
 // TODO: Bucket 29 -> 36 are trie 2 / state 2 buckets.
 
 // Bucket 37: AggregatedBloomFilterRangeKey -> AggregatedBloomFilter
-// TODO: Integrate this bucket
 var AggregatedBloomFiltersBucket = typed.NewBucket(
 	db.AggregatedBloomFilters,
 	key.Marshal[db.AggregatedBloomFilterRangeKey](),

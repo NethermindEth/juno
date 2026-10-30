@@ -134,7 +134,7 @@ func (m *Migrator) Migrate(
 	network *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	chainHeight, err := core.GetChainHeight(database)
+	chainHeight, err := core.ChainHeightBucket.Get(database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			// No chain data yet; the rolling pruner takes over once blocks arrive.
@@ -177,7 +177,7 @@ func (m *Migrator) Migrate(
 // pinFloor computes the cutoff on the first run. It returns false when there
 // is nothing below the retention window.
 func (m *Migrator) pinFloor(database db.KeyValueStore, chainHeight uint64) (bool, error) {
-	l1Head, err := core.GetL1Head(database)
+	l1Head, err := core.L1HeightBucket.Get(database, struct{}{})
 	if err != nil {
 		return false, fmt.Errorf("getting L1 head: %w", err)
 	}
@@ -243,7 +243,7 @@ func (m *Migrator) wipeHistory(database db.KeyValueStore) error {
 	if err != nil {
 		return fmt.Errorf("getting block hash at %d: %w", parent, err)
 	}
-	if err := core.WriteBlockHeaderNumberByHash(batch, hash, parent); err != nil {
+	if err := core.BlockHeaderNumbersByHashBucket.Put(batch, hash, &parent); err != nil {
 		return fmt.Errorf("writing block header number by hash at %d: %w", parent, err)
 	}
 	return batch.Write()

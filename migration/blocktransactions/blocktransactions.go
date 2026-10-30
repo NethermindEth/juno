@@ -124,7 +124,7 @@ func (Migrator) Migrate(
 	network *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	chainHeight, err := core.GetChainHeight(database)
+	chainHeight, err := core.ChainHeightBucket.Get(database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return shouldNotRerun, nil

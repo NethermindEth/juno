@@ -72,7 +72,7 @@ func NewRunningEventFilterLazy(
 
 // Insert adds a bloom filter for a single block, updating the internal
 // aggregated filter. If the current window is full, it will be persisted using
-// WriteAggregatedBloomFilter and a new window will be started.
+// AggregatedBloomFiltersBucket and a new window will be started.
 // This implementation assumes blocks are not missed.
 // Returns an error if the block cannot be inserted.
 func (f *RunningEventFilter) Insert(
@@ -112,7 +112,7 @@ func (f *RunningEventFilter) insert(
 	}
 
 	if blockNumber == f.inner.ToBlock() {
-		if err := WriteAggregatedBloomFilter(writer, f.inner); err != nil {
+		if err := AggregatedBloomFiltersBucket.Put(writer, f.inner.RangeKey(), f.inner); err != nil {
 			return fmt.Errorf(
 				"persisting aggregated filter for window [%d,%d]: %w",
 				f.inner.FromBlock(), f.inner.ToBlock(), err,
@@ -244,9 +244,7 @@ func (f *RunningEventFilter) onReorg(writer db.KeyValueWriter) error {
 	if curBlock == currRangeStart-1 {
 		// Drop the persisted filter; in-memory clears are about to be discarded
 		// on swap and a future rollover will repopulate this window.
-		if err := DeleteAggregatedBloomFilter(
-			writer, f.inner.FromBlock(), f.inner.ToBlock(),
-		); err != nil {
+		if err := AggregatedBloomFiltersBucket.Delete(writer, f.inner.RangeKey()); err != nil {
 			return fmt.Errorf(
 				"deleting stale persisted filter for window [%d,%d]: %w",
 				f.inner.FromBlock(), f.inner.ToBlock(), err,
@@ -256,10 +254,9 @@ func (f *RunningEventFilter) onReorg(writer db.KeyValueWriter) error {
 		rangeStartAligned := curBlock - (curBlock % NumBlocksPerFilter)
 		rangeEndAligned := rangeStartAligned + MaxBlockOffsetPerFilter
 
-		lastStoredFilter, err := GetAggregatedBloomFilter(
+		lastStoredFilter, err := AggregatedBloomFiltersBucket.Get(
 			f.database,
-			rangeStartAligned,
-			rangeEndAligned,
+			db.AggregatedBloomFilterRangeKey{FromBlock: rangeStartAligned, ToBlock: rangeEndAligned},
 		)
 		if err != nil {
 			return err
@@ -288,7 +285,7 @@ func (f *RunningEventFilter) Write() error {
 // the rebuild walks back to genesis if needed and errors out when a header is
 // missing. For pruning nodes, use [pruner.InitializeRunningEventFilter] instead.
 func InitializeRunningEventFilter(database db.KeyValueStore) (*RunningEventFilter, error) {
-	latest, err := GetChainHeight(database)
+	latest, err := ChainHeightBucket.Get(database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			filter := NewAggregatedFilter(0)
@@ -369,7 +366,13 @@ func rebuildRunningEventFilter(
 
 	var continueFrom uint64
 	for {
-		_, err := GetAggregatedBloomFilter(database, rangeStartAligned, lastStoredFilterRangeEnd)
+		_, err := AggregatedBloomFiltersBucket.Get(
+			database,
+			db.AggregatedBloomFilterRangeKey{
+				FromBlock: rangeStartAligned,
+				ToBlock:   lastStoredFilterRangeEnd,
+			},
+		)
 		if err == nil {
 			continueFrom = lastStoredFilterRangeEnd + 1
 			break

@@ -205,12 +205,12 @@ func (b *Blockchain) Network() *networks.Network {
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
-	return core.GetChainHeight(b.database)
+	return core.ChainHeightBucket.Get(b.database, struct{}{})
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
 	b.listener.OnRead("Head")
-	curHeight, err := core.GetChainHeight(b.database)
+	curHeight, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -220,12 +220,17 @@ func (b *Blockchain) Head() (*core.Block, error) {
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	b.listener.OnRead("HeadsHeader")
-	height, err := core.GetChainHeight(b.database)
+	height, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 	if err != nil {
 		return nil, err
 	}
 
-	return core.GetBlockHeaderByNumber(b.database, height)
+	header, err := core.BlockHeadersByNumberBucket.Get(b.database, height)
+	if err != nil {
+		return nil, err
+	}
+
+	return &header, nil
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
@@ -235,7 +240,12 @@ func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 	b.listener.OnRead("BlockHeaderByNumber")
-	return core.GetBlockHeaderByNumber(b.database, number)
+	header, err := core.BlockHeadersByNumberBucket.Get(b.database, number)
+	if err != nil {
+		return nil, err
+	}
+
+	return &header, nil
 }
 
 func (b *Blockchain) BlockTransactionCountByNumber(number uint64) (uint64, error) {
@@ -255,12 +265,12 @@ func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.Felt, er
 
 func (b *Blockchain) BlockNumberByHash(hash *felt.Felt) (uint64, error) {
 	b.listener.OnRead("BlockNumberByHash")
-	return core.GetBlockHeaderNumberByHash(b.database, hash)
+	return core.BlockHeaderNumbersByHashBucket.Get(b.database, hash)
 }
 
 func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 	b.listener.OnRead("BlockByHash")
-	blockNum, err := core.GetBlockHeaderNumberByHash(b.database, hash)
+	blockNum, err := core.BlockHeaderNumbersByHashBucket.Get(b.database, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +285,12 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
-	return core.GetStateUpdateByBlockNum(b.database, number)
+	stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(b.database, number)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stateUpdate, nil
 }
 
 func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, error) {
@@ -400,12 +415,12 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	return core.GetL1Head(b.database)
+	return core.L1HeightBucket.Get(b.database, struct{}{})
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 	b.l1HeadFeed.Send(update)
-	return core.WriteL1Head(b.database, update)
+	return core.L1HeightBucket.Put(b.database, struct{}{}, update)
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -427,7 +442,12 @@ func (b *Blockchain) Store(
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	b.listener.OnRead("BlockCommitmentsByNumber")
-	return core.GetBlockCommitmentByBlockNum(b.database, blockNumber)
+	commitments, err := core.BlockCommitmentsBucket.Get(b.database, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return &commitments, nil
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
@@ -488,7 +508,7 @@ func (b *Blockchain) EventFilter(
 	preConfirmedFn func() (PreConfirmedReader, error),
 ) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	latest, err := core.GetChainHeight(b.database)
+	latest, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 	if err != nil {
 		return nil, err
 	}

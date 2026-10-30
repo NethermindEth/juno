@@ -64,16 +64,16 @@ func (in *ingestor) Done(index int, outputs chan<- db.Batch) error {
 // state update record above the pruned prefix means the two buckets disagree, i.e.
 // the database is corrupt, so the read error is returned rather than skipped.
 func backfillBlock(r db.KeyValueReader, batch db.KeyValueWriter, blockNumber uint64) error {
-	commitments, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
+	commitments, err := core.BlockCommitmentsBucket.Get(r, blockNumber)
 	if err != nil {
 		return fmt.Errorf("getting commitments for block %d: %w", blockNumber, err)
 	}
 
-	stateUpdate, err := core.GetStateUpdateByBlockNum(r, blockNumber)
+	stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(r, blockNumber)
 	if err != nil {
 		return fmt.Errorf("getting state update for block %d: %w", blockNumber, err)
 	}
 
 	commitments.StateDiffLength = stateUpdate.StateDiff.Length()
-	return core.WriteBlockCommitment(batch, blockNumber, commitments)
+	return core.BlockCommitmentsBucket.Put(batch, blockNumber, &commitments)
 }

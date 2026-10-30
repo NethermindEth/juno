@@ -91,7 +91,7 @@ func TestFindOldestBlockAtOrAfter(t *testing.T) {
 	})
 
 	t.Run("propagates non-ErrKeyNotFound DB errors", func(t *testing.T) {
-		// Use a closed pebble DB to force a real error from GetBlockHeaderByNumber.
+		// Use a closed pebble DB to force a real error from GetBlockHeaderTimestampByNumber.
 		database := testutils.NewPebbleTestDB(t)
 		storeRange(t, database, 0, 10, 5000)
 		require.NoError(t, database.Close())
