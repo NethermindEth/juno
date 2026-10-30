@@ -148,7 +148,7 @@ func (i *ingestor) migrateTrie(
 	outputs chan<- common.Task,
 ) (felt.Felt, error) {
 	if desc.NodeCount == 0 {
-		return felt.Zero, nil
+		return felt.Zero[felt.Felt](), nil
 	}
 	parallelDispatch := desc.NodeCount >= SmallTrieThreshold
 	prefix := deprecatedTriePrefix(desc)

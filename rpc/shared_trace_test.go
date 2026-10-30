@@ -235,7 +235,7 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 				feederResult := starknet.BlockTrace{Traces: []starknet.TransactionTrace{{
 					TransactionHash: *txs[0].Hash(),
 					ValidateInvocation: &starknet.FunctionInvocation{
-						InternalCalls: []starknet.FunctionInvocation{{ContractAddress: felt.One}},
+						InternalCalls: []starknet.FunctionInvocation{{ContractAddress: felt.One[felt.Felt]()}},
 					},
 				}}}
 				before, err := json.Marshal([]any{vmResult, feederResult})
@@ -364,12 +364,12 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 				}
 				txs := []core.Transaction{
 					&core.InvokeTransaction{
-						TransactionHash: &felt.One,
+						TransactionHash: felt.OnePtr[felt.Felt](),
 						Version:         new(core.TransactionVersion),
 					},
 				}
 				receipts := []*core.TransactionReceipt{{
-					TransactionHash: &felt.One,
+					TransactionHash: felt.OnePtr[felt.Felt](),
 					ExecutionResources: &core.ExecutionResources{
 						TotalGasConsumed: &core.GasConsumed{L1Gas: 7},
 					},
@@ -383,7 +383,7 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 						Return(txs, receipts, nil)
 					feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).
 						Return(starknet.BlockTrace{
-							Traces: []starknet.TransactionTrace{{TransactionHash: felt.One}},
+							Traces: []starknet.TransactionTrace{{TransactionHash: felt.One[felt.Felt]()}},
 						}, nil)
 				} else {
 					reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)

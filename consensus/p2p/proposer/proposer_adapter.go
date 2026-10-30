@@ -42,7 +42,7 @@ func (a *starknetProposerAdapter) ProposalBlockInfo(buildResult *builder.BuildRe
 		L2GasPriceFRI:     *buildResult.PreConfirmed.Block.L2GasPrice.PriceInFri,
 		L1GasPriceWEI:     *buildResult.PreConfirmed.Block.L1GasPriceETH,
 		L1DataGasPriceWEI: *buildResult.PreConfirmed.Block.L1DataGasPrice.PriceInWei,
-		EthToStrkRate:     felt.One, // TODO: Double check if this is used
+		EthToStrkRate:     felt.One[felt.Felt](), // TODO: Double check if this is used
 		L1DAMode:          buildResult.PreConfirmed.Block.L1DAMode,
 	}, nil
 }
@@ -62,7 +62,7 @@ func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.Buil
 			}
 		case *core.L1HandlerTransaction:
 			// TODO (granza): use real L1 message fee when P2P sequencer ingests L1 events.
-			paidFeeOnL1 = felt.One.Clone()
+			paidFeeOnL1 = new(felt.One[felt.Felt]())
 		}
 
 		transactions[i] = types.Transaction{

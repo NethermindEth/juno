@@ -33,10 +33,10 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	testState, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -71,7 +71,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		false,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
+	assert.Equal(t, []*felt.Felt{felt.ZeroPtr[felt.Felt]()}, ret.Result)
 
 	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
@@ -129,11 +129,11 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	testState, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -184,10 +184,10 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state, err := NewState(t, &felt.Zero, testDB, batch)
+	state, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 	firstStateUpdate := core.StateUpdate{
-		OldRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
 			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
 		),
@@ -237,7 +237,7 @@ func TestCallCairo(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
+	assert.Equal(t, []*felt.Felt{felt.ZeroPtr[felt.Felt]()}, ret.Result)
 
 	secondStateUpdate := core.StateUpdate{
 		OldRoot: felt.NewUnsafeFromString[felt.Felt](
@@ -290,10 +290,10 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	testState, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -362,7 +362,7 @@ func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	batch := testDB.NewBatch()
 
-	state, err := NewState(t, &felt.Zero, testDB, batch)
+	state, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
@@ -378,8 +378,8 @@ func TestExecute(t *testing.T) {
 					SequencerAddress: felt.NewUnsafeFromString[felt.Felt](
 						"0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
 					),
-					L1GasPriceETH:  &felt.Zero,
-					L1GasPriceSTRK: &felt.Zero,
+					L1GasPriceETH:  felt.ZeroPtr[felt.Felt](),
+					L1GasPriceSTRK: felt.ZeroPtr[felt.Felt](),
 				},
 			}, state, executeOptions{ReturnInitialReads: true})
 		require.NoError(t, err)
@@ -393,9 +393,9 @@ func TestExecute(t *testing.T) {
 		}
 		_, err := New(&chainInfo, false, nil).(*vm).execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
-				SequencerAddress: &felt.Zero,
-				L1GasPriceETH:    &felt.Zero,
-				L1GasPriceSTRK:   &felt.Zero,
+				SequencerAddress: felt.ZeroPtr[felt.Felt](),
+				L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
+				L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
 			},
 		}, state, executeOptions{})
 		require.NoError(t, err)
@@ -467,10 +467,10 @@ func TestClassCacheKeyedOnDeclarationHeight(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, &felt.Zero, testDB, batch)
+	testState, err := NewState(t, felt.ZeroPtr[felt.Felt](), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: &felt.Zero,
+		OldRoot: felt.ZeroPtr[felt.Felt](),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
 			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
 		),
@@ -500,7 +500,7 @@ func TestClassCacheKeyedOnDeclarationHeight(t *testing.T) {
 				Selector:        entryPoint,
 			},
 			// A non-nil hash marks the block as not pending, which enables the class cache.
-			&BlockInfo{Header: &core.Header{Number: height, Hash: &felt.One}},
+			&BlockInfo{Header: &core.Header{Number: height, Hash: felt.OnePtr[felt.Felt]()}},
 			counter,
 			DefaultMaxSteps,
 			DefaultMaxGas,

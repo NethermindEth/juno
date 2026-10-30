@@ -380,7 +380,7 @@ func VerifyProof(
 			curPos++
 		case *Edge: // Edge nodes represent paths between binary nodes
 			if !verifyEdgePath(&keyBits, node.Path, curPos) {
-				return felt.Zero, nil
+				return felt.Zero[felt.Felt](), nil
 			}
 
 			// Move to the immediate child node
@@ -423,7 +423,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 			return false, errors.New("keys are not monotonic increasing")
 		}
 
-		if values[i] == nil || values[i].Equal(&felt.Zero) {
+		if values[i] == nil || values[i].IsZero() {
 			return false, errors.New("range contains empty leaf")
 		}
 	}

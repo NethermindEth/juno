@@ -41,7 +41,7 @@ type TransactionEvents struct {
 }
 
 func (r *TransactionReceipt) hash() felt.Felt {
-	revertReasonHash := &felt.Zero
+	revertReasonHash := felt.ZeroPtr[felt.Felt]()
 	if r.Reverted {
 		hash := crypto.StarknetKeccak([]byte(r.RevertReason))
 		revertReasonHash = &hash
@@ -61,7 +61,7 @@ func (r *TransactionReceipt) hash() felt.Felt {
 		r.Fee,
 		&sentMessageHash,
 		revertReasonHash,
-		&felt.Zero, // L2 gas consumed
+		felt.ZeroPtr[felt.Felt](), // L2 gas consumed
 		&l1GasFelt,
 		&l1DataGasFelt,
 	)

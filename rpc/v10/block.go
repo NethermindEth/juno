@@ -400,7 +400,7 @@ func AdaptBlockHeader(
 ) BlockHeader {
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = &felt.Zero
+		sequencerAddress = felt.ZeroPtr[felt.Felt]()
 	}
 
 	var l1DAMode L1DAMode
@@ -419,8 +419,8 @@ func AdaptBlockHeader(
 		}
 	} else {
 		l1DataGasPrice = ResourcePrice{
-			InWei: &felt.One,
-			InFri: &felt.One,
+			InWei: felt.OnePtr[felt.Felt](),
+			InFri: felt.OnePtr[felt.Felt](),
 		}
 	}
 
@@ -432,8 +432,8 @@ func AdaptBlockHeader(
 		}
 	} else {
 		l2GasPrice = ResourcePrice{
-			InWei: &felt.One,
-			InFri: &felt.One,
+			InWei: felt.OnePtr[felt.Felt](),
+			InFri: felt.OnePtr[felt.Felt](),
 		}
 	}
 
@@ -473,14 +473,14 @@ func AdaptBlockHeader(
 
 func nilToZero(f *felt.Felt) *felt.Felt {
 	if f == nil {
-		return &felt.Zero
+		return felt.ZeroPtr[felt.Felt]()
 	}
 	return f
 }
 
 func nilToOne(f *felt.Felt) *felt.Felt {
 	if f == nil {
-		return &felt.One
+		return felt.OnePtr[felt.Felt]()
 	}
 	return f
 }

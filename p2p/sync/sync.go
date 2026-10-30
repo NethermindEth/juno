@@ -291,7 +291,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 					select {
 					case <-ctx.Done():
 					default:
-						prevBlockRoot := &felt.Zero
+						prevBlockRoot := felt.ZeroPtr[felt.Felt]()
 						if curBlockNum > 0 {
 							// First check cache if the header is not present, then get it from the db.
 							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {

@@ -232,7 +232,7 @@ func TestHistoryAccessors(t *testing.T) {
 				t.Helper()
 				disk := memory.New()
 				stateDB := state.NewStateDB(disk, triedb.New(disk, nil))
-				reader, err := state.NewStateReader(&felt.Zero, stateDB)
+				reader, err := state.NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
 				require.NoError(t, err)
 				return disk, reader
 			}
@@ -261,7 +261,7 @@ func TestHistoryAccessors(t *testing.T) {
 
 				got, err := k.readAt(reader, blockOne-1)
 				require.NoError(t, err)
-				assert.Equal(t, felt.Zero, got)
+				assert.Equal(t, felt.Zero[felt.Felt](), got)
 			})
 
 			t.Run("honours block boundaries across two entries", func(t *testing.T) {
@@ -288,7 +288,7 @@ func TestHistoryAccessors(t *testing.T) {
 
 				got, err := k.readAt(reader, blockTwo+1)
 				require.NoError(t, err)
-				assert.Equal(t, felt.Zero, got)
+				assert.Equal(t, felt.Zero[felt.Felt](), got)
 			})
 		})
 	}

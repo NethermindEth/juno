@@ -61,7 +61,7 @@ func (s *stateObject) getStorageRoot() (felt.Felt, error) {
 	if s.storageTrie != nil {
 		root, err := s.storageTrie.Hash()
 		if err != nil {
-			return felt.Zero, err
+			return felt.Zero[felt.Felt](), err
 		}
 		s.contract.StorageRoot = root
 		return root, nil

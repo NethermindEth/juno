@@ -23,7 +23,7 @@ func TestSyncing(t *testing.T) {
 	handler := rpc.New(mockReader, synchronizer, nil, nil)
 	defaultSyncState := false
 
-	startingBlockHeader := &core.Header{Number: 0, Hash: &felt.Zero}
+	startingBlockHeader := &core.Header{Number: 0, Hash: felt.ZeroPtr[felt.Felt]()}
 	t.Run("undefined starting block header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(
@@ -93,7 +93,7 @@ func TestSyncing(t *testing.T) {
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)
 		expectedSyncing := &rpc.Sync{
-			StartingBlockHash:   &felt.Zero,
+			StartingBlockHash:   felt.ZeroPtr[felt.Felt](),
 			StartingBlockNumber: &startingBlockHeader.Number,
 			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
 			CurrentBlockNumber:  &currentBlockNumber,

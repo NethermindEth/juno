@@ -26,12 +26,12 @@ func TestNewNodeSet(t *testing.T) {
 	contractNodes := make(contractNodesMap)
 	contractStorage := make(contractStorageNodesMap)
 
-	classNodes[path1] = trienode.NewLeaf(felt.Zero, []byte{0xaa})
-	contractNodes[path2] = trienode.NewLeaf(felt.Zero, []byte{0xbb})
+	classNodes[path1] = trienode.NewLeaf(felt.Zero[felt.Felt](), []byte{0xaa})
+	contractNodes[path2] = trienode.NewLeaf(felt.Zero[felt.Felt](), []byte{0xbb})
 
 	owner := felt.Address{}
 	contractStorage[owner] = make(map[trieutils.Path]trienode.TrieNode)
-	contractStorage[owner][path3] = trienode.NewLeaf(felt.Zero, []byte{0xcc})
+	contractStorage[owner][path3] = trienode.NewLeaf(felt.Zero[felt.Felt](), []byte{0xcc})
 
 	ns := newNodeSet(classNodes, contractNodes, contractStorage)
 
@@ -48,14 +48,14 @@ func TestGetNode(t *testing.T) {
 
 	ns := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1: trienode.NewLeaf(felt.Zero, class),
+			path1: trienode.NewLeaf(felt.Zero[felt.Felt](), class),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf(felt.Zero, contract),
+			path2: trienode.NewLeaf(felt.Zero[felt.Felt](), contract),
 		},
 		map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			owner: {
-				path3: trienode.NewLeaf(felt.Zero, storage),
+				path3: trienode.NewLeaf(felt.Zero[felt.Felt](), storage),
 			},
 		},
 	)
@@ -91,30 +91,30 @@ func TestMerge(t *testing.T) {
 
 	baseSet := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1: trienode.NewLeaf(felt.Zero, []byte(old)),
+			path1: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(old)),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf(felt.Zero, []byte(old)),
+			path2: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(old)),
 		},
 		map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			feltff: {
-				path3: trienode.NewLeaf(felt.Zero, []byte(old)),
+				path3: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(old)),
 			},
 		},
 	)
 
 	mergeSet := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1:  trienode.NewLeaf(felt.Zero, []byte(updated)),
-			pathff: trienode.NewLeaf(felt.Zero, []byte(added)),
+			path1:  trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(updated)),
+			pathff: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(added)),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf(felt.Zero, []byte(updated)),
+			path2: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(updated)),
 		},
 		map[felt.Address]map[trieutils.Path]trienode.TrieNode{
 			feltff: {
-				path3: trienode.NewLeaf(felt.Zero, []byte(updated)),
-				path5: trienode.NewLeaf(felt.Zero, []byte(added)),
+				path3: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(updated)),
+				path5: trienode.NewLeaf(felt.Zero[felt.Felt](), []byte(added)),
 			},
 		},
 	)
@@ -162,10 +162,10 @@ func TestEnc(t *testing.T) {
 
 	owner1 := felt.FromBytes[felt.Address]([]byte{0x01})
 	owner2 := felt.FromBytes[felt.Address]([]byte{0x02})
-	classNode := trienode.NewLeaf(felt.Zero, []byte("class data"))
-	contractNode := trienode.NewLeaf(felt.Zero, []byte("contract data"))
-	storageNode1 := trienode.NewLeaf(felt.Zero, []byte("storage data 1"))
-	storageNode2 := trienode.NewLeaf(felt.Zero, []byte("storage data 2"))
+	classNode := trienode.NewLeaf(felt.Zero[felt.Felt](), []byte("class data"))
+	contractNode := trienode.NewLeaf(felt.Zero[felt.Felt](), []byte("contract data"))
+	storageNode1 := trienode.NewLeaf(felt.Zero[felt.Felt](), []byte("storage data 1"))
+	storageNode2 := trienode.NewLeaf(felt.Zero[felt.Felt](), []byte("storage data 2"))
 	// Create original nodeSet
 	original := &nodeSet{
 		classNodes: classNodesMap{

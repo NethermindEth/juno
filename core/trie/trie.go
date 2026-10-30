@@ -53,7 +53,7 @@ var maxKeyByHeight = func() [felt.Bits + 1]felt.Felt {
 		x := felt.NewFromUint64[felt.Felt](2)
 		y := new(big.Int).SetUint64(uint64(h))
 		maxKey := x.Exp(x, y)
-		maxKey.Sub(maxKey, &felt.One)
+		maxKey.Sub(maxKey, felt.OnePtr[felt.Felt]())
 		table[h] = *maxKey
 	}
 	return table
@@ -343,9 +343,9 @@ func (t *TrieReader) Get(key *felt.Felt) (felt.Felt, error) {
 	value, err := t.readStorage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return felt.Zero, nil
+			return felt.Zero[felt.Felt](), nil
 		}
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	defer nodePool.Put(value)
 	leafValue := *value.Value
@@ -424,7 +424,7 @@ func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, sibli
 func (t *TrieReader) Hash() (felt.Felt, error) {
 	root, err := t.readStorage.Get(t.rootKey)
 	if err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	path := path(t.rootKey, nil)
 	return root.Hash(&path, t.hash), nil
@@ -509,7 +509,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
-	old := felt.Zero
+	old := felt.Zero[felt.Felt]()
 	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
@@ -565,7 +565,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
-	old := felt.Zero
+	old := felt.Zero[felt.Felt]()
 	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
@@ -805,17 +805,17 @@ func (t *Trie) Hash() (felt.Felt, error) {
 	if t.rootKeyIsDirty {
 		if t.rootKey == nil {
 			if err := t.storage.DeleteRootKey(); err != nil {
-				return felt.Zero, err
+				return felt.Zero[felt.Felt](), err
 			}
 		} else if err := t.storage.PutRootKey(t.rootKey); err != nil {
-			return felt.Zero, err
+			return felt.Zero[felt.Felt](), err
 		}
 		t.rootKeyIsDirty = false
 	}
 
 	if t.rootKey == nil {
 		t.dirtyNodes = nil
-		return felt.Zero, nil
+		return felt.Zero[felt.Felt](), nil
 	}
 
 	storage := t.storage
@@ -828,7 +828,7 @@ func (t *Trie) Hash() (felt.Felt, error) {
 	}()
 	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
-		return felt.Zero, err
+		return felt.Zero[felt.Felt](), err
 	}
 	defer nodePool.Put(root)
 	t.dirtyNodes = nil

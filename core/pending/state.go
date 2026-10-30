@@ -151,7 +151,7 @@ func (p *StateWriter) SetStorage(contractAddress, key, value *felt.Felt) error {
 	if _, found := p.stateDiff.StorageDiffs[*contractAddress]; !found {
 		p.stateDiff.StorageDiffs[*contractAddress] = make(map[felt.Felt]*felt.Felt)
 	}
-	p.stateDiff.StorageDiffs[*contractAddress][*key] = value.Clone()
+	p.stateDiff.StorageDiffs[*contractAddress][*key] = new(*value)
 	return nil
 }
 
@@ -160,19 +160,19 @@ func (p *StateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, &felt.One)
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, felt.OnePtr[felt.Felt]())
 	return nil
 }
 
 func (p *StateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error {
 	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			p.stateDiff.DeployedContracts[*contractAddress] = classHash.Clone()
+			p.stateDiff.DeployedContracts[*contractAddress] = new(*classHash)
 			return nil
 		}
 		return fmt.Errorf("get latest class hash: %v", err)
 	}
-	p.stateDiff.ReplacedClasses[*contractAddress] = classHash.Clone()
+	p.stateDiff.ReplacedClasses[*contractAddress] = new(*classHash)
 	return nil
 }
 
@@ -190,7 +190,10 @@ func (p *StateWriter) SetContractClass(classHash *felt.Felt, class core.ClassDef
 
 	p.newClasses[*classHash] = class
 	if _, ok := class.(*core.DeprecatedCairoClass); ok {
-		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
+		p.stateDiff.DeclaredV0Classes = append(
+			p.stateDiff.DeclaredV0Classes,
+			new(*classHash),
+		)
 	}
 	return nil
 }
@@ -198,7 +201,7 @@ func (p *StateWriter) SetContractClass(classHash *felt.Felt, class core.ClassDef
 // SetCompiledClassHash writes CairoV1 classes to the pending state
 // Assumption: SetContractClass was called for classHash and succeeded
 func (p *StateWriter) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
-	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
+	p.stateDiff.DeclaredV1Classes[*classHash] = new(*compiledClassHash)
 	return nil
 }
 

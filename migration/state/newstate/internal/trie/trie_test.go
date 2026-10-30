@@ -44,7 +44,7 @@ var trieCases = []trieCase{
 		//nolint:staticcheck // the deprecated buckets are this migration's input
 		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.DeprecatedClassesTrie)} },
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
-			return trieutils.NewClassTrieID(felt.StateRootHash(felt.One))
+			return trieutils.NewClassTrieID(felt.One[felt.StateRootHash]())
 		},
 		hashFn:     crypto.Poseidon,
 		buildOldFn: trie.NewTriePoseidon,
@@ -57,7 +57,7 @@ var trieCases = []trieCase{
 		//nolint:staticcheck // the deprecated buckets are this migration's input
 		oldBuildPrefix: func(_ *felt.Address) []byte { return []byte{byte(db.DeprecatedStateTrie)} },
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
-			return trieutils.NewContractTrieID(felt.StateRootHash(felt.One))
+			return trieutils.NewContractTrieID(felt.One[felt.StateRootHash]())
 		},
 		hashFn:     crypto.Pedersen,
 		buildOldFn: trie.NewTriePedersen,
@@ -74,7 +74,7 @@ var trieCases = []trieCase{
 			return db.DeprecatedContractStorage.Key(ownerBytes[:])
 		},
 		newTrieID: func(owner *felt.Address) trieutils.TrieID {
-			return trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), *owner)
+			return trieutils.NewContractStorageTrieID(felt.One[felt.StateRootHash](), *owner)
 		},
 		hashFn:     crypto.Pedersen,
 		buildOldFn: trie.NewTriePedersen,
@@ -319,7 +319,7 @@ func TestMigrationMultiStorageOwners(t *testing.T) {
 	migratedAll := allKeysUnder(t, migratedDB, db.ContractTrieStorage)
 	for _, owner := range owners {
 		nativeDB := memory.New()
-		id := trieutils.NewContractStorageTrieID(felt.StateRootHash(felt.One), owner)
+		id := trieutils.NewContractStorageTrieID(felt.One[felt.StateRootHash](), owner)
 		buildTrie(t, nativeDB, leaves, id, crypto.Pedersen, db.ContractTrieStorage)
 		for k, v := range allKeysUnder(t, nativeDB, db.ContractTrieStorage) {
 			gotV, ok := migratedAll[k]
@@ -414,7 +414,7 @@ func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 func seedContract(t *testing.T, database db.KeyValueStore, owner *felt.Address) {
 	t.Helper()
 	require.NoError(t, state.WriteContract(
-		database, (*felt.Felt)(owner), felt.Zero, felt.Zero, 0,
+		database, (*felt.Felt)(owner), felt.Zero[felt.Felt](), felt.Zero[felt.Felt](), 0,
 	))
 }
 

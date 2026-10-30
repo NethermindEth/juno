@@ -566,7 +566,7 @@ func (s *State) updateContractCommitment(
 func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) felt.Felt {
 	h1 := crypto.Pedersen(classHash, storageRoot)
 	h2 := crypto.Pedersen(&h1, nonce)
-	return crypto.Pedersen(&h2, &felt.Zero)
+	return crypto.Pedersen(&h2, felt.ZeroPtr[felt.Felt]())
 }
 
 func (s *State) updateDeclaredClassesTrie(
@@ -695,7 +695,7 @@ func (s *State) purgesystemContracts() error {
 			return fmt.Errorf("contract root: %v", err)
 		}
 
-		if r.Equal(&felt.Zero) {
+		if r.IsZero() {
 			if err = s.purgeContract(&addr); err != nil {
 				return fmt.Errorf("purge contract: %v", err)
 			}
@@ -713,7 +713,7 @@ func (s *State) removeDeclaredClasses(
 	classHashes := make([]*felt.Felt, 0, totalCapacity)
 	classHashes = append(classHashes, deprecatedClasses...)
 	for classHash := range sierraClasses {
-		classHashes = append(classHashes, classHash.Clone())
+		classHashes = append(classHashes, &classHash)
 	}
 
 	classesTrie, classesCloser, err := s.classesTrie()
@@ -734,7 +734,7 @@ func (s *State) removeDeclaredClasses(
 		}
 
 		if _, ok := declaredClass.Class.(*core.SierraClass); ok {
-			if _, err = classesTrie.Put(cHash, &felt.Zero); err != nil {
+			if _, err = classesTrie.Put(cHash, felt.ZeroPtr[felt.Felt]()); err != nil {
 				return err
 			}
 		}
@@ -757,7 +757,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if _, err = state.Put(contract.Address, &felt.Zero); err != nil {
+	if _, err = state.Put(contract.Address, felt.ZeroPtr[felt.Felt]()); err != nil {
 		return err
 	}
 
@@ -778,7 +778,7 @@ func (s *State) GetReverseStateDiff(
 	for addr, storageDiffs := range diff.StorageDiffs {
 		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
 		for key := range storageDiffs {
-			value := felt.Zero
+			value := felt.Zero[felt.Felt]()
 			if blockNumber > 0 {
 				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
 				if err != nil {
@@ -793,7 +793,7 @@ func (s *State) GetReverseStateDiff(
 
 	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
 	for addr := range diff.Nonces {
-		oldNonce := felt.Zero
+		oldNonce := felt.Zero[felt.Felt]()
 		if blockNumber > 0 {
 			var err error
 			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
@@ -806,7 +806,7 @@ func (s *State) GetReverseStateDiff(
 
 	reversed.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
 	for addr := range diff.ReplacedClasses {
-		classHash := felt.Zero
+		classHash := felt.Zero[felt.Felt]()
 		if blockNumber > 0 {
 			var err error
 			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)

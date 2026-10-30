@@ -130,9 +130,9 @@ func TestAdaptStateDiff(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			served := &rpcv10.StateUpdate{
-				BlockHash: &felt.One,
-				NewRoot:   &felt.One,
-				OldRoot:   &felt.Zero,
+				BlockHash: felt.OnePtr[felt.Felt](),
+				NewRoot:   felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
 				StateDiff: test.served,
 			}
 			expected := core.EmptyStateDiff()
@@ -143,9 +143,9 @@ func TestAdaptStateDiff(t *testing.T) {
 			adapted, err := rpc2core.AdaptStateUpdate(overWire(t, served))
 			require.NoError(t, err)
 			assert.Equal(t, core.StateUpdate{
-				BlockHash: &felt.One,
-				NewRoot:   &felt.One,
-				OldRoot:   &felt.Zero,
+				BlockHash: felt.OnePtr[felt.Felt](),
+				NewRoot:   felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
 				StateDiff: &expected,
 			}, adapted)
 		})
@@ -166,8 +166,8 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 		{
 			name: "missing block_hash",
 			served: &rpcv10.StateUpdate{
-				NewRoot:   &felt.One,
-				OldRoot:   &felt.Zero,
+				NewRoot:   felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update is missing block_hash",
@@ -175,8 +175,8 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 		{
 			name: "missing new_root",
 			served: &rpcv10.StateUpdate{
-				BlockHash: &felt.One,
-				OldRoot:   &felt.Zero,
+				BlockHash: felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update for block 0x1 is missing new_root",
@@ -184,24 +184,31 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 		{
 			name: "missing old_root",
 			served: &rpcv10.StateUpdate{
-				BlockHash: &felt.One,
-				NewRoot:   &felt.One,
+				BlockHash: felt.OnePtr[felt.Felt](),
+				NewRoot:   felt.OnePtr[felt.Felt](),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update for block 0x1 is missing old_root",
 		},
 		{
-			name:   "missing state_diff",
-			served: &rpcv10.StateUpdate{BlockHash: &felt.One, NewRoot: &felt.One, OldRoot: &felt.Zero},
-			err:    "state update for block 0x1 is missing state_diff",
+			name: "missing state_diff",
+			served: &rpcv10.StateUpdate{
+				BlockHash: felt.OnePtr[felt.Felt](),
+				NewRoot:   felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
+			},
+			err: "state update for block 0x1 is missing state_diff",
 		},
 		{
 			name: "null deprecated declared class",
 			served: &rpcv10.StateUpdate{
-				BlockHash: &felt.One,
-				NewRoot:   &felt.One,
-				OldRoot:   &felt.Zero,
-				StateDiff: &rpcv10.StateDiff{DeprecatedDeclaredClasses: []*felt.Felt{&felt.One, nil}},
+				BlockHash: felt.OnePtr[felt.Felt](),
+				NewRoot:   felt.OnePtr[felt.Felt](),
+				OldRoot:   felt.ZeroPtr[felt.Felt](),
+				StateDiff: &rpcv10.StateDiff{DeprecatedDeclaredClasses: []*felt.Felt{
+					felt.OnePtr[felt.Felt](),
+					nil,
+				}},
 			},
 			err: "state update for block 0x1 has a null deprecated declared class",
 		},

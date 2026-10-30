@@ -59,7 +59,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 		return nil, err
 	}
 
-	err = c.UpdateNonce(&felt.Zero)
+	err = c.UpdateNonce(felt.ZeroPtr[felt.Felt]())
 	if err != nil {
 		return nil, err
 	}

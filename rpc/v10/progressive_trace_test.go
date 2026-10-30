@@ -311,7 +311,7 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 			result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.Felt{&classHash}
 			result.Traces[0].StateDiff.StorageDiffs = []vm.StorageDiff{{
 				Address:        address,
-				StorageEntries: []vm.Entry{{Key: key, Value: felt.One}},
+				StorageEntries: []vm.Entry{{Key: key, Value: felt.One[felt.Felt]()}},
 			}}
 		} else {
 			declared, err := state.Class(&classHash)
@@ -319,7 +319,7 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 			require.Same(t, definition, declared.Class)
 			value, err := state.ContractStorage(&address, &key)
 			require.NoError(t, err)
-			require.Equal(t, felt.One, value)
+			require.Equal(t, felt.One[felt.Felt](), value)
 		}
 		return result, nil
 	}}

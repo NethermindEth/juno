@@ -58,7 +58,10 @@ func (b *stateBackend) StateAtBlockHash(
 ) (core.StateReader, StateCloser, error) {
 	if blockHash.IsZero() {
 		memDB := memory.New()
-		st, err := state.NewStateReader(&felt.Zero, state.NewStateDB(memDB, triedb.New(memDB, nil)))
+		st, err := state.NewStateReader(
+			felt.ZeroPtr[felt.Felt](),
+			state.NewStateDB(memDB, triedb.New(memDB, nil)),
+		)
 		if err != nil {
 			return nil, nil, err
 		}

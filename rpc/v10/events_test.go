@@ -442,7 +442,7 @@ func TestEvents(t *testing.T) {
 					ToBlock:   &latestID,
 					Address: []felt.Address{
 						testAddress[0],
-						felt.Address(felt.Zero), // non-existent address
+						felt.Zero[felt.Address](), // non-existent address
 					},
 				},
 				ResultPageRequest: defaultPageRequest,
