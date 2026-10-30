@@ -175,7 +175,7 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		// retention=10, L1=95 → floor = 95-10 = 85. Prunes [0, 85).
 		sp := startPrunerService(t, database, 10)
@@ -194,7 +194,7 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		sp := startPrunerService(t, database, 10)
 		require.NoError(t, sp.floor.Seed(database))
@@ -215,7 +215,7 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 50))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(50))))
 
 		sp := startPrunerService(t, database, 10)
 		sp.sendL1AndExpectNoOp(t, 50)
@@ -226,7 +226,7 @@ func TestPruner_L1Path(t *testing.T) {
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		// retention way larger than current L1 head → guard short-circuits.
 		sp := startPrunerService(t, database, 1000)
@@ -238,7 +238,7 @@ func TestPruner_L1Path(t *testing.T) {
 	})
 
 	t.Run("L1 head with no chain height in DB is a no-op", func(t *testing.T) {
-		// Deliberately omit core.WriteChainHeight: onNewL1Head must
+		// Deliberately omit the chain height: onNewL1Head must
 		// short-circuit on ErrKeyNotFound instead of surfacing it to the
 		// listener (OnPruneErrorCb fails the test on any handler error).
 		database := testutils.NewPebbleTestDB(t)
@@ -263,8 +263,8 @@ func TestPruner_L2Path(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
-		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
+		require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{BlockNumber: 95}))
 
 		// retention=10, l1Head=95 → L2 path uses the L2 block as the floor
 		// pivot. Sending L2 head 90 → floor = 90-10 = 80. Prunes [0, 80).
@@ -279,8 +279,8 @@ func TestPruner_L2Path(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
-		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 95}))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
+		require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{BlockNumber: 95}))
 
 		// retention=10, l1Head=95, threshold=3. With L2 heads 88, 89, 90:
 		// the first two coalesce silently; the third tips the counter and
@@ -316,8 +316,12 @@ func TestPruner_L2Path(t *testing.T) {
 			for i := range totalBlocks {
 				testutils.StoreBlock(t, database, i)
 			}
-			require.NoError(t, core.WriteChainHeight(database, totalBlocks))
-			require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: tc.l1Head}))
+			require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
+			require.NoError(t, core.L1HeightBucket.Put(
+				database,
+				struct{}{},
+				&core.L1Head{BlockNumber: tc.l1Head},
+			))
 
 			sp := startPrunerService(t, database, tc.retention, pruner.WithL2HeadsPerPrune(1))
 			sp.sendL2AndExpectNoOp(t, tc.l2Block)
@@ -325,14 +329,14 @@ func TestPruner_L2Path(t *testing.T) {
 	}
 
 	t.Run("L2 head with no L1 head in DB is a no-op", func(t *testing.T) {
-		// Deliberately omit core.WriteL1Head: onNewBlock must short-circuit
+		// Deliberately omit the L1 head: onNewBlock must short-circuit
 		// on ErrKeyNotFound instead of surfacing it to the listener
 		// (OnPruneErrorCb fails the test on any handler error).
 		database := testutils.NewPebbleTestDB(t)
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		sp := startPrunerService(t, database, 10, pruner.WithL2HeadsPerPrune(1))
 		sp.sendL2AndExpectNoOp(t, 90)
@@ -364,7 +368,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		for i := range totalBlocks {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		// Phase 1: retention=80, L1=99 → floor=19. Sweep prunes [0, 19).
 		sp1 := startPrunerService(t, database, 80)
@@ -395,7 +399,7 @@ func TestPruner_RetentionChangeAcrossRestart(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 
 		// Phase 1: retention=10, L1=50 → floor=40. Sweep prunes [0, 40).
 		sp1 := startPrunerService(t, database, 10)

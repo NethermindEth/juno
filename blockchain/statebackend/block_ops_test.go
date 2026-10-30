@@ -121,6 +121,6 @@ func storeTestHeader(t *testing.T, database *memory.Database, header *core.Heade
 	batch := database.NewBatch()
 
 	require.NoError(t, core.WriteBlockHeader(batch, header))
-	require.NoError(t, core.WriteChainHeight(batch, header.Number))
+	require.NoError(t, core.ChainHeightBucket.Put(batch, struct{}{}, &header.Number))
 	require.NoError(t, batch.Write())
 }

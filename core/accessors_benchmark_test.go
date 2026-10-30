@@ -66,14 +66,14 @@ func BenchmarkReadStateUpdateByBlockNum_Mainnet(b *testing.B) {
 			const blockNum = uint64(0)
 
 			database := newBenchDB(b)
-			require.NoError(b, core.WriteStateUpdateByBlockNum(database, blockNum, su))
+			require.NoError(b, core.StateUpdatesByBlockNumberBucket.Put(database, blockNum, su))
 
-			_, err := core.GetStateUpdateByBlockNum(database, blockNum)
+			_, err := core.StateUpdatesByBlockNumberBucket.Get(database, blockNum)
 			require.NoError(b, err)
 
 			b.ReportAllocs()
 			for b.Loop() {
-				if _, err := core.GetStateUpdateByBlockNum(database, blockNum); err != nil {
+				if _, err := core.StateUpdatesByBlockNumberBucket.Get(database, blockNum); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -89,7 +89,7 @@ func BenchmarkReadBlockByNumber_Mainnet(b *testing.B) {
 			block.Header.Number = blockNum
 
 			database := newBenchDB(b)
-			require.NoError(b, core.WriteBlockHeaderByNumber(database, block.Header))
+			require.NoError(b, core.BlockHeadersByNumberBucket.Put(database, block.Number, block.Header))
 			require.NoError(b, core.WriteTransactionsAndReceipts(
 				database, blockNum, block.Transactions, block.Receipts,
 			))

@@ -61,7 +61,7 @@ func (m *Migrator) Migrate(
 	_ *networks.Network,
 	logger log.StructuredLogger,
 ) ([]byte, error) {
-	chainHeight, err := core.GetChainHeight(database)
+	chainHeight, err := core.ChainHeightBucket.Get(database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, nil
@@ -144,7 +144,7 @@ func stripHeaders(
 		if err := cbor.Unmarshal(value, &header); err != nil {
 			return 0, fmt.Errorf("decoding block header %d: %w", blockNumber, err)
 		}
-		if err := core.WriteBlockHeaderByNumber(batch, &header); err != nil {
+		if err := core.BlockHeadersByNumberBucket.Put(batch, header.Number, &header); err != nil {
 			return 0, fmt.Errorf("writing block header %d: %w", blockNumber, err)
 		}
 		nextBlock = blockNumber + 1

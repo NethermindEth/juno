@@ -36,8 +36,8 @@ func setupChain(
 		blocks[i] = testutils.StoreBlockWithLayout(t, database, i, 0, layout)
 	}
 	tip := totalBlocks - 1
-	require.NoError(t, core.WriteChainHeight(database, tip))
-	require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &tip))
+	require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 		BlockNumber: tip,
 		BlockHash:   blocks[tip].Header.Hash,
 		StateRoot:   felt.NewRandom[felt.Felt](),
@@ -124,8 +124,8 @@ func TestMigrate_MinAgeFloorTightensCutoff(t *testing.T) {
 				blocks[i] = testutils.StoreBlockWithLayout(t, database, i, ts, layout)
 			}
 			tip := totalBlocks - 1
-			require.NoError(t, core.WriteChainHeight(database, tip))
-			require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+			require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &tip))
+			require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 				BlockNumber: tip,
 				BlockHash:   blocks[tip].Header.Hash,
 				StateRoot:   felt.NewRandom[felt.Felt](),
@@ -164,8 +164,8 @@ func TestMigrate_MinAgeFloorIgnoredInDeepCatchUp(t *testing.T) {
 				blocks[i] = testutils.StoreBlockWithLayout(t, database, i, staleTS, layout)
 			}
 			tip := totalBlocks - 1
-			require.NoError(t, core.WriteChainHeight(database, tip))
-			require.NoError(t, core.WriteL1Head(database, &core.L1Head{
+			require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &tip))
+			require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 				BlockNumber: tip,
 				BlockHash:   blocks[tip].Header.Hash,
 				StateRoot:   felt.NewRandom[felt.Felt](),

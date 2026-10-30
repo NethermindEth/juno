@@ -78,7 +78,7 @@ func TestRunningEventFilter_LazyInitialization_CaughtUp(t *testing.T) {
 	for i := uint64(0); i <= latest; i++ {
 		storeBlockWithEvent(t, database, i, eventFrom)
 	}
-	require.NoError(t, core.WriteChainHeight(database, latest))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(latest)))
 
 	filter := core.NewAggregatedFilter(0)
 	snap := core.NewRunningEventFilterHot(database, &filter, 0)
@@ -120,7 +120,7 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 		}
 		storeBlockWithEvent(t, database, blockNum, from)
 	}
-	require.NoError(t, core.WriteChainHeight(database, latest))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(latest)))
 
 	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func setupSameWindowResume(
 		}
 		storeBlockWithEvent(t, database, i, from)
 	}
-	require.NoError(t, core.WriteChainHeight(database, latest))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &latest))
 
 	// Persisted snapshot stamped with snapshotKeys for [0, snapshotNext);
 	// init's resume branch keeps these bits, rebuild would refill them.
@@ -298,17 +298,17 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 			Number: i,
 			Hash:   felt.NewRandom[felt.Felt](),
 		}
-		require.NoError(t, core.WriteBlockHeaderByNumber(batch, header))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(batch, header.Number, header))
 		receipts := []*core.TransactionReceipt{{Events: []*core.Event{{From: eventFrom}}}}
 		require.NoError(t, core.WriteTransactionsAndReceipts(batch, i, nil, receipts))
-		require.NoError(t, core.WriteBlockCommitment(batch, i, &core.BlockCommitments{}))
+		require.NoError(t, core.BlockCommitmentsBucket.Put(batch, i, &core.BlockCommitments{}))
 		if batch.Size() >= testTargetBatchByteSize {
 			require.NoError(t, batch.Write())
 			batch = database.NewBatch()
 		}
 	}
 	require.NoError(t, batch.Write())
-	require.NoError(t, core.WriteChainHeight(database, latest))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &latest))
 
 	_, _, err := pruner.PruneUpto(t.Context(), database, pruneTo, testTargetBatchByteSize)
 	require.NoError(t, err)
@@ -334,7 +334,10 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	}
 	// First window persisted on rotation: positions [pruneTo, N-1] hit
 	// (filled from headers), [0, pruneTo) zero (pruned prefix skipped).
-	stored, err := core.GetAggregatedBloomFilter(database, 0, core.NumBlocksPerFilter-1)
+	stored, err := core.AggregatedBloomFiltersBucket.Get(
+		database,
+		db.AggregatedBloomFilterRangeKey{FromBlock: 0, ToBlock: core.NumBlocksPerFilter - 1},
+	)
 	require.NoError(t, err)
 	storedMatches := stored.BlocksForKeys(headerKeys)
 	for i := pruneTo; i < core.NumBlocksPerFilter; i++ {

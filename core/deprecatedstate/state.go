@@ -365,7 +365,7 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 func (s *State) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.txn, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.txn, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
@@ -375,7 +375,7 @@ func (s *State) CompiledClassHash(
 func (s *State) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.txn, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.txn, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
@@ -943,7 +943,7 @@ func (s *State) CompiledClassHashAt(
 	classHash *felt.SierraClassHash,
 	blockNumber uint64,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.txn, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.txn, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
@@ -960,7 +960,7 @@ func (s *State) revertMigratedCasmClasses(
 
 	for classHash := range migratedCasmClasses {
 		classHashFelt := (*felt.Felt)(&classHash)
-		casmHashMetadata, err := core.GetClassCasmHashMetadata(s.txn, &classHash)
+		casmHashMetadata, err := core.ClassCasmHashMetadataBucket.Get(s.txn, &classHash)
 		if err != nil {
 			return err
 		}

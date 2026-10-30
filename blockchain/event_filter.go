@@ -94,7 +94,7 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 	filterRange EventFilterRange,
 	blockHash *felt.Felt,
 ) error {
-	blockNum, err := core.GetBlockHeaderNumberByHash(e.database, blockHash)
+	blockNum, err := core.BlockHeaderNumbersByHashBucket.Get(e.database, blockHash)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (e *EventFilter) SetRangeEndBlockByHash(
 
 // SetRangeEndBlockToL1Head sets an end of the block range to latest `l1_accepted` block
 func (e *EventFilter) SetRangeEndBlockToL1Head(filterRange EventFilterRange) error {
-	l1Head, err := core.GetL1Head(e.database)
+	l1Head, err := core.L1HeightBucket.Get(e.database, struct{}{})
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (e *EventFilter) headAndPreConfirmed() (uint64, PreConfirmedReader, error) 
 	var latest uint64
 	if e.toBlock != PreConfirmedFilterSentinel {
 		var err error
-		if latest, err = core.GetChainHeight(e.database); err != nil {
+		if latest, err = core.ChainHeightBucket.Get(e.database, struct{}{}); err != nil {
 			return 0, nil, err
 		}
 		if e.toBlock <= latest {
@@ -233,7 +233,7 @@ func (e *EventFilter) headAndPreConfirmed() (uint64, PreConfirmedReader, error) 
 	preConfirmed, err := e.preConfirmedFn()
 	if err != nil || preConfirmed == nil || preConfirmed.Length() == 0 {
 		// No chain to derive from. This read also covers the sentinel case above.
-		latest, err = core.GetChainHeight(e.database)
+		latest, err = core.ChainHeightBucket.Get(e.database, struct{}{})
 		if err != nil {
 			return 0, nil, err
 		}

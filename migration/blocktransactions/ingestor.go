@@ -105,7 +105,7 @@ func (c *ingestor) ingestBlockRange(
 }
 
 func (c *ingestor) ingestBlock(batch db.KeyValueWriter, blockNumber uint64) (int, error) {
-	blockHeader, err := core.GetBlockHeaderByNumber(c.database, blockNumber)
+	blockHeader, err := core.BlockHeadersByNumberBucket.Get(c.database, blockNumber)
 	if err != nil {
 		return 0, err
 	}

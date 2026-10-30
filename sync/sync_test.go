@@ -175,8 +175,12 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 	)
 
 	startingHeader := &core.Header{Number: 1, Hash: felt.NewFromUint64[felt.Felt](1)}
-	require.NoError(t, core.WriteChainHeight(testDB, 0))
-	require.NoError(t, core.WriteBlockHeaderByNumber(testDB, startingHeader))
+	require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(uint64(0))))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(
+		testDB,
+		startingHeader.Number,
+		startingHeader,
+	))
 
 	dataSource := newTestBlockDataSource()
 	dataSource.setBlocks([]sync.CommittedBlock{
@@ -205,7 +209,7 @@ func TestStartingBlockHeaderFallsBackToBlockchain(t *testing.T) {
 		assert.Equal(c, startingHeader, header)
 	}, timeout, 10*time.Millisecond)
 
-	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, startingHeader.Number))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Delete(testDB, startingHeader.Number))
 	header, err := synchronizer.StartingBlockHeader()
 	require.NoError(t, err)
 	require.Equal(t, startingHeader, header)
@@ -256,7 +260,7 @@ func TestStartingBlockHeaderCachesStoredHeader(t *testing.T) {
 	}
 
 	// Delete before canceling because sync shutdown clears the cached starting header.
-	require.NoError(t, core.DeleteBlockHeaderByNumber(testDB, block0.Number))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Delete(testDB, block0.Number))
 	header, err := synchronizer.StartingBlockHeader()
 	require.NoError(t, err)
 	require.Equal(t, block0.Header, header)

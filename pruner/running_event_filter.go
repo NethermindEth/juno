@@ -19,7 +19,7 @@ func InitializeRunningEventFilter(database db.KeyValueStore) (*core.RunningEvent
 	snap := database.NewSnapshot()
 	defer snap.Close()
 
-	latest, err := core.GetChainHeight(snap)
+	latest, err := core.ChainHeightBucket.Get(snap, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			filter := core.NewAggregatedFilter(0)
@@ -124,7 +124,13 @@ func rebuildRunningEventFilter(
 	continueFrom := floor
 	windowStart := floorAligned
 	for {
-		_, err := core.GetAggregatedBloomFilter(reader, rangeStartAligned, lastStoredFilterRangeEnd)
+		_, err := core.AggregatedBloomFiltersBucket.Get(
+			reader,
+			db.AggregatedBloomFilterRangeKey{
+				FromBlock: rangeStartAligned,
+				ToBlock:   lastStoredFilterRangeEnd,
+			},
+		)
 		if err == nil {
 			continueFrom = lastStoredFilterRangeEnd + 1
 			windowStart = continueFrom

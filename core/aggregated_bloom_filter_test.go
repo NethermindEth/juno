@@ -435,14 +435,17 @@ func TestGetAggregatedBloomFilter_RoundTrip(t *testing.T) {
 	filter := core.NewAggregatedFilter(fromBlock)
 	key := []byte("round-trip")
 	insertKey(t, &filter, key, fromBlock+42)
-	require.NoError(t, core.WriteAggregatedBloomFilter(memDB, &filter))
+	require.NoError(t, core.AggregatedBloomFiltersBucket.Put(memDB, filter.RangeKey(), &filter))
 
 	getters := []struct {
 		name string
 		get  func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error)
 	}{
 		{"filter", func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error) {
-			decoded, err := core.GetAggregatedBloomFilter(r, fromBlock, toBlock)
+			decoded, err := core.AggregatedBloomFiltersBucket.Get(
+				r,
+				db.AggregatedBloomFilterRangeKey{FromBlock: fromBlock, ToBlock: toBlock},
+			)
 			return &decoded, err
 		}},
 		{"view", func(r db.KeyValueReader, fromBlock, toBlock uint64) (queryFilter, error) {
