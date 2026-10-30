@@ -80,6 +80,7 @@ func proveLegacyForTest(t *Trie, key *felt.Felt, proof *ProofNodeSet) error {
 			proof,
 			leftNode,
 			rightNode,
+			!isLeaf && trieKey.EqualMSBs(storageNode.key),
 		)
 		if err != nil {
 			return err

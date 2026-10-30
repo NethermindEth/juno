@@ -140,6 +140,7 @@ func (t *Trie) proveMultiFrom(
 		proof,
 		leftNode,
 		rightNode,
+		len(continuingKeys) > 0,
 	)
 	if err != nil {
 		return err
@@ -252,6 +253,7 @@ func (t *Trie) addProofNode(
 	carriedHash *felt.Felt,
 	proof *ProofNodeSet,
 	leftNode, rightNode *Node,
+	keysContinue bool,
 ) (Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode.key) {
@@ -260,6 +262,11 @@ func (t *Trie) addProofNode(
 			Path:  &edgePath,
 			Child: sNode.node.Value,
 		}
+	}
+	// Every key diverges inside the edge, so the edge alone proves non-membership
+	if edge != nil && !keysContinue {
+		proof.Put(edgeHash(edge, carriedHash, t.hash), edge)
+		return Binary{}, nil
 	}
 	if sNode.key.len == t.height {
 		if edge != nil { // Leaf Edge
