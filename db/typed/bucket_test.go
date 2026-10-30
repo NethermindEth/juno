@@ -103,6 +103,10 @@ func assertExists(t *testing.T, txn db.KeyValueReader, expected map[uint64]felt.
 		got, err := bucket.Get(txn, key)
 		require.NoError(t, err)
 		require.Equal(t, value, got)
+
+		gotPtr, err := bucket.GetPtr(txn, key)
+		require.NoError(t, err)
+		require.Equal(t, value, *gotPtr)
 	}
 }
 
@@ -114,6 +118,10 @@ func assertNotExists(t *testing.T, txn db.KeyValueReader, keys []uint64) {
 
 		_, err = bucket.Get(txn, key)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+		gotPtr, err := bucket.GetPtr(txn, key)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+		require.Nil(t, gotPtr)
 	}
 }
 

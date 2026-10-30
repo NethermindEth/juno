@@ -22,11 +22,10 @@ var DeprecatedContractClassHashBucket = typed.NewBucket(
 )
 
 // Bucket 4: Class hash (ClassHash) -> Class definition (DeclaredClassDefinition)
-// TODO: Integrate this bucket
 var ClassBucket = typed.NewBucket(
 	db.Class,
 	key.ClassHash,
-	value.Binary[DeclaredClassDefinition](),
+	value.Cbor[DeclaredClassDefinition](),
 )
 
 // Bucket 5: Contract address (Address) -> Contract nonce (Felt)
@@ -55,7 +54,6 @@ var BlockHeaderNumbersByHashBucket = typed.NewBucket(
 )
 
 // Bucket 8: Block number (uint64) -> Header
-// TODO: Integrate this bucket
 var BlockHeadersByNumberBucket = typed.NewBucket(
 	db.BlockHeadersByNumber,
 	key.Uint64,
@@ -96,7 +94,6 @@ var DeprecatedReceiptsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 )
 
 // Bucket 12: Block number (uint64) -> StateUpdate
-// TODO: Integrate this bucket
 var StateUpdatesByBlockNumberBucket = typed.NewBucket(
 	db.StateUpdatesByBlockNumber,
 	key.Uint64,
