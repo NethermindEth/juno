@@ -198,8 +198,8 @@ func (d *StateDiff) Commitment() felt.Felt {
 	return commitmentDigest.Finish()
 }
 
-func sortedFeltKeys[V any](m map[felt.Felt]V) []felt.Felt {
-	return slices.SortedFunc(maps.Keys(m), func(a, b felt.Felt) int { return a.Cmp(&b) })
+func sortedFeltKeys[K, V any](m map[felt.Typed[K]]V) []felt.Typed[K] {
+	return slices.SortedFunc(maps.Keys(m), func(a, b felt.Typed[K]) int { return a.Cmp(&b) })
 }
 
 func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
