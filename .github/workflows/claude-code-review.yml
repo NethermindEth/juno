@@ -35,7 +35,7 @@ jobs:
 
       # Exports the LiteLLM gateway virtual key into the job env as LITELLM_API_KEY.
       - name: Load gateway key from Infisical
-        uses: NethermindEth/github-workflows/get_infisical_secrets@80ac29b7f614d73430a6936cc5ea85c68f45ed20 # v2.3.0
+        uses: NethermindEth/github-workflows/get_infisical_secrets@3aa8d07182110ddd5c7f3bad9d746a1db58f6f8c # v5.1.1
         with:
           identity-id: ${{ secrets.INFISICAL_IDENTITY_ID }}
           project-id: ${{ secrets.INFISICAL_PROJECT_ID }}
