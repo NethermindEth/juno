@@ -11,11 +11,11 @@ import (
 	"github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/typed/prefix"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
-	"github.com/NethermindEth/juno/migration/blocktransactions/txlayout"
 	"github.com/NethermindEth/juno/utils/log"
 	conciter "github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
@@ -116,7 +116,7 @@ func runTestBlockTransactionsMigration(
 			)
 			require.NoError(
 				t,
-				txlayout.TransactionLayoutPerTx.WriteTransactionsAndReceipts(
+				writePerTxTransactionsAndReceipts(
 					batch,
 					uint64(blockNumber),
 					allTransactions[blockNumber],
@@ -130,12 +130,11 @@ func runTestBlockTransactionsMigration(
 		snapshot := openSnapshot(t, dir)
 
 		t.Run("PerTx layout should contain data", func(t *testing.T) {
-			assertData(
+			assertPerTxData(
 				t,
 				snapshot,
 				allTransactions,
 				allReceipts,
-				txlayout.TransactionLayoutPerTx,
 			)
 		})
 
@@ -190,24 +189,21 @@ func runTestBlockTransactionsMigration(
 					snapshot := openSnapshot(t, dir)
 
 					t.Run("Combined layout should contain data", func(t *testing.T) {
-						assertData(
+						assertCombinedData(
 							t,
 							snapshot,
 							allTransactions,
 							allReceipts,
-							txlayout.TransactionLayoutCombined,
 						)
 					})
 
 					t.Run("PerTx layout should be empty", func(t *testing.T) {
 						assertEmptyBucket(
 							t,
-							//nolint:staticcheck,nolintlint // old transaction layout
 							core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 						assertEmptyBucket(
 							t,
-							//nolint:staticcheck,nolintlint // old transaction layout
 							core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Prefix().Scan(snapshot),
 						)
 					})
@@ -217,12 +213,146 @@ func runTestBlockTransactionsMigration(
 	})
 }
 
-func assertData(
+//nolint:staticcheck // Intentionally testing deprecated per-tx layout buckets.
+func writePerTxTransactionsAndReceipts(
+	w db.KeyValueWriter,
+	blockNumber uint64,
+	transactions []core.Transaction,
+	receipts []*core.TransactionReceipt,
+) error {
+	for index, tx := range transactions {
+		txHash := (*felt.TransactionHash)(tx.Hash())
+		key := db.BlockNumIndexKey{
+			Number: blockNumber,
+			Index:  uint64(index),
+		}
+
+		if err := core.TransactionBlockNumbersAndIndicesByHashBucket.Put(
+			w,
+			txHash,
+			&key,
+		); err != nil {
+			return err
+		}
+
+		if err := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Put(
+			w,
+			key,
+			&tx,
+		); err != nil {
+			return err
+		}
+
+		if err := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Put(
+			w,
+			key,
+			receipts[index],
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//nolint:staticcheck // Intentionally reading from deprecated per-tx layout bucket.
+func perTxTransactionsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]core.Transaction, error) {
+	var transactions []core.Transaction
+	iterator := core.DeprecatedTransactionsByBlockNumberAndIndexBucket.
+		Prefix().
+		Add(blockNum).
+		Scan(r)
+	for entry, err := range iterator {
+		if err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, entry.Value)
+	}
+	return transactions, nil
+}
+
+//nolint:staticcheck // Intentionally reading from deprecated per-tx layout bucket.
+func perTxTransactionByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (core.Transaction, error) {
+	key := db.BlockNumIndexKey{
+		Number: blockNumber,
+		Index:  index,
+	}
+	return core.DeprecatedTransactionsByBlockNumberAndIndexBucket.Get(r, key)
+}
+
+//nolint:staticcheck // Intentionally reading from deprecated per-tx layout bucket.
+func perTxReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]*core.TransactionReceipt, error) {
+	var receipts []*core.TransactionReceipt
+	iterator := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.
+		Prefix().
+		Add(blockNum).
+		Scan(r)
+	for entry, err := range iterator {
+		if err != nil {
+			return nil, err
+		}
+		receipts = append(receipts, &entry.Value)
+	}
+	return receipts, nil
+}
+
+//nolint:staticcheck // Intentionally reading from deprecated per-tx layout bucket.
+func perTxReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (*core.TransactionReceipt, error) {
+	key := db.BlockNumIndexKey{
+		Number: blockNumber,
+		Index:  index,
+	}
+	receipt, err := core.DeprecatedReceiptsByBlockNumberAndIndexBucket.Get(r, key)
+	if err != nil {
+		return nil, err
+	}
+	return &receipt, nil
+}
+
+func combinedTransactionsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]core.Transaction, error) {
+	return core.BlockTransactionsAllTransactionsPartialBucket.Get(r, blockNum, struct{}{})
+}
+
+func combinedTransactionByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (core.Transaction, error) {
+	return core.BlockTransactionsTransactionPartialBucket.Get(r, blockNumber, int(index))
+}
+
+func combinedReceiptsByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) ([]*core.TransactionReceipt, error) {
+	return core.BlockTransactionsAllReceiptsPartialBucket.Get(r, blockNum, struct{}{})
+}
+
+func combinedReceiptByBlockAndIndex(
+	r db.KeyValueReader,
+	blockNumber, index uint64,
+) (*core.TransactionReceipt, error) {
+	return core.BlockTransactionsReceiptPartialBucket.Get(r, blockNumber, int(index))
+}
+
+func assertPerTxData(
 	t *testing.T,
 	snapshot db.KeyValueReader,
 	allTransactions [][]core.Transaction,
 	allReceipts [][]*core.TransactionReceipt,
-	layout txlayout.TransactionLayout,
 ) {
 	t.Helper()
 
@@ -231,8 +361,8 @@ func assertData(
 			t,
 			snapshot,
 			allTransactions,
-			layout.TransactionsByBlockNumber,
-			layout.TransactionByBlockAndIndex,
+			perTxTransactionsByBlockNumber,
+			perTxTransactionByBlockAndIndex,
 		)
 	})
 
@@ -241,8 +371,37 @@ func assertData(
 			t,
 			snapshot,
 			allReceipts,
-			layout.ReceiptsByBlockNumber,
-			layout.ReceiptByBlockAndIndex,
+			perTxReceiptsByBlockNumber,
+			perTxReceiptByBlockAndIndex,
+		)
+	})
+}
+
+func assertCombinedData(
+	t *testing.T,
+	snapshot db.KeyValueReader,
+	allTransactions [][]core.Transaction,
+	allReceipts [][]*core.TransactionReceipt,
+) {
+	t.Helper()
+
+	t.Run("Transactions", func(t *testing.T) {
+		assertCurrentLayout(
+			t,
+			snapshot,
+			allTransactions,
+			combinedTransactionsByBlockNumber,
+			combinedTransactionByBlockAndIndex,
+		)
+	})
+
+	t.Run("Receipts", func(t *testing.T) {
+		assertCurrentLayout(
+			t,
+			snapshot,
+			allReceipts,
+			combinedReceiptsByBlockNumber,
+			combinedReceiptByBlockAndIndex,
 		)
 	})
 }
