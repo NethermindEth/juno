@@ -25,3 +25,8 @@ func Binary[V any, P binaryMarshaler[V]]() binarySerializer[V, P] {
 func Cbor[V any]() cborSerializer[V] {
 	return cborSerializer[V]{}
 }
+
+// Fast is Cbor with the value read by the fastcbor package.
+func Fast[V any]() fastSerializer[V] {
+	return fastSerializer[V]{}
+}

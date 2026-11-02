@@ -56,7 +56,7 @@ var BlockHeaderNumbersByHashBucket = typed.NewBucket(
 var BlockHeadersByNumberBucket = typed.NewBucket(
 	db.BlockHeadersByNumber,
 	key.Uint64,
-	value.Cbor[Header](),
+	value.Fast[Header](),
 )
 
 // Bucket 9: Transaction hash (TransactionHash) -> Block number and index (BlockNumIndexKey)
@@ -96,7 +96,7 @@ var DeprecatedReceiptsByBlockNumberAndIndexBucket = prefix.NewPrefixedBucket(
 var StateUpdatesByBlockNumberBucket = typed.NewBucket(
 	db.StateUpdatesByBlockNumber,
 	key.Uint64,
-	value.Cbor[StateUpdate](),
+	value.Fast[StateUpdate](),
 )
 
 // TODO: Bucket 13 -> 16 are trie 1 / state 1 buckets.
