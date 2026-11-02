@@ -101,7 +101,7 @@ func EncodeNode(n Node) []byte {
 	return res
 }
 
-// Decodes the encoded bytes and returns the corresponding node
+// Decodes the encoded bytes and returns the corresponding node; a nil or zero hash leaves it unset.
 func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, error) {
 	if len(blob) == 0 {
 		return nil, errors.New("cannot decode empty blob")
@@ -157,7 +157,7 @@ func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (
 	}
 
 	binary := &BinaryNode{}
-	if !hash.IsZero() {
+	if hash != nil && !hash.IsZero() {
 		binary.Flags.Hash = (*HashNode)(hash)
 	}
 
@@ -177,17 +177,12 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 	}
 
 	edge := &EdgeNode{Path: &trieutils.Path{}}
-	if !hash.IsZero() {
+	if hash != nil && !hash.IsZero() {
 		edge.Flags.Hash = (*HashNode)(hash)
 	}
 
 	var err error
-	if edge.Child, err = DecodeNode(
-		blob[:hashOrValueNodeSize],
-		felt.ZeroPtr[felt.Felt](),
-		pathLen,
-		maxPathLen,
-	); err != nil {
+	if edge.Child, err = DecodeNode(blob[:hashOrValueNodeSize], nil, pathLen, maxPathLen); err != nil {
 		return nil, err
 	}
 	if err := edge.Path.UnmarshalBinary(blob[hashOrValueNodeSize:]); err != nil {

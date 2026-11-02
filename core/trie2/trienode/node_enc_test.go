@@ -192,13 +192,56 @@ func TestNodeEncodingDecodingBoundary(t *testing.T) {
 	// Test with invalid path lengths
 	t.Run("invalid path lengths", func(t *testing.T) {
 		blob := make([]byte, hashOrValueNodeSize)
-		_, err := DecodeNode(blob, new(felt.Zero[felt.Felt]()), 255, 8) // pathLen > maxPath
+		_, err := DecodeNode(blob, nil, 255, 8) // pathLen > maxPath
 		require.Error(t, err)
 	})
 
 	// Test with empty buffer
 	t.Run("empty buffer", func(t *testing.T) {
-		_, err := DecodeNode([]byte{}, new(felt.Zero[felt.Felt]()), 0, 8)
+		_, err := DecodeNode([]byte{}, nil, 0, 8)
 		require.Error(t, err)
 	})
+}
+
+func TestDecodeNodeHashCache(t *testing.T) {
+	edgeChild := felt.FromUint64[felt.Felt](456)
+	leftChild := felt.FromUint64[felt.Felt](111)
+	rightChild := felt.FromUint64[felt.Felt](222)
+	edgePath := &trieutils.Path{}
+	for _, bit := range []uint8{0, 1, 0} {
+		edgePath.AppendBit(edgePath, bit)
+	}
+	nodes := map[string]Node{
+		"edge": &EdgeNode{Path: edgePath, Child: (*HashNode)(&edgeChild)},
+		"binary": &BinaryNode{
+			Children: [2]Node{(*HashNode)(&leftChild), (*HashNode)(&rightChild)},
+		},
+	}
+
+	for name, node := range nodes {
+		encoded := EncodeNode(node)
+		hash := node.Hash(crypto.Pedersen)
+
+		t.Run(name+" with nil hash leaves cache empty", func(t *testing.T) {
+			decoded, err := DecodeNode(encoded, nil, 0, 8)
+			require.NoError(t, err)
+			cached, _ := decoded.Cache()
+			assert.Nil(t, cached)
+		})
+
+		t.Run(name+" with zero hash leaves cache empty", func(t *testing.T) {
+			decoded, err := DecodeNode(encoded, new(felt.Zero[felt.Felt]()), 0, 8)
+			require.NoError(t, err)
+			cached, _ := decoded.Cache()
+			assert.Nil(t, cached)
+		})
+
+		t.Run(name+" with hash caches it", func(t *testing.T) {
+			decoded, err := DecodeNode(encoded, &hash, 0, 8)
+			require.NoError(t, err)
+			cached, _ := decoded.Cache()
+			require.NotNil(t, cached)
+			assert.Equal(t, hash, felt.Felt(*cached))
+		})
+	}
 }

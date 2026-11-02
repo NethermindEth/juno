@@ -296,7 +296,7 @@ func (d *Database) getStateRoot() felt.StateRootHash {
 
 	contractRootNode, err := trienode.DecodeNode(
 		encContractRoot,
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		0,
 		contractClassTrieHeight,
 	)
@@ -307,7 +307,7 @@ func (d *Database) getStateRoot() felt.StateRootHash {
 
 	classRootNode, err := trienode.DecodeNode(
 		encStorageRoot,
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		0,
 		contractClassTrieHeight,
 	)

@@ -95,8 +95,8 @@ func (h *Handler) EstimateMessageFee(
 		// simulated must contain a valid tx hash; since we are just estimating the fees,
 		// we can set the remaining required fields to zero, as we don't care about the
 		// final tx hash.
-		Version: felt.ZeroPtr[core.TransactionVersion](),
-		Nonce:   felt.ZeroPtr[felt.Felt](),
+		Version: new(felt.Zero[core.TransactionVersion]()),
+		Nonce:   new(felt.Zero[felt.Felt]()),
 	}
 	txnHash, hashErr := core.TransactionHash(&l1Handler, h.bcReader.Network())
 	if hashErr != nil {

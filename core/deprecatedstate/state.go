@@ -734,7 +734,7 @@ func (s *State) removeDeclaredClasses(
 		}
 
 		if _, ok := declaredClass.Class.(*core.SierraClass); ok {
-			if _, err = classesTrie.Put(cHash, felt.ZeroPtr[felt.Felt]()); err != nil {
+			if _, err = classesTrie.Put(cHash, new(felt.Zero[felt.Felt]())); err != nil {
 				return err
 			}
 		}
@@ -757,7 +757,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if _, err = state.Put(contract.Address, felt.ZeroPtr[felt.Felt]()); err != nil {
+	if _, err = state.Put(contract.Address, new(felt.Zero[felt.Felt]())); err != nil {
 		return err
 	}
 

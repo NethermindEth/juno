@@ -517,7 +517,7 @@ func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *js
 func AdaptBlockHeader(header *core.Header) BlockHeader {
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = felt.ZeroPtr[felt.Felt]()
+		sequencerAddress = new(felt.Zero[felt.Felt]())
 	}
 
 	var l1DAMode L1DAMode
@@ -536,8 +536,8 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 		}
 	} else {
 		l1DataGasPrice = ResourcePrice{
-			InWei: felt.ZeroPtr[felt.Felt](),
-			InFri: felt.ZeroPtr[felt.Felt](),
+			InWei: new(felt.Zero[felt.Felt]()),
+			InFri: new(felt.Zero[felt.Felt]()),
 		}
 	}
 
@@ -549,8 +549,8 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 		}
 	} else {
 		l2GasPrice = ResourcePrice{
-			InWei: felt.ZeroPtr[felt.Felt](),
-			InFri: felt.ZeroPtr[felt.Felt](),
+			InWei: new(felt.Zero[felt.Felt]()),
+			InFri: new(felt.Zero[felt.Felt]()),
 		}
 	}
 
@@ -574,7 +574,7 @@ func AdaptBlockHeader(header *core.Header) BlockHeader {
 
 func nilToZero(f *felt.Felt) *felt.Felt {
 	if f == nil {
-		return felt.ZeroPtr[felt.Felt]()
+		return new(felt.Zero[felt.Felt]())
 	}
 	return f
 }

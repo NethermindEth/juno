@@ -131,27 +131,11 @@ func TestZeroOneCtor(t *testing.T) {
 		assert.True(t, new(felt.One[felt.Felt]()).IsOne())
 	})
 
-	t.Run("shared pointers hold the constants for any felt type", func(t *testing.T) {
-		assert.True(t, felt.ZeroPtr[feltoid]().IsZero())
-		assert.True(t, felt.OnePtr[feltoid]().IsOne())
-		assert.True(t, felt.OnePtr[felt.Felt]().IsOne())
-	})
-
 	t.Run("value constructors do not allocate", func(t *testing.T) {
 		var sink feltoid
 		allocs := testing.AllocsPerRun(100, func() {
 			sink = felt.Zero[feltoid]()
 			sink = felt.One[feltoid]()
-		})
-		assert.Zero(t, allocs)
-		assert.True(t, sink.IsOne())
-	})
-
-	t.Run("shared pointers do not allocate", func(t *testing.T) {
-		var sink *feltoid
-		allocs := testing.AllocsPerRun(100, func() {
-			sink = felt.ZeroPtr[feltoid]()
-			sink = felt.OnePtr[feltoid]()
 		})
 		assert.Zero(t, allocs)
 		assert.True(t, sink.IsOne())

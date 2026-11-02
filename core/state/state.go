@@ -192,7 +192,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		}
 
 		if _, ok := dc.Class.(*core.SierraClass); ok {
-			if err := s.classTrie.Update(hash, felt.ZeroPtr[felt.Felt]()); err != nil {
+			if err := s.classTrie.Update(hash, new(felt.Zero[felt.Felt]())); err != nil {
 				return err
 			}
 		}
@@ -310,7 +310,7 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 			}
 
 			if root.IsZero() {
-				if err := s.contractTrie.Update(&addr, felt.ZeroPtr[felt.Felt]()); err != nil {
+				if err := s.contractTrie.Update(&addr, new(felt.Zero[felt.Felt]())); err != nil {
 					return felt.Zero[felt.Felt](), emptyStateUpdate, err
 				}
 

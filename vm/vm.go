@@ -542,7 +542,7 @@ func l1HandlerFees(txns []core.Transaction) []*felt.Felt {
 	fees := []*felt.Felt{}
 	for _, txn := range txns {
 		if _, ok := txn.(*core.L1HandlerTransaction); ok {
-			fees = append(fees, felt.OnePtr[felt.Felt]())
+			fees = append(fees, new(felt.One[felt.Felt]()))
 		}
 	}
 	return fees

@@ -23,7 +23,7 @@ const BlockHashLag uint64 = 10
 // Contract stores block number to block hash mapping,
 // and serve this information through [get_block_hash_syscall].
 // Queriable range is [first_v0_12_0_block, current_block - 10]
-var BlockHashStorageContract = felt.OnePtr[felt.Felt]()
+var BlockHashStorageContract = new(felt.One[felt.Felt]())
 
 type L1Head struct {
 	BlockNumber uint64
@@ -137,17 +137,16 @@ func VerifyBlockHash(
 		}
 	}
 
-	fallbackSeqAddresses := []*felt.Felt{felt.ZeroPtr[felt.Felt]()}
-	if metaInfo.FallBackSequencerAddress != nil {
-		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
+	// A nil override means the block hash uses the header's own sequencer address.
+	fallbackSeqAddresses := []*felt.Felt{nil}
+	if b.SequencerAddress == nil {
+		fallbackSeqAddresses[0] = new(felt.Zero[felt.Felt]())
+		if metaInfo.FallBackSequencerAddress != nil {
+			fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
+		}
 	}
 
-	for _, fallbackSeq := range fallbackSeqAddresses {
-		var overrideSeq *felt.Felt
-		if b.SequencerAddress == nil {
-			overrideSeq = fallbackSeq
-		}
-
+	for _, overrideSeq := range fallbackSeqAddresses {
 		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq, backend)
 		if err != nil {
 			return nil, err

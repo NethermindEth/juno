@@ -564,17 +564,17 @@ func (b *Blockchain) StoreGenesis(
 
 	block := &core.Block{
 		Header: &core.Header{
-			ParentHash:       felt.ZeroPtr[felt.Felt](),
+			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: felt.ZeroPtr[felt.Felt](),
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,
 	}
 	stateUpdate := &core.StateUpdate{
-		OldRoot:   felt.ZeroPtr[felt.Felt](),
+		OldRoot:   new(felt.Zero[felt.Felt]()),
 		StateDiff: diff,
 	}
 	newClasses := classes
