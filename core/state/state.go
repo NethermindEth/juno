@@ -210,7 +210,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 			return fmt.Errorf("unmigrate class %s: %w", classHash.String(), err)
 		}
 		v1CasmHash := metadata.CasmHash() // returns V1 after Unmigrate
-		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&v1CasmHash))
+		leafVal := crypto.Poseidon[felt.Felt](leafVersion0, &v1CasmHash)
 		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
 			return fmt.Errorf("revert class %s in trie: %w", classHash.String(), err)
 		}
@@ -421,14 +421,14 @@ func (s *State) updateClassTrie(
 			continue
 		}
 
-		leafVal := crypto.Poseidon(leafVersion0, compiledClassHash)
+		leafVal := crypto.Poseidon[felt.Felt](leafVersion0, compiledClassHash)
 		if err := s.classTrie.Update(&classHash, &leafVal); err != nil {
 			return err
 		}
 	}
 
 	for classHash, casmHash := range migratedClasses {
-		leafVal := crypto.Poseidon(leafVersion0, (*felt.Felt)(&casmHash))
+		leafVal := crypto.Poseidon[felt.Felt](leafVersion0, &casmHash)
 		if err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal); err != nil {
 			return err
 		}

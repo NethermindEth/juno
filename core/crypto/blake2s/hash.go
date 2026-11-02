@@ -4,15 +4,20 @@ import (
 	"hash"
 	"slices"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"golang.org/x/crypto/blake2s"
 )
 
 // Following the same implementation behind
 // https://github.com/starknet-io/types-rs/blob/main/crates/starknet-types-core/src/hash/blake2s.rs
 
-func Blake2sArray(felts []felt.Felt) felt.Hash {
+// Blake2sArray hashes felts of any felt type and returns the hash as felt type R.
+func Blake2sArray[R, F felt.FeltLike](felts []F) R {
+	return R(blake2sArray(felt.CastSlice[fp.Element](felts)))
+}
+
+func blake2sArray(felts []fp.Element) fp.Element {
 	buf := make([]byte, len(felts)*maxWordsPerFelt*4)
 	offset := 0
 	for i := range felts {
@@ -25,36 +30,63 @@ func Blake2sArray(felts []felt.Felt) felt.Hash {
 
 	// Sum256 is big endian, reverse to little endian.
 	slices.Reverse(result[:])
-	return felt.FromBytes[felt.Hash](result[:])
+	var hash fp.Element
+	hash.SetBytes(result[:])
+	return hash
 }
 
-var _ crypto.Digest = (*Blake2sDigest)(nil)
-
+// Blake2sDigest hashes felts incrementally. The zero value is ready to use.
 type Blake2sDigest struct {
 	hasher hash.Hash
 }
 
-func NewDigest() Blake2sDigest {
-	hasher, err := blake2s.New256(nil)
-	if err != nil {
-		panic(err)
-	}
-	return Blake2sDigest{hasher: hasher}
-}
-
-func (d *Blake2sDigest) Update(elems ...*felt.Felt) crypto.Digest {
-	encoding := encodeFelts(elems...)
-	_, err := d.hasher.Write(encoding)
-	if err != nil {
-		panic(err)
-	}
+// Update adds one element of any felt type to the digest.
+func (d *Blake2sDigest) Update[F felt.FeltLike](elem *F) *Blake2sDigest {
+	d.update(felt.ImplOf(elem))
 	return d
 }
 
-func (d *Blake2sDigest) Finish() felt.Felt {
+// UpdateArray adds every element of elems to the digest.
+func (d *Blake2sDigest) UpdateArray[F felt.FeltLike](elems []F) *Blake2sDigest {
+	d.updateArray(felt.CastSlice[fp.Element](elems))
+	return d
+}
+
+func (d *Blake2sDigest) updateArray(elems []fp.Element) {
+	for i := range elems {
+		d.update(&elems[i])
+	}
+}
+
+func (d *Blake2sDigest) update(elem *fp.Element) {
+	encoding := encodeFelts(elem)
+	if _, err := d.state().Write(encoding); err != nil {
+		panic(err)
+	}
+}
+
+// Finish completes the digest and returns it as felt type R.
+func (d *Blake2sDigest) Finish[R felt.FeltLike]() R {
+	return R(d.finish())
+}
+
+func (d *Blake2sDigest) finish() fp.Element {
 	result := make([]byte, 0, 32)
-	result = d.hasher.Sum(result)
+	result = d.state().Sum(result)
 	// Result is big endian, reverse to little endian.
 	slices.Reverse(result)
-	return felt.FromBytes[felt.Felt](result)
+	var hash fp.Element
+	hash.SetBytes(result)
+	return hash
+}
+
+func (d *Blake2sDigest) state() hash.Hash {
+	if d.hasher == nil {
+		hasher, err := blake2s.New256(nil)
+		if err != nil {
+			panic(err)
+		}
+		d.hasher = hasher
+	}
+	return d.hasher
 }

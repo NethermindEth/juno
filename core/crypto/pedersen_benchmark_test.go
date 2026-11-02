@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
@@ -15,7 +16,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
 			feltsArray := genRandomFelts(b, n)
 			for b.Loop() {
-				crypto.PedersenArray(feltsArray)
+				crypto.PedersenArray[felt.Felt](feltsArray)
 			}
 		})
 	}
@@ -28,7 +29,7 @@ func BenchmarkPedersenElems(b *testing.B) {
 		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
 			elems := genRandomFeltsPtr(b, n)
 			for b.Loop() {
-				crypto.PedersenElems(elems...)
+				crypto.PedersenElems[felt.Felt](elems...)
 			}
 		})
 	}
@@ -37,6 +38,6 @@ func BenchmarkPedersenElems(b *testing.B) {
 func BenchmarkPedersen(b *testing.B) {
 	felts := genRandomFeltsPtr(b, 2)
 	for b.Loop() {
-		crypto.Pedersen(felts[0], felts[1])
+		crypto.Pedersen[felt.Felt](felts[0], felts[1])
 	}
 }

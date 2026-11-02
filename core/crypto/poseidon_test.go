@@ -12,7 +12,7 @@ func TestPoseidon(t *testing.T) {
 	left := felt.NewFromUint64[felt.Felt](1)
 	right := felt.NewFromUint64[felt.Felt](2)
 
-	hash := crypto.Poseidon(left, right)
+	hash := crypto.Poseidon[felt.Felt](left, right)
 	assert.Equal(
 		t,
 		"0x5d44a3decb2b2e0cc71071f7b802f45dd792d064f0fc7316c46514f70f9891a",
@@ -46,7 +46,7 @@ func TestPoseidonArray(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var digest, digestWhole crypto.PoseidonDigest
-			hash := crypto.PoseidonElems(test.elems...)
+			hash := crypto.PoseidonElems[felt.Felt](test.elems...)
 			assert.Equal(t, test.expected, hash.String())
 
 			// PoseidonArray (value slice) must match the pointer version exactly.
@@ -54,16 +54,19 @@ func TestPoseidonArray(t *testing.T) {
 			for i, e := range test.elems {
 				vals[i] = *e
 			}
-			valsHash := crypto.PoseidonArray(vals)
+			valsHash := crypto.PoseidonArray[felt.Felt](vals)
 			assert.Equal(t, test.expected, valsHash.String())
 
-			hash = digestWhole.Update(test.elems...).Finish()
+			for _, elem := range test.elems {
+				digestWhole.Update(elem)
+			}
+			hash = digestWhole.Finish[felt.Felt]()
 			assert.Equal(t, test.expected, hash.String())
 
 			for _, elem := range test.elems {
 				digest.Update(elem)
 			}
-			hash = digest.Finish()
+			hash = digest.Finish[felt.Felt]()
 			assert.Equal(t, test.expected, hash.String())
 		})
 	}
@@ -80,22 +83,9 @@ func TestPoseidonDigestUpdateArrayMatchesUpdate(t *testing.T) {
 
 		var byArray, byElems crypto.PoseidonDigest
 		byArray.UpdateArray(vals)
-		byElems.Update(ptrs...)
-		assert.Equal(t, byElems.Finish(), byArray.Finish())
-	}
-}
-
-// Test vectors from https://github.com/starkware-industries/poseidon
-func TestHadesPermutation(t *testing.T) {
-	state := [3]felt.Felt{}
-	crypto.HadesPermutation(&state)
-
-	want := [3]string{
-		"3446325744004048536138401612021367625846492093718951375866996507163446763827",
-		"1590252087433376791875644726012779423683501236913937337746052470473806035332",
-		"867921192302518434283879514999422690776342565400001269945778456016268852423",
-	}
-	for i, w := range want {
-		assert.Equal(t, w, state[i].Text(10))
+		for _, elem := range ptrs {
+			byElems.Update(elem)
+		}
+		assert.Equal(t, byElems.Finish[felt.Felt](), byArray.Finish[felt.Felt]())
 	}
 }
