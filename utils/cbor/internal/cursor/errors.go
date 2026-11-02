@@ -1,0 +1,19 @@
+package cursor
+
+import "errors"
+
+var (
+	// ErrTruncated means the input ended inside an item.
+	ErrTruncated = errors.New("cbor: unexpected end of input")
+	// ErrSyntax means the input is not well-formed CBOR.
+	ErrSyntax = errors.New("cbor: malformed item")
+	// ErrType means a well-formed item has a different type than the reader expects,
+	// or its value does not fit the Go type.
+	ErrType = errors.New("cbor: item does not fit the destination")
+	// ErrDepth means the items nest deeper than maxNestedLevels.
+	ErrDepth = errors.New("cbor: nesting too deep")
+	// ErrUnsupported means the input holds a form this package does not read: an
+	// indefinite-length string or container, a tag where a value is expected, a repeated key,
+	// or an unusual felt. Juno does not write these forms.
+	ErrUnsupported = errors.New("cbor: unsupported encoding")
+)
