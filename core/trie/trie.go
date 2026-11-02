@@ -53,7 +53,7 @@ var maxKeyByHeight = func() [felt.Bits + 1]felt.Felt {
 		x := felt.NewFromUint64[felt.Felt](2)
 		y := new(big.Int).SetUint64(uint64(h))
 		maxKey := x.Exp(x, y)
-		maxKey.Sub(maxKey, felt.OnePtr[felt.Felt]())
+		maxKey.Sub(maxKey, new(felt.One[felt.Felt]()))
 		table[h] = *maxKey
 	}
 	return table

@@ -160,7 +160,7 @@ func (p *StateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, felt.OnePtr[felt.Felt]())
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(&currentNonce, new(felt.One[felt.Felt]()))
 	return nil
 }
 

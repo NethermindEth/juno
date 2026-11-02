@@ -478,7 +478,7 @@ func adaptBroadcastedDeployAccountToCore(
 	tx *BroadcastedTransaction,
 ) *core.DeployAccountTransaction {
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		tx.ClassHash,
 		tx.ContractAddressSalt,
 		*tx.ConstructorCallData,

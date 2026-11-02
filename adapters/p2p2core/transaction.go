@@ -163,7 +163,7 @@ func AdaptDeployTxnCommon(
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		classHash,
 		addressSalt,
 		callData,
@@ -186,7 +186,7 @@ func AdaptDeployAccountV1TxnCommon(
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		classHash,
 		addressSalt,
 		callData,
@@ -236,7 +236,7 @@ func AdaptDeployAccountV3TxnCommon(
 	classHash := AdaptHash(tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		classHash,
 		addressSalt,
 		callData,

@@ -794,7 +794,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	switch tx.Type {
 	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
-			felt.ZeroPtr[felt.Felt](),
+			new(felt.Zero[felt.Felt]()),
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,

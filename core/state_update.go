@@ -101,7 +101,7 @@ func (d *StateDiff) Hash() felt.Felt {
 	deprecatedDeclaredClassesDigest(d.DeclaredV0Classes, digest)
 
 	// Placeholder values
-	digest.Update(felt.OnePtr[felt.Felt](), felt.ZeroPtr[felt.Felt]())
+	digest.Update(new(felt.One[felt.Felt]()), new(felt.Zero[felt.Felt]()))
 
 	// storage_diffs
 	// Digest: [

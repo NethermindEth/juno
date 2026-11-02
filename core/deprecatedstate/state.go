@@ -566,7 +566,7 @@ func (s *State) updateContractCommitment(
 func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) felt.Felt {
 	h1 := crypto.Pedersen(classHash, storageRoot)
 	h2 := crypto.Pedersen(&h1, nonce)
-	return crypto.Pedersen(&h2, felt.ZeroPtr[felt.Felt]())
+	return crypto.Pedersen(&h2, new(felt.Zero[felt.Felt]()))
 }
 
 func (s *State) updateDeclaredClassesTrie(

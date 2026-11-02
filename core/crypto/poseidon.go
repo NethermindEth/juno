@@ -88,7 +88,7 @@ func PoseidonElems(elems ...*felt.Felt) felt.Felt {
 	if rem == 1 {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], felt.OnePtr[felt.Felt]())
+	state[rem].Add(&state[rem], new(felt.One[felt.Felt]()))
 	HadesPermutation(&state)
 
 	return state[0]
@@ -114,7 +114,7 @@ func PoseidonArray(elems []felt.Felt) felt.Felt {
 	if rem == 1 {
 		state[0].Add(&state[0], &elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], felt.OnePtr[felt.Felt]())
+	state[rem].Add(&state[rem], new(felt.One[felt.Felt]()))
 	HadesPermutation(&state)
 
 	return state[0]
@@ -187,10 +187,10 @@ func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 
 func (d *PoseidonDigest) Finish() felt.Felt {
 	if !d.hasLast {
-		d.state[0].Add(&d.state[0], felt.OnePtr[felt.Felt]())
+		d.state[0].Add(&d.state[0], new(felt.One[felt.Felt]()))
 	} else {
 		d.state[0].Add(&d.state[0], &d.lastElem)
-		d.state[1].Add(&d.state[1], felt.OnePtr[felt.Felt]())
+		d.state[1].Add(&d.state[1], new(felt.One[felt.Felt]()))
 	}
 	HadesPermutation(&d.state)
 	return d.state[0]

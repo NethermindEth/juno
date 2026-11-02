@@ -97,5 +97,5 @@ func (s *stateContract) unmarshalEmptyRoot(data []byte) error {
 func (s *stateContract) commitment() felt.Felt {
 	h1 := crypto.Pedersen(&s.ClassHash, &s.StorageRoot)
 	h2 := crypto.Pedersen(&h1, &s.Nonce)
-	return crypto.Pedersen(&h2, felt.ZeroPtr[felt.Felt]())
+	return crypto.Pedersen(&h2, new(felt.Zero[felt.Felt]()))
 }
