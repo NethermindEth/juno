@@ -2,6 +2,7 @@ package fxamacker
 
 import (
 	"io"
+	"maps"
 	"reflect"
 
 	fxcbor "github.com/fxamacker/cbor/v2"
@@ -12,6 +13,7 @@ var (
 	// https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
 	// 65536-15309735 	Unassigned
 	tagNum     uint64 = 65536
+	tagOf             = map[reflect.Type]uint64{}
 	encMode           = newEncMode()
 	decMode           = newDecMode()
 	strictMode        = newStrictMode()
@@ -56,9 +58,13 @@ func RegisterType(rType reflect.Type) error {
 		return err
 	}
 	encMode, decMode = newEncMode(), newDecMode()
+	tagOf[rType] = tagNum
 	tagNum++
 	return nil
 }
+
+// RegisteredTypes returns every type RegisterType gave a tag, by the type.
+func RegisteredTypes() map[reflect.Type]uint64 { return maps.Clone(tagOf) }
 
 // Marshal returns encoding of param v
 func Marshal(v any) ([]byte, error) {
