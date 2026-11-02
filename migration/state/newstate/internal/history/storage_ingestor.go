@@ -62,8 +62,9 @@ func newStorageIngestor(
 //     eventually zeroed out and dropped from the trie).
 //
 // Both the deprecated history and the head trie are sorted by raw slot
-// bytes, so the ingestor walks them in lockstep — the head-trie iterator
-// advances when its leaf matches the slot just resolved or has no history left:
+// bytes, so the ingestor walks them in lockstep. Each entry is written once
+// the next one is read, since the next pre-value on the same slot is its
+// post-value; a slot's last entry takes its head leaf instead:
 //
 //	deprecated history       head trie         new history
 //	─────────────────────    ─────────────     ─────────────────────────
@@ -76,187 +77,165 @@ func newStorageIngestor(
 // Each nonzero slot gets an entry at the floor with its value there: the first
 // pre-value, or the head leaf when no history is left. Unpruned, it is always zero.
 // Deprecated rows are wiped with the whole bucket once the phase completes.
-//
-//nolint:gocyclo,funlen // one lockstep walk over the history and the head trie
 func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
 	addrFelt := (*felt.Felt)(&addr)
-	t := &i.Tasks[index]
-
 	addrBytes := addrFelt.Marshal()
-	deprecatedPrefix := db.DeprecatedContractStorageHistory.Key(addrBytes)
+	//nolint:staticcheck,nolintlint // old state layout
+	historyPrefix := db.DeprecatedContractStorageHistory.Key(addrBytes)
 
-	deprecatedHistoryIt, err := i.Database.NewIterator(deprecatedPrefix, true)
+	historyIt, err := i.Database.NewIterator(historyPrefix, true)
 	if err != nil {
 		return fmt.Errorf("storage: open deprecated iter(%s): %w", addrFelt, err)
 	}
-	defer deprecatedHistoryIt.Close()
+	defer historyIt.Close()
 
 	//nolint:staticcheck,nolintlint // old state layout
 	leafPrefix := db.DeprecatedContractStorage.Key(addrBytes)
 	leafPrefix = append(leafPrefix, deprecatedstate.ContractStorageTrieHeight)
 
-	headStorageTrieIt, err := i.Database.NewIterator(leafPrefix, true)
+	leafIt, err := i.Database.NewIterator(leafPrefix, true)
 	if err != nil {
 		return fmt.Errorf("storage: open leaf iter(%s): %w", addrFelt, err)
 	}
-	defer headStorageTrieIt.Close()
+	defer leafIt.Close()
 
-	// A rerun after the wipe must skip: head leaves at the floor would overwrite history.
-	// Leaves are written in slot order, so only a written last leaf means the contract is done.
-	hasHistory := deprecatedHistoryIt.First()
-	if !hasHistory && !headStorageTrieIt.Seek(dbutils.UpperBound(leafPrefix)) &&
-		headStorageTrieIt.Prev() {
-		lastSlot := felt.FromBytes[felt.Felt](headStorageTrieIt.Key()[len(leafPrefix):])
-		migrated, err := hasEntries(i.Database, db.ContractStorageHistoryKey(addrFelt, &lastSlot))
-		if err != nil || migrated {
-			return err
-		}
+	w := storageWalk{
+		storageIngestor: i,
+		t:               &i.Tasks[index],
+		outputs:         outputs,
+		addr:            addrFelt,
+		leaves:          leafIt,
+		leafPrefix:      leafPrefix,
 	}
-	leafValid := headStorageTrieIt.First()
-
-	// writeLeavesBefore writes leaves before slot (all when nil) at the floor: they have no history.
-	writeLeavesBefore := func(slot *felt.Felt) error {
-		var slotBytes []byte
-		if slot != nil {
-			slotBytes = slot.Marshal()
-		}
-		for leafValid {
-			leafKey := headStorageTrieIt.Key()[len(leafPrefix):]
-			if slot != nil && bytes.Compare(leafKey, slotBytes) >= 0 {
-				return nil
-			}
-			leafSlot := felt.FromBytes[felt.Felt](leafKey)
-			leafValue, err := decodeLeaf(headStorageTrieIt, addrFelt, &leafSlot)
-			if err != nil {
-				return err
-			}
-			if err := i.write(t, outputs, addrFelt, &leafSlot, i.floor, &leafValue); err != nil {
-				return err
-			}
-			leafValid = headStorageTrieIt.Next()
-		}
-		return nil
-	}
-
-	var prevSlot *felt.Felt
-	for hasHistory {
-		slot, block, err := parseStorageKey(deprecatedHistoryIt.Key(), deprecatedPrefix)
-		if err != nil {
-			return fmt.Errorf("storage: parse key(%s): %w", addrFelt, err)
-		}
-		if prevSlot == nil || *prevSlot != slot {
-			if err := writeLeavesBefore(&slot); err != nil {
-				return err
-			}
-			rawValue, err := deprecatedHistoryIt.Value()
-			if err != nil {
-				return fmt.Errorf("storage: read value(%s, slot=%s): %w", addrFelt, &slot, err)
-			}
-			if floorValue := felt.FromBytes[felt.Felt](rawValue); !floorValue.IsZero() {
-				if err := i.write(t, outputs, addrFelt, &slot, i.floor, &floorValue); err != nil {
-					return err
-				}
-			}
-			prevSlot = &slot
-		}
-
-		successorSlot, successorValue, hasNext, err := peekSuccessor(
-			deprecatedHistoryIt,
-			deprecatedPrefix,
-			addrFelt,
-		)
-		if err != nil {
-			return err
-		}
-
-		historyValue, advanced, err := resolveHistoryValue(
-			headStorageTrieIt,
-			leafPrefix,
-			addrFelt,
-			&slot,
-			hasNext,
-			successorSlot,
-			successorValue,
-			leafValid,
-		)
-		if err != nil {
-			return err
-		}
-		if advanced {
-			leafValid = headStorageTrieIt.Next()
-		}
-
-		if err := i.write(t, outputs, addrFelt, &slot, block, &historyValue); err != nil {
-			return err
-		}
-		hasHistory = hasNext
-	}
-	if err := writeLeavesBefore(nil); err != nil {
+	if err := w.run(historyIt, historyPrefix); err != nil {
 		return err
 	}
-
-	t.CompletedAddrs++
+	w.t.CompletedAddrs++
 	return nil
 }
 
-func (i *storageIngestor) write(
-	t *common.Task, outputs chan<- common.Task, addr, slot *felt.Felt, block uint64, value *felt.Felt,
-) error {
-	if err := state.WriteStorageHistory(t.Batch, addr, slot, block, value); err != nil {
+// storageWalk migrates one contract's storage.
+type storageWalk struct {
+	*storageIngestor
+	t          *common.Task
+	outputs    chan<- common.Task
+	addr       *felt.Felt
+	leaves     db.Iterator
+	leafPrefix []byte
+	leafValid  bool
+}
+
+func (w *storageWalk) run(history db.Iterator, prefix []byte) error {
+	hasHistory := history.First()
+	if !hasHistory {
+		if migrated, err := w.migrated(); err != nil || migrated {
+			return err
+		}
+	}
+	w.leafValid = w.leaves.First()
+
+	var slot *felt.Felt
+	var block uint64
+	for valid := hasHistory; valid; valid = history.Next() {
+		nextSlot, nextBlock, err := parseStorageKey(history.Key(), prefix)
+		if err != nil {
+			return fmt.Errorf("storage: parse key(%s): %w", w.addr, err)
+		}
+		rawValue, err := history.Value()
+		if err != nil {
+			return fmt.Errorf("storage: read value(%s, slot=%s): %w", w.addr, &nextSlot, err)
+		}
+		valueBefore := felt.FromBytes[felt.Felt](rawValue)
+
+		if slot != nil && *slot == nextSlot {
+			if err := w.write(slot, block, &valueBefore); err != nil {
+				return err
+			}
+		} else {
+			if err := w.endSlot(slot, block); err != nil {
+				return err
+			}
+			if err := w.startSlot(&nextSlot, &valueBefore); err != nil {
+				return err
+			}
+		}
+		slot, block = &nextSlot, nextBlock
+	}
+	if err := w.endSlot(slot, block); err != nil {
 		return err
 	}
-	t.EntryCount++
-	return i.Flush(t, outputs)
+	return w.writeLeavesBefore(nil)
 }
 
-// peekSuccessor advances the deprecated-history iterator. If a next entry
-// exists, returns its (slot, value, true); otherwise returns (_, _, false).
-func peekSuccessor(
-	it db.Iterator,
-	prefix []byte,
-	addr *felt.Felt,
-) (felt.Felt, felt.Felt, bool, error) {
-	if !it.Next() {
-		return felt.Felt{}, felt.Felt{}, false, nil
+// migrated reports a rerun after the wipe, which must skip: head leaves at the floor would
+// overwrite history. Leaves are written in slot order, so only a written last leaf means done.
+func (w *storageWalk) migrated() (bool, error) {
+	if w.leaves.Seek(dbutils.UpperBound(w.leafPrefix)) || !w.leaves.Prev() {
+		return false, nil
 	}
-	slot, _, err := parseStorageKey(it.Key(), prefix)
-	if err != nil {
-		return felt.Felt{}, felt.Felt{}, false, fmt.Errorf(
-			"storage: parse successor key(%s): %w", addr, err,
-		)
-	}
-	rawValue, err := it.Value()
-	if err != nil {
-		return felt.Felt{}, felt.Felt{}, false, fmt.Errorf(
-			"storage: read successor value(%s, slot=%s): %w", addr, &slot, err,
-		)
-	}
-	return slot, felt.FromBytes[felt.Felt](rawValue), true, nil
+	lastSlot := felt.FromBytes[felt.Felt](w.leafSlot())
+	return hasEntries(w.Database, db.ContractStorageHistoryKey(w.addr, &lastSlot))
 }
 
-// resolveHistoryValue decides the value to install at the current entry: the
-// successor's value when both are on the same slot, otherwise the head-trie
-// leaf (when the iterator is positioned on this slot), otherwise zero. Returns
-// advanced=true when the head-trie iterator should be advanced by the caller.
-func resolveHistoryValue(
-	headIt db.Iterator,
-	leafPrefix []byte,
-	addr, slot *felt.Felt,
-	hasSuccessor bool,
-	successorSlot, successorValue felt.Felt,
-	leafValid bool,
-) (value felt.Felt, advanced bool, err error) {
-	if hasSuccessor && successorSlot == *slot {
-		return successorValue, false, nil
+// startSlot writes the leaves before nextSlot at the floor, then nextSlot's value at the floor.
+func (w *storageWalk) startSlot(nextSlot, floorValue *felt.Felt) error {
+	if err := w.writeLeavesBefore(nextSlot); err != nil {
+		return err
 	}
-	if !leafValid {
-		return felt.Felt{}, false, nil
+	if floorValue.IsZero() {
+		return nil
 	}
-	if !bytes.Equal(headIt.Key()[len(leafPrefix):], slot.Marshal()) {
-		return felt.Felt{}, false, nil
+	return w.write(nextSlot, w.floor, floorValue)
+}
+
+// endSlot writes the slot's last entry: its head leaf, or zero when it has none.
+func (w *storageWalk) endSlot(slot *felt.Felt, block uint64) error {
+	if slot == nil {
+		return nil
 	}
-	value, err = decodeLeaf(headIt, addr, slot)
-	return value, err == nil, err
+	var head felt.Felt
+	if w.leafValid && bytes.Equal(w.leafSlot(), slot.Marshal()) {
+		var err error
+		if head, err = decodeLeaf(w.leaves, w.addr, slot); err != nil {
+			return err
+		}
+		w.leafValid = w.leaves.Next()
+	}
+	return w.write(slot, block, &head)
+}
+
+// writeLeavesBefore writes leaves below slot (all if nil) at the floor: those slots never changed.
+func (w *storageWalk) writeLeavesBefore(slot *felt.Felt) error {
+	var slotBytes []byte
+	if slot != nil {
+		slotBytes = slot.Marshal()
+	}
+	for ; w.leafValid; w.leafValid = w.leaves.Next() {
+		if slot != nil && bytes.Compare(w.leafSlot(), slotBytes) >= 0 {
+			return nil
+		}
+		leafSlot := felt.FromBytes[felt.Felt](w.leafSlot())
+		leafValue, err := decodeLeaf(w.leaves, w.addr, &leafSlot)
+		if err != nil {
+			return err
+		}
+		if err := w.write(&leafSlot, w.floor, &leafValue); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *storageWalk) leafSlot() []byte {
+	return w.leaves.Key()[len(w.leafPrefix):]
+}
+
+func (w *storageWalk) write(slot *felt.Felt, block uint64, value *felt.Felt) error {
+	if err := state.WriteStorageHistory(w.t.Batch, w.addr, slot, block, value); err != nil {
+		return err
+	}
+	w.t.EntryCount++
+	return w.Flush(w.t, w.outputs)
 }
 
 // decodeLeaf returns the value of the head-trie leaf it is on.
