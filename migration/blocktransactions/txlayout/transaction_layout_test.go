@@ -152,7 +152,11 @@ func runTestTransactionLayout(
 		t.Run("BlockByNumber", func(t *testing.T) {
 			// First, write all block headers
 			for blockNum := range chainHeight {
-				require.NoError(t, core.WriteBlockHeaderByNumber(database, headers[blockNum]))
+				require.NoError(t, core.BlockHeadersByNumberBucket.Put(
+					database,
+					headers[blockNum].Number,
+					headers[blockNum],
+				))
 			}
 
 			// Now test BlockByNumber for all blocks

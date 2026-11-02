@@ -136,7 +136,7 @@ func (s *StateReader) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, err
 func (s *StateReader) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.db.disk, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
@@ -146,7 +146,7 @@ func (s *StateReader) CompiledClassHash(
 func (s *StateReader) CompiledClassHashV2(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.db.disk, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}
@@ -259,7 +259,7 @@ func (s *StateReader) CompiledClassHashAt(
 	classHash *felt.SierraClassHash,
 	blockNumber uint64,
 ) (felt.CasmClassHash, error) {
-	metadata, err := core.GetClassCasmHashMetadata(s.db.disk, classHash)
+	metadata, err := core.ClassCasmHashMetadataBucket.Get(s.db.disk, classHash)
 	if err != nil {
 		return felt.CasmClassHash{}, err
 	}

@@ -22,7 +22,7 @@ func (b *deprecatedStateBackend) HeadState() (core.StateReader, StateCloser, err
 
 	// Fail early if no block has been committed (no head state to open)
 	// only the key's existence matters, not the height itself.
-	if _, err := core.GetChainHeight(txn); err != nil {
+	if _, err := core.ChainHeightBucket.Get(txn, struct{}{}); err != nil {
 		return nil, nil, errors.Join(err, txn.Close())
 	}
 
@@ -82,7 +82,7 @@ func (b *deprecatedStateBackend) TrieStateAtBlockNumber(
 
 	//nolint:staticcheck,nolintlint // used by old state
 	txn := b.database.NewIndexedBatch()
-	height, err := core.GetChainHeight(txn)
+	height, err := core.ChainHeightBucket.Get(txn, struct{}{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -135,26 +135,26 @@ func (b *deprecatedStateBackend) Store(
 func (b *deprecatedStateBackend) RevertHead() error {
 	//nolint:staticcheck,nolintlint // used by old state
 	return b.database.Update(func(txn db.IndexedBatch) error {
-		blockNumber, err := core.GetChainHeight(txn)
+		blockNumber, err := core.ChainHeightBucket.Get(txn, struct{}{})
 		if err != nil {
 			return err
 		}
 
-		stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNumber)
+		stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(txn, blockNumber)
 		if err != nil {
 			return err
 		}
 
-		header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+		header, err := core.BlockHeadersByNumberBucket.Get(txn, blockNumber)
 		if err != nil {
 			return err
 		}
 
-		if err = deprecatedstate.New(txn).Revert(header, stateUpdate); err != nil {
+		if err = deprecatedstate.New(txn).Revert(&header, &stateUpdate); err != nil {
 			return err
 		}
 
-		if err := deleteBlockContent(txn, txn, stateUpdate, blockNumber); err != nil {
+		if err := deleteBlockContent(txn, txn, &stateUpdate, blockNumber); err != nil {
 			return err
 		}
 
@@ -167,12 +167,12 @@ func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
 	txn := b.database.NewIndexedBatch()
 	defer txn.Close()
 
-	blockNum, err := core.GetChainHeight(txn)
+	blockNum, err := core.ChainHeightBucket.Get(txn, struct{}{})
 	if err != nil {
 		return core.StateDiff{}, err
 	}
 
-	stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNum)
+	stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(txn, blockNum)
 	if err != nil {
 		return core.StateDiff{}, err
 	}

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/binary"
 	"fmt"
 	"iter"
 
@@ -21,10 +20,6 @@ State-related accessors
 
 **/
 
-func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
-	return r.Has(db.ClassKey(classHash))
-}
-
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
 	var class *DeclaredClassDefinition
 
@@ -42,44 +37,18 @@ func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassD
 	return w.Put(db.ClassKey(classHash), data)
 }
 
-func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
-	return w.Delete(db.ClassKey(classHash))
-}
-
-func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdate, error) {
-	var stateUpdate *StateUpdate
-	err := r.Get(db.StateUpdateByBlockNumKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &stateUpdate)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return stateUpdate, nil
-}
-
-func WriteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64, stateUpdate *StateUpdate) error {
-	data, err := cbor.Marshal(stateUpdate)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.StateUpdateByBlockNumKey(blockNum), data)
-}
-
-func DeleteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64) error {
-	return w.Delete(db.StateUpdateByBlockNumKey(blockNum))
-}
-
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, error) {
-	var blockNum uint64
-	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
-		blockNum = binary.BigEndian.Uint64(data)
-		return nil
-	})
+	blockNum, err := BlockHeaderNumbersByHashBucket.Get(r, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	return GetStateUpdateByBlockNum(r, blockNum)
+	stateUpdate, err := StateUpdatesByBlockNumberBucket.Get(r, blockNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stateUpdate, nil
 }
 
 /**
@@ -92,72 +61,6 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
  ██████ ██   ██ ██   ██ ██ ██   ████
 
  **/
-
-func GetL1Head(r db.KeyValueReader) (L1Head, error) {
-	var l1Head L1Head
-	err := r.Get(db.L1Height.Key(), func(data []byte) error {
-		return cbor.Unmarshal(data, &l1Head)
-	})
-	return l1Head, err
-}
-
-func WriteL1Head(w db.KeyValueWriter, l1Head *L1Head) error {
-	data, err := cbor.Marshal(l1Head)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.L1Height.Key(), data)
-}
-
-func WriteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt, number uint64) error {
-	enc := MarshalBlockNumber(number)
-	return w.Put(db.BlockHeaderNumbersByHashKey(hash), enc)
-}
-
-func GetBlockHeaderNumberByHash(r db.KeyValueReader, hash *felt.Felt) (uint64, error) {
-	var number uint64
-	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
-		number = binary.BigEndian.Uint64(data)
-		return nil
-	})
-	return number, err
-}
-
-func DeleteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt) error {
-	return w.Delete(db.BlockHeaderNumbersByHashKey(hash))
-}
-
-func WriteBlockHeaderByNumber(w db.KeyValueWriter, header *Header) error {
-	data, err := cbor.Marshal(header)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.BlockHeaderByNumberKey(header.Number), data)
-}
-
-func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
-	return w.Delete(db.BlockHeaderByNumberKey(number))
-}
-
-func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*BlockCommitments, error) {
-	var commitment *BlockCommitments
-	err := r.Get(db.BlockCommitmentsKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &commitment)
-	})
-	return commitment, err
-}
-
-func WriteBlockCommitment(w db.KeyValueWriter, blockNum uint64, commitment *BlockCommitments) error {
-	data, err := cbor.Marshal(commitment)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.BlockCommitmentsKey(blockNum), data)
-}
-
-func DeleteBlockCommitment(w db.KeyValueWriter, blockNum uint64) error {
-	return w.Delete(db.BlockCommitmentsKey(blockNum))
-}
 
 func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Felt, error) {
 	var l1HandlerTxnHash felt.Felt
@@ -190,31 +93,6 @@ func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 		}
 	}
 	return nil
-}
-
-func GetChainHeight(r db.KeyValueReader) (uint64, error) {
-	var height uint64
-	err := r.Get(db.ChainHeight.Key(), func(data []byte) error {
-		height = binary.BigEndian.Uint64(data)
-		return nil
-	})
-	return height, err
-}
-
-func WriteChainHeight(w db.KeyValueWriter, height uint64) error {
-	return w.Put(db.ChainHeight.Key(), MarshalBlockNumber(height))
-}
-
-func DeleteChainHeight(w db.KeyValueWriter) error {
-	return w.Delete(db.ChainHeight.Key())
-}
-
-func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*Header, error) {
-	var header *Header
-	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
-	})
-	return header, err
 }
 
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
@@ -297,24 +175,25 @@ func GetBlockHeaderHashAndStateRootByNumber(
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*Header, error) {
-	var blockNum uint64
-	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
-		blockNum = binary.BigEndian.Uint64(data)
-		return nil
-	})
+	blockNum, err := BlockHeaderNumbersByHashBucket.Get(r, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	return GetBlockHeaderByNumber(r, blockNum)
+	header, err := BlockHeadersByNumberBucket.Get(r, blockNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &header, nil
 }
 
 func WriteBlockHeader(w db.KeyValueWriter, header *Header) error {
-	if err := WriteBlockHeaderNumberByHash(w, header.Hash, header.Number); err != nil {
+	if err := BlockHeaderNumbersByHashBucket.Put(w, header.Hash, &header.Number); err != nil {
 		return err
 	}
 
-	return WriteBlockHeaderByNumber(w, header)
+	return BlockHeadersByNumberBucket.Put(w, header.Number, header)
 }
 
 // GetTransactionsByBlockNumber returns all transactions in a given block
@@ -445,7 +324,7 @@ func GetTransactionExecutionStatusByBlockAndIndex(
 
 // GetBlockByNumber returns a full block by number
 func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
-	header, err := GetBlockHeaderByNumber(r, blockNumber)
+	header, err := BlockHeadersByNumberBucket.Get(r, blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +335,7 @@ func GetBlockByNumber(r db.KeyValueReader, blockNumber uint64) (*Block, error) {
 	}
 
 	return &Block{
-		Header:       header,
+		Header:       &header,
 		Transactions: txs,
 		Receipts:     receipts,
 	}, nil
@@ -516,19 +395,6 @@ func DeleteTransactionsAndReceipts(
 	return BlockTransactionsBucket.Delete(writer, blockNumber)
 }
 
-func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
-	var filter AggregatedBloomFilter
-	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
-		err := cbor.Unmarshal(data, &filter)
-		return err
-	})
-	if err != nil {
-		return AggregatedBloomFilter{}, err
-	}
-
-	return filter, nil
-}
-
 func GetAggregatedBloomFilterView(
 	r db.KeyValueReader,
 	fromBlock, toBlock uint64,
@@ -542,18 +408,6 @@ func GetAggregatedBloomFilterView(
 	}
 
 	return view, nil
-}
-
-func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
-	enc, err := cbor.Marshal(filter)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.AggregatedBloomFilterKey(filter.FromBlock(), filter.ToBlock()), enc)
-}
-
-func DeleteAggregatedBloomFilter(w db.KeyValueWriter, fromBlock, toBlock uint64) error {
-	return w.Delete(db.AggregatedBloomFilterKey(fromBlock, toBlock))
 }
 
 func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
@@ -576,33 +430,4 @@ func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) er
 	}
 
 	return w.Put(db.RunningEventFilter.Key(), enc)
-}
-
-func GetClassCasmHashMetadata(
-	r db.KeyValueReader,
-	classHash *felt.SierraClassHash,
-) (ClassCasmHashMetadata, error) {
-	return ClassCasmHashMetadataBucket.Get(r, classHash)
-}
-
-func WriteClassCasmHashMetadata(
-	w db.KeyValueWriter,
-	classHash *felt.SierraClassHash,
-	metadata *ClassCasmHashMetadata,
-) error {
-	return ClassCasmHashMetadataBucket.Put(
-		w,
-		classHash,
-		metadata,
-	)
-}
-
-func DeleteClassCasmHashMetadata(
-	w db.KeyValueWriter,
-	classHash *felt.SierraClassHash,
-) error {
-	return ClassCasmHashMetadataBucket.Delete(
-		w,
-		classHash,
-	)
 }

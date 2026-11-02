@@ -53,7 +53,7 @@ func writeLegacyHeader(t *testing.T, database db.KeyValueStore, n uint64) {
 	data, err := cbor.Marshal(legacy)
 	require.NoError(t, err)
 	require.NoError(t, database.Put(db.BlockHeaderByNumberKey(n), data))
-	require.NoError(t, core.WriteBlockCommitment(database, n, &core.BlockCommitments{}))
+	require.NoError(t, core.BlockCommitmentsBucket.Put(database, n, &core.BlockCommitments{}))
 }
 
 func decodeLegacyHeader(t *testing.T, database db.KeyValueReader, n uint64) *deprecatedBlockHeader {
@@ -81,7 +81,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		for n := uint64(0); n <= height; n++ {
 			writeLegacyHeader(t, database, n)
 		}
-		require.NoError(t, core.WriteChainHeight(database, height))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(height)))
 
 		state, err := (&Migrator{}).Migrate(
 			t.Context(), database, &networks.Sepolia, log.NewNopZapLogger(),
@@ -99,7 +99,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 	t.Run("re-running is idempotent", func(t *testing.T) {
 		database := memory.New()
 		writeLegacyHeader(t, database, 0)
-		require.NoError(t, core.WriteChainHeight(database, 0))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(0))))
 
 		for range 2 {
 			_, err := (&Migrator{}).Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
@@ -118,7 +118,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		for n := uint64(0); n <= height; n++ {
 			writeLegacyHeader(t, database, n)
 		}
-		require.NoError(t, core.WriteChainHeight(database, height))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(height)))
 
 		migrator := &Migrator{}
 		require.NoError(t, migrator.Before(encodeIntermediateState(resumeAt)))
@@ -143,7 +143,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		for _, n := range []uint64{0, 1, 2, 4, 5} {
 			writeLegacyHeader(t, database, n)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 5))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(5))))
 
 		_, err := (&Migrator{}).Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
 		require.ErrorContains(t, err, "missing block header 3")
@@ -154,7 +154,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		for n := range uint64(3) {
 			writeLegacyHeader(t, database, n)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 5))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(5))))
 
 		_, err := (&Migrator{}).Migrate(t.Context(), database, &networks.Sepolia, log.NewNopZapLogger())
 		require.ErrorContains(t, err, "missing block header 3")
@@ -170,7 +170,7 @@ func TestBlockEventsBloomMigration(t *testing.T) {
 		for n := uint64(5); n <= height; n++ {
 			writeLegacyHeader(t, database, n)
 		}
-		require.NoError(t, core.WriteChainHeight(database, height))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(height)))
 
 		state, err := (&Migrator{}).Migrate(
 			t.Context(), database, &networks.Sepolia, log.NewNopZapLogger(),

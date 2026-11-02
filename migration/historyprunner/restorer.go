@@ -48,7 +48,7 @@ func (r *restorer) Run(index int, blockNumber uint64, outputs chan<- db.Batch) e
 	}
 
 	batch := r.batches[index]
-	if err := core.WriteBlockHeaderNumberByHash(batch, blockHash, blockNumber); err != nil {
+	if err := core.BlockHeaderNumbersByHashBucket.Put(batch, blockHash, &blockNumber); err != nil {
 		return err
 	}
 

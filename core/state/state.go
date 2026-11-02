@@ -202,7 +202,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 
 	// Revert migrated class metadata: restore V1 casm hash in trie
 	for classHash := range update.StateDiff.MigratedClasses {
-		metadata, err := core.GetClassCasmHashMetadata(s.db.disk, &classHash)
+		metadata, err := core.ClassCasmHashMetadataBucket.Get(s.db.disk, &classHash)
 		if err != nil {
 			return fmt.Errorf("get casm metadata for class %s: %w", classHash.String(), err)
 		}

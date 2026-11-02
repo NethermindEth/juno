@@ -17,7 +17,7 @@ type stateBackend struct {
 }
 
 func (b *stateBackend) HeadState() (core.StateReader, StateCloser, error) {
-	height, err := core.GetChainHeight(b.database)
+	height, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -65,7 +65,7 @@ func (b *stateBackend) StateAtBlockHash(
 		return st, NoopStateCloser, nil
 	}
 
-	blockNumber, err := core.GetBlockHeaderNumberByHash(b.database, blockHash)
+	blockNumber, err := core.BlockHeaderNumbersByHashBucket.Get(b.database, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,17 +138,17 @@ func (b *stateBackend) Store(
 
 func (b *stateBackend) RevertHead() error {
 	return b.database.Write(func(batch db.Batch) error {
-		blockNumber, err := core.GetChainHeight(b.database)
+		blockNumber, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 		if err != nil {
 			return err
 		}
 
-		stateUpdate, err := core.GetStateUpdateByBlockNum(b.database, blockNumber)
+		stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(b.database, blockNumber)
 		if err != nil {
 			return err
 		}
 
-		header, err := core.GetBlockHeaderByNumber(b.database, blockNumber)
+		header, err := core.BlockHeadersByNumberBucket.Get(b.database, blockNumber)
 		if err != nil {
 			return err
 		}
@@ -158,11 +158,11 @@ func (b *stateBackend) RevertHead() error {
 			return err
 		}
 
-		if err = st.Revert(header, stateUpdate); err != nil {
+		if err = st.Revert(&header, &stateUpdate); err != nil {
 			return err
 		}
 
-		if err := deleteBlockContent(b.database, batch, stateUpdate, blockNumber); err != nil {
+		if err := deleteBlockContent(b.database, batch, &stateUpdate, blockNumber); err != nil {
 			return err
 		}
 
@@ -171,11 +171,11 @@ func (b *stateBackend) RevertHead() error {
 }
 
 func (b *stateBackend) GetReverseStateDiff() (core.StateDiff, error) {
-	blockNum, err := core.GetChainHeight(b.database)
+	blockNum, err := core.ChainHeightBucket.Get(b.database, struct{}{})
 	if err != nil {
 		return core.StateDiff{}, err
 	}
-	stateUpdate, err := core.GetStateUpdateByBlockNum(b.database, blockNum)
+	stateUpdate, err := core.StateUpdatesByBlockNumberBucket.Get(b.database, blockNum)
 	if err != nil {
 		return core.StateDiff{}, err
 	}

@@ -121,7 +121,7 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		for i := range uint64(5) {
 			blocks[i] = testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 4))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(4))))
 
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		for i := uint64(5); i <= 7; i++ {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 7))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(7))))
 
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestRequireStateRetainedByBlockNumber(t *testing.T) {
 		for i := range uint64(5) {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 4))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(4))))
 
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestRetentionFloorSeed(t *testing.T) {
 		for i := range uint64(10) {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 9))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(9))))
 
 		floor, err := pruner.NewRetentionFloor(database)
 		require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestRetentionFloorSeed(t *testing.T) {
 		for i := range uint64(3) {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 2))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(2))))
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 0))
 	})
 }
@@ -208,7 +208,7 @@ func TestNewRetentionFloor(t *testing.T) {
 		for i := range uint64(3) {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 2))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(2))))
 
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 0))
 		require.NoError(t, pruner.RequireStateRetainedByBlockNumber(database, floor, 2))

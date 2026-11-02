@@ -15,7 +15,7 @@ var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match h
 // headNumberAndHash returns the chain head's number and hash without decoding
 // the heavier header fields.
 func headNumberAndHash(reader db.KeyValueReader) (uint64, *felt.Felt, error) {
-	height, err := core.GetChainHeight(reader)
+	height, err := core.ChainHeightBucket.Get(reader, struct{}{})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -136,11 +136,11 @@ func writeBlockContent(
 		return err
 	}
 
-	if err := core.WriteStateUpdateByBlockNum(writer, block.Number, stateUpdate); err != nil {
+	if err := core.StateUpdatesByBlockNumberBucket.Put(writer, block.Number, stateUpdate); err != nil {
 		return err
 	}
 
-	if err := core.WriteBlockCommitment(writer, block.Number, commitments); err != nil {
+	if err := core.BlockCommitmentsBucket.Put(writer, block.Number, commitments); err != nil {
 		return err
 	}
 
@@ -154,7 +154,7 @@ func writeBlockContent(
 		return err
 	}
 
-	return core.WriteChainHeight(writer, block.Number)
+	return core.ChainHeightBucket.Put(writer, struct{}{}, &block.Number)
 }
 
 // deleteBlockContent removes all data for a block:
@@ -191,13 +191,13 @@ func deleteBlockContent(
 		return err
 	}
 
-	if err := core.DeleteStateUpdateByBlockNum(writer, blockNumber); err != nil {
+	if err := core.StateUpdatesByBlockNumberBucket.Delete(writer, blockNumber); err != nil {
 		return err
 	}
 
 	if genesisBlock {
-		return core.DeleteChainHeight(writer)
+		return core.ChainHeightBucket.Delete(writer, struct{}{})
 	}
 
-	return core.WriteChainHeight(writer, blockNumber-1)
+	return core.ChainHeightBucket.Put(writer, struct{}{}, new(blockNumber-1))
 }

@@ -181,7 +181,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 					Number: i,
 					Hash:   felt.NewRandom[felt.Felt](),
 				}
-				require.NoError(t, core.WriteBlockHeaderByNumber(batch, header))
+				require.NoError(t, core.BlockHeadersByNumberBucket.Put(batch, header.Number, header))
 				writeBlockEventFrom(t, batch, i, eventFrom)
 				if batch.Size() >= targetBatchByteSize {
 					require.NoError(t, batch.Write())
@@ -189,7 +189,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 				}
 			}
 			require.NoError(t, batch.Write())
-			require.NoError(t, core.WriteChainHeight(testDB, latest))
+			require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, &latest))
 
 			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 			fromBlock, err := rf.FromBlock()
@@ -211,7 +211,10 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 					"block %d (second window) not filled", i)
 			}
 			// First window persisted on rotation: every position [0, N-1] hit.
-			stored, err := core.GetAggregatedBloomFilter(testDB, 0, core.MaxBlockOffsetPerFilter)
+			stored, err := core.AggregatedBloomFiltersBucket.Get(
+				testDB,
+				db.AggregatedBloomFilterRangeKey{FromBlock: 0, ToBlock: core.MaxBlockOffsetPerFilter},
+			)
 			require.NoError(t, err)
 			storedMatches := stored.BlocksForKeys(headerKeys)
 			for i := range core.NumBlocksPerFilter {
@@ -226,12 +229,12 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 	// Regression for the deterministic failure at block k*NumBlocksPerFilter-1.
 	// statebackend used to commit chain height in one batch and then call
 	// runningFilter.Insert separately. On the first call after restart at a
-	// boundary, ensureInit's GetChainHeight saw the just-committed boundary
+	// boundary, ensureInit's chain-height read saw the just-committed boundary
 	// block, fillRunningEventFilter consumed it and rotated the inner window,
 	// and the outer Insert then tried to add the same block to the new
 	// (empty) window — "block X doesn't belong to range [X+1, Y]". The fix
 	// wires the insert into the same batch as the chain-height update, so
-	// GetChainHeight reads the pre-batch value during ensureInit.
+	// the chain-height read sees the pre-batch value during ensureInit.
 
 	boundary := core.NumBlocksPerFilter - 1
 	eventFrom := felt.NewRandom[felt.Felt]()
@@ -242,7 +245,7 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 		t.Helper()
 		testDB := memory.New()
 		// Snapshot caught up through block boundary-1 (next = boundary), so
-		// when GetChainHeight catches up to the boundary the initializer
+		// when the chain-height read catches up to the boundary the initializer
 		// takes the same-window-resume branch and fills exactly one block —
 		// the boundary block — which is what tipped the fill over the edge.
 		storedFilter := core.NewAggregatedFilter(0)
@@ -258,13 +261,13 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 	t.Run("non-batched Insert on lazy filter fails at the boundary", func(t *testing.T) {
 		// Documents why InsertWithBatch is the only safe entry point for
 		// lazy filters during block ingestion. When chain height has been
-		// committed before Insert, ensureInit's GetChainHeight sees the
+		// committed before Insert, ensureInit's chain-height read sees the
 		// boundary block, fill rotates the inner window, and the outer
 		// insert then can't place the same block in the rolled-over range.
 		testDB, header, headerBloom := setup(t)
-		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
 		writeBlockEventFrom(t, testDB, boundary, eventFrom)
-		require.NoError(t, core.WriteChainHeight(testDB, boundary))
+		require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, &boundary))
 
 		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 		err := rf.Insert(headerBloom, boundary)
@@ -276,14 +279,14 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 		"fix: header and chain height buffered in same batch as InsertWithBatch",
 		func(t *testing.T) {
 			testDB, header, headerBloom := setup(t)
-			require.NoError(t, core.WriteChainHeight(testDB, boundary-1))
+			require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(boundary-1)))
 
 			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 			require.NoError(t, testDB.Write(func(batch db.Batch) error {
-				if err := core.WriteBlockHeaderByNumber(batch, header); err != nil {
+				if err := core.BlockHeadersByNumberBucket.Put(batch, header.Number, header); err != nil {
 					return err
 				}
-				if err := core.WriteChainHeight(batch, boundary); err != nil {
+				if err := core.ChainHeightBucket.Put(batch, struct{}{}, &boundary); err != nil {
 					return err
 				}
 				return rf.InsertWithBatch(batch, headerBloom, boundary)
@@ -299,7 +302,10 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 2*core.NumBlocksPerFilter-1, toBlock)
 
-			stored, err := core.GetAggregatedBloomFilter(testDB, 0, boundary)
+			stored, err := core.AggregatedBloomFiltersBucket.Get(
+				testDB,
+				db.AggregatedBloomFilterRangeKey{FromBlock: 0, ToBlock: boundary},
+			)
 			require.NoError(t, err)
 			require.True(t, stored.BlocksForKeys(headerKeys).Test(uint(boundary)),
 				"completed window persisted via the batch with boundary bit set")
@@ -334,7 +340,11 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 		for i := uint64(0); i <= boundary; i++ {
 			require.NoError(t, prevWindow.Insert(testBloomWithKeys(t, headerKeys), i))
 		}
-		require.NoError(t, core.WriteAggregatedBloomFilter(testDB, &prevWindow))
+		require.NoError(t, core.AggregatedBloomFiltersBucket.Put(
+			testDB,
+			prevWindow.RangeKey(),
+			&prevWindow,
+		))
 
 		// Stored running filter snapshot: caught up through `boundary`,
 		// inner is the fresh empty next window. boundary+1 is the block
@@ -354,10 +364,10 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 		"non-batched OnReorg on lazy filter silently over-clears at the boundary",
 		func(t *testing.T) {
 			testDB, header, _ := setup(t)
-			require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+			require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
 			// Post-revert chain height already committed — pre-fix would commit
 			// this in a batch and then call OnReorg separately.
-			require.NoError(t, core.WriteChainHeight(testDB, boundary))
+			require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, &boundary))
 
 			rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 			require.NoError(t, rf.OnReorg())
@@ -385,18 +395,18 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 
 	t.Run("fix: OnReorgWithBatch inside writeFn preserves on-chain block bits", func(t *testing.T) {
 		testDB, header, _ := setup(t)
-		require.NoError(t, core.WriteBlockHeaderByNumber(testDB, header))
+		require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
 		writeBlockEventFrom(t, testDB, header.Number, eventFrom)
-		require.NoError(t, core.WriteChainHeight(testDB, boundary+1))
+		require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(boundary+1)))
 
 		rf := core.NewRunningEventFilterLazy(testDB, core.InitializeRunningEventFilter)
 		require.NoError(t, testDB.Write(func(batch db.Batch) error {
 			// Mirror statebackend.RevertHead: delete reverted block's header,
 			// revert chain height, OnReorgWithBatch — all in one batch.
-			if err := core.DeleteBlockHeaderByNumber(batch, header.Number); err != nil {
+			if err := core.BlockHeadersByNumberBucket.Delete(batch, header.Number); err != nil {
 				return err
 			}
-			if err := core.WriteChainHeight(batch, boundary); err != nil {
+			if err := core.ChainHeightBucket.Put(batch, struct{}{}, &boundary); err != nil {
 				return err
 			}
 			return rf.OnReorgWithBatch(batch)
@@ -418,7 +428,10 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 			"reverted block's bit (relative position 0) must be cleared")
 
 		// Previous window on disk is untouched.
-		stored, err := core.GetAggregatedBloomFilter(testDB, 0, boundary)
+		stored, err := core.AggregatedBloomFiltersBucket.Get(
+			testDB,
+			db.AggregatedBloomFilterRangeKey{FromBlock: 0, ToBlock: boundary},
+		)
 		require.NoError(t, err)
 		require.True(t, stored.BlocksForKeys(headerKeys).Test(uint(boundary)),
 			"previous window's boundary block bit must remain on disk")
@@ -437,7 +450,7 @@ func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filter.ToBlock()+1, fromBlock)
 
-	fetchedFilter, err := core.GetAggregatedBloomFilter(testDB, filter.FromBlock(), filter.ToBlock())
+	fetchedFilter, err := core.AggregatedBloomFiltersBucket.Get(testDB, filter.RangeKey())
 	require.NoError(t, err)
 	require.Equal(t, filter, fetchedFilter)
 }

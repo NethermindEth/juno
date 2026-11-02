@@ -302,7 +302,7 @@ func FindOldestBlockAtOrAfter(
 
 // sampleHeight (re)computes the wallclock floor
 func (p *Pruner) sampleHeight() error {
-	height, err := core.GetChainHeight(p.database)
+	height, err := core.ChainHeightBucket.Get(p.database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
@@ -353,7 +353,7 @@ func (p *Pruner) applyTimeFloor(standardFloor uint64) uint64 {
 }
 
 func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
-	l1Head, err := core.GetL1Head(p.database)
+	l1Head, err := core.L1HeightBucket.Get(p.database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			// No L1 head yet — can't anchor the retention floor.
@@ -384,7 +384,7 @@ func (p *Pruner) onNewBlock(ctx context.Context, block *core.Block) error {
 }
 
 func (p *Pruner) onNewL1Head(ctx context.Context, l1Head *core.L1Head) error {
-	chainHeight, err := core.GetChainHeight(p.database)
+	chainHeight, err := core.ChainHeightBucket.Get(p.database, struct{}{})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			// No chain height yet — nothing to prune against.

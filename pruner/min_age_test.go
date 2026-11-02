@@ -44,7 +44,7 @@ func testMinAgeFloorTickRefresh(t *testing.T) {
 		for i := range initialBlocks {
 			testutils.StoreBlockWithTimestamp(t, database, i, 1)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 9))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(9))))
 
 		const tickInterval = 50 * time.Millisecond
 		sp := startPrunerService(t, database, retention,
@@ -59,7 +59,7 @@ func testMinAgeFloorTickRefresh(t *testing.T) {
 		for i := uint64(10); i < totalBlocks; i++ {
 			testutils.StoreBlockWithTimestamp(t, database, i, now)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks-1)))
 
 		// Advance past one tick — sampleHeight reruns the binary
 		// search over [previousFloor=9, newHead=29] and finds block
@@ -97,7 +97,7 @@ func testMinAgeFloorInitSeed(t *testing.T) {
 			}
 			testutils.StoreBlockWithTimestamp(t, database, i, ts)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks-1)))
 
 		sp := startPrunerService(t, database, retention, pruner.WithMinAge(testMinAge))
 		synctest.Wait()
@@ -123,7 +123,7 @@ func testMinAgeFloorInitAllAncient(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlockWithTimestamp(t, database, i, 1) // all ancient
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks-1)))
 
 		sp := startPrunerService(t, database, retention, pruner.WithMinAge(testMinAge))
 		synctest.Wait()
@@ -144,14 +144,14 @@ func testMinAgeFloorL1Binds(t *testing.T) {
 			testutils.StoreBlock(t, database, i)
 		}
 		// chainHeight=5 at startup → init sample caches 5.
-		require.NoError(t, core.WriteChainHeight(database, 5))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(5))))
 
 		sp := startPrunerService(t, database, retention, pruner.WithMinAge(testMinAge))
 		synctest.Wait()
 
 		// chainHeight bumped to 30; the ticker hasn't fired yet,
 		// so cached height stays at 5.
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 		ev := sp.sendL1AndAwait(t, 25)
 		// L1=25, retention=10 → standardFloor=15. Cache=5 < 15 → bind at 5.
 		assert.Equal(t, uint64(5), ev.oldest, "floor must clamp to cached height (5)")
@@ -170,7 +170,7 @@ func testMinAgeFloorL1NoBind(t *testing.T) {
 		// chainHeight = highest stored block (= totalBlocks-1). All
 		// blocks have Timestamp=0 so the init search returns
 		// ErrNoBlockInWindow → floor parks at chainHeight.
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks-1)))
 
 		sp := startPrunerService(t, database, retention, pruner.WithMinAge(testMinAge))
 		synctest.Wait()
@@ -191,8 +191,8 @@ func testMinAgeFloorL2Binds(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 5))
-		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 25}))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(5))))
+		require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{BlockNumber: 25}))
 
 		sp := startPrunerService(t, database, retention,
 			pruner.WithMinAge(testMinAge),
@@ -200,7 +200,7 @@ func testMinAgeFloorL2Binds(t *testing.T) {
 		)
 		synctest.Wait()
 
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 		// L2=20 with fresh timestamp; L1=25 > L2 → L2 path.
 		// standardFloor = 20-10 = 10. Cache=5 < 10 → bind at 5.
 		ev := sp.sendL2WithTimestampAndAwait(t, 20, uint64(time.Now().Unix()))
@@ -227,7 +227,7 @@ func testMinAgeFloorPruneBumpsSample(t *testing.T) {
 		for i := range initialBlocks {
 			testutils.StoreBlockWithTimestamp(t, database, i, ancientTimestamp)
 		}
-		require.NoError(t, core.WriteChainHeight(database, initialBlocks-1))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(initialBlocks-1)))
 
 		sp := startPrunerService(t, database, retention,
 			pruner.WithMinAge(testMinAge),
@@ -241,8 +241,8 @@ func testMinAgeFloorPruneBumpsSample(t *testing.T) {
 		for i := initialBlocks; i < totalBlocks; i++ {
 			testutils.StoreBlockWithTimestamp(t, database, i, ancientTimestamp)
 		}
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks-1))
-		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: 900}))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks-1)))
+		require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{BlockNumber: 900}))
 
 		// L2 head at the new tip (block 46) with its on-chain ancient
 		// timestamp → suppression → pruneTo = 46-10 = 36. Carve-out keeps
@@ -269,8 +269,12 @@ func testMinAgeFloorL2DeepCatchUp(t *testing.T) {
 		for i := range totalBlocks {
 			testutils.StoreBlock(t, database, i)
 		}
-		require.NoError(t, core.WriteChainHeight(database, 5))
-		require.NoError(t, core.WriteL1Head(database, &core.L1Head{BlockNumber: totalBlocks}))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(5))))
+		require.NoError(t, core.L1HeightBucket.Put(
+			database,
+			struct{}{},
+			&core.L1Head{BlockNumber: totalBlocks},
+		))
 
 		sp := startPrunerService(t, database, retention,
 			pruner.WithMinAge(testMinAge),
@@ -278,7 +282,7 @@ func testMinAgeFloorL2DeepCatchUp(t *testing.T) {
 		)
 		synctest.Wait()
 
-		require.NoError(t, core.WriteChainHeight(database, totalBlocks))
+		require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(totalBlocks)))
 		const ancientTimestamp uint64 = 1 // before any reasonable cutoff
 		// L2=20, retention=10 → standardFloor=10. Ancient timestamp
 		// suppresses the gate → standardFloor only.

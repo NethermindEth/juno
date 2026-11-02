@@ -314,7 +314,7 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 
 	record := core.NewCasmHashMetadataDeclaredV1(declaredAt, casmHash1, casmHash2)
 	require.NoError(t, record.Migrate(migratedAt))
-	require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, sierraClassHash, &record))
+	require.NoError(t, core.ClassCasmHashMetadataBucket.Put(stateDB.disk, sierraClassHash, &record))
 
 	nonExistentHash := felt.NewFromUint64[felt.SierraClassHash](999)
 

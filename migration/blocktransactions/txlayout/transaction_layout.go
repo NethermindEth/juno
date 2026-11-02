@@ -172,7 +172,7 @@ func (l TransactionLayout) BlockByNumber(
 	r db.KeyValueReader,
 	blockNum uint64,
 ) (*core.Block, error) {
-	header, err := core.GetBlockHeaderByNumber(r, blockNum)
+	header, err := core.BlockHeadersByNumberBucket.Get(r, blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (l TransactionLayout) BlockByNumber(
 	}
 
 	return &core.Block{
-		Header:       header,
+		Header:       &header,
 		Transactions: allTransactions,
 		Receipts:     allReceipts,
 	}, nil
