@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
 
 var (
@@ -357,7 +358,7 @@ func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	}
 
 	d.At = binary.BigEndian.Uint64(data[:8])
-	return cbor.Unmarshal(data[8:], &d.Class)
+	return fastcbor.Unmarshal(data[8:], &d.Class)
 }
 
 // ClassCasmHashMetadata tracks the CASM (Compiled Sierra) hash metadata for a class.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
 
 type BlockTransactionsSerializer struct{}
@@ -165,7 +166,7 @@ func (blockTransactionsPartialSerializer[E, S, T]) UnmarshalPartial(
 	value *T,
 ) error {
 	var blockTransactions BlockTransactions
-	remaining, err := cbor.UnmarshalFirst(data, &blockTransactions.Indexes)
+	remaining, err := fastcbor.UnmarshalFirst(data, &blockTransactions.Indexes)
 	if err != nil {
 		return err
 	}
