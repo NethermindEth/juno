@@ -22,6 +22,10 @@ func Binary[V any, P binaryMarshaler[V]]() binarySerializer[V, P] {
 	return binarySerializer[V, P]{}
 }
 
+func BinaryCbor[V any, P binaryMarshaler[V]]() binaryCborSerializer[V, P] {
+	return binaryCborSerializer[V, P]{}
+}
+
 func Cbor[V any]() cborSerializer[V] {
 	return cborSerializer[V]{}
 }

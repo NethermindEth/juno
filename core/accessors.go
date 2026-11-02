@@ -21,20 +21,15 @@ State-related accessors
 **/
 
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	var class *DeclaredClassDefinition
-
-	err := r.Get(db.ClassKey(classHash), func(data []byte) error {
-		return cbor.Unmarshal(data, &class)
-	})
-	return class, err
+	class, err := ClassBucket.Get(r, (*felt.ClassHash)(classHash))
+	if err != nil {
+		return nil, err
+	}
+	return &class, nil
 }
 
 func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
-	data, err := cbor.Marshal(class)
-	if err != nil {
-		return err
-	}
-	return w.Put(db.ClassKey(classHash), data)
+	return ClassBucket.Put(w, (*felt.ClassHash)(classHash), class)
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, error) {

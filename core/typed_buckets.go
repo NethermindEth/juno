@@ -22,11 +22,10 @@ var DeprecatedContractClassHashBucket = typed.NewBucket(
 )
 
 // Bucket 4: Class hash (ClassHash) -> Class definition (DeclaredClassDefinition)
-// TODO: Integrate this bucket
 var ClassBucket = typed.NewBucket(
 	db.Class,
 	key.ClassHash,
-	value.Binary[DeclaredClassDefinition](),
+	value.BinaryCbor[DeclaredClassDefinition](),
 )
 
 // Bucket 5: Contract address (Address) -> Contract nonce (Felt)
@@ -141,7 +140,7 @@ var L1HandlerTxnHashByMsgHashBucket = typed.NewBucket(
 var AggregatedBloomFiltersBucket = typed.NewBucket(
 	db.AggregatedBloomFilters,
 	key.Marshal[db.AggregatedBloomFilterRangeKey](),
-	value.Cbor[AggregatedBloomFilter](),
+	value.BinaryCbor[AggregatedBloomFilter](),
 )
 
 // Bucket 38: RunningEventFilter
@@ -149,7 +148,7 @@ var AggregatedBloomFiltersBucket = typed.NewBucket(
 var RunningEventFilterBucket = typed.NewBucket(
 	db.RunningEventFilter,
 	key.Empty,
-	value.Cbor[RunningEventFilter](),
+	value.BinaryCbor[RunningEventFilter](),
 )
 
 // Bucket 39: Sierra Class Hash -> Class CASM hash metadata

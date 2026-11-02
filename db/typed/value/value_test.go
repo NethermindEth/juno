@@ -85,6 +85,16 @@ func TestValueSerializer(t *testing.T) {
 
 		runLiteralTest(
 			t,
+			value.BinaryCbor[db.BlockNumIndexKey](),
+			db.BlockNumIndexKey{
+				Number: 2025112220251122,
+				Index:  2025112320251123,
+			},
+			"50000731d42e84b3f2000731d4347a94f3",
+		)
+
+		runLiteralTest(
+			t,
 			value.Cbor[core.L1Head](),
 			core.L1Head{
 				BlockNumber: 2025112420251124,
@@ -110,6 +120,13 @@ func TestValueSerializer(t *testing.T) {
 		})
 
 		runRandomTest(t, value.Binary[db.BlockNumIndexKey](), func() db.BlockNumIndexKey {
+			return db.BlockNumIndexKey{
+				Number: rand.Uint64(),
+				Index:  rand.Uint64(),
+			}
+		})
+
+		runRandomTest(t, value.BinaryCbor[db.BlockNumIndexKey](), func() db.BlockNumIndexKey {
 			return db.BlockNumIndexKey{
 				Number: rand.Uint64(),
 				Index:  rand.Uint64(),
