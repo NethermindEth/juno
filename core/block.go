@@ -215,7 +215,7 @@ func pre07Hash(
 	if stateDiff != nil {
 		sdLength = stateDiff.Length()
 	}
-	return crypto.PedersenElems(
+	return crypto.PedersenElems[felt.Felt](
 		felt.NewFromUint64[felt.Felt](b.Number),           // block number
 		b.GlobalStateRoot,                                 // global state root
 		new(felt.Zero[felt.Felt]()),                       // reserved: sequencer address
@@ -279,7 +279,7 @@ func post0134Hash(
 		*b.L2GasPrice,
 	)
 
-	return crypto.PoseidonElems(
+	return crypto.PoseidonElems[felt.Felt](
 		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 		starknetBlockHash1,
 		felt.NewFromUint64[felt.Felt](b.Number),    // block number
@@ -365,7 +365,7 @@ func Post0132Hash(
 		}
 	}
 
-	return crypto.PoseidonElems(
+	return crypto.PoseidonElems[felt.Felt](
 		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 		starknetBlockHash0,
 		felt.NewFromUint64[felt.Felt](b.Number), // block number
@@ -446,7 +446,7 @@ func post07Hash(
 	// - block timestamp
 	// - number of events
 	// - event commitment
-	return crypto.PedersenElems(
+	return crypto.PedersenElems[felt.Felt](
 		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 		felt.NewFromUint64[felt.Felt](b.Number), // block number
 		b.GlobalStateRoot,                       // global state root
@@ -504,7 +504,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) fel
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) felt.Felt {
-	return crypto.PoseidonElems(
+	return crypto.PoseidonElems[felt.Felt](
 		starknetGasPrices0,
 		// gas prices
 		gasPrices.PriceInWei,

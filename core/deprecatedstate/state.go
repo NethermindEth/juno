@@ -128,7 +128,7 @@ func (s *State) Commitment(protocolVersion string) (felt.Felt, error) {
 		return storageRoot, nil
 	}
 
-	root := crypto.PoseidonElems(stateVersion, &storageRoot, &classesRoot)
+	root := crypto.PoseidonElems[felt.Felt](stateVersion, &storageRoot, &classesRoot)
 	return root, nil
 }
 
@@ -564,9 +564,9 @@ func (s *State) updateContractCommitment(
 }
 
 func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) felt.Felt {
-	h1 := crypto.Pedersen(classHash, storageRoot)
-	h2 := crypto.Pedersen(&h1, nonce)
-	return crypto.Pedersen(&h2, new(felt.Zero[felt.Felt]()))
+	h1 := crypto.Pedersen[felt.Felt](classHash, storageRoot)
+	h2 := crypto.Pedersen[felt.Felt](&h1, nonce)
+	return crypto.Pedersen[felt.Felt](&h2, new(felt.Zero[felt.Felt]()))
 }
 
 func (s *State) updateDeclaredClassesTrie(
@@ -584,7 +584,7 @@ func (s *State) updateDeclaredClassesTrie(
 			continue
 		}
 
-		leafValue := crypto.Poseidon(leafVersion, casmClassHash)
+		leafValue := crypto.Poseidon[felt.Felt](leafVersion, casmClassHash)
 		if _, err = classesTrie.Put(&classHash, &leafValue); err != nil {
 			return err
 		}
@@ -593,7 +593,7 @@ func (s *State) updateDeclaredClassesTrie(
 	for classHash, casmClassHash := range migratedCasmClasses {
 		classHashFelt := (*felt.Felt)(&classHash)
 
-		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&casmClassHash))
+		leafValue := crypto.Poseidon[felt.Felt](leafVersion, &casmClassHash)
 		if _, err = classesTrie.Put(classHashFelt, &leafValue); err != nil {
 			return err
 		}
@@ -970,7 +970,7 @@ func (s *State) revertMigratedCasmClasses(
 		}
 
 		deprecatedCasmHash := casmHashMetadata.CasmHash()
-		leafValue := crypto.Poseidon(leafVersion, (*felt.Felt)(&deprecatedCasmHash))
+		leafValue := crypto.Poseidon[felt.Felt](leafVersion, &deprecatedCasmHash)
 		if _, err = classesTrie.Put(classHashFelt, &leafValue); err != nil {
 			return fmt.Errorf("revert class %s in trie: %w", classHashFelt, err)
 		}

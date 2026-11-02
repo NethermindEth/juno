@@ -73,7 +73,7 @@ func GetLeafPedersen(
 		readStorage: NewReadStorage(r, prefix),
 		height:      height,
 		maxKey:      &maxKeyByHeight[height],
-		hash:        crypto.Pedersen,
+		hash:        crypto.Pedersen[felt.Felt, felt.Felt, felt.Felt],
 	}
 
 	return reader.Get(key)

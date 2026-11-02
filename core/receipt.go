@@ -56,7 +56,7 @@ func (r *TransactionReceipt) hash() felt.Felt {
 	sentMessageHash := messagesSentHash(r.L2ToL1Message)
 	l1GasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1Gas)
 	l1DataGasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1DataGas)
-	return crypto.PoseidonElems(
+	return crypto.PoseidonElems[felt.Felt](
 		r.TransactionHash,
 		r.Fee,
 		&sentMessageHash,
@@ -75,11 +75,11 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 	for _, msg := range messages {
 		msgTo.SetBytes(msg.To.Bytes())
 		payloadSize.SetUint64(uint64(len(msg.Payload)))
-		digest.Update(msg.From, &msgTo, &payloadSize)
+		digest.Update(msg.From).Update(&msgTo).Update(&payloadSize)
 		digest.UpdateArray(msg.Payload)
 	}
 
-	return digest.Finish()
+	return digest.Finish[felt.Felt]()
 }
 
 func receiptCommitment(receipts []*TransactionReceipt, backend TempTrieBackend) (felt.Felt, error) {
