@@ -54,7 +54,7 @@ func AdaptStateDiff(
 		address := AdaptAddress(diff.Address)
 
 		if diff.Nonce != nil {
-			nonces[*address] = AdaptFelt(diff.Nonce)
+			nonces[*address] = AdaptFelt[felt.Felt](diff.Nonce)
 		}
 		if diff.Values != nil {
 			storageDiffs[*address] = utils.ToMap(diff.Values, adaptStoredValue)
@@ -97,7 +97,7 @@ func AdaptStateDiff(
 }
 
 func adaptStoredValue(v *state.ContractStoredValue) (felt.Felt, *felt.Felt) {
-	return *AdaptFelt(v.Key), AdaptFelt(v.Value)
+	return *AdaptFelt[felt.Felt](v.Key), AdaptFelt[felt.Felt](v.Value)
 }
 
 type addrToClassHash struct {
@@ -107,5 +107,5 @@ type addrToClassHash struct {
 
 // todo rename
 func adaptAddrToClassHash(v addrToClassHash) (felt.Felt, *felt.Felt) {
-	return *AdaptAddress(v.addr), AdaptHash(v.classHash)
+	return *AdaptAddress(v.addr), AdaptHash[felt.Felt](v.classHash)
 }

@@ -48,12 +48,12 @@ func GetTestTransactions[C, P any](
 	return consensusTransactions, p2pTransactions
 }
 
-func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
+func getRandomFelt[F felt.FeltLike](t *testing.T) (F, []byte) {
 	t.Helper()
 
 	f := felt.Random[felt.Felt]()
 	feltBytes := f.Bytes()
-	return f, feltBytes[:]
+	return F(f), feltBytes[:]
 }
 
 func getRandomFeltSlice(t *testing.T) ([]felt.Felt, [][]byte) {
@@ -64,7 +64,7 @@ func getRandomFeltSlice(t *testing.T) ([]felt.Felt, [][]byte) {
 	feltBytes := make([][]byte, size)
 
 	for i := range size {
-		felts[i], feltBytes[i] = getRandomFelt(t)
+		felts[i], feltBytes[i] = getRandomFelt[felt.Felt](t)
 	}
 
 	return felts, feltBytes
@@ -83,7 +83,7 @@ func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.Re
 	maxAmount := rand.Uint64()
 	maxAmountFelt := felt.FromUint64[felt.Felt](maxAmount)
 	maxAmountFeltBytes := maxAmountFelt.Bytes()
-	maxPricePerUnit, maxPricePerUnitBytes := getRandomFelt(t)
+	maxPricePerUnit, maxPricePerUnitBytes := getRandomFelt[felt.Felt](t)
 
 	resourceBounds := core.ResourceBounds{
 		MaxAmount:       maxAmount,
@@ -155,9 +155,9 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(
 ) (C, P) {
 	t.Helper()
 	classHash, sierraClass := getSampleClass(t)
-	senderAddress, senderAddressBytes := getRandomFelt(t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	nonce, nonceBytes := getRandomFelt(t)
+	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	version := felt.NewFromUint64[core.TransactionVersion](3)
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	tip := rand.Uint64()
@@ -210,8 +210,8 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
-	classHash, classHashBytes := getRandomFelt(t)
+	contractAddressSalt, contractAddressSaltBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](3)
 	contractAddress := core.ContractAddress(
@@ -222,7 +222,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
 	)
 
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	nonce, nonceBytes := getRandomFelt(t)
+	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
@@ -273,8 +273,8 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](3)
-	nonce, nonceBytes := getRandomFelt(t)
-	senderAddress, senderAddressBytes := getRandomFelt(t)
+	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
@@ -322,9 +322,9 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	contractAddress, contractAddressBytes := getRandomFelt(t)
-	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
-	nonce, nonceBytes := getRandomFelt(t)
+	contractAddress, contractAddressBytes := getRandomFelt[felt.Felt](t)
+	entryPointSelector, entryPointSelectorBytes := getRandomFelt[felt.Felt](t)
+	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	callData, callDataBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](0)
 

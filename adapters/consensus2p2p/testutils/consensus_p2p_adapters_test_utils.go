@@ -77,30 +77,30 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[
 	},
 }
 
-func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
+func getRandomFelt[F felt.FeltLike](t *testing.T) (F, []byte) {
 	t.Helper()
 
 	f := felt.Random[felt.Felt]()
 	feltBytes := f.Bytes()
-	return f, feltBytes[:]
+	return F(f), feltBytes[:]
 }
 
-func getRandomUint128() (*felt.Felt, *common.Uint128) {
+func getRandomUint128[F felt.FeltLike]() (*F, *common.Uint128) {
 	low := rand.Uint64()
 	high := rand.Uint64()
 	uint128 := common.Uint128{
 		Low:  low,
 		High: high,
 	}
-	felt := p2p2core.AdaptUint128(&uint128)
-	return felt, &uint128
+	value := p2p2core.AdaptUint128[F](&uint128)
+	return value, &uint128
 }
 
 func GetTestProposalInit(t *testing.T) (consensus.ProposalInit, *p2pconsensus.ProposalInit) {
 	blockNumber := rand.Uint64()
 	round := rand.Uint32()
 	validRound := rand.Uint32()
-	proposer, proposerBytes := getRandomFelt(t)
+	proposer, proposerBytes := getRandomFelt[felt.Felt](t)
 
 	consensusProposalInit := consensus.ProposalInit{
 		BlockNum:   consensus.Height(blockNumber),
@@ -122,11 +122,11 @@ func GetTestProposalInit(t *testing.T) (consensus.ProposalInit, *p2pconsensus.Pr
 func GetTestBlockInfo(t *testing.T) (consensus.BlockInfo, *p2pconsensus.BlockInfo) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
-	builder, builderBytes := getRandomFelt(t)
-	l2GasPriceFri, l2GasPriceFriUint128 := getRandomUint128()
-	l1GasPriceWei, l1GasPriceWeiUint128 := getRandomUint128()
-	l1DataGasPriceWei, l1DataGasPriceWeiUint128 := getRandomUint128()
-	ethToStrkRate, ethToStrkRateUint128 := getRandomUint128()
+	builder, builderBytes := getRandomFelt[felt.Felt](t)
+	l2GasPriceFri, l2GasPriceFriUint128 := getRandomUint128[felt.Felt]()
+	l1GasPriceWei, l1GasPriceWeiUint128 := getRandomUint128[felt.Felt]()
+	l1DataGasPriceWei, l1DataGasPriceWeiUint128 := getRandomUint128[felt.Felt]()
+	ethToStrkRate, ethToStrkRateUint128 := getRandomUint128[felt.Felt]()
 
 	consensusBlockInfo := consensus.BlockInfo{
 		BlockNumber:       blockNumber,
@@ -159,20 +159,20 @@ func GetTestProposalCommitment(t *testing.T) (
 ) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
-	builder, builderBytes := getRandomFelt(t)
-	parentCommitment, parentCommitmentBytes := getRandomFelt(t)
-	oldStateRoot, oldStateRootBytes := getRandomFelt(t)
-	versionConstantCommitment, versionConstantCommitmentBytes := getRandomFelt(t)
-	stateDiffCommitment, stateDiffCommitmentBytes := getRandomFelt(t)
-	transactionCommitment, transactionCommitmentBytes := getRandomFelt(t)
-	eventCommitment, eventCommitmentBytes := getRandomFelt(t)
-	receiptCommitment, receiptCommitmentBytes := getRandomFelt(t)
-	concatenatedCounts, concatenatedCountsBytes := getRandomFelt(t)
-	l1GasPriceFri, l1GasPriceFriUint128 := getRandomUint128()
-	l1DataGasPriceFri, l1DataGasPriceFriUint128 := getRandomUint128()
-	l2GasPriceFri, l2GasPriceFriUint128 := getRandomUint128()
-	l2GasUsed, l2GasUsedUint128 := getRandomUint128()
-	nextL2GasPriceFri, nextL2GasPriceFriUint128 := getRandomUint128()
+	builder, builderBytes := getRandomFelt[felt.Felt](t)
+	parentCommitment, parentCommitmentBytes := getRandomFelt[felt.Felt](t)
+	oldStateRoot, oldStateRootBytes := getRandomFelt[felt.Felt](t)
+	versionConstantCommitment, versionConstantCommitmentBytes := getRandomFelt[felt.Felt](t)
+	stateDiffCommitment, stateDiffCommitmentBytes := getRandomFelt[felt.Felt](t)
+	transactionCommitment, transactionCommitmentBytes := getRandomFelt[felt.Felt](t)
+	eventCommitment, eventCommitmentBytes := getRandomFelt[felt.Felt](t)
+	receiptCommitment, receiptCommitmentBytes := getRandomFelt[felt.Felt](t)
+	concatenatedCounts, concatenatedCountsBytes := getRandomFelt[felt.Felt](t)
+	l1GasPriceFri, l1GasPriceFriUint128 := getRandomUint128[felt.Felt]()
+	l1DataGasPriceFri, l1DataGasPriceFriUint128 := getRandomUint128[felt.Felt]()
+	l2GasPriceFri, l2GasPriceFriUint128 := getRandomUint128[felt.Felt]()
+	l2GasUsed, l2GasUsedUint128 := getRandomUint128[felt.Felt]()
+	nextL2GasPriceFri, nextL2GasPriceFriUint128 := getRandomUint128[felt.Felt]()
 	protocolVersion, protocolVersionString := semver.New(1, 2, 3, "", ""), "1.2.3"
 
 	consensusProposalCommitment := consensus.ProposalCommitment{
@@ -221,7 +221,7 @@ func GetTestProposalCommitment(t *testing.T) (
 }
 
 func GetTestProposalFin(t *testing.T) (consensus.ProposalFin, *p2pconsensus.ProposalFin) {
-	proposalCommitment, proposalCommitmentBytes := getRandomFelt(t)
+	proposalCommitment, proposalCommitmentBytes := getRandomFelt[felt.Felt](t)
 	proposalFin := consensus.ProposalFin(proposalCommitment)
 
 	p2pProposalFin := p2pconsensus.ProposalFin{

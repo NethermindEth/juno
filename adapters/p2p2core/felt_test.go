@@ -9,9 +9,9 @@ import (
 )
 
 func TestAdaptNilReturnsNil(t *testing.T) {
-	assert.Nil(t, AdaptHash(nil))
+	assert.Nil(t, AdaptHash[felt.Felt](nil))
 	assert.Nil(t, AdaptAddress(nil))
-	assert.Nil(t, AdaptFelt(nil))
+	assert.Nil(t, AdaptFelt[felt.Felt](nil))
 }
 
 func TestAdaptFeltSlice(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAdaptFeltSlice(t *testing.T) {
 
 func TestAdaptUint128(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
-		u128 := AdaptUint128(nil)
+		u128 := AdaptUint128[felt.Felt](nil)
 		assert.Nil(t, u128)
 	})
 	t.Run("non-nil", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestAdaptUint128(t *testing.T) {
 		}
 
 		for _, c := range cases {
-			result := AdaptUint128(&common.Uint128{
+			result := AdaptUint128[felt.Felt](&common.Uint128{
 				Low:  c.Low,
 				High: c.High,
 			})
