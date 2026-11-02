@@ -322,7 +322,7 @@ func TestOldData(t *testing.T) {
 
 		t.Run("delete key, expect old value", func(t *testing.T) {
 			// put zero value to delete current key
-			was, err := tempTrie.Put(key, felt.ZeroPtr[felt.Felt]())
+			was, err := tempTrie.Put(key, new(felt.Zero[felt.Felt]()))
 			require.NoError(t, err)
 
 			assert.Equal(t, old, was)
@@ -350,7 +350,7 @@ func TestMaxTrieHeight(t *testing.T) {
 
 	t.Run("insert invalid key", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTriePedersen(uint8(felt.Bits), func(tt *trie.Trie) error {
-			badKey := new(felt.Felt).Sub(felt.ZeroPtr[felt.Felt](), new(felt.Felt).SetUint64(1))
+			badKey := new(felt.Felt).Sub(new(felt.Zero[felt.Felt]()), new(felt.Felt).SetUint64(1))
 			_, err := tt.Put(badKey, new(felt.Felt))
 			assert.Error(t, err)
 			return nil

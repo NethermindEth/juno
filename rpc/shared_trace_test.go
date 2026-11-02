@@ -364,12 +364,12 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 				}
 				txs := []core.Transaction{
 					&core.InvokeTransaction{
-						TransactionHash: felt.OnePtr[felt.Felt](),
+						TransactionHash: new(felt.One[felt.Felt]()),
 						Version:         new(core.TransactionVersion),
 					},
 				}
 				receipts := []*core.TransactionReceipt{{
-					TransactionHash: felt.OnePtr[felt.Felt](),
+					TransactionHash: new(felt.One[felt.Felt]()),
 					ExecutionResources: &core.ExecutionResources{
 						TotalGasConsumed: &core.GasConsumed{L1Gas: 7},
 					},

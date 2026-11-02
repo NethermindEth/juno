@@ -130,7 +130,7 @@ func TestMigrate_ClassHash_DeployOnly(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestMigrate_ClassHash_Reclassed(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -212,7 +212,7 @@ func TestMigrate_Nonce_Updated(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestMigrate_Storage_MultiWrite(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -337,7 +337,7 @@ func TestMigrate_Storage_SingleWrite(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -373,7 +373,7 @@ func TestMigrate_Idempotent(t *testing.T) {
 	}
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func TestMigrate_ClassHash_ResumeFromPartial(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -464,7 +464,7 @@ func TestMigrate_Storage_ZeroedSlotHasNoLeaf(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -537,7 +537,7 @@ func TestMigrate_Storage_ManyEntries(t *testing.T) {
 	)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -595,7 +595,7 @@ func TestMigrate_Storage_MultiAddress(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -691,7 +691,7 @@ func TestMigrate_Storage_ResumeFromPartial(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -732,7 +732,7 @@ func TestMigrate_AddressWithEmptyHistoryForOnePhase(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -788,7 +788,7 @@ func TestMigrate_Storage_InterleavedZeroedSlots(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)

@@ -42,14 +42,14 @@ const (
 func TestNew(t *testing.T) {
 	t.Run("nil batch returns error", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		_, err := New(felt.ZeroPtr[felt.Felt](), stateDB, nil)
+		_, err := New(new(felt.Zero[felt.Felt]()), stateDB, nil)
 		require.Error(t, err)
 	})
 
 	t.Run("valid batch returns state", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		st, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		st, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		assert.NotNil(t, st)
 	})
@@ -62,7 +62,7 @@ func TestUpdate(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := felt.OnePtr[felt.Felt]()
+	scAddr := new(felt.One[felt.Felt]())
 
 	stateUpdates := getStateUpdates(t)
 
@@ -103,7 +103,7 @@ func TestUpdate(t *testing.T) {
 		}
 		stateDB := setupState(t, stateUpdates, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block0}, su, nil, false)
 		require.Error(t, err)
@@ -118,7 +118,7 @@ func TestUpdate(t *testing.T) {
 		}
 		stateDB := setupState(t, stateUpdates, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		err = state.Update(&core.Header{Number: block0}, su, nil, false)
 		require.Error(t, err)
@@ -484,11 +484,11 @@ func TestRevert(t *testing.T) {
 		classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 		sierraHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 		declareDiff := &core.StateUpdate{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a",
 			),
-			BlockHash: felt.ZeroPtr[felt.Felt](),
+			BlockHash: new(felt.Zero[felt.Felt]()),
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{classHash},
 				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
@@ -502,7 +502,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, declareDiff, newClasses, false))
 		require.NoError(t, batch.Write())
@@ -546,7 +546,7 @@ func TestRevert(t *testing.T) {
 		batch = stateDB.disk.NewBatch()
 		state, err = New(declareDiff.NewRoot, stateDB, batch)
 		require.NoError(t, err)
-		declareDiff.OldRoot = felt.ZeroPtr[felt.Felt]()
+		declareDiff.OldRoot = new(felt.Zero[felt.Felt]())
 		require.NoError(t, state.Revert(&core.Header{Number: block0}, declareDiff))
 		require.NoError(t, batch.Write())
 
@@ -565,11 +565,11 @@ func TestRevert(t *testing.T) {
 		key := felt.NewFromUint64[felt.Felt](2)
 		value := felt.NewFromUint64[felt.Felt](3)
 		su := &core.StateUpdate{
-			BlockHash: felt.ZeroPtr[felt.Felt](),
+			BlockHash: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8",
 			),
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 					*addr: {
@@ -580,7 +580,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su, nil, false))
 		require.NoError(t, batch.Write())
@@ -628,7 +628,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		su0 := &core.StateUpdate{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			StateDiff: &core.StateDiff{
 				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 					*sierraHashFelt: (*felt.Felt)(&v1CasmHash),
@@ -637,7 +637,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, classes, true))
 		require.NoError(t, batch.Write())
@@ -716,7 +716,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 	updates := []*core.StateUpdate{
 		// block 0: deploy A with classHash H0 — classHash entry expected
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x15fc57d3df218117c4baa5b894357bfe195a27874f52efee3914d8594756d6c",
 			),
@@ -726,7 +726,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		},
 		// block 1: nonce change only — nonce entry expected
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x19be1c130f862c06576c14163ffd597ef49de2dd3eed0cd0329fc24a972f40d",
 			),
@@ -736,7 +736,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		},
 		// block 2: storage only — must NOT produce nonce or classHash entries
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x7b5f15dda7999552e8af72b55965c0f033c77f0e2d3b54a448ebbfdec22d7c4",
 			),
@@ -748,7 +748,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		},
 		// block 3: nonce change only — nonce entry expected
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0xa6e0bf8b99f39da84226ab00e8ede81133f60c72a86215f8c62eb2e9458d95",
 			),
@@ -758,7 +758,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		},
 		// block 4: classHash replacement — classHash entry expected
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x66e9a93ed05f4561da6527bcb1c98c1a6724a585c18167711291ef6e56d3875",
 			),
@@ -768,7 +768,7 @@ func TestStateUpdateWritesHistoryOnlyOnFieldChange(t *testing.T) {
 		},
 		// block 5: storage only — must NOT produce nonce or classHash entries
 		{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x4829eceed3f9be83ece51f354dbbb028172410e17ea7c4d5e98ad7c0e475e2a",
 			),

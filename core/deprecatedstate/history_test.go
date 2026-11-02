@@ -35,8 +35,8 @@ func TestStateHistory(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{addrFelt: initialClassHash},
 			Nonces:            map[felt.Felt]*felt.Felt{addrFelt: initialNonce},
@@ -51,7 +51,7 @@ func TestStateHistory(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			ReplacedClasses: map[felt.Felt]*felt.Felt{addrFelt: updatedClassHash},
 			Nonces:          map[felt.Felt]*felt.Felt{addrFelt: updatedNonce},
@@ -232,8 +232,8 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -247,7 +247,7 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*addr: {*storageKey: updatedValue},

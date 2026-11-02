@@ -80,9 +80,9 @@ func servedBlock(t *testing.T, block *core.Block) *rpcv10.BlockWithReceipts {
 func expectedBlock(block *core.Block) core.Block {
 	header := *block.Header
 	header.Signatures = [][]*felt.Felt{}
-	header.SequencerAddress = cmp.Or(header.SequencerAddress, felt.ZeroPtr[felt.Felt]())
-	header.L1GasPriceETH = cmp.Or(header.L1GasPriceETH, felt.OnePtr[felt.Felt]())
-	header.L1GasPriceSTRK = cmp.Or(header.L1GasPriceSTRK, felt.OnePtr[felt.Felt]())
+	header.SequencerAddress = cmp.Or(header.SequencerAddress, new(felt.Zero[felt.Felt]()))
+	header.L1GasPriceETH = cmp.Or(header.L1GasPriceETH, new(felt.One[felt.Felt]()))
+	header.L1GasPriceSTRK = cmp.Or(header.L1GasPriceSTRK, new(felt.One[felt.Felt]()))
 	header.L1DataGasPrice = servedGasPrice(header.L1DataGasPrice)
 	header.L2GasPrice = servedGasPrice(header.L2GasPrice)
 
@@ -97,11 +97,14 @@ func expectedBlock(block *core.Block) core.Block {
 
 func servedGasPrice(price *core.GasPrice) *core.GasPrice {
 	if price == nil {
-		return &core.GasPrice{PriceInWei: felt.OnePtr[felt.Felt](), PriceInFri: felt.OnePtr[felt.Felt]()}
+		return &core.GasPrice{
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
+		}
 	}
 	return &core.GasPrice{
-		PriceInWei: cmp.Or(price.PriceInWei, felt.OnePtr[felt.Felt]()),
-		PriceInFri: cmp.Or(price.PriceInFri, felt.OnePtr[felt.Felt]()),
+		PriceInWei: cmp.Or(price.PriceInWei, new(felt.One[felt.Felt]())),
+		PriceInFri: cmp.Or(price.PriceInFri, new(felt.One[felt.Felt]())),
 	}
 }
 
@@ -122,7 +125,7 @@ func expectedTransaction(transaction core.Transaction) core.Transaction {
 		return &expected
 	case *core.L1HandlerTransaction:
 		expected := *v
-		expected.Nonce = cmp.Or(v.Nonce, felt.ZeroPtr[felt.Felt]())
+		expected.Nonce = cmp.Or(v.Nonce, new(felt.Zero[felt.Felt]()))
 		return &expected
 	default:
 		return transaction
@@ -186,7 +189,7 @@ func TestAdaptBlock(t *testing.T) {
 // wire format requires, for transactions that only exist as standalone fixtures.
 func singleTransactionBlock(transaction core.Transaction) *core.Block {
 	receipts := []*core.TransactionReceipt{{
-		Fee:                felt.OnePtr[felt.Felt](),
+		Fee:                new(felt.One[felt.Felt]()),
 		FeeUnit:            core.STRK,
 		Events:             []*core.Event{},
 		ExecutionResources: &core.ExecutionResources{TotalGasConsumed: &core.GasConsumed{}},
@@ -195,23 +198,23 @@ func singleTransactionBlock(transaction core.Transaction) *core.Block {
 	}}
 	return &core.Block{
 		Header: &core.Header{
-			Hash:             felt.OnePtr[felt.Felt](),
-			ParentHash:       felt.ZeroPtr[felt.Felt](),
+			Hash:             new(felt.One[felt.Felt]()),
+			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           1,
-			GlobalStateRoot:  felt.ZeroPtr[felt.Felt](),
-			SequencerAddress: felt.OnePtr[felt.Felt](),
+			GlobalStateRoot:  new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.One[felt.Felt]()),
 			TransactionCount: 1,
 			ProtocolVersion:  "0.13.4",
-			L1GasPriceETH:    felt.OnePtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.OnePtr[felt.Felt](),
+			L1GasPriceETH:    new(felt.One[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.One[felt.Felt]()),
 			L1DAMode:         core.Blob,
 			L1DataGasPrice: &core.GasPrice{
-				PriceInWei: felt.OnePtr[felt.Felt](),
-				PriceInFri: felt.OnePtr[felt.Felt](),
+				PriceInWei: new(felt.One[felt.Felt]()),
+				PriceInFri: new(felt.One[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInWei: felt.OnePtr[felt.Felt](),
-				PriceInFri: felt.OnePtr[felt.Felt](),
+				PriceInWei: new(felt.One[felt.Felt]()),
+				PriceInFri: new(felt.One[felt.Felt]()),
 			},
 			Signatures: [][]*felt.Felt{},
 		},

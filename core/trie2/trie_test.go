@@ -48,7 +48,7 @@ func TestDelete(t *testing.T) {
 
 			got, err := tr.Get(record.key)
 			require.NoError(t, err)
-			require.True(t, got.IsZero(), "expected %v, got %v", felt.ZeroPtr[felt.Felt](), got)
+			require.True(t, got.IsZero(), "expected %v, got %v", new(felt.Zero[felt.Felt]()), got)
 		}
 	}
 

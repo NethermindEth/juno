@@ -840,7 +840,7 @@ func applyBlockWithStorageWrites(
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
-			Version:   felt.OnePtr[felt.Felt](),
+			Version:   new(felt.One[felt.Felt]()),
 			CallData:  &emptySlice,
 			Signature: &emptySlice,
 		}
@@ -864,19 +864,19 @@ func applyBlockWithStorageWrites(
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      felt.OnePtr[felt.Felt](),
+		SequencerAddress:      new(felt.One[felt.Felt]()),
 		L1GasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 		L2GasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 		L1DAMode: starknet.Blob,
 		L1DataGasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 	}
 	_, err := s.ApplyUpdate(block, number, 0, oldestPreConf, nil)

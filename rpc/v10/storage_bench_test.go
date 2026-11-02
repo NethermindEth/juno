@@ -283,7 +283,7 @@ func benchmarkTrie(
 	_, nodes := tr.Commit()
 	err = trieDB.Update(
 		(*felt.Felt)(&commitment),
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		trienode.NewMergeNodeSet(nodes),
 	)
 	require.NoError(b, err)

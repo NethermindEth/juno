@@ -436,9 +436,9 @@ func TestTransactionAndReceipt(t *testing.T) {
 				Hash:             felt.NewRandom[felt.Felt](),
 				GlobalStateRoot:  head.GlobalStateRoot,
 				ProtocolVersion:  head.ProtocolVersion,
-				SequencerAddress: felt.ZeroPtr[felt.Felt](),
-				L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-				L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+				SequencerAddress: new(felt.Zero[felt.Felt]()),
+				L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+				L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			},
 			Transactions: []core.Transaction{},
 			Receipts:     []*core.TransactionReceipt{},
@@ -677,9 +677,9 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, felt.ZeroPtr[felt.Felt]())
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterTo, new(felt.Zero[felt.Felt]()))
 			require.Error(t, err)
-			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, felt.ZeroPtr[felt.Felt]())
+			err = filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom, new(felt.Zero[felt.Felt]()))
 			require.Error(t, err)
 		})
 
@@ -1389,18 +1389,18 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	//nolint:dupl // Similar to block0 in `TestRevertHeadDeclaredV2CasmClasses`
 	block0 := &core.Block{
 		Header: &core.Header{
-			ParentHash:       felt.ZeroPtr[felt.Felt](),
+			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: felt.ZeroPtr[felt.Felt](),
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L1DAMode: core.Calldata,
 			// V1 CASM hash is used for classes declared before protocol version 0.14.1
@@ -1411,7 +1411,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 
 	stateUpdate0 := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				sierraClassHashFelt: (*felt.Felt)(&v1CasmHash),
@@ -1432,16 +1432,16 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       block0.Hash,
 			Number:           1,
-			SequencerAddress: felt.ZeroPtr[felt.Felt](),
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L1DAMode: core.Calldata,
 			// V2 CASM hash is used for classes declared from protocol version 0.14.1 onwards
@@ -1528,18 +1528,18 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	//nolint:dupl // Similar to block0 in `TestRevertHeadMigratedClass`
 	block0 := &core.Block{
 		Header: &core.Header{
-			ParentHash:       felt.ZeroPtr[felt.Felt](),
+			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: felt.ZeroPtr[felt.Felt](),
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L1DAMode:        core.Calldata,
 			ProtocolVersion: core.Ver0_14_1.String(),
@@ -1548,7 +1548,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		Receipts:     receipts0,
 	}
 	stateUpdate0 := &core.StateUpdate{
-		OldRoot:   felt.ZeroPtr[felt.Felt](),
+		OldRoot:   new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{},
 	}
 	require.NoError(t, chain.Finalise(
@@ -1566,16 +1566,16 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       block0.Hash,
 			Number:           1,
-			SequencerAddress: felt.ZeroPtr[felt.Felt](),
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
 			},
 			L1DAMode: core.Calldata,
 			// V2 CASM hash path: protocol >= 0.14.1

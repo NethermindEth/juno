@@ -148,7 +148,7 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 	assert.Equal(t, deployHeight, contract.DeployedHeight)
 
 	reader, err := state.NewStateReader(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)

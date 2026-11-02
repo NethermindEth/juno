@@ -25,16 +25,16 @@ func TestSimulateTransactions(t *testing.T) {
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+		L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+		L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 		L1DAMode:         0,
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 	}
 	defaultMockBehavior := func(
@@ -134,7 +134,7 @@ func TestSimulateTransactions(t *testing.T) {
 					Header: headsHeader,
 				}, mockState, vm.SimulateOptions{SkipValidate: true}).
 					Return(vm.ExecutionResults{
-						OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
+						OverallFees:      []*felt.Felt{new(felt.Zero[felt.Felt]())},
 						DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
 						GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 						Traces:           []vm.TransactionTrace{{}},
@@ -234,16 +234,16 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+		L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+		L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 		L1DAMode:         0,
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 	}
 
@@ -273,7 +273,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpc.Transaction{
 						Version:       &version3,
 						Type:          rpc.TxnDeclare,
-						SenderAddress: felt.ZeroPtr[felt.Felt](),
+						SenderAddress: new(felt.Zero[felt.Felt]()),
 					},
 				},
 			},
@@ -298,7 +298,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpc.Transaction{
 						Version:       &version3,
 						Type:          rpc.TxnInvoke,
-						SenderAddress: felt.ZeroPtr[felt.Felt](),
+						SenderAddress: new(felt.Zero[felt.Felt]()),
 					},
 				},
 			},

@@ -80,7 +80,7 @@ func TestPendingState(t *testing.T) {
 			expectedClassHash := new(felt.Felt).SetUint64(37)
 			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
-			cH, cErr := state.ContractClassHash(felt.ZeroPtr[felt.Felt]())
+			cH, cErr := state.ContractClassHash(new(felt.Zero[felt.Felt]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedClassHash, &cH)
 		})
@@ -99,7 +99,7 @@ func TestPendingState(t *testing.T) {
 			expectedNonce := new(felt.Felt).SetUint64(1337)
 			mockState.EXPECT().ContractNonce(gomock.Any()).Return(*expectedNonce, nil)
 
-			cN, cErr := state.ContractNonce(felt.ZeroPtr[felt.Felt]())
+			cN, cErr := state.ContractNonce(new(felt.Zero[felt.Felt]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedNonce, &cN)
 		})
@@ -122,7 +122,7 @@ func TestPendingState(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedValue, nil)
 
-			cV, cErr := state.ContractStorage(felt.ZeroPtr[felt.Felt](), felt.ZeroPtr[felt.Felt]())
+			cV, cErr := state.ContractStorage(new(felt.Zero[felt.Felt]()), new(felt.Zero[felt.Felt]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, &cV)
 		})
@@ -191,7 +191,7 @@ func TestPendingState(t *testing.T) {
 			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClassDefinition{
 				Class: &core.SierraClass{},
 			}, nil)
-			pC, pErr := state.Class(felt.ZeroPtr[felt.Felt]())
+			pC, pErr := state.Class(new(felt.Zero[felt.Felt]()))
 			require.NoError(t, pErr)
 			_, ok := pC.Class.(*core.SierraClass)
 			assert.True(t, ok)

@@ -417,7 +417,7 @@ func TestDatabase(t *testing.T) {
 			rootPath := trieutils.NewBitArray(0, 0x0)
 			rootNode := trienode.NewNonLeaf(
 				felt.Felt(*rootHash),
-				createBinaryNodeBlob((*felt.Felt)(leafHash), felt.ZeroPtr[felt.Felt]()),
+				createBinaryNodeBlob((*felt.Felt)(leafHash), new(felt.Zero[felt.Felt]())),
 			)
 
 			tries[i] = struct {
@@ -483,7 +483,7 @@ func TestDatabase(t *testing.T) {
 		newRootHash := felt.FromUint64[felt.Felt](101)
 		newRootNode := trienode.NewNonLeaf(
 			newRootHash,
-			createBinaryNodeBlob(felt.ZeroPtr[felt.Felt](), leaf2Hash),
+			createBinaryNodeBlob(new(felt.Zero[felt.Felt]()), leaf2Hash),
 		)
 
 		updatedNodes := map[trieutils.Path]trienode.TrieNode{

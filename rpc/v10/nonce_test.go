@@ -37,13 +37,13 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
 			nil,
 			nil,
 			db.ErrKeyNotFound,
 		)
 
-		hash := rpc.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
+		hash := rpc.BlockIDFromHash(new(felt.Zero[felt.Felt]()))
 		nonce, rpcErr := handler.Nonce(&hash, &targetAddress)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -96,10 +96,11 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).
+			Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&targetAddress).Return(*expectedNonce, nil)
 
-		hash := rpc.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
+		hash := rpc.BlockIDFromHash(new(felt.Zero[felt.Felt]()))
 		nonce, rpcErr := handler.Nonce(&hash, &targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
@@ -173,8 +174,8 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
 			core.L1Head{
 				BlockNumber: l1AcceptedBlockNumber,
-				BlockHash:   felt.OnePtr[felt.Felt](),
-				StateRoot:   felt.OnePtr[felt.Felt](),
+				BlockHash:   new(felt.One[felt.Felt]()),
+				StateRoot:   new(felt.One[felt.Felt]()),
 			},
 			nil,
 		)
@@ -195,8 +196,8 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
 			core.L1Head{
 				BlockNumber: l1HeadAhead,
-				BlockHash:   felt.OnePtr[felt.Felt](),
-				StateRoot:   felt.OnePtr[felt.Felt](),
+				BlockHash:   new(felt.One[felt.Felt]()),
+				StateRoot:   new(felt.One[felt.Felt]()),
 			},
 			nil,
 		)

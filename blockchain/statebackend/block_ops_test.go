@@ -30,7 +30,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: "notasemver",
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.Error(t, verifyBlockSuccession(memDB, block))
 	})
@@ -39,7 +39,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: "99.0",
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
@@ -48,7 +48,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: "99.0.0.0",
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
@@ -57,7 +57,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: "99.0.0",
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
@@ -66,7 +66,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncPatch().String(),
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
@@ -75,7 +75,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncMinor().String(),
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
@@ -84,20 +84,20 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		memDB := memory.New()
 		block := &core.Block{Header: &core.Header{
 			ProtocolVersion: core.LatestVer.IncMajor().String(),
-			ParentHash:      felt.ZeroPtr[felt.Felt](),
+			ParentHash:      new(felt.Zero[felt.Felt]()),
 		}}
 		assert.ErrorContains(t, verifyBlockSuccession(memDB, block), "unsupported block version")
 	})
 
 	t.Run("accepts empty version string", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ParentHash: felt.ZeroPtr[felt.Felt]()}}
+		block := &core.Block{Header: &core.Header{ParentHash: new(felt.Zero[felt.Felt]())}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
 
 	t.Run("empty chain accepts block 0 with zero parent hash", func(t *testing.T) {
 		memDB := memory.New()
-		block := &core.Block{Header: &core.Header{ParentHash: felt.ZeroPtr[felt.Felt]()}}
+		block := &core.Block{Header: &core.Header{ParentHash: new(felt.Zero[felt.Felt]())}}
 		assert.NoError(t, verifyBlockSuccession(memDB, block))
 	})
 
@@ -106,7 +106,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		storeTestHeader(
 			t,
 			memDB,
-			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+			&core.Header{Number: 0, Hash: h1, ParentHash: new(felt.Zero[felt.Felt]())},
 		)
 
 		block := &core.Block{Header: &core.Header{Number: 10}}
@@ -118,7 +118,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		storeTestHeader(
 			t,
 			memDB,
-			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+			&core.Header{Number: 0, Hash: h1, ParentHash: new(felt.Zero[felt.Felt]())},
 		)
 
 		wrongParent := felt.NewRandom[felt.Felt]()
@@ -132,7 +132,7 @@ func TestVerifyBlockSuccession(t *testing.T) {
 		storeTestHeader(
 			t,
 			memDB,
-			&core.Header{Number: 0, Hash: h1, ParentHash: felt.ZeroPtr[felt.Felt]()},
+			&core.Header{Number: 0, Hash: h1, ParentHash: new(felt.Zero[felt.Felt]())},
 		)
 
 		block := &core.Block{Header: &core.Header{Number: 1, ParentHash: h1}}

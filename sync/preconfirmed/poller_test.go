@@ -42,7 +42,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
-			Version:   felt.OnePtr[felt.Felt](),
+			Version:   new(felt.One[felt.Felt]()),
 			CallData:  &emptySlice,
 			Signature: &emptySlice,
 		}
@@ -67,19 +67,19 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      felt.OnePtr[felt.Felt](),
+		SequencerAddress:      new(felt.One[felt.Felt]()),
 		L1GasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 		L2GasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 		L1DAMode: starknet.Blob,
 		L1DataGasPrice: &starknet.GasPrice{
-			PriceInWei: felt.OnePtr[felt.Felt](),
-			PriceInFri: felt.OnePtr[felt.Felt](),
+			PriceInWei: new(felt.One[felt.Felt]()),
+			PriceInFri: new(felt.One[felt.Felt]()),
 		},
 	}
 }
@@ -127,7 +127,7 @@ func newChainFixture(t *testing.T) *chainFixture {
 	header := &core.Header{
 		Number:     0,
 		Hash:       new(felt.Felt).SetUint64(1),
-		ParentHash: felt.ZeroPtr[felt.Felt](),
+		ParentHash: new(felt.Zero[felt.Felt]()),
 	}
 	require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
 	require.NoError(t, core.ChainHeightBucket.Put(testDB, struct{}{}, new(uint64(0))))
@@ -316,7 +316,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 	genesis := &core.Header{
 		Number:     0,
 		Hash:       new(felt.Felt).SetUint64(1),
-		ParentHash: felt.ZeroPtr[felt.Felt](),
+		ParentHash: new(felt.Zero[felt.Felt]()),
 	}
 
 	block1 := makeTestPreConfirmedBlock("r0", 1)

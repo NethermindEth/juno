@@ -163,7 +163,7 @@ func TestBlockTraceValidTarget(t *testing.T) {
 
 func TestTransactionTraceSourceAccessors(t *testing.T) {
 	t.Run("VM", func(t *testing.T) {
-		txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()}}
+		txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())}}
 		result := vm.ExecutionResults{
 			Traces:      []vm.TransactionTrace{{Type: vm.TxnInvoke}},
 			GasConsumed: []core.GasConsumed{{}},

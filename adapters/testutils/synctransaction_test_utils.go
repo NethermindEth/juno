@@ -247,7 +247,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -283,7 +283,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -343,7 +343,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,

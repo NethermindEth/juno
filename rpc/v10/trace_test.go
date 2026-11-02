@@ -823,7 +823,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					felt.ZeroPtr[felt.Felt](),
+					new(felt.Zero[felt.Felt]()),
 				},
 				DeclaredClasses: []vm.DeclaredClass{
 					{
@@ -913,7 +913,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					felt.ZeroPtr[felt.Felt](),
+					new(felt.Zero[felt.Felt]()),
 				},
 				DeclaredClasses: []rpcv10.DeclaredClass{
 					{
@@ -1153,13 +1153,13 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
 			nil,
 			nil,
 			db.ErrKeyNotFound,
 		)
 
-		blockID := rpcv10.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
+		blockID := rpcv10.BlockIDFromHash(new(felt.Zero[felt.Felt]()))
 		res, rpcErr := handler.Call(&rpcv10.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -1179,7 +1179,7 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Felt]())).Return(
 			felt.Zero[felt.Felt](),
 			errors.New("unknown contract"),
 		)
@@ -1394,16 +1394,16 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 	n := &networks.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-		L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-		L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+		L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+		L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 		L1DAMode:         0,
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: felt.ZeroPtr[felt.Felt](),
-			PriceInFri: felt.ZeroPtr[felt.Felt](),
+			PriceInWei: new(felt.Zero[felt.Felt]()),
+			PriceInFri: new(felt.Zero[felt.Felt]()),
 		},
 		Number: 100,
 	}
@@ -1451,7 +1451,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 			mockVM.EXPECT().Trace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), mockState,
 				vm.TraceOptions{ReturnInitialReads: returnInitialReads},
 			).Return(vm.ExecutionResults{
-				OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
+				OverallFees:      []*felt.Felt{new(felt.Zero[felt.Felt]())},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 				Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},
@@ -1518,16 +1518,16 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		txHash := felt.FromUint64[felt.Felt](888)
 		header := &core.Header{
 			SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
-			L1GasPriceETH:    felt.ZeroPtr[felt.Felt](),
-			L1GasPriceSTRK:   felt.ZeroPtr[felt.Felt](),
+			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
+			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DAMode:         0,
 			L1DataGasPrice: &core.GasPrice{
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
 			},
 			L2GasPrice: &core.GasPrice{
-				PriceInWei: felt.ZeroPtr[felt.Felt](),
-				PriceInFri: felt.ZeroPtr[felt.Felt](),
+				PriceInWei: new(felt.Zero[felt.Felt]()),
+				PriceInFri: new(felt.Zero[felt.Felt]()),
 			},
 			Number:          100,
 			Hash:            &blockHash,
@@ -1543,7 +1543,7 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 
 	execResultWithReads := func(reads *vm.InitialReads) vm.ExecutionResults {
 		return vm.ExecutionResults{
-			OverallFees:      []*felt.Felt{felt.ZeroPtr[felt.Felt]()},
+			OverallFees:      []*felt.Felt{new(felt.Zero[felt.Felt]())},
 			DataAvailability: []core.DataAvailability{{L1Gas: 0}},
 			GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 			Traces:           []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}},

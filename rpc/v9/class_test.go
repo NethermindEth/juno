@@ -81,7 +81,7 @@ func TestClass(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		_, rpcErr := handler.Class(&latest, felt.ZeroPtr[felt.Felt]())
+		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.Felt]()))
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -96,7 +96,7 @@ func TestClass(t *testing.T) {
 		}, nil)
 		mockState.EXPECT().Class(gomock.Any()).Return(nil, errors.New("class hash not found"))
 
-		_, rpcErr := handler.Class(&latest, felt.ZeroPtr[felt.Felt]())
+		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.Felt]()))
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpccore.ErrClassHashNotFound, rpcErr)
 	})
@@ -211,12 +211,12 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
 			nil,
 			nil,
 			db.ErrKeyNotFound,
 		)
-		hash := blockIDHash(t, felt.ZeroPtr[felt.Felt]())
+		hash := blockIDHash(t, new(felt.Zero[felt.Felt]()))
 		classHash, rpcErr := handler.ClassHashAt(&hash, &targetAddress)
 		require.Nil(t, classHash)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -265,9 +265,10 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).
+			Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).Return(*expectedClassHash, nil)
-		hash := blockIDHash(t, felt.ZeroPtr[felt.Felt]())
+		hash := blockIDHash(t, new(felt.Zero[felt.Felt]()))
 		classHash, rpcErr := handler.ClassHashAt(&hash, &targetAddress)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
@@ -339,8 +340,8 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
 			core.L1Head{
 				BlockNumber: l1HeadBlockNumber,
-				BlockHash:   felt.ZeroPtr[felt.Felt](),
-				StateRoot:   felt.ZeroPtr[felt.Felt](),
+				BlockHash:   new(felt.Zero[felt.Felt]()),
+				StateRoot:   new(felt.Zero[felt.Felt]()),
 			},
 			nil,
 		)
@@ -348,7 +349,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := blockIDL1Accepted(t)
-		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, felt.ZeroPtr[felt.Felt]())
+		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Felt]()))
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
@@ -359,8 +360,8 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(
 			core.L1Head{
 				BlockNumber: l1HeadAhead,
-				BlockHash:   felt.ZeroPtr[felt.Felt](),
-				StateRoot:   felt.ZeroPtr[felt.Felt](),
+				BlockHash:   new(felt.Zero[felt.Felt]()),
+				StateRoot:   new(felt.Zero[felt.Felt]()),
 			},
 			nil,
 		)
@@ -368,7 +369,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(chainHeight).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := blockIDL1Accepted(t)
-		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, felt.ZeroPtr[felt.Felt]())
+		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Felt]()))
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})

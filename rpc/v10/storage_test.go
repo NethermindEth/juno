@@ -115,13 +115,13 @@ func TestStorageAt(t *testing.T) {
 		})
 
 		t.Run("non-existent block hash", func(t *testing.T) {
-			mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+			mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
 				nil,
 				nil,
 				db.ErrKeyNotFound,
 			)
 
-			blockID := rpc.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
+			blockID := rpc.BlockIDFromHash(new(felt.Zero[felt.Felt]()))
 			_, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -236,10 +236,11 @@ func TestStorageAt(t *testing.T) {
 		})
 
 		t.Run("blockID - hash", func(t *testing.T) {
-			mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).
+				Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractStorage(&targetAddressFelt, &targetSlot).Return(expectedStorage, nil)
 
-			blockID := rpc.BlockIDFromHash(felt.ZeroPtr[felt.Felt]())
+			blockID := rpc.BlockIDFromHash(new(felt.Zero[felt.Felt]()))
 			result, rpcErr := handler.StorageAt(
 				&targetAddress,
 				&targetSlot,
@@ -327,8 +328,8 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(
 				core.L1Head{
 					BlockNumber: l1HeadBlockNumber,
-					BlockHash:   felt.ZeroPtr[felt.Felt](),
-					StateRoot:   felt.ZeroPtr[felt.Felt](),
+					BlockHash:   new(felt.Zero[felt.Felt]()),
+					StateRoot:   new(felt.Zero[felt.Felt]()),
 				},
 				nil,
 			)
@@ -339,7 +340,7 @@ func TestStorageAt(t *testing.T) {
 			blockID := rpc.BlockIDL1Accepted()
 			result, rpcErr := handler.StorageAt(
 				&felt.Address{},
-				felt.ZeroPtr[felt.Felt](),
+				new(felt.Zero[felt.Felt]()),
 				&blockID,
 				noFlags,
 			)
@@ -353,8 +354,8 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(
 				core.L1Head{
 					BlockNumber: l1HeadAhead,
-					BlockHash:   felt.ZeroPtr[felt.Felt](),
-					StateRoot:   felt.ZeroPtr[felt.Felt](),
+					BlockHash:   new(felt.Zero[felt.Felt]()),
+					StateRoot:   new(felt.Zero[felt.Felt]()),
 				},
 				nil,
 			)
@@ -365,7 +366,7 @@ func TestStorageAt(t *testing.T) {
 			blockID := rpc.BlockIDL1Accepted()
 			result, rpcErr := handler.StorageAt(
 				&felt.Address{},
-				felt.ZeroPtr[felt.Felt](),
+				new(felt.Zero[felt.Felt]()),
 				&blockID,
 				noFlags,
 			)
@@ -428,8 +429,8 @@ func TestStorageAt(t *testing.T) {
 			mockReader.EXPECT().L1Head().Return(
 				core.L1Head{
 					BlockNumber: l1HeadBlockNumber,
-					BlockHash:   felt.ZeroPtr[felt.Felt](),
-					StateRoot:   felt.ZeroPtr[felt.Felt](),
+					BlockHash:   new(felt.Zero[felt.Felt]()),
+					StateRoot:   new(felt.Zero[felt.Felt]()),
 				},
 				nil,
 			)
@@ -686,7 +687,7 @@ func TestStorageProof(t *testing.T) {
 			_, nodes := tr.Commit()
 			err = trieDB.Update(
 				(*felt.Felt)(&newComm),
-				felt.ZeroPtr[felt.Felt](),
+				new(felt.Zero[felt.Felt]()),
 				trienode.NewMergeNodeSet(nodes),
 			)
 			require.NoError(t, err)

@@ -32,7 +32,7 @@ func TestAdaptBlock(t *testing.T) {
 		{
 			number:        147,
 			network:       networks.Mainnet,
-			l1GasPriceWEI: felt.ZeroPtr[felt.Felt](),
+			l1GasPriceWEI: new(felt.Zero[felt.Felt]()),
 		},
 		{
 			number:          11817,

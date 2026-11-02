@@ -39,7 +39,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("call", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Felt]())).Return(
 			felt.Zero[felt.Felt](),
 			nil,
 		)

@@ -194,7 +194,7 @@ func TestAdaptClassErrors(t *testing.T) {
 		{
 			name: "sierra entry point missing function_idx",
 			class: sierraClass(rpcv10.ClassEntryPointsByType{
-				External: []rpcv10.ClassEntryPoint{{Selector: felt.OnePtr[felt.Felt]()}},
+				External: []rpcv10.ClassEntryPoint{{Selector: new(felt.One[felt.Felt]())}},
 			}),
 			err: "EXTERNAL entry point 0 is missing function_idx",
 		},
@@ -242,14 +242,14 @@ func TestAdaptClassErrors(t *testing.T) {
 		{
 			name: "deprecated entry point missing selector",
 			class: &rpcv10.Class{Program: program, EntryPoints: rpcv10.ClassEntryPointsByType{
-				Constructor: []rpcv10.ClassEntryPoint{{Offset: felt.OnePtr[felt.Felt]()}},
+				Constructor: []rpcv10.ClassEntryPoint{{Offset: new(felt.One[felt.Felt]())}},
 			}},
 			err: "CONSTRUCTOR entry point 0 is missing selector",
 		},
 		{
 			name: "deprecated entry point missing offset",
 			class: &rpcv10.Class{Program: program, EntryPoints: rpcv10.ClassEntryPointsByType{
-				External: []rpcv10.ClassEntryPoint{{Selector: felt.OnePtr[felt.Felt]()}},
+				External: []rpcv10.ClassEntryPoint{{Selector: new(felt.One[felt.Felt]())}},
 			}},
 			err: "EXTERNAL entry point 0 is missing offset",
 		},

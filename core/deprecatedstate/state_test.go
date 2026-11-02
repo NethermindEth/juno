@@ -113,7 +113,7 @@ func TestUpdate(t *testing.T) {
 	scValue := felt.NewUnsafeFromString[felt.Felt](
 		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
 	)
-	scAddr := felt.OnePtr[felt.Felt]()
+	scAddr := new(felt.One[felt.Felt]())
 
 	su4 := &core.StateUpdate{
 		OldRoot: su3.NewRoot,
@@ -222,7 +222,7 @@ func TestNonce(t *testing.T) {
 	)
 
 	su := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -242,7 +242,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("update contract nonce", func(t *testing.T) {
-		expectedNonce := felt.OnePtr[felt.Felt]()
+		expectedNonce := new(felt.One[felt.Felt]())
 		su = &core.StateUpdate{
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",
@@ -365,7 +365,7 @@ func TestHistory(t *testing.T) {
 			value := felt.NewFromUint64[felt.Felt](789)
 
 			t.Run("log value changed at height 5 and 10", func(t *testing.T) {
-				assert.NoError(t, test.logger(txn, location, felt.ZeroPtr[felt.Felt](), 5))
+				assert.NoError(t, test.logger(txn, location, new(felt.Zero[felt.Felt]()), 5))
 				assert.NoError(t, test.logger(txn, location, value, 10))
 			})
 
@@ -730,11 +730,11 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	classHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	sierraHash := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 	declareDiff := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
 			"0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a",
 		),
-		BlockHash: felt.ZeroPtr[felt.Felt](),
+		BlockHash: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			DeclaredV0Classes: []*felt.Felt{classHash},
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
@@ -780,7 +780,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 			assert.Equal(t, uint64(0), sierraClass.At)
 		})
 
-	declareDiff.OldRoot = felt.ZeroPtr[felt.Felt]()
+	declareDiff.OldRoot = new(felt.Zero[felt.Felt]())
 	require.NoError(t, state.Revert(&core.Header{Number: 0}, declareDiff))
 	_, err = state.Class(classHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
@@ -853,8 +853,8 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 
 	// Block 0: declare class with V1 CASM hash
 	su0 := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				*sierraHashFelt: (*felt.Felt)(&v1CasmHash),
@@ -927,8 +927,8 @@ func TestCommitmentV014AlwaysPoseidon(t *testing.T) {
 	contractAddr := new(felt.Felt).SetUint64(2)
 
 	su := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](), // skip root verification
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()), // skip root verification
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {*storageKey: storageVal},
@@ -975,8 +975,8 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 	})
 
 	require.NoError(t, state.Update(&core.Header{Number: 3}, &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				addrFelt: {*key: value},
@@ -995,10 +995,11 @@ func TestDeprecatedStateContractStorageLastUpdatedBlock(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: 7}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {felt.Zero[felt.Felt](): felt.ZeroPtr[felt.Felt]()}, // no change in our 'key' storage
+				// no change in our 'key' storage
+				addrFelt: {felt.Zero[felt.Felt](): new(felt.Zero[felt.Felt]())},
 			},
 		},
 	}, nil, true))

@@ -101,7 +101,7 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 		))
 		require.NoError(
 			t,
-			deprecatedstate.WriteContractNonceHistory(memDB, &addrs[i], felt.ZeroPtr[felt.Felt](), 200),
+			deprecatedstate.WriteContractNonceHistory(memDB, &addrs[i], new(felt.Zero[felt.Felt]()), 200),
 		)
 	}
 	logger := log.NewNopZapLogger()

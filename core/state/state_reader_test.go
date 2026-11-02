@@ -18,14 +18,14 @@ import (
 func TestNewStateReader(t *testing.T) {
 	t.Run("returns read-only state at root", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		st, err := NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
+		st, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
 		require.NoError(t, err)
 		assert.NotNil(t, st)
 	})
 
 	t.Run("state commitment readable", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		st, err := NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
+		st, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
 		require.NoError(t, err)
 
 		_, err = st.Commitment("")
@@ -64,7 +64,7 @@ func TestNonce(t *testing.T) {
 	)
 
 	su0 := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
@@ -78,7 +78,7 @@ func TestNonce(t *testing.T) {
 	t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
 		require.NoError(t, batch.Write())
@@ -93,7 +93,7 @@ func TestNonce(t *testing.T) {
 	t.Run("update contract nonce", func(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
 		require.NoError(t, batch.Write())
@@ -104,7 +104,7 @@ func TestNonce(t *testing.T) {
 			),
 			OldRoot: root,
 			StateDiff: &core.StateDiff{
-				Nonces: map[felt.Felt]*felt.Felt{addr: felt.OnePtr[felt.Felt]()},
+				Nonces: map[felt.Felt]*felt.Felt{addr: new(felt.One[felt.Felt]())},
 			},
 		}
 
@@ -174,7 +174,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, err)
 
 	batch := stateDB.disk.NewBatch()
-	state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 	require.NoError(t, err)
 
 	su0 := adaptfeedertest.StateUpdate(t, client, 0)
@@ -277,13 +277,13 @@ func TestContractHistory(t *testing.T) {
 	storageValue := felt.NewUnsafeFromString[felt.Felt]("0x5a1")
 
 	emptyStateUpdate := &core.StateUpdate{
-		OldRoot:   felt.ZeroPtr[felt.Felt](),
-		NewRoot:   felt.ZeroPtr[felt.Felt](),
+		OldRoot:   new(felt.Zero[felt.Felt]()),
+		NewRoot:   new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{},
 	}
 
 	su := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
 		NewRoot: felt.NewUnsafeFromString[felt.Felt](
 			"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 		),
@@ -296,7 +296,7 @@ func TestContractHistory(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		state, err := NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
+		state, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
 		require.NoError(t, err)
 
 		nonce, err := state.ContractNonceAt(&addr, block0)
@@ -315,11 +315,11 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height is the same as update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 
 		su0 := &core.StateUpdate{
-			OldRoot: felt.ZeroPtr[felt.Felt](),
+			OldRoot: new(felt.Zero[felt.Felt]()),
 			NewRoot: felt.NewUnsafeFromString[felt.Felt](
 				"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 			),
@@ -352,7 +352,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height before update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := emptyStateUpdate
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -384,7 +384,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height in between updates", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := su
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -441,7 +441,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height after last update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := su
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -472,7 +472,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 
 	stateDB := newTestStateDB()
 	batch := stateDB.disk.NewBatch()
-	state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 	require.NoError(t, err)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
@@ -482,8 +482,8 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	})
 
 	su := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				addrFelt: {*key: value},
@@ -507,7 +507,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su1 := &core.StateUpdate{
 		OldRoot: &root0,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				addrFelt: {*key: value},
@@ -525,7 +525,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su2 := &core.StateUpdate{
 		OldRoot: &root0,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
@@ -542,7 +542,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su3 := &core.StateUpdate{
 		OldRoot: &root2,
-		NewRoot: felt.ZeroPtr[felt.Felt](),
+		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
@@ -572,7 +572,7 @@ func TestStateCommitmentPre014ReturnsContractRoot(t *testing.T) {
 	// the raw contractRoot, not a Poseidon hash.
 	stateDB := newTestStateDB()
 	batch := stateDB.disk.NewBatch()
-	state, err := New(felt.ZeroPtr[felt.Felt](), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
 	require.NoError(t, err)
 
 	storageKey := felt.NewFromUint64[felt.Felt](0)
@@ -580,8 +580,8 @@ func TestStateCommitmentPre014ReturnsContractRoot(t *testing.T) {
 	contractAddr := felt.NewFromUint64[felt.Felt](2)
 
 	su := &core.StateUpdate{
-		OldRoot: felt.ZeroPtr[felt.Felt](),
-		NewRoot: felt.ZeroPtr[felt.Felt](), // skip root verification
+		OldRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.Felt]()), // skip root verification
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {*storageKey: storageVal},

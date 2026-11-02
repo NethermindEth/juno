@@ -894,7 +894,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					felt.ZeroPtr[felt.Felt](),
+					new(felt.Zero[felt.Felt]()),
 				},
 				DeclaredClasses: []vm.DeclaredClass{
 					{
@@ -978,7 +978,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					},
 				},
 				DeprecatedDeclaredClasses: []*felt.Felt{
-					felt.ZeroPtr[felt.Felt](),
+					new(felt.Zero[felt.Felt]()),
 				},
 				DeclaredClasses: []rpc.DeclaredClass{
 					{
@@ -1204,13 +1204,13 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockReader.EXPECT().StateAtBlockHash(new(felt.Zero[felt.Felt]())).Return(
 			nil,
 			nil,
 			db.ErrKeyNotFound,
 		)
 
-		blockID := blockIDHash(t, felt.ZeroPtr[felt.Felt]())
+		blockID := blockIDHash(t, new(felt.Zero[felt.Felt]()))
 		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -1230,7 +1230,7 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(felt.ZeroPtr[felt.Felt]()).Return(
+		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Felt]())).Return(
 			felt.Zero[felt.Felt](),
 			errors.New("unknown contract"),
 		)

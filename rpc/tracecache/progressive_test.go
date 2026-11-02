@@ -42,7 +42,7 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 		}},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()},
+		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
 	}
 	result := vm.ExecutionResults{
@@ -136,7 +136,7 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 		},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()},
+		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
 		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](3)},
 	}
@@ -251,10 +251,10 @@ func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 		require.True(t, replayed.Covers(true))
 	}
 	for _, bad := range []*tracecache.TransactionTarget{
-		{Index: 3, Hash: felt.OnePtr[felt.TransactionHash]()},
-		{Index: 0, Hash: felt.ZeroPtr[felt.TransactionHash]()},
+		{Index: 3, Hash: new(felt.One[felt.TransactionHash]())},
+		{Index: 0, Hash: new(felt.Zero[felt.TransactionHash]())},
 		{Index: 0},
-		{Index: 2, Hash: felt.ZeroPtr[felt.TransactionHash]()},
+		{Index: 2, Hash: new(felt.Zero[felt.TransactionHash]())},
 	} {
 		require.False(t, complete.ValidTarget(bad))
 		_, err := tracecache.PlanRange(nil, txs, bad, false)

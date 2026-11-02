@@ -232,7 +232,7 @@ func TestHistoryAccessors(t *testing.T) {
 				t.Helper()
 				disk := memory.New()
 				stateDB := state.NewStateDB(disk, triedb.New(disk, nil))
-				reader, err := state.NewStateReader(felt.ZeroPtr[felt.Felt](), stateDB)
+				reader, err := state.NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
 				require.NoError(t, err)
 				return disk, reader
 			}

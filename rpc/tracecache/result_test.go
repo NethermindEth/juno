@@ -12,7 +12,7 @@ import (
 )
 
 func TestVMResult(t *testing.T) {
-	txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: felt.OnePtr[felt.Felt]()}}
+	txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())}}
 	valid := vm.ExecutionResults{
 		Traces:      []vm.TransactionTrace{{Type: vm.TxnInvoke}},
 		GasConsumed: []core.GasConsumed{{L2Gas: 7}},
@@ -80,7 +80,7 @@ func TestFeederMetadataAndReadCoverage(t *testing.T) {
 		{TransactionHash: felt.Zero[felt.Felt]()},
 	}}
 	receipt := &core.TransactionReceipt{
-		TransactionHash: felt.OnePtr[felt.Felt](),
+		TransactionHash: new(felt.One[felt.Felt]()),
 		ExecutionResources: &core.ExecutionResources{
 			TotalGasConsumed: &core.GasConsumed{L1Gas: 5},
 		},

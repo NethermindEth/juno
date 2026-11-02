@@ -215,7 +215,7 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(3)
 	contractAddress := core.ContractAddress(
-		felt.ZeroPtr[felt.Felt](),
+		new(felt.Zero[felt.Felt]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,

@@ -43,7 +43,7 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	}
 	txs := []core.Transaction{
 		&core.InvokeTransaction{
-			TransactionHash: felt.OnePtr[felt.Felt](),
+			TransactionHash: new(felt.One[felt.Felt]()),
 			Version:         new(core.TransactionVersion),
 		},
 		&core.InvokeTransaction{
