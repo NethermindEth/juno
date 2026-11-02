@@ -46,26 +46,23 @@ func (l layout) buckets() []db.Bucket {
 	}
 }
 
-// nextsBeforeSeek is how many entries seekStart steps over before it seeks:
-// a Seek costs several Nexts, so short histories are cheaper to walk.
-const nextsBeforeSeek = 8
-
 // seekStart moves it from a history key's first entry, below the floor, to
-// the key's first entry to keep: the first at or above the floor, and for
-// new-state the latest below it, which reads at floor-1 resolve to.
-func (l layout) seekStart(it db.Iterator, historyKey []byte, floor uint64) bool {
-	ok := it.Next()
-	for i := 1; ok && belowFloor(it.Key(), historyKey, floor); i++ {
-		if i == nextsBeforeSeek {
-			ok = it.Seek(binary.BigEndian.AppendUint64(historyKey, floor))
-			break
+// the key's first entry at or above the floor. For new-state it also returns
+// the latest entry below the floor, which reads at floor-1 resolve to.
+func (l layout) seekStart(
+	it db.Iterator,
+	historyKey []byte,
+	floor uint64,
+) (ok bool, key, val []byte, err error) {
+	for ok = true; ok && belowFloor(it.Key(), historyKey, floor); ok = it.Next() {
+		if l == newStateLayout {
+			key = it.Key()
+			if val, err = it.Value(); err != nil {
+				return false, nil, nil, err
+			}
 		}
-		ok = it.Next()
 	}
-	if l == newStateLayout {
-		return it.Prev()
-	}
-	return ok
+	return ok, key, val, nil
 }
 
 // belowFloor reports whether key is an entry of historyKey below floor.
