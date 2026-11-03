@@ -263,15 +263,12 @@ func (t *Trie) addProofNode(
 			Child: sNode.node.Value,
 		}
 	}
-	// Every key diverges inside the edge, so the edge alone proves non-membership
+	// No key continues past the edge (always true for leaves), so the edge ends the proof path
 	if edge != nil && !keysContinue {
 		proof.Put(edgeHash(edge, carriedHash, t.hash), edge)
 		return Binary{}, nil
 	}
 	if sNode.key.len == t.height {
-		if edge != nil { // Leaf Edge
-			proof.Put(edgeHash(edge, carriedHash, t.hash), edge)
-		}
 		return Binary{}, nil
 	}
 
