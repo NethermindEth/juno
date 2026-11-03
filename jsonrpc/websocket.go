@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"io"
@@ -199,9 +200,22 @@ func (ws *Websocket) readMessage(wsc *websocketConn) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
-func busyResponse(body []byte) []byte {
+// busyResponse returns a server-busy response, or nil for a valid notification
+// or an allowed, non-empty batch of valid notifications that must not receive a reply.
+func (ws *Websocket) busyResponse(body []byte) []byte {
+	body = bytes.TrimLeft(body, " \t\r\n")
+	if len(body) > 0 && body[0] == '[' {
+		return ws.busyBatchResponse(body)
+	}
+
 	var req Request
-	if json.Unmarshal(body, &req, decodeOptions) != nil || req.ID == nil || !validID(req.ID) {
+	if json.Unmarshal(body, &req, decodeOptions) != nil {
+		return serverBusyResponse
+	}
+	if req.ID == nil && req.isSane() == nil {
+		return nil
+	}
+	if req.ID == nil || !validID(req.ID) {
 		return serverBusyResponse
 	}
 
@@ -215,12 +229,53 @@ func busyResponse(body []byte) []byte {
 	return out
 }
 
+func (ws *Websocket) busyBatchResponse(body []byte) []byte {
+	if ws.rpc.disableBatchRequests {
+		return serverBusyResponse
+	}
+	decoder := jsontext.NewDecoder(bytes.NewBuffer(body), decodeOptions)
+	if _, err := decoder.ReadToken(); err != nil {
+		return serverBusyResponse
+	}
+	var req Request
+	count := 0
+	for decoder.PeekKind() != ']' {
+		if ws.rpc.maxBatchElements > 0 && count >= ws.rpc.maxBatchElements {
+			return serverBusyResponse
+		}
+		raw, err := decoder.ReadValue()
+		if err != nil {
+			return serverBusyResponse
+		}
+		// Unmarshal reuses its string cache instead of allocating one for each busy batch.
+		req = Request{}
+		if json.Unmarshal(raw, &req, decodeOptions) != nil ||
+			req.ID != nil || req.isSane() != nil {
+			return serverBusyResponse
+		}
+		count++
+	}
+	if count == 0 {
+		return serverBusyResponse
+	}
+	if _, err := decoder.ReadToken(); err != nil {
+		return serverBusyResponse
+	}
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
+		return serverBusyResponse
+	}
+	return nil
+}
+
 func (ws *Websocket) handleMessage(wsc *websocketConn, body []byte) error {
 	if ws.gate != nil {
 		if !ws.gate.TryAcquire() {
 			ws.logServerBusy()
-			_, err := wsc.Write(busyResponse(body))
-			return err
+			if response := ws.busyResponse(body); response != nil {
+				_, err := wsc.Write(response)
+				return err
+			}
+			return nil
 		}
 		defer ws.gate.Release()
 	}
