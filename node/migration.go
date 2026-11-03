@@ -95,7 +95,7 @@ func fetchL1HeadIfMissing(
 	chain *blockchain.Blockchain,
 	logger log.StructuredLogger,
 ) error {
-	_, err := core.GetL1Head(database)
+	_, err := core.L1HeightBucket.Get(database, struct{}{})
 	if err == nil {
 		return nil
 	}
@@ -116,7 +116,7 @@ func fetchL1HeadIfMissing(
 		return fmt.Errorf("catching up to the latest L1 head: %w", err)
 	}
 
-	if _, err := core.GetL1Head(database); err != nil {
+	if _, err := core.L1HeightBucket.Get(database, struct{}{}); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return errors.New("couldn't find a finalized Starknet state update on L1")
 		}

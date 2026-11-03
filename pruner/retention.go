@@ -42,7 +42,7 @@ func (e *BlockPrunedError) Is(target error) bool { return target == ErrBlockPrun
 // source of truth for "block has not been pruned", since it has no
 // carve-out (see [PruneUpto]).
 func RequireRetained(r db.KeyValueReader, blockNumber uint64) error {
-	_, err := core.GetBlockCommitmentByBlockNum(r, blockNumber)
+	_, err := core.BlockCommitmentsBucket.Get(r, blockNumber)
 	if err == nil {
 		return nil
 	}
@@ -123,7 +123,7 @@ func RequireStateRetainedByBlockNumber(
 		if blockNumber < f {
 			return db.ErrKeyNotFound
 		}
-		height, err := core.GetChainHeight(r)
+		height, err := core.ChainHeightBucket.Get(r, struct{}{})
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func RequireStateRetainedByBlockNumber(
 	if err != nil {
 		return err
 	}
-	_, err = core.GetBlockHeaderNumberByHash(r, hash)
+	_, err = core.BlockHeaderNumbersByHashBucket.Get(r, hash)
 	return err
 }
 
@@ -160,7 +160,7 @@ func StateRootIfStateRetainedByBlockNumber(
 	if err != nil {
 		return nil, err
 	}
-	if _, err := core.GetBlockHeaderNumberByHash(r, hash); err != nil {
+	if _, err := core.BlockHeaderNumbersByHashBucket.Get(r, hash); err != nil {
 		return nil, err
 	}
 	return stateRoot, nil
@@ -169,7 +169,7 @@ func StateRootIfStateRetainedByBlockNumber(
 // BlockNumberByHashIfStateRetained resolves blockHash to its number, avoiding the full
 // header decode (and its heavy fields like EventsBloom) when only the number is needed.
 func BlockNumberByHashIfStateRetained(r db.KeyValueReader, blockHash *felt.Felt) (uint64, error) {
-	return core.GetBlockHeaderNumberByHash(r, blockHash)
+	return core.BlockHeaderNumbersByHashBucket.Get(r, blockHash)
 }
 
 // OldestRetainedBlock returns the lowest block number still fully retained,

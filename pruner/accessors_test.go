@@ -116,7 +116,7 @@ func TestPruneUpto_NoOp(t *testing.T) {
 
 // cancelAfterGets wraps a KeyValueStore and cancels the supplied context
 // after the n-th Get call. pruneHashKeyedUpto issues exactly one Get per
-// loop iteration (core.GetStateUpdateByBlockNum), so this lets a test
+// loop iteration (core.StateUpdatesByBlockNumberBucket.Get), so this lets a test
 // stop the sweep at a precise block boundary.
 type cancelAfterGets struct {
 	db.KeyValueStore

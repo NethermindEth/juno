@@ -16,6 +16,10 @@ It is important to run the latest version of Juno as each update brings new feat
 When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database. The commands below use paths relative to your current directory, so run them from the same directory as the previous node.
 
 Since v0.17.0, Juno can't migrate a database last used with a version older than v0.15.17. Update such a node to v0.16.x first and let it complete its migrations, or resynchronise it from the beginning.
+
+Since v0.17.0, Juno no longer serves RPC v0.8: every `/v0_8` endpoint, HTTP and WebSocket, returns 404. Move clients to v0.9 or the default v0.10, and use `starknet_subscribeNewTransactions` instead of `starknet_subscribePendingTransactions`.
+
+Since v0.17.0, the default `rpc-max-concurrent-requests` is 1024 and the default `rpc-max-request-queue` is 2048 (both were 256000). If your node serves heavy RPC traffic, set these flags explicitly.
 :::
 
 <Tabs groupId="install">

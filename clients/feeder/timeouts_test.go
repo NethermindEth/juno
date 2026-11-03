@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/stretchr/testify/assert"
@@ -150,4 +151,31 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 			}
 		})
 	}
+}
+
+// One successful call is enough to catch the old tryGet, which assigned
+// Client.Timeout on the shared http.Client before Do.
+func TestHTTPClientTimeoutNotMutated(t *testing.T) {
+	const blockBody = `{"block_hash": "0x123", "block_number": 1}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(blockBody))
+	}))
+	t.Cleanup(srv.Close)
+
+	serverURL, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+
+	const suppliedTimeout = 3 * time.Second
+	supplied := &http.Client{Timeout: suppliedTimeout}
+	client := NewClient(
+		serverURL,
+		WithHTTPClient(supplied),
+		WithMaxRetries(0),
+		WithBackoff(NopBackoff),
+	)
+
+	block, err := client.Block(t.Context(), "1")
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), block.Number)
+	require.Equal(t, suppliedTimeout, supplied.Timeout)
 }

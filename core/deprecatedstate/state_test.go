@@ -801,7 +801,7 @@ func TestCompiledClassHashAt(t *testing.T) {
 
 	record := core.NewCasmHashMetadataDeclaredV1(declaredAt, casmHash1, casmHash2)
 	require.NoError(t, record.Migrate(migratedAt))
-	require.NoError(t, core.WriteClassCasmHashMetadata(txn, sierraClassHash, &record))
+	require.NoError(t, core.ClassCasmHashMetadataBucket.Put(txn, sierraClassHash, &record))
 
 	t.Run("non-existent class hash", func(t *testing.T) {
 		nonExistentHash := felt.NewFromUint64[felt.SierraClassHash](999)
@@ -869,7 +869,7 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	// core.State.Update does not; blockchain layer does in production.
 	// Revert relies on the metadata being present.
 	metadata := core.NewCasmHashMetadataDeclaredV1(0, &v1CasmHash, &v2CasmHash)
-	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadata))
+	require.NoError(t, core.ClassCasmHashMetadataBucket.Put(txn, &sierraHash, &metadata))
 
 	// Block 1: apply migration in trie (MigratedClasses)
 	su1 := &core.StateUpdate{
@@ -884,7 +884,7 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 
 	// Simulate block 1 migration: migrate metadata in DB
 	require.NoError(t, metadata.Migrate(1))
-	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadata))
+	require.NoError(t, core.ClassCasmHashMetadataBucket.Put(txn, &sierraHash, &metadata))
 
 	gotCasmHash, err := state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
@@ -898,10 +898,10 @@ func TestRevertMigratedCasmClasses(t *testing.T) {
 	require.NoError(t, state.Revert(&core.Header{Number: 1}, su1))
 
 	// State restores V1 in the class trie; caller must persist unmigrated metadata
-	metadataReverted, err := core.GetClassCasmHashMetadata(txn, &sierraHash)
+	metadataReverted, err := core.ClassCasmHashMetadataBucket.Get(txn, &sierraHash)
 	require.NoError(t, err)
 	require.NoError(t, metadataReverted.Unmigrate())
-	require.NoError(t, core.WriteClassCasmHashMetadata(txn, &sierraHash, &metadataReverted))
+	require.NoError(t, core.ClassCasmHashMetadataBucket.Put(txn, &sierraHash, &metadataReverted))
 
 	// Classes trie and metadata should be back to V1
 	gotRoot, err := state.Commitment("")

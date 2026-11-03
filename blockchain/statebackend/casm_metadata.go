@@ -45,7 +45,7 @@ func storeCasmHashMetadataV2(
 			blockNumber,
 			(*felt.CasmClassHash)(casmHash),
 		)
-		err := core.WriteClassCasmHashMetadata(
+		err := core.ClassCasmHashMetadataBucket.Put(
 			writer,
 			(*felt.SierraClassHash)(&sierraClassHash),
 			&metadata,
@@ -56,7 +56,7 @@ func storeCasmHashMetadataV2(
 	}
 
 	for sierraClassHash := range stateUpdate.StateDiff.MigratedClasses {
-		metadata, err := core.GetClassCasmHashMetadata(reader, &sierraClassHash)
+		metadata, err := core.ClassCasmHashMetadataBucket.Get(reader, &sierraClassHash)
 		if err != nil {
 			return fmt.Errorf("cannot migrate class %s: metadata not found",
 				sierraClassHash.String(),
@@ -71,7 +71,7 @@ func storeCasmHashMetadataV2(
 			)
 		}
 
-		err = core.WriteClassCasmHashMetadata(writer, &sierraClassHash, &metadata)
+		err = core.ClassCasmHashMetadataBucket.Put(writer, &sierraClassHash, &metadata)
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func storeCasmHashMetadataV1(
 		casmHashV2 := felt.CasmClassHash(v2Hash)
 
 		metadata := core.NewCasmHashMetadataDeclaredV1(blockNumber, casmHashV1, &casmHashV2)
-		err := core.WriteClassCasmHashMetadata(
+		err := core.ClassCasmHashMetadataBucket.Put(
 			writer,
 			(*felt.SierraClassHash)(&sierraClassHash),
 			&metadata,
@@ -129,20 +129,20 @@ func revertCasmHashMetadata(
 	stateUpdate *core.StateUpdate,
 ) error {
 	for sierraClassHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		err := core.DeleteClassCasmHashMetadata(w, (*felt.SierraClassHash)(&sierraClassHash))
+		err := core.ClassCasmHashMetadataBucket.Delete(w, (*felt.SierraClassHash)(&sierraClassHash))
 		if err != nil {
 			return err
 		}
 	}
 	for sierraClassHash := range stateUpdate.StateDiff.MigratedClasses {
-		metadata, err := core.GetClassCasmHashMetadata(r, &sierraClassHash)
+		metadata, err := core.ClassCasmHashMetadataBucket.Get(r, &sierraClassHash)
 		if err != nil {
 			return fmt.Errorf("revert migrated class %s: %w", sierraClassHash.String(), err)
 		}
 		if err := metadata.Unmigrate(); err != nil {
 			return fmt.Errorf("failed to unmigrate class %s: %w", sierraClassHash.String(), err)
 		}
-		if err := core.WriteClassCasmHashMetadata(w, &sierraClassHash, &metadata); err != nil {
+		if err := core.ClassCasmHashMetadataBucket.Put(w, &sierraClassHash, &metadata); err != nil {
 			return err
 		}
 	}

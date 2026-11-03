@@ -258,10 +258,10 @@ func StoreBlockWithLayout(
 	}
 
 	// Write block data.
-	require.NoError(t, core.WriteBlockHeaderByNumber(database, header))
-	require.NoError(t, core.WriteBlockHeaderNumberByHash(database, header.Hash, blockNum))
-	require.NoError(t, core.WriteBlockCommitment(database, blockNum, commitments))
-	require.NoError(t, core.WriteStateUpdateByBlockNum(database, blockNum, stateUpdate))
+	require.NoError(t, core.BlockHeadersByNumberBucket.Put(database, header.Number, header))
+	require.NoError(t, core.BlockHeaderNumbersByHashBucket.Put(database, header.Hash, &blockNum))
+	require.NoError(t, core.BlockCommitmentsBucket.Put(database, blockNum, commitments))
+	require.NoError(t, core.StateUpdatesByBlockNumberBucket.Put(database, blockNum, stateUpdate))
 	require.NoError(t, core.WriteTransactionsAndReceipts(database, blockNum, txs, receipts))
 
 	// Write L1 handler msg hash → tx hash (bucket 24).
@@ -384,7 +384,7 @@ func AssertStateHistoryPruned(t *testing.T, r db.KeyValueReader, pruned []*Store
 
 // Helpers for individual bucket checks.
 func BlockHeaderExists(database db.KeyValueReader, blockNum uint64) bool {
-	_, err := core.GetBlockHeaderByNumber(database, blockNum)
+	_, err := core.BlockHeadersByNumberBucket.Get(database, blockNum)
 	return err == nil
 }
 
@@ -394,12 +394,12 @@ func BlockHeaderHashExists(database db.KeyValueReader, hash *felt.Felt) bool {
 }
 
 func BlockCommitmentsExist(database db.KeyValueReader, blockNum uint64) bool {
-	_, err := core.GetBlockCommitmentByBlockNum(database, blockNum)
+	_, err := core.BlockCommitmentsBucket.Get(database, blockNum)
 	return err == nil
 }
 
 func StateUpdateExists(database db.KeyValueReader, blockNum uint64) bool {
-	_, err := core.GetStateUpdateByBlockNum(database, blockNum)
+	_, err := core.StateUpdatesByBlockNumberBucket.Get(database, blockNum)
 	return err == nil
 }
 
@@ -432,7 +432,7 @@ func AssertPostPruneState(
 
 	t.Run("blocks in the lag window keep their header", func(t *testing.T) {
 		for i := oldestKept - lag; i < oldestKept; i++ {
-			h, err := core.GetBlockHeaderByNumber(database, i)
+			h, err := core.BlockHeadersByNumberBucket.Get(database, i)
 			require.NoError(t, err,
 				"header at block %d must be readable (BlockHashLag carve-out)", i)
 			assert.Equal(t, i, h.Number)

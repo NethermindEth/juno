@@ -1,6 +1,6 @@
 name: Claude PR Review
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**/*.go"
@@ -31,7 +31,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Write the PR for Claude
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git diff "$BASE_SHA...$HEAD_SHA" > pr.diff
+          {
+            printf '# %s\n\n%s\n\n## Commits\n' "$PR_TITLE" "$PR_BODY"
+            git log --format='%h %s' "$BASE_SHA..$HEAD_SHA"
+          } > pr.md
 
       # Exports the LiteLLM gateway virtual key into the job env as LITELLM_API_KEY.
       - name: Load gateway key from Infisical
@@ -55,12 +70,13 @@ jobs:
           anthropic_api_key: ${{ env.LITELLM_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "infrmtcs-agent[bot]"
-          track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
             Review this PR for the Juno Starknet node (Go + some Rust).
+            The checkout is the PR head. The PR's diff is in pr.diff and its title,
+            description and commits are in pr.md, both at the repository root.
 
             Focus on:
             - Correctness bugs, race conditions, panics, nil derefs
@@ -77,15 +93,26 @@ jobs:
             - Generated files (`*.pb.go`, `mocks/`)
 
             Post specific issues as inline comments on the relevant file:line using
-            the inline comment tool. Use a final PR comment only for a short summary
-            grouped by severity (blocker / important / nit). If the PR is clean,
-            say so in one sentence and skip inline comments.
+            the inline comment tool. Put a short summary grouped by severity
+            (blocker / important / nit) in the summary field; it is posted as the PR
+            comment. If the PR is clean, say so there in one sentence and skip inline
+            comments.
 
             CI already builds, lints and tests this PR. Do not run builds or tests.
             Use only the allowed tools: read code with Read, Grep and Glob.
           claude_args: |
             --model anthropic/claude-sonnet-5
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Bash(rg:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob"
+            --disallowedTools "Bash,Read(//proc/**),Grep(//proc/**),Glob(//proc/**),Read(//home/runner/work/_temp/**),Grep(//home/runner/work/_temp/**),Glob(//home/runner/work/_temp/**),Read(//home/runner/work/juno/juno/.git/**),Grep(//home/runner/work/juno/juno/.git/**),Glob(//home/runner/work/juno/juno/.git/**)"
+            --json-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}'
+
+      - name: Post the review summary
+        if: steps.claude.outputs.structured_output != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SUMMARY: ${{ fromJSON(steps.claude.outputs.structured_output).summary }}
+        run: gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$SUMMARY"
 
       # Full transcript; the action hides it from the job log.
       - name: Upload Claude transcript

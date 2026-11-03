@@ -646,7 +646,7 @@ func TestRevert(t *testing.T) {
 
 		// Caller writes CASM hash metadata (State does not).
 		metadata := core.NewCasmHashMetadataDeclaredV1(block0, &v1CasmHash, &v2CasmHash)
-		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadata))
+		require.NoError(t, core.ClassCasmHashMetadataBucket.Put(stateDB.disk, &sierraHash, &metadata))
 
 		su1 := &core.StateUpdate{
 			OldRoot: &root0,
@@ -668,7 +668,7 @@ func TestRevert(t *testing.T) {
 
 		// Caller migrates metadata (State does not).
 		require.NoError(t, metadata.Migrate(block1))
-		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadata))
+		require.NoError(t, core.ClassCasmHashMetadataBucket.Put(stateDB.disk, &sierraHash, &metadata))
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(su1.NewRoot, stateDB, batch)
@@ -683,10 +683,13 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(&core.Header{Number: block1}, su1))
 		require.NoError(t, batch.Write())
 
-		metadataReverted, err := core.GetClassCasmHashMetadata(stateDB.disk, &sierraHash)
+		metadataReverted, err := core.ClassCasmHashMetadataBucket.Get(stateDB.disk, &sierraHash)
 		require.NoError(t, err)
 		require.NoError(t, metadataReverted.Unmigrate())
-		require.NoError(t, core.WriteClassCasmHashMetadata(stateDB.disk, &sierraHash, &metadataReverted))
+		require.NoError(
+			t,
+			core.ClassCasmHashMetadataBucket.Put(stateDB.disk, &sierraHash, &metadataReverted),
+		)
 
 		batch = stateDB.disk.NewBatch()
 		state, err = New(&root0, stateDB, batch)

@@ -182,7 +182,7 @@ func (h *Handler) StorageProof(
 	// Do a sanity check and remove duplicates from the inputs
 	classes = utils.Set(classes)
 	contracts = utils.Set(contracts)
-	uniqueStorageKeys, rpcErr := processStorageKeys(storageKeys)
+	rpcErr := validateStorageKeys(storageKeys)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -222,7 +222,7 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	contractStorageProof, err := getContractStorageProof(state, uniqueStorageKeys)
+	contractStorageProof, err := getContractStorageProof(state, storageKeys)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -249,35 +249,18 @@ func (h *Handler) StorageProof(
 	}, nil
 }
 
-// Ensures each contract is unique and each storage key in each contract is unique
-func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Error) {
-	if len(storageKeys) == 0 {
-		return nil, nil
-	}
-
-	merged := make(map[felt.Felt][]felt.Felt, len(storageKeys))
+// validateStorageKeys ensures every entry names a contract and at least one key
+func validateStorageKeys(storageKeys []StorageKeys) *jsonrpc.Error {
 	for _, sk := range storageKeys {
-		// Ensure that both contract and keys are provided
 		if sk.Contract == nil {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+			return jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
 		}
-		if len(sk.Keys) == 0 {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
+		// An empty list is allowed: it asks only for the contract leaf
+		if sk.Keys == nil {
+			return jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
 		}
-
-		contract := *sk.Contract
-		merged[contract] = append(merged[contract], sk.Keys...)
 	}
-
-	uniqueStorageKeys := make([]StorageKeys, 0, len(merged))
-	for contract, keys := range merged {
-		uniqueStorageKeys = append(
-			uniqueStorageKeys,
-			StorageKeys{Contract: &contract, Keys: utils.Set(keys)},
-		)
-	}
-
-	return uniqueStorageKeys, nil
+	return nil
 }
 
 // isBlockSupported checks if the block ID requested is supported for storage proofs

@@ -136,7 +136,7 @@ func TestStateHistory(t *testing.T) {
 
 		record := core.NewCasmHashMetadataDeclaredV1(deployedHeight, casmHashV1, casmHashV2)
 		require.NoError(t, record.Migrate(changeHeight))
-		require.NoError(t, core.WriteClassCasmHashMetadata(txn, sierraClassHash, &record))
+		require.NoError(t, core.ClassCasmHashMetadataBucket.Put(txn, sierraClassHash, &record))
 
 		t.Run("before migration", func(t *testing.T) {
 			got, err := snapshotAtDeployment.CompiledClassHash(sierraClassHash)

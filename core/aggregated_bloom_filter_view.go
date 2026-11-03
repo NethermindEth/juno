@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 )
@@ -26,6 +27,11 @@ func (v *filterView[R, PR]) FromBlock() uint64 {
 // ToBlock returns the ending block number of the filter's range.
 func (v *filterView[R, PR]) ToBlock() uint64 {
 	return v.toBlock
+}
+
+// RangeKey returns the database key of the filter's block range.
+func (v *filterView[R, PR]) RangeKey() db.AggregatedBloomFilterRangeKey {
+	return db.AggregatedBloomFilterRangeKey{FromBlock: v.fromBlock, ToBlock: v.toBlock}
 }
 
 // BlocksForKeysInto reuses a preallocated bitset (should be NumBlocksPerFilter bits).

@@ -65,12 +65,15 @@ func TestPruneAggregatedBloomFiltersUpto(t *testing.T) {
 		t.Helper()
 		for i := range uint64(3) {
 			filter := core.NewAggregatedFilter(i * n)
-			require.NoError(t, core.WriteAggregatedBloomFilter(database, &filter))
+			require.NoError(t, core.AggregatedBloomFiltersBucket.Put(database, filter.RangeKey(), &filter))
 		}
 	}
 
 	bloomFilterExists := func(database db.KeyValueReader, from, to uint64) bool {
-		_, err := core.GetAggregatedBloomFilter(database, from, to)
+		_, err := core.AggregatedBloomFiltersBucket.Get(
+			database,
+			db.AggregatedBloomFilterRangeKey{FromBlock: from, ToBlock: to},
+		)
 		return err == nil
 	}
 

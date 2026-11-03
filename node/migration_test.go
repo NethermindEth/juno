@@ -23,12 +23,12 @@ func TestFetchL1HeadIfMissing_SkipsL1FetchWhenHeadPresent(t *testing.T) {
 		BlockHash:   felt.NewRandom[felt.Felt](),
 		StateRoot:   felt.NewRandom[felt.Felt](),
 	}
-	require.NoError(t, core.WriteL1Head(database, expected))
+	require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, expected))
 
 	cfg := &Config{EthNode: ""}
 	require.NoError(t, fetchL1HeadIfMissing(t.Context(), database, cfg, nil, log.NewNopZapLogger()))
 
-	received, err := core.GetL1Head(database)
+	received, err := core.L1HeightBucket.Get(database, struct{}{})
 	require.NoError(t, err)
 	require.Equal(t, *expected, received)
 }

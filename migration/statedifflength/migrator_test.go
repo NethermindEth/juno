@@ -29,17 +29,17 @@ func writeBlock(t *testing.T, database db.KeyValueStore, blockNum, storageDiffs 
 	}
 	diffs[felt.FromUint64[felt.Felt](blockNum)] = inner
 
-	require.NoError(t, core.WriteStateUpdateByBlockNum(database, blockNum, &core.StateUpdate{
+	require.NoError(t, core.StateUpdatesByBlockNumberBucket.Put(database, blockNum, &core.StateUpdate{
 		StateDiff: &core.StateDiff{StorageDiffs: diffs},
 	}))
-	require.NoError(t, core.WriteBlockCommitment(database, blockNum, &core.BlockCommitments{
+	require.NoError(t, core.BlockCommitmentsBucket.Put(database, blockNum, &core.BlockCommitments{
 		TransactionCommitment: felt.NewFromUint64[felt.Felt](blockNum),
 	}))
 }
 
 func storedLength(t *testing.T, database db.KeyValueStore, blockNum uint64) uint64 {
 	t.Helper()
-	commitments, err := core.GetBlockCommitmentByBlockNum(database, blockNum)
+	commitments, err := core.BlockCommitmentsBucket.Get(database, blockNum)
 	require.NoError(t, err)
 	return commitments.StateDiffLength
 }
@@ -50,7 +50,7 @@ func TestMigrateBackfillsMissingLengths(t *testing.T) {
 	for blockNum := range uint64(blocks) {
 		writeBlock(t, database, blockNum, blockNum+1)
 	}
-	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(blocks-1))))
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
@@ -92,7 +92,7 @@ func TestMigrateCancelledResumesWithoutGaps(t *testing.T) {
 	for blockNum := range uint64(blocks) {
 		writeBlock(t, database, blockNum, 1)
 	}
-	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(blocks-1))))
 
 	ctx, cancel := context.WithCancel(t.Context())
 	interrupting := &cancelAfterReads{KeyValueStore: database, cancel: cancel}
@@ -139,7 +139,7 @@ func TestMigrateResumesFromCheckpointWithoutGaps(t *testing.T) {
 	for blockNum := range uint64(blocks) {
 		writeBlock(t, database, blockNum, blockNum+1)
 	}
-	require.NoError(t, core.WriteChainHeight(database, blocks-1))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(blocks-1))))
 
 	// Simulate a checkpoint left by a previous graceful shutdown: blocks below it
 	// are already done, the migration must cover exactly [checkpoint, height].
@@ -175,7 +175,7 @@ func TestMigrateStartsAfterPrunedPrefix(t *testing.T) {
 	for blockNum := range uint64(2) {
 		writeBlock(t, database, 5+blockNum, blockNum+1)
 	}
-	require.NoError(t, core.WriteChainHeight(database, 6))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(6))))
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
@@ -190,10 +190,10 @@ func TestMigrateStartsAfterPrunedPrefix(t *testing.T) {
 func TestMigrateFailsOnMissingRecordInRange(t *testing.T) {
 	database := memory.New()
 	writeBlock(t, database, 0, 1)
-	require.NoError(t, core.WriteBlockCommitment(database, 1, &core.BlockCommitments{
+	require.NoError(t, core.BlockCommitmentsBucket.Put(database, 1, &core.BlockCommitments{
 		TransactionCommitment: new(felt.Felt).SetUint64(1),
 	}))
-	require.NoError(t, core.WriteChainHeight(database, 1))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(1))))
 
 	m := &statedifflength.Migrator{}
 	require.NoError(t, m.Before(nil))
