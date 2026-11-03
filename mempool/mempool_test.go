@@ -65,7 +65,7 @@ func TestMempool(t *testing.T) {
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -88,7 +88,7 @@ func TestMempool(t *testing.T) {
 	for i := uint64(4); i < 6; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -142,7 +142,7 @@ func TestRestoreMempool(t *testing.T) {
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		tx := mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -272,7 +272,7 @@ func TestPopBatch(t *testing.T) {
 		for i := start; i <= end; i++ {
 			senderAddress := new(felt.Felt).SetUint64(i)
 			chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-			state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
+			state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 			require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 				Transaction: &core.InvokeTransaction{
 					TransactionHash: new(felt.Felt).SetUint64(i),

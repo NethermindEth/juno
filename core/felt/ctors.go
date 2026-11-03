@@ -10,6 +10,17 @@ type FeltLike interface {
 	~[4]uint64
 }
 
+// Zero returns the zero value of F.
+func Zero[F FeltLike]() F {
+	var zero F
+	return zero
+}
+
+// One returns the multiplicative identity of F.
+func One[F FeltLike]() F {
+	return F(fp.One())
+}
+
 // NewFromUint64 crates a new Felt based type given a uint64. Use this function with
 // care since it forces a heap allocation. For efficient code use `FromUint64`
 func NewFromUint64[F FeltLike](num uint64) *F {

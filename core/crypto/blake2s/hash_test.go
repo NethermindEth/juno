@@ -10,7 +10,7 @@ import (
 
 func TestBlakeHash(t *testing.T) {
 	t.Run("hash zero", func(t *testing.T) {
-		actual := blake2s.Blake2sArray([]felt.Felt{felt.Zero})
+		actual := blake2s.Blake2sArray([]felt.Felt{felt.Zero[felt.Felt]()})
 
 		expected := felt.UnsafeFromString[felt.Hash](
 			"0x5768af071a2f8df7c9df9dc4ca0e7a1c5908d5eff88af963c3264f412dbdf43",

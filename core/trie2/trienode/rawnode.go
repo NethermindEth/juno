@@ -53,5 +53,5 @@ func NewDeleted(isLeaf bool) *DeletedNode {
 }
 
 func (r *DeletedNode) Blob() []byte    { return nil }
-func (r *DeletedNode) Hash() felt.Felt { return felt.Zero }
+func (r *DeletedNode) Hash() felt.Felt { return felt.Zero[felt.Felt]() }
 func (r *DeletedNode) IsLeaf() bool    { return r.isLeaf }

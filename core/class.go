@@ -267,7 +267,7 @@ func SegmentedBytecodeHash(
 			totalLength += curSegmentLength
 		}
 		digestRes := digest.Finish()
-		digestRes.Add(&digestRes, &felt.One)
+		digestRes.Add(&digestRes, new(felt.One[felt.Felt]()))
 		return totalLength, digestRes
 	}
 

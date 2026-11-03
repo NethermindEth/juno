@@ -158,7 +158,7 @@ func (h *Handler) addToMempool(
 	switch tx.Type {
 	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
-			&felt.Zero,
+			new(felt.Zero[felt.Felt]()),
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,

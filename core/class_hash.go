@@ -56,7 +56,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 	}
 
 	hash := crypto.PedersenElems(
-		&felt.Zero,
+		new(felt.Zero[felt.Felt]()),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
 		&constructorEntryPointsHash,

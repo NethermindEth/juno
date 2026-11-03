@@ -78,7 +78,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: 100,
 					Round:  5,
-					Sender: starknet.Address(felt.Zero),
+					Sender: felt.Zero[starknet.Address](),
 				},
 				ID: felt.NewFromUint64[starknet.Hash](0x123456789abcdef),
 			},
@@ -87,7 +87,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				BlockNumber: 100,
 				Round:       5,
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.Zero),
+					Elements: feltToBytes(felt.Zero[felt.Felt]()),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(0x123456789abcdef),
@@ -198,7 +198,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(1),
 					Round:  types.Round(1),
-					Sender: starknet.Address(felt.Zero),
+					Sender: felt.Zero[starknet.Address](),
 				},
 				ID: felt.NewFromUint64[starknet.Hash](0),
 			},
@@ -207,7 +207,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				BlockNumber: 1,
 				Round:       1,
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.Zero),
+					Elements: feltToBytes(felt.Zero[felt.Felt]()),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(0),

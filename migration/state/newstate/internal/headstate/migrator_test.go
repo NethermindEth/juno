@@ -74,7 +74,7 @@ func TestMigrate_ConsolidatesAddresses(t *testing.T) {
 		{
 			addr:      felt.FromUint64[felt.Felt](2),
 			classHash: felt.FromUint64[felt.Felt](187),
-			nonce:     felt.Zero, // never updated
+			nonce:     felt.Zero[felt.Felt](), // never updated
 			height:    200,
 		},
 		{
@@ -182,7 +182,7 @@ func TestMigrate_Idempotent(t *testing.T) {
 		{
 			addr:      felt.FromUint64[felt.Felt](2),
 			classHash: felt.FromUint64[felt.Felt](187),
-			nonce:     felt.Zero,
+			nonce:     felt.Zero[felt.Felt](),
 			height:    200,
 		},
 	}

@@ -553,7 +553,7 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 				declareFelt,
 				d.Version.AsFelt(),
 				d.SenderAddress,
-				&felt.Zero,
+				new(felt.Zero[felt.Felt]()),
 				&emptyHash,
 				d.MaxFee,
 				n.L2ChainIDFelt(),
@@ -581,7 +581,7 @@ func declareTransactionHash(d *DeclareTransaction, n *networks.Network) (felt.Fe
 			declareFelt,
 			d.Version.AsFelt(),
 			d.SenderAddress,
-			&felt.Zero,
+			new(felt.Zero[felt.Felt]()),
 			&classHash,
 			d.MaxFee,
 			n.L2ChainIDFelt(),
@@ -626,7 +626,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *networks.Network) (fel
 			l.ContractAddress,
 			l.EntryPointSelector,
 			&calldataHash,
-			&felt.Zero,
+			new(felt.Zero[felt.Felt]()),
 			n.L2ChainIDFelt(),
 			l.Nonce,
 		), nil
@@ -652,7 +652,7 @@ func deployAccountTransactionHash(
 			deployAccountFelt,
 			d.Version.AsFelt(),
 			d.ContractAddress,
-			&felt.Zero,
+			new(felt.Zero[felt.Felt]()),
 			&callDataHash,
 			d.MaxFee,
 			n.L2ChainIDFelt(),
@@ -776,7 +776,7 @@ func transactionCommitmentPoseidon0132(
 			if txSignature := transaction.Signature(); len(txSignature) > 0 {
 				digest.UpdateArray(txSignature)
 			} else {
-				digest.Update(&felt.Zero)
+				digest.Update(new(felt.Zero[felt.Felt]()))
 			}
 
 			return digest.Finish()

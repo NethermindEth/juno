@@ -95,16 +95,25 @@ func TestVersion0x3Validation(t *testing.T) {
 			tx := rpc.Transaction{
 				Type:    rpc.TxnInvoke,
 				Version: felt.NewUnsafeFromString[felt.Felt](txVer.version),
-				Nonce:   &felt.Zero,
+				Nonce:   new(felt.Zero[felt.Felt]()),
 				ResourceBounds: &rpc.ResourceBoundsMap{
-					L1Gas:     rpc.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
-					L2Gas:     rpc.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
-					L1DataGas: rpc.ResourceBounds{MaxAmount: &felt.Zero, MaxPricePerUnit: &felt.Zero},
+					L1Gas: rpc.ResourceBounds{
+						MaxAmount:       new(felt.Zero[felt.Felt]()),
+						MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+					},
+					L2Gas: rpc.ResourceBounds{
+						MaxAmount:       new(felt.Zero[felt.Felt]()),
+						MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+					},
+					L1DataGas: rpc.ResourceBounds{
+						MaxAmount:       new(felt.Zero[felt.Felt]()),
+						MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+					},
 				},
-				SenderAddress:         &felt.Zero,
+				SenderAddress:         new(felt.Zero[felt.Felt]()),
 				Signature:             &emptySlice,
 				CallData:              &emptySlice,
-				Tip:                   &felt.Zero,
+				Tip:                   new(felt.Zero[felt.Felt]()),
 				PaymasterData:         &emptySlice,
 				AccountDeploymentData: &emptySlice,
 				NonceDAMode:           &daMode,

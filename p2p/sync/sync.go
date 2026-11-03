@@ -291,20 +291,20 @@ func (s *BlockFetcher) processSpecBlockParts(
 					select {
 					case <-ctx.Done():
 					default:
-						prevBlockRoot := &felt.Zero
-						if curBlockNum > 0 {
+						var prevBlockRoot *felt.Felt
+						if curBlockNum == 0 {
+							prevBlockRoot = new(felt.Zero[felt.Felt]())
+						} else if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
 							// First check cache if the header is not present, then get it from the db.
-							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
-								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.StateRoot)
-							} else {
-								stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
-								if err != nil {
-									s.logger.Error("Failed to get previous block state root",
-										zap.Uint64("number", curBlockNum-1), zap.Error(err))
-									return
-								}
-								prevBlockRoot = stateRoot
+							prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.StateRoot)
+						} else {
+							stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
+							if err != nil {
+								s.logger.Error("Failed to get previous block state root",
+									zap.Uint64("number", curBlockNum-1), zap.Error(err))
+								return
 							}
+							prevBlockRoot = stateRoot
 						}
 
 						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,

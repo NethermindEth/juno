@@ -322,8 +322,8 @@ func (h *Handler) EstimateMessageFee(
 			ContractAddress:    &msg.To,
 			EntryPointSelector: &msg.Selector,
 			CallData:           &calldata,
-			Version:            &felt.Zero, // Needed for transaction hash calculation.
-			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+			Version:            new(felt.Zero[felt.Felt]()), // Needed for transaction hash calculation.
+			Nonce:              new(felt.Zero[felt.Felt]()), // Needed for transaction hash calculation.
 		},
 	}
 
