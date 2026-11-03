@@ -86,7 +86,7 @@ jobs:
           password: ${{ steps.jfrog.outputs.oidc-token }}
 
       - name: Setup ORAS
-        uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d
+        uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63
 
       - name: Check image exists in source repository
         run: |
