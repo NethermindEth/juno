@@ -167,10 +167,10 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 
 	if simulatedResult.ConcatCount.IsZero() {
 		simulatedResult.BlockCommitments = &core.BlockCommitments{
-			TransactionCommitment: new(felt.Felt).SetUint64(0),
-			EventCommitment:       new(felt.Felt).SetUint64(0),
-			ReceiptCommitment:     new(felt.Felt).SetUint64(0),
-			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
+			TransactionCommitment: felt.NewFromUint64[felt.Felt](0),
+			EventCommitment:       felt.NewFromUint64[felt.Felt](0),
+			ReceiptCommitment:     felt.NewFromUint64[felt.Felt](0),
+			StateDiffCommitment:   felt.NewFromUint64[felt.Felt](0),
 		}
 	}
 

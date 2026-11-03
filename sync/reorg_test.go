@@ -160,7 +160,7 @@ func (b *blockGenerator) clone() *blockGenerator {
 
 func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, count int) {
 	t.Helper()
-	sequencer := new(felt.Felt).SetUint64(b.sequencer)
+	sequencer := felt.NewFromUint64[felt.Felt](b.sequencer)
 	buildParams := newTestBuildParams(sequencer)
 	for range count {
 		buildState, err := b.builder.InitPreconfirmedBlock(&buildParams)

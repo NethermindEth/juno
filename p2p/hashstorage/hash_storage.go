@@ -18,6 +18,6 @@ func init() {
 	var offset uint64
 	for i := range uint64(first0132SepoliaBlock) {
 		offset = i * 32
-		SepoliaBlockHashesMap[i] = new(felt.Felt).SetBytes(sepoliaBlockHashes[offset : offset+32])
+		SepoliaBlockHashesMap[i] = felt.NewFromBytes[felt.Felt](sepoliaBlockHashes[offset : offset+32])
 	}
 }

@@ -203,7 +203,7 @@ func buildTransactions(
 				class, err = gw.Class(t.Context(), tx.ClassHash)
 				require.NoError(t, err)
 			case *core.L1HandlerTransaction:
-				paidFeeOnL1 = new(felt.Felt).SetUint64(1)
+				paidFeeOnL1 = felt.NewFromUint64[felt.Felt](1)
 			}
 			transactions[i] = types.Transaction{
 				Transaction: tx,

@@ -107,11 +107,11 @@ func AdaptExecutionResources(er *core.ExecutionResources) *receipt.Receipt_Execu
 
 	var l1Gas, l1DataGas, l2Gas, totalL1Gas *felt.Felt
 	if da := er.DataAvailability; da != nil { // todo(kirill) check that it might be null
-		l1Gas = new(felt.Felt).SetUint64(da.L1Gas)
-		l1DataGas = new(felt.Felt).SetUint64(da.L1DataGas)
+		l1Gas = felt.NewFromUint64[felt.Felt](da.L1Gas)
+		l1DataGas = felt.NewFromUint64[felt.Felt](da.L1DataGas)
 	}
 	if tgs := er.TotalGasConsumed; tgs != nil {
-		totalL1Gas = new(felt.Felt).SetUint64(tgs.L1Gas)
+		totalL1Gas = felt.NewFromUint64[felt.Felt](tgs.L1Gas)
 	}
 
 	return &receipt.Receipt_ExecutionResources{

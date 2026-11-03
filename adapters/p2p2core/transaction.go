@@ -422,7 +422,7 @@ func adaptAccountSignature(s *transaction.AccountSignature) []felt.Felt {
 }
 
 func txVersion(v uint64) *core.TransactionVersion {
-	return new(core.TransactionVersion).SetUint64(v)
+	return felt.NewFromUint64[core.TransactionVersion](v)
 }
 
 func adaptVolitionDomain(v common.VolitionDomain) (core.DataAvailabilityMode, error) {

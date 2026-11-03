@@ -47,7 +47,7 @@ func writeLegacyHeader(t *testing.T, database db.KeyValueStore, n uint64) {
 	bloomFilter.Add([]byte{byte(n), 0xAB})
 	legacy := &deprecatedBlockHeader{
 		Number:      n,
-		Hash:        new(felt.Felt).SetUint64(n),
+		Hash:        felt.NewFromUint64[felt.Felt](n),
 		EventsBloom: bloomFilter,
 	}
 	data, err := cbor.Marshal(legacy)

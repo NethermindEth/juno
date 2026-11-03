@@ -60,15 +60,19 @@ func TestNetwork(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
 			case networks.Goerli, networks.Integration:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.L2ChainIDFelt())
+				assert.Equal(t, felt.NewFromBytes[felt.Felt]([]byte("SN_GOERLI")), n.L2ChainIDFelt())
 			case networks.Mainnet:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.L2ChainIDFelt())
+				assert.Equal(t, felt.NewFromBytes[felt.Felt]([]byte("SN_MAIN")), n.L2ChainIDFelt())
 			case networks.Goerli2:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.L2ChainIDFelt())
+				assert.Equal(t, felt.NewFromBytes[felt.Felt]([]byte("SN_GOERLI2")), n.L2ChainIDFelt())
 			case networks.Sepolia:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_SEPOLIA")), n.L2ChainIDFelt())
+				assert.Equal(t, felt.NewFromBytes[felt.Felt]([]byte("SN_SEPOLIA")), n.L2ChainIDFelt())
 			case networks.SepoliaIntegration:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION_SEPOLIA")), n.L2ChainIDFelt())
+				assert.Equal(
+					t,
+					felt.NewFromBytes[felt.Felt]([]byte("SN_INTEGRATION_SEPOLIA")),
+					n.L2ChainIDFelt(),
+				)
 			default:
 				assert.Fail(t, "unexpected network")
 			}

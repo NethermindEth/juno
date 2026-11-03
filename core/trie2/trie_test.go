@@ -77,7 +77,7 @@ func TestHash(t *testing.T) {
 
 	t.Run("one leaf", func(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
-		err := tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2))
+		err := tr.Update(felt.NewFromUint64[felt.Felt](1), felt.NewFromUint64[felt.Felt](2))
 		require.NoError(t, err)
 		hash, _ := tr.Hash()
 
@@ -87,9 +87,9 @@ func TestHash(t *testing.T) {
 
 	t.Run("two leaves", func(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
-		err := tr.Update(new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(2))
+		err := tr.Update(felt.NewFromUint64[felt.Felt](0), felt.NewFromUint64[felt.Felt](2))
 		require.NoError(t, err)
-		err = tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(3))
+		err = tr.Update(felt.NewFromUint64[felt.Felt](1), felt.NewFromUint64[felt.Felt](3))
 		require.NoError(t, err)
 		root, _ := tr.Hash()
 
@@ -101,15 +101,15 @@ func TestHash(t *testing.T) {
 		tr, _ := NewEmptyPedersen()
 
 		keys := []*felt.Felt{
-			new(felt.Felt).SetUint64(16),
-			new(felt.Felt).SetUint64(17),
-			new(felt.Felt).SetUint64(19),
+			felt.NewFromUint64[felt.Felt](16),
+			felt.NewFromUint64[felt.Felt](17),
+			felt.NewFromUint64[felt.Felt](19),
 		}
 
 		vals := []*felt.Felt{
-			new(felt.Felt).SetUint64(10),
-			new(felt.Felt).SetUint64(11),
-			new(felt.Felt).SetUint64(12),
+			felt.NewFromUint64[felt.Felt](10),
+			felt.NewFromUint64[felt.Felt](11),
+			felt.NewFromUint64[felt.Felt](12),
 		}
 
 		for i := range keys {
@@ -132,15 +132,15 @@ func TestHash(t *testing.T) {
 		//     (2)  (3)           (5)
 
 		keys := []*felt.Felt{
-			new(felt.Felt).SetUint64(0),
-			new(felt.Felt).SetUint64(1),
-			new(felt.Felt).SetUint64(3),
+			felt.NewFromUint64[felt.Felt](0),
+			felt.NewFromUint64[felt.Felt](1),
+			felt.NewFromUint64[felt.Felt](3),
 		}
 
 		vals := []*felt.Felt{
-			new(felt.Felt).SetUint64(2),
-			new(felt.Felt).SetUint64(3),
-			new(felt.Felt).SetUint64(5),
+			felt.NewFromUint64[felt.Felt](2),
+			felt.NewFromUint64[felt.Felt](3),
+			felt.NewFromUint64[felt.Felt](5),
 		}
 
 		tr, _ := NewEmptyPedersen()
@@ -162,7 +162,7 @@ func TestHash(t *testing.T) {
 		//   (cc)                  (dd)
 
 		keys := []*felt.Felt{
-			new(felt.Felt).SetUint64(0),
+			felt.NewFromUint64[felt.Felt](0),
 			felt.NewUnsafeFromString[felt.Felt]("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
 		}
 
@@ -197,7 +197,7 @@ func TestSpecificRandomFailure(t *testing.T) {
 	key1 := felt.NewUnsafeFromString[felt.Felt]("0x4b004d0b47e75a025540ea685e15b5")
 
 	steps := []randTestStep{
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(6)},
+		{op: opUpdate, key: key1, value: felt.NewFromUint64[felt.Felt](6)},
 		{op: opCommit},
 		{op: opGet, key: key1}, // This is where the original failure occurred
 	}
@@ -255,7 +255,7 @@ func generateSteps(finished func() bool, r io.Reader) randTest {
 			size := random[0] % 32 // ensure key size is between 1 and 32 bytes
 			key := make([]byte, size)
 			_, _ = r.Read(key)
-			allKeys = append(allKeys, new(felt.Felt).SetBytes(key))
+			allKeys = append(allKeys, felt.NewFromBytes[felt.Felt](key))
 		}
 		// 90% probability to return an existing key
 		idx := int(random[0]) % len(allKeys)
@@ -269,7 +269,7 @@ func generateSteps(finished func() bool, r io.Reader) randTest {
 		switch step.op {
 		case opUpdate:
 			step.key = genKey()
-			step.value = new(felt.Felt).SetUint64(uint64(len(steps)))
+			step.value = felt.NewFromUint64[felt.Felt](uint64(len(steps)))
 		case opGet, opDelete, opProve:
 			step.key = genKey()
 		}
@@ -382,7 +382,7 @@ func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
 	records := make([]*keyValue, numKeys)
 
 	for i := 1; i < numKeys+1; i++ {
-		key := new(felt.Felt).SetUint64(uint64(i))
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
 		records[i-1] = &keyValue{key: key, value: key}
 		err := tr.Update(key, key)
 		require.NoError(t, err)
@@ -399,7 +399,7 @@ func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 	records := make([]*keyValue, n)
 
 	for i := range n {
-		key := new(felt.Felt).SetUint64(uint64(rrand.Uint32() + 1))
+		key := felt.NewFromUint64[felt.Felt](uint64(rrand.Uint32() + 1))
 		records[i] = &keyValue{key: key, value: key}
 		err := tr.Update(key, key)
 		require.NoError(t, err)
@@ -415,10 +415,10 @@ func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 
 func build4KeysTrieD(t *testing.T) (*Trie, []*keyValue) {
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(4), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(6), value: new(felt.Felt).SetUint64(6)},
-		{key: new(felt.Felt).SetUint64(7), value: new(felt.Felt).SetUint64(7)},
+		{key: felt.NewFromUint64[felt.Felt](1), value: felt.NewFromUint64[felt.Felt](4)},
+		{key: felt.NewFromUint64[felt.Felt](4), value: felt.NewFromUint64[felt.Felt](5)},
+		{key: felt.NewFromUint64[felt.Felt](6), value: felt.NewFromUint64[felt.Felt](6)},
+		{key: felt.NewFromUint64[felt.Felt](7), value: felt.NewFromUint64[felt.Felt](7)},
 	}
 
 	return buildTestTrie(t, records), records

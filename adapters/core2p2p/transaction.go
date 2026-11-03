@@ -124,7 +124,7 @@ func AdaptTransaction(tx core.Transaction) *synctransaction.TransactionInBlock {
 }
 
 func adaptResourceLimits(bounds core.ResourceBounds) *transaction.ResourceLimits {
-	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
+	maxAmount := felt.NewFromUint64[felt.Felt](bounds.MaxAmount)
 	return &transaction.ResourceLimits{
 		MaxAmount:       AdaptFelt(maxAmount),
 		MaxPricePerUnit: AdaptFelt(bounds.MaxPricePerUnit),

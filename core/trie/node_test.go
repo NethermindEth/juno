@@ -19,7 +19,7 @@ func TestNodeHash(t *testing.T) {
 	expected := felt.NewUnsafeFromString[felt.Felt]("0x1d937094c09b5f8e26a662d21911871e3cbc6858d55cc49af9848ea6fed4e9")
 
 	node := trie.Node{
-		Value: new(felt.Felt).SetBytes(valueBytes),
+		Value: felt.NewFromBytes[felt.Felt](valueBytes),
 	}
 	path := trie.NewBitArray(6, 42)
 	hash := node.Hash(&path, crypto.Pedersen)

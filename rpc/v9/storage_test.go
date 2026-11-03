@@ -751,15 +751,15 @@ func TestStorageProof_VerifyPathfinderResponse(t *testing.T) {
 		ContractsProof: &rpc.ContractProof{
 			LeavesData: []rpc.LeafData{
 				{
-					Nonce: *felt.NewUnsafeFromString[felt.Felt]("0x0"),
-					ClassHash: *felt.NewUnsafeFromString[felt.Felt](
+					Nonce: felt.UnsafeFromString[felt.Felt]("0x0"),
+					ClassHash: felt.UnsafeFromString[felt.Felt](
 						"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
 					),
 					// TODO: get the storage root
 				},
 				{
-					Nonce: *felt.NewUnsafeFromString[felt.Felt]("0x0"),
-					ClassHash: *felt.NewUnsafeFromString[felt.Felt](
+					Nonce: felt.UnsafeFromString[felt.Felt]("0x0"),
+					ClassHash: felt.UnsafeFromString[felt.Felt](
 						"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
 					),
 					// TODO: get the storage root
@@ -1054,11 +1054,11 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 			ContractsProof: &rpc.ContractProof{
 				LeavesData: []rpc.LeafData{
 					{
-						Nonce: *felt.NewUnsafeFromString[felt.Felt]("0x0"),
-						ClassHash: *felt.NewUnsafeFromString[felt.Felt](
+						Nonce: felt.UnsafeFromString[felt.Felt]("0x0"),
+						ClassHash: felt.UnsafeFromString[felt.Felt](
 							"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
 						),
-						StorageRoot: *felt.NewUnsafeFromString[felt.Felt](
+						StorageRoot: felt.UnsafeFromString[felt.Felt](
 							"0x1aa6adf86b97c95ed275c627f39ee62d26314a05bc8fc8b85669dec1f088211",
 						),
 					},

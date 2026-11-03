@@ -31,10 +31,10 @@ func buildResultAtHeight(blockNumber uint64) *builder.BuildResult {
 		},
 		SimulateResult: &blockchain.SimulateResult{
 			BlockCommitments: &core.BlockCommitments{
-				TransactionCommitment: new(felt.Felt).SetUint64(1),
-				EventCommitment:       new(felt.Felt).SetUint64(2),
-				ReceiptCommitment:     new(felt.Felt).SetUint64(3),
-				StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+				TransactionCommitment: felt.NewFromUint64[felt.Felt](1),
+				EventCommitment:       felt.NewFromUint64[felt.Felt](2),
+				ReceiptCommitment:     felt.NewFromUint64[felt.Felt](3),
+				StateDiffCommitment:   felt.NewFromUint64[felt.Felt](4),
 			},
 		},
 		L2GasConsumed: 5,

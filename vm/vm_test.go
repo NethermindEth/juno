@@ -89,7 +89,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
-					*felt.NewUnsafeFromString[felt.Felt]("0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091"): new(felt.Felt).SetUint64(1337),
+					felt.UnsafeFromString[felt.Felt](
+						"0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091",
+					): felt.NewFromUint64[felt.Felt](1337),
 				},
 			},
 		},
@@ -114,7 +116,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		false,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
+	assert.Equal(t, []*felt.Felt{felt.NewFromUint64[felt.Felt](1337)}, ret.Result)
 }
 
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {

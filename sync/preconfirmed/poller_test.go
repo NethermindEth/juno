@@ -91,12 +91,12 @@ func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDelta
 	receipts := make([]*starknet.TransactionReceipt, addedCount)
 	stateDiffs := make([]*starknet.StateDiff, addedCount)
 	for i := range addedCount {
-		hash := new(felt.Felt).SetUint64(uint64(100 + i))
+		hash := felt.NewFromUint64[felt.Felt](uint64(100 + i))
 		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
 			Type:      starknet.TxnInvoke,
-			Version:   new(felt.Felt).SetUint64(1),
+			Version:   felt.NewFromUint64[felt.Felt](1),
 			CallData:  &emptySlice,
 			Signature: &emptySlice,
 		}
@@ -126,7 +126,7 @@ func newChainFixture(t *testing.T) *chainFixture {
 
 	header := &core.Header{
 		Number:     0,
-		Hash:       new(felt.Felt).SetUint64(1),
+		Hash:       felt.NewFromUint64[felt.Felt](1),
 		ParentHash: new(felt.Zero[felt.Felt]()),
 	}
 	require.NoError(t, core.BlockHeadersByNumberBucket.Put(testDB, header.Number, header))
@@ -141,7 +141,7 @@ func (f *chainFixture) advanceHead(t *testing.T) *core.Header {
 	t.Helper()
 	next := &core.Header{
 		Number:     f.head.Number + 1,
-		Hash:       new(felt.Felt).SetUint64(f.head.Number + 2),
+		Hash:       felt.NewFromUint64[felt.Felt](f.head.Number + 2),
 		ParentHash: f.head.Hash,
 	}
 	require.NoError(t, core.BlockHeadersByNumberBucket.Put(f.db, next.Number, next))
@@ -315,7 +315,7 @@ func TestPollerStallsUntilGenesis(t *testing.T) {
 	bc := blockchain.New(testDB, &networks.Sepolia)
 	genesis := &core.Header{
 		Number:     0,
-		Hash:       new(felt.Felt).SetUint64(1),
+		Hash:       felt.NewFromUint64[felt.Felt](1),
 		ParentHash: new(felt.Zero[felt.Felt]()),
 	}
 
@@ -998,7 +998,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		classHash := new(felt.Felt).SetUint64(0xC1A55)
+		classHash := felt.NewFromUint64[felt.Felt](0xC1A55)
 		classDef := &core.SierraClass{}
 
 		seed := makeTestPreConfirmedBlock("r1", 0) // stored old tip, declares nothing
@@ -1047,8 +1047,8 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		storedClass := new(felt.Felt).SetUint64(0xADD)
-		deltaClass := new(felt.Felt).SetUint64(0xC1A55)
+		storedClass := felt.NewFromUint64[felt.Felt](0xADD)
+		deltaClass := felt.NewFromUint64[felt.Felt](0xC1A55)
 		storedDef := &core.SierraClass{}
 		deltaDef := &core.SierraClass{}
 
@@ -1107,7 +1107,7 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		storedClass := new(felt.Felt).SetUint64(0xADD)
+		storedClass := felt.NewFromUint64[felt.Felt](0xADD)
 		storedDef := &core.SierraClass{}
 
 		seed := makeTestPreConfirmedBlock("r1", 1) // stored old tip declares storedClass

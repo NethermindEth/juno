@@ -35,7 +35,7 @@ func (b *BuildResult) ProposalCommitment() (types.ProposalCommitment, error) {
 		L1GasPriceFRI:         *b.PreConfirmed.Block.L1GasPriceSTRK,
 		L1DataGasPriceFRI:     *b.PreConfirmed.Block.L1DataGasPrice.PriceInFri,
 		L2GasPriceFRI:         *b.PreConfirmed.Block.L2GasPrice.PriceInFri,
-		L2GasUsed:             *new(felt.Felt).SetUint64(b.L2GasConsumed),
+		L2GasUsed:             felt.FromUint64[felt.Felt](b.L2GasConsumed),
 		L1DAMode:              b.PreConfirmed.Block.L1DAMode,
 	}, nil
 }

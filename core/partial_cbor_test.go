@@ -158,7 +158,7 @@ func TestStrictGuardCatchesKeyAsIntDrift(t *testing.T) {
 		"cborKeys cannot see the keyasint option — this is its documented blind spot")
 
 	// Ground truth: encode with the integer key, then strict-decode.
-	data, err := cbor.Marshal(&driftSourceKeyAsInt{A: new(felt.Felt).SetUint64(7)})
+	data, err := cbor.Marshal(&driftSourceKeyAsInt{A: felt.NewFromUint64[felt.Felt](7)})
 	require.NoError(t, err)
 	// The string-key projection does not match the integer wire key → strict decode errors.
 	require.Error(t, cbor.UnmarshalStrict(data, &driftProjectionStringKey{}),
@@ -462,14 +462,14 @@ func BenchmarkExecutionStatusProjection(b *testing.B) {
 // carries every key that type can write — including InvokeTransaction.ProofFacts, whose omitempty
 // would drop the key if left nil.
 func sampleTransactions() []Transaction {
-	felts := []felt.Felt{*felt.NewFromUint64[felt.Felt](1), *felt.NewFromUint64[felt.Felt](2)}
+	felts := []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)}
 	deploy := DeployTransaction{
 		TransactionHash:     felt.NewFromUint64[felt.Felt](1),
 		ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
 		ContractAddress:     felt.NewFromUint64[felt.Felt](3),
 		ClassHash:           felt.NewFromUint64[felt.Felt](4),
 		ConstructorCallData: felts,
-		Version:             new(TransactionVersion).SetUint64(3),
+		Version:             felt.NewFromUint64[TransactionVersion](3),
 	}
 	resourceBounds := map[Resource]ResourceBounds{
 		ResourceL1Gas: {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](2)},

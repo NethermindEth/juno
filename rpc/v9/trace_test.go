@@ -340,7 +340,7 @@ func TestTraceTransaction(t *testing.T) {
 		tx := &core.DeclareTransaction{
 			TransactionHash: (*felt.Felt)(hash),
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
@@ -411,7 +411,7 @@ func TestTraceTransaction(t *testing.T) {
 		)
 		tx := &core.InvokeTransaction{
 			TransactionHash: (*felt.Felt)(hash),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
@@ -484,7 +484,7 @@ func TestTraceTransaction(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
 		tx := &core.InvokeTransaction{
 			TransactionHash: (*felt.Felt)(hash),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		baseHeader := &core.Header{
@@ -570,20 +570,26 @@ func TestTraceTransaction(t *testing.T) {
 		expectedRevertedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				ContractAddress: felt.UnsafeFromString[felt.Felt](
+					"0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+				),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
 				Calldata: []felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
-					*felt.NewUnsafeFromString[felt.Felt]("0xa"),
+					felt.UnsafeFromString[felt.Felt]("0x1"),
+					felt.UnsafeFromString[felt.Felt](
+						"0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a",
+					),
+					felt.UnsafeFromString[felt.Felt](
+						"0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5",
+					),
+					felt.UnsafeFromString[felt.Felt]("0x1"),
+					felt.UnsafeFromString[felt.Felt]("0xa"),
 				},
-				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				CallerAddress:  felt.UnsafeFromString[felt.Felt]("0x0"),
 				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
-				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x56414c4944")},
+				Result:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x56414c4944")},
 				Calls:          []rpc.FunctionInvocation{},
 				Events:         []rpc.OrderedEvent{},
 				Messages:       []rpc.OrderedL2toL1Message{},
@@ -593,32 +599,44 @@ func TestTraceTransaction(t *testing.T) {
 				},
 			},
 			FeeTransferInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				ContractAddress: felt.UnsafeFromString[felt.Felt](
+					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				Calldata: []felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-					*felt.NewUnsafeFromString[felt.Felt]("0x0"),
+					felt.UnsafeFromString[felt.Felt](
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+					),
+					felt.UnsafeFromString[felt.Felt]("0x2847291f968"),
+					felt.UnsafeFromString[felt.Felt]("0x0"),
 				},
-				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				CallerAddress: felt.UnsafeFromString[felt.Felt](
+					"0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+				),
 				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
-				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
+				Result:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")},
 				Calls: []rpc.FunctionInvocation{
 					{
-						ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+						ContractAddress: felt.UnsafeFromString[felt.Felt](
+							"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+						),
 						EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 						Calldata: []felt.Felt{
-							*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-							*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
-							*felt.NewUnsafeFromString[felt.Felt]("0x0"),
+							felt.UnsafeFromString[felt.Felt](
+								"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+							),
+							felt.UnsafeFromString[felt.Felt]("0x2847291f968"),
+							felt.UnsafeFromString[felt.Felt]("0x0"),
 						},
-						CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+						CallerAddress: felt.UnsafeFromString[felt.Felt](
+							"0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+						),
 						ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
 						EntryPointType: "EXTERNAL",
 						CallType:       "DELEGATE",
-						Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
+						Result:         []felt.Felt{felt.UnsafeFromString[felt.Felt]("0x1")},
 						Calls:          []rpc.FunctionInvocation{},
 						Events: []rpc.OrderedEvent{
 							{
@@ -1090,14 +1108,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *felt.NewFromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					FunctionInvocation: &starknet.FunctionInvocation{
 						Events: []starknet.OrderedEvent{{
 							Order: 1,
-							Keys:  []felt.Felt{*felt.NewFromUint64[felt.Felt](2)},
-							Data:  []felt.Felt{*felt.NewFromUint64[felt.Felt](3)},
+							Keys:  []felt.Felt{felt.FromUint64[felt.Felt](2)},
+							Data:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
 						}},
 						ExecutionResources: starknet.ExecutionResources{
 							TotalGasConsumed: &starknet.GasConsumed{
@@ -1146,7 +1164,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *felt.NewFromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					// When revert error, feeder trace has no FunctionInvocation only RevertError is set
@@ -1248,8 +1266,8 @@ func TestCall(t *testing.T) {
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
 		calldata := []felt.Felt{
-			*felt.NewFromUint64[felt.Felt](4),
-			*felt.NewFromUint64[felt.Felt](5),
+			felt.FromUint64[felt.Felt](4),
+			felt.FromUint64[felt.Felt](5),
 		}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{
 			felt.NewFromUint64[felt.Felt](6),
@@ -1300,7 +1318,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{felt.NewFromUint64[felt.Felt](5)}}
 
 		// The contract is only deployed in the pre_confirmed block
@@ -1350,7 +1368,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
@@ -1400,7 +1418,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			ExecutionFailed: true,
 		}

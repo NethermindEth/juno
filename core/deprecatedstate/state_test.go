@@ -21,7 +21,7 @@ import (
 
 // Address of first deployed contract in mainnet block 1's state update.
 var (
-	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString(
+	_su1FirstDeployedAddress, _ = felt.NewFromString[felt.Felt](
 		"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
 	)
 	su1FirstDeployedAddress = *_su1FirstDeployedAddress
@@ -922,9 +922,9 @@ func TestCommitmentV014AlwaysPoseidon(t *testing.T) {
 
 	state := deprecatedstate.New(txn)
 
-	storageKey := new(felt.Felt).SetUint64(0)
-	storageVal := new(felt.Felt).SetUint64(0x80)
-	contractAddr := new(felt.Felt).SetUint64(2)
+	storageKey := felt.NewFromUint64[felt.Felt](0)
+	storageVal := felt.NewFromUint64[felt.Felt](0x80)
+	contractAddr := felt.NewFromUint64[felt.Felt](2)
 
 	su := &core.StateUpdate{
 		OldRoot: new(felt.Zero[felt.Felt]()),

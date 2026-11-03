@@ -204,7 +204,7 @@ func sortedFeltKeys[K, V any](m map[felt.Typed[K]]V) []felt.Typed[K] {
 
 func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
 	numOfUpdatedContracts := uint64(len(deployedContracts) + len(replacedClasses))
-	digest.Update(new(felt.Felt).SetUint64(numOfUpdatedContracts))
+	digest.Update(felt.NewFromUint64[felt.Felt](numOfUpdatedContracts))
 
 	// The sequencer guarantees that a contract cannot be:
 	// - deployed twice,
@@ -257,7 +257,7 @@ func declaredClassesDigest(
 
 func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *crypto.PoseidonDigest) {
 	numOfDeclaredV0Classes := uint64(len(declaredV0Classes))
-	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredV0Classes))
+	digest.Update(felt.NewFromUint64[felt.Felt](numOfDeclaredV0Classes))
 
 	slices.SortFunc(declaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
 	digest.Update(declaredV0Classes...)
@@ -268,14 +268,14 @@ func storageDiffDigest(
 	digest *crypto.PoseidonDigest,
 ) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
-	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
+	digest.Update(felt.NewFromUint64[felt.Felt](numOfStorageDiffs))
 
 	sortedStorageDiffAddrs := sortedFeltKeys(storageDiffs)
 	for _, addr := range sortedStorageDiffAddrs {
 		digest.Update(&addr)
 
 		sortedDiffKeys := sortedFeltKeys(storageDiffs[addr])
-		digest.Update(new(felt.Felt).SetUint64(uint64(len(sortedDiffKeys))))
+		digest.Update(felt.NewFromUint64[felt.Felt](uint64(len(sortedDiffKeys))))
 
 		for _, k := range sortedDiffKeys {
 			digest.Update(&k, storageDiffs[addr][k])
@@ -285,7 +285,7 @@ func storageDiffDigest(
 
 func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
 	numOfNonces := uint64(len(nonces))
-	digest.Update(new(felt.Felt).SetUint64(numOfNonces))
+	digest.Update(felt.NewFromUint64[felt.Felt](numOfNonces))
 
 	sortedNoncesAddrs := sortedFeltKeys(nonces)
 	for _, addr := range sortedNoncesAddrs {

@@ -158,7 +158,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			Hash: felt.NewUnsafeFromString[felt.Felt](
 				"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			),
-			Version: new(felt.Felt).SetUint64(3),
+			Version: felt.NewFromUint64[felt.Felt](3),
 			Signature: &[]felt.Felt{
 				felt.UnsafeFromString[felt.Felt](
 					"0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16",

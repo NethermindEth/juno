@@ -32,7 +32,7 @@ func AdaptProposalInit(msg *p2pconsensus.ProposalInit) (consensus.ProposalInit, 
 		BlockNum:   consensus.Height(msg.BlockNumber),
 		Round:      consensus.Round(msg.Round),
 		ValidRound: validRound,
-		Proposer:   *new(felt.Felt).SetBytes(msg.Proposer.Elements),
+		Proposer:   felt.FromBytes[felt.Felt](msg.Proposer.Elements),
 	}, nil
 }
 

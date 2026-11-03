@@ -19,18 +19,18 @@ func TestProveMatchesLegacySingleKeyProof(t *testing.T) {
 
 	keys := make([]*felt.Felt, 0, 5)
 	keys = append(keys,
-		new(felt.Felt).SetUint64(1),
-		new(felt.Felt).SetUint64(42),
-		new(felt.Felt).SetUint64(128),
-		new(felt.Felt).SetUint64(255),
+		felt.NewFromUint64[felt.Felt](1),
+		felt.NewFromUint64[felt.Felt](42),
+		felt.NewFromUint64[felt.Felt](128),
+		felt.NewFromUint64[felt.Felt](255),
 	)
 	for i, key := range keys {
-		_, err := tempTrie.Put(key, new(felt.Felt).SetUint64(uint64(i+1)))
+		_, err := tempTrie.Put(key, felt.NewFromUint64[felt.Felt](uint64(i+1)))
 		require.NoError(t, err)
 	}
 	require.NoError(t, tempTrie.Commit())
 
-	keys = append(keys, new(felt.Felt).SetUint64(999))
+	keys = append(keys, felt.NewFromUint64[felt.Felt](999))
 	for _, key := range keys {
 		legacyProof := NewProofNodeSet()
 		require.NoError(t, proveLegacyForTest(tempTrie, key, legacyProof))

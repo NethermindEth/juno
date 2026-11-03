@@ -1914,7 +1914,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	// for proof facts testing.
 	invokeV3WithProofFacts := &core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](124),
-		Version:         new(core.TransactionVersion).SetUint64(3),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
@@ -1932,7 +1932,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	invokeV3WithoutProofFacts := &core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](123),
-		Version:         new(core.TransactionVersion).SetUint64(3),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{

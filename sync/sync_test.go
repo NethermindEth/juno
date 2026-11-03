@@ -157,7 +157,7 @@ func (u *unreliableDataSource) BlockByNumber(
 	case 2:
 		committed.StateUpdate.BlockHash = new(felt.Felt) // fail sanity checks
 	case 3:
-		committed.StateUpdate.OldRoot = new(felt.Felt).SetUint64(1) // fail store
+		committed.StateUpdate.OldRoot = felt.NewFromUint64[felt.Felt](1) // fail store
 	default:
 		u.reqCount = 0
 		u.syncingHeight++

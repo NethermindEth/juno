@@ -15,9 +15,9 @@ import (
 func TestCompareFeltField(t *testing.T) {
 	name := "test-field"
 
-	notExpected := new(felt.Felt).SetUint64(12345)
-	expected := new(felt.Felt).SetUint64(67890)
-	computed := new(felt.Felt).SetUint64(67890)
+	notExpected := felt.NewFromUint64[felt.Felt](12345)
+	expected := felt.NewFromUint64[felt.Felt](67890)
+	computed := felt.NewFromUint64[felt.Felt](67890)
 
 	t.Run("EqualFields", func(t *testing.T) {
 		err := compareFeltField(name, expected, computed)
@@ -43,21 +43,21 @@ func TestCompareFeltField(t *testing.T) {
 func TestCompareProposalCommitment(t *testing.T) {
 	proposer := felt.NewUnsafeFromString[felt.Felt]("1")
 
-	stateDiffCommitment := new(felt.Felt).SetUint64(1)
-	transactionCommitment := new(felt.Felt).SetUint64(2)
-	eventCommitment := new(felt.Felt).SetUint64(3)
-	receiptCommitment := new(felt.Felt).SetUint64(4)
+	stateDiffCommitment := felt.NewFromUint64[felt.Felt](1)
+	transactionCommitment := felt.NewFromUint64[felt.Felt](2)
+	eventCommitment := felt.NewFromUint64[felt.Felt](3)
+	receiptCommitment := felt.NewFromUint64[felt.Felt](4)
 
 	blockNumber := uint64(100)
 
 	newDefaultProposalCommitment := func() *types.ProposalCommitment {
 		return &types.ProposalCommitment{
 			BlockNumber:           blockNumber,
-			ParentCommitment:      *new(felt.Felt).SetUint64(111),
+			ParentCommitment:      felt.FromUint64[felt.Felt](111),
 			Builder:               *proposer,
 			Timestamp:             1000,
 			ProtocolVersion:       *builder.CurrentStarknetVersion,
-			ConcatenatedCounts:    *new(felt.Felt).SetUint64(1),
+			ConcatenatedCounts:    felt.FromUint64[felt.Felt](1),
 			StateDiffCommitment:   *stateDiffCommitment,
 			TransactionCommitment: *transactionCommitment,
 			EventCommitment:       *eventCommitment,
@@ -94,7 +94,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 	t.Run("MismatchedParentCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.ParentCommitment = *felt.NewUnsafeFromString[felt.Felt]("222")
+		p.ParentCommitment = felt.UnsafeFromString[felt.Felt]("222")
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
@@ -151,7 +151,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.ConcatenatedCounts = *felt.NewUnsafeFromString[felt.Felt]("2")
+		p.ConcatenatedCounts = felt.UnsafeFromString[felt.Felt]("2")
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 

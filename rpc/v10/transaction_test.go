@@ -71,7 +71,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	otherTxHash := felt.NewFromUint64[felt.Felt](0x789abc)
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
-		Version:         new(core.TransactionVersion).SetUint64(1),
+		Version:         felt.NewFromUint64[core.TransactionVersion](1),
 	}
 
 	preConfirmed := pending.PreConfirmed{
@@ -991,7 +991,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 func TestAdaptReceiptNilEventsMarshalsAsEmptyArray(t *testing.T) {
 	txn := &core.InvokeTransaction{
 		TransactionHash: new(felt.Felt),
-		Version:         new(core.TransactionVersion).SetUint64(1),
+		Version:         felt.NewFromUint64[core.TransactionVersion](1),
 	}
 	receipt := &core.TransactionReceipt{
 		Fee:             new(felt.Felt),
@@ -2060,7 +2060,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
-		Version:         new(core.TransactionVersion).SetUint64(3),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		TransactionSignature: []felt.Felt{
 			felt.FromUint64[felt.Felt](0x1),
 			felt.FromUint64[felt.Felt](0x1),

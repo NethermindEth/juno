@@ -339,7 +339,7 @@ func requireBadRequest(t *testing.T, err error) {
 
 func mustFelt(t *testing.T, hex string) *felt.Felt {
 	t.Helper()
-	value, err := new(felt.Felt).SetString(hex)
+	value, err := felt.NewFromString[felt.Felt](hex)
 	require.NoError(t, err)
 	return value
 }

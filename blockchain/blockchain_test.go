@@ -311,10 +311,10 @@ func TestBlockCommitments(t *testing.T) {
 	su := adaptfeedertest.StateUpdate(t, client, 0)
 
 	expectedCommitments := &core.BlockCommitments{
-		TransactionCommitment: new(felt.Felt).SetUint64(1),
-		EventCommitment:       new(felt.Felt).SetUint64(2),
-		ReceiptCommitment:     new(felt.Felt).SetUint64(3),
-		StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+		TransactionCommitment: felt.NewFromUint64[felt.Felt](1),
+		EventCommitment:       felt.NewFromUint64[felt.Felt](2),
+		ReceiptCommitment:     felt.NewFromUint64[felt.Felt](3),
+		StateDiffCommitment:   felt.NewFromUint64[felt.Felt](4),
 		StateDiffLength:       su.StateDiff.Length(),
 	}
 
@@ -349,8 +349,8 @@ func TestTransactionAndReceipt(t *testing.T) {
 		require.NoError(t, chain.Store(
 			b,
 			&core.BlockCommitments{
-				TransactionCommitment: new(felt.Felt).SetUint64(i),
-				EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+				TransactionCommitment: felt.NewFromUint64[felt.Felt](i),
+				EventCommitment:       felt.NewFromUint64[felt.Felt](2 * i),
 				StateDiffLength:       stateDiffLengths[i],
 			},
 			su,
@@ -366,13 +366,13 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
-		tx, err := chain.TransactionByHash(new(felt.Felt).SetUint64(345))
+		tx, err := chain.TransactionByHash(felt.NewFromUint64[felt.Felt](345))
 		assert.Nil(t, tx)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
-		r, _, _, err := chain.Receipt(new(felt.Felt).SetUint64(234))
+		r, _, _, err := chain.Receipt(felt.NewFromUint64[felt.Felt](234))
 		assert.Nil(t, r)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
@@ -496,8 +496,8 @@ func TestTransactionAndReceipt(t *testing.T) {
 				commitments, err := chain.BlockCommitmentsByNumber(i)
 				require.NoError(t, err)
 				require.Equal(t, &core.BlockCommitments{
-					TransactionCommitment: new(felt.Felt).SetUint64(i),
-					EventCommitment:       new(felt.Felt).SetUint64(2 * i),
+					TransactionCommitment: felt.NewFromUint64[felt.Felt](i),
+					EventCommitment:       felt.NewFromUint64[felt.Felt](2 * i),
 					StateDiffLength:       stateDiffLengths[i],
 				}, commitments)
 			})
@@ -771,10 +771,10 @@ func TestEvents(t *testing.T) {
 		filter, err := chain.EventFilter(
 			from,
 			[][]felt.Felt{
-				{*felt.NewUnsafeFromString[felt.Felt](
+				{felt.UnsafeFromString[felt.Felt](
 					"0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533",
 				)},
-				{*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")},
+				{felt.UnsafeFromString[felt.Felt]("0xDEADBEEF")},
 			},
 			preConfirmedFunc,
 		)
@@ -1627,11 +1627,11 @@ func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{
 			BlockNumber: 1,
-			StateRoot:   new(felt.Felt).SetUint64(2),
+			StateRoot:   felt.NewFromUint64[felt.Felt](2),
 		},
 		{
 			BlockNumber: 2,
-			StateRoot:   new(felt.Felt).SetUint64(3),
+			StateRoot:   felt.NewFromUint64[felt.Felt](3),
 		},
 	}
 
@@ -1653,7 +1653,7 @@ func TestL1Update(t *testing.T) {
 func TestSubscribeL1Head(t *testing.T) {
 	l1Head := &core.L1Head{
 		BlockNumber: 1,
-		StateRoot:   new(felt.Felt).SetUint64(2),
+		StateRoot:   felt.NewFromUint64[felt.Felt](2),
 	}
 
 	chain := blockchain.New(

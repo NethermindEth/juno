@@ -132,7 +132,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 
 		if tx.Version.Uint64() == 3 {
 			tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
-			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+			tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 			tx.PaymasterData = nilToZero(t.PaymasterData)
 			tx.AccountDeploymentData = nilToZero(t.AccountDeploymentData)
 			tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
@@ -152,7 +152,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 
 		if t.Version.Is(3) {
 			tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
-			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+			tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 			tx.PaymasterData = nilToZero(t.PaymasterData)
 			tx.AccountDeploymentData = nilToZero(t.AccountDeploymentData)
 			tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
@@ -191,7 +191,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 
 		if tx.Version.Uint64() == 3 {
 			tx.ResourceBounds = new(adaptResourceBounds(t.ResourceBounds))
-			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+			tx.Tip = felt.NewFromUint64[felt.Felt](t.Tip)
 			tx.PaymasterData = nilToZero(t.PaymasterData)
 			tx.NonceDAMode = new(DataAvailabilityMode(t.NonceDAMode))
 			tx.FeeDAMode = new(DataAvailabilityMode(t.FeeDAMode))
@@ -206,7 +206,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
+			MaxAmount:       felt.NewFromUint64[felt.Felt](bounds.MaxAmount),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}

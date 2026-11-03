@@ -528,7 +528,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+				addrFelt: {felt.Random[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}
@@ -545,7 +545,7 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 		NewRoot: new(felt.Zero[felt.Felt]()),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*felt.NewRandom[felt.Felt](): value}, // unrelated key
+				addrFelt: {felt.Random[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}

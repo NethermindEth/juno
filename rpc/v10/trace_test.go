@@ -367,7 +367,7 @@ func TestTraceTransaction(t *testing.T) {
 		tx := &core.DeclareTransaction{
 			TransactionHash: (*felt.Felt)(hash),
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
@@ -438,7 +438,7 @@ func TestTraceTransaction(t *testing.T) {
 		)
 		tx := &core.InvokeTransaction{
 			TransactionHash: (*felt.Felt)(hash),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
@@ -510,7 +510,7 @@ func TestTraceTransaction(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
 		tx := &core.InvokeTransaction{
 			TransactionHash: (*felt.Felt)(hash),
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		baseHeader := &core.Header{
@@ -1037,14 +1037,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *felt.NewFromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					FunctionInvocation: &starknet.FunctionInvocation{
 						Events: []starknet.OrderedEvent{{
 							Order: 1,
-							Keys:  []felt.Felt{*felt.NewFromUint64[felt.Felt](2)},
-							Data:  []felt.Felt{*felt.NewFromUint64[felt.Felt](3)},
+							Keys:  []felt.Felt{felt.FromUint64[felt.Felt](2)},
+							Data:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
 						}},
 						ExecutionResources: starknet.ExecutionResources{
 							TotalGasConsumed: &starknet.GasConsumed{
@@ -1095,7 +1095,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *felt.NewFromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					// When revert error, feeder trace has no FunctionInvocation only RevertError is set
@@ -1197,8 +1197,8 @@ func TestCall(t *testing.T) {
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
 		calldata := []felt.Felt{
-			*felt.NewFromUint64[felt.Felt](4),
-			*felt.NewFromUint64[felt.Felt](5),
+			felt.FromUint64[felt.Felt](4),
+			felt.FromUint64[felt.Felt](5),
 		}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{
 			felt.NewFromUint64[felt.Felt](6),
@@ -1249,7 +1249,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{felt.NewFromUint64[felt.Felt](5)}}
 
 		// The contract is only deployed in the pre_confirmed block
@@ -1299,7 +1299,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			Result: []*felt.Felt{
 				felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt),
@@ -1351,7 +1351,7 @@ func TestCall(t *testing.T) {
 		contractAddr := felt.NewFromUint64[felt.Felt](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
 		classHash := felt.NewFromUint64[felt.Felt](3)
-		calldata := []felt.Felt{*felt.NewFromUint64[felt.Felt](4)}
+		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			ExecutionFailed: true,
 		}

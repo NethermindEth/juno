@@ -110,11 +110,11 @@ func TestStateDiffLength(t *testing.T) {
 }
 
 func TestStateDiffMerge_StorageDiffsDifferentSlotsSameAddress(t *testing.T) {
-	addrA := new(felt.Felt).SetUint64(255)
-	slotX := new(felt.Felt).SetUint64(127)
-	slotY := new(felt.Felt).SetUint64(255)
-	v1 := new(felt.Felt).SetUint64(1)
-	v2 := new(felt.Felt).SetUint64(2)
+	addrA := felt.NewFromUint64[felt.Felt](255)
+	slotX := felt.NewFromUint64[felt.Felt](127)
+	slotY := felt.NewFromUint64[felt.Felt](255)
+	v1 := felt.NewFromUint64[felt.Felt](1)
+	v2 := felt.NewFromUint64[felt.Felt](2)
 
 	d := core.EmptyStateDiff()
 
@@ -143,10 +143,10 @@ func TestStateDiffMerge_StorageDiffsDifferentSlotsSameAddress(t *testing.T) {
 }
 
 func TestStateDiffMerge_StorageDiffsSameSlotIncomingWins(t *testing.T) {
-	addrA := new(felt.Felt).SetUint64(255)
-	slotX := new(felt.Felt).SetUint64(127)
-	v1 := new(felt.Felt).SetUint64(1)
-	v2 := new(felt.Felt).SetUint64(2)
+	addrA := felt.NewFromUint64[felt.Felt](255)
+	slotX := felt.NewFromUint64[felt.Felt](127)
+	v1 := felt.NewFromUint64[felt.Felt](1)
+	v2 := felt.NewFromUint64[felt.Felt](2)
 
 	d := core.EmptyStateDiff()
 

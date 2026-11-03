@@ -390,8 +390,8 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		// and the catch-up loop reaches setL1Head with something to commit.
 		event := &l1.StateUpdate{
 			L2BlockNumber: 7,
-			L2BlockHash:   *new(felt.Felt).SetUint64(7),
-			StateRoot:     *new(felt.Felt).SetUint64(7),
+			L2BlockHash:   felt.FromUint64[felt.Felt](7),
+			StateRoot:     felt.FromUint64[felt.Felt](7),
 			L1RefHeight:   3,
 		}
 		provider.
@@ -407,8 +407,8 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, core.L1Head{
 			BlockNumber: 7,
-			BlockHash:   new(felt.Felt).SetUint64(7),
-			StateRoot:   new(felt.Felt).SetUint64(7),
+			BlockHash:   felt.NewFromUint64[felt.Felt](7),
+			StateRoot:   felt.NewFromUint64[felt.Felt](7),
 		}, got)
 	})
 }
@@ -519,8 +519,8 @@ func TestEventListenerCatchUp(t *testing.T) {
 
 	backfilled := &l1.StateUpdate{
 		L2BlockNumber: 7,
-		L2BlockHash:   *new(felt.Felt).SetUint64(7),
-		StateRoot:     *new(felt.Felt).SetUint64(7),
+		L2BlockHash:   felt.FromUint64[felt.Felt](7),
+		StateRoot:     felt.FromUint64[felt.Felt](7),
 		L1RefHeight:   3,
 	}
 	provider.
@@ -549,8 +549,8 @@ func TestEventListenerCatchUp(t *testing.T) {
 
 	want := &core.L1Head{
 		BlockNumber: 7,
-		BlockHash:   new(felt.Felt).SetUint64(7),
-		StateRoot:   new(felt.Felt).SetUint64(7),
+		BlockHash:   felt.NewFromUint64[felt.Felt](7),
+		StateRoot:   felt.NewFromUint64[felt.Felt](7),
 	}
 	require.Equal(t, want, got)
 
@@ -588,8 +588,8 @@ func TestCatchUpL1Head(t *testing.T) {
 		FilterStateUpdate(gomock.Any(), uint64(0), uint64(10)).
 		Return([]*l1.StateUpdate{{
 			L2BlockNumber: 7,
-			L2BlockHash:   *new(felt.Felt).SetUint64(7),
-			StateRoot:     *new(felt.Felt).SetUint64(7),
+			L2BlockHash:   felt.FromUint64[felt.Felt](7),
+			StateRoot:     felt.FromUint64[felt.Felt](7),
 			L1RefHeight:   3,
 		}}, nil).
 		AnyTimes()
@@ -602,8 +602,8 @@ func TestCatchUpL1Head(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, core.L1Head{
 		BlockNumber: 7,
-		BlockHash:   new(felt.Felt).SetUint64(7),
-		StateRoot:   new(felt.Felt).SetUint64(7),
+		BlockHash:   felt.NewFromUint64[felt.Felt](7),
+		StateRoot:   felt.NewFromUint64[felt.Felt](7),
 	}, persisted)
 }
 

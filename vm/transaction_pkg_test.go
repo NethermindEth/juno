@@ -132,13 +132,13 @@ func TestTransactionMarshal(t *testing.T) {
 			// No real on-chain tx carries proof_facts yet, so the transaction is handcrafted.
 			Txn: &core.InvokeTransaction{
 				TransactionHash:      felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef"),
-				Version:              new(core.TransactionVersion).SetUint64(3),
+				Version:              felt.NewFromUint64[core.TransactionVersion](3),
 				SenderAddress:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
 				CallData:             []felt.Felt{felt.FromUint64[felt.Felt](1)},
 				Nonce:                felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				ResourceBounds: map[core.Resource]core.ResourceBounds{
-					core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: new(felt.Felt).SetUint64(1)},
+					core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](1)},
 					core.ResourceL1DataGas: {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
 					core.ResourceL2Gas:     {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
 				},

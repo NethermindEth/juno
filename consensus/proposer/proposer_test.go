@@ -288,8 +288,8 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	return &core.InvokeTransaction{
 		TransactionHash: &hash,
 		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
-		Version:         new(core.TransactionVersion).SetUint64(3),
-		Nonce:           new(felt.Felt).SetUint64(nonce),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
+		Nonce:           felt.NewFromUint64[felt.Felt](nonce),
 		TransactionSignature: []felt.Felt{
 			felt.UnsafeFromString[felt.Felt](
 				"0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0",
@@ -314,15 +314,15 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
 				MaxAmount:       4,
-				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       520000,
-				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](1),
 			},
 			core.ResourceL1DataGas: {
 				MaxAmount:       296,
-				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](1),
 			},
 		},
 		Tip:                   0x0,
