@@ -3,19 +3,16 @@ package preconfirmed
 import "time"
 
 const (
-	// DefaultPollInterval is how often the poller ticks unless overridden. Measured on mainnet
-	// (2026-10-07), the 1s tick with the stale-after and on-demand wait below costs about 40%
-	// fewer gateway requests than 500ms when idle and answers fresher at every load level,
-	// because a read that finds the chain stale triggers a poll and waits for it.
-	DefaultPollInterval = time.Second
+	// DefaultPollInterval is how often the poller ticks unless overridden.
+	DefaultPollInterval = 500 * time.Millisecond
 	// DefaultStaleAfter is how long after a successful poll the pre-confirmed chain is served as
-	// is before a read triggers a new poll, unless overridden. 250ms keeps a busy node at about
-	// 2.8 gateway requests/s; 100ms or 0 polled often enough to be throttled (HTTP 429).
-	DefaultStaleAfter = 250 * time.Millisecond
+	// is before a read triggers a new poll, unless overridden. Matching [DefaultPollInterval], the
+	// ticks keep the chain fresh while they succeed, so reads trigger no polls of their own.
+	DefaultStaleAfter = 500 * time.Millisecond
 	// DefaultOnDemandWait is how long a read waits for the poll it triggered before answering
-	// with the stored chain, unless overridden. 300ms covers nearly every poll (150-250ms end to
-	// end); 150ms timed out on about one poll in five.
-	DefaultOnDemandWait = 300 * time.Millisecond
+	// with the stored chain, unless overridden. Zero answers every read right away, and the poll
+	// it triggered serves the reads after it.
+	DefaultOnDemandWait time.Duration = 0
 )
 
 // options carries the optional Poller settings; see [Option].
