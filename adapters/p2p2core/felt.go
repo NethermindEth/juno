@@ -42,7 +42,7 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 		return nil
 	}
 
-	return new(felt.Felt).SetBytes(v.GetElements())
+	return felt.NewFromBytes[felt.Felt](v.GetElements())
 }
 
 func AdaptUint128(u *common.Uint128) *felt.Felt {
@@ -55,5 +55,5 @@ func AdaptUint128(u *common.Uint128) *felt.Felt {
 	binary.BigEndian.PutUint64(bytes[:8], u.High)
 	binary.BigEndian.PutUint64(bytes[8:], u.Low)
 
-	return new(felt.Felt).SetBytes(bytes)
+	return felt.NewFromBytes[felt.Felt](bytes)
 }

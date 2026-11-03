@@ -526,7 +526,7 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 	}
 
 	stateDiff.StorageDiffs[*core.BlockHashStorageContract] = map[felt.Felt]*felt.Felt{
-		*new(felt.Felt).SetUint64(targetBlock): blockHash,
+		felt.FromUint64[felt.Felt](targetBlock): blockHash,
 	}
 	return stateDiff, nil
 }

@@ -19,7 +19,7 @@ const (
 	journalVersion = 1
 )
 
-var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+var stateVersion = felt.NewFromBytes[felt.Felt]([]byte(`STARKNET_STATE_V0`))
 
 type journalType byte
 

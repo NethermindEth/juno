@@ -513,7 +513,7 @@ func TestMigrate_Storage_ManyEntries(t *testing.T) {
 			block := startBlock + b
 			oldVal := felt.Zero[felt.Felt]()
 			if b > 0 {
-				oldVal = *felt.NewFromUint64[felt.Felt](s*10000 + b)
+				oldVal = felt.FromUint64[felt.Felt](s*10000 + b)
 			}
 			seedDeprecatedStorageHistory(t, memDB, addr, *slot, block, oldVal)
 		}

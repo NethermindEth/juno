@@ -65,8 +65,12 @@ type BlockHashMetaInfo struct {
 }
 
 var (
-	fallBackSequencerAddressMainnet, _ = new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
-	fallBackSequencerAddress, _        = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+	fallBackSequencerAddressMainnet, _ = felt.NewFromString[felt.Felt](
+		"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5",
+	)
+	fallBackSequencerAddress, _ = felt.NewFromString[felt.Felt](
+		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
+	)
 	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
@@ -194,7 +198,7 @@ func (n *Network) UnmarshalText(text []byte) error {
 }
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
-	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
+	return felt.NewFromBytes[felt.Felt]([]byte(n.L2ChainID))
 }
 
 // mustParseURL parses a raw URL and panics on error.

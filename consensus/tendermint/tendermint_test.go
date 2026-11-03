@@ -54,7 +54,7 @@ func (v *validators) addValidator(addr starknet.Address) {
 }
 
 func getVal(idx int) *starknet.Address {
-	return (*starknet.Address)(new(felt.Felt).SetUint64(uint64(idx)))
+	return (*starknet.Address)(felt.NewFromUint64[felt.Felt](uint64(idx)))
 }
 
 func setupStateMachine(

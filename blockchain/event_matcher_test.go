@@ -362,7 +362,7 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 	}
 	blockHash := felt.NewFromUint64[felt.Felt](0xc0ffee)
 	hashFn := constHashFn(blockHash)
-	absent := felt.Address(*felt.NewFromUint64[felt.Felt](0xdead))
+	absent := felt.FromUint64[felt.Address](0xdead)
 
 	const txCount, eventsPerTx = 5, 3
 	txEvents := make([]core.TransactionEvents, txCount)

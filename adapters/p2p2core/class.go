@@ -97,7 +97,7 @@ func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
 	return core.DeprecatedEntryPoint{
 		Selector: AdaptFelt(e.Selector),
-		Offset:   new(felt.Felt).SetUint64(e.Offset),
+		Offset:   felt.NewFromUint64[felt.Felt](e.Offset),
 	}
 }
 

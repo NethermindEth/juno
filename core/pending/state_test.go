@@ -77,7 +77,7 @@ func TestPendingState(t *testing.T) {
 			})
 		})
 		t.Run("from head", func(t *testing.T) {
-			expectedClassHash := new(felt.Felt).SetUint64(37)
+			expectedClassHash := felt.NewFromUint64[felt.Felt](37)
 			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 			cH, cErr := state.ContractClassHash(new(felt.Zero[felt.Felt]()))
@@ -89,14 +89,14 @@ func TestPendingState(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			cN, cErr := state.ContractNonce(deployedAddr)
 			require.NoError(t, cErr)
-			assert.Equal(t, new(felt.Felt).SetUint64(44), &cN)
+			assert.Equal(t, felt.NewFromUint64[felt.Felt](44), &cN)
 
 			cN, cErr = state.ContractNonce(deployedAddr2)
 			require.NoError(t, cErr)
 			assert.Equal(t, felt.Zero[felt.Felt](), cN)
 		})
 		t.Run("from head", func(t *testing.T) {
-			expectedNonce := new(felt.Felt).SetUint64(1337)
+			expectedNonce := felt.NewFromUint64[felt.Felt](1337)
 			mockState.EXPECT().ContractNonce(gomock.Any()).Return(*expectedNonce, nil)
 
 			cN, cErr := state.ContractNonce(new(felt.Zero[felt.Felt]()))
@@ -110,16 +110,16 @@ func TestPendingState(t *testing.T) {
 			require.NoError(t, cErr)
 			assert.Equal(t, value, &cV)
 
-			cV, cErr = state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF))
+			cV, cErr = state.ContractStorage(deployedAddr, felt.NewFromUint64[felt.Felt](0xDEADBEEF))
 			require.NoError(t, cErr)
 			assert.Equal(t, felt.Zero[felt.Felt](), cV)
 
-			cV, cErr = state.ContractStorage(deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF))
+			cV, cErr = state.ContractStorage(deployedAddr2, felt.NewFromUint64[felt.Felt](0xDEADBEEF))
 			require.NoError(t, cErr)
 			assert.Equal(t, felt.Zero[felt.Felt](), cV)
 		})
 		t.Run("from head", func(t *testing.T) {
-			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)
+			expectedValue := felt.NewFromUint64[felt.Felt](0xDEADBEEF)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedValue, nil)
 
 			cV, cErr := state.ContractStorage(new(felt.Zero[felt.Felt]()), new(felt.Zero[felt.Felt]()))
@@ -147,7 +147,7 @@ func TestPendingState(t *testing.T) {
 		})
 		t.Run("deployed contract with no storage diffs", func(t *testing.T) {
 			blockNum, err := state.ContractStorageLastUpdatedBlock(
-				deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF),
+				deployedAddr2, felt.NewFromUint64[felt.Felt](0xDEADBEEF),
 			)
 			require.NoError(t, err)
 			assert.Equal(t, uint64(0), blockNum)

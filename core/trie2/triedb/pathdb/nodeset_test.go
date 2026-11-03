@@ -18,7 +18,7 @@ var (
 	path3  = *new(trieutils.Path).SetUint64(10, 0x03)
 	path5  = *new(trieutils.Path).SetUint64(10, 0x05)
 	pathff = *new(trieutils.Path).SetUint64(10, 0xff)
-	feltff = *felt.NewFromBytes[felt.Address]([]byte{0xff})
+	feltff = felt.FromBytes[felt.Address]([]byte{0xff})
 )
 
 func TestNewNodeSet(t *testing.T) {

@@ -100,13 +100,15 @@ func TestEmptyProposal(t *testing.T) {
 		Builder:          *proposerAddr,
 		Timestamp:        0,
 		ProtocolVersion:  *builder.CurrentStarknetVersion,
-		OldStateRoot:     *felt.NewUnsafeFromString[felt.Felt]("0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72"),
+		OldStateRoot: felt.UnsafeFromString[felt.Felt](
+			"0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72",
+		),
 		// Other fields are set to 0 as expected by the validator
-		ConcatenatedCounts:    *new(felt.Felt).SetUint64(0),
-		StateDiffCommitment:   *new(felt.Felt).SetUint64(0),
-		TransactionCommitment: *new(felt.Felt).SetUint64(0),
-		EventCommitment:       *new(felt.Felt).SetUint64(0),
-		ReceiptCommitment:     *new(felt.Felt).SetUint64(0),
+		ConcatenatedCounts:    felt.FromUint64[felt.Felt](0),
+		StateDiffCommitment:   felt.FromUint64[felt.Felt](0),
+		TransactionCommitment: felt.FromUint64[felt.Felt](0),
+		EventCommitment:       felt.FromUint64[felt.Felt](0),
+		ReceiptCommitment:     felt.FromUint64[felt.Felt](0),
 	}
 
 	// Step 2: ProposalCommitment
@@ -116,7 +118,9 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5")
+	block1Hash, err := felt.NewFromString[felt.Felt](
+		"0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5",
+	)
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
@@ -166,8 +170,8 @@ func TestProposal(t *testing.T) {
 	invokeTxn := core.InvokeTransaction{
 		TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992"),
 		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
-		Version:         new(core.TransactionVersion).SetUint64(3),
-		Nonce:           new(felt.Felt).SetUint64(0),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
+		Nonce:           felt.NewFromUint64[felt.Felt](0),
 		TransactionSignature: []felt.Felt{
 			felt.UnsafeFromString[felt.Felt](
 				"0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0",
@@ -224,23 +228,37 @@ func TestProposal(t *testing.T) {
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *builder.CurrentStarknetVersion,
 
-		OldStateRoot:          *felt.NewUnsafeFromString[felt.Felt]("0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72"),
-		StateDiffCommitment:   *felt.NewUnsafeFromString[felt.Felt]("0x16d4498d26bdb6828f7401f8bd8cffb76d49a6be573a30961d0752af4772728"),
-		TransactionCommitment: *felt.NewUnsafeFromString[felt.Felt]("0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd"),
-		EventCommitment:       *felt.NewUnsafeFromString[felt.Felt]("0x44a528b33c19728469ae78c616070c5a609b57250c630391e64a9532d4bbac9"),
-		ReceiptCommitment:     *felt.NewUnsafeFromString[felt.Felt]("0x4e31a7f4aad47f4d3a2e176961c0ccb7ef90f52159da68edd52c9fc0739eb4c"),
-		ConcatenatedCounts:    *felt.NewUnsafeFromString[felt.Felt]("0x1000000000000000100000000000000038000000000000000"),
-		L1GasPriceFRI:         felt.FromUint64[felt.Felt](l1GasPriceFri),
-		L1DataGasPriceFRI:     felt.FromUint64[felt.Felt](l1DataGasPriceFri),
-		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
-		L2GasUsed:             *felt.NewUnsafeFromString[felt.Felt]("0x9dbc0"),
-		L1DAMode:              blockInfo.L1DAMode,
+		OldStateRoot: felt.UnsafeFromString[felt.Felt](
+			"0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72",
+		),
+		StateDiffCommitment: felt.UnsafeFromString[felt.Felt](
+			"0x16d4498d26bdb6828f7401f8bd8cffb76d49a6be573a30961d0752af4772728",
+		),
+		TransactionCommitment: felt.UnsafeFromString[felt.Felt](
+			"0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd",
+		),
+		EventCommitment: felt.UnsafeFromString[felt.Felt](
+			"0x44a528b33c19728469ae78c616070c5a609b57250c630391e64a9532d4bbac9",
+		),
+		ReceiptCommitment: felt.UnsafeFromString[felt.Felt](
+			"0x4e31a7f4aad47f4d3a2e176961c0ccb7ef90f52159da68edd52c9fc0739eb4c",
+		),
+		ConcatenatedCounts: felt.UnsafeFromString[felt.Felt](
+			"0x1000000000000000100000000000000038000000000000000",
+		),
+		L1GasPriceFRI:     felt.FromUint64[felt.Felt](l1GasPriceFri),
+		L1DataGasPriceFRI: felt.FromUint64[felt.Felt](l1DataGasPriceFri),
+		L2GasPriceFRI:     blockInfo.L2GasPriceFRI,
+		L2GasUsed:         felt.UnsafeFromString[felt.Felt]("0x9dbc0"),
+		L1DAMode:          blockInfo.L1DAMode,
 	}
 	awaitingProposalFinState, err := transition.OnProposalCommitment(t.Context(), receivingTransactionsState, &nonEmptyCommitment)
 	require.NoError(t, err)
 
 	// Step 5: ProposalFin
-	proposalFin := types.ProposalFin(*felt.NewUnsafeFromString[felt.Felt]("0x33104073e2e1af67a09ce406ba489fd00592aa406fba60d6a8a8959f7613080"))
+	proposalFin := felt.UnsafeFromString[types.ProposalFin](
+		"0x33104073e2e1af67a09ce406ba489fd00592aa406fba60d6a8a8959f7613080",
+	)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
 	require.NoError(t, err)
 }

@@ -31,10 +31,10 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 
 	txns := []core.Transaction{
 		&core.L1HandlerTransaction{
-			Version: new(core.TransactionVersion).SetUint64(3),
+			Version: felt.NewFromUint64[core.TransactionVersion](3),
 		},
 		&core.InvokeTransaction{
-			Version: new(core.TransactionVersion).SetUint64(3),
+			Version: felt.NewFromUint64[core.TransactionVersion](3),
 		},
 	}
 

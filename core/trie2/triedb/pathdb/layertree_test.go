@@ -143,7 +143,7 @@ type mockTrieNode struct {
 }
 
 func (m *mockTrieNode) Blob() []byte    { return m.blob }
-func (m *mockTrieNode) Hash() felt.Felt { return *new(felt.Felt).SetBytes(m.blob) }
+func (m *mockTrieNode) Hash() felt.Felt { return felt.FromBytes[felt.Felt](m.blob) }
 func (m *mockTrieNode) IsLeaf() bool    { return len(m.blob) == 0 }
 
 // layerTracker tracks trie nodes across different layers to simplify testing

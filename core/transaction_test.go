@@ -33,36 +33,36 @@ func TestTransactionEncoding(t *testing.T) {
 		{
 			name: "Declare Transaction",
 			tx: &core.DeclareTransaction{
-				TransactionHash: new(felt.Felt).SetUint64(1),
-				ClassHash:       new(felt.Felt).SetUint64(2),
-				SenderAddress:   new(felt.Felt).SetUint64(3),
-				MaxFee:          new(felt.Felt).SetUint64(4),
+				TransactionHash: felt.NewFromUint64[felt.Felt](1),
+				ClassHash:       felt.NewFromUint64[felt.Felt](2),
+				SenderAddress:   felt.NewFromUint64[felt.Felt](3),
+				MaxFee:          felt.NewFromUint64[felt.Felt](4),
 				TransactionSignature: []felt.Felt{
 					felt.FromUint64[felt.Felt](5),
 					felt.FromUint64[felt.Felt](6),
 				},
-				Nonce:   new(felt.Felt).SetUint64(7),
-				Version: new(core.TransactionVersion).SetUint64(8),
+				Nonce:   felt.NewFromUint64[felt.Felt](7),
+				Version: felt.NewFromUint64[core.TransactionVersion](8),
 			},
 		},
 		{
 			name: "Deploy Transaction",
 			tx: &core.DeployTransaction{
-				TransactionHash:     new(felt.Felt).SetUint64(1),
-				ContractAddressSalt: new(felt.Felt).SetUint64(2),
-				ContractAddress:     new(felt.Felt).SetUint64(3),
-				ClassHash:           new(felt.Felt).SetUint64(4),
+				TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+				ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
+				ContractAddress:     felt.NewFromUint64[felt.Felt](3),
+				ClassHash:           felt.NewFromUint64[felt.Felt](4),
 				ConstructorCallData: []felt.Felt{
 					felt.FromUint64[felt.Felt](5),
 					felt.FromUint64[felt.Felt](6),
 				},
-				Version: new(core.TransactionVersion).SetUint64(7),
+				Version: felt.NewFromUint64[core.TransactionVersion](7),
 			},
 		},
 		{
 			name: "Invoke Transaction",
 			tx: &core.InvokeTransaction{
-				TransactionHash: new(felt.Felt).SetUint64(1),
+				TransactionHash: felt.NewFromUint64[felt.Felt](1),
 				CallData: []felt.Felt{
 					felt.FromUint64[felt.Felt](2),
 					felt.FromUint64[felt.Felt](3),
@@ -71,47 +71,47 @@ func TestTransactionEncoding(t *testing.T) {
 					felt.FromUint64[felt.Felt](4),
 					felt.FromUint64[felt.Felt](5),
 				},
-				MaxFee:             new(felt.Felt).SetUint64(6),
-				ContractAddress:    new(felt.Felt).SetUint64(7),
-				Version:            new(core.TransactionVersion).SetUint64(8),
-				EntryPointSelector: new(felt.Felt).SetUint64(9),
-				Nonce:              new(felt.Felt).SetUint64(10),
+				MaxFee:             felt.NewFromUint64[felt.Felt](6),
+				ContractAddress:    felt.NewFromUint64[felt.Felt](7),
+				Version:            felt.NewFromUint64[core.TransactionVersion](8),
+				EntryPointSelector: felt.NewFromUint64[felt.Felt](9),
+				Nonce:              felt.NewFromUint64[felt.Felt](10),
 			},
 		},
 		{
 			name: "Deploy Account Transaction",
 			tx: &core.DeployAccountTransaction{
 				DeployTransaction: core.DeployTransaction{
-					TransactionHash:     new(felt.Felt).SetUint64(1),
-					ContractAddressSalt: new(felt.Felt).SetUint64(2),
-					ContractAddress:     new(felt.Felt).SetUint64(3),
-					ClassHash:           new(felt.Felt).SetUint64(4),
+					TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+					ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
+					ContractAddress:     felt.NewFromUint64[felt.Felt](3),
+					ClassHash:           felt.NewFromUint64[felt.Felt](4),
 					ConstructorCallData: []felt.Felt{
 						felt.FromUint64[felt.Felt](5),
 						felt.FromUint64[felt.Felt](6),
 					},
-					Version: new(core.TransactionVersion).SetUint64(7),
+					Version: felt.NewFromUint64[core.TransactionVersion](7),
 				},
-				MaxFee: new(felt.Felt).SetUint64(8),
+				MaxFee: felt.NewFromUint64[felt.Felt](8),
 				TransactionSignature: []felt.Felt{
 					felt.FromUint64[felt.Felt](9),
 					felt.FromUint64[felt.Felt](10),
 				},
-				Nonce: new(felt.Felt).SetUint64(11),
+				Nonce: felt.NewFromUint64[felt.Felt](11),
 			},
 		},
 		{
 			name: "L1 Handler Transaction",
 			tx: &core.L1HandlerTransaction{
-				TransactionHash:    new(felt.Felt).SetUint64(1),
-				ContractAddress:    new(felt.Felt).SetUint64(2),
-				EntryPointSelector: new(felt.Felt).SetUint64(3),
-				Nonce:              new(felt.Felt).SetUint64(4),
+				TransactionHash:    felt.NewFromUint64[felt.Felt](1),
+				ContractAddress:    felt.NewFromUint64[felt.Felt](2),
+				EntryPointSelector: felt.NewFromUint64[felt.Felt](3),
+				Nonce:              felt.NewFromUint64[felt.Felt](4),
 				CallData: []felt.Felt{
 					felt.FromUint64[felt.Felt](5),
 					felt.FromUint64[felt.Felt](6),
 				},
-				Version: new(core.TransactionVersion).SetUint64(7),
+				Version: felt.NewFromUint64[core.TransactionVersion](7),
 			},
 		},
 	}
@@ -160,7 +160,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 	t.Run("contains bad transaction", func(t *testing.T) {
 		badTxn0 := new(core.DeclareTransaction)
 		*badTxn0 = *txn0.(*core.DeclareTransaction)
-		badTxn0.Version = new(core.TransactionVersion).SetUint64(18)
+		badTxn0.Version = felt.NewFromUint64[core.TransactionVersion](18)
 
 		badTxn1 := new(core.L1HandlerTransaction)
 		*badTxn1 = *txn3.(*core.L1HandlerTransaction)

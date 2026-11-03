@@ -63,15 +63,15 @@ func TestMempool(t *testing.T) {
 
 	// push multiple to empty (1,2,3)
 	for i := uint64(1); i < 4; i++ {
-		senderAddress := new(felt.Felt).SetUint64(i)
+		senderAddress := felt.NewFromUint64[felt.Felt](i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
-				TransactionHash: new(felt.Felt).SetUint64(i),
-				Nonce:           new(felt.Felt).SetUint64(1),
+				TransactionHash: felt.NewFromUint64[felt.Felt](i),
+				Nonce:           felt.NewFromUint64[felt.Felt](1),
 				SenderAddress:   senderAddress,
-				Version:         new(core.TransactionVersion).SetUint64(1),
+				Version:         felt.NewFromUint64[core.TransactionVersion](1),
 			},
 		}))
 		require.Equal(t, int(i), pool.Len())
@@ -86,15 +86,15 @@ func TestMempool(t *testing.T) {
 
 	// push multiple to non empty (push 4,5. now have 3,4,5)
 	for i := uint64(4); i < 6; i++ {
-		senderAddress := new(felt.Felt).SetUint64(i)
+		senderAddress := felt.NewFromUint64[felt.Felt](i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
-				TransactionHash: new(felt.Felt).SetUint64(i),
-				Nonce:           new(felt.Felt).SetUint64(1),
+				TransactionHash: felt.NewFromUint64[felt.Felt](i),
+				Nonce:           felt.NewFromUint64[felt.Felt](1),
 				SenderAddress:   senderAddress,
-				Version:         new(core.TransactionVersion).SetUint64(1),
+				Version:         felt.NewFromUint64[core.TransactionVersion](1),
 			},
 		}))
 		require.Equal(t, int(i-2), pool.Len())
@@ -103,7 +103,7 @@ func TestMempool(t *testing.T) {
 	// push more than max
 	require.ErrorIs(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt).SetUint64(123),
+			TransactionHash: felt.NewFromUint64[felt.Felt](123),
 		},
 	}), mempool.ErrTxnPoolFull)
 
@@ -140,15 +140,15 @@ func TestRestoreMempool(t *testing.T) {
 	// push multiple transactions to empty mempool (1,2,3)
 	expectedTxs := [3]mempool.BroadcastedTransaction{}
 	for i := uint64(1); i < 4; i++ {
-		senderAddress := new(felt.Felt).SetUint64(i)
+		senderAddress := felt.NewFromUint64[felt.Felt](i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 		tx := mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
-				TransactionHash: new(felt.Felt).SetUint64(i),
-				Version:         new(core.TransactionVersion).SetUint64(1),
+				TransactionHash: felt.NewFromUint64[felt.Felt](i),
+				Version:         felt.NewFromUint64[core.TransactionVersion](1),
 				SenderAddress:   senderAddress,
-				Nonce:           new(felt.Felt).SetUint64(0),
+				Nonce:           felt.NewFromUint64[felt.Felt](0),
 			},
 		}
 		require.NoError(t, pool.Push(t.Context(), &tx))
@@ -227,10 +227,10 @@ func TestWait(t *testing.T) {
 	))
 	require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt).SetUint64(1),
-			Nonce:           new(felt.Felt).SetUint64(5),
+			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+			Nonce:           felt.NewFromUint64[felt.Felt](5),
 			SenderAddress:   &address,
-			Version:         new(core.TransactionVersion).SetUint64(1),
+			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		},
 	}))
 	<-pool.Wait()
@@ -270,15 +270,15 @@ func TestPopBatch(t *testing.T) {
 	// Helper function to add transactions to the pool
 	addTransactions := func(start, end uint64) {
 		for i := start; i <= end; i++ {
-			senderAddress := new(felt.Felt).SetUint64(i)
+			senderAddress := felt.NewFromUint64[felt.Felt](i)
 			chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 			state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero[felt.Felt](), nil)
 			require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 				Transaction: &core.InvokeTransaction{
-					TransactionHash: new(felt.Felt).SetUint64(i),
-					Nonce:           new(felt.Felt).SetUint64(1),
+					TransactionHash: felt.NewFromUint64[felt.Felt](i),
+					Nonce:           felt.NewFromUint64[felt.Felt](1),
 					SenderAddress:   senderAddress,
-					Version:         new(core.TransactionVersion).SetUint64(1),
+					Version:         felt.NewFromUint64[core.TransactionVersion](1),
 				},
 			}))
 		}

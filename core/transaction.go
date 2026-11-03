@@ -148,7 +148,10 @@ var (
 	_            Transaction = (*DeclareTransaction)(nil)
 	_            Transaction = (*InvokeTransaction)(nil)
 	_            Transaction = (*L1HandlerTransaction)(nil)
-	queryVersion             = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
+	queryVersion             = new(felt.Felt).Exp(
+		felt.NewFromUint64[felt.Felt](2),
+		new(big.Int).SetUint64(queryBit),
+	)
 )
 
 const (
@@ -404,12 +407,12 @@ func (l *L1HandlerTransaction) MessageHash() []byte {
 	digest.Write(toAddress[:])
 	if l.Nonce != nil {
 		nonceBytes := l.Nonce.Bytes()
-		lenPayload := new(felt.Felt).SetUint64(uint64(len(l.CallData) - 1)).Bytes()
+		lenPayload := felt.NewFromUint64[felt.Felt](uint64(len(l.CallData) - 1)).Bytes()
 		digest.Write(nonceBytes[:])
 		digest.Write(selectorBytes[:])
 		digest.Write(lenPayload[:])
 	} else {
-		lenCalldata := new(felt.Felt).SetUint64(uint64(len(l.CallData))).Bytes()
+		lenCalldata := felt.NewFromUint64[felt.Felt](uint64(len(l.CallData))).Bytes()
 		digest.Write(lenCalldata[:])
 		digest.Write(selectorBytes[:])
 	}
@@ -449,10 +452,10 @@ func TransactionHash(transaction Transaction, n *networks.Network) (felt.Felt, e
 }
 
 var (
-	invokeFelt        = new(felt.Felt).SetBytes([]byte("invoke"))
-	declareFelt       = new(felt.Felt).SetBytes([]byte("declare"))
-	l1HandlerFelt     = new(felt.Felt).SetBytes([]byte("l1_handler"))
-	deployAccountFelt = new(felt.Felt).SetBytes([]byte("deploy_account"))
+	invokeFelt        = felt.NewFromBytes[felt.Felt]([]byte("invoke"))
+	declareFelt       = felt.NewFromBytes[felt.Felt]([]byte("declare"))
+	l1HandlerFelt     = felt.NewFromBytes[felt.Felt]([]byte("l1_handler"))
+	deployAccountFelt = felt.NewFromBytes[felt.Felt]([]byte("deploy_account"))
 )
 
 func errInvalidTransactionVersion(t Transaction, version *TransactionVersion) error {

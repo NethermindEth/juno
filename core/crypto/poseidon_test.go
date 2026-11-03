@@ -9,8 +9,8 @@ import (
 )
 
 func TestPoseidon(t *testing.T) {
-	left := new(felt.Felt).SetUint64(1)
-	right := new(felt.Felt).SetUint64(2)
+	left := felt.NewFromUint64[felt.Felt](1)
+	right := felt.NewFromUint64[felt.Felt](2)
 
 	hash := crypto.Poseidon(left, right)
 	assert.Equal(
@@ -31,15 +31,15 @@ func TestPoseidonArray(t *testing.T) {
 		},
 		"odd elems": {
 			elems: []*felt.Felt{
-				new(felt.Felt), new(felt.Felt).SetUint64(1),
-				new(felt.Felt).SetUint64(2),
+				new(felt.Felt), felt.NewFromUint64[felt.Felt](1),
+				felt.NewFromUint64[felt.Felt](2),
 			},
 			expected: "0x7a01142da8aecae3782ba66fc3285fd02fcd2c55aa868fe50fd95c089068d16",
 		},
 		"even elems": {
 			elems: []*felt.Felt{
-				new(felt.Felt), new(felt.Felt).SetUint64(1),
-				new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3),
+				new(felt.Felt), felt.NewFromUint64[felt.Felt](1),
+				felt.NewFromUint64[felt.Felt](2), felt.NewFromUint64[felt.Felt](3),
 			},
 			expected: "0x7b8f30ac298ea12d170c0873f1fa631a18c00756c6e7d1fd273b9a239d0d413",
 		},

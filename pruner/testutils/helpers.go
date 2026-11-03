@@ -184,11 +184,11 @@ func StoreBlockWithLayout(
 	// Create transactions: 2 invoke + 1 L1 handler.
 	invokeTx1 := &core.InvokeTransaction{
 		TransactionHash: felt.NewRandom[felt.Felt](),
-		Version:         new(core.TransactionVersion).SetUint64(3),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 	}
 	invokeTx2 := &core.InvokeTransaction{
 		TransactionHash: felt.NewRandom[felt.Felt](),
-		Version:         new(core.TransactionVersion).SetUint64(3),
+		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 	}
 	l1HandlerTx := &core.L1HandlerTransaction{
 		TransactionHash:    felt.NewRandom[felt.Felt](),
@@ -196,7 +196,7 @@ func StoreBlockWithLayout(
 		EntryPointSelector: felt.NewRandom[felt.Felt](),
 		Nonce:              felt.NewFromUint64[felt.Felt](blockNum),
 		CallData:           []felt.Felt{felt.Random[felt.Felt](), felt.Random[felt.Felt]()},
-		Version:            new(core.TransactionVersion).SetUint64(3),
+		Version:            felt.NewFromUint64[core.TransactionVersion](3),
 	}
 
 	txs := []core.Transaction{invokeTx1, invokeTx2, l1HandlerTx}

@@ -27,7 +27,7 @@ func TestSyncing(t *testing.T) {
 	t.Run("undefined starting block header", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(
-			&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)},
+			&core.Header{Number: 2, Hash: felt.NewFromUint64[felt.Felt](2)},
 		)
 		synchronizer.EXPECT().StartingBlockHeader().Return(nil, errors.New("nope"))
 
@@ -66,7 +66,7 @@ func TestSyncing(t *testing.T) {
 		synchronizer.EXPECT().HighestBlockHeader().Return(
 			&core.Header{
 				Number: 2,
-				Hash:   new(felt.Felt).SetUint64(2),
+				Hash:   felt.NewFromUint64[felt.Felt](2),
 			},
 		)
 
@@ -78,14 +78,14 @@ func TestSyncing(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(
 			&core.Header{
 				Number: 1,
-				Hash:   new(felt.Felt).SetUint64(1),
+				Hash:   felt.NewFromUint64[felt.Felt](1),
 			},
 			nil,
 		)
 		synchronizer.EXPECT().HighestBlockHeader().Return(
 			&core.Header{
 				Number: 2,
-				Hash:   new(felt.Felt).SetUint64(2),
+				Hash:   felt.NewFromUint64[felt.Felt](2),
 			},
 		)
 		synchronizer.EXPECT().StartingBlockHeader().Return(startingBlockHeader, nil)
@@ -95,9 +95,9 @@ func TestSyncing(t *testing.T) {
 		expectedSyncing := &rpc.Sync{
 			StartingBlockHash:   new(felt.Zero[felt.Felt]()),
 			StartingBlockNumber: &startingBlockHeader.Number,
-			CurrentBlockHash:    new(felt.Felt).SetUint64(1),
+			CurrentBlockHash:    felt.NewFromUint64[felt.Felt](1),
 			CurrentBlockNumber:  &currentBlockNumber,
-			HighestBlockHash:    new(felt.Felt).SetUint64(2),
+			HighestBlockHash:    felt.NewFromUint64[felt.Felt](2),
 			HighestBlockNumber:  &highestBlockNumber,
 		}
 		syncing, err := handler.Syncing()

@@ -49,7 +49,7 @@ func (e *Edge) Hash(hash crypto.HashFn) felt.Felt {
 	var length [32]byte
 	length[31] = e.Path.len
 	pathFelt := e.Path.Felt()
-	lengthFelt := new(felt.Felt).SetBytes(length[:])
+	lengthFelt := felt.NewFromBytes[felt.Felt](length[:])
 
 	hashPath := hash(e.Child, &pathFelt)
 	hashPath.Add(&hashPath, lengthFelt)

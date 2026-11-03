@@ -13,12 +13,12 @@ import (
 
 func TestAdaptOrderedEvent(t *testing.T) {
 	require.Equal(t, &core.Event{
-		From: new(felt.Felt).SetUint64(2),
+		From: felt.NewFromUint64[felt.Felt](2),
 		Keys: []felt.Felt{felt.FromUint64[felt.Felt](3)},
 		Data: []felt.Felt{felt.FromUint64[felt.Felt](4)},
 	}, vm2core.AdaptOrderedEvent(vm.OrderedEvent{
 		Order: 1,
-		From:  new(felt.Felt).SetUint64(2),
+		From:  felt.NewFromUint64[felt.Felt](2),
 		Keys:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
 		Data:  []felt.Felt{felt.FromUint64[felt.Felt](4)},
 	}))

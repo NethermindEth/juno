@@ -14,8 +14,8 @@ func TestNewBlockSigner(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	blockHash := new(felt.Felt).SetUint64(1)
-	stateDiffCommitment := new(felt.Felt).SetUint64(2)
+	blockHash := felt.NewFromUint64[felt.Felt](1)
+	stateDiffCommitment := felt.NewFromUint64[felt.Felt](2)
 
 	sig, err := newBlockSigner(privKey)(blockHash, stateDiffCommitment)
 	require.NoError(t, err)

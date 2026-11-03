@@ -134,7 +134,7 @@ func populatedDeclaredClassDefinition() core.DeclaredClassDefinition {
 }
 
 func populatedDeclareTransaction() core.DeclareTransaction {
-	version := core.TransactionVersion(felt.FromUint64[felt.Felt](3))
+	version := felt.FromUint64[core.TransactionVersion](3)
 	return core.DeclareTransaction{
 		TransactionHash:       felt.NewFromUint64[felt.Felt](1),
 		ClassHash:             felt.NewFromUint64[felt.Felt](2),
@@ -156,7 +156,7 @@ func populatedDeclareTransaction() core.DeclareTransaction {
 }
 
 func populatedDeployTransaction() core.DeployTransaction {
-	version := core.TransactionVersion(felt.FromUint64[felt.Felt](0))
+	version := felt.FromUint64[core.TransactionVersion](0)
 	return core.DeployTransaction{
 		TransactionHash:     felt.NewFromUint64[felt.Felt](13),
 		ContractAddressSalt: felt.NewFromUint64[felt.Felt](14),
@@ -168,7 +168,7 @@ func populatedDeployTransaction() core.DeployTransaction {
 }
 
 func populatedL1HandlerTransaction() core.L1HandlerTransaction {
-	version := core.TransactionVersion(felt.FromUint64[felt.Felt](0))
+	version := felt.FromUint64[core.TransactionVersion](0)
 	return core.L1HandlerTransaction{
 		TransactionHash:    felt.NewFromUint64[felt.Felt](18),
 		ContractAddress:    felt.NewFromUint64[felt.Felt](19),
@@ -272,7 +272,7 @@ func populatedHeader() core.Header {
 }
 
 func populatedInvokeTransaction() core.InvokeTransaction {
-	version := core.TransactionVersion(felt.FromUint64[felt.Felt](3))
+	version := felt.FromUint64[core.TransactionVersion](3)
 	return core.InvokeTransaction{
 		TransactionHash:       felt.NewFromUint64[felt.Felt](1),
 		CallData:              []felt.Felt{felt.FromUint64[felt.Felt](2)},

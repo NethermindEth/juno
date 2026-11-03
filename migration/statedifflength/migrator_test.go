@@ -191,7 +191,7 @@ func TestMigrateFailsOnMissingRecordInRange(t *testing.T) {
 	database := memory.New()
 	writeBlock(t, database, 0, 1)
 	require.NoError(t, core.BlockCommitmentsBucket.Put(database, 1, &core.BlockCommitments{
-		TransactionCommitment: new(felt.Felt).SetUint64(1),
+		TransactionCommitment: felt.NewFromUint64[felt.Felt](1),
 	}))
 	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, new(uint64(1))))
 

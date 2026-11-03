@@ -73,9 +73,9 @@ const (
 )
 
 var (
-	starknetBlockHash0 = new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0"))
-	starknetBlockHash1 = new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH1"))
-	starknetGasPrices0 = new(felt.Felt).SetBytes([]byte("STARKNET_GAS_PRICES0"))
+	starknetBlockHash0 = felt.NewFromBytes[felt.Felt]([]byte("STARKNET_BLOCK_HASH0"))
+	starknetBlockHash1 = felt.NewFromBytes[felt.Felt]([]byte("STARKNET_BLOCK_HASH1"))
+	starknetGasPrices0 = felt.NewFromBytes[felt.Felt]([]byte("STARKNET_GAS_PRICES0"))
 )
 
 type GasPrice struct {
@@ -216,18 +216,18 @@ func pre07Hash(
 		sdLength = stateDiff.Length()
 	}
 	return crypto.PedersenElems(
-		new(felt.Felt).SetUint64(b.Number),           // block number
-		b.GlobalStateRoot,                            // global state root
-		new(felt.Zero[felt.Felt]()),                  // reserved: sequencer address
-		new(felt.Zero[felt.Felt]()),                  // reserved: block timestamp
-		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
-		&txCommitment,                                // transaction commitment
-		new(felt.Zero[felt.Felt]()),                  // reserved: number of events
-		new(felt.Zero[felt.Felt]()),                  // reserved: event commitment
-		new(felt.Zero[felt.Felt]()),                  // reserved: protocol version
-		new(felt.Zero[felt.Felt]()),                  // reserved: extra data
-		chain,                                        // extra data: chain id
-		b.ParentHash,                                 // parent hash
+		felt.NewFromUint64[felt.Felt](b.Number),           // block number
+		b.GlobalStateRoot,                                 // global state root
+		new(felt.Zero[felt.Felt]()),                       // reserved: sequencer address
+		new(felt.Zero[felt.Felt]()),                       // reserved: block timestamp
+		felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
+		&txCommitment,                                     // transaction commitment
+		new(felt.Zero[felt.Felt]()),                       // reserved: number of events
+		new(felt.Zero[felt.Felt]()),                       // reserved: event commitment
+		new(felt.Zero[felt.Felt]()),                       // reserved: protocol version
+		new(felt.Zero[felt.Felt]()),                       // reserved: extra data
+		chain,                                             // extra data: chain id
+		b.ParentHash,                                      // parent hash
 	), &BlockCommitments{TransactionCommitment: &txCommitment, StateDiffLength: sdLength}, nil
 }
 
@@ -282,17 +282,17 @@ func post0134Hash(
 	return crypto.PoseidonElems(
 		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 		starknetBlockHash1,
-		new(felt.Felt).SetUint64(b.Number),    // block number
-		b.GlobalStateRoot,                     // global state root
-		b.SequencerAddress,                    // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		felt.NewFromUint64[felt.Felt](b.Number),    // block number
+		b.GlobalStateRoot,                          // global state root
+		b.SequencerAddress,                         // sequencer address
+		felt.NewFromUint64[felt.Felt](b.Timestamp), // block timestamp
 		&concatCounts,
 		&sdCommitment,
 		&txCommitment, // transaction commitment
 		&eCommitment,  // event commitment
 		&rCommitment,  // receipt commitment
 		&pricesHash,   // gas prices hash
-		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion)),
 		new(felt.Zero[felt.Felt]()), // reserved: extra data
 		b.ParentHash,                // parent block hash
 	), &BlockCommitments{
@@ -368,10 +368,10 @@ func Post0132Hash(
 	return crypto.PoseidonElems(
 		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
 		starknetBlockHash0,
-		new(felt.Felt).SetUint64(b.Number),    // block number
-		b.GlobalStateRoot,                     // global state root
-		seqAddr,                               // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		felt.NewFromUint64[felt.Felt](b.Number), // block number
+		b.GlobalStateRoot,                       // global state root
+		seqAddr,                                 // sequencer address
+		felt.NewFromUint64[felt.Felt](b.Timestamp), // block timestamp
 		&concatCounts,
 		&sdCommitment,
 		&txCommitment,   // transaction commitment
@@ -381,7 +381,7 @@ func Post0132Hash(
 		gasPriceStrk,    // gas price in fri
 		l1DataGasPriceInWei,
 		l1DataGasPriceInFri,
-		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion)),
 		new(felt.Zero[felt.Felt]()), // reserved: extra data
 		b.ParentHash,                // parent block hash
 	), &BlockCommitments{
@@ -500,7 +500,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) fel
 		[]byte{l1DAByte},
 		zeroPadding,
 	)
-	return *new(felt.Felt).SetBytes(concatBytes)
+	return felt.FromBytes[felt.Felt](concatBytes)
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) felt.Felt {

@@ -460,7 +460,7 @@ func TestTransactionV3(t *testing.T) {
 		// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=319132, transaction 0
 		"invoke": &core.InvokeTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
-			Version:         new(core.TransactionVersion).SetUint64(3),
+			Version:         felt.NewFromUint64[core.TransactionVersion](3),
 			TransactionSignature: []felt.Felt{
 				felt.UnsafeFromString[felt.Felt](
 					"0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16",
@@ -525,7 +525,7 @@ func TestTransactionV3(t *testing.T) {
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt](
 				"0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
 			),
-			Version: new(core.TransactionVersion).SetUint64(3),
+			Version: felt.NewFromUint64[core.TransactionVersion](3),
 			TransactionSignature: []felt.Felt{
 				felt.UnsafeFromString[felt.Felt](
 					"0x5c6a94302ef4b6d80a4c6a3eaf5ad30e11fa13aa78f7397a4f69901ceb12b7",
@@ -570,7 +570,7 @@ func TestTransactionV3(t *testing.T) {
 				TransactionHash: felt.NewUnsafeFromString[felt.Felt](
 					"0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
 				),
-				Version: new(core.TransactionVersion).SetUint64(3),
+				Version: felt.NewFromUint64[core.TransactionVersion](3),
 				ContractAddress: felt.NewUnsafeFromString[felt.Felt](
 					"0x48419d3cc27f158917b45255d5376c06a9524484e19a1102279cbdc715c5522",
 				),

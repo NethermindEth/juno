@@ -73,7 +73,7 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 	g.BootstrapAccounts = aux.BootstrapAccounts
 	g.Contracts = make(map[felt.Felt]GenesisContractData, len(aux.Contracts))
 	for classHash, constructorArgs := range aux.Contracts {
-		key, err := new(felt.Felt).SetString(classHash)
+		key, err := felt.NewFromString[felt.Felt](classHash)
 		if err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func deployContracts(
 	maxGas uint64,
 	genesisState *pending.StateWriter,
 ) error {
-	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
+	constructorSelector, err := felt.NewFromString[felt.Felt](constructorSelector)
 	if err != nil {
 		return fmt.Errorf("convert string to felt: %v", err)
 	}

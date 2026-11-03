@@ -74,8 +74,8 @@ type logStateUpdate struct {
 func (logSU *logStateUpdate) ToStateUpdate() *StateUpdate {
 	return &StateUpdate{
 		L2BlockNumber: logSU.l2BlockNumber,
-		L2BlockHash:   *new(felt.Felt).SetUint64(logSU.l2BlockNumber),
-		StateRoot:     *new(felt.Felt).SetUint64(logSU.l2BlockNumber),
+		L2BlockHash:   felt.FromUint64[felt.Felt](logSU.l2BlockNumber),
+		StateRoot:     felt.FromUint64[felt.Felt](logSU.l2BlockNumber),
 		L1RefHeight:   logSU.l1BlockNumber,
 		Removed:       logSU.removed,
 	}
@@ -100,7 +100,7 @@ var longSequenceOfBlocks = []*l1Block{
 			{l1BlockNumber: 2, l2BlockNumber: 3},
 			{l1BlockNumber: 2, l2BlockNumber: 4},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+		expectedL2BlockHash: felt.NewFromUint64[felt.Felt](2),
 	},
 	{
 		finalisedHeight: 1,
@@ -108,7 +108,7 @@ var longSequenceOfBlocks = []*l1Block{
 			{l1BlockNumber: 3, l2BlockNumber: 5},
 			{l1BlockNumber: 3, l2BlockNumber: 6},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+		expectedL2BlockHash: felt.NewFromUint64[felt.Felt](2),
 	},
 	{
 		finalisedHeight: 2,
@@ -116,14 +116,14 @@ var longSequenceOfBlocks = []*l1Block{
 			{l1BlockNumber: 4, l2BlockNumber: 7},
 			{l1BlockNumber: 4, l2BlockNumber: 8},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(4),
+		expectedL2BlockHash: felt.NewFromUint64[felt.Felt](4),
 	},
 	{
 		finalisedHeight: 5,
 		updates: []*logStateUpdate{
 			{l1BlockNumber: 5, l2BlockNumber: 9},
 		},
-		expectedL2BlockHash: new(felt.Felt).SetUint64(9),
+		expectedL2BlockHash: felt.NewFromUint64[felt.Felt](9),
 	},
 }
 
@@ -142,7 +142,7 @@ func TestClient(t *testing.T) {
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](1),
 				},
 			},
 		},
@@ -185,7 +185,7 @@ func TestClient(t *testing.T) {
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](2),
 				},
 			},
 		},
@@ -198,7 +198,7 @@ func TestClient(t *testing.T) {
 						{l1BlockNumber: 1, l2BlockNumber: 1},
 						{l1BlockNumber: 1, l2BlockNumber: 2},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](2),
 				},
 				{
 					finalisedHeight: 2,
@@ -206,7 +206,7 @@ func TestClient(t *testing.T) {
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(4),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](4),
 				},
 			},
 		},
@@ -228,7 +228,7 @@ func TestClient(t *testing.T) {
 				{
 					finalisedHeight:     2,
 					updates:             []*logStateUpdate{},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(4),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](4),
 				},
 			},
 		},
@@ -247,7 +247,7 @@ func TestClient(t *testing.T) {
 						{l1BlockNumber: 2, l2BlockNumber: 3},
 						{l1BlockNumber: 2, l2BlockNumber: 4},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(2),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](2),
 				},
 				{
 					// catchUp's setL1Head fires before the removed event in the
@@ -260,7 +260,7 @@ func TestClient(t *testing.T) {
 					updates: []*logStateUpdate{
 						{l1BlockNumber: 2, l2BlockNumber: 4, removed: true},
 					},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(4),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](4),
 				},
 			},
 		},
@@ -285,7 +285,7 @@ func TestClient(t *testing.T) {
 				{
 					finalisedHeight:     1,
 					updates:             []*logStateUpdate{},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](1),
 				},
 			},
 		},
@@ -316,7 +316,7 @@ func TestClient(t *testing.T) {
 				{
 					finalisedHeight:     2,
 					updates:             []*logStateUpdate{},
-					expectedL2BlockHash: new(felt.Felt).SetUint64(1),
+					expectedL2BlockHash: felt.NewFromUint64[felt.Felt](1),
 				},
 			},
 		},
@@ -588,8 +588,8 @@ func TestCatchUpSetsL1HeadOnStart(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, core.L1Head{
 		BlockNumber: 7,
-		BlockHash:   new(felt.Felt).SetUint64(7),
-		StateRoot:   new(felt.Felt).SetUint64(7),
+		BlockHash:   felt.NewFromUint64[felt.Felt](7),
+		StateRoot:   felt.NewFromUint64[felt.Felt](7),
 	}, got)
 }
 
@@ -644,8 +644,8 @@ func TestCatchUpMultiChunk(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, core.L1Head{
 		BlockNumber: 25,
-		BlockHash:   new(felt.Felt).SetUint64(25),
-		StateRoot:   new(felt.Felt).SetUint64(25),
+		BlockHash:   felt.NewFromUint64[felt.Felt](25),
+		StateRoot:   felt.NewFromUint64[felt.Felt](25),
 	}, got)
 }
 
@@ -729,8 +729,8 @@ func TestCatchUpHeadAndCachePartition(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, core.L1Head{
 		BlockNumber: 50,
-		BlockHash:   new(felt.Felt).SetUint64(50),
-		StateRoot:   new(felt.Felt).SetUint64(50),
+		BlockHash:   felt.NewFromUint64[felt.Felt](50),
+		StateRoot:   felt.NewFromUint64[felt.Felt](50),
 	}, got)
 
 	// Non-finalised entries survive; every finalised entry is evicted

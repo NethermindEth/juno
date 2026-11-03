@@ -172,7 +172,7 @@ func benchmarkUnsortedFelts(start, count uint64) []felt.Felt {
 	values := make([]felt.Felt, count)
 	for i := range values {
 		offset := (uint64(i)*73 + 19) % count
-		values[i] = *felt.NewFromUint64[felt.Felt](start + offset)
+		values[i] = felt.FromUint64[felt.Felt](start + offset)
 	}
 	return values
 }

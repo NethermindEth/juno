@@ -66,9 +66,9 @@ func getGenesisSequencer(
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
-			Version:       new(felt.Felt).SetUint64(1),
+			Version:       felt.NewFromUint64[felt.Felt](1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(0),
+			Nonce:         felt.NewFromUint64[felt.Felt](0),
 			Signature: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt](
 					"0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811",
@@ -97,9 +97,9 @@ func getGenesisSequencer(
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
-			Version:       new(felt.Felt).SetUint64(1),
+			Version:       felt.NewFromUint64[felt.Felt](1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(1),
+			Nonce:         felt.NewFromUint64[felt.Felt](1),
 			Signature: &felt.Slice[felt.Felt]{
 				felt.UnsafeFromString[felt.Felt](
 					"0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083",

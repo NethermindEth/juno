@@ -85,9 +85,9 @@ func TestMsgFromL1_JSONShape_Stable_v10(t *testing.T) {
 	two := felt.NewFromUint64[felt.Felt](2)
 	in := rpc.MsgFromL1{
 		From:     eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		To:       *felt.NewFromUint64[felt.Felt](0xdef),
+		To:       felt.FromUint64[felt.Felt](0xdef),
 		Payload:  []felt.Felt{*one, *two},
-		Selector: *felt.NewFromUint64[felt.Felt](0x3),
+		Selector: felt.FromUint64[felt.Felt](0x3),
 	}
 
 	raw, err := json.Marshal(in)

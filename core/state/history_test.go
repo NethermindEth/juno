@@ -120,7 +120,7 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	})
 
 	t.Run("NonExistentContract", func(t *testing.T) {
-		nonExistentAddr := new(felt.Felt).SetUint64(999)
+		nonExistentAddr := felt.NewFromUint64[felt.Felt](999)
 		_, err := historyBlock0.ContractClassHash(nonExistentAddr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
@@ -217,7 +217,7 @@ func TestStateHistoryTrieOperations(t *testing.T) {
 	})
 
 	t.Run("ContractStorageTrie not supported", func(t *testing.T) {
-		addr := new(felt.Felt).SetUint64(1)
+		addr := felt.NewFromUint64[felt.Felt](1)
 		_, err := history.ContractStorageTrie(addr)
 		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
 	})

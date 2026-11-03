@@ -25,8 +25,8 @@ import (
 func TestTriePut(t *testing.T) {
 	t.Run("put zero to empty trie", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
-			key := new(felt.Felt).SetUint64(1)
-			zeroVal := new(felt.Felt).SetUint64(0)
+			key := felt.NewFromUint64[felt.Felt](1)
+			zeroVal := felt.NewFromUint64[felt.Felt](0)
 
 			oldVal, err := tempTrie.Put(key, zeroVal)
 			require.NoError(t, err)
@@ -42,8 +42,8 @@ func TestTriePut(t *testing.T) {
 			keyNum, err := strconv.ParseUint("1101", 2, 64)
 			require.NoError(t, err)
 
-			key := new(felt.Felt).SetUint64(keyNum)
-			zeroVal := new(felt.Felt).SetUint64(0)
+			key := felt.NewFromUint64[felt.Felt](keyNum)
+			zeroVal := felt.NewFromUint64[felt.Felt](0)
 
 			_, err = tempTrie.Put(key, zeroVal)
 			require.NoError(t, err)
@@ -63,13 +63,13 @@ func TestTriePut(t *testing.T) {
 			keyNum, err := strconv.ParseUint("1101", 2, 64)
 			require.NoError(t, err)
 
-			key := new(felt.Felt).SetUint64(keyNum)
-			val := new(felt.Felt).SetUint64(1)
+			key := felt.NewFromUint64[felt.Felt](keyNum)
+			val := felt.NewFromUint64[felt.Felt](1)
 
 			_, err = tempTrie.Put(key, val)
 			require.NoError(t, err)
 
-			newVal := new(felt.Felt).SetUint64(2)
+			newVal := felt.NewFromUint64[felt.Felt](2)
 
 			_, err = tempTrie.Put(key, newVal)
 			require.NoError(t, err, "update a new value at an exist key")
@@ -89,18 +89,18 @@ func TestTrieDeleteBasic(t *testing.T) {
 	leftKeyNum, err := strconv.ParseUint("100", 2, 64)
 	require.NoError(t, err)
 
-	leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-	leftVal := new(felt.Felt).SetUint64(12)
+	leftKey := felt.NewFromUint64[felt.Felt](leftKeyNum)
+	leftVal := felt.NewFromUint64[felt.Felt](12)
 
 	// right branch
 	rightKeyNum, err := strconv.ParseUint("111", 2, 64)
 	require.NoError(t, err)
 
-	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-	rightVal := new(felt.Felt).SetUint64(22)
+	rightKey := felt.NewFromUint64[felt.Felt](rightKeyNum)
+	rightVal := felt.NewFromUint64[felt.Felt](22)
 
 	// Zero value
-	zeroVal := new(felt.Felt).SetUint64(0)
+	zeroVal := felt.NewFromUint64[felt.Felt](0)
 
 	tests := [...]struct {
 		name          string
@@ -289,7 +289,7 @@ func TestTrie(t *testing.T) {
 
 func TestOldData(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
-		key := new(felt.Felt).SetUint64(12)
+		key := felt.NewFromUint64[felt.Felt](12)
 		old := new(felt.Felt)
 
 		t.Run("put zero to empty key, expect no change", func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestOldData(t *testing.T) {
 			require.NoError(t, err)
 			assert.Nil(t, was) // no change
 
-			newVal := new(felt.Felt).SetUint64(1)
+			newVal := felt.NewFromUint64[felt.Felt](1)
 			was, err = tempTrie.Put(key, newVal)
 			require.NoError(t, err)
 
@@ -312,7 +312,7 @@ func TestOldData(t *testing.T) {
 		})
 
 		t.Run("change value of a key, expect old value", func(t *testing.T) {
-			newVal := new(felt.Felt).SetUint64(2)
+			newVal := felt.NewFromUint64[felt.Felt](2)
 			was, err := tempTrie.Put(key, newVal)
 			require.NoError(t, err)
 
@@ -350,7 +350,7 @@ func TestMaxTrieHeight(t *testing.T) {
 
 	t.Run("insert invalid key", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTriePedersen(uint8(felt.Bits), func(tt *trie.Trie) error {
-			badKey := new(felt.Felt).Sub(new(felt.Zero[felt.Felt]()), new(felt.Felt).SetUint64(1))
+			badKey := new(felt.Felt).Sub(new(felt.Zero[felt.Felt]()), felt.NewFromUint64[felt.Felt](1))
 			_, err := tt.Put(badKey, new(felt.Felt))
 			assert.Error(t, err)
 			return nil
@@ -387,8 +387,8 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 1a: Put
-	key := new(felt.Felt).SetUint64(1)
-	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(1))
+	key := felt.NewFromUint64[felt.Felt](1)
+	_, err = tempTrie.Put(key, felt.NewFromUint64[felt.Felt](1))
 	require.NoError(t, err)
 
 	// Step 1b: Commit
@@ -424,7 +424,7 @@ func BenchmarkTriePut(b *testing.B) {
 		keys = append(keys, rnd)
 	}
 
-	one := new(felt.Felt).SetUint64(1)
+	one := felt.NewFromUint64[felt.Felt](1)
 	require.NoError(b, trie.RunOnTempTriePedersen(251, func(t *trie.Trie) error {
 		var f *felt.Felt
 		var err error

@@ -19,8 +19,8 @@ func TestTrieKeys(t *testing.T) {
 		keyNum, err := strconv.ParseUint("1101", 2, 64)
 		require.NoError(t, err)
 
-		key := new(felt.Felt).SetUint64(keyNum)
-		val := new(felt.Felt).SetUint64(11)
+		key := felt.NewFromUint64[felt.Felt](keyNum)
+		val := felt.NewFromUint64[felt.Felt](11)
 
 		_, err = tempTrie.Put(key, val)
 		require.NoError(t, err)
@@ -41,8 +41,8 @@ func TestTrieKeys(t *testing.T) {
 		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
 		require.NoError(t, err)
 
-		leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-		leftVal := new(felt.Felt).SetUint64(12)
+		leftKey := felt.NewFromUint64[felt.Felt](leftKeyNum)
+		leftVal := felt.NewFromUint64[felt.Felt](12)
 
 		_, err = tempTrie.Put(leftKey, leftVal)
 		require.NoError(t, err)
@@ -51,8 +51,8 @@ func TestTrieKeys(t *testing.T) {
 		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
 		require.NoError(t, err)
 
-		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-		rightVal := new(felt.Felt).SetUint64(22)
+		rightKey := felt.NewFromUint64[felt.Felt](rightKeyNum)
+		rightVal := felt.NewFromUint64[felt.Felt](22)
 
 		_, err = tempTrie.Put(rightKey, rightVal)
 		require.NoError(t, err)
@@ -88,8 +88,8 @@ func TestTrieKeys(t *testing.T) {
 		rightKeyNum, err := strconv.ParseUint("10011", 2, 64)
 		require.NoError(t, err)
 
-		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-		rightVal := new(felt.Felt).SetUint64(22)
+		rightKey := felt.NewFromUint64[felt.Felt](rightKeyNum)
+		rightVal := felt.NewFromUint64[felt.Felt](22)
 		_, err = tempTrie.Put(rightKey, rightVal)
 		require.NoError(t, err)
 
@@ -97,8 +97,8 @@ func TestTrieKeys(t *testing.T) {
 		leftKeyNum, err := strconv.ParseUint("10001", 2, 64)
 		require.NoError(t, err)
 
-		leftKey := new(felt.Felt).SetUint64(leftKeyNum)
-		leftVal := new(felt.Felt).SetUint64(12)
+		leftKey := felt.NewFromUint64[felt.Felt](leftKeyNum)
+		leftVal := felt.NewFromUint64[felt.Felt](12)
 
 		_, err = tempTrie.Put(leftKey, leftVal)
 		require.NoError(t, err)
@@ -126,15 +126,15 @@ func TestTrieKeys(t *testing.T) {
 		tempTrie, err := NewTriePedersen(txn, nil, 251)
 		require.NoError(t, err)
 		// left branch
-		leftKey := new(felt.Felt).SetUint64(0b100)
-		leftVal := new(felt.Felt).SetUint64(12)
+		leftKey := felt.NewFromUint64[felt.Felt](0b100)
+		leftVal := felt.NewFromUint64[felt.Felt](12)
 
 		// right branch
 		rightKeyNum, err := strconv.ParseUint("111", 2, 64)
 		require.NoError(t, err)
 
-		rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-		rightVal := new(felt.Felt).SetUint64(22)
+		rightKey := felt.NewFromUint64[felt.Felt](rightKeyNum)
+		rightVal := felt.NewFromUint64[felt.Felt](22)
 
 		// Build a basic trie
 		_, err = tempTrie.Put(leftKey, leftVal)
@@ -143,9 +143,9 @@ func TestTrieKeys(t *testing.T) {
 		_, err = tempTrie.Put(rightKey, rightVal)
 		require.NoError(t, err)
 
-		newVal := new(felt.Felt).SetUint64(12)
+		newVal := felt.NewFromUint64[felt.Felt](12)
 		t.Run("Add to left branch", func(t *testing.T) {
-			newKey := new(felt.Felt).SetUint64(0b101)
+			newKey := felt.NewFromUint64[felt.Felt](0b101)
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
 			commonKey := NewBitArray(250, 2)
@@ -155,7 +155,7 @@ func TestTrieKeys(t *testing.T) {
 			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Right)
 		})
 		t.Run("Add to right branch", func(t *testing.T) {
-			newKey := new(felt.Felt).SetUint64(0b110)
+			newKey := felt.NewFromUint64[felt.Felt](0b110)
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
 			commonKey := NewBitArray(250, 3)
@@ -168,8 +168,8 @@ func TestTrieKeys(t *testing.T) {
 			newKeyNum, err := strconv.ParseUint("000", 2, 64)
 			require.NoError(t, err)
 
-			newKey := new(felt.Felt).SetUint64(newKeyNum)
-			newVal := new(felt.Felt).SetUint64(12)
+			newKey := felt.NewFromUint64[felt.Felt](newKeyNum)
+			newVal := felt.NewFromUint64[felt.Felt](12)
 
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
@@ -192,25 +192,25 @@ func TestTrieKeysAfterDeleteSubtree(t *testing.T) {
 	leftLeftKeyNum, err := strconv.ParseUint("100", 2, 64)
 	require.NoError(t, err)
 
-	leftLeftKey := new(felt.Felt).SetUint64(leftLeftKeyNum)
-	leftLeftVal := new(felt.Felt).SetUint64(11)
+	leftLeftKey := felt.NewFromUint64[felt.Felt](leftLeftKeyNum)
+	leftLeftVal := felt.NewFromUint64[felt.Felt](11)
 
 	// Left branch's right child
 	leftRightKeyNum, err := strconv.ParseUint("101", 2, 64)
 	require.NoError(t, err)
 
-	leftRightKey := new(felt.Felt).SetUint64(leftRightKeyNum)
-	leftRightVal := new(felt.Felt).SetUint64(22)
+	leftRightKey := felt.NewFromUint64[felt.Felt](leftRightKeyNum)
+	leftRightVal := felt.NewFromUint64[felt.Felt](22)
 
 	// Right branch's node
 	rightKeyNum, err := strconv.ParseUint("111", 2, 64)
 	require.NoError(t, err)
 
-	rightKey := new(felt.Felt).SetUint64(rightKeyNum)
-	rightVal := new(felt.Felt).SetUint64(33)
+	rightKey := felt.NewFromUint64[felt.Felt](rightKeyNum)
+	rightVal := felt.NewFromUint64[felt.Felt](33)
 
 	// Zero value
-	zeroVal := new(felt.Felt).SetUint64(0)
+	zeroVal := felt.NewFromUint64[felt.Felt](0)
 
 	tests := [...]struct {
 		name       string

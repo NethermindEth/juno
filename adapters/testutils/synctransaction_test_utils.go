@@ -37,7 +37,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(0)
+	version := felt.NewFromUint64[core.TransactionVersion](0)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV0WithoutClass{
 		Sender:    &common.Address{Elements: senderAddressBytes},
@@ -85,7 +85,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(1)
+	version := felt.NewFromUint64[core.TransactionVersion](1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV1WithoutClass{
 		Sender:    &common.Address{Elements: senderAddressBytes},
@@ -134,7 +134,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(2)
+	version := felt.NewFromUint64[core.TransactionVersion](2)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeclareV2WithoutClass{
 		Sender: &common.Address{Elements: senderAddressBytes},
@@ -184,7 +184,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(3)
+	version := felt.NewFromUint64[core.TransactionVersion](3)
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
@@ -252,7 +252,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 		&contractAddressSalt,
 		constructorCallData,
 	)
-	version := new(core.TransactionVersion).SetUint64(0)
+	version := felt.NewFromUint64[core.TransactionVersion](0)
 
 	p2pTransaction := synctransaction.TransactionInBlock_Deploy{
 		ClassHash:   &common.Hash{Elements: classHashBytes},
@@ -291,7 +291,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
 	nonce, nonceBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(1)
+	version := felt.NewFromUint64[core.TransactionVersion](1)
 
 	p2pTransaction := synctransaction.TransactionInBlock_DeployAccountV1{
 		MaxFee: &common.Felt252{Elements: maxFeeBytes},
@@ -350,7 +350,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 	)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
-	version := new(core.TransactionVersion).SetUint64(3)
+	version := felt.NewFromUint64[core.TransactionVersion](3)
 	tip := rand.Uint64()
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
@@ -410,7 +410,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	version := new(core.TransactionVersion).SetUint64(0)
+	version := felt.NewFromUint64[core.TransactionVersion](0)
 	maxFee, maxFeeBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
 
@@ -462,7 +462,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	version := new(core.TransactionVersion).SetUint64(1)
+	version := felt.NewFromUint64[core.TransactionVersion](1)
 	nonce, nonceBytes := getRandomFelt(t)
 	maxFee, maxFeeBytes := getRandomFelt(t)
 
@@ -514,7 +514,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
-	version := new(core.TransactionVersion).SetUint64(3)
+	version := felt.NewFromUint64[core.TransactionVersion](3)
 	nonce, nonceBytes := getRandomFelt(t)
 	tip := rand.Uint64()
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
@@ -576,7 +576,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
 	nonce, nonceBytes := getRandomFelt(t)
 	callData, callDataBytes := getRandomFeltSlice(t)
-	version := new(core.TransactionVersion).SetUint64(0)
+	version := felt.NewFromUint64[core.TransactionVersion](0)
 
 	p2pTransaction := synctransaction.TransactionInBlock_L1Handler{
 		L1Handler: &transaction.L1HandlerV0{

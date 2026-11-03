@@ -41,7 +41,7 @@ func TestProveNonExistent(t *testing.T) {
 	tempTrie, _ := nonRandomTrie(t, n)
 
 	for i := 1; i < n+1; i++ {
-		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
+		keyFelt := felt.NewFromUint64[felt.Felt](uint64(i + n))
 
 		proofSet := trie.NewProofNodeSet()
 		err := tempTrie.Prove(keyFelt, proofSet)
@@ -100,9 +100,9 @@ func TestProveMultiMatchesRepeatedProve(t *testing.T) {
 				require.NoError(t, tr.Commit())
 
 				return tr, []*felt.Felt{
-					new(felt.Felt).SetUint64(10),
-					new(felt.Felt).SetUint64(2),
-					new(felt.Felt).SetUint64(7),
+					felt.NewFromUint64[felt.Felt](10),
+					felt.NewFromUint64[felt.Felt](2),
+					felt.NewFromUint64[felt.Felt](7),
 				}
 			},
 		},
@@ -138,9 +138,9 @@ func TestProveMultiMatchesRepeatedProve(t *testing.T) {
 				tr, records := nonRandomTrie(t, 1000)
 				return tr, []*felt.Felt{
 					records[400].key,
-					new(felt.Felt).SetUint64(3000),
+					felt.NewFromUint64[felt.Felt](3000),
 					records[5].key,
-					new(felt.Felt).SetUint64(2000),
+					felt.NewFromUint64[felt.Felt](2000),
 					records[900].key,
 				}
 			},
@@ -202,8 +202,8 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(3),
+					key:      felt.NewFromUint64[felt.Felt](1),
+					expected: felt.NewFromUint64[felt.Felt](3),
 				},
 			},
 		},
@@ -213,23 +213,23 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(2),
+					key:      felt.NewFromUint64[felt.Felt](0),
+					expected: felt.NewFromUint64[felt.Felt](2),
 				},
 				{
 					name:     "prove existing key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(5),
+					key:      felt.NewFromUint64[felt.Felt](3),
+					expected: felt.NewFromUint64[felt.Felt](5),
 				},
 				{
 					name:     "prove non-existent key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(0),
+					key:      felt.NewFromUint64[felt.Felt](2),
+					expected: felt.NewFromUint64[felt.Felt](0),
 				},
 				{
 					name:     "prove non-existent key 123",
-					key:      new(felt.Felt).SetUint64(123),
-					expected: new(felt.Felt).SetUint64(0),
+					key:      felt.NewFromUint64[felt.Felt](123),
+					expected: felt.NewFromUint64[felt.Felt](0),
 				},
 			},
 		},
@@ -239,7 +239,7 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key",
-					key:      new(felt.Felt).SetUint64(0),
+					key:      felt.NewFromUint64[felt.Felt](0),
 					expected: felt.NewUnsafeFromString[felt.Felt]("0xcc"),
 				},
 			},
@@ -278,8 +278,8 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(6),
+					key:      felt.NewFromUint64[felt.Felt](2),
+					expected: felt.NewFromUint64[felt.Felt](6),
 				},
 			},
 		},
@@ -696,9 +696,9 @@ func TestBadRangeProof(t *testing.T) {
 		index := rand.Intn(end - start)
 		switch testCase {
 		case 0: // modified key
-			keys[index] = new(felt.Felt).SetUint64(rand.Uint64())
+			keys[index] = felt.NewFromUint64[felt.Felt](rand.Uint64())
 		case 1: // modified value
-			values[index] = new(felt.Felt).SetUint64(rand.Uint64())
+			values[index] = felt.NewFromUint64[felt.Felt](rand.Uint64())
 		case 2: // out of order
 			index2 := rand.Intn(end - start)
 			if index2 == index {
@@ -823,8 +823,8 @@ func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//      /    \
 	//     (2)  (3)
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: new(felt.Felt).SetUint64(2)},
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(3)},
+		{key: felt.NewFromUint64[felt.Felt](0), value: felt.NewFromUint64[felt.Felt](2)},
+		{key: felt.NewFromUint64[felt.Felt](1), value: felt.NewFromUint64[felt.Felt](3)},
 	}
 
 	return buildTrie(t, records), records
@@ -843,7 +843,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//    /                    \
 	// (251, 0, cc)     (251, 11111.., dd)
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: felt.NewUnsafeFromString[felt.Felt]("0xcc")},
+		{key: felt.NewFromUint64[felt.Felt](0), value: felt.NewUnsafeFromString[felt.Felt]("0xcc")},
 		{key: felt.NewUnsafeFromString[felt.Felt]("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: felt.NewUnsafeFromString[felt.Felt]("0xdd")},
 	}
 	return buildTrie(t, records), records
@@ -859,9 +859,9 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//      /    \             |
 	//     (2)  (3)           (5)
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: new(felt.Felt).SetUint64(2)},
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(3)},
-		{key: new(felt.Felt).SetUint64(3), value: new(felt.Felt).SetUint64(5)},
+		{key: felt.NewFromUint64[felt.Felt](0), value: felt.NewFromUint64[felt.Felt](2)},
+		{key: felt.NewFromUint64[felt.Felt](1), value: felt.NewFromUint64[felt.Felt](3)},
+		{key: felt.NewFromUint64[felt.Felt](3), value: felt.NewFromUint64[felt.Felt](5)},
 	}
 	return buildTrie(t, records), records
 }
@@ -888,9 +888,9 @@ func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//	/	\			 /
 	// 0x4	0x5		   0x6
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(2), value: new(felt.Felt).SetUint64(6)},
+		{key: felt.NewFromUint64[felt.Felt](0), value: felt.NewFromUint64[felt.Felt](4)},
+		{key: felt.NewFromUint64[felt.Felt](1), value: felt.NewFromUint64[felt.Felt](5)},
+		{key: felt.NewFromUint64[felt.Felt](2), value: felt.NewFromUint64[felt.Felt](6)},
 	}
 
 	return buildTrie(t, records), records
@@ -905,7 +905,7 @@ func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
 
 	records := make([]*keyValue, numKeys)
 	for i := 1; i < numKeys+1; i++ {
-		key := new(felt.Felt).SetUint64(uint64(i))
+		key := felt.NewFromUint64[felt.Felt](uint64(i))
 		records[i-1] = &keyValue{key: key, value: key}
 		_, err := tempTrie.Put(key, key)
 		require.NoError(t, err)
@@ -931,7 +931,7 @@ func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
 
 	records := make([]*keyValue, n)
 	for i := range n {
-		key := new(felt.Felt).SetUint64(uint64(rrand.Uint32() + 1))
+		key := felt.NewFromUint64[felt.Felt](uint64(rrand.Uint32() + 1))
 		records[i] = &keyValue{key: key, value: key}
 		_, err := tempTrie.Put(key, key)
 		require.NoError(t, err)
@@ -948,11 +948,11 @@ func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
 }
 
 func decrementFelt(f *felt.Felt) *felt.Felt {
-	return new(felt.Felt).Sub(f, new(felt.Felt).SetUint64(1))
+	return new(felt.Felt).Sub(f, felt.NewFromUint64[felt.Felt](1))
 }
 
 func incrementFelt(f *felt.Felt) *felt.Felt {
-	return new(felt.Felt).Add(f, new(felt.Felt).SetUint64(1))
+	return new(felt.Felt).Add(f, felt.NewFromUint64[felt.Felt](1))
 }
 
 func requireProofSetInvariant(t *testing.T, proofSet *trie.ProofNodeSet, hashFn crypto.HashFn) {
@@ -1012,8 +1012,8 @@ func TestProveErrsOnStaleHashes(t *testing.T) {
 	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 
-	key := new(felt.Felt).SetUint64(1)
-	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	key := felt.NewFromUint64[felt.Felt](1)
+	_, err = tempTrie.Put(key, felt.NewFromUint64[felt.Felt](2))
 	require.NoError(t, err)
 
 	err = tempTrie.Prove(key, trie.NewProofNodeSet())
@@ -1034,12 +1034,12 @@ func TestProveErrsOnUnhashedLeafUpdate(t *testing.T) {
 	tempTrie, err := trie.NewTriePedersen(txn, []byte{0}, 251)
 	require.NoError(t, err)
 
-	key := new(felt.Felt).SetUint64(1)
-	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(2))
+	key := felt.NewFromUint64[felt.Felt](1)
+	_, err = tempTrie.Put(key, felt.NewFromUint64[felt.Felt](2))
 	require.NoError(t, err)
 	require.NoError(t, tempTrie.Commit())
 
-	_, err = tempTrie.Put(key, new(felt.Felt).SetUint64(3))
+	_, err = tempTrie.Put(key, felt.NewFromUint64[felt.Felt](3))
 	require.NoError(t, err)
 
 	err = tempTrie.Prove(key, trie.NewProofNodeSet())
@@ -1063,8 +1063,8 @@ func TestProveAfterDelete(t *testing.T) {
 	records := make([]*keyValue, 4)
 	for i := range records {
 		records[i] = &keyValue{
-			key:   new(felt.Felt).SetUint64(uint64(i)),
-			value: new(felt.Felt).SetUint64(uint64(i + 10)),
+			key:   felt.NewFromUint64[felt.Felt](uint64(i)),
+			value: felt.NewFromUint64[felt.Felt](uint64(i + 10)),
 		}
 		_, err := tempTrie.Put(records[i].key, records[i].value)
 		require.NoError(t, err)
@@ -1107,8 +1107,8 @@ func TestProveAfterDeleteToEmpty(t *testing.T) {
 
 	keys := make([]*felt.Felt, 4)
 	for i := range keys {
-		keys[i] = new(felt.Felt).SetUint64(uint64(i))
-		_, err := tempTrie.Put(keys[i], new(felt.Felt).SetUint64(1))
+		keys[i] = felt.NewFromUint64[felt.Felt](uint64(i))
+		_, err := tempTrie.Put(keys[i], felt.NewFromUint64[felt.Felt](1))
 		require.NoError(t, err)
 	}
 	require.NoError(t, tempTrie.Commit())
@@ -1137,7 +1137,7 @@ func TestProveSetInvariant(t *testing.T) {
 		keys = append(keys, record.key)
 	}
 	// Non-membership proofs must hold the invariant too.
-	keys = append(keys, new(felt.Felt).SetUint64(0xdead))
+	keys = append(keys, felt.NewFromUint64[felt.Felt](0xdead))
 
 	for _, key := range keys {
 		proofSet := trie.NewProofNodeSet()
