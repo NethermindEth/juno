@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -41,17 +40,7 @@ func Validator() *validator.Validate {
 			panic("failed to register validation: " + err.Error())
 		}
 
-		// Register these types to use their string representation for validation
-		// purposes
-		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
-			switch f := field.Interface().(type) {
-			case felt.Felt:
-				return f.String()
-			case *felt.Felt:
-				return f.String()
-			}
-			panic("not a felt")
-		}, felt.Felt{}, &felt.Felt{})
+		// Validate TransactionType by its string representation; felts provide theirs via ValidatorValue
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
 			if t, ok := field.Interface().(TransactionType); ok {
 				return t.String()

@@ -22,8 +22,8 @@ func JunoFree(ptr unsafe.Pointer) {
 func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLocation, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
-	contractAddressFelt := makeFeltFromPtr(contractAddress)
-	storageLocationFelt := makeFeltFromPtr(storageLocation)
+	contractAddressFelt := makeFeltFromPtr[felt.Felt](contractAddress)
+	storageLocationFelt := makeFeltFromPtr[felt.Felt](storageLocation)
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -40,7 +40,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
-	contractAddressFelt := makeFeltFromPtr(contractAddress)
+	contractAddressFelt := makeFeltFromPtr[felt.Felt](contractAddress)
 	val, err := context.state.ContractNonce(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -57,7 +57,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
-	contractAddressFelt := makeFeltFromPtr(contractAddress)
+	contractAddressFelt := makeFeltFromPtr[felt.Felt](contractAddress)
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -78,7 +78,7 @@ func JunoStateGetCompiledClass(
 ) unsafe.Pointer {
 	context := unwrapContext(readerHandle)
 
-	classHashFelt := makeFeltFromPtr(classHash)
+	classHashFelt := makeFeltFromPtr[felt.Felt](classHash)
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -97,7 +97,7 @@ func JunoStateGetCompiledClass(
 	return unsafe.Pointer(cstring(compiledClass))
 }
 
-func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
+func fillBufferWithFelt[K any](val *felt.Typed[K], buffer unsafe.Pointer) C.int {
 	feltBytes := val.Bytes()
 	return C.int(copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:]))
 }
@@ -110,7 +110,7 @@ func JunoStateGetCompiledClassHash(
 ) C.int {
 	context := unwrapContext(readerHandle)
 
-	classHashFelt := makeFeltFromPtr(classHash)
+	classHashFelt := makeFeltFromPtr[felt.Felt](classHash)
 	val, err := context.state.CompiledClassHash((*felt.SierraClassHash)(classHashFelt))
 	if err != nil {
 		return 0
@@ -127,7 +127,7 @@ func JunoStateGetCompiledClassHashV2(
 ) C.int {
 	context := unwrapContext(readerHandle)
 
-	classHashFelt := makeFeltFromPtr(classHash)
+	classHashFelt := makeFeltFromPtr[felt.Felt](classHash)
 	val, err := context.state.CompiledClassHashV2((*felt.SierraClassHash)(classHashFelt))
 	if err != nil {
 		return 0
