@@ -56,12 +56,15 @@ func TestProveNonExistentStopsAtDivergingEdge(t *testing.T) {
 	tempTrie, err := NewEmptyPedersen()
 	require.NoError(t, err)
 	for _, key := range []uint64{1, 2, 64} {
-		require.NoError(t, tempTrie.Update(new(felt.Felt).SetUint64(key), new(felt.Felt).SetUint64(key)))
+		require.NoError(t, tempTrie.Update(
+			felt.NewFromUint64[felt.Felt](key),
+			felt.NewFromUint64[felt.Felt](key),
+		))
 	}
 	root, err := tempTrie.Hash()
 	require.NoError(t, err)
 
-	absentKey := new(felt.Felt).SetUint64(32)
+	absentKey := felt.NewFromUint64[felt.Felt](32)
 	proofSet := NewProofNodeSet()
 	require.NoError(t, tempTrie.Prove(absentKey, proofSet))
 
@@ -69,7 +72,7 @@ func TestProveNonExistentStopsAtDivergingEdge(t *testing.T) {
 	require.Equal(t, 3, proofSet.Size())
 	val, err := VerifyProof(&root, absentKey, proofSet, crypto.Pedersen)
 	require.NoError(t, err)
-	require.Equal(t, felt.Zero, val)
+	require.Equal(t, felt.Zero[felt.Felt](), val)
 }
 
 func TestProveRandom(t *testing.T) {
