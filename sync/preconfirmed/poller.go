@@ -66,8 +66,8 @@ type Poller struct {
 }
 
 // NewPoller builds a poller over dataSource. It ticks every [DefaultPollInterval] and serves
-// [Poller.RequestPreConfirmedChain] reads from the stored chain, polling first when that chain
-// is older than [DefaultStaleAfter] and waiting at most [DefaultOnDemandWait] for the poll.
+// [Poller.RequestPreConfirmedChain] reads from the stored chain, asking for a poll when that
+// chain is older than [DefaultStaleAfter] and waiting at most [DefaultOnDemandWait] for it.
 // Every poll is reported to the listener. highestBlockHeader gates polling to when the node is
 // at the tip. See [Option] for overriding the defaults.
 func NewPoller(
