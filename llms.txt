@@ -2,7 +2,7 @@ Append `.md` to any docs page URL below for its raw Markdown (e.g. `https://juno
 
 # Juno Docs
 
-> Juno: Decentralising Starknet. Documentation for Juno 0.16.0, a Starknet full node written in Go.
+> Juno: Decentralising Starknet. Documentation for Juno 0.17.0, a Starknet full node written in Go.
 
   - [Introduction](https://juno.nethermind.io/): What Juno is and where to start: hardware, running a node, snapshots, configuration, and the JSON-RPC interface.
 
@@ -26,7 +26,12 @@ Append `.md` to any docs page URL below for its raw Markdown (e.g. `https://juno
   - [GCP](https://juno.nethermind.io/running-on-gcp): Run a Juno node on Google Cloud Platform.
   - [Starknet Staking](https://juno.nethermind.io/staking-validator): Prerequisites and setup for using a Juno node as a Starknet staking validator.
   - [Monitoring](https://juno.nethermind.io/monitoring): Monitor a Juno node with Prometheus metrics, Grafana, and the /live and /ready readiness endpoints.
-  - [Performance Tuning](https://juno.nethermind.io/tuning): Tune Juno's database and compilation settings for faster sync and lower resource use.
+
+- Tuning
+
+  - [Database](https://juno.nethermind.io/tuning): Tune Juno's database settings for faster sync and lower resource use.
+  - [Pre-confirmed Polling](https://juno.nethermind.io/preconfirmed-polling): How Juno fetches the pre_confirmed block, what its three polling options trade off, and which values to set for your workload.
+  - [Contract Compilation](https://juno.nethermind.io/contract-compilation): Cap the memory and CPU time of each Sierra class compilation, and how many Juno runs at once.
   - [Plugins](https://juno.nethermind.io/plugins): Extend Juno with Go plugins that receive new and reverted blocks through the JunoPlugin interface.
   - [FAQ](https://juno.nethermind.io/faq): Answers to common Juno questions: requirements, updating, databases, and frequent startup errors.
 

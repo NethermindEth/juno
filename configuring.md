@@ -112,12 +112,15 @@ Below is a list of all configuration options available in Juno, along with their
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
+| `rpc-batch-concurrency` | `2 * CPU Cores` | Maximum batch calls that run at the same time. Every batch request shares this limit, across all RPC versions. Default is set based on available hardware resources |
 | `rpc-call-max-gas` | `100000000` | Maximum number of Sierra gas to be executed in starknet_call requests |
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
+| `rpc-max-batch-response-size` | `64` | Size (in MBs) at which a batch stops being processed. The calls answered so far are returned, the rest are not executed. 0 disables the limit |
+| `rpc-max-batch-size` | `1000` | Maximum number of calls in a single batch request. 0 disables the limit |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
-| `rpc-max-concurrent-requests` | `256000` | Maximum concurrent HTTP RPC requests; 0 disables the limit |
-| `rpc-max-request-queue` | `256000` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests before rejecting incoming requests |
+| `rpc-max-concurrent-requests` | `1024` | Maximum concurrent RPC requests, over HTTP and websocket together; 0 disables the limit |
+| `rpc-max-request-queue` | `2048` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC
@@ -142,7 +145,9 @@ Below is a list of all configuration options available in Juno, along with their
 | Config Option | Default Value | Description |
 | - | - | - |
 | `disable-sync` | `false` | Disables L2 synchronization |
-| `preconfirmed-poll-interval` | `500ms` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
+| `preconfirmed-on-demand-wait` | `300ms` | Maximum time an RPC request waits for the pre_confirmed poll it triggered before answering with the pre_confirmed block already stored (0s: never waits) |
+| `preconfirmed-poll-interval` | `1s` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
+| `preconfirmed-stale-after` | `250ms` | How long after a pre_confirmed poll its result is served as is. Once stale, an RPC request reading the pre_confirmed block triggers a new poll first (0s: every request polls) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 
@@ -158,7 +163,7 @@ Below is a list of all configuration options available in Juno, along with their
 | Config Option | Default Value | Description |
 | - | - | - |
 | `prune-min-age` | `1h` | Protect blocks whose on-chain timestamp is younger than this duration from being pruned. Acts as an additional floor on top of --prune-mode: a block is retained if either the block-count window or this minimum-age window covers it. Set 0 to disable. Default 1h. Requires --prune-mode |
-| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor |
+| `prune-mode` | `128` | Enables block-data and state-history pruning. Pruning is disabled by default; passing this flag (with or without a value) turns it on. The value is the size of the retention window in blocks, counted back from the retention pivot (the lower of the L1-verified head and the local L2 head):\n  --prune-mode      same as --prune-mode=128; keep 128 blocks below the pivot\n  --prune-mode=N    keep blocks in [pivot - N, l2_head], prune below\nBlocks at or above the L2 head are always kept. The pivot is at or below the L1-verified head, so pruned blocks are reorg-safe. RPC remains fully functional for any block inside the retention window; requests targeting blocks below the floor fail because their data has been deleted. Pruning is irreversible: data deleted under a small window cannot be recovered without re-syncing. Changing this value across restarts is safe: the window grows or shrinks accordingly. Growth is gradual — pruning pauses until the pivot advances enough to reach the new floor. Cannot be combined with --new-state |
 
 ### Logging
 
@@ -207,11 +212,12 @@ Below is a list of all configuration options available in Juno, along with their
 | Config Option | Default Value | Description |
 | - | - | - |
 | `max-compilation-cpu-time` | `10` | Maximum CPU time (in seconds) each Sierra compilation process may consume; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
-| `max-compilation-memory` | `4 * 1024` | Maximum memory (in MB) each Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
-| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations before starting to reject incoming requests |
-| `max-concurrent-compilations` | `CPU Cores` | Maximum concurrent Sierra compilations |
+| `max-compilation-memory` | `4 * 1024` | Maximum virtual memory (in MB) a Sierra compilation process may use; a compilation exceeding it is aborted. Enforced on Linux only. 0 disables the limit |
+| `max-compilation-queue` | `2 * max-concurrent-compilations` | Maximum number of compilation requests to queue after reaching max-concurrent-compilations. Default sets the queue to twice the concurrency limit |
+| `max-concurrent-compilations` | `auto (memory-aware)` | Maximum concurrent Sierra compilations. Default is set based on available hardware resources. Derived as `min(cpu_cores, (available_memory - node_memory_reserve) / max_compilation_memory)`, at least 1 |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
+| `node-memory-reserve` | `4 * 1024` | Memory (in MB) excluded from the compilations memory budget when calculating the default for `max-concurrent-compilations` |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
 
 ### Custom Network
@@ -249,10 +255,10 @@ Below is a list of all configuration options available in Juno, along with their
 
 | Config Option | Default Value | Description |
 | - | - | - |
-| `seq-block-time` | `60` | Time to build a block, in seconds |
-| `seq-disable-fees` | `false` | Skip charge fee for sequencer execution |
-| `seq-enable` | `false` | Enables sequencer mode of operation |
-| `seq-genesis-file` |  | Path to the genesis file |
+| `seq-block-time` | `60` | EXPERIMENTAL: Time to build a block, in seconds |
+| `seq-disable-fees` | `false` | EXPERIMENTAL: Skip charging fees for sequencer execution |
+| `seq-enable` | `false` | EXPERIMENTAL: Enables sequencer mode of operation |
+| `seq-genesis-file` |  | EXPERIMENTAL: Path to the genesis file |
 
 ### gRPC
 
@@ -267,7 +273,7 @@ Below is a list of all configuration options available in Juno, along with their
 | Config Option | Default Value | Description |
 | - | - | - |
 | `config` |  | The YAML configuration file |
-| `new-state` | `false` | EXPERIMENTAL: Use the new state package implementation |
+| `new-state` | `false` | EXPERIMENTAL: Use the new state package implementation. Cannot be combined with --prune-mode |
 | `plugin-path` |  | Path to the plugin .so file |
 
 ## Subcommands
