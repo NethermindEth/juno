@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/pruner/testutils"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
@@ -29,7 +28,7 @@ func TestDeleteTransactionHashReverseLookups(t *testing.T) {
 	for _, txHash := range blocks[1].TxHashes {
 		_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
 			database,
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		)
 		assert.Error(t, err)
 	}
@@ -47,7 +46,7 @@ func TestDeleteTransactionHashReverseLookups(t *testing.T) {
 		for _, txHash := range b.TxHashes {
 			_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
 				database,
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			)
 			assert.NoError(t, err)
 		}

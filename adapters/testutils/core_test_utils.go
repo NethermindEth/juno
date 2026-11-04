@@ -48,7 +48,7 @@ func randomL1Address(t *testing.T) eth.Address {
 func randomEvent() *core.Event {
 	return &core.Event{
 		Data: randomSlice(sliceLen, felt.Random[felt.Felt]),
-		From: felt.NewRandom[felt.Felt](),
+		From: felt.NewRandom[felt.Address](),
 		Keys: randomSlice(sliceLen, felt.Random[felt.Felt]),
 	}
 }
@@ -90,14 +90,14 @@ func randomL1ToL2Message(t *testing.T) *core.L1ToL2Message {
 		Nonce:    felt.NewRandom[felt.Felt](),
 		Payload:  randomSlice(sliceLen, felt.Random[felt.Felt]),
 		Selector: felt.NewRandom[felt.Felt](),
-		To:       felt.NewRandom[felt.Felt](),
+		To:       felt.NewRandom[felt.Address](),
 	}
 }
 
 func randomL2ToL1Message(t *testing.T) *core.L2ToL1Message {
 	t.Helper()
 	return &core.L2ToL1Message{
-		From:    felt.NewRandom[felt.Felt](),
+		From:    felt.NewRandom[felt.Address](),
 		Payload: randomSlice(sliceLen, felt.Random[felt.Felt]),
 		To:      randomL1Address(t),
 	}
@@ -112,7 +112,7 @@ func randomReceipt(t *testing.T) *core.TransactionReceipt {
 		ExecutionResources: randomExecutionResources(),
 		L1ToL2Message:      randomL1ToL2Message(t),
 		L2ToL1Message:      randomSliceT(t, sliceLen, randomL2ToL1Message),
-		TransactionHash:    felt.NewRandom[felt.Felt](),
+		TransactionHash:    felt.NewRandom[felt.TransactionHash](),
 		Reverted:           rand.IntN(2) == 0,
 		RevertReason:       cryptorand.Text(),
 	}

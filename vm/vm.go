@@ -161,7 +161,7 @@ type callContext struct {
 	executionSteps  uint64
 	receipts        []json.RawMessage
 	initialReads    json.RawMessage
-	declaredClasses map[felt.Felt]core.ClassDefinition
+	declaredClasses map[felt.ClassHash]core.ClassDefinition
 	executionFailed bool
 }
 
@@ -252,8 +252,8 @@ func makeFeltFromPtr[F felt.FeltLike](ptr unsafe.Pointer) *F {
 }
 
 type CallInfo struct {
-	ContractAddress *felt.Felt
-	ClassHash       *felt.Felt
+	ContractAddress *felt.Address
+	ClassHash       *felt.ClassHash
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
 }

@@ -20,7 +20,7 @@ const (
 var CurrentStarknetVersion = semver.MustParse("0.14.0")
 
 type BuildParams struct {
-	Builder           felt.Felt
+	Builder           felt.Address
 	Timestamp         uint64
 	L2GasPriceFRI     felt.Felt
 	L1GasPriceWEI     felt.Felt
@@ -102,7 +102,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
 	}
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
+	newClasses := make(map[felt.ClassHash]core.ClassDefinition)
 	emptyStateDiff := core.EmptyStateDiff()
 	su := core.StateUpdate{
 		OldRoot:   header.GlobalStateRoot,
@@ -167,10 +167,10 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 
 	if simulatedResult.ConcatCount.IsZero() {
 		simulatedResult.BlockCommitments = &core.BlockCommitments{
-			TransactionCommitment: felt.NewFromUint64[felt.Felt](0),
-			EventCommitment:       felt.NewFromUint64[felt.Felt](0),
-			ReceiptCommitment:     felt.NewFromUint64[felt.Felt](0),
-			StateDiffCommitment:   felt.NewFromUint64[felt.Felt](0),
+			TransactionCommitment: new(felt.Zero[felt.Felt]()),
+			EventCommitment:       new(felt.Zero[felt.Felt]()),
+			ReceiptCommitment:     new(felt.Zero[felt.Felt]()),
+			StateDiffCommitment:   new(felt.Zero[felt.Felt]()),
 		}
 	}
 

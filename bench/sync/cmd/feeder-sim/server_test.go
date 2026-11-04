@@ -337,9 +337,9 @@ func requireBadRequest(t *testing.T, err error) {
 	require.Equal(t, http.StatusBadRequest, status.Code)
 }
 
-func mustFelt(t *testing.T, hex string) *felt.Felt {
+func mustClassHash(t *testing.T, hex string) *felt.ClassHash {
 	t.Helper()
-	value, err := felt.NewFromString[felt.Felt](hex)
+	value, err := felt.NewFromString[felt.ClassHash](hex)
 	require.NoError(t, err)
 	return value
 }
@@ -377,19 +377,19 @@ func TestServerWithFeederClient(t *testing.T) {
 		requireBadRequest(t, err)
 	})
 	t.Run("sierra class", func(t *testing.T) {
-		class, err := client.ClassDefinition(ctx, mustFelt(t, sierraHash))
+		class, err := client.ClassDefinition(ctx, mustClassHash(t, sierraHash))
 		require.NoError(t, err)
 		require.NotNil(t, class.Sierra)
 		require.Nil(t, class.DeprecatedCairo)
 	})
 	t.Run("deprecated class", func(t *testing.T) {
-		class, err := client.ClassDefinition(ctx, mustFelt(t, deprecatedHash))
+		class, err := client.ClassDefinition(ctx, mustClassHash(t, deprecatedHash))
 		require.NoError(t, err)
 		require.Nil(t, class.Sierra)
 		require.NotNil(t, class.DeprecatedCairo)
 	})
 	t.Run("compiled class", func(t *testing.T) {
-		_, err := client.CasmClassDefinition(ctx, mustFelt(t, sierraHash))
+		_, err := client.CasmClassDefinition(ctx, mustClassHash(t, sierraHash))
 		require.NoError(t, err)
 	})
 	t.Run("contract addresses", func(t *testing.T) {

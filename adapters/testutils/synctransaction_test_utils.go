@@ -33,8 +33,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV0Transaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	maxFee, maxFeeBytes := getRandomFelt[felt.Felt](t)
 	version := felt.NewFromUint64[core.TransactionVersion](0)
@@ -80,8 +80,8 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV1Transaction(
 ) (C, P) {
 	t.Helper()
 
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	maxFee, maxFeeBytes := getRandomFelt[felt.Felt](t)
@@ -128,9 +128,9 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV2Transaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
-	casmClassHash, casmClassHashBytes := getRandomFelt[felt.Felt](t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
+	casmClassHash, casmClassHashBytes := getRandomFelt[felt.CasmClassHash](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	maxFee, maxFeeBytes := getRandomFelt[felt.Felt](t)
@@ -179,9 +179,9 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeclareV3Transaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
-	casmHash, casmHashBytes := getRandomFelt[felt.Felt](t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
+	casmHash, casmHashBytes := getRandomFelt[felt.CasmClassHash](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	version := felt.NewFromUint64[core.TransactionVersion](3)
@@ -242,12 +242,12 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployTransactionV0(
 	t.Helper()
 	// DeployTransaction is a special case because we don't verify the transaction hash
 	// so we can set it to a random value
-	txHash, txHashBytes := getRandomFelt[felt.Felt](t)
+	txHash, txHashBytes := getRandomFelt[felt.TransactionHash](t)
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt[felt.Felt](t)
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -280,10 +280,10 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV1(
 ) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt[felt.Felt](t)
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -340,10 +340,10 @@ func (b *SyncTransactionBuilder[C, P]) GetTestDeployAccountTransactionV3(
 ) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt[felt.Felt](t)
-	classHash, classHashBytes := getRandomFelt[felt.Felt](t)
+	classHash, classHashBytes := getRandomFelt[felt.ClassHash](t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		&classHash,
 		&contractAddressSalt,
 		constructorCallData,
@@ -408,7 +408,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV0(
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
-	contractAddress, contractAddressBytes := getRandomFelt[felt.Felt](t)
+	contractAddress, contractAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](0)
 	maxFee, maxFeeBytes := getRandomFelt[felt.Felt](t)
@@ -460,7 +460,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV1(
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](1)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
@@ -512,7 +512,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestInvokeTransactionV3(
 ) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
-	senderAddress, senderAddressBytes := getRandomFelt[felt.Felt](t)
+	senderAddress, senderAddressBytes := getRandomFelt[felt.Address](t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := felt.NewFromUint64[core.TransactionVersion](3)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
@@ -572,7 +572,7 @@ func (b *SyncTransactionBuilder[C, P]) GetTestL1HandlerTransaction(
 	network *networks.Network,
 ) (C, P) {
 	t.Helper()
-	contractAddress, contractAddressBytes := getRandomFelt[felt.Felt](t)
+	contractAddress, contractAddressBytes := getRandomFelt[felt.Address](t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt[felt.Felt](t)
 	nonce, nonceBytes := getRandomFelt[felt.Felt](t)
 	callData, callDataBytes := getRandomFeltSlice(t)

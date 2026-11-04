@@ -15,7 +15,7 @@ import (
 type CommittedBlock struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.ClassDefinition
+	NewClasses  map[felt.ClassHash]core.ClassDefinition
 	Persisted   chan error // This is used to signal whether the block was persisted successfully
 }
 
@@ -69,7 +69,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 	}
 
 	classesTimer := time.Now()
-	newClasses := make(map[felt.Felt]core.ClassDefinition, len(missingClassHashes))
+	newClasses := make(map[felt.ClassHash]core.ClassDefinition, len(missingClassHashes))
 	for _, classHash := range missingClassHashes {
 		class, err := f.feeder.Class(ctx, classHash)
 		if err != nil {
@@ -100,7 +100,7 @@ func (f *feederGatewayDataSource) BlockHeaderLatest(ctx context.Context) (*core.
 func MissingClassHashes(
 	chain *blockchain.Blockchain,
 	stateDiff *core.StateDiff,
-) ([]*felt.Felt, error) {
+) ([]*felt.ClassHash, error) {
 	introduced := introducedClassHashes(stateDiff)
 
 	state, closer, err := chain.HeadState()
@@ -111,7 +111,7 @@ func MissingClassHashes(
 		return nil, err
 	}
 
-	missing := make([]*felt.Felt, 0, len(introduced))
+	missing := make([]*felt.ClassHash, 0, len(introduced))
 	for _, classHash := range introduced {
 		_, err := state.Class(classHash)
 		switch {
@@ -125,10 +125,10 @@ func MissingClassHashes(
 	return missing, closer()
 }
 
-func introducedClassHashes(stateDiff *core.StateDiff) []*felt.Felt {
-	seen := make(map[felt.Felt]struct{})
-	hashes := make([]*felt.Felt, 0)
-	add := func(classHash *felt.Felt) {
+func introducedClassHashes(stateDiff *core.StateDiff) []*felt.ClassHash {
+	seen := make(map[felt.ClassHash]struct{})
+	hashes := make([]*felt.ClassHash, 0)
+	add := func(classHash *felt.ClassHash) {
 		if _, ok := seen[*classHash]; ok {
 			return
 		}
@@ -146,7 +146,7 @@ func introducedClassHashes(stateDiff *core.StateDiff) []*felt.Felt {
 	}
 
 	for classHash := range stateDiff.DeclaredV1Classes {
-		add(&classHash)
+		add((*felt.ClassHash)(&classHash))
 	}
 
 	return hashes

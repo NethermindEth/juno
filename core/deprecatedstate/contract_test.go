@@ -14,15 +14,15 @@ func TestNewContractUpdater(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 
 	t.Run("contract not deployed returns ErrContractNotDeployed", func(t *testing.T) {
-		addr := felt.NewRandom[felt.Felt]()
+		addr := felt.NewRandom[felt.Address]()
 
 		_, err := NewContractUpdater(addr, txn)
 		require.ErrorIs(t, err, ErrContractNotDeployed)
 	})
 
 	t.Run("deployed contract returns updater", func(t *testing.T) {
-		addr := felt.NewRandom[felt.Felt]()
-		classHash := felt.NewRandom[felt.Felt]()
+		addr := felt.NewRandom[felt.Address]()
+		classHash := felt.NewRandom[felt.ClassHash]()
 
 		_, err := DeployContract(addr, classHash, txn)
 		require.NoError(t, err)
@@ -37,9 +37,9 @@ func TestNewContractUpdater(t *testing.T) {
 func TestContractRoot(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	addr := felt.NewRandom[felt.Felt]()
+	addr := felt.NewRandom[felt.Address]()
 
-	classHash := felt.NewRandom[felt.Felt]()
+	classHash := felt.NewRandom[felt.ClassHash]()
 	_, err := DeployContract(addr, classHash, txn)
 	require.NoError(t, err)
 
@@ -85,10 +85,10 @@ func TestContractRoot(t *testing.T) {
 func TestContractStorage(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	addr := felt.NewRandom[felt.Felt]()
+	addr := felt.NewRandom[felt.Address]()
 	key := felt.NewRandom[felt.Felt]()
 
-	classHash := felt.NewRandom[felt.Felt]()
+	classHash := felt.NewRandom[felt.ClassHash]()
 	_, err := DeployContract(addr, classHash, txn)
 	require.NoError(t, err)
 

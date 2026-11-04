@@ -391,7 +391,7 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		event := &l1.StateUpdate{
 			L2BlockNumber: 7,
 			L2BlockHash:   felt.FromUint64[felt.Felt](7),
-			StateRoot:     felt.FromUint64[felt.Felt](7),
+			StateRoot:     felt.FromUint64[felt.StateRootHash](7),
 			L1RefHeight:   3,
 		}
 		provider.
@@ -408,7 +408,7 @@ func TestFinalisedHeightRetryLoopProgressesPastHang(t *testing.T) {
 		require.Equal(t, core.L1Head{
 			BlockNumber: 7,
 			BlockHash:   felt.NewFromUint64[felt.Felt](7),
-			StateRoot:   felt.NewFromUint64[felt.Felt](7),
+			StateRoot:   felt.NewFromUint64[felt.StateRootHash](7),
 		}, got)
 	})
 }
@@ -432,7 +432,7 @@ func TestEventListener(t *testing.T) {
 		Do(func(_ context.Context, sink chan<- *l1.StateUpdate) {
 			sink <- &l1.StateUpdate{
 				L2BlockHash: felt.Felt{},
-				StateRoot:   felt.Felt{},
+				StateRoot:   felt.StateRootHash{},
 			}
 		}).
 		Return(newFakeSubscription(), nil).
@@ -482,7 +482,7 @@ func TestEventListener(t *testing.T) {
 
 	require.Equal(t, &core.L1Head{
 		BlockHash: new(felt.Felt),
-		StateRoot: new(felt.Felt),
+		StateRoot: new(felt.Zero[felt.StateRootHash]()),
 	}, got)
 }
 
@@ -520,7 +520,7 @@ func TestEventListenerCatchUp(t *testing.T) {
 	backfilled := &l1.StateUpdate{
 		L2BlockNumber: 7,
 		L2BlockHash:   felt.FromUint64[felt.Felt](7),
-		StateRoot:     felt.FromUint64[felt.Felt](7),
+		StateRoot:     felt.FromUint64[felt.StateRootHash](7),
 		L1RefHeight:   3,
 	}
 	provider.
@@ -550,7 +550,7 @@ func TestEventListenerCatchUp(t *testing.T) {
 	want := &core.L1Head{
 		BlockNumber: 7,
 		BlockHash:   felt.NewFromUint64[felt.Felt](7),
-		StateRoot:   felt.NewFromUint64[felt.Felt](7),
+		StateRoot:   felt.NewFromUint64[felt.StateRootHash](7),
 	}
 	require.Equal(t, want, got)
 
@@ -589,7 +589,7 @@ func TestCatchUpL1Head(t *testing.T) {
 		Return([]*l1.StateUpdate{{
 			L2BlockNumber: 7,
 			L2BlockHash:   felt.FromUint64[felt.Felt](7),
-			StateRoot:     felt.FromUint64[felt.Felt](7),
+			StateRoot:     felt.FromUint64[felt.StateRootHash](7),
 			L1RefHeight:   3,
 		}}, nil).
 		AnyTimes()
@@ -603,7 +603,7 @@ func TestCatchUpL1Head(t *testing.T) {
 	require.Equal(t, core.L1Head{
 		BlockNumber: 7,
 		BlockHash:   felt.NewFromUint64[felt.Felt](7),
-		StateRoot:   felt.NewFromUint64[felt.Felt](7),
+		StateRoot:   felt.NewFromUint64[felt.StateRootHash](7),
 	}, persisted)
 }
 

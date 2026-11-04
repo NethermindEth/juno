@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/l1/eth/client"
 	"github.com/NethermindEth/juno/l1/eth/contract"
@@ -145,7 +146,7 @@ func stateUpdateFromContract(ev *contract.LogStateUpdate) StateUpdate {
 	return StateUpdate{
 		L2BlockNumber: ev.BlockNumber,
 		L2BlockHash:   ev.BlockHash,
-		StateRoot:     ev.GlobalRoot,
+		StateRoot:     felt.StateRootHash(ev.GlobalRoot),
 		L1RefHeight:   uint64(ev.Raw.BlockNumber),
 		Removed:       ev.Raw.Removed,
 	}

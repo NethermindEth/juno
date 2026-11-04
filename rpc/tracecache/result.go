@@ -61,7 +61,7 @@ func FromFeeder(
 			len(source.Traces),
 		)
 	}
-	gas := make(map[felt.Felt]*core.GasConsumed, len(receipts))
+	gas := make(map[felt.TransactionHash]*core.GasConsumed, len(receipts))
 	for _, receipt := range receipts {
 		if receipt.ExecutionResources != nil && receipt.ExecutionResources.TotalGasConsumed != nil {
 			gas[*receipt.TransactionHash] = receipt.ExecutionResources.TotalGasConsumed

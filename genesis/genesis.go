@@ -31,11 +31,11 @@ var genesisHeader = core.Header{
 }
 
 type GenesisConfig struct {
-	Classes           []string                          `json:"classes"`            // []path-to-class.json
-	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
-	FunctionCalls     []FunctionCall                    `json:"function_calls"`     // list of functionCalls to Call()
-	BootstrapAccounts []Account                         `json:"bootstrap_accounts"` // accounts to prefund with strk token
-	Txns              []rpc.Transaction                 `json:"transactions"`       // Declare NOT supported
+	Classes           []string                             `json:"classes"`
+	Contracts         map[felt.Address]GenesisContractData `json:"contracts"`
+	FunctionCalls     []FunctionCall                       `json:"function_calls"`
+	BootstrapAccounts []Account                            `json:"bootstrap_accounts"`
+	Txns              []rpc.Transaction                    `json:"transactions"`
 }
 
 type Account struct {
@@ -71,27 +71,27 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 	g.Classes = aux.Classes
 	g.FunctionCalls = aux.FunctionCalls
 	g.BootstrapAccounts = aux.BootstrapAccounts
-	g.Contracts = make(map[felt.Felt]GenesisContractData, len(aux.Contracts))
+	g.Contracts = make(map[felt.Address]GenesisContractData, len(aux.Contracts))
 	for classHash, constructorArgs := range aux.Contracts {
-		key, err := felt.NewFromString[felt.Felt](classHash)
+		key, err := felt.FromString[felt.Address](classHash)
 		if err != nil {
 			return err
 		}
-		g.Contracts[*key] = constructorArgs
+		g.Contracts[key] = constructorArgs
 	}
 	g.Txns = aux.Txns
 	return nil
 }
 
 type GenesisContractData struct {
-	ClassHash       felt.Felt   `json:"class_hash"`
-	ConstructorArgs []felt.Felt `json:"constructor_args"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
+	ConstructorArgs []felt.Felt    `json:"constructor_args"`
 }
 
 type FunctionCall struct {
-	ContractAddress    felt.Felt   `json:"contract_address"`
-	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
-	Calldata           []felt.Felt `json:"calldata"`
+	ContractAddress    felt.Address `json:"contract_address"`
+	EntryPointSelector felt.Felt    `json:"entry_point_selector"`
+	Calldata           []felt.Felt  `json:"calldata"`
 }
 
 // GenesisStateDiff builds the genesis state given the genesis-config data.
@@ -104,7 +104,7 @@ func GenesisStateDiff(
 	maxGas uint64,
 	useNewState bool,
 	compiler compiler.Compiler,
-) (core.StateDiff, map[felt.Felt]core.ClassDefinition, error) {
+) (core.StateDiff, map[felt.ClassHash]core.ClassDefinition, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
 
@@ -115,7 +115,7 @@ func GenesisStateDiff(
 	} else {
 		triedb := triedb.New(memDB, nil)
 		stateDB := st.NewStateDB(memDB, triedb)
-		state, err = st.NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
+		state, err = st.NewStateReader(new(felt.Zero[felt.StateRootHash]()), stateDB)
 		if err != nil {
 			return core.StateDiff{}, nil, err
 		}
@@ -123,7 +123,7 @@ func GenesisStateDiff(
 
 	genesisState := pending.NewStateWriter(
 		&initialStateDiff,
-		make(map[felt.Felt]core.ClassDefinition, len(config.Classes)),
+		make(map[felt.ClassHash]core.ClassDefinition, len(config.Classes)),
 		state,
 	)
 
@@ -169,7 +169,7 @@ func declareClasses(
 
 func setClass(
 	genesisState *pending.StateWriter,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 	class core.ClassDefinition,
 ) error {
 	if err := genesisState.SetContractClass(classHash, class); err != nil {
@@ -178,7 +178,8 @@ func setClass(
 
 	if sierraClass, isCairo1 := class.(*core.SierraClass); isCairo1 {
 		casmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
-		if err := genesisState.SetCompiledClassHash(classHash, &casmHash); err != nil {
+		err := genesisState.SetCompiledClassHash((*felt.SierraClassHash)(classHash), &casmHash)
+		if err != nil {
 			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}
@@ -223,7 +224,7 @@ func deployContract(
 	maxSteps uint64,
 	maxGas uint64,
 	genesisState *pending.StateWriter,
-	address felt.Felt,
+	address felt.Address,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
 	blockInfo *vm.BlockInfo,
@@ -406,8 +407,8 @@ func loadClasses(
 	ctx context.Context,
 	classes []string,
 	compiler compiler.Compiler,
-) (map[felt.Felt]core.ClassDefinition, error) {
-	classMap := make(map[felt.Felt]core.ClassDefinition, len(classes))
+) (map[felt.ClassHash]core.ClassDefinition, error) {
+	classMap := make(map[felt.ClassHash]core.ClassDefinition, len(classes))
 	for _, classPath := range classes {
 		bytes, err := os.ReadFile(classPath)
 		if err != nil {

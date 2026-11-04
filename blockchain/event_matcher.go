@@ -205,8 +205,7 @@ func (e *EventMatcher) AppendBlockEventsFromTransactionEvents(
 			}
 
 			if len(e.contractAddresses) > 0 {
-				// todo: remove the cast to felt.Address
-				contains := slices.Contains(e.contractAddresses, felt.Address(*event.From))
+				contains := slices.Contains(e.contractAddresses, *event.From)
 				if !contains {
 					processedEvents++
 					continue
@@ -267,7 +266,7 @@ func (e *EventMatcher) AppendBlockEventsFromReceipts(
 			}
 
 			if len(e.contractAddresses) > 0 {
-				contains := slices.Contains(e.contractAddresses, felt.Address(*event.From))
+				contains := slices.Contains(e.contractAddresses, *event.From)
 				if !contains {
 					processedEvents++
 					continue
@@ -299,12 +298,12 @@ func (e *EventMatcher) AppendBlockEventsFromReceipts(
 	return matchedEventsSofar, processedEvents, nil
 }
 
-func (e *EventMatcher) MatchesAddress(eventFrom *felt.Felt) bool {
+func (e *EventMatcher) MatchesAddress(eventFrom *felt.Address) bool {
 	if len(e.contractAddresses) == 0 {
 		return true
 	}
 	if eventFrom == nil {
 		return false
 	}
-	return slices.Contains(e.contractAddresses, felt.Address(*eventFrom))
+	return slices.Contains(e.contractAddresses, *eventFrom)
 }

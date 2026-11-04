@@ -61,7 +61,7 @@ func NewChainFor(
 	for number := range height {
 		block := adaptfeedertest.Block(t, client, number)
 		stateUpdate := adaptfeedertest.StateUpdate(t, client, number)
-		var newClasses map[felt.Felt]core.ClassDefinition
+		var newClasses map[felt.ClassHash]core.ClassDefinition
 		if number == 0 {
 			newClasses = genesisClasses
 		}
@@ -99,12 +99,12 @@ func newEmptyChain(network *networks.Network) *blockchain.Blockchain {
 	)
 }
 
-func declaringDiff(classes map[felt.Felt]core.ClassDefinition) core.StateDiff {
+func declaringDiff(classes map[felt.ClassHash]core.ClassDefinition) core.StateDiff {
 	diff := core.EmptyStateDiff()
 	for classHash, class := range classes {
 		if sierra, ok := class.(*core.SierraClass); ok {
 			compiledClassHash := sierra.Compiled.Hash(core.HashVersionV1)
-			diff.DeclaredV1Classes[classHash] = &compiledClassHash
+			diff.DeclaredV1Classes[felt.SierraClassHash(classHash)] = &compiledClassHash
 		} else {
 			diff.DeclaredV0Classes = append(diff.DeclaredV0Classes, &classHash)
 		}
@@ -150,11 +150,11 @@ func fetchClasses(
 	t testing.TB,
 	gateway *adaptfeeder.Feeder,
 	hashes ...string,
-) map[felt.Felt]core.ClassDefinition {
+) map[felt.ClassHash]core.ClassDefinition {
 	t.Helper()
-	classes := make(map[felt.Felt]core.ClassDefinition, len(hashes))
+	classes := make(map[felt.ClassHash]core.ClassDefinition, len(hashes))
 	for _, hash := range hashes {
-		classHash := felt.NewUnsafeFromString[felt.Felt](hash)
+		classHash := felt.NewUnsafeFromString[felt.ClassHash](hash)
 		class, err := gateway.Class(t.Context(), classHash)
 		require.NoError(t, err)
 		classes[*classHash] = class

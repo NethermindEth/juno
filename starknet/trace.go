@@ -13,20 +13,20 @@ func (val *BlockTrace) Validate() error {
 }
 
 type TransactionTrace struct {
-	TransactionHash       felt.Felt           `json:"transaction_hash"`
-	RevertError           string              `json:"revert_error"`
-	ValidateInvocation    *FunctionInvocation `json:"validate_invocation"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation"`
-	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation"`
-	Signature             []felt.Felt         `json:"signature"`
+	TransactionHash       felt.TransactionHash `json:"transaction_hash"`
+	RevertError           string               `json:"revert_error"`
+	ValidateInvocation    *FunctionInvocation  `json:"validate_invocation"`
+	FunctionInvocation    *FunctionInvocation  `json:"function_invocation"`
+	FeeTransferInvocation *FunctionInvocation  `json:"fee_transfer_invocation"`
+	Signature             []felt.Felt          `json:"signature"`
 }
 
 type FunctionInvocation struct {
-	CallerAddress      felt.Felt              `json:"caller_address"`
-	ContractAddress    felt.Felt              `json:"contract_address"`
+	CallerAddress      felt.Address           `json:"caller_address"`
+	ContractAddress    felt.Address           `json:"contract_address"`
 	Calldata           []felt.Felt            `json:"calldata"`
 	CallType           string                 `json:"call_type"`
-	ClassHash          *felt.Felt             `json:"class_hash"`
+	ClassHash          *felt.ClassHash        `json:"class_hash"`
 	Selector           *felt.Felt             `json:"selector"`
 	EntryPointType     string                 `json:"entry_point_type"`
 	Result             []felt.Felt            `json:"result"`

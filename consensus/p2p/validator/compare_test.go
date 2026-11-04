@@ -41,7 +41,7 @@ func TestCompareFeltField(t *testing.T) {
 
 // TODO: Write tests to actually test the `ProposalCommitment` function.
 func TestCompareProposalCommitment(t *testing.T) {
-	proposer := felt.NewUnsafeFromString[felt.Felt]("1")
+	proposer := felt.NewUnsafeFromString[felt.Address]("1")
 
 	stateDiffCommitment := felt.NewFromUint64[felt.Felt](1)
 	transactionCommitment := felt.NewFromUint64[felt.Felt](2)

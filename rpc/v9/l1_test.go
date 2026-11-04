@@ -49,7 +49,9 @@ func TestGetMessageStatus(t *testing.T) {
 				"0x5780c6fe46f958a7ebf9308e6db16d819ff9e06b1e88f9e718c50cde10898f38",
 			),
 			msgs: []rpc.MsgStatus{{
-				L1HandlerHash:   felt.NewUnsafeFromString[felt.Felt]("0xc470e30f97f64255a62215633e35a7c6ae10332a9011776dde1143ab0202c3"),
+				L1HandlerHash: felt.NewUnsafeFromString[felt.TransactionHash](
+					"0xc470e30f97f64255a62215633e35a7c6ae10332a9011776dde1143ab0202c3",
+				),
 				FinalityStatus:  rpc.TxnStatusAcceptedOnL1,
 				FailureReason:   "",
 				ExecutionStatus: rpc.TxnSuccess,
@@ -67,7 +69,9 @@ func TestGetMessageStatus(t *testing.T) {
 				"0xeafadb9958437ef43ce7ed19f8ac0c8071c18f4a55fd778cecc23d8b6f86026f",
 			),
 			msgs: []rpc.MsgStatus{{
-				L1HandlerHash:   felt.NewUnsafeFromString[felt.Felt]("0x304c78cccf0569159d4b2aff2117f060509b7c6d590ae740d2031d1eb507b10"),
+				L1HandlerHash: felt.NewUnsafeFromString[felt.TransactionHash](
+					"0x304c78cccf0569159d4b2aff2117f060509b7c6d590ae740d2031d1eb507b10",
+				),
 				FinalityStatus:  rpc.TxnStatusAcceptedOnL2,
 				FailureReason:   "",
 				ExecutionStatus: rpc.TxnSuccess,
@@ -107,7 +111,7 @@ func TestGetMessageStatus(t *testing.T) {
 				)
 				// Expects for h.TransactionStatus()
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(msg.L1HandlerHash),
+					msg.L1HandlerHash,
 				).Return(block.Number, uint64(i), nil)
 				mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 					block.Number, uint64(i),

@@ -14,14 +14,14 @@ func TestNewStateHistory(t *testing.T) {
 	stateDB := newTestStateDB()
 
 	t.Run("successful creation", func(t *testing.T) {
-		history, err := NewStateHistory(0, new(felt.Zero[felt.Felt]()), stateDB)
+		history, err := NewStateHistory(0, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(0), history.blockNum)
 		assert.NotNil(t, history.state)
 	})
 
 	t.Run("bigger state root", func(t *testing.T) {
-		invalidRoot := felt.NewUnsafeFromString[felt.Felt]("0x999")
+		invalidRoot := felt.NewUnsafeFromString[felt.StateRootHash]("0x999")
 		_, err := NewStateHistory(1, invalidRoot, stateDB)
 		// TODO(maksym): error is returned only for the triedb
 		// in path scheme
@@ -32,19 +32,19 @@ func TestNewStateHistory(t *testing.T) {
 func TestStateHistoryContractOperations(t *testing.T) {
 	stateUpdates := []*core.StateUpdate{
 		{
-			OldRoot: new(felt.Zero[felt.Felt]()),
-			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			OldRoot: new(felt.Zero[felt.StateRootHash]()),
+			NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
 			),
 			StateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					felt.UnsafeFromString[felt.Address]("0x1"): felt.NewUnsafeFromString[felt.ClassHash]("0x1"),
 				},
-				Nonces: map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				Nonces: map[felt.Address]*felt.Felt{
+					felt.UnsafeFromString[felt.Address]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x1"): {
+				StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+					felt.UnsafeFromString[felt.Address]("0x1"): {
 						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
 					},
@@ -52,27 +52,27 @@ func TestStateHistoryContractOperations(t *testing.T) {
 			},
 		},
 		{
-			OldRoot: felt.NewUnsafeFromString[felt.Felt](
+			OldRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
 			),
-			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee",
 			),
 			StateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
-					felt.UnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					felt.UnsafeFromString[felt.Address]("0x2"): felt.NewUnsafeFromString[felt.ClassHash]("0x2"),
+					felt.UnsafeFromString[felt.Address]("0x3"): felt.NewUnsafeFromString[felt.ClassHash]("0x3"),
 				},
-				Nonces: map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
-					felt.UnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				Nonces: map[felt.Address]*felt.Felt{
+					felt.UnsafeFromString[felt.Address]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					felt.UnsafeFromString[felt.Address]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				},
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					felt.UnsafeFromString[felt.Felt]("0x2"): {
+				StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+					felt.UnsafeFromString[felt.Address]("0x2"): {
 						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x4"),
 					},
-					felt.UnsafeFromString[felt.Felt]("0x3"): {
+					felt.UnsafeFromString[felt.Address]("0x3"): {
 						felt.UnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
 						felt.UnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x6"),
 					},
@@ -81,38 +81,38 @@ func TestStateHistoryContractOperations(t *testing.T) {
 		},
 	}
 	stateDB := setupState(t, stateUpdates, 2)
-	historyBlock0, err := NewStateHistory(0, new(felt.Zero[felt.Felt]()), stateDB)
+	historyBlock0, err := NewStateHistory(0, new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
-	historyBlock1, err := NewStateHistory(1, new(felt.Zero[felt.Felt]()), stateDB)
+	historyBlock1, err := NewStateHistory(1, new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
-		hash, err := historyBlock0.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		hash, err := historyBlock0.ContractClassHash(felt.NewUnsafeFromString[felt.Address]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, felt.UnsafeFromString[felt.Felt]("0x1"))
-		hash, err = historyBlock1.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x2"))
+		assert.Equal(t, hash, felt.UnsafeFromString[felt.ClassHash]("0x1"))
+		hash, err = historyBlock1.ContractClassHash(felt.NewUnsafeFromString[felt.Address]("0x2"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, felt.UnsafeFromString[felt.Felt]("0x2"))
+		assert.Equal(t, hash, felt.UnsafeFromString[felt.ClassHash]("0x2"))
 	})
 
 	t.Run("ContractNonce", func(t *testing.T) {
-		nonce, err := historyBlock0.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		nonce, err := historyBlock0.ContractNonce(felt.NewUnsafeFromString[felt.Address]("0x1"))
 		require.NoError(t, err)
 		assert.Equal(t, nonce, felt.UnsafeFromString[felt.Felt]("0x1"))
-		nonce, err = historyBlock1.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x2"))
+		nonce, err = historyBlock1.ContractNonce(felt.NewUnsafeFromString[felt.Address]("0x2"))
 		require.NoError(t, err)
 		assert.Equal(t, nonce, felt.UnsafeFromString[felt.Felt]("0x2"))
 	})
 
 	t.Run("ContractStorage", func(t *testing.T) {
 		value, err := historyBlock0.ContractStorage(
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Address]("0x1"),
 			felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		)
 		require.NoError(t, err)
 		assert.Equal(t, value, felt.UnsafeFromString[felt.Felt]("0x1"))
 		value, err = historyBlock1.ContractStorage(
-			felt.NewUnsafeFromString[felt.Felt]("0x2"),
+			felt.NewUnsafeFromString[felt.Address]("0x2"),
 			felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		)
 		require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	})
 
 	t.Run("NonExistentContract", func(t *testing.T) {
-		nonExistentAddr := felt.NewFromUint64[felt.Felt](999)
+		nonExistentAddr := felt.NewFromUint64[felt.Address](999)
 		_, err := historyBlock0.ContractClassHash(nonExistentAddr)
 		assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
@@ -129,22 +129,22 @@ func TestStateHistoryContractOperations(t *testing.T) {
 func TestStateHistoryClassOperations(t *testing.T) {
 	stateDB := newTestStateDB()
 
-	class1Hash := felt.UnsafeFromString[felt.Felt]("0xDEADBEEF")
-	class2Hash := felt.UnsafeFromString[felt.Felt]("0xDEADBEEF2")
+	class1Hash := felt.UnsafeFromString[felt.ClassHash]("0xDEADBEEF")
+	class2Hash := felt.UnsafeFromString[felt.ClassHash]("0xDEADBEEF2")
 
 	class1 := &core.SierraClass{}
 	class2 := &core.SierraClass{}
 
-	classes := map[felt.Felt]core.ClassDefinition{
+	classes := map[felt.ClassHash]core.ClassDefinition{
 		class1Hash: class1,
 	}
 	stateUpdate := &core.StateUpdate{
-		OldRoot:   new(felt.Zero[felt.Felt]()),
-		NewRoot:   new(felt.Zero[felt.Felt]()),
+		OldRoot:   new(felt.Zero[felt.StateRootHash]()),
+		NewRoot:   new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{},
 	}
 	batch := stateDB.disk.NewBatch()
-	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 	require.NoError(t, err)
 	err = state.Update(&core.Header{Number: 0}, stateUpdate, classes, false)
 	require.NoError(t, batch.Write())
@@ -157,7 +157,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 		NewRoot:   &stateComm,
 		StateDiff: &core.StateDiff{},
 	}
-	classes2 := map[felt.Felt]core.ClassDefinition{
+	classes2 := map[felt.ClassHash]core.ClassDefinition{
 		class2Hash: class2,
 	}
 
@@ -168,7 +168,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, batch.Write())
 
-	historyBlock0, err := NewStateHistory(0, new(felt.Zero[felt.Felt]()), stateDB)
+	historyBlock0, err := NewStateHistory(0, new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
 	historyBlock1, err := NewStateHistory(1, &stateComm, stateDB)
 	require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	})
 
 	t.Run("NonExistentClass", func(t *testing.T) {
-		nonExistentClass := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF3")
+		nonExistentClass := felt.NewUnsafeFromString[felt.ClassHash]("0xDEADBEEF3")
 		_, err := historyBlock0.Class(nonExistentClass)
 		assert.Error(t, err)
 	})
@@ -194,16 +194,16 @@ func TestStateHistoryClassOperations(t *testing.T) {
 
 func TestStateHistoryClassBeforeDeclaration(t *testing.T) {
 	stateDB := newTestStateDB()
-	history, err := NewStateHistory(0, new(felt.Zero[felt.Felt]()), stateDB)
+	history, err := NewStateHistory(0, new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
 
-	_, err = history.Class(felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"))
+	_, err = history.Class(felt.NewUnsafeFromString[felt.ClassHash]("0xDEADBEEF"))
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 }
 
 func TestStateHistoryTrieOperations(t *testing.T) {
 	stateDB := newTestStateDB()
-	history, err := NewStateHistory(1, new(felt.Zero[felt.Felt]()), stateDB)
+	history, err := NewStateHistory(1, new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
 
 	t.Run("ClassTrie not supported", func(t *testing.T) {
@@ -217,7 +217,7 @@ func TestStateHistoryTrieOperations(t *testing.T) {
 	})
 
 	t.Run("ContractStorageTrie not supported", func(t *testing.T) {
-		addr := felt.NewFromUint64[felt.Felt](1)
+		addr := felt.NewFromUint64[felt.Address](1)
 		_, err := history.ContractStorageTrie(addr)
 		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
 	})
@@ -230,15 +230,15 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 
 	stateDB := newTestStateDB()
 	batch := stateDB.disk.NewBatch()
-	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 	require.NoError(t, err)
 
 	su0 := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				felt.Felt(addr): {*key: value},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*key: value},
 			},
 		},
 	}
@@ -255,10 +255,10 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 
 	su3 := &core.StateUpdate{
 		OldRoot: &root0,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				felt.Felt(addr): {*key: value},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*key: value},
 			},
 		},
 	}
@@ -267,7 +267,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, batch.Write())
 
 	t.Run("returns most recent update before history block", func(t *testing.T) {
-		history, err := NewStateHistory(2, new(felt.Zero[felt.Felt]()), stateDB)
+		history, err := NewStateHistory(2, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
@@ -276,7 +276,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 	})
 
 	t.Run("returns update at exactly the history block", func(t *testing.T) {
-		history, err := NewStateHistory(3, new(felt.Zero[felt.Felt]()), stateDB)
+		history, err := NewStateHistory(3, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
@@ -285,7 +285,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 	})
 
 	t.Run("returns update after the history block", func(t *testing.T) {
-		history, err := NewStateHistory(4, new(felt.Zero[felt.Felt]()), stateDB)
+		history, err := NewStateHistory(4, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, key)
@@ -295,7 +295,7 @@ func TestStateHistoryContractStorageLastUpdatedBlock(t *testing.T) {
 
 	t.Run("returns not found when storage was never updated", func(t *testing.T) {
 		otherKey := felt.NewFromUint64[felt.Felt](99)
-		history, err := NewStateHistory(5, new(felt.Zero[felt.Felt]()), stateDB)
+		history, err := NewStateHistory(5, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		blockNum, err := history.ContractStorageLastUpdatedBlock(&addr, otherKey)
@@ -319,7 +319,7 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 	nonExistentHash := felt.NewFromUint64[felt.SierraClassHash](999)
 
 	t.Run("non-existent class hash", func(t *testing.T) {
-		state, err := NewStateHistory(declaredAt, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateHistory(declaredAt, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		_, err = state.CompiledClassHash(nonExistentHash)
@@ -327,7 +327,7 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 	})
 
 	t.Run("get value before declared height", func(t *testing.T) {
-		state, err := NewStateHistory(declaredAt-1, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateHistory(declaredAt-1, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		_, err = state.CompiledClassHash(sierraClassHash)
@@ -335,7 +335,7 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 	})
 
 	t.Run("get value between declared height and migrated height", func(t *testing.T) {
-		state, err := NewStateHistory(declaredAt+1, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateHistory(declaredAt+1, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		got, err := state.CompiledClassHash(sierraClassHash)
@@ -344,14 +344,14 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 	})
 
 	t.Run("get value on height that change happened", func(t *testing.T) {
-		state, err := NewStateHistory(declaredAt, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateHistory(declaredAt, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		got, err := state.CompiledClassHash(sierraClassHash)
 		require.NoError(t, err)
 		assert.Equal(t, *casmHash1, got)
 
-		state, err = NewStateHistory(migratedAt, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err = NewStateHistory(migratedAt, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		got, err = state.CompiledClassHash(sierraClassHash)
@@ -360,7 +360,7 @@ func TestStateHistoryCompiledClassHash(t *testing.T) {
 	})
 
 	t.Run("get value after migration", func(t *testing.T) {
-		state, err := NewStateHistory(migratedAt+1, new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateHistory(migratedAt+1, new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		got, err := state.CompiledClassHash(sierraClassHash)

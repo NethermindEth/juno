@@ -37,7 +37,7 @@ var SierraVersion010 felt.Felt = felt.Felt(
 
 type ClassDefinition interface {
 	SierraVersion() string
-	Hash() (felt.Felt, error)
+	Hash() (felt.ClassHash, error)
 }
 
 type DeprecatedCairoClass struct {
@@ -64,7 +64,7 @@ func (c *DeprecatedCairoClass) Version() uint64 {
 	return 0
 }
 
-func (c *DeprecatedCairoClass) Hash() (felt.Felt, error) {
+func (c *DeprecatedCairoClass) Hash() (felt.ClassHash, error) {
 	return deprecatedCairoClassHash(c)
 }
 
@@ -121,11 +121,11 @@ func (c *SierraClass) Version() uint64 {
 	return 1
 }
 
-func (c *SierraClass) Hash() (felt.Felt, error) {
+func (c *SierraClass) Hash() (felt.ClassHash, error) {
 	externalEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.External)
 	l1HandlerEntryPointsHash := sierraEntryPointsHash(c.EntryPoints.L1Handler)
 	constructorHash := sierraEntryPointsHash(c.EntryPoints.Constructor)
-	return crypto.PoseidonElems[felt.Felt](
+	return crypto.PoseidonElems[felt.ClassHash](
 		felt.NewFromBytes[felt.Felt]([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -211,7 +211,7 @@ func casmHashArray(version CasmHashVersion, felts []felt.Felt) felt.Felt {
 var compiledClassV1Prefix = felt.NewFromBytes[felt.Felt]([]byte("COMPILED_CLASS_V1"))
 
 // Hash computes the class hash using the specified hash version
-func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
+func (c *CasmClass) Hash(version CasmHashVersion) felt.CasmClassHash {
 	var bytecodeHash felt.Felt
 	if len(c.BytecodeSegmentLengths.Children) == 0 {
 		bytecodeHash = casmHashArray(version, c.Bytecode)
@@ -223,13 +223,13 @@ func (c *CasmClass) Hash(version CasmHashVersion) felt.Felt {
 	l1HandlerEntryPointsHash := compiledEntryPointsHash(c.L1Handler, version)
 	constructorHash := compiledEntryPointsHash(c.Constructor, version)
 
-	return casmHashArray(version, []felt.Felt{
+	return felt.CasmClassHash(casmHashArray(version, []felt.Felt{
 		*compiledClassV1Prefix,
 		externalEntryPointsHash,
 		l1HandlerEntryPointsHash,
 		constructorHash,
 		bytecodeHash,
-	})
+	}))
 }
 
 // SegmentedBytecodeHash hashes bytecode split into (possibly nested) segments.
@@ -303,7 +303,7 @@ func compiledBuiltinsHash(builtins []string, version CasmHashVersion) felt.Felt 
 	return digest.Finish[felt.Felt]()
 }
 
-func VerifyClassHashes(classes map[felt.Felt]ClassDefinition) error {
+func VerifyClassHashes(classes map[felt.ClassHash]ClassDefinition) error {
 	for hash, class := range classes {
 		if _, ok := class.(*DeprecatedCairoClass); ok {
 			// skip validation of cairo0 class hash

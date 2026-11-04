@@ -15,7 +15,7 @@ import (
 )
 
 type errorTxnHashNotFound struct {
-	txHash felt.Felt
+	txHash felt.TransactionHash
 }
 
 func (e errorTxnHashNotFound) Error() string {
@@ -42,7 +42,7 @@ var (
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeTransactionStatus(
 	ctx context.Context,
-	txHash *felt.Felt,
+	txHash *felt.TransactionHash,
 ) (SubscriptionID, *jsonrpc.Error) {
 	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -53,18 +53,22 @@ func (h *Handler) SubscribeTransactionStatus(
 }
 
 type SubscriptionTransactionStatus struct {
-	TransactionHash *felt.Felt        `json:"transaction_hash"`
-	Status          TransactionStatus `json:"status"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+	Status          TransactionStatus     `json:"status"`
 }
 
 type txStatusSubscriberState struct {
 	handler    *Handler
 	conn       jsonrpc.Conn
-	txHash     *felt.Felt
+	txHash     *felt.TransactionHash
 	lastStatus TxnStatus
 }
 
-func newTxStatusSubscriber(h *Handler, wsConn jsonrpc.Conn, txHash *felt.Felt) subscriber {
+func newTxStatusSubscriber(
+	h *Handler,
+	wsConn jsonrpc.Conn,
+	txHash *felt.TransactionHash,
+) subscriber {
 	state := &txStatusSubscriberState{
 		handler: h,
 		conn:    wsConn,

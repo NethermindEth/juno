@@ -44,7 +44,7 @@ func (m *MockPreConfirmedDataSource) EXPECT() *MockPreConfirmedDataSourceMockRec
 }
 
 // Class mocks base method.
-func (m *MockPreConfirmedDataSource) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
+func (m *MockPreConfirmedDataSource) Class(ctx context.Context, classHash *felt.ClassHash) (core.ClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", ctx, classHash)
 	ret0, _ := ret[0].(core.ClassDefinition)

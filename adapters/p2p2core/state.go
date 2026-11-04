@@ -23,8 +23,8 @@ func AdaptStateDiff(
 	classes []*class.Class,
 ) (*core.StateDiff, error) {
 	var (
-		declaredV0Classes []*felt.Felt
-		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
+		declaredV0Classes []*felt.ClassHash
+		declaredV1Classes = make(map[felt.SierraClassHash]*felt.CasmClassHash)
 	)
 
 	for _, cls := range classes {
@@ -41,15 +41,15 @@ func AdaptStateDiff(
 			declaredV0Classes = append(declaredV0Classes, &h)
 		case *core.SierraClass:
 			casmHash := c.Compiled.Hash(core.HashVersionV1)
-			declaredV1Classes[h] = &casmHash
+			declaredV1Classes[felt.SierraClassHash(h)] = &casmHash
 			// todo add type?
 		}
 	}
 
 	var deployedContracts, replacedClasses []addrToClassHash
 	// addr -> {key -> value, ...}
-	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
-	nonces := make(map[felt.Felt]*felt.Felt)
+	storageDiffs := make(map[felt.Address]map[felt.Felt]*felt.Felt)
+	nonces := make(map[felt.Address]*felt.Felt)
 	for _, diff := range contractDiffs {
 		address := AdaptAddress(diff.Address)
 
@@ -66,7 +66,7 @@ func AdaptStateDiff(
 				classHash: diff.ClassHash,
 			}
 
-			stateClassHash := felt.Zero[felt.Felt]()
+			stateClassHash := felt.Zero[felt.ClassHash]()
 			if reader != nil {
 				var err error
 				stateClassHash, err = reader.ContractClassHash(address)
@@ -106,6 +106,6 @@ type addrToClassHash struct {
 }
 
 // todo rename
-func adaptAddrToClassHash(v addrToClassHash) (felt.Felt, *felt.Felt) {
-	return *AdaptAddress(v.addr), AdaptHash[felt.Felt](v.classHash)
+func adaptAddrToClassHash(v addrToClassHash) (felt.Address, *felt.ClassHash) {
+	return *AdaptAddress(v.addr), AdaptHash[felt.ClassHash](v.classHash)
 }

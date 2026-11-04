@@ -14,18 +14,18 @@ import (
 func allTypeTransactions() []core.Transaction {
 	return []core.Transaction{
 		&core.DeployTransaction{
-			TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+			TransactionHash:     felt.NewFromUint64[felt.TransactionHash](1),
 			ContractAddressSalt: felt.NewFromUint64[felt.Felt](10),
-			ContractAddress:     felt.NewFromUint64[felt.Felt](11),
-			ClassHash:           felt.NewFromUint64[felt.Felt](12),
+			ContractAddress:     felt.NewFromUint64[felt.Address](11),
+			ClassHash:           felt.NewFromUint64[felt.ClassHash](12),
 			ConstructorCallData: []felt.Felt{felt.FromUint64[felt.Felt](13), felt.FromUint64[felt.Felt](14)},
 			Version:             felt.NewFromUint64[core.TransactionVersion](0),
 		},
 		&core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     felt.NewFromUint64[felt.Felt](2),
+				TransactionHash:     felt.NewFromUint64[felt.TransactionHash](2),
 				ContractAddressSalt: felt.NewFromUint64[felt.Felt](20),
-				ClassHash:           felt.NewFromUint64[felt.Felt](21),
+				ClassHash:           felt.NewFromUint64[felt.ClassHash](21),
 				ConstructorCallData: []felt.Felt{felt.FromUint64[felt.Felt](22)},
 				Version:             felt.NewFromUint64[core.TransactionVersion](3),
 			},
@@ -38,31 +38,31 @@ func allTypeTransactions() []core.Transaction {
 			PaymasterData: []felt.Felt{felt.FromUint64[felt.Felt](27)},
 		},
 		&core.InvokeTransaction{
-			TransactionHash: felt.NewFromUint64[felt.Felt](3),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](3),
 			CallData: []felt.Felt{
 				felt.FromUint64[felt.Felt](30), felt.FromUint64[felt.Felt](31),
 			},
 			TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](32)},
-			ContractAddress:      felt.NewFromUint64[felt.Felt](33),
+			ContractAddress:      felt.NewFromUint64[felt.Address](33),
 			Version:              felt.NewFromUint64[core.TransactionVersion](3),
 			Nonce:                felt.NewFromUint64[felt.Felt](34),
-			SenderAddress:        felt.NewFromUint64[felt.Felt](35),
+			SenderAddress:        felt.NewFromUint64[felt.Address](35),
 			Tip:                  9,
 			PaymasterData:        []felt.Felt{felt.FromUint64[felt.Felt](36)},
 		},
 		&core.DeclareTransaction{
-			TransactionHash:      felt.NewFromUint64[felt.Felt](4),
-			ClassHash:            felt.NewFromUint64[felt.Felt](40),
-			SenderAddress:        felt.NewFromUint64[felt.Felt](41),
+			TransactionHash:      felt.NewFromUint64[felt.TransactionHash](4),
+			ClassHash:            felt.NewFromUint64[felt.ClassHash](40),
+			SenderAddress:        felt.NewFromUint64[felt.Address](41),
 			MaxFee:               felt.NewFromUint64[felt.Felt](42),
 			TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](43)},
 			Nonce:                felt.NewFromUint64[felt.Felt](44),
 			Version:              felt.NewFromUint64[core.TransactionVersion](3),
-			CompiledClassHash:    felt.NewFromUint64[felt.Felt](45),
+			CompiledClassHash:    felt.NewFromUint64[felt.CasmClassHash](45),
 		},
 		&core.L1HandlerTransaction{
-			TransactionHash:    felt.NewFromUint64[felt.Felt](5),
-			ContractAddress:    felt.NewFromUint64[felt.Felt](50),
+			TransactionHash:    felt.NewFromUint64[felt.TransactionHash](5),
+			ContractAddress:    felt.NewFromUint64[felt.Address](50),
 			EntryPointSelector: felt.NewFromUint64[felt.Felt](51),
 			Nonce:              felt.NewFromUint64[felt.Felt](52),
 			CallData:           []felt.Felt{felt.FromUint64[felt.Felt](53), felt.FromUint64[felt.Felt](54)},
@@ -80,7 +80,7 @@ func matchingReceipts(transactions []core.Transaction) []*core.TransactionReceip
 			Fee:             felt.NewFromUint64[felt.Felt](uint64(100 + i)),
 			TransactionHash: transaction.Hash(),
 			Events: []*core.Event{{
-				From: felt.NewFromUint64[felt.Felt](1),
+				From: felt.NewFromUint64[felt.Address](1),
 				Keys: []felt.Felt{felt.FromUint64[felt.Felt](2)},
 				Data: []felt.Felt{felt.FromUint64[felt.Felt](3)},
 			}},
@@ -89,8 +89,8 @@ func matchingReceipts(transactions []core.Transaction) []*core.TransactionReceip
 	return receipts
 }
 
-func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(transactions))
+func transactionHashesOf(transactions []core.Transaction) []felt.TransactionHash {
+	hashes := make([]felt.TransactionHash, len(transactions))
 	for i, transaction := range transactions {
 		hashes[i] = *transaction.Hash()
 	}
@@ -102,12 +102,12 @@ func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
 func transactionHashesOfBlock(
 	t *testing.T,
 	blockTransactions core.BlockTransactions,
-) ([]felt.Felt, error) {
+) ([]felt.TransactionHash, error) {
 	t.Helper()
 	data, err := core.BlockTransactionsSerializer{}.Marshal(&blockTransactions)
 	require.NoError(t, err)
 
-	var hashes []felt.Felt
+	var hashes []felt.TransactionHash
 	err = core.BlockTransactionsAllTransactionHashesPartialSerializer.UnmarshalPartial(
 		struct{}{}, data, &hashes,
 	)
@@ -155,11 +155,11 @@ func TestTransactionHashesMatchFullDecode(t *testing.T) {
 func TestTransactionHashesRejectMissingHash(t *testing.T) {
 	blockTransactions, err := core.NewBlockTransactions(
 		[]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](111)},
+			&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](111)},
 			&core.InvokeTransaction{TransactionHash: nil},
 		},
 		[]*core.TransactionReceipt{
-			{TransactionHash: felt.NewFromUint64[felt.Felt](111)},
+			{TransactionHash: felt.NewFromUint64[felt.TransactionHash](111)},
 			{TransactionHash: nil},
 		},
 	)

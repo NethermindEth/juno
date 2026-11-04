@@ -870,7 +870,7 @@ func TestSubscribeEventsReplayReadsStoredPreConfirmedChain(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	logger := log.NewNopZapLogger()
-	txHash := felt.NewFromUint64[felt.Felt](1)
+	txHash := felt.NewFromUint64[felt.TransactionHash](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
@@ -892,7 +892,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, logger).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
 			ReadPreConfirmedChain().
@@ -931,11 +931,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
@@ -950,11 +950,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			)
 		})
 		t.Run("accepted on L1", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(
@@ -990,9 +990,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		var tempGatewayResponse struct {
-			TransactionHash *felt.Felt `json:"transaction_hash"`
-			ContractAddress *felt.Felt `json:"address"`
-			ClassHash       *felt.Felt `json:"class_hash"`
+			TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+			ContractAddress *felt.Felt            `json:"address"`
+			ClassHash       *felt.Felt            `json:"class_hash"`
 		}
 
 		tempGatewayResponse.TransactionHash = txToBroadcast.Hash
@@ -1017,13 +1017,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
-		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
+		id, conn := createTestTxStatusWebsocket(t, handler, &txHash)
 
 		assertNextTxnStatus(
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusReceived,
 			UnknownExecution,
 			"",
@@ -1031,7 +1031,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		// PreConfirmed Status
 		rpcTx := AdaptCoreTransaction(block.Transactions[0])
-		rpcTx.Hash = (*felt.Felt)(&txHash)
+		rpcTx.Hash = &txHash
 
 		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
@@ -1052,12 +1052,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusPreConfirmed,
 			TxnSuccess,
 			"",
 		)
-		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
+		require.Equal(t, *block.Transactions[0].Hash(), txHash)
 
 		// Accepted on l2 Status. The stored chain now starts above the committed block.
 		chainAboveBlock := mustNewChain(t, &pending.PreConfirmed{
@@ -1080,7 +1080,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusAcceptedOnL2,
 			TxnSuccess,
 			"",
@@ -1103,7 +1103,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusAcceptedOnL1,
 			TxnSuccess,
 			"",
@@ -1748,7 +1748,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Address{felt.Address(*senderAddress)}
+	senderFilter := []felt.Address{*senderAddress}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
 		if filterTxBySender(txn, senderFilter) {
@@ -1763,7 +1763,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
-		senderAddress: []felt.Address{felt.Address(*senderAddress)},
+		senderAddress: []felt.Address{*senderAddress},
 		steps: []stepInfo{
 			{
 				description: "on receiving new transaction",
@@ -1917,9 +1917,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	// Create a block with two Invoke V3 transactions (one with proof facts, one without),
 	// for proof facts testing.
 	invokeV3WithProofFacts := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](124),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](124),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
-		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+		SenderAddress:   felt.NewFromUint64[felt.Address](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -1935,9 +1935,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	invokeV3WithoutProofFacts := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](123),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](123),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
-		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+		SenderAddress:   felt.NewFromUint64[felt.Address](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -2328,7 +2328,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Address{
-		felt.Address(*senderAddress),
+		*senderAddress,
 	}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
@@ -2664,7 +2664,7 @@ func assertNextTxnStatus(
 	t *testing.T,
 	conn net.Conn,
 	id SubscriptionID,
-	txHash *felt.Felt,
+	txHash *felt.TransactionHash,
 	finality TxnStatus,
 	execution TxnExecutionStatus,
 	failureReason string,
@@ -2822,7 +2822,7 @@ func createTestEvents(
 	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			// todo: remove the cast to felt.Felt
-			if len(fromAddresses) > 0 && !slices.Contains(fromAddresses, felt.Address(*event.From)) {
+			if len(fromAddresses) > 0 && !slices.Contains(fromAddresses, *event.From) {
 				continue
 			}
 
@@ -2874,7 +2874,7 @@ func createTestEventsWebsocket(
 }
 
 func createTestTxStatusWebsocket(
-	t *testing.T, h *Handler, txHash *felt.Felt,
+	t *testing.T, h *Handler, txHash *felt.TransactionHash,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 

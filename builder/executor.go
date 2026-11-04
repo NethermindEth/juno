@@ -140,7 +140,8 @@ func (e *executor) processClassDeclaration(
 		}
 
 		if t.CompiledClassHash != nil {
-			if err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash); err != nil {
+			err := state.SetCompiledClassHash((*felt.SierraClassHash)(t.ClassHash), t.CompiledClassHash)
+			if err != nil {
 				e.logger.Error("failed to SetCompiledClassHash", zap.Error(err))
 				return err
 			}

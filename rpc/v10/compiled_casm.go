@@ -37,7 +37,7 @@ type CompiledCasmResponse struct {
 }
 
 // CompiledCasm receives a class hash and returns the compiled cairo assembly (CASM)
-func (h *Handler) CompiledCasm(classHash *felt.Felt) (CompiledCasmResponse, *jsonrpc.Error) {
+func (h *Handler) CompiledCasm(classHash *felt.ClassHash) (CompiledCasmResponse, *jsonrpc.Error) {
 	state, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return CompiledCasmResponse{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())

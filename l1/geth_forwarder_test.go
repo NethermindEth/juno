@@ -90,8 +90,8 @@ func TestForwardStateUpdates_NormalForward(t *testing.T) {
 		assert.Equal(t, uint64(42), got.L2BlockNumber)
 		assert.Equal(t, uint64(99), got.L1RefHeight)
 		assert.False(t, got.Removed)
-		assert.Equal(t, *new(felt.Felt).SetBigInt(ev.BlockHash), got.L2BlockHash)
-		assert.Equal(t, *new(felt.Felt).SetBigInt(ev.GlobalRoot), got.StateRoot)
+		assert.Equal(t, felt.FromBytes[felt.Felt](ev.BlockHash.Bytes()), got.L2BlockHash)
+		assert.Equal(t, felt.FromBytes[felt.StateRootHash](ev.GlobalRoot.Bytes()), got.StateRoot)
 	case <-time.After(2 * time.Second):
 		t.Fatal("event not forwarded to updatesCh")
 	}

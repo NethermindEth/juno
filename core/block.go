@@ -23,12 +23,12 @@ const BlockHashLag uint64 = 10
 // Contract stores block number to block hash mapping,
 // and serve this information through [get_block_hash_syscall].
 // Queriable range is [first_v0_12_0_block, current_block - 10]
-var BlockHashStorageContract = new(felt.One[felt.Felt]())
+var BlockHashStorageContract = new(felt.One[felt.Address]())
 
 type L1Head struct {
 	BlockNumber uint64
 	BlockHash   *felt.Felt
-	StateRoot   *felt.Felt
+	StateRoot   *felt.StateRootHash
 }
 
 type Header struct {
@@ -39,9 +39,9 @@ type Header struct {
 	// The number (height) of this block
 	Number uint64
 	// The state commitment after this block
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *felt.StateRootHash
 	// The Starknet address of the sequencer who created this block
-	SequencerAddress *felt.Felt
+	SequencerAddress *felt.Address
 	// Number of transactions in this block
 	TransactionCount uint64
 	// Number of events stored in transaction receipts
@@ -138,9 +138,9 @@ func VerifyBlockHash(
 	}
 
 	// A nil override means the block hash uses the header's own sequencer address.
-	fallbackSeqAddresses := []*felt.Felt{nil}
+	fallbackSeqAddresses := []*felt.Address{nil}
 	if b.SequencerAddress == nil {
-		fallbackSeqAddresses[0] = new(felt.Zero[felt.Felt]())
+		fallbackSeqAddresses[0] = new(felt.Zero[felt.Address]())
 		if metaInfo.FallBackSequencerAddress != nil {
 			fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
 		}
@@ -169,7 +169,7 @@ func BlockHash(
 	b *Block,
 	stateDiff *StateDiff,
 	network *networks.Network,
-	overrideSeqAddr *felt.Felt,
+	overrideSeqAddr *felt.Address,
 	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
@@ -215,20 +215,26 @@ func pre07Hash(
 	if stateDiff != nil {
 		sdLength = stateDiff.Length()
 	}
-	return crypto.PedersenElems[felt.Felt](
-		felt.NewFromUint64[felt.Felt](b.Number),           // block number
-		b.GlobalStateRoot,                                 // global state root
-		new(felt.Zero[felt.Felt]()),                       // reserved: sequencer address
-		new(felt.Zero[felt.Felt]()),                       // reserved: block timestamp
-		felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
-		&txCommitment,                                     // transaction commitment
-		new(felt.Zero[felt.Felt]()),                       // reserved: number of events
-		new(felt.Zero[felt.Felt]()),                       // reserved: event commitment
-		new(felt.Zero[felt.Felt]()),                       // reserved: protocol version
-		new(felt.Zero[felt.Felt]()),                       // reserved: extra data
-		chain,                                             // extra data: chain id
-		b.ParentHash,                                      // parent hash
-	), &BlockCommitments{TransactionCommitment: &txCommitment, StateDiffLength: sdLength}, nil
+	var digest crypto.PedersenDigest
+	blockHash := digest.
+		Update(felt.NewFromUint64[felt.Felt](b.Number)).           // block number
+		Update(b.GlobalStateRoot).                                 // global state root
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: sequencer address
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: block timestamp
+		Update(felt.NewFromUint64[felt.Felt](b.TransactionCount)). // number of transactions
+		Update(&txCommitment).                                     // transaction commitment
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: number of events
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: event commitment
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: protocol version
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: extra data
+		Update(chain).                                             // extra data: chain id
+		Update(b.ParentHash).                                      // parent hash
+		Finish[felt.Felt]()
+
+	return blockHash, &BlockCommitments{
+		TransactionCommitment: &txCommitment,
+		StateDiffLength:       sdLength,
+	}, nil
 }
 
 func post0134Hash(
@@ -279,23 +285,24 @@ func post0134Hash(
 		*b.L2GasPrice,
 	)
 
-	return crypto.PoseidonElems[felt.Felt](
-		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-		starknetBlockHash1,
-		felt.NewFromUint64[felt.Felt](b.Number),    // block number
-		b.GlobalStateRoot,                          // global state root
-		b.SequencerAddress,                         // sequencer address
-		felt.NewFromUint64[felt.Felt](b.Timestamp), // block timestamp
-		&concatCounts,
-		&sdCommitment,
-		&txCommitment, // transaction commitment
-		&eCommitment,  // event commitment
-		&rCommitment,  // receipt commitment
-		&pricesHash,   // gas prices hash
-		felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion)),
-		new(felt.Zero[felt.Felt]()), // reserved: extra data
-		b.ParentHash,                // parent block hash
-	), &BlockCommitments{
+	var digest crypto.PoseidonDigest
+	blockHash := digest.
+		Update(starknetBlockHash1).
+		Update(felt.NewFromUint64[felt.Felt](b.Number)).    // block number
+		Update(b.GlobalStateRoot).                          // global state root
+		Update(b.SequencerAddress).                         // sequencer address
+		Update(felt.NewFromUint64[felt.Felt](b.Timestamp)). // block timestamp
+		Update(&concatCounts).
+		Update(&sdCommitment).
+		Update(&txCommitment). // transaction commitment
+		Update(&eCommitment).  // event commitment
+		Update(&rCommitment).  // receipt commitment
+		Update(&pricesHash).   // gas prices hash
+		Update(felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion))).
+		Update(new(felt.Zero[felt.Felt]())). // reserved: extra data
+		Update(b.ParentHash).                // parent block hash
+		Finish[felt.Felt]()
+	return blockHash, &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,
 		ReceiptCommitment:     &rCommitment,
@@ -345,7 +352,7 @@ func Post0132Hash(
 
 	// These values are nil for some pre 0.13.2 blocks
 	// `crypto.PoseidonArray` panics if any of the values are nil
-	seqAddr := new(felt.Zero[felt.Felt]())
+	seqAddr := new(felt.Zero[felt.Address]())
 	gasPriceStrk := new(felt.Zero[felt.Felt]())
 	l1DataGasPriceInWei := new(felt.Zero[felt.Felt]())
 	l1DataGasPriceInFri := new(felt.Zero[felt.Felt]())
@@ -365,26 +372,28 @@ func Post0132Hash(
 		}
 	}
 
-	return crypto.PoseidonElems[felt.Felt](
-		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-		starknetBlockHash0,
-		felt.NewFromUint64[felt.Felt](b.Number), // block number
-		b.GlobalStateRoot,                       // global state root
-		seqAddr,                                 // sequencer address
-		felt.NewFromUint64[felt.Felt](b.Timestamp), // block timestamp
-		&concatCounts,
-		&sdCommitment,
-		&txCommitment,   // transaction commitment
-		&eCommitment,    // event commitment
-		&rCommitment,    // receipt commitment
-		b.L1GasPriceETH, // gas price in wei
-		gasPriceStrk,    // gas price in fri
-		l1DataGasPriceInWei,
-		l1DataGasPriceInFri,
-		felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion)),
-		new(felt.Zero[felt.Felt]()), // reserved: extra data
-		b.ParentHash,                // parent block hash
-	), &BlockCommitments{
+	var digest crypto.PoseidonDigest
+	blockHash := digest.
+		Update(starknetBlockHash0).
+		Update(felt.NewFromUint64[felt.Felt](b.Number)).    // block number
+		Update(b.GlobalStateRoot).                          // global state root
+		Update(seqAddr).                                    // sequencer address
+		Update(felt.NewFromUint64[felt.Felt](b.Timestamp)). // block timestamp
+		Update(&concatCounts).
+		Update(&sdCommitment).
+		Update(&txCommitment).   // transaction commitment
+		Update(&eCommitment).    // event commitment
+		Update(&rCommitment).    // receipt commitment
+		Update(b.L1GasPriceETH). // gas price in wei
+		Update(gasPriceStrk).    // gas price in fri
+		Update(l1DataGasPriceInWei).
+		Update(l1DataGasPriceInFri).
+		Update(felt.NewFromBytes[felt.Felt]([]byte(b.ProtocolVersion))).
+		Update(new(felt.Zero[felt.Felt]())). // reserved: extra data
+		Update(b.ParentHash).                // parent block hash
+		Finish[felt.Felt]()
+
+	return blockHash, &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,
 		ReceiptCommitment:     &rCommitment,
@@ -397,7 +406,7 @@ func Post0132Hash(
 func post07Hash(
 	b *Block,
 	stateDiff *StateDiff,
-	overrideSeqAddr *felt.Felt,
+	overrideSeqAddr *felt.Address,
 	backend TempTrieBackend,
 ) (felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
@@ -446,20 +455,22 @@ func post07Hash(
 	// - block timestamp
 	// - number of events
 	// - event commitment
-	return crypto.PedersenElems[felt.Felt](
-		//nolint:gci // gci and gofmt disagree on formatting (going with gofmt)
-		felt.NewFromUint64[felt.Felt](b.Number), // block number
-		b.GlobalStateRoot,                       // global state root
-		seqAddr,                                 // sequencer address
-		felt.NewFromUint64[felt.Felt](b.Timestamp),        // block timestamp
-		felt.NewFromUint64[felt.Felt](b.TransactionCount), // number of transactions
-		&txCommitment, // transaction commitment
-		felt.NewFromUint64[felt.Felt](b.EventCount), // number of events
-		&eCommitment,                // event commitment
-		new(felt.Zero[felt.Felt]()), // reserved: protocol version
-		new(felt.Zero[felt.Felt]()), // reserved: extra data
-		b.ParentHash,                // parent block hash
-	), &BlockCommitments{
+	var digest crypto.PedersenDigest
+	blockHash := digest.
+		Update(felt.NewFromUint64[felt.Felt](b.Number)).           // block number
+		Update(b.GlobalStateRoot).                                 // global state root
+		Update(seqAddr).                                           // sequencer address
+		Update(felt.NewFromUint64[felt.Felt](b.Timestamp)).        // block timestamp
+		Update(felt.NewFromUint64[felt.Felt](b.TransactionCount)). // number of transactions
+		Update(&txCommitment).                                     // transaction commitment
+		Update(felt.NewFromUint64[felt.Felt](b.EventCount)).       // number of events
+		Update(&eCommitment).                                      // event commitment
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: protocol version
+		Update(new(felt.Zero[felt.Felt]())).                       // reserved: extra data
+		Update(b.ParentHash).                                      // parent block hash
+		Finish[felt.Felt]()
+
+	return blockHash, &BlockCommitments{
 		TransactionCommitment: &txCommitment,
 		EventCommitment:       &eCommitment,
 		ReceiptCommitment:     &rCommitment,

@@ -34,7 +34,7 @@ func TestClass(t *testing.T) {
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
-		func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+		func(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 			class, err := integGw.Class(t.Context(), classHash)
 			return &core.DeclaredClassDefinition{Class: class, At: 0}, err
 		}).AnyTimes()
@@ -47,7 +47,7 @@ func TestClass(t *testing.T) {
 	latest := blockIDLatest(t)
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt](
+		hash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 		)
 
@@ -61,7 +61,7 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt](
+		hash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 		)
 
@@ -81,7 +81,7 @@ func TestClass(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.Felt]()))
+		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.ClassHash]()))
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -96,7 +96,7 @@ func TestClass(t *testing.T) {
 		}, nil)
 		mockState.EXPECT().Class(gomock.Any()).Return(nil, errors.New("class hash not found"))
 
-		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.Felt]()))
+		_, rpcErr := handler.Class(&latest, new(felt.Zero[felt.ClassHash]()))
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpccore.ErrClassHashNotFound, rpcErr)
 	})
@@ -113,13 +113,13 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
-	deprecatedCairoContractAddress := felt.NewRandom[felt.Felt]()
-	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
+	deprecatedCairoContractAddress := felt.NewRandom[felt.Address]()
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
 
-	cairo1ContractAddress := felt.NewRandom[felt.Felt]()
-	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+	cairo1ContractAddress := felt.NewRandom[felt.Address]()
+	sierraClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
 
@@ -134,7 +134,7 @@ func TestClassAt(t *testing.T) {
 	t.Run("sierra class", func(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*sierraClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
-			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			func(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 				class, err := integGw.Class(t.Context(), classHash)
 				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
 			},
@@ -153,7 +153,7 @@ func TestClassAt(t *testing.T) {
 			ContractClassHash(deprecatedCairoContractAddress).
 			Return(*deprecatedCairoClassHash, nil)
 		mockState.EXPECT().Class(gomock.Any()).DoAndReturn(
-			func(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+			func(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 				class, err := integGw.Class(t.Context(), classHash)
 				return &core.DeclaredClassDefinition{Class: class, At: 0}, err
 			},
@@ -181,8 +181,8 @@ func TestClassAt(t *testing.T) {
 	t.Run("class hash not found is reported as contract not found", func(t *testing.T) {
 		// Contract resolves to a class hash that has no declared class: getClassAt
 		// must return CONTRACT_NOT_FOUND, not CLASS_HASH_NOT_FOUND.
-		danglingAddress := felt.NewRandom[felt.Felt]()
-		unknownClassHash := felt.NewUnsafeFromString[felt.Felt]("0xcaf3")
+		danglingAddress := felt.NewRandom[felt.Address]()
+		unknownClassHash := felt.NewUnsafeFromString[felt.ClassHash]("0xcaf3")
 		mockState.EXPECT().ContractClassHash(danglingAddress).Return(*unknownClassHash, nil)
 		mockState.EXPECT().Class(gomock.Eq(unknownClassHash)).Return(nil, db.ErrKeyNotFound)
 
@@ -201,7 +201,7 @@ func TestClassHashAt(t *testing.T) {
 	logger := log.NewNopZapLogger()
 	handler := rpcv9.New(mockReader, mockSyncReader, nil, logger)
 
-	targetAddress := felt.FromUint64[felt.Felt](1234)
+	targetAddress := felt.FromUint64[felt.Address](1234)
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 		latest := blockIDLatest(t)
@@ -235,7 +235,7 @@ func TestClassHashAt(t *testing.T) {
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&targetAddress).
-			Return(felt.Felt{}, errors.New("non-existent contract"))
+			Return(felt.ClassHash{}, errors.New("non-existent contract"))
 		latest := blockIDLatest(t)
 		classHash, rpcErr := handler.ClassHashAt(&latest, &targetAddress)
 		require.Nil(t, classHash)
@@ -253,7 +253,7 @@ func TestClassHashAt(t *testing.T) {
 		}
 	})
 
-	expectedClassHash := felt.NewFromUint64[felt.Felt](3)
+	expectedClassHash := felt.NewFromUint64[felt.ClassHash](3)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -309,7 +309,7 @@ func TestClassHashAt(t *testing.T) {
 
 	//nolint:dupl // shares structure with the nonce tip test but exercises class-hash resolution
 	t.Run("blockID - pre_confirmed multi-block chain returns tip class hash", func(t *testing.T) {
-		oldClassHash := felt.NewFromUint64[felt.Felt](42)
+		oldClassHash := felt.NewFromUint64[felt.ClassHash](42)
 
 		baseStateDiff := core.EmptyStateDiff()
 		baseStateDiff.DeployedContracts[targetAddress] = oldClassHash
@@ -341,7 +341,7 @@ func TestClassHashAt(t *testing.T) {
 			core.L1Head{
 				BlockNumber: l1HeadBlockNumber,
 				BlockHash:   new(felt.Zero[felt.Felt]()),
-				StateRoot:   new(felt.Zero[felt.Felt]()),
+				StateRoot:   new(felt.Zero[felt.StateRootHash]()),
 			},
 			nil,
 		)
@@ -349,7 +349,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := blockIDL1Accepted(t)
-		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Felt]()))
+		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Address]()))
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
@@ -361,7 +361,7 @@ func TestClassHashAt(t *testing.T) {
 			core.L1Head{
 				BlockNumber: l1HeadAhead,
 				BlockHash:   new(felt.Zero[felt.Felt]()),
-				StateRoot:   new(felt.Zero[felt.Felt]()),
+				StateRoot:   new(felt.Zero[felt.StateRootHash]()),
 			},
 			nil,
 		)
@@ -369,7 +369,7 @@ func TestClassHashAt(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(chainHeight).Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 		l1AcceptedID := blockIDL1Accepted(t)
-		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Felt]()))
+		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, new(felt.Zero[felt.Address]()))
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})

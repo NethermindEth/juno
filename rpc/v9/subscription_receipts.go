@@ -27,7 +27,7 @@ import (
 //nolint:lll,nolintlint // url exceeds line limit, nolintlint because conflicting line limit with other lint rules
 func (h *Handler) SubscribeNewTransactionReceipts(
 	ctx context.Context,
-	senderAddress []felt.Felt,
+	senderAddress []felt.Address,
 	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, *jsonrpc.Error) {
 	wsConn, ok := jsonrpc.ConnFromContext(ctx)
@@ -47,13 +47,13 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 // goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
 type receiptsSubscriberState struct {
 	conn    jsonrpc.Conn
-	senders []felt.Felt
+	senders []felt.Address
 	deduper *rpccore.PreConfirmedDeduper[felt.TransactionHash]
 }
 
 func newReceiptsSubscriber(
 	conn jsonrpc.Conn,
-	senders []felt.Felt,
+	senders []felt.Address,
 	finalityStatuses []TxnFinalityStatusWithoutL1,
 ) (subscriber, *jsonrpc.Error) {
 	if len(senders) > rpccore.MaxEventFilterKeys {
@@ -131,7 +131,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 		return s.deduper.MarkSent(
 			block.Number,
 			preConfirmed.BlockIdentifier,
-			(*felt.TransactionHash)(txn.Hash()),
+			txn.Hash(),
 		)
 	}
 
@@ -146,7 +146,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 // receiptsOf yields each sender-matching receipt in the block, adapted to an RPC receipt.
 func receiptsOf(
 	block *core.Block,
-	senders []felt.Felt,
+	senders []felt.Address,
 	finalityStatus TxnFinalityStatusWithoutL1,
 	shouldSend func(core.Transaction) bool,
 ) iter.Seq[TransactionReceiptWithBlockInfo] {

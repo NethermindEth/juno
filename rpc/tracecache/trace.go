@@ -22,7 +22,7 @@ const DefaultBlockCapacity = 256
 
 // TransactionTrace holds one source trace and its RPC adaptation metadata.
 type TransactionTrace struct {
-	Hash felt.Felt
+	Hash felt.TransactionHash
 	Type vm.TransactionType // Set by [FromFeeder]; VM traces carry their own type.
 	Gas  core.GasConsumed
 
@@ -69,7 +69,7 @@ func (b *BlockTrace) CoversTarget(target *TransactionTarget, initialReads bool) 
 func (b *BlockTrace) ValidTarget(target *TransactionTarget) bool {
 	return target == nil || (target.Hash != nil &&
 		target.Index < uint64(len(b.Traces)) &&
-		b.Traces[target.Index].Hash.Equal((*felt.Felt)(target.Hash)))
+		b.Traces[target.Index].Hash.Equal(target.Hash))
 }
 
 // TransactionTarget identifies the transaction to trace.

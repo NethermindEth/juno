@@ -21,7 +21,7 @@ type TransactionReceipt struct {
 	ExecutionResources *ExecutionResources
 	L1ToL2Message      *L1ToL2Message
 	L2ToL1Message      []*L2ToL1Message
-	TransactionHash    *felt.Felt
+	TransactionHash    *felt.TransactionHash
 	Reverted           bool
 	RevertReason       string
 }
@@ -37,7 +37,7 @@ type TransactionExecutionStatus struct {
 // hash of the transaction that emitted them.
 type TransactionEvents struct {
 	Events          []*Event
-	TransactionHash *felt.Felt
+	TransactionHash *felt.TransactionHash
 }
 
 func (r *TransactionReceipt) hash() felt.Felt {
@@ -56,15 +56,16 @@ func (r *TransactionReceipt) hash() felt.Felt {
 	sentMessageHash := messagesSentHash(r.L2ToL1Message)
 	l1GasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1Gas)
 	l1DataGasFelt := felt.FromUint64[felt.Felt](totalGasConsumed.L1DataGas)
-	return crypto.PoseidonElems[felt.Felt](
-		r.TransactionHash,
-		r.Fee,
-		&sentMessageHash,
-		revertReasonHash,
-		new(felt.Zero[felt.Felt]()), // L2 gas consumed
-		&l1GasFelt,
-		&l1DataGasFelt,
-	)
+	var digest crypto.PoseidonDigest
+	digest.
+		Update(r.TransactionHash).
+		Update(r.Fee).
+		Update(&sentMessageHash).
+		Update(revertReasonHash).
+		Update(new(felt.Zero[felt.Felt]())). // L2 gas consumed
+		Update(&l1GasFelt).
+		Update(&l1DataGasFelt)
+	return digest.Finish[felt.Felt]()
 }
 
 func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
@@ -83,7 +84,7 @@ func messagesSentHash(messages []*L2ToL1Message) felt.Felt {
 }
 
 func receiptCommitment(receipts []*TransactionReceipt, backend TempTrieBackend) (felt.Felt, error) {
-	return calculateCommitment(
+	return calculateCommitment[felt.Felt](
 		receipts,
 		backend.RunOnTempTriePoseidon,
 		func(receipt *TransactionReceipt) felt.Felt {
@@ -95,13 +96,13 @@ func receiptCommitment(receipts []*TransactionReceipt, backend TempTrieBackend) 
 type processFunc[T any] func(T) felt.Felt
 
 // General function for parallel processing of items and calculation of a commitment
-func calculateCommitment[T any](
+func calculateCommitment[R felt.FeltLike, T any](
 	items []T,
 	runOnTempTrie onTempTrieFunc,
 	process processFunc[T],
-) (felt.Felt, error) {
+) (R, error) {
 	var commitment *felt.Felt
-	return *commitment, runOnTempTrie(commitmentTrieHeight, func(trie Trie) error {
+	return R(*commitment), runOnTempTrie(commitmentTrieHeight, func(trie Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
 		results := make([]felt.Felt, len(items))
 		var wg sync.WaitGroup
