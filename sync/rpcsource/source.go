@@ -176,29 +176,29 @@ func (s *Source) fetchBlock(
 	}
 
 	return sync.CommittedBlock{
-		Block:       block,
+		Block:       &block,
 		StateUpdate: stateUpdate,
 		NewClasses:  newClasses,
 		Persisted:   make(chan error, 1),
 	}, nil
 }
 
-func (s *Source) block(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+func (s *Source) block(ctx context.Context, blockNumber uint64) (core.Block, error) {
 	response, err := s.client.Call(
 		ctx,
 		starknetrpc.BlockWithReceipts,
 		starknetrpc.BlockWithReceiptsParams{BlockNumber: blockNumber},
 	)
 	if err != nil {
-		return nil, err
+		return core.Block{}, err
 	}
 
 	block, err := rpc2core.AdaptBlock(response, s.blockchain.Network())
 	if err != nil {
-		return nil, fmt.Errorf("adapting block %d: %w", blockNumber, err)
+		return core.Block{}, fmt.Errorf("adapting block %d: %w", blockNumber, err)
 	}
 
-	return &block, nil
+	return block, nil
 }
 
 func (s *Source) stateUpdate(
