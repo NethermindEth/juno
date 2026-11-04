@@ -229,6 +229,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			return nil, errors.New("--rpc-sync-url cannot be combined with --p2p; " +
 				"remove --p2p or --rpc-sync-url")
 		}
+		if cfg.RemoteDB != "" {
+			return nil, errors.New("--rpc-sync-url cannot be combined with --remote-db; " +
+				"remove --remote-db or --rpc-sync-url")
+		}
 		if cfg.DisableSync {
 			return nil, errors.New("--rpc-sync-url requires synchronization; " +
 				"remove --rpc-sync-url or --disable-sync")

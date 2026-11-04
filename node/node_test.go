@@ -254,6 +254,10 @@ func TestNewRejectsModesThatBypassRPCSync(t *testing.T) {
 			config:    node.Config{P2P: true},
 			errString: "rpc-sync-url cannot be combined with --p2p",
 		},
+		"remote database": {
+			config:    node.Config{RemoteDB: "localhost:6064"},
+			errString: "rpc-sync-url cannot be combined with --remote-db",
+		},
 	}
 
 	for name, test := range tests {
