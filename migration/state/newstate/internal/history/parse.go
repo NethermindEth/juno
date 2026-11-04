@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 )
 
 func parseBlockKey(key, prefix []byte) (uint64, error) {
@@ -25,4 +26,13 @@ func parseStorageKey(key, prefix []byte) (felt.Felt, uint64, error) {
 	slot := felt.FromBytes[felt.Felt](key[len(prefix) : len(prefix)+felt.Bytes])
 	block := binary.BigEndian.Uint64(key[len(prefix)+felt.Bytes:])
 	return slot, block, nil
+}
+
+func hasEntries(r db.KeyValueReader, prefix []byte) (bool, error) {
+	it, err := r.NewIterator(prefix, true)
+	if err != nil {
+		return false, err
+	}
+	found := it.First()
+	return found, it.Close()
 }
