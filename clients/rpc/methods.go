@@ -1,4 +1,4 @@
-package starknetrpc
+package rpc
 
 import (
 	"github.com/NethermindEth/juno/core/felt"

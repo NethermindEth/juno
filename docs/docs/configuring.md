@@ -128,6 +128,16 @@ import ConfigOptions from "./_config-options.md";
 <ConfigOptions />
 ```
 
+## Syncing from an RPC node
+
+By default, Juno fetches committed blocks from the feeder gateway. With `--rpc-sync-url`, it fetches them from a trusted Starknet JSON-RPC v0.10 node instead (for example another Juno at `http://<host>:6060/v0_10` or `ws://<host>:6061/v0_10`, or Pathfinder at `http://<host>:9545/rpc/v0_10`). The scheme selects the transport: `http`/`https` or `ws`/`wss`. Blocks go through the same verification as feeder gateway blocks, so a node synced this way ends up with the same block hashes, state roots and commitments.
+
+The feeder gateway is still used for pre-confirmed blocks, transaction forwarding and fallbacks, and the RPC client shares `--gw-timeouts` and the `/feeder/timeouts` endpoint with the feeder client. Before syncing starts, Juno checks that the node serves the configured network and spec version 0.10 and refuses to start otherwise. `--rpc-sync-url` cannot be combined with `--p2p`, `--seq-enable` or `--disable-sync`.
+
+```bash
+./build/juno --network sepolia --rpc-sync-url http://<host>:6060/v0_10 --db-path /var/lib/juno
+```
+
 ## Subcommands
 
 Juno provides several subcommands to perform specific tasks or operations. Here are the available ones:
