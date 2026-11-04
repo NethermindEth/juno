@@ -3,12 +3,13 @@ package starknetrpc_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"slices"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/NethermindEth/juno/clients/starknetrpc"
@@ -87,14 +88,12 @@ func requireNoRPCError(t *testing.T, rpcErr *jsonrpc.Error) {
 	}
 }
 
-// runCall checks that client answers m like the handler call want does. want may answer by
+// runCall checks that call answers like the handler call want does. want may answer by
 // value or by pointer; normalize runs on both sides before they are compared.
-func runCall[P starknetrpc.Params, R, W any](
+func runCall[R, W any](
 	t *testing.T,
-	client *starknetrpc.Client,
 	name string,
-	m starknetrpc.Method[P, R],
-	p P,
+	call func(ctx context.Context) (*R, error),
 	want func() (W, *jsonrpc.Error),
 	normalize ...func(*R),
 ) {
@@ -102,7 +101,7 @@ func runCall[P starknetrpc.Params, R, W any](
 		answer, rpcErr := want()
 		requireNoRPCError(t, rpcErr)
 
-		got, err := client.Call(t.Context(), m, p)
+		got, err := call(t.Context())
 
 		require.NoError(t, err)
 		expected := decodeInto[R](t, answer)
@@ -184,7 +183,6 @@ func TestNew(t *testing.T) {
 			t.Cleanup(client.Close)
 			assert.Equal(t, "rpcsync", client.Name())
 			assert.Equal(t, timeouts.String(), client.Timeouts())
-			starknetrpc.AssertDefaultBackoff(t, client)
 		})
 	}
 }
@@ -231,44 +229,68 @@ func TestCall(t *testing.T) {
 	deprecatedClass := felt.NewUnsafeFromString[felt.Felt](testutils.DeprecatedClassHash)
 	sierraClass := felt.NewUnsafeFromString[felt.Felt](testutils.SierraClassHash)
 
-	runCall(t, client, "chain id", starknetrpc.ChainID, starknetrpc.NoParams{}, handler.ChainID)
 	runCall(
-		t, client, "spec version",
-		starknetrpc.SpecVersion, starknetrpc.NoParams{}, handler.SpecVersion,
+		t, "chain id",
+		func(ctx context.Context) (*felt.Felt, error) {
+			return client.Call(ctx, starknetrpc.ChainID, starknetrpc.NoParams{})
+		},
+		handler.ChainID,
 	)
 	runCall(
-		t, client, "block hash and number",
-		starknetrpc.BlockHashAndNumber, starknetrpc.NoParams{}, handler.BlockHashAndNumber,
+		t, "spec version",
+		func(ctx context.Context) (*string, error) {
+			return client.Call(ctx, starknetrpc.SpecVersion, starknetrpc.NoParams{})
+		},
+		handler.SpecVersion,
 	)
 	runCall(
-		t, client, "block with receipts",
-		starknetrpc.BlockWithReceipts,
-		starknetrpc.BlockWithReceiptsParams{BlockNumber: blockNumber},
+		t, "block hash and number",
+		func(ctx context.Context) (*rpcv10.BlockHashAndNumber, error) {
+			return client.Call(ctx, starknetrpc.BlockHashAndNumber, starknetrpc.NoParams{})
+		},
+		handler.BlockHashAndNumber,
+	)
+	runCall(
+		t, "block with receipts",
+		func(ctx context.Context) (*rpcv10.BlockWithReceipts, error) {
+			params := starknetrpc.BlockWithReceiptsParams{BlockNumber: blockNumber}
+			return client.Call(ctx, starknetrpc.BlockWithReceipts, params)
+		},
 		func() (*rpcv10.BlockWithReceipts, *jsonrpc.Error) {
 			return handler.BlockWithReceipts(&blockID, rpcv10.ResponseFlags{IncludeProofFacts: true})
 		},
 	)
 	runCall(
-		t, client, "state update",
-		starknetrpc.StateUpdate, starknetrpc.BlockParams{BlockNumber: blockNumber},
+		t, "state update",
+		func(ctx context.Context) (*rpcv10.StateUpdate, error) {
+			params := starknetrpc.BlockParams{BlockNumber: blockNumber}
+			return client.Call(ctx, starknetrpc.StateUpdate, params)
+		},
 		func() (rpcv10.StateUpdate, *jsonrpc.Error) { return handler.StateUpdate(&blockID, nil) },
 		func(update *rpcv10.StateUpdate) { sortStateDiff(update.StateDiff) },
 	)
 	runCall(
-		t, client, "deprecated class",
-		starknetrpc.Class,
-		starknetrpc.ClassParams{BlockNumber: blockNumber, ClassHash: deprecatedClass},
+		t, "deprecated class",
+		func(ctx context.Context) (*rpcv10.Class, error) {
+			params := starknetrpc.ClassParams{BlockNumber: blockNumber, ClassHash: deprecatedClass}
+			return client.Call(ctx, starknetrpc.Class, params)
+		},
 		func() (*rpcv10.Class, *jsonrpc.Error) { return handler.Class(&blockID, deprecatedClass) },
 	)
 	runCall(
-		t, client, "sierra class",
-		starknetrpc.Class,
-		starknetrpc.ClassParams{BlockNumber: blockNumber, ClassHash: sierraClass},
+		t, "sierra class",
+		func(ctx context.Context) (*rpcv10.Class, error) {
+			params := starknetrpc.ClassParams{BlockNumber: blockNumber, ClassHash: sierraClass}
+			return client.Call(ctx, starknetrpc.Class, params)
+		},
 		func() (*rpcv10.Class, *jsonrpc.Error) { return handler.Class(&blockID, sierraClass) },
 	)
 	runCall(
-		t, client, "compiled casm",
-		starknetrpc.CompiledCasm, starknetrpc.ClassHashParams{ClassHash: sierraClass},
+		t, "compiled casm",
+		func(ctx context.Context) (*rpcv10.CompiledCasmResponse, error) {
+			params := starknetrpc.ClassHashParams{ClassHash: sierraClass}
+			return client.Call(ctx, starknetrpc.CompiledCasm, params)
+		},
 		func() (rpcv10.CompiledCasmResponse, *jsonrpc.Error) {
 			return handler.CompiledCasm(sierraClass)
 		},
@@ -314,6 +336,48 @@ func TestCallRetries(t *testing.T) {
 			},
 			wantRequests: 3,
 			wantErr:      func(t *testing.T, err error) { require.NoError(t, err) },
+		},
+		{
+			name: "timed out requests are retried",
+			serve: func(context.CancelFunc) func(int64, *http.Request) bool {
+				return func(request int64, r *http.Request) bool {
+					if request > 1 {
+						return true
+					}
+					// The server notices the client hanging up only once it has read the body.
+					if _, err := io.Copy(io.Discard, r.Body); err == nil {
+						<-r.Context().Done()
+					}
+					return false
+				}
+			},
+			opts: []starknetrpc.Option{starknetrpc.WithMaxRetries(1)},
+			call: func(ctx context.Context, client *starknetrpc.Client) error {
+				_, err := client.Call(ctx, starknetrpc.ChainID, starknetrpc.NoParams{})
+				return err
+			},
+			wantRequests: 2,
+			wantErr:      func(t *testing.T, err error) { require.NoError(t, err) },
+		},
+		{
+			name:  "other rpc errors are retried",
+			serve: func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
+			opts:  []starknetrpc.Option{starknetrpc.WithMaxRetries(2)},
+			call: func(ctx context.Context, client *starknetrpc.Client) error {
+				params := starknetrpc.ClassParams{
+					BlockNumber: testutils.ChainHeight - 1,
+					ClassHash:   felt.NewFromUint64[felt.Felt](1),
+				}
+				_, err := client.Call(ctx, starknetrpc.Class, params)
+				return err
+			},
+			wantRequests: 3,
+			wantErr: func(t *testing.T, err error) {
+				var rpcErr gethrpc.Error
+				require.ErrorAs(t, err, &rpcErr)
+				assert.Equal(t, rpccore.ErrClassHashNotFound.Code, rpcErr.ErrorCode())
+				assert.Contains(t, err.Error(), "giving up after 2 retries")
+			},
 		},
 		{
 			name:  "gives up after max retries",
@@ -367,6 +431,31 @@ func TestCallRetries(t *testing.T) {
 	}
 }
 
+func TestCallDefaultBackoff(t *testing.T) {
+	const wantBackoff = 500*time.Millisecond + time.Second + 8*2*time.Second
+	handler := newGate(http.NotFoundHandler(), serveNone)
+	// synctest advances time only once every goroutine in the bubble is durably blocked: the
+	// server lives outside it, and closed connections keep the transport out of network reads.
+	serverURL := testutils.Listen(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Connection", "close")
+		handler.ServeHTTP(w, r)
+	}))
+
+	synctest.Test(t, func(t *testing.T) {
+		timeouts := timeout.New([]time.Duration{time.Second}, true)
+		client, err := starknetrpc.New(t.Context(), serverURL, timeouts, log.NewNopZapLogger())
+		require.NoError(t, err)
+		t.Cleanup(client.Close)
+		start := time.Now()
+
+		_, err = client.Call(t.Context(), starknetrpc.ChainID, starknetrpc.NoParams{})
+
+		require.ErrorContains(t, err, "giving up after 10 retries")
+		assert.Equal(t, wantBackoff, time.Since(start))
+		assert.Equal(t, int64(11), handler.requests.Load())
+	})
+}
+
 func TestCallAdaptsTimeouts(t *testing.T) {
 	const (
 		initialTimeout = 50 * time.Millisecond
@@ -415,7 +504,7 @@ func TestCallAdaptsTimeouts(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			starknetrpc.AssertCurrentTimeout(t, client, step.wantTimeout)
+			assert.Equal(t, step.wantTimeout, timeouts.GetCurrentTimeout())
 		})
 	}
 }
@@ -513,68 +602,6 @@ func TestSetTimeouts(t *testing.T) {
 			client.SetTimeouts(tt.timeouts, tt.fixed)
 
 			assert.Equal(t, timeout.New(tt.timeouts, tt.fixed).String(), client.Timeouts())
-		})
-	}
-}
-
-func TestErrorClassification(t *testing.T) {
-	remote := testutils.Serve(t, testutils.NewChain(t))
-	client := newClient(t, remote, starknetrpc.WithMaxRetries(0))
-	ctx := t.Context()
-
-	params := starknetrpc.BlockParams{BlockNumber: testutils.MissingBlockNumber}
-	_, blockNotFound := client.Call(ctx, starknetrpc.StateUpdate, params)
-	require.Error(t, blockNotFound)
-
-	gethClient, err := gethrpc.DialContext(ctx, testutils.Listen(t, remote).String())
-	require.NoError(t, err)
-	t.Cleanup(gethClient.Close)
-
-	invalidParams := gethClient.CallContext(ctx, nil, "starknet_getClass")
-	require.Error(t, invalidParams)
-
-	tests := []struct {
-		name          string
-		err           error
-		wantRetryable bool
-		wantOutcome   string
-	}{
-		{
-			name:          "plain error",
-			err:           errors.New("boom"),
-			wantRetryable: true,
-			wantOutcome:   "error",
-		},
-		{
-			name:          "http error",
-			err:           gethrpc.HTTPError{StatusCode: http.StatusBadGateway},
-			wantRetryable: true,
-			wantOutcome:   "error",
-		},
-		{
-			name:          "deadline exceeded",
-			err:           context.DeadlineExceeded,
-			wantRetryable: true,
-			wantOutcome:   "error",
-		},
-		{
-			name:          "block not found",
-			err:           blockNotFound,
-			wantRetryable: false,
-			wantOutcome:   "24",
-		},
-		{
-			name:          "invalid params",
-			err:           invalidParams,
-			wantRetryable: true,
-			wantOutcome:   "-32602",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantRetryable, starknetrpc.Retryable(tt.err))
-			assert.Equal(t, tt.wantOutcome, starknetrpc.Outcome(tt.err))
 		})
 	}
 }
