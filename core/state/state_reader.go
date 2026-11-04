@@ -294,8 +294,8 @@ func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.F
 //	stored: (prefix, 10) -> 7   (prefix, 25) -> 42
 //	query @ 5  -> no entry <= 5               -> ErrNoHistoryValue (-> Zero)
 //	query @ 10 -> exact hit on (prefix, 10)   -> 7
-//	query @ 20 -> Seek lands on 25, Prev -> 10 -> 7
-//	query @ 30 -> Seek fails, Prev -> 25       -> 42
+//	query @ 20 -> last entry <= 20 is 10       -> 7
+//	query @ 30 -> last entry <= 30 is 25       -> 42
 func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) error) error {
 	it, err := s.db.disk.NewIterator(prefix, true)
 	if err != nil {
@@ -303,12 +303,8 @@ func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte
 	}
 	defer it.Close()
 
-	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
-
-	if !it.SeekGE(seekKey) || binary.BigEndian.Uint64(it.Key()[len(prefix):]) != blockNum {
-		if !it.Prev() {
-			return ErrNoHistoryValue
-		}
+	if !seekAtOrBefore(it, prefix, blockNum) {
+		return ErrNoHistoryValue
 	}
 
 	val, err := it.Value()
@@ -332,23 +328,18 @@ func (s *StateReader) lastUpdatedBlockNumber(
 	}
 	defer it.Close()
 
-	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
-
-	if it.SeekGE(seekKey) {
-		seekedKey := it.Key()
-		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
-		if seekedBlock == upToBlock {
-			return upToBlock, nil
-		}
-	}
-
-	if !it.Prev() {
+	if !seekAtOrBefore(it, historyKeyPrefix, upToBlock) {
 		return 0, nil
 	}
+	return binary.BigEndian.Uint64(it.Key()[len(historyKeyPrefix):]), nil
+}
 
-	foundKey := it.Key()
-	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
-	return blockNum, nil
+// seekAtOrBefore moves it, bounded to prefix, to the last history entry at or before blockNum.
+func seekAtOrBefore(it db.Iterator, prefix []byte, blockNum uint64) bool {
+	if blockNum == math.MaxUint64 {
+		return it.Last()
+	}
+	return it.SeekLT(binary.BigEndian.AppendUint64(prefix, blockNum+1))
 }
 
 // Calculate the commitment of the state.
