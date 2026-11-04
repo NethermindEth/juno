@@ -353,6 +353,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	var p2pService *p2p.Service
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 
+	// Run closes the RPC sync client of a node New returns.
+	built := false
+	defer func() {
+		if !built && rpcSyncClient != nil {
+			rpcSyncClient.Close()
+		}
+	}()
+
 	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
 		junoPlugin, err = plugin.Load(cfg.PluginPath)
@@ -791,6 +799,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		)
 	}
 
+	built = true
 	return n, nil
 }
 
