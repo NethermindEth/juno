@@ -69,7 +69,18 @@ func (s *stager) Run(index int, task stageTask, outputs chan<- db.Batch) error {
 		}
 		historyKey := key[:len(key)-blockNumberSuffixLen]
 		if binary.BigEndian.Uint64(key[len(historyKey):]) < s.floor {
-			ok = s.layout.seekStart(it, historyKey, s.floor)
+			var belowKey, belowVal []byte
+			ok, belowKey, belowVal, err = s.layout.seekStart(it, historyKey, s.floor)
+			if err != nil {
+				return err
+			}
+			if belowKey != nil {
+				if err := batch.Put(scratchKey(belowKey), belowVal); err != nil {
+					return err
+				}
+				size += uint64(len(belowKey) + len(belowVal))
+				entries++
+			}
 		}
 		for ; ok; ok = it.Next() {
 			key := it.Key()
