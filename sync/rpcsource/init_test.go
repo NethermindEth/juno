@@ -1,4 +1,4 @@
-package rpcsource
+package rpcsource_test
 
 import (
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"

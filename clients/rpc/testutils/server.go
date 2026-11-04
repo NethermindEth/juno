@@ -55,11 +55,7 @@ func NewChainFor(
 	genesisClassHashes ...string,
 ) *blockchain.Blockchain {
 	t.Helper()
-	chain := blockchain.New(
-		memory.New(),
-		network,
-		blockchain.WithNewState(statetestutils.UseNewState()),
-	)
+	chain := newEmptyChain(network)
 	client := feeder.NewTestClient(t, network)
 	genesisClasses := fetchClasses(t, adaptfeeder.New(client), genesisClassHashes...)
 	for number := range height {
@@ -78,6 +74,42 @@ func NewChainFor(
 		))
 	}
 	return chain
+}
+
+// NewGenesisChain declares the classes in a genesis of its own, since no test data chain
+// declares a Sierra class in a block.
+func NewGenesisChain(
+	t testing.TB,
+	network *networks.Network,
+	classHashes ...string,
+) *blockchain.Blockchain {
+	t.Helper()
+	classes := fetchClasses(t, adaptfeeder.New(feeder.NewTestClient(t, network)), classHashes...)
+	diff := declaringDiff(classes)
+	chain := newEmptyChain(network)
+	require.NoError(t, chain.StoreGenesis(&diff, classes))
+	return chain
+}
+
+func newEmptyChain(network *networks.Network) *blockchain.Blockchain {
+	return blockchain.New(
+		memory.New(),
+		network,
+		blockchain.WithNewState(statetestutils.UseNewState()),
+	)
+}
+
+func declaringDiff(classes map[felt.Felt]core.ClassDefinition) core.StateDiff {
+	diff := core.EmptyStateDiff()
+	for classHash, class := range classes {
+		if sierra, ok := class.(*core.SierraClass); ok {
+			compiledClassHash := sierra.Compiled.Hash(core.HashVersionV1)
+			diff.DeclaredV1Classes[classHash] = &compiledClassHash
+		} else {
+			diff.DeclaredV0Classes = append(diff.DeclaredV0Classes, &classHash)
+		}
+	}
+	return diff
 }
 
 func Serve(t testing.TB, chain *blockchain.Blockchain) http.Handler {

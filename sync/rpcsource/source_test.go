@@ -1,4 +1,4 @@
-package rpcsource
+package rpcsource_test
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,9 +103,11 @@ func newUnreachableClient(t *testing.T) *rpc.Client {
 	return client
 }
 
-func newSource(t *testing.T, chain *blockchain.Blockchain, client *rpc.Client) *Source {
+func newSource(t *testing.T, chain *blockchain.Blockchain, client *rpc.Client) *rpcsource.Source {
 	t.Helper()
-	return New(chain, client, log.NewNopZapLogger(), WithErrorPause(time.Millisecond))
+	return rpcsource.New(
+		chain, client, log.NewNopZapLogger(), rpcsource.WithErrorPause(time.Millisecond),
+	)
 }
 
 func classHashes(classes map[felt.Felt]core.ClassDefinition) []felt.Felt {
@@ -245,17 +248,20 @@ func TestBlockByNumber(t *testing.T) {
 	}
 }
 
-func TestClass(t *testing.T) {
-	remote := testutils.NewChain(t)
+func TestBlockByNumberFetchesClassDefinitions(t *testing.T) {
+	remote := testutils.NewGenesisChain(
+		t, &networks.Sepolia, testutils.DeprecatedClassHash, testutils.SierraClassHash,
+	)
 	client := newClient(t, testutils.Serve(t, remote))
 	source := newSource(t, newLocalChain(t, remote.Network()), client)
-	blockNumber := uint64(testutils.ChainHeight - 1)
+
+	got, err := source.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
 		classHash string
 		wantType  core.ClassDefinition
-		wantErr   string
 	}{
 		{
 			name:      "deprecated class",
@@ -267,24 +273,14 @@ func TestClass(t *testing.T) {
 			classHash: testutils.SierraClassHash,
 			wantType:  &core.SierraClass{},
 		},
-		{
-			name:      "unknown class",
-			classHash: "0x1",
-			wantErr:   "fetching class 0x1",
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			classHash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
 
-			class, err := source.class(t.Context(), blockNumber, classHash)
+			class := got.NewClasses[*classHash]
 
-			if tt.wantErr != "" {
-				require.ErrorContains(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
 			require.IsType(t, tt.wantType, class)
 			if sierra, ok := class.(*core.SierraClass); ok {
 				assert.NotNil(t, sierra.Compiled)
@@ -305,7 +301,6 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 		name           string
 		client         func(t *testing.T) *rpc.Client
 		ctx            func(t *testing.T) context.Context
-		wantNotFound   bool
 		wantMinElapsed time.Duration
 		wantMaxElapsed time.Duration
 		wantLevel      zapcore.Level
@@ -315,7 +310,6 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 			name:           "waits before reporting a missing block",
 			client:         func(t *testing.T) *rpc.Client { return newClient(t, remote) },
 			ctx:            func(t *testing.T) context.Context { return t.Context() },
-			wantNotFound:   true,
 			wantMinElapsed: errorPause,
 			wantMaxElapsed: syncTimeout,
 			wantLevel:      zapcore.DebugLevel,
@@ -338,7 +332,6 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 				t.Cleanup(cancel)
 				return ctx
 			},
-			wantNotFound:   true,
 			wantMinElapsed: cancelAfter,
 			wantMaxElapsed: errorPause,
 			wantLevel:      zapcore.DebugLevel,
@@ -359,11 +352,11 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logCore, logs := observer.New(zapcore.DebugLevel)
-			source := New(
+			source := rpcsource.New(
 				newLocalChain(t, &networks.Sepolia),
 				tt.client(t),
 				log.NewZapLoggerWithCore(logCore),
-				WithErrorPause(errorPause),
+				rpcsource.WithErrorPause(errorPause),
 			)
 			start := time.Now()
 
@@ -371,7 +364,6 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 
 			elapsed := time.Since(start)
 			require.Error(t, err)
-			assert.Equal(t, tt.wantNotFound, isBlockNotFound(err))
 			assert.Equal(t, sync.CommittedBlock{}, got)
 			assert.GreaterOrEqual(t, elapsed, tt.wantMinElapsed)
 			assert.Less(t, elapsed, tt.wantMaxElapsed)
