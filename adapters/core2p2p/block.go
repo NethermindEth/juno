@@ -91,7 +91,7 @@ func adaptL1DA(da core.L1DAMode) common.L1DataAvailabilityMode {
 	}
 }
 
-func AdaptEvent(e *core.Event, txH *felt.Felt) *event.Event {
+func AdaptEvent(e *core.Event, txH *felt.TransactionHash) *event.Event {
 	if e == nil {
 		return nil
 	}

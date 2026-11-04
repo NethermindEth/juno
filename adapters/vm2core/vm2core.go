@@ -62,17 +62,20 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 	// Preallocate all maps with known sizes from fromStateDiff
 	toStateDiff = core.StateDiff{
 		StorageDiffs: make(
-			map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs),
+			map[felt.Address]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs),
 		),
-		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
-		DeclaredV0Classes: make([]*felt.Felt, len(fromStateDiff.DeprecatedDeclaredClasses)),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses)),
+		Nonces:            make(map[felt.Address]*felt.Felt, len(fromStateDiff.Nonces)),
+		DeployedContracts: make(map[felt.Address]*felt.ClassHash, len(fromStateDiff.DeployedContracts)),
+		DeclaredV0Classes: make([]*felt.ClassHash, len(fromStateDiff.DeprecatedDeclaredClasses)),
+		DeclaredV1Classes: make(
+			map[felt.SierraClassHash]*felt.CasmClassHash,
+			len(fromStateDiff.DeclaredClasses),
+		),
 		MigratedClasses: make(
 			map[felt.SierraClassHash]felt.CasmClassHash,
 			len(fromStateDiff.MigratedCompiledClasses),
 		),
-		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
+		ReplacedClasses: make(map[felt.Address]*felt.ClassHash, len(fromStateDiff.ReplacedClasses)),
 	}
 
 	for _, sd := range fromStateDiff.StorageDiffs {

@@ -122,7 +122,7 @@ func collectAllEvents(t *testing.T, h *rpc.Handler, args *rpc.EventArgs) []rpc.E
 func filterEventsByAddress(events []rpc.EmittedEvent, address *felt.Address) []rpc.EmittedEvent {
 	var filtered []rpc.EmittedEvent
 	for _, event := range events {
-		if event.From != nil && event.From.Equal((*felt.Felt)(address)) {
+		if event.From != nil && event.From.Equal(address) {
 			filtered = append(filtered, event)
 		}
 	}
@@ -138,7 +138,7 @@ func filterEventsByAddressAndKey(
 ) []rpc.EmittedEvent {
 	filtered := []rpc.EmittedEvent{}
 	for _, event := range events {
-		if event.From != nil && event.From.Equal((*felt.Felt)(address)) &&
+		if event.From != nil && event.From.Equal(address) &&
 			len(event.Keys) > 0 && event.Keys[0].Equal(key) {
 			filtered = append(filtered, event)
 		}
@@ -427,7 +427,7 @@ func TestEvents(t *testing.T) {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					// todo: remove the cast to felt.Felt
-					if event.From.Equal((*felt.Felt)(&testAddress[0])) {
+					if event.From.Equal(&testAddress[0]) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -451,7 +451,7 @@ func TestEvents(t *testing.T) {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					// todo: remove the cast to felt.Felt
-					if event.From != nil && event.From.Equal((*felt.Felt)(&testAddress[0])) {
+					if event.From != nil && event.From.Equal(&testAddress[0]) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -473,7 +473,7 @@ func TestEvents(t *testing.T) {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					// todo: remove the cast to felt.Felt
-					if event.From.Equal((*felt.Felt)(&testAddress[0])) &&
+					if event.From.Equal(&testAddress[0]) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
 						filtered = append(filtered, event)
 					}

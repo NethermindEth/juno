@@ -168,7 +168,7 @@ func TestEstimateFee(t *testing.T) {
 				Version:       felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				Nonce:         felt.NewUnsafeFromString[felt.Felt]("0x0"),
 				MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				SenderAddress: felt.NewUnsafeFromString[felt.Address]("0x2"),
 				Signature: &felt.Slice[felt.Felt]{
 					felt.UnsafeFromString[felt.Felt]("0x123"),
 				},
@@ -207,7 +207,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	handler := rpcv10.New(mockReader, mockSyncReader, mockVM, logger)
 
 	blockID := rpcv10.BlockIDLatest()
-	to := felt.FromUint64[felt.Felt](0xABCD)
+	to := felt.FromUint64[felt.Address](0xABCD)
 	msg := &rpcv10.MsgFromL1{
 		To:       to,
 		Selector: felt.FromUint64[felt.Felt](0x1),
@@ -218,7 +218,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, errors.New("missing"))
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.ClassHash{}, errors.New("missing"))
 
 		_, _, err := handler.EstimateMessageFee(t.Context(), msg, &blockID)
 		require.Equal(t, rpccore.ErrContractNotFound, err)
@@ -235,7 +235,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.ClassHash{}, nil)
 
 		mockVM.EXPECT().EstimateFee(
 			gomock.Any(),
@@ -259,7 +259,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		// The receiving contract is only deployed in the pre_confirmed block
 		stateDiff := core.EmptyStateDiff()
-		stateDiff.DeployedContracts[msg.To] = felt.NewFromUint64[felt.Felt](0x1234)
+		stateDiff.DeployedContracts[msg.To] = felt.NewFromUint64[felt.ClassHash](0x1234)
 		preConfirmed := pending.PreConfirmed{
 			Block:       &core.Block{Header: &core.Header{Number: 2, Timestamp: 102}},
 			StateUpdate: &core.StateUpdate{StateDiff: &stateDiff},
@@ -293,7 +293,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.ClassHash{}, nil)
 
 		mockVM.EXPECT().EstimateFee(
 			gomock.Any(),
@@ -318,7 +318,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.Felt{}, nil)
+		mockState.EXPECT().ContractClassHash(&msg.To).Return(felt.ClassHash{}, nil)
 
 		want := felt.FromUint64[felt.Felt](60_000_000_000_000)
 		mockVM.EXPECT().EstimateFee(

@@ -365,15 +365,15 @@ func TestTraceTransaction(t *testing.T) {
 			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
 		)
 		tx := &core.DeclareTransaction{
-			TransactionHash: (*felt.Felt)(hash),
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
+			TransactionHash: hash,
+			ClassHash:       felt.NewUnsafeFromString[felt.ClassHash]("0x000000000"),
 			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
 			Hash:             felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE"),
 			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
-			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Address]("0X111"),
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
@@ -437,13 +437,13 @@ func TestTraceTransaction(t *testing.T) {
 			"0xceb6a374aff2bbb3537cf35f50df8634b2354a21",
 		)
 		tx := &core.InvokeTransaction{
-			TransactionHash: (*felt.Felt)(hash),
+			TransactionHash: hash,
 			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		header := &core.Header{
 			Number:           1,
-			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Address]("0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
@@ -509,13 +509,13 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("pre_confirmed multi-block chain - tx in non-tip entry", func(t *testing.T) {
 		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef")
 		tx := &core.InvokeTransaction{
-			TransactionHash: (*felt.Felt)(hash),
+			TransactionHash: hash,
 			Version:         felt.NewFromUint64[core.TransactionVersion](1),
 		}
 
 		baseHeader := &core.Header{
 			Number:           5,
-			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Address]("0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
@@ -581,7 +581,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		gatewayBlock := adaptfeedertest.Block(t, client, blockNumber)
 		revertedTxIndex := slices.IndexFunc(gatewayBlock.Transactions, func(tx core.Transaction) bool {
-			return tx.Hash().Equal((*felt.Felt)(revertedTxHash))
+			return tx.Hash().Equal(revertedTxHash)
 		})
 		require.NotEqual(t, -1, revertedTxIndex)
 
@@ -666,15 +666,15 @@ func TestTraceBlockTransactions(t *testing.T) {
 			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
 		)
 		tx := &core.DeclareTransaction{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.ClassHash]("0x000000000"),
 		}
 
 		header := &core.Header{
 			Hash:             blockHash,
 			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			Number:           0,
-			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Address]("0X111"),
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x777"),
 			ProtocolVersion:  "99.12.3",
 		}
@@ -735,7 +735,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr := felt.NewUnsafeFromString[felt.Felt](
+		fromAddr := felt.NewUnsafeFromString[felt.Address](
 			"0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f",
 		)
 		toAddr := felt.NewUnsafeFromString[felt.Address](
@@ -801,7 +801,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &vm.StateDiff{ //nolint:dupl // false positive with rpcv10.StateDiff
 				StorageDiffs: []vm.StorageDiff{
 					{
-						Address: felt.Zero[felt.Felt](),
+						Address: felt.Zero[felt.Address](),
 						StorageEntries: []vm.Entry{
 							{
 								Key:   felt.Zero[felt.Felt](),
@@ -812,29 +812,29 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				},
 				Nonces: []vm.Nonce{
 					{
-						ContractAddress: felt.Zero[felt.Felt](),
+						ContractAddress: felt.Zero[felt.Address](),
 						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []vm.DeployedContract{
 					{
-						Address:   felt.Zero[felt.Felt](),
-						ClassHash: felt.Zero[felt.Felt](),
+						Address:   felt.Zero[felt.Address](),
+						ClassHash: felt.Zero[felt.ClassHash](),
 					},
 				},
-				DeprecatedDeclaredClasses: []*felt.Felt{
-					new(felt.Zero[felt.Felt]()),
+				DeprecatedDeclaredClasses: []*felt.ClassHash{
+					new(felt.Zero[felt.ClassHash]()),
 				},
 				DeclaredClasses: []vm.DeclaredClass{
 					{
-						ClassHash:         felt.Zero[felt.Felt](),
-						CompiledClassHash: felt.Zero[felt.Felt](),
+						ClassHash:         felt.Zero[felt.SierraClassHash](),
+						CompiledClassHash: felt.Zero[felt.CasmClassHash](),
 					},
 				},
 				ReplacedClasses: []vm.ReplacedClass{
 					{
-						ContractAddress: felt.Zero[felt.Felt](),
-						ClassHash:       felt.Zero[felt.Felt](),
+						ContractAddress: felt.Zero[felt.Address](),
+						ClassHash:       felt.Zero[felt.ClassHash](),
 					},
 				},
 				MigratedCompiledClasses: []vm.MigratedCompiledClass{
@@ -891,7 +891,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			StateDiff: &rpcv10.StateDiff{ //nolint:dupl // false positive with vm.StateDiff
 				StorageDiffs: []rpcv10.StorageDiff{
 					{
-						Address: felt.Zero[felt.Felt](),
+						Address: felt.Zero[felt.Address](),
 						StorageEntries: []rpcv10.Entry{
 							{
 								Key:   felt.Zero[felt.Felt](),
@@ -902,29 +902,29 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				},
 				Nonces: []rpcv10.Nonce{
 					{
-						ContractAddress: felt.Zero[felt.Felt](),
+						ContractAddress: felt.Zero[felt.Address](),
 						Nonce:           felt.Zero[felt.Felt](),
 					},
 				},
 				DeployedContracts: []rpcv10.DeployedContract{
 					{
-						Address:   felt.Zero[felt.Felt](),
-						ClassHash: felt.Zero[felt.Felt](),
+						Address:   felt.Zero[felt.Address](),
+						ClassHash: felt.Zero[felt.ClassHash](),
 					},
 				},
-				DeprecatedDeclaredClasses: []*felt.Felt{
-					new(felt.Zero[felt.Felt]()),
+				DeprecatedDeclaredClasses: []*felt.ClassHash{
+					new(felt.Zero[felt.ClassHash]()),
 				},
 				DeclaredClasses: []rpcv10.DeclaredClass{
 					{
-						ClassHash:         felt.Zero[felt.Felt](),
-						CompiledClassHash: felt.Zero[felt.Felt](),
+						ClassHash:         felt.Zero[felt.SierraClassHash](),
+						CompiledClassHash: felt.Zero[felt.CasmClassHash](),
 					},
 				},
 				ReplacedClasses: []rpcv10.ReplacedClass{
 					{
-						ContractAddress: felt.Zero[felt.Felt](),
-						ClassHash:       felt.Zero[felt.Felt](),
+						ContractAddress: felt.Zero[felt.Address](),
+						ClassHash:       felt.Zero[felt.ClassHash](),
 					},
 				},
 				MigratedCompiledClasses: []rpcv10.MigratedCompiledClass{
@@ -1037,7 +1037,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       felt.FromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.TransactionHash](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					FunctionInvocation: &starknet.FunctionInvocation{
@@ -1060,7 +1060,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 		expectedAdaptedTrace := []rpcv10.TracedBlockTransaction{
 			{
-				TransactionHash: felt.NewFromUint64[felt.Felt](1),
+				TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 				TraceRoot: &rpcv10.TransactionTrace{
 					Type: rpcv10.TxnL1Handler,
 					FunctionInvocation: &rpcv10.ExecuteInvocation{
@@ -1095,7 +1095,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       felt.FromUint64[felt.Felt](1),
+					TransactionHash:       felt.FromUint64[felt.TransactionHash](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					// When revert error, feeder trace has no FunctionInvocation only RevertError is set
@@ -1106,7 +1106,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 		expectedAdaptedTrace := []rpcv10.TracedBlockTransaction{
 			{
-				TransactionHash: felt.NewFromUint64[felt.Felt](1),
+				TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 				TraceRoot: &rpcv10.TransactionTrace{
 					Type: rpcv10.TxnInvoke,
 					FeeTransferInvocation: &rpcv10.FunctionInvocation{
@@ -1179,8 +1179,8 @@ func TestCall(t *testing.T) {
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Felt]())).Return(
-			felt.Zero[felt.Felt](),
+		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Address]())).Return(
+			felt.Zero[felt.ClassHash](),
 			errors.New("unknown contract"),
 		)
 
@@ -1193,9 +1193,9 @@ func TestCall(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		contractAddr := felt.NewFromUint64[felt.Address](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
+		classHash := felt.NewFromUint64[felt.ClassHash](3)
 		calldata := []felt.Felt{
 			felt.FromUint64[felt.Felt](4),
 			felt.FromUint64[felt.Felt](5),
@@ -1246,9 +1246,9 @@ func TestCall(t *testing.T) {
 	t.Run("pre_confirmed", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		contractAddr := felt.NewFromUint64[felt.Address](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
+		classHash := felt.NewFromUint64[felt.ClassHash](3)
 		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{felt.NewFromUint64[felt.Felt](5)}}
 
@@ -1296,9 +1296,9 @@ func TestCall(t *testing.T) {
 	t.Run("entrypoint not found error", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		contractAddr := felt.NewFromUint64[felt.Address](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
+		classHash := felt.NewFromUint64[felt.ClassHash](3)
 		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			Result: []*felt.Felt{
@@ -1348,9 +1348,9 @@ func TestCall(t *testing.T) {
 	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
-		contractAddr := felt.NewFromUint64[felt.Felt](1)
+		contractAddr := felt.NewFromUint64[felt.Address](1)
 		selector := felt.NewFromUint64[felt.Felt](2)
-		classHash := felt.NewFromUint64[felt.Felt](3)
+		classHash := felt.NewFromUint64[felt.ClassHash](3)
 		calldata := []felt.Felt{felt.FromUint64[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			ExecutionFailed: true,
@@ -1410,7 +1410,7 @@ func TestTraceBlockTransactionsWithReturnInitialReads(t *testing.T) {
 
 	testCases := initialReadsTestCases()
 	blockHash := felt.FromUint64[felt.Felt](999)
-	txHash := felt.FromUint64[felt.Felt](888)
+	txHash := felt.FromUint64[felt.TransactionHash](888)
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
@@ -1511,11 +1511,11 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		DeclaredContracts: []rpcv10.DeclaredContractEntry{},
 	}
 
-	buildBlock := func() (*core.Block, *felt.Felt, *felt.Felt, *core.Header) {
+	buildBlock := func() (*core.Block, *felt.Felt, *felt.TransactionHash, *core.Header) {
 		blockHash := felt.FromUint64[felt.Felt](999)
 		parentHash := felt.FromUint64[felt.Felt](998)
 		revealedHash := felt.FromUint64[felt.Felt](90)
-		txHash := felt.FromUint64[felt.Felt](888)
+		txHash := felt.FromUint64[felt.TransactionHash](888)
 		header := &core.Header{
 			SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
@@ -1572,7 +1572,7 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 			BlockHeaderHashByNumber(uint64(90)).
 			Return(revealedHeader.Hash, nil).
 			AnyTimes()
-		mockReader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).
+		mockReader.EXPECT().BlockNumberAndIndexByTxHash(txHash).
 			Return(block.Number, uint64(0), nil)
 		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(block.Header, nil)
 		mockReader.EXPECT().BlockHeaderByNumber(block.Number).Return(block.Header, nil)
@@ -1596,7 +1596,7 @@ func TestTraceBlockTransactionsInitialReadsCacheCoherence(t *testing.T) {
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		handler := rpcv10.New(mockReader, mockSyncReader, mockVM, log.NewNopZapLogger())
 
-		_, _, err := handler.TraceTransaction(t.Context(), (*felt.TransactionHash)(txHash))
+		_, _, err := handler.TraceTransaction(t.Context(), txHash)
 		require.Nil(t, err)
 
 		blockID := rpcv10.BlockIDFromHash(blockHash)

@@ -44,15 +44,15 @@ func expectedClass(t *testing.T, class core.ClassDefinition) core.ClassDefinitio
 }
 
 func TestAdaptClass(t *testing.T) {
-	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+	sierraClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b",
 	)
-	deprecatedClassHash := felt.NewUnsafeFromString[felt.Felt](
+	deprecatedClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
 	)
 	gateway := feederGateway(t, &networks.Sepolia)
-	classes := make(map[felt.Felt]core.ClassDefinition)
-	for _, classHash := range []*felt.Felt{sierraClassHash, deprecatedClassHash} {
+	classes := make(map[felt.ClassHash]core.ClassDefinition)
+	for _, classHash := range []*felt.ClassHash{sierraClassHash, deprecatedClassHash} {
 		class, err := gateway.Class(t.Context(), classHash)
 		require.NoError(t, err)
 		classes[*classHash] = class
@@ -62,7 +62,7 @@ func TestAdaptClass(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		classHash *felt.Felt
+		classHash *felt.ClassHash
 		compiled  bool
 	}{
 		{"sierra", sierraClassHash, true},

@@ -187,7 +187,7 @@ func (p *proposer[V, H]) init() {
 
 func (p *proposer[V, H]) getBuildParams() builder.BuildParams {
 	return builder.BuildParams{
-		Builder:           felt.Felt(p.nodeAddress),
+		Builder:           p.nodeAddress,
 		Timestamp:         uint64(time.Now().Unix()),
 		L2GasPriceFRI:     felt.One[felt.Felt](), // TODO: Implement this properly
 		L1GasPriceWEI:     felt.One[felt.Felt](), // TODO: Implement this properly

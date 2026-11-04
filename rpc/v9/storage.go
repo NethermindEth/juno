@@ -29,7 +29,11 @@ const (
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) StorageAt(
+	address *felt.Address,
+	key *felt.Felt,
+	id *BlockID,
+) (*felt.Felt, *jsonrpc.Error) {
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -63,7 +67,10 @@ type StorageProofResult struct {
 }
 
 func (h *Handler) StorageProof(
-	id *BlockID, classes, contracts []felt.Felt, storageKeys []StorageKeys,
+	id *BlockID,
+	classes []felt.ClassHash,
+	contracts []felt.Address,
+	storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
 	chainHeight, err := h.bcReader.Height()
 	if err != nil {
@@ -195,17 +202,19 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	return nil
 }
 
-func getClassProof(trieReader core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassProof(trieReader core.TrieReader, classes []felt.ClassHash) ([]*HashToNode, error) {
 	switch stateTrie := trieReader.(type) {
 	case *trie.Trie:
 		classProof := trie.NewProofNodeSet()
-		if err := stateTrie.ProveMulti(classes, classProof); err != nil {
+		err := stateTrie.ProveMulti(felt.CastSlice[felt.Felt](classes), classProof)
+		if err != nil {
 			return nil, err
 		}
 		return adaptDeprecatedTrieProofNodes(classProof), nil
 	case *trie2.Trie:
 		classProof := trie2.NewProofNodeSet()
-		if err := stateTrie.ProveMulti(classes, classProof); err != nil {
+		err := stateTrie.ProveMulti(felt.CastSlice[felt.Felt](classes), classProof)
+		if err != nil {
 			return nil, err
 		}
 		return adaptTrieProofNodes(classProof)
@@ -217,7 +226,7 @@ func getClassProof(trieReader core.TrieReader, classes []felt.Felt) ([]*HashToNo
 func getContractProof(
 	trieReader core.TrieReader,
 	state core.StateReader,
-	contracts []felt.Felt,
+	contracts []felt.Address,
 ) (*ContractProof, error) {
 	switch stateTrie := trieReader.(type) {
 	case *trie.Trie:
@@ -231,7 +240,7 @@ func getContractProof(
 
 func buildContractLeavesData(
 	state core.StateReader,
-	contracts []felt.Felt,
+	contracts []felt.Address,
 ) ([]LeafData, error) {
 	if metadataReader, ok := state.(contractMetadataReader); ok {
 		return buildContractLeavesDataFromMetadata(metadataReader, contracts)
@@ -276,12 +285,14 @@ func buildContractLeavesData(
 }
 
 type contractMetadataReader interface {
-	ContractMetadata(addr *felt.Felt) (classHash, nonce, storageRoot felt.Felt, err error)
+	ContractMetadata(
+		addr *felt.Address,
+	) (classHash felt.ClassHash, nonce, storageRoot felt.Felt, err error)
 }
 
 func buildContractLeavesDataFromMetadata(
 	state contractMetadataReader,
-	contracts []felt.Felt,
+	contracts []felt.Address,
 ) ([]LeafData, error) {
 	contractLeavesData := make([]LeafData, len(contracts))
 
@@ -309,11 +320,12 @@ func buildContractLeavesDataFromMetadata(
 func getContractProofWithDeprecatedTrie(
 	contractTrie *trie.Trie,
 	state core.StateReader,
-	contracts []felt.Felt,
+	contracts []felt.Address,
 ) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 
-	if err := contractTrie.ProveMulti(contracts, contractProof); err != nil {
+	err := contractTrie.ProveMulti(felt.CastSlice[felt.Felt](contracts), contractProof)
+	if err != nil {
 		return nil, err
 	}
 
@@ -331,11 +343,12 @@ func getContractProofWithDeprecatedTrie(
 func getContractProofWithTrie(
 	contractTrie *trie2.Trie,
 	state core.StateReader,
-	contracts []felt.Felt,
+	contracts []felt.Address,
 ) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 
-	if err := contractTrie.ProveMulti(contracts, contractProof); err != nil {
+	err := contractTrie.ProveMulti(felt.CastSlice[felt.Felt](contracts), contractProof)
+	if err != nil {
 		return nil, err
 	}
 
@@ -487,8 +500,8 @@ func nodeFelt(n trienode.Node) (felt.Felt, error) {
 }
 
 type StorageKeys struct {
-	Contract *felt.Felt  `json:"contract_address"`
-	Keys     []felt.Felt `json:"storage_keys"`
+	Contract *felt.Address `json:"contract_address"`
+	Keys     []felt.Felt   `json:"storage_keys"`
 }
 
 type Node interface {
@@ -529,9 +542,9 @@ type HashToNode struct {
 }
 
 type LeafData struct {
-	Nonce       felt.Felt `json:"nonce"`
-	ClassHash   felt.Felt `json:"class_hash"`
-	StorageRoot felt.Felt `json:"storage_root"`
+	Nonce       felt.Felt      `json:"nonce"`
+	ClassHash   felt.ClassHash `json:"class_hash"`
+	StorageRoot felt.Felt      `json:"storage_root"`
 }
 
 type ContractProof struct {

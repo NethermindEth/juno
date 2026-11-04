@@ -70,8 +70,8 @@ type Reader interface {
 	Block(ctx context.Context, blockID string) (starknet.Block, error)
 	BlockHeader(ctx context.Context, blockID string) (starknet.BlockHeader, error)
 	BlockTrace(ctx context.Context, blockHash string) (starknet.BlockTrace, error)
-	CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.CasmClass, error)
-	ClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.ClassDefinition, error)
+	CasmClassDefinition(ctx context.Context, classHash *felt.ClassHash) (starknet.CasmClass, error)
+	ClassDefinition(ctx context.Context, classHash *felt.ClassHash) (starknet.ClassDefinition, error)
 	FeeTokenAddresses(ctx context.Context) (starknet.FeeTokenAddresses, error)
 	PreConfirmedBlockWithIdentifier(
 		ctx context.Context,
@@ -93,7 +93,7 @@ type Reader interface {
 	) (starknet.StateUpdateWithBlockAndSignature, error)
 	TransactionStatus(
 		ctx context.Context,
-		transactionHash *felt.Felt,
+		transactionHash *felt.TransactionHash,
 	) (starknet.TransactionStatus, error)
 }
 
@@ -303,7 +303,7 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (starknet.Blo
 
 func (c *Client) CasmClassDefinition(
 	ctx context.Context,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) (starknet.CasmClass, error) {
 	queryURL := buildQueryString(c.url, "get_compiled_class_by_class_hash", map[string]string{
 		classHashArg:   classHash.String(),
@@ -333,7 +333,7 @@ func (c *Client) CasmClassDefinition(
 }
 
 func (c *Client) ClassDefinition(
-	ctx context.Context, classHash *felt.Felt,
+	ctx context.Context, classHash *felt.ClassHash,
 ) (starknet.ClassDefinition, error) {
 	queryURL := buildQueryString(c.url, "get_class_by_hash", map[string]string{
 		classHashArg:   classHash.String(),
@@ -499,7 +499,7 @@ func (c *Client) fetchPreConfirmedUpdate(
 // (finality, execution status, block hash) without the full transaction body.
 func (c *Client) TransactionStatus(
 	ctx context.Context,
-	transactionHash *felt.Felt,
+	transactionHash *felt.TransactionHash,
 ) (starknet.TransactionStatus, error) {
 	queryURL := buildQueryString(c.url, "get_transaction_status", map[string]string{
 		"transactionHash": transactionHash.String(),

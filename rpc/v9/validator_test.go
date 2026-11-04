@@ -39,7 +39,7 @@ func TestVersion0x3Validation(t *testing.T) {
 					L2Gas:     &rpcv9.ResourceBounds{},
 					L1DataGas: &rpcv9.ResourceBounds{},
 				},
-				SenderAddress:         new(felt.Zero[felt.Felt]()),
+				SenderAddress:         new(felt.Zero[felt.Address]()),
 				Signature:             &emptySlice,
 				CallData:              &emptySlice,
 				Tip:                   new(felt.Zero[felt.Felt]()),

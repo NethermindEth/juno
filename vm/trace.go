@@ -14,7 +14,7 @@ type StateDiff struct {
 	StorageDiffs              []StorageDiff           `json:"storage_diffs"`
 	Nonces                    []Nonce                 `json:"nonces"`
 	DeployedContracts         []DeployedContract      `json:"deployed_contracts"`
-	DeprecatedDeclaredClasses []*felt.Felt            `json:"deprecated_declared_classes"`
+	DeprecatedDeclaredClasses []*felt.ClassHash       `json:"deprecated_declared_classes"`
 	DeclaredClasses           []DeclaredClass         `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass         `json:"replaced_classes"`
 	MigratedCompiledClasses   []MigratedCompiledClass `json:"migrated_compiled_classes"`
@@ -26,13 +26,13 @@ type MigratedCompiledClass struct {
 }
 
 type Nonce struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	Nonce           felt.Felt `json:"nonce"`
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
 }
 
 type StorageDiff struct {
-	Address        felt.Felt `json:"address"`
-	StorageEntries []Entry   `json:"storage_entries"`
+	Address        felt.Address `json:"address"`
+	StorageEntries []Entry      `json:"storage_entries"`
 }
 
 type Entry struct {
@@ -41,18 +41,18 @@ type Entry struct {
 }
 
 type DeployedContract struct {
-	Address   felt.Felt `json:"address"`
-	ClassHash felt.Felt `json:"class_hash"`
+	Address   felt.Address   `json:"address"`
+	ClassHash felt.ClassHash `json:"class_hash"`
 }
 
 type ReplacedClass struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	ClassHash       felt.Felt `json:"class_hash"`
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
 }
 
 type DeclaredClass struct {
-	ClassHash         felt.Felt `json:"class_hash"`
-	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
+	ClassHash         felt.SierraClassHash `json:"class_hash"`
+	CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
 }
 
 type InitialReadsStorageEntry struct {
@@ -243,11 +243,11 @@ func (t *TransactionTrace) AllMessages() []OrderedL2toL1Message {
 }
 
 type FunctionInvocation struct {
-	ContractAddress    felt.Felt              `json:"contract_address"`
+	ContractAddress    felt.Address           `json:"contract_address"`
 	EntryPointSelector *felt.Felt             `json:"entry_point_selector,omitempty"`
 	Calldata           []felt.Felt            `json:"calldata"`
-	CallerAddress      felt.Felt              `json:"caller_address"`
-	ClassHash          *felt.Felt             `json:"class_hash,omitempty"`
+	CallerAddress      felt.Address           `json:"caller_address"`
+	ClassHash          *felt.ClassHash        `json:"class_hash,omitempty"`
 	EntryPointType     string                 `json:"entry_point_type,omitempty"`
 	CallType           string                 `json:"call_type,omitempty"`
 	Result             []felt.Felt            `json:"result"`
@@ -298,15 +298,15 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 }
 
 type OrderedEvent struct {
-	Order uint64      `json:"order"`
-	From  *felt.Felt  `json:"from_address,omitempty"`
-	Keys  []felt.Felt `json:"keys"`
-	Data  []felt.Felt `json:"data"`
+	Order uint64        `json:"order"`
+	From  *felt.Address `json:"from_address,omitempty"`
+	Keys  []felt.Felt   `json:"keys"`
+	Data  []felt.Felt   `json:"data"`
 }
 
 type OrderedL2toL1Message struct {
 	Order   uint64        `json:"order"`
-	From    *felt.Felt    `json:"from_address,omitempty"`
+	From    *felt.Address `json:"from_address,omitempty"`
 	To      *felt.Address `json:"to_address"`
 	Payload []felt.Felt   `json:"payload"`
 }

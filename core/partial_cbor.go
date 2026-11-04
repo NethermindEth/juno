@@ -63,7 +63,7 @@ type headerHashProjection struct {
 
 type headerGlobalStateRootProjection struct {
 	discardedHeaderSkeleton
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *felt.StateRootHash
 }
 
 type headerTransactionCountProjection struct {
@@ -79,7 +79,7 @@ type headerTimestampProjection struct {
 type headerHashAndStateRootProjection struct {
 	discardedHeaderSkeleton
 	Hash            *felt.Felt
-	GlobalStateRoot *felt.Felt
+	GlobalStateRoot *felt.StateRootHash
 }
 
 // discardedReceiptSkeleton names every field of TransactionReceipt as discarded. Receipt
@@ -107,7 +107,7 @@ type receiptExecutionStatusProjection struct {
 type receiptEventsProjection struct {
 	discardedReceiptSkeleton
 	Events          []*Event
-	TransactionHash *felt.Felt
+	TransactionHash *felt.TransactionHash
 }
 
 // transactionHashProjection is the union of every field across all five transaction types. There is
@@ -120,7 +120,7 @@ type receiptEventsProjection struct {
 // discriminate them when decoding into the Transaction interface. This type is not registered, so
 // the decoder ignores the tag and decodes its content — no need to strip the tag header first.
 type transactionHashProjection struct {
-	TransactionHash felt.Felt
+	TransactionHash felt.TransactionHash
 
 	ContractAddressSalt   discardedCBOR
 	ContractAddress       discardedCBOR

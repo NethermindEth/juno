@@ -44,7 +44,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	txHash := felt.NewRandom[felt.Felt]()
+	txHash := felt.NewRandom[felt.TransactionHash]()
 
 	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
@@ -66,9 +66,9 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	searchTxHash := felt.NewFromUint64[felt.Felt](0x123456)
+	searchTxHash := felt.NewFromUint64[felt.TransactionHash](0x123456)
 
-	otherTxHash := felt.NewFromUint64[felt.Felt](0x789abc)
+	otherTxHash := felt.NewFromUint64[felt.TransactionHash](0x789abc)
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         felt.NewFromUint64[core.TransactionVersion](1),
@@ -569,7 +569,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().TransactionByHash(
-				gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
+				gomock.Any()).DoAndReturn(func(hash *felt.TransactionHash) (core.Transaction, error) {
 				tx := adaptfeedertest.Block(t, client, test.block).Transactions[test.index]
 				require.Equal(t, hash, tx.Hash())
 				// Mock the gateway to include proof_facts for "INVOKE v3 with response flags" test
@@ -584,7 +584,7 @@ func TestTransactionByHash(t *testing.T) {
 			}).Times(1)
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			hash, err := felt.NewFromString[felt.Felt](test.hash)
+			hash, err := felt.NewFromString[felt.TransactionHash](test.hash)
 			require.NoError(t, err)
 
 			res, rpcErr := handler.TransactionByHash(hash, test.responseFlags)
@@ -640,10 +640,10 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 	// reflects what the live poller would expose.
 	oldestPreConf := uint64(1) // canonical head at 0
 	storage := preconfirmed.NewChainStorage()
-	hashes := make([]*felt.Felt, 3)
+	hashes := make([]*felt.TransactionHash, 3)
 	receiptBlockNumbers := []uint64{1, 2, 3}
 	for i, blockNumber := range receiptBlockNumbers {
-		hash := felt.NewFromUint64[felt.Felt](100 + uint64(i))
+		hash := felt.NewFromUint64[felt.TransactionHash](100 + uint64(i))
 		hashes[i] = hash
 		emptySlice := []felt.Felt{}
 		block := starknet.PreConfirmedBlock{
@@ -651,7 +651,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Status:           "PRE_CONFIRMED",
 			Timestamp:        1,
 			Version:          core.Ver0_14_0.String(),
-			SequencerAddress: new(felt.One[felt.Felt]()),
+			SequencerAddress: new(felt.One[felt.Address]()),
 			L1GasPrice: &starknet.GasPrice{
 				PriceInWei: new(felt.One[felt.Felt]()),
 				PriceInFri: new(felt.One[felt.Felt]()),
@@ -990,11 +990,11 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 // (utils.NonNilSlice), so no other test exercises this branch.
 func TestAdaptReceiptNilEventsMarshalsAsEmptyArray(t *testing.T) {
 	txn := &core.InvokeTransaction{
-		TransactionHash: new(felt.Felt),
+		TransactionHash: new(felt.Zero[felt.TransactionHash]()),
 		Version:         felt.NewFromUint64[core.TransactionVersion](1),
 	}
 	receipt := &core.TransactionReceipt{
-		Fee:             new(felt.Felt),
+		Fee:             new(felt.Zero[felt.Felt]()),
 		Events:          nil,
 		TransactionHash: txn.TransactionHash,
 	}
@@ -1138,13 +1138,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			require.NotNil(t, transaction, "transaction not found on expected block")
 
 			preConfirmed := test.preConfirmedFn(t, loadedBlock)
-			_, err := preConfirmed.ReceiptByHash((*felt.TransactionHash)(transaction.Hash()))
+			_, err := preConfirmed.ReceiptByHash(transaction.Hash())
 			if err != nil {
 				// receipt belongs to a canonical block: the stored pre_confirmed chain
 				// misses, the store answers and the pre_confirmed chain is never requested
 				mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(mustNewChain(t, preConfirmed), nil)
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(expected.Hash),
+					expected.Hash,
 				).Return(expected.BlockNumber, uint64(transactionIndex), nil)
 				mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 					expected.BlockNumber, uint64(transactionIndex),
@@ -1175,10 +1175,10 @@ func TestTransactionReceiptByHash_NotFound(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-	txHash := felt.NewFromBytes[felt.Felt]([]byte("random hash"))
+	txHash := felt.NewFromBytes[felt.TransactionHash]([]byte("random hash"))
 	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-		(*felt.TransactionHash)(txHash),
+		txHash,
 	).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 	mockSyncReader.EXPECT().ReadPreConfirmedChain().
 		Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
@@ -1613,7 +1613,7 @@ func TestTransactionStatus(t *testing.T) {
 	type testCase struct {
 		description    string
 		network        *networks.Network
-		txHash         *felt.Felt
+		txHash         *felt.TransactionHash
 		expectedStatus rpc.TransactionStatus
 		expectedErr    *jsonrpc.Error
 		setupMocks     func(
@@ -1633,7 +1633,7 @@ func TestTransactionStatus(t *testing.T) {
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(tx.Hash()),
+			tx.Hash(),
 		).Return(block.Number, uint64(0), nil)
 		mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -1667,7 +1667,7 @@ func TestTransactionStatus(t *testing.T) {
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(tx.Hash()),
+			tx.Hash(),
 		).Return(block.Number, uint64(0), nil)
 		mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -1744,7 +1744,7 @@ func TestTransactionStatus(t *testing.T) {
 		{
 			description: "not found localy - ACCEPTED_ON_L1 from feeder",
 			network:     &networks.Mainnet,
-			txHash: felt.NewUnsafeFromString[felt.Felt](
+			txHash: felt.NewUnsafeFromString[felt.TransactionHash](
 				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			),
 			expectedStatus: rpc.TransactionStatus{
@@ -1756,7 +1756,7 @@ func TestTransactionStatus(t *testing.T) {
 		{
 			description: "not found localy - ACCEPTED_ON_L2 from feeder",
 			network:     &networks.Mainnet,
-			txHash: felt.NewUnsafeFromString[felt.Felt](
+			txHash: felt.NewUnsafeFromString[felt.TransactionHash](
 				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
 			),
 			expectedStatus: rpc.TransactionStatus{
@@ -1768,7 +1768,7 @@ func TestTransactionStatus(t *testing.T) {
 		{
 			description: "transaction not found",
 			network:     &networks.Mainnet,
-			txHash:      felt.NewUnsafeFromString[felt.Felt]("0xFF00FF00"),
+			txHash:      felt.NewUnsafeFromString[felt.TransactionHash]("0xFF00FF00"),
 			expectedErr: rpccore.ErrTxnHashNotFound,
 			setupMocks:  mockNotFound,
 		},
@@ -1777,7 +1777,7 @@ func TestTransactionStatus(t *testing.T) {
 			// For historical queries return not found error instead.
 			description: "REJECTED historical txn found in feeder",
 			network:     &networks.SepoliaIntegration,
-			txHash:      felt.NewUnsafeFromString[felt.Felt]("0x1111"),
+			txHash:      felt.NewUnsafeFromString[felt.TransactionHash]("0x1111"),
 			expectedErr: rpccore.ErrTxnHashNotFound,
 			setupMocks:  mockNotFound,
 		},
@@ -1855,7 +1855,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	}
 
 	var gatewayResponse struct {
-		TransactionHash *felt.Felt `json:"transaction_hash"`
+		TransactionHash *felt.TransactionHash `json:"transaction_hash"`
 	}
 
 	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
@@ -1907,7 +1907,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			Return(mustNewChain(t, &preConfirmedPlaceHolder), nil).
 			Times(1)
 
-		status, err := handler.TransactionStatus(ctx, (*felt.Felt)(&res.TransactionHash))
+		status, err := handler.TransactionStatus(ctx, &res.TransactionHash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
 		require.Equal(t, rpc.UnknownExecution, status.Execution)
@@ -1946,7 +1946,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		for range rpccore.NumTimeBuckets {
 			fakeClock <- time.Now()
 		}
-		status, err := handler.TransactionStatus(ctx, (*felt.Felt)(&res.TransactionHash))
+		status, err := handler.TransactionStatus(ctx, &res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Empty(t, status)
 	})
@@ -1964,7 +1964,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+				SenderAddress: felt.NewFromUint64[felt.Address](0x1),
 			},
 			Proof: "AAAAAQAAAAIAAAAD",
 		}
@@ -1986,7 +1986,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 					felt.FromUint64[felt.Felt](0x1),
 				},
 				Nonce:         felt.NewFromUint64[felt.Felt](0x1),
-				SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+				SenderAddress: felt.NewFromUint64[felt.Address](0x1),
 				ProofFacts:    &[]felt.Felt{felt.FromUint64[felt.Felt](100)},
 			},
 		}
@@ -2059,7 +2059,7 @@ func TestAdaptBroadcastedTransactionValidation(t *testing.T) {
 
 func createBaseInvokeTransactionV3() core.InvokeTransaction {
 	return core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](12345),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		TransactionSignature: []felt.Felt{
 			felt.FromUint64[felt.Felt](0x1),
@@ -2084,7 +2084,7 @@ func createBaseInvokeTransactionV3() core.InvokeTransaction {
 		},
 		Tip:                   0,
 		PaymasterData:         []felt.Felt{},
-		SenderAddress:         felt.NewFromUint64[felt.Felt](0x1),
+		SenderAddress:         felt.NewFromUint64[felt.Address](0x1),
 		CallData:              []felt.Felt{},
 		AccountDeploymentData: []felt.Felt{},
 	}
@@ -2321,7 +2321,7 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	block := adaptfeedertest.BlockLatest(t, client)
 	txn := block.Transactions[0]
-	txHash := (*felt.TransactionHash)(txn.Hash())
+	txHash := txn.Hash()
 	pastBlock := &pending.PreConfirmed{
 		Block: &core.Block{Header: &core.Header{Number: block.Number + 1}},
 	}
@@ -2341,7 +2341,7 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 			return mustNewChain(t, pastBlock), nil
 		}).AnyTimes()
 	mockReader.EXPECT().TransactionByHash(txn.Hash()).
-		DoAndReturn(func(*felt.Felt) (core.Transaction, error) {
+		DoAndReturn(func(*felt.TransactionHash) (core.Transaction, error) {
 			if !committed {
 				return nil, db.ErrKeyNotFound
 			}

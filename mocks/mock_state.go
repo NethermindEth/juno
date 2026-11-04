@@ -42,7 +42,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // Class mocks base method.
-func (m *MockState) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (m *MockState) Class(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", classHash)
 	ret0, _ := ret[0].(*core.DeclaredClassDefinition)
@@ -72,10 +72,10 @@ func (mr *MockStateMockRecorder) ClassTrie() *gomock.Call {
 }
 
 // Commitment mocks base method.
-func (m *MockState) Commitment(protocolVersion string) (felt.Felt, error) {
+func (m *MockState) Commitment(protocolVersion string) (felt.StateRootHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commitment", protocolVersion)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.StateRootHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -117,10 +117,10 @@ func (mr *MockStateMockRecorder) CompiledClassHashV2(classHash any) *gomock.Call
 }
 
 // ContractClassHash mocks base method.
-func (m *MockState) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (m *MockState) ContractClassHash(addr *felt.Address) (felt.ClassHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractClassHash", addr)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.ClassHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -132,7 +132,7 @@ func (mr *MockStateMockRecorder) ContractClassHash(addr any) *gomock.Call {
 }
 
 // ContractNonce mocks base method.
-func (m *MockState) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (m *MockState) ContractNonce(addr *felt.Address) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractNonce", addr)
 	ret0, _ := ret[0].(felt.Felt)
@@ -147,7 +147,7 @@ func (mr *MockStateMockRecorder) ContractNonce(addr any) *gomock.Call {
 }
 
 // ContractStorage mocks base method.
-func (m *MockState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (m *MockState) ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorage", addr, key)
 	ret0, _ := ret[0].(felt.Felt)
@@ -177,7 +177,7 @@ func (mr *MockStateMockRecorder) ContractStorageLastUpdatedBlock(addr, key any) 
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockState) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
+func (m *MockState) ContractStorageTrie(addr *felt.Address) (core.TrieReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
 	ret0, _ := ret[0].(core.TrieReader)
@@ -221,7 +221,7 @@ func (mr *MockStateMockRecorder) Revert(header, update any) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockState) Update(header *core.Header, update *core.StateUpdate, declaredClasses map[felt.Felt]core.ClassDefinition, skipVerifyNewRoot bool) error {
+func (m *MockState) Update(header *core.Header, update *core.StateUpdate, declaredClasses map[felt.ClassHash]core.ClassDefinition, skipVerifyNewRoot bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", header, update, declaredClasses, skipVerifyNewRoot)
 	ret0, _ := ret[0].(error)

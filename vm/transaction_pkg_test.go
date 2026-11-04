@@ -131,16 +131,16 @@ func TestTransactionMarshal(t *testing.T) {
 		"invoke v3 with proof_facts": {
 			// No real on-chain tx carries proof_facts yet, so the transaction is handcrafted.
 			Txn: &core.InvokeTransaction{
-				TransactionHash:      felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef"),
+				TransactionHash:      felt.NewUnsafeFromString[felt.TransactionHash]("0xdeadbeef"),
 				Version:              felt.NewFromUint64[core.TransactionVersion](3),
-				SenderAddress:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				SenderAddress:        felt.NewUnsafeFromString[felt.Address]("0x1"),
 				TransactionSignature: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
 				CallData:             []felt.Felt{felt.FromUint64[felt.Felt](1)},
 				Nonce:                felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				ResourceBounds: map[core.Resource]core.ResourceBounds{
 					core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: felt.NewFromUint64[felt.Felt](1)},
-					core.ResourceL1DataGas: {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
-					core.ResourceL2Gas:     {MaxAmount: 0, MaxPricePerUnit: new(felt.Felt)},
+					core.ResourceL1DataGas: {MaxAmount: 0, MaxPricePerUnit: new(felt.Zero[felt.Felt]())},
+					core.ResourceL2Gas:     {MaxAmount: 0, MaxPricePerUnit: new(felt.Zero[felt.Felt]())},
 				},
 				NonceDAMode:           core.DAModeL1,
 				FeeDAMode:             core.DAModeL1,

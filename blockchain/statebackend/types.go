@@ -21,7 +21,7 @@ type StateBackend interface {
 		block *core.Block,
 		commitments *core.BlockCommitments,
 		stateUpdate *core.StateUpdate,
-		newClasses map[felt.Felt]core.ClassDefinition,
+		newClasses map[felt.ClassHash]core.ClassDefinition,
 		eventsBloom *bloom.BloomFilter,
 	) error
 	RevertHead() error
@@ -29,13 +29,13 @@ type StateBackend interface {
 	Simulate(
 		block *core.Block,
 		stateUpdate *core.StateUpdate,
-		newClasses map[felt.Felt]core.ClassDefinition,
+		newClasses map[felt.ClassHash]core.ClassDefinition,
 		sign core.BlockSignFunc,
 	) (SimulateResult, error)
 	Finalise(
 		block *core.Block,
 		stateUpdate *core.StateUpdate,
-		newClasses map[felt.Felt]core.ClassDefinition,
+		newClasses map[felt.ClassHash]core.ClassDefinition,
 		sign core.BlockSignFunc,
 		eventsBloom *bloom.BloomFilter,
 	) error

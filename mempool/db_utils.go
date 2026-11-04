@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor"
 )
 
-func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
-	var head felt.Felt
+func GetHeadValue(r db.KeyValueReader) (felt.TransactionHash, error) {
+	var head felt.TransactionHash
 	err := r.Get(db.MempoolHead.Key(), func(data []byte) error {
 		head.Unmarshal(data)
 		return nil
@@ -18,8 +18,8 @@ func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
 	return head, err
 }
 
-func GetTailValue(r db.KeyValueReader) (felt.Felt, error) {
-	var tail felt.Felt
+func GetTailValue(r db.KeyValueReader) (felt.TransactionHash, error) {
+	var tail felt.TransactionHash
 	err := r.Get(db.MempoolTail.Key(), func(data []byte) error {
 		tail.Unmarshal(data)
 		return nil
@@ -27,15 +27,15 @@ func GetTailValue(r db.KeyValueReader) (felt.Felt, error) {
 	return tail, err
 }
 
-func WriteHeadValue(w db.KeyValueWriter, head *felt.Felt) error {
+func WriteHeadValue(w db.KeyValueWriter, head *felt.TransactionHash) error {
 	return w.Put(db.MempoolHead.Key(), head.Marshal())
 }
 
-func WriteTailValue(w db.KeyValueWriter, tail *felt.Felt) error {
+func WriteTailValue(w db.KeyValueWriter, tail *felt.TransactionHash) error {
 	return w.Put(db.MempoolTail.Key(), tail.Marshal())
 }
 
-func GetTxn(r db.KeyValueReader, txnHash *felt.Felt) (dbPoolTxn, error) {
+func GetTxn(r db.KeyValueReader, txnHash *felt.TransactionHash) (dbPoolTxn, error) {
 	var item dbPoolTxn
 	err := r.Get(db.MempoolNodeKey(txnHash), func(data []byte) error {
 		return cbor.Unmarshal(data, &item)

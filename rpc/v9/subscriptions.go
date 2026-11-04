@@ -191,7 +191,7 @@ func (h *Handler) subscribe(
 // If the sender address list is not empty, it will check if the transaction is an Invoke or
 // Declare transaction and if the sender address is in the list.
 // For other transaction types, it will by default return false.
-func filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
+func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	if len(senderAddr) == 0 {
 		return true
 	}

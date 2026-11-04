@@ -18,11 +18,15 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 	// we don't use adaptfeeder here because it causes cyclic import
 	baseReceipts := []*TransactionReceipt{
 		{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747"),
-			Fee:             felt.NewUnsafeFromString[felt.Felt]("0xd07af45c84550"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
+			),
+			Fee: felt.NewUnsafeFromString[felt.Felt]("0xd07af45c84550"),
 			Events: []*Event{
 				{
-					From: felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+					From: felt.NewUnsafeFromString[felt.Address](
+						"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+					),
 					Data: []felt.Felt{
 						felt.UnsafeFromString[felt.Felt](
 							"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
@@ -63,7 +67,9 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 			Fee: felt.NewUnsafeFromString[felt.Felt]("0x471426f16c4330"),
 			Events: []*Event{
 				{
-					From: felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+					From: felt.NewUnsafeFromString[felt.Address](
+						"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+					),
 					Data: []felt.Felt{
 						felt.UnsafeFromString[felt.Felt](
 							"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
@@ -98,7 +104,9 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 					L1DataGas: 192,
 				},
 			},
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x21bc0afe54123b946855e1bf9389d943313df5c5c396fbf0630234a44f6f592"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x21bc0afe54123b946855e1bf9389d943313df5c5c396fbf0630234a44f6f592",
+			),
 		},
 	}
 	receipts := slices.Repeat(baseReceipts, 100)

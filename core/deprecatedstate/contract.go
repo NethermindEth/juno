@@ -20,7 +20,7 @@ var (
 // Deploy should be called for contracts that were just deployed to the network.
 //
 //nolint:staticcheck // Necessary for old state
-func NewContractUpdater(addr *felt.Felt, txn db.IndexedBatch) (*ContractUpdater, error) {
+func NewContractUpdater(addr *felt.Address, txn db.IndexedBatch) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,11 @@ func NewContractUpdater(addr *felt.Felt, txn db.IndexedBatch) (*ContractUpdater,
 // DeployContract sets up the database for a new contract.
 //
 //nolint:staticcheck // Necessary for old state
-func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractUpdater, error) {
+func DeployContract(
+	addr *felt.Address,
+	classHash *felt.ClassHash,
+	txn db.IndexedBatch,
+) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
 		return nil, err
@@ -68,7 +72,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 }
 
 //nolint:staticcheck // Necessary for old state
-func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
+func deployed(addr *felt.Address, txn db.IndexedBatch) (bool, error) {
 	_, err := GetContractClassHash(txn, addr)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
@@ -82,7 +86,7 @@ func deployed(addr *felt.Felt, txn db.IndexedBatch) (bool, error) {
 // ContractUpdater is a helper to update an existing contract instance.
 type ContractUpdater struct {
 	// Address that this contract instance is deployed to
-	Address *felt.Felt
+	Address *felt.Address
 	// txn to access the database
 	//nolint:staticcheck // Necessary for old state
 	txn db.IndexedBatch
@@ -114,7 +118,7 @@ func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 // ContractRoot returns the root of the contract storage.
 //
 //nolint:staticcheck // Necessary for old state
-func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractRoot(addr *felt.Address, txn db.IndexedBatch) (felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return felt.Felt{}, err
@@ -122,7 +126,7 @@ func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	return cStorage.Hash()
 }
 
-type OnValueChanged = func(location, oldValue *felt.Felt) error
+type OnValueChanged = func(location *felt.Felt, oldValue *felt.Felt) error
 
 // UpdateStorage applies a change-set to the contract storage.
 func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValueChanged) error {
@@ -148,20 +152,20 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 }
 
 //nolint:staticcheck // Necessary for old state
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
+func ContractStorage(addr *felt.Address, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, error) {
 	return trie.GetLeafPedersen(
 		txn, db.DeprecatedContractStorage.Key(addr.Marshal()), ContractStorageTrieHeight, key,
 	)
 }
 
 //nolint:staticcheck // Necessary for old state
-func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
+func setClassHash(txn db.IndexedBatch, addr *felt.Address, classHash *felt.ClassHash) error {
 	classHashKey := db.DeprecatedContractClassHashKey(addr)
 	return txn.Put(classHashKey, classHash.Marshal())
 }
 
 // Replace replaces the class that the contract instantiates
-func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
+func (c *ContractUpdater) Replace(classHash *felt.ClassHash) error {
 	return setClassHash(c.txn, c.Address, classHash)
 }
 
@@ -169,7 +173,7 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 // storage of the contract.
 //
 //nolint:staticcheck // Necessary for old state
-func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
+func storage(addr *felt.Address, txn db.IndexedBatch) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	return trie.NewTriePedersen(
 		txn,

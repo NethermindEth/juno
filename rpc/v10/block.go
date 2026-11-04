@@ -53,24 +53,24 @@ func (l *L1DAMode) UnmarshalText(text []byte) error {
 // PRE_CONFIRMED_BLOCK_HEADER
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1711
 type BlockHeader struct {
-	Hash                  *felt.Felt    `json:"block_hash,omitempty"`
-	ParentHash            *felt.Felt    `json:"parent_hash,omitempty"`
-	Number                *uint64       `json:"block_number,omitempty"`
-	NewRoot               *felt.Felt    `json:"new_root,omitempty"`
-	Timestamp             uint64        `json:"timestamp"`
-	SequencerAddress      *felt.Felt    `json:"sequencer_address,omitempty"`
-	L1GasPrice            ResourcePrice `json:"l1_gas_price"`
-	L1DataGasPrice        ResourcePrice `json:"l1_data_gas_price"`
-	L1DAMode              L1DAMode      `json:"l1_da_mode"`
-	StarknetVersion       string        `json:"starknet_version"`
-	L2GasPrice            ResourcePrice `json:"l2_gas_price"`
-	TransactionCommitment *felt.Hash    `json:"transaction_commitment,omitempty"`
-	EventCommitment       *felt.Hash    `json:"event_commitment,omitempty"`
-	ReceiptCommitment     *felt.Hash    `json:"receipt_commitment,omitempty"`
-	StateDiffCommitment   *felt.Hash    `json:"state_diff_commitment,omitempty"`
-	EventCount            *uint64       `json:"event_count,omitempty"`
-	TransactionCount      *uint64       `json:"transaction_count,omitempty"`
-	StateDiffLength       *uint64       `json:"state_diff_length,omitempty"`
+	Hash                  *felt.Felt          `json:"block_hash,omitempty"`
+	ParentHash            *felt.Felt          `json:"parent_hash,omitempty"`
+	Number                *uint64             `json:"block_number,omitempty"`
+	NewRoot               *felt.StateRootHash `json:"new_root,omitempty"`
+	Timestamp             uint64              `json:"timestamp"`
+	SequencerAddress      *felt.Address       `json:"sequencer_address,omitempty"`
+	L1GasPrice            ResourcePrice       `json:"l1_gas_price"`
+	L1DataGasPrice        ResourcePrice       `json:"l1_data_gas_price"`
+	L1DAMode              L1DAMode            `json:"l1_da_mode"`
+	StarknetVersion       string              `json:"starknet_version"`
+	L2GasPrice            ResourcePrice       `json:"l2_gas_price"`
+	TransactionCommitment *felt.Hash          `json:"transaction_commitment,omitempty"`
+	EventCommitment       *felt.Hash          `json:"event_commitment,omitempty"`
+	ReceiptCommitment     *felt.Hash          `json:"receipt_commitment,omitempty"`
+	StateDiffCommitment   *felt.Hash          `json:"state_diff_commitment,omitempty"`
+	EventCount            *uint64             `json:"event_count,omitempty"`
+	TransactionCount      *uint64             `json:"transaction_count,omitempty"`
+	StateDiffLength       *uint64             `json:"state_diff_length,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/cce1563eff702c87590bad3a48382d2febf1f7d9/api/starknet_api_openrpc.json#L1794
@@ -84,7 +84,7 @@ type BlockWithTxs struct {
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes []felt.Felt `json:"transactions"`
+	TxnHashes []felt.TransactionHash `json:"transactions"`
 }
 
 // TransactionWithReceipt represents a transaction with its receipt
@@ -239,8 +239,8 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 // transactionHashesOf collects each transaction's hash, for blocks served from memory where the
 // transactions are already decoded.
-func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(transactions))
+func transactionHashesOf(transactions []core.Transaction) []felt.TransactionHash {
+	hashes := make([]felt.TransactionHash, len(transactions))
 	for index, transaction := range transactions {
 		hashes[index] = *transaction.Hash()
 	}
@@ -400,7 +400,7 @@ func AdaptBlockHeader(
 ) BlockHeader {
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = new(felt.Zero[felt.Felt]())
+		sequencerAddress = new(felt.Zero[felt.Address]())
 	}
 
 	var l1DAMode L1DAMode

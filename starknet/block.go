@@ -25,7 +25,7 @@ type Block struct {
 	Hash                  *felt.Felt            `json:"block_hash"`
 	ParentHash            *felt.Felt            `json:"parent_block_hash"`
 	Number                uint64                `json:"block_number"`
-	StateRoot             *felt.Felt            `json:"state_root"`
+	StateRoot             *felt.StateRootHash   `json:"state_root"`
 	TransactionCommitment *felt.Felt            `json:"transaction_commitment"`
 	EventCommitment       *felt.Felt            `json:"event_commitment"`
 	ReceiptCommitment     *felt.Felt            `json:"receipt_commitment"`
@@ -36,7 +36,7 @@ type Block struct {
 	Timestamp             uint64                `json:"timestamp"`
 	Version               string                `json:"starknet_version"`
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
-	SequencerAddress      *felt.Felt            `json:"sequencer_address"`
+	SequencerAddress      *felt.Address         `json:"sequencer_address"`
 	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
 	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`

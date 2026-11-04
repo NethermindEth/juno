@@ -43,11 +43,11 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	}
 	txs := []core.Transaction{
 		&core.InvokeTransaction{
-			TransactionHash: new(felt.One[felt.Felt]()),
+			TransactionHash: new(felt.One[felt.TransactionHash]()),
 			Version:         new(core.TransactionVersion),
 		},
 		&core.InvokeTransaction{
-			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](2),
 			Version:         new(core.TransactionVersion),
 		},
 	}
@@ -59,7 +59,7 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 		},
 	}}
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
-	reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash)).
+	reader.EXPECT().BlockNumberAndIndexByTxHash(hash).
 		Return(header.Number, uint64(1), nil).AnyTimes()
 	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
 	var record *tracecache.BlockTrace
@@ -106,11 +106,11 @@ func traceAdaptationRequest(t *testing.T, version int, feeder bool, calls int) f
 	return func() {
 		switch version {
 		case 9:
-			trace, _, rpcErr := h9.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
+			trace, _, rpcErr := h9.TraceTransaction(t.Context(), hash)
 			require.Nil(t, rpcErr)
 			require.Equal(t, uint64(7), trace.ExecutionResources.L1Gas)
 		case 10:
-			trace, _, rpcErr := h10.TraceTransaction(t.Context(), (*felt.TransactionHash)(hash))
+			trace, _, rpcErr := h10.TraceTransaction(t.Context(), hash)
 			require.Nil(t, rpcErr)
 			require.Equal(t, uint64(7), trace.ExecutionResources.L1Gas)
 		}

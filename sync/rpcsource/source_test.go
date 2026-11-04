@@ -110,8 +110,8 @@ func newSource(t *testing.T, chain *blockchain.Blockchain, client *rpc.Client) *
 	)
 }
 
-func classHashes(classes map[felt.Felt]core.ClassDefinition) []felt.Felt {
-	hashes := make([]felt.Felt, 0, len(classes))
+func classHashes(classes map[felt.ClassHash]core.ClassDefinition) []felt.ClassHash {
+	hashes := make([]felt.ClassHash, 0, len(classes))
 	for hash := range classes {
 		hashes = append(hashes, hash)
 	}
@@ -230,9 +230,9 @@ func TestBlockByNumber(t *testing.T) {
 			assert.Len(t, got.Block.Transactions, len(expected.Block.Transactions))
 			assert.Len(t, got.Block.Receipts, len(expected.Block.Receipts))
 			assert.Equal(t, expected.StateUpdate, got.StateUpdate)
-			wantHashes := make([]felt.Felt, 0, len(tt.wantClasses))
+			wantHashes := make([]felt.ClassHash, 0, len(tt.wantClasses))
 			for _, hash := range tt.wantClasses {
-				wantHashes = append(wantHashes, *felt.NewUnsafeFromString[felt.Felt](hash))
+				wantHashes = append(wantHashes, *felt.NewUnsafeFromString[felt.ClassHash](hash))
 			}
 			assert.ElementsMatch(t, wantHashes, classHashes(expected.NewClasses))
 			assert.ElementsMatch(t, wantHashes, classHashes(got.NewClasses))
@@ -277,7 +277,7 @@ func TestBlockByNumberFetchesClassDefinitions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			classHash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
+			classHash := felt.NewUnsafeFromString[felt.ClassHash](tt.classHash)
 
 			class := got.NewClasses[*classHash]
 
@@ -394,7 +394,7 @@ func TestBlockHeaderLatest(t *testing.T) {
 
 func TestSyncFromRPCSource(t *testing.T) {
 	remote := newMainnetChain(t)
-	classHash := felt.NewUnsafeFromString[felt.Felt](mainnetClassHash)
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](mainnetClassHash)
 
 	tests := []struct {
 		name        string

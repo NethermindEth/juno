@@ -9,17 +9,17 @@ import (
 	"github.com/NethermindEth/juno/utils/compression"
 )
 
-func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
+func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.ClassHash, error) {
 	decompressedProgram, err := compression.Gzip64Decode(
 		class.Program, MaxDeprecatedClassProgramSize,
 	)
 	if err != nil {
-		return felt.Felt{}, fmt.Errorf("decompressing Cairo Zero class: %w", err)
+		return felt.ClassHash{}, fmt.Errorf("decompressing Cairo Zero class: %w", err)
 	}
 
 	program, err := unmarshalDeprecatedCairoProgram(decompressedProgram)
 	if err != nil {
-		return felt.Felt{}, fmt.Errorf("unmarshalling Cairo Zero class: %w", err)
+		return felt.ClassHash{}, fmt.Errorf("unmarshalling Cairo Zero class: %w", err)
 	}
 
 	var (
@@ -52,10 +52,10 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 
 	wg.Wait()
 	if hintedClassHashErr != nil {
-		return felt.Felt{}, hintedClassHashErr
+		return felt.ClassHash{}, hintedClassHashErr
 	}
 
-	hash := crypto.PedersenElems[felt.Felt](
+	hash := crypto.PedersenElems[felt.ClassHash](
 		new(felt.Zero[felt.Felt]()),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,

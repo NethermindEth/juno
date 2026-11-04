@@ -164,20 +164,20 @@ type ResourceBounds struct {
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
+	Hash                  *felt.TransactionHash        `json:"transaction_hash,omitempty"`
 	Version               *felt.Felt                   `json:"version,omitempty"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
+	ContractAddress       *felt.Address                `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty"`
+	ClassHash             *felt.ClassHash              `json:"class_hash,omitempty"`
 	ConstructorCallData   *[]felt.Felt                 `json:"constructor_calldata,omitempty"`
 	Type                  TransactionType              `json:"type,omitempty"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty"`
+	SenderAddress         *felt.Address                `json:"sender_address,omitempty"`
 	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
 	Signature             *[]felt.Felt                 `json:"signature,omitempty"`
 	CallData              *[]felt.Felt                 `json:"calldata,omitempty"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
 	Nonce                 *felt.Felt                   `json:"nonce,omitempty"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
+	CompiledClassHash     *felt.CasmClassHash          `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty"`
 	Tip                   *felt.Felt                   `json:"tip,omitempty"`
 	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty"`
@@ -219,23 +219,23 @@ func (tf TransactionFailureReason) String() string {
 }
 
 type Event struct {
-	From *felt.Felt  `json:"from_address"`
-	Data []felt.Felt `json:"data"`
-	Keys []felt.Felt `json:"keys"`
+	From *felt.Address `json:"from_address"`
+	Data []felt.Felt   `json:"data"`
+	Keys []felt.Felt   `json:"keys"`
 }
 
 type L1ToL2Message struct {
-	From     string      `json:"from_address"`
-	Payload  []felt.Felt `json:"payload"`
-	Selector *felt.Felt  `json:"selector"`
-	To       *felt.Felt  `json:"to_address"`
-	Nonce    *felt.Felt  `json:"nonce"`
+	From     string        `json:"from_address"`
+	Payload  []felt.Felt   `json:"payload"`
+	Selector *felt.Felt    `json:"selector"`
+	To       *felt.Address `json:"to_address"`
+	Nonce    *felt.Felt    `json:"nonce"`
 }
 
 type L2ToL1Message struct {
-	From    *felt.Felt  `json:"from_address"`
-	Payload []felt.Felt `json:"payload"`
-	To      string      `json:"to_address"`
+	From    *felt.Address `json:"from_address"`
+	Payload []felt.Felt   `json:"payload"`
+	To      string        `json:"to_address"`
 }
 
 type ExecutionResources struct {
@@ -278,13 +278,13 @@ type TransactionReceipt struct {
 	// with an omitempty tag since it could cause very confusing behaviour. If the finality
 	// status is needed, use get_block.
 
-	ActualFee          *felt.Felt          `json:"actual_fee"`
-	Events             []*Event            `json:"events"`
-	ExecutionStatus    ExecutionStatus     `json:"execution_status"`
-	ExecutionResources *ExecutionResources `json:"execution_resources"`
-	L1ToL2Message      *L1ToL2Message      `json:"l1_to_l2_consumed_message"`
-	L2ToL1Message      []*L2ToL1Message    `json:"l2_to_l1_messages"`
-	TransactionHash    *felt.Felt          `json:"transaction_hash"`
-	TransactionIndex   uint64              `json:"transaction_index"`
-	RevertError        string              `json:"revert_error"`
+	ActualFee          *felt.Felt            `json:"actual_fee"`
+	Events             []*Event              `json:"events"`
+	ExecutionStatus    ExecutionStatus       `json:"execution_status"`
+	ExecutionResources *ExecutionResources   `json:"execution_resources"`
+	L1ToL2Message      *L1ToL2Message        `json:"l1_to_l2_consumed_message"`
+	L2ToL1Message      []*L2ToL1Message      `json:"l2_to_l1_messages"`
+	TransactionHash    *felt.TransactionHash `json:"transaction_hash"`
+	TransactionIndex   uint64                `json:"transaction_index"`
+	RevertError        string                `json:"revert_error"`
 }

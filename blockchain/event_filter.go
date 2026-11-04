@@ -137,7 +137,7 @@ type FilteredEvent struct {
 	*core.Event
 	BlockNumber      uint64
 	BlockHash        *felt.Felt
-	TransactionHash  *felt.Felt
+	TransactionHash  *felt.TransactionHash
 	TransactionIndex uint
 	EventIndex       uint
 }

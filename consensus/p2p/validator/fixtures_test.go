@@ -305,7 +305,7 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 		MessageHeader: starknetconsensus.MessageHeader{
 			Height: types.Height(block.Number),
 			Round:  round,
-			Sender: starknetconsensus.Address(*block.SequencerAddress),
+			Sender: *block.SequencerAddress,
 		},
 		ValidRound: validRound,
 		Value:      new(starknetconsensus.Value(*block.Hash)),
@@ -330,7 +330,7 @@ func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBl
 				OldRoot:   headBlockHeader.GlobalStateRoot,
 				StateDiff: new(core.EmptyStateDiff()),
 			},
-			NewClasses:            map[felt.Felt]core.ClassDefinition{},
+			NewClasses:            map[felt.ClassHash]core.ClassDefinition{},
 			TransactionStateDiffs: []*core.StateDiff{},
 		},
 		L2GasConsumed:     0,
@@ -355,12 +355,12 @@ func calculateNewClasses(
 	t *testing.T,
 	gw *adaptfeeder.Feeder,
 	stateUpdate *core.StateUpdate,
-) map[felt.Felt]core.ClassDefinition {
-	newClasses := make(map[felt.Felt]core.ClassDefinition)
+) map[felt.ClassHash]core.ClassDefinition {
+	newClasses := make(map[felt.ClassHash]core.ClassDefinition)
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		class, err := gw.Class(t.Context(), &classHash)
+		class, err := gw.Class(t.Context(), (*felt.ClassHash)(&classHash))
 		require.NoError(t, err)
-		newClasses[classHash] = class
+		newClasses[felt.ClassHash(classHash)] = class
 	}
 	return newClasses
 }

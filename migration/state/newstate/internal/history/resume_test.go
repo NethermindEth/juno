@@ -26,15 +26,15 @@ func TestAddressSeqEscapesResumePoint(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addrs := []felt.Felt{
-		felt.FromUint64[felt.Felt](1),
-		felt.FromUint64[felt.Felt](2),
-		felt.FromUint64[felt.Felt](3),
+	addrs := []felt.Address{
+		felt.FromUint64[felt.Address](1),
+		felt.FromUint64[felt.Address](2),
+		felt.FromUint64[felt.Address](3),
 	}
 	for _, addr := range addrs {
 		require.NoError(
 			t,
-			state.WriteContract(memDB, &addr, felt.Zero[felt.Felt](), felt.Zero[felt.Felt](), 1),
+			state.WriteContract(memDB, &addr, felt.Zero[felt.Felt](), felt.Zero[felt.ClassHash](), 1),
 		)
 	}
 	// Accept the first address and refuse the second, which is what the
@@ -50,7 +50,7 @@ func TestAddressSeqEscapesResumePoint(t *testing.T) {
 		}
 	}
 	require.NoError(t, sourceErr())
-	require.Equal(t, felt.Address(addrs[1]), progress, "the refused address is the resume point")
+	require.Equal(t, addrs[1], progress, "the refused address is the resume point")
 
 	// Resume from there and let it run out: everything from the resume point
 	// on is yielded. Completion is the pipeline's IsDone, not a value here;
@@ -61,9 +61,9 @@ func TestAddressSeqEscapesResumePoint(t *testing.T) {
 		got = append(got, addr)
 	}
 	require.NoError(t, sourceErr())
-	require.Equal(t, []felt.Address{felt.Address(addrs[1]), felt.Address(addrs[2])}, got)
+	require.Equal(t, []felt.Address{addrs[1], addrs[2]}, got)
 	require.Equal(
-		t, felt.Address(addrs[1]), progress, "a completed walk leaves progress untouched",
+		t, addrs[1], progress, "a completed walk leaves progress untouched",
 	)
 }
 
@@ -93,11 +93,15 @@ func TestRunPhaseDrainsHandedOutContractsOnCancel(t *testing.T) {
 	t.Cleanup(func() { memDB.Close() })
 
 	const contracts = 200
-	addrs := make([]felt.Felt, contracts)
+	addrs := make([]felt.Address, contracts)
 	for i := range addrs {
-		addrs[i] = felt.FromUint64[felt.Felt](uint64(i + 1))
+		addrs[i] = felt.FromUint64[felt.Address](uint64(i + 1))
 		require.NoError(t, state.WriteContract(
-			memDB, &addrs[i], felt.FromUint64[felt.Felt](7), felt.Zero[felt.Felt](), 1,
+			memDB,
+			&addrs[i],
+			felt.FromUint64[felt.Felt](7),
+			felt.Zero[felt.ClassHash](),
+			1,
 		))
 		require.NoError(
 			t,

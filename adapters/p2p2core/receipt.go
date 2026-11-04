@@ -9,7 +9,7 @@ import (
 )
 
 // todo change type of txHash to spec
-func AdaptReceipt(r *receipt.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
+func AdaptReceipt(r *receipt.Receipt, txHash *felt.TransactionHash) *core.TransactionReceipt {
 	var common *receipt.Receipt_Common
 
 	switch r.Type.(type) {
@@ -74,7 +74,7 @@ func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.Execu
 
 func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
-		From:    AdaptFelt[felt.Felt](m.FromAddress),
+		From:    AdaptFelt[felt.Address](m.FromAddress),
 		To:      AdaptEthAddress(m.ToAddress),
 		Payload: AdaptFeltSlice(m.Payload),
 	}

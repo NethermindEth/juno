@@ -202,7 +202,7 @@ func (l TransactionLayout) WriteTransactionsAndReceipts(
 	receipts []*core.TransactionReceipt,
 ) error {
 	for index, tx := range transactions {
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		key := db.BlockNumIndexKey{
 			Number: blockNumber,
 			Index:  uint64(index),
@@ -259,7 +259,7 @@ func (l TransactionLayout) DeleteTxsAndReceipts(
 		if err != nil {
 			return err
 		}
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		err := core.TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash)
 		if err != nil {
 			return err

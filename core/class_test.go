@@ -35,7 +35,7 @@ func TestClassV0Hash(t *testing.T) {
 
 			for _, fixture := range loadDeprecatedCairoHashFixtures(t, tt.network.Name) {
 				t.Run(fixture.fixtureKey, func(t *testing.T) {
-					hash := felt.UnsafeFromString[felt.Felt](fixture.fixtureKey)
+					hash := felt.UnsafeFromString[felt.ClassHash](fixture.fixtureKey)
 					class, err := gw.Class(t.Context(), &hash)
 					require.NoError(t, err)
 
@@ -50,7 +50,7 @@ func TestClassV0Hash(t *testing.T) {
 
 					got, err := class.Hash()
 					require.NoError(t, err)
-					assert.Equal(t, felt.UnsafeFromString[felt.Felt](fixture.expectedClassHash), got)
+					assert.Equal(t, felt.UnsafeFromString[felt.ClassHash](fixture.expectedClassHash), got)
 				})
 			}
 		})
@@ -173,7 +173,7 @@ func TestClassV1Hash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
-			hash := felt.UnsafeFromString[felt.Felt](tt.classHash)
+			hash := felt.UnsafeFromString[felt.ClassHash](tt.classHash)
 			class, err := gw.Class(t.Context(), &hash)
 			require.NoError(t, err)
 
@@ -224,7 +224,7 @@ func TestCompiledClassHash(t *testing.T) {
 		t.Run("ClassHash", func(t *testing.T) {
 			client := feeder.NewTestClient(t, &tt.network)
 			gw := adaptfeeder.New(client)
-			hash := felt.NewUnsafeFromString[felt.Felt](tt.classHash)
+			hash := felt.NewUnsafeFromString[felt.ClassHash](tt.classHash)
 			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 			got := class.(*core.SierraClass).Compiled.Hash(tt.hashVersion)
@@ -308,7 +308,7 @@ func checkClassSymmetry(t *testing.T, input core.ClassDefinition) {
 func TestVerifyClassHash(t *testing.T) {
 	type Tests struct {
 		name      string
-		classHash *felt.Felt
+		classHash *felt.ClassHash
 		class     core.ClassDefinition
 		wantErr   error
 	}
@@ -316,7 +316,7 @@ func TestVerifyClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
-	sierraClassHash := felt.NewUnsafeFromString[felt.Felt](
+	sierraClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
 	sierraClass, err := gw.Class(t.Context(), sierraClassHash)
@@ -326,7 +326,7 @@ func TestVerifyClassHash(t *testing.T) {
 		tests := []Tests{
 			{
 				name:      "error if expected hash is not equal to gotten hash",
-				classHash: felt.NewUnsafeFromString[felt.Felt]("0xab"),
+				classHash: felt.NewUnsafeFromString[felt.ClassHash]("0xab"),
 				class:     sierraClass,
 				wantErr: fmt.Errorf(
 					"cannot verify class hash: calculated hash %v, received hash %v",
@@ -344,7 +344,7 @@ func TestVerifyClassHash(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				err = core.VerifyClassHashes(map[felt.Felt]core.ClassDefinition{
+				err = core.VerifyClassHashes(map[felt.ClassHash]core.ClassDefinition{
 					*tt.classHash: tt.class,
 				})
 				require.Equal(t, tt.wantErr, err)
@@ -352,14 +352,14 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.Felt](
+	deprecatedCairoClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
 	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with no error", func(t *testing.T) {
-		classMap := map[felt.Felt]core.ClassDefinition{
+		classMap := map[felt.ClassHash]core.ClassDefinition{
 			*sierraClassHash:          sierraClass,
 			*deprecatedCairoClassHash: deprecatedCairoClass,
 		}
@@ -756,7 +756,7 @@ func BenchmarkClassV0Hash(b *testing.B) {
 	gw := adaptfeeder.New(client)
 
 	for _, benchmark := range benchmarkClassV0Fixtures {
-		hash := felt.UnsafeFromString[felt.Felt](benchmark.classHash)
+		hash := felt.UnsafeFromString[felt.ClassHash](benchmark.classHash)
 		class, err := gw.Class(b.Context(), &hash)
 		require.NoError(b, err)
 
@@ -841,7 +841,7 @@ func loadSierraClassFrom(b *testing.B, network *networks.Network, key string) *c
 	client := feeder.NewTestClient(b, network)
 	gw := adaptfeeder.New(client)
 
-	hash := felt.UnsafeFromString[felt.Felt](key)
+	hash := felt.UnsafeFromString[felt.ClassHash](key)
 	class, err := gw.Class(b.Context(), &hash)
 	require.NoError(b, err)
 	sierra, ok := class.(*core.SierraClass)

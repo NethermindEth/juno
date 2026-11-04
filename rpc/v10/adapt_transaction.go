@@ -156,7 +156,7 @@ func AdaptReceipt(
 	}
 
 	var messageHash string
-	var contractAddress *felt.Felt
+	var contractAddress *felt.Address
 	switch v := txn.(type) {
 	case *core.DeployTransaction:
 		contractAddress = v.ContractAddress
@@ -453,7 +453,7 @@ func adaptBroadcastedInvokeToCore(tx *BroadcastedTransaction) *core.InvokeTransa
 // Returns a tx with a nil transaction hash.
 func adaptBroadcastedDeclareToCore(
 	tx *BroadcastedTransaction,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
 		TransactionHash:       nil,
@@ -479,7 +479,7 @@ func adaptBroadcastedDeployAccountToCore(
 	tx *BroadcastedTransaction,
 ) *core.DeployAccountTransaction {
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		tx.ClassHash,
 		tx.ContractAddressSalt,
 		*tx.ConstructorCallData,
@@ -511,7 +511,7 @@ func adaptBroadcastedDeployAccountToCore(
 func AdaptBroadcastedTransactionToCore(
 	ctx context.Context,
 	broadcastedTxn *BroadcastedTransaction,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 	network *networks.Network,
 ) (core.Transaction, error) {
 	var coreTx core.Transaction

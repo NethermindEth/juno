@@ -133,6 +133,6 @@ func (s TxnStatusWithoutL1) MarshalText() ([]byte, error) {
 }
 
 type SubscriptionTransactionStatus struct {
-	TransactionHash *felt.Felt        `json:"transaction_hash"`
-	Status          TransactionStatus `json:"status"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+	Status          TransactionStatus     `json:"status"`
 }

@@ -200,7 +200,8 @@ func (s *GethL1StateProvider) Close() {
 }
 
 func stateUpdateFromGethContract(ev *contract.StarknetLogStateUpdate) *StateUpdate {
-	var blockHash, stateRoot felt.Felt
+	var blockHash felt.Felt
+	var stateRoot felt.StateRootHash
 	blockHash.SetBigInt(ev.BlockHash)
 	stateRoot.SetBigInt(ev.GlobalRoot)
 	return &StateUpdate{

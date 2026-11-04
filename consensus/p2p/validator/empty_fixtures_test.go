@@ -33,7 +33,7 @@ func NewEmptyTestFixture(
 ) EmptyTestFixture {
 	headBlock, _ := LoadBlockDependencies(t, database, testCase.Height, testCase.Network)
 
-	proposer := felt.NewRandom[felt.Felt]()
+	proposer := felt.NewRandom[felt.Address]()
 	expectedHash := felt.NewRandom[felt.Felt]()
 
 	timestamp := rand.Uint64()
@@ -53,7 +53,7 @@ func NewEmptyTestFixture(
 	expectedHeader := starknet.MessageHeader{
 		Height: testCase.Height,
 		Round:  testCase.Round,
-		Sender: starknet.Address(*proposer),
+		Sender: *proposer,
 	}
 
 	expectedProposal := starknet.Proposal{
@@ -91,7 +91,12 @@ func NewEmptyTestFixture(
 	}
 }
 
-func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, timestamp uint64) builder.BuildResult {
+func EmptyBuildResult(
+	headBlock *core.Block,
+	proposer *felt.Address,
+	expectedHash *felt.Felt,
+	timestamp uint64,
+) builder.BuildResult {
 	return builder.BuildResult{
 		PreConfirmed: &pending.PreConfirmed{
 			Block: &core.Block{
@@ -125,7 +130,7 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 				OldRoot:   headBlock.GlobalStateRoot,
 				StateDiff: new(core.EmptyStateDiff()),
 			},
-			NewClasses:            make(map[felt.Felt]core.ClassDefinition),
+			NewClasses:            make(map[felt.ClassHash]core.ClassDefinition),
 			TransactionStateDiffs: []*core.StateDiff{},
 		},
 		SimulateResult: &blockchain.SimulateResult{
@@ -140,7 +145,11 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 	}
 }
 
-func EmptyProposalCommitment(headBlock *core.Block, proposer *felt.Felt, timestamp uint64) *consensus.ProposalPart {
+func EmptyProposalCommitment(
+	headBlock *core.Block,
+	proposer *felt.Address,
+	timestamp uint64,
+) *consensus.ProposalPart {
 	return &consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Commitment{
 			Commitment: &consensus.ProposalCommitment{

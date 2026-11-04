@@ -50,10 +50,10 @@ func (l *logMessageToL2) hashMessage() *eth.Hash {
 }
 
 type MsgStatus struct {
-	L1HandlerHash   *felt.Felt         `json:"transaction_hash"`
-	FinalityStatus  TxnStatus          `json:"finality_status"`
-	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
-	FailureReason   string             `json:"failure_reason,omitempty"`
+	L1HandlerHash   *felt.TransactionHash `json:"transaction_hash"`
+	FinalityStatus  TxnStatus             `json:"finality_status"`
+	ExecutionStatus TxnExecutionStatus    `json:"execution_status"`
+	FailureReason   string                `json:"failure_reason,omitempty"`
 }
 
 func (h *Handler) GetMessageStatus(

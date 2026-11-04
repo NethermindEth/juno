@@ -14,11 +14,10 @@ type State interface {
 	// Update applies the given state update at blockNum: registers declared classes,
 	// deploys contracts, applies storage/nonce/class-hash diffs to the state and updates the tries.
 	// Verifies state roots before and after the update.
-	// todo: change declaredClasses map[felt.Felt]ClassDefinition to map[felt.ClassHash]ClassDefinition
 	Update(
 		header *Header,
 		update *StateUpdate,
-		declaredClasses map[felt.Felt]ClassDefinition,
+		declaredClasses map[felt.ClassHash]ClassDefinition,
 		skipVerifyNewRoot bool,
 	) error
 	// Revert rolls back the state update for blockNum, restoring the state to update.OldRoot.
@@ -26,8 +25,7 @@ type State interface {
 	Revert(header *Header, update *StateUpdate) error
 	// Commitment returns the current state root hash, derived from the contracts and classes tries.
 	// protocolVersion controls the commitment formula: v0.14+ always uses Poseidon hash.
-	// todo: change return type from felt.Felt to felt.StateRootHash
-	Commitment(protocolVersion string) (felt.Felt, error)
+	Commitment(protocolVersion string) (felt.StateRootHash, error)
 }
 
 //go:generate mockgen -destination=../mocks/mock_state_reader.go -package=mocks github.com/NethermindEth/juno/core StateReader
@@ -36,20 +34,16 @@ type State interface {
 // contracts, storage, class definitions, and the underlying tries.
 type StateReader interface {
 	// ContractClassHash returns the class hash of the contract at addr.
-	// todo: change add *feltFelt to *felt.Address
-	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
+	ContractClassHash(addr *felt.Address) (felt.ClassHash, error)
 	// ContractNonce returns the nonce of the contract at addr.
-	// todo: change add *feltFelt to *felt.Address
-	ContractNonce(addr *felt.Felt) (felt.Felt, error)
+	ContractNonce(addr *felt.Address) (felt.Felt, error)
 	// ContractStorage returns the value at key in the storage of the contract at addr.
-	// todo: change add *feltFelt to *felt.Address
-	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
+	ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error)
 	// ContractStorageLastUpdatedBlock returns the most recent block number at which a given storage
 	// slot key of a given contract was last updated.
 	ContractStorageLastUpdatedBlock(addr *felt.Address, key *felt.Felt) (uint64, error)
 	// Class returns the class definition and declaration block number for the given class hash.
-	// todo: change classHash *felt.Felt to *felt.ClassHash
-	Class(classHash *felt.Felt) (*DeclaredClassDefinition, error)
+	Class(classHash *felt.ClassHash) (*DeclaredClassDefinition, error)
 	// CompiledClassHash returns the CASM class hash for a Sierra class hash (Poseidon-based, V1).
 	CompiledClassHash(classHash *felt.SierraClassHash) (felt.CasmClassHash, error)
 	// CompiledClassHashV2 returns the CASM class hash for a Sierra class hash (blake2s-based, V2).
@@ -59,6 +53,5 @@ type StateReader interface {
 	// ContractTrie returns the global contracts trie, keyed by contract address.
 	ContractTrie() (TrieReader, error)
 	// ContractStorageTrie returns the storage trie for the contract at addr.
-	// todo: change addr *felt.Felt to *felt.Address
-	ContractStorageTrie(addr *felt.Felt) (TrieReader, error)
+	ContractStorageTrie(addr *felt.Address) (TrieReader, error)
 }

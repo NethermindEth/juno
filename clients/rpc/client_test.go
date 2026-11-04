@@ -226,8 +226,8 @@ func TestCall(t *testing.T) {
 	client := newClient(t, testutils.Serve(t, chain))
 	blockNumber := uint64(testutils.ChainHeight - 1)
 	blockID := rpcv10.BlockIDFromNumber(blockNumber)
-	deprecatedClass := felt.NewUnsafeFromString[felt.Felt](testutils.DeprecatedClassHash)
-	sierraClass := felt.NewUnsafeFromString[felt.Felt](testutils.SierraClassHash)
+	deprecatedClass := felt.NewUnsafeFromString[felt.ClassHash](testutils.DeprecatedClassHash)
+	sierraClass := felt.NewUnsafeFromString[felt.ClassHash](testutils.SierraClassHash)
 
 	runCall(
 		t, "chain id",
@@ -366,7 +366,7 @@ func TestCallRetries(t *testing.T) {
 			call: func(ctx context.Context, client *rpc.Client) error {
 				params := rpc.ClassParams{
 					BlockNumber: testutils.ChainHeight - 1,
-					ClassHash:   felt.NewFromUint64[felt.Felt](1),
+					ClassHash:   felt.NewFromUint64[felt.ClassHash](1),
 				}
 				_, err := client.Call(ctx, rpc.Class, params)
 				return err

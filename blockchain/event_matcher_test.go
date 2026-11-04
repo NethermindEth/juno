@@ -243,21 +243,21 @@ func TestEventMatcher_MatchesEventKeys(t *testing.T) {
 }
 
 func TestEventMatcher_AppendBlockEvents(t *testing.T) {
-	emitter := felt.NewFromUint64[felt.Felt](0xa)
-	otherEmitter := felt.NewFromUint64[felt.Felt](0xb)
+	emitter := felt.NewFromUint64[felt.Address](0xa)
+	otherEmitter := felt.NewFromUint64[felt.Address](0xb)
 	blockHash := felt.NewFromUint64[felt.Felt](0xc0ffee)
 
 	// Two transactions, two events each; all four from emitter.
 	blockEvents := []core.TransactionEvents{
 		{
-			TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](0x1),
 			Events: []*core.Event{
 				{From: emitter, Keys: []felt.Felt{felt.FromUint64[felt.Felt](0x11)}},
 				{From: emitter, Keys: []felt.Felt{felt.FromUint64[felt.Felt](0x12)}},
 			},
 		},
 		{
-			TransactionHash: felt.NewFromUint64[felt.Felt](0x2),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](0x2),
 			Events: []*core.Event{
 				{From: emitter, Keys: []felt.Felt{felt.FromUint64[felt.Felt](0x21)}},
 				{From: emitter, Keys: []felt.Felt{felt.FromUint64[felt.Felt](0x22)}},
@@ -273,7 +273,7 @@ func TestEventMatcher_AppendBlockEvents(t *testing.T) {
 	}
 
 	t.Run("no match resolves no hash", func(t *testing.T) {
-		matcher := blockchain.NewEventMatcher([]felt.Address{felt.Address(*otherEmitter)}, nil)
+		matcher := blockchain.NewEventMatcher([]felt.Address{*otherEmitter}, nil)
 		calls := 0
 		matched, processed, err := matcher.AppendBlockEventsFromTransactionEvents(
 			nil, 1, countingHashFn(&calls), blockEvents, 0, 10,
@@ -336,7 +336,7 @@ func TestEventMatcher_AppendBlockEvents(t *testing.T) {
 	})
 
 	t.Run("a block with no match allocates nothing", func(t *testing.T) {
-		matcher := blockchain.NewEventMatcher([]felt.Address{felt.Address(*otherEmitter)}, nil)
+		matcher := blockchain.NewEventMatcher([]felt.Address{*otherEmitter}, nil)
 		calls := 0
 		hashFn := countingHashFn(&calls)
 		allocs := testing.AllocsPerRun(100, func() {
@@ -355,10 +355,10 @@ func constHashFn(hash *felt.Felt) func() (*felt.Felt, error) {
 }
 
 func TestEventMatcher_BothSourcesAgree(t *testing.T) {
-	emitters := []*felt.Felt{
-		felt.NewFromUint64[felt.Felt](0xa),
-		felt.NewFromUint64[felt.Felt](0xb),
-		felt.NewFromUint64[felt.Felt](0xc),
+	emitters := []*felt.Address{
+		felt.NewFromUint64[felt.Address](0xa),
+		felt.NewFromUint64[felt.Address](0xb),
+		felt.NewFromUint64[felt.Address](0xc),
 	}
 	blockHash := felt.NewFromUint64[felt.Felt](0xc0ffee)
 	hashFn := constHashFn(blockHash)
@@ -375,7 +375,7 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 				Keys: []felt.Felt{felt.FromUint64[felt.Felt](uint64(j))},
 			}
 		}
-		hash := felt.NewFromUint64[felt.Felt](uint64(i))
+		hash := felt.NewFromUint64[felt.TransactionHash](uint64(i))
 		txEvents[i] = core.TransactionEvents{TransactionHash: hash, Events: events}
 		receipts[i] = &core.TransactionReceipt{TransactionHash: hash, Events: events}
 	}
@@ -386,12 +386,12 @@ func TestEventMatcher_BothSourcesAgree(t *testing.T) {
 		keys      [][]felt.Felt
 	}{
 		{name: "no filter"},
-		{name: "address filter", addresses: []felt.Address{felt.Address(*emitters[1])}},
+		{name: "address filter", addresses: []felt.Address{*emitters[1]}},
 		{name: "absent address", addresses: []felt.Address{absent}},
 		{name: "key filter", keys: [][]felt.Felt{{felt.FromUint64[felt.Felt](1)}}},
 		{
 			name:      "address and key filter",
-			addresses: []felt.Address{felt.Address(*emitters[0])},
+			addresses: []felt.Address{*emitters[0]},
 			keys:      [][]felt.Felt{{felt.FromUint64[felt.Felt](0)}},
 		},
 	}

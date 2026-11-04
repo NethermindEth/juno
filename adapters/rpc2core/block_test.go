@@ -80,7 +80,7 @@ func servedBlock(t *testing.T, block *core.Block) *rpcv10.BlockWithReceipts {
 func expectedBlock(block *core.Block) core.Block {
 	header := *block.Header
 	header.Signatures = [][]*felt.Felt{}
-	header.SequencerAddress = cmp.Or(header.SequencerAddress, new(felt.Zero[felt.Felt]()))
+	header.SequencerAddress = cmp.Or(header.SequencerAddress, new(felt.Zero[felt.Address]()))
 	header.L1GasPriceETH = cmp.Or(header.L1GasPriceETH, new(felt.One[felt.Felt]()))
 	header.L1GasPriceSTRK = cmp.Or(header.L1GasPriceSTRK, new(felt.One[felt.Felt]()))
 	header.L1DataGasPrice = servedGasPrice(header.L1DataGasPrice)
@@ -201,8 +201,8 @@ func singleTransactionBlock(transaction core.Transaction) *core.Block {
 			Hash:             new(felt.One[felt.Felt]()),
 			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           1,
-			GlobalStateRoot:  new(felt.Zero[felt.Felt]()),
-			SequencerAddress: new(felt.One[felt.Felt]()),
+			GlobalStateRoot:  new(felt.Zero[felt.StateRootHash]()),
+			SequencerAddress: new(felt.One[felt.Address]()),
 			TransactionCount: 1,
 			ProtocolVersion:  "0.13.4",
 			L1GasPriceETH:    new(felt.One[felt.Felt]()),

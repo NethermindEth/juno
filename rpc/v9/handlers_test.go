@@ -39,8 +39,8 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("call", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Felt]())).Return(
-			felt.Zero[felt.Felt](),
+		mockState.EXPECT().ContractClassHash(new(felt.Zero[felt.Address]())).Return(
+			felt.Zero[felt.ClassHash](),
 			nil,
 		)
 
@@ -74,15 +74,15 @@ func TestThrottledVMError(t *testing.T) {
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x000000C"),
 		}
 		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
 			Class: &core.SierraClass{},
 		}
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.ClassHash]("0x00000BC00"),
 		}
 		block := &core.Block{
 			Header:       header,

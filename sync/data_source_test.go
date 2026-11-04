@@ -19,53 +19,58 @@ import (
 const mainnetGenesisClassHash = "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"
 
 func TestMissingClassHashes(t *testing.T) {
-	knownClass := felt.NewUnsafeFromString[felt.Felt](mainnetGenesisClassHash)
-	classA := felt.NewUnsafeFromString[felt.Felt]("0xa")
-	classB := felt.NewUnsafeFromString[felt.Felt]("0xb")
-	classC := felt.NewUnsafeFromString[felt.Felt]("0xc")
+	knownClass := felt.NewUnsafeFromString[felt.ClassHash](mainnetGenesisClassHash)
+	classA := felt.NewUnsafeFromString[felt.ClassHash]("0xa")
+	classB := felt.NewUnsafeFromString[felt.ClassHash]("0xb")
+	classC := felt.NewUnsafeFromString[felt.ClassHash]("0xc")
+	sierraClassA := felt.NewUnsafeFromString[felt.SierraClassHash]("0xa")
+	sierraClassC := felt.NewUnsafeFromString[felt.SierraClassHash]("0xc")
+	compiledClass := felt.NewUnsafeFromString[felt.CasmClassHash]("0xd")
 
 	tests := []struct {
 		name         string
 		storedBlocks uint64
 		stateDiff    *core.StateDiff
-		want         []*felt.Felt
+		want         []*felt.ClassHash
 	}{
 		{
 			name:      "nothing introduced",
 			stateDiff: &core.StateDiff{},
-			want:      []*felt.Felt{},
+			want:      []*felt.ClassHash{},
 		},
 		{
 			name: "empty database lacks every introduced class",
 			stateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{*classA: classA},
-				DeclaredV0Classes: []*felt.Felt{classB},
-				DeclaredV1Classes: map[felt.Felt]*felt.Felt{*classC: classC},
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					*felt.NewUnsafeFromString[felt.Address]("0x1"): classA,
+				},
+				DeclaredV0Classes: []*felt.ClassHash{classB},
+				DeclaredV1Classes: map[felt.SierraClassHash]*felt.CasmClassHash{*sierraClassC: compiledClass},
 			},
-			want: []*felt.Felt{classA, classB, classC},
+			want: []*felt.ClassHash{classA, classB, classC},
 		},
 		{
 			name: "class introduced several ways is reported once",
 			stateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"): classA,
-					*felt.NewUnsafeFromString[felt.Felt]("0x2"): classA,
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					*felt.NewUnsafeFromString[felt.Address]("0x1"): classA,
+					*felt.NewUnsafeFromString[felt.Address]("0x2"): classA,
 				},
-				DeclaredV0Classes: []*felt.Felt{classA},
-				DeclaredV1Classes: map[felt.Felt]*felt.Felt{*classA: classA},
+				DeclaredV0Classes: []*felt.ClassHash{classA},
+				DeclaredV1Classes: map[felt.SierraClassHash]*felt.CasmClassHash{*sierraClassA: compiledClass},
 			},
-			want: []*felt.Felt{classA},
+			want: []*felt.ClassHash{classA},
 		},
 		{
 			name:         "classes the database holds are skipped",
 			storedBlocks: 1,
 			stateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*felt.NewUnsafeFromString[felt.Felt]("0x1"): knownClass,
-					*felt.NewUnsafeFromString[felt.Felt]("0x2"): classA,
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					*felt.NewUnsafeFromString[felt.Address]("0x1"): knownClass,
+					*felt.NewUnsafeFromString[felt.Address]("0x2"): classA,
 				},
 			},
-			want: []*felt.Felt{classA},
+			want: []*felt.ClassHash{classA},
 		},
 	}
 

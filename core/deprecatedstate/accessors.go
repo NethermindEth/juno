@@ -10,8 +10,8 @@ import (
 
 // Accessors for the deprecated per-field contract layout and pre-value history buckets.
 
-func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
-	var classHash felt.Felt
+func GetContractClassHash(r db.KeyValueReader, addr *felt.Address) (felt.ClassHash, error) {
+	var classHash felt.ClassHash
 	//nolint:staticcheck,nolintlint // old state layout
 	err := r.Get(db.DeprecatedContractClassHashKey(addr), func(data []byte) error {
 		classHash.SetBytes(data)
@@ -20,12 +20,16 @@ func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, erro
 	return classHash, err
 }
 
-func WriteContractClassHash(w db.KeyValueWriter, addr, classHash *felt.Felt) error {
+func WriteContractClassHash(
+	w db.KeyValueWriter,
+	addr *felt.Address,
+	classHash *felt.ClassHash,
+) error {
 	//nolint:staticcheck,nolintlint // old state layout
 	return w.Put(db.DeprecatedContractClassHashKey(addr), classHash.Marshal())
 }
 
-func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
+func GetContractNonce(r db.KeyValueReader, addr *felt.Address) (felt.Felt, error) {
 	var nonce felt.Felt
 	//nolint:staticcheck,nolintlint // old state layout
 	err := r.Get(db.DeprecatedContractNonceKey(addr), func(data []byte) error {
@@ -35,18 +39,18 @@ func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
 	return nonce, err
 }
 
-func WriteContractNonce(w db.KeyValueWriter, addr, nonce *felt.Felt) error {
+func WriteContractNonce(w db.KeyValueWriter, addr *felt.Address, nonce *felt.Felt) error {
 	//nolint:staticcheck,nolintlint // old state layout
 	return w.Put(db.DeprecatedContractNonceKey(addr), nonce.Marshal())
 }
 
-func WriteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt, height uint64) error {
+func WriteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Address, height uint64) error {
 	enc := core.MarshalBlockNumber(height)
 	//nolint:staticcheck,nolintlint // old state layout
 	return w.Put(db.DeprecatedContractDeploymentHeightKey(addr), enc)
 }
 
-func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Felt) (uint64, error) {
+func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Address) (uint64, error) {
 	var height uint64
 	//nolint:staticcheck,nolintlint // old state layout
 	err := r.Get(db.DeprecatedContractDeploymentHeightKey(addr), func(data []byte) error {
@@ -56,7 +60,7 @@ func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Felt) (uint64, 
 	return height, err
 }
 
-func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt) error {
+func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Address) error {
 	//nolint:staticcheck,nolintlint // old state layout
 	return w.Delete(db.DeprecatedContractDeploymentHeightKey(addr))
 }
@@ -65,8 +69,8 @@ func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt) error 
 // for the given contract which changed on height `height`.
 func WriteContractStorageHistory(
 	w db.KeyValueWriter,
-	contractAddress,
-	storageLocation,
+	contractAddress *felt.Address,
+	storageLocation *felt.Felt,
 	oldValue *felt.Felt,
 	height uint64,
 ) error {
@@ -78,7 +82,7 @@ func WriteContractStorageHistory(
 // DeleteContractStorageHistory deletes the history at the given height
 func DeleteContractStorageHistory(
 	w db.KeyValueWriter,
-	contractAddress,
+	contractAddress *felt.Address,
 	storageLocation *felt.Felt,
 	height uint64,
 ) error {
@@ -91,7 +95,7 @@ func DeleteContractStorageHistory(
 // for the given contract which changed on height `height`
 func WriteContractNonceHistory(
 	w db.KeyValueWriter,
-	contractAddress,
+	contractAddress *felt.Address,
 	oldValue *felt.Felt,
 	height uint64,
 ) error {
@@ -103,7 +107,7 @@ func WriteContractNonceHistory(
 // DeleteContractNonceHistory deletes the history at the given height
 func DeleteContractNonceHistory(
 	w db.KeyValueWriter,
-	contractAddress *felt.Felt,
+	contractAddress *felt.Address,
 	height uint64,
 ) error {
 	//nolint:staticcheck,nolintlint // old state layout
@@ -113,8 +117,8 @@ func DeleteContractNonceHistory(
 
 func WriteContractClassHashHistory(
 	w db.KeyValueWriter,
-	contractAddress,
-	oldValue *felt.Felt,
+	contractAddress *felt.Address,
+	oldValue *felt.ClassHash,
 	height uint64,
 ) error {
 	//nolint:staticcheck,nolintlint // old state layout
@@ -124,7 +128,7 @@ func WriteContractClassHashHistory(
 
 func DeleteContractClassHashHistory(
 	w db.KeyValueWriter,
-	contractAddress *felt.Felt,
+	contractAddress *felt.Address,
 	height uint64,
 ) error {
 	//nolint:staticcheck,nolintlint // old state layout

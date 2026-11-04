@@ -257,10 +257,10 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(msgHash *eth.Hash) (felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *eth.Hash) (felt.TransactionHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.TransactionHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -301,7 +301,7 @@ func (mr *MockReaderMockRecorder) Network() *gomock.Call {
 }
 
 // Receipt mocks base method.
-func (m *MockReader) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+func (m *MockReader) Receipt(hash *felt.TransactionHash) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Receipt", hash)
 	ret0, _ := ret[0].(*core.TransactionReceipt)
@@ -347,22 +347,6 @@ func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.StateReader, b
 func (mr *MockReaderMockRecorder) StateAtBlockNumber(blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).StateAtBlockNumber), blockNumber)
-}
-
-// TrieStateAtBlockNumber mocks base method.
-func (m *MockReader) TrieStateAtBlockNumber(blockNumber uint64) (core.StateReader, blockchain.StateCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TrieStateAtBlockNumber", blockNumber)
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(blockchain.StateCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// TrieStateAtBlockNumber indicates an expected call of TrieStateAtBlockNumber.
-func (mr *MockReaderMockRecorder) TrieStateAtBlockNumber(blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieStateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).TrieStateAtBlockNumber), blockNumber)
 }
 
 // StateUpdateByHash mocks base method.
@@ -442,7 +426,7 @@ func (mr *MockReaderMockRecorder) TransactionByBlockNumberAndIndex(blockNumber, 
 }
 
 // TransactionByHash mocks base method.
-func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
+func (m *MockReader) TransactionByHash(hash *felt.TransactionHash) (core.Transaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionByHash", hash)
 	ret0, _ := ret[0].(core.Transaction)
@@ -472,10 +456,10 @@ func (mr *MockReaderMockRecorder) TransactionExecutionStatusByBlockNumberAndInde
 }
 
 // TransactionHashesByBlockNumber mocks base method.
-func (m *MockReader) TransactionHashesByBlockNumber(blockNumber uint64) ([]felt.Felt, error) {
+func (m *MockReader) TransactionHashesByBlockNumber(blockNumber uint64) ([]felt.TransactionHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionHashesByBlockNumber", blockNumber)
-	ret0, _ := ret[0].([]felt.Felt)
+	ret0, _ := ret[0].([]felt.TransactionHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -515,4 +499,20 @@ func (m *MockReader) TransactionsByBlockNumber(blockNumber uint64) ([]core.Trans
 func (mr *MockReaderMockRecorder) TransactionsByBlockNumber(blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionsByBlockNumber", reflect.TypeOf((*MockReader)(nil).TransactionsByBlockNumber), blockNumber)
+}
+
+// TrieStateAtBlockNumber mocks base method.
+func (m *MockReader) TrieStateAtBlockNumber(blockNumber uint64) (core.StateReader, blockchain.StateCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TrieStateAtBlockNumber", blockNumber)
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(blockchain.StateCloser)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// TrieStateAtBlockNumber indicates an expected call of TrieStateAtBlockNumber.
+func (mr *MockReaderMockRecorder) TrieStateAtBlockNumber(blockNumber any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrieStateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).TrieStateAtBlockNumber), blockNumber)
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/migration/pipeline"
 	"github.com/NethermindEth/juno/migration/progresslogger"
@@ -58,7 +57,7 @@ func (r *restorer) Run(index int, blockNumber uint64, outputs chan<- db.Batch) e
 			return fmt.Errorf("rebuild tx indices: block %d iter: %w", blockNumber, iterErr)
 		}
 
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		key := db.BlockNumIndexKey{Number: blockNumber, Index: idx}
 		err := core.TransactionBlockNumbersAndIndicesByHashBucket.Put(
 			batch, txHash, &key,

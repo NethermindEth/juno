@@ -18,7 +18,7 @@ type ValueID felt.Felt
 
 type BlockInfo struct {
 	BlockNumber       uint64
-	Builder           felt.Felt
+	Builder           felt.Address
 	Timestamp         uint64
 	L2GasPriceFRI     felt.Felt
 	L1GasPriceWEI     felt.Felt
@@ -31,12 +31,12 @@ type ProposalInit struct {
 	BlockNum   Height
 	Round      Round
 	ValidRound Round
-	Proposer   felt.Felt
+	Proposer   felt.Address
 }
 
 type ProposalCommitment struct {
 	BlockNumber uint64
-	Builder     felt.Felt
+	Builder     felt.Address
 
 	// We must set these by hand. They will be compared against ProposalCommitment
 	ParentCommitment felt.Felt
@@ -45,7 +45,7 @@ type ProposalCommitment struct {
 
 	// These also need set by hand. However, we would need to update the DB
 	// and blockchain Reader interface, so they are ignored for now.
-	OldStateRoot              felt.Felt
+	OldStateRoot              felt.StateRootHash
 	VersionConstantCommitment felt.Felt
 	NextL2GasPriceFRI         felt.Felt // If empty proposal, use last value
 

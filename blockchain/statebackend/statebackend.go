@@ -59,7 +59,7 @@ func (b *stateBackend) StateAtBlockHash(
 	if blockHash.IsZero() {
 		memDB := memory.New()
 		st, err := state.NewStateReader(
-			new(felt.Zero[felt.Felt]()),
+			new(felt.Zero[felt.StateRootHash]()),
 			state.NewStateDB(memDB, triedb.New(memDB, nil)),
 		)
 		if err != nil {
@@ -107,7 +107,7 @@ func (b *stateBackend) Store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	eventsBloom *bloom.BloomFilter,
 ) error {
 	return b.database.Write(func(batch db.Batch) error {
@@ -193,7 +193,7 @@ func (b *stateBackend) GetReverseStateDiff() (core.StateDiff, error) {
 func (b *stateBackend) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) (SimulateResult, error) {
 	batch := b.database.NewBatch()
@@ -235,7 +235,7 @@ func (b *stateBackend) Simulate(
 func (b *stateBackend) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 	eventsBloom *bloom.BloomFilter,
 ) error {

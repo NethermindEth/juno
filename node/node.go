@@ -408,7 +408,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		mempool := mempool.New(database, chain, mempoolLimit, logger)
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
-		seq := sequencer.New(&builder, mempool, felt.NewFromUint64[felt.Felt](sequencerAddress),
+		seq := sequencer.New(&builder, mempool, felt.NewFromUint64[felt.Address](sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = junorpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).

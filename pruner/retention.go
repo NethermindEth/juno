@@ -147,7 +147,7 @@ func StateRootIfStateRetainedByBlockNumber(
 	r db.KeyValueReader,
 	floor *RetentionFloor,
 	blockNumber uint64,
-) (*felt.Felt, error) {
+) (*felt.StateRootHash, error) {
 	if f, seeded := floor.floor(); seeded {
 		if blockNumber < f {
 			return nil, db.ErrKeyNotFound

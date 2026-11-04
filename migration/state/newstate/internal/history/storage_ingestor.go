@@ -78,14 +78,13 @@ func newStorageIngestor(
 // pre-value, or the head leaf when no history is left. Unpruned, it is always zero.
 // Deprecated rows are wiped with the whole bucket once the phase completes.
 func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
-	addrFelt := (*felt.Felt)(&addr)
-	addrBytes := addrFelt.Marshal()
+	addrBytes := addr.Marshal()
 	//nolint:staticcheck,nolintlint // old state layout
 	historyPrefix := db.DeprecatedContractStorageHistory.Key(addrBytes)
 
 	historyIt, err := i.Database.NewIterator(historyPrefix, true)
 	if err != nil {
-		return fmt.Errorf("storage: open deprecated iter(%s): %w", addrFelt, err)
+		return fmt.Errorf("storage: open deprecated iter(%s): %w", &addr, err)
 	}
 	defer historyIt.Close()
 
@@ -95,7 +94,7 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 
 	leafIt, err := i.Database.NewIterator(leafPrefix, true)
 	if err != nil {
-		return fmt.Errorf("storage: open leaf iter(%s): %w", addrFelt, err)
+		return fmt.Errorf("storage: open leaf iter(%s): %w", &addr, err)
 	}
 	defer leafIt.Close()
 
@@ -103,7 +102,7 @@ func (i *storageIngestor) Run(index int, addr felt.Address, outputs chan<- commo
 		storageIngestor: i,
 		t:               &i.Tasks[index],
 		outputs:         outputs,
-		addr:            addrFelt,
+		addr:            &addr,
 		leaves:          leafIt,
 		leafPrefix:      leafPrefix,
 	}
@@ -119,7 +118,7 @@ type storageWalk struct {
 	*storageIngestor
 	t          *common.Task
 	outputs    chan<- common.Task
-	addr       *felt.Felt
+	addr       *felt.Address
 	leaves     db.Iterator
 	leafPrefix []byte
 	leafValid  bool
@@ -239,7 +238,7 @@ func (w *storageWalk) write(slot *felt.Felt, block uint64, value *felt.Felt) err
 }
 
 // decodeLeaf returns the value of the head-trie leaf it is on.
-func decodeLeaf(it db.Iterator, addr, slot *felt.Felt) (felt.Felt, error) {
+func decodeLeaf(it db.Iterator, addr *felt.Address, slot *felt.Felt) (felt.Felt, error) {
 	raw, err := it.Value()
 	if err != nil {
 		return felt.Felt{}, fmt.Errorf("storage: leaf(%s, slot=%s): %w", addr, slot, err)

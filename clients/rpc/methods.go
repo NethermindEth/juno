@@ -32,7 +32,7 @@ func (p BlockWithReceiptsParams) args() []any {
 
 type ClassParams struct {
 	BlockNumber uint64
-	ClassHash   *felt.Felt
+	ClassHash   *felt.ClassHash
 }
 
 func (p ClassParams) args() []any {
@@ -40,7 +40,7 @@ func (p ClassParams) args() []any {
 }
 
 type ClassHashParams struct {
-	ClassHash *felt.Felt
+	ClassHash *felt.ClassHash
 }
 
 func (p ClassHashParams) args() []any { return []any{p.ClassHash} }

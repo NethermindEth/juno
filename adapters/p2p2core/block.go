@@ -17,7 +17,7 @@ func AdaptEvent(e *event.Event) *core.Event {
 	}
 
 	return &core.Event{
-		From: AdaptFelt[felt.Felt](e.FromAddress),
+		From: AdaptFelt[felt.Address](e.FromAddress),
 		Keys: AdaptFeltSlice(e.Keys),
 		Data: AdaptFeltSlice(e.Data),
 	}
@@ -35,7 +35,7 @@ func AdaptBlockHeader(
 		Hash:             AdaptHash[felt.Felt](h.BlockHash),
 		ParentHash:       AdaptHash[felt.Felt](h.ParentHash),
 		Number:           h.Number,
-		GlobalStateRoot:  AdaptHash[felt.Felt](h.StateRoot),
+		GlobalStateRoot:  AdaptHash[felt.StateRootHash](h.StateRoot),
 		SequencerAddress: AdaptAddress(h.SequencerAddress),
 		TransactionCount: h.Transactions.NLeaves,
 		EventCount:       h.Events.NLeaves,

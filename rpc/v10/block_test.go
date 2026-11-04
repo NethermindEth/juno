@@ -362,7 +362,7 @@ func assertTransactionsEq(
 func assertTransactionHashesEq(
 	t *testing.T,
 	expectedTransactions []core.Transaction,
-	actualTransactionHashes []felt.Felt,
+	actualTransactionHashes []felt.TransactionHash,
 ) {
 	t.Helper()
 	require.Equal(t, len(expectedTransactions), len(actualTransactionHashes))
@@ -511,8 +511,8 @@ func setupMockBlockTest(
 	}
 }
 
-func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(transactions))
+func transactionHashesOf(transactions []core.Transaction) []felt.TransactionHash {
+	hashes := make([]felt.TransactionHash, len(transactions))
 	for i, transaction := range transactions {
 		hashes[i] = *transaction.Hash()
 	}
@@ -1170,11 +1170,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		blockID := rpc.BlockIDLatest()
 		actual, rpcErr := handler.BlockWithTxs(&blockID, rpc.ResponseFlags{})
 		require.Nil(t, rpcErr)
-		require.Equal(t, new(felt.Zero[felt.Felt]()), actual.BlockHeader.SequencerAddress)
+		require.Equal(t, new(felt.Zero[felt.Address]()), actual.BlockHeader.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, new(felt.Zero[felt.Felt]()), blockWithTxHashes.BlockHeader.SequencerAddress)
+		require.Equal(t, new(felt.Zero[felt.Address]()), blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }
 

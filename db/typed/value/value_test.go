@@ -99,7 +99,7 @@ func TestValueSerializer(t *testing.T) {
 			core.L1Head{
 				BlockNumber: 2025112420251124,
 				BlockHash:   felt.NewFromUint64[felt.Felt](2025112520251125),
-				StateRoot:   felt.NewFromUint64[felt.Felt](2025112620251126),
+				StateRoot:   felt.NewFromUint64[felt.StateRootHash](2025112620251126),
 			},
 			//nolint:lll,nolintlint // Ignore lll for literals, nolintlint because main config doesn't check tests
 			"a369426c6f636b48617368841bff19c577f33521621bffffffffffffffff1bffffffffffffffff1b00b61cf726873781695374617465526f6f74841bff19c577347901421bffffffffffffffff1bffffffffffffffff1b00b61cea7c0915616b426c6f636b4e756d6265721b000731d43a7075f4",
@@ -137,7 +137,7 @@ func TestValueSerializer(t *testing.T) {
 			return core.L1Head{
 				BlockNumber: rand.Uint64(),
 				BlockHash:   felt.NewRandom[felt.Felt](),
-				StateRoot:   felt.NewRandom[felt.Felt](),
+				StateRoot:   felt.NewRandom[felt.StateRootHash](),
 			}
 		})
 	})

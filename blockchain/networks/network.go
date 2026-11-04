@@ -21,7 +21,7 @@ var KnownNetworkNames = []string{
 }
 
 // 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
-var DefaultEthFeeTokenAddress = felt.Felt([4]uint64{
+var DefaultEthFeeTokenAddress = felt.Address([4]uint64{
 	4380532846569209554,
 	17839402928228694863,
 	17240401758547432026,
@@ -29,7 +29,7 @@ var DefaultEthFeeTokenAddress = felt.Felt([4]uint64{
 })
 
 // 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
-var DefaultStrkFeeTokenAddress = felt.Felt([4]uint64{
+var DefaultStrkFeeTokenAddress = felt.Address([4]uint64{
 	16432072983745651214,
 	1325769094487018516,
 	5134018303144032807,
@@ -57,7 +57,7 @@ type Network struct {
 
 type BlockHashMetaInfo struct {
 	// The sequencer address to use for blocks that do not have one
-	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address" validate:"required"`
+	FallBackSequencerAddress *felt.Address `json:"fallback_sequencer_address" validate:"required"`
 	// First block that uses the post-0.7.0 block hash algorithm
 	First07Block uint64 `json:"first_07_block" validate:"required"`
 	// Range of blocks that are not verifiable
@@ -65,10 +65,10 @@ type BlockHashMetaInfo struct {
 }
 
 var (
-	fallBackSequencerAddressMainnet, _ = felt.NewFromString[felt.Felt](
+	fallBackSequencerAddressMainnet = felt.NewUnsafeFromString[felt.Address](
 		"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5",
 	)
-	fallBackSequencerAddress, _ = felt.NewFromString[felt.Felt](
+	fallBackSequencerAddress = felt.NewUnsafeFromString[felt.Address](
 		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
 	)
 	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.

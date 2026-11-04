@@ -67,7 +67,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
-			Hash: felt.NewUnsafeFromString[felt.Felt](
+			Hash: felt.NewUnsafeFromString[felt.TransactionHash](
 				"0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
 			),
 			Version: felt.NewUnsafeFromString[felt.Felt]("0x3"),
@@ -98,13 +98,13 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			},
 			Tip:           new(felt.Felt),
 			PaymasterData: &[]felt.Felt{},
-			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
+			SenderAddress: felt.NewUnsafeFromString[felt.Address](
 				"0x36d67ab362562a97f9fba8a1051cf8e37ff1a1449530fb9f1f0e32ac2da7d06",
 			),
-			ClassHash: felt.NewUnsafeFromString[felt.Felt](
+			ClassHash: felt.NewUnsafeFromString[felt.ClassHash](
 				"0x224518978adb773cfd4862a894e9d333192fbd24bc83841dc7d4167c09b89c5",
 			),
-			CompiledClassHash: felt.NewUnsafeFromString[felt.Felt](
+			CompiledClassHash: felt.NewUnsafeFromString[felt.CasmClassHash](
 				"0x6ff9f7df06da94198ee535f41b214dce0b8bafbdb45e6c6b09d4b3b693b1f17",
 			),
 			AccountDeploymentData: &[]felt.Felt{},
@@ -155,7 +155,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
-			Hash: felt.NewUnsafeFromString[felt.Felt](
+			Hash: felt.NewUnsafeFromString[felt.TransactionHash](
 				"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			),
 			Version: felt.NewFromUint64[felt.Felt](3),
@@ -177,12 +177,12 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				},
 				starknet.ResourceL2Gas: {
 					MaxAmount:       new(felt.Felt),
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
 				},
 			},
 			Tip:           new(felt.Felt),
 			PaymasterData: &[]felt.Felt{},
-			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
+			SenderAddress: felt.NewUnsafeFromString[felt.Address](
 				"0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41",
 			),
 			CallData: &[]felt.Felt{
@@ -343,11 +343,11 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, &starknet.Transaction{
-			Hash: felt.NewUnsafeFromString[felt.Felt](
+			Hash: felt.NewUnsafeFromString[felt.TransactionHash](
 				"0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
 			),
 			Version: felt.NewUnsafeFromString[felt.Felt]("0x3"),
-			ClassHash: felt.NewUnsafeFromString[felt.Felt](
+			ClassHash: felt.NewUnsafeFromString[felt.ClassHash](
 				"0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
 			),
 			Signature: &[]felt.Felt{
@@ -358,7 +358,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 					"0x65e8661ab1526b4f8ea50b76fea1a0e82543de1eb3885e415790d7e1b5a93c7",
 				),
 			},
-			Nonce:       new(felt.Felt),
+			Nonce:       new(felt.Zero[felt.Felt]()),
 			NonceDAMode: new(starknet.DAModeL1),
 			FeeDAMode:   new(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
@@ -377,7 +377,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			},
 			Tip:           new(felt.Felt),
 			PaymasterData: &[]felt.Felt{},
-			SenderAddress: felt.NewUnsafeFromString[felt.Felt](
+			SenderAddress: felt.NewUnsafeFromString[felt.Address](
 				"0x48419d3cc27f158917b45255d5376c06a9524484e19a1102279cbdc715c5522",
 			),
 			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt](
@@ -520,7 +520,7 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 	require.Equal(t, uint64(319132), block.Number)
 	require.Equal(
 		t,
-		felt.NewUnsafeFromString[felt.Felt](
+		felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"),
 		block.StateRoot,
 	)
@@ -530,7 +530,7 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 	require.Equal(t, uint64(1700075354), block.Timestamp)
 	require.Equal(
 		t,
-		felt.NewUnsafeFromString[felt.Felt](
+		felt.NewUnsafeFromString[felt.Address](
 			"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
 		),
 		block.SequencerAddress,
@@ -633,7 +633,7 @@ func TestBlockHeaderv0132Unmarshal(t *testing.T) {
 func TestClassV0Unmarshal(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
-	hash := felt.NewUnsafeFromString[felt.Felt](
+	hash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
 	)
 	class, err := client.ClassDefinition(t.Context(), hash)
@@ -657,7 +657,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 func TestClassV1Unmarshal(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
-	hash := felt.NewUnsafeFromString[felt.Felt](
+	hash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
 	)
 	class, err := client.ClassDefinition(t.Context(), hash)
@@ -720,7 +720,9 @@ func TestStateUpdate(t *testing.T) {
 
 		diff, ok := stateUpdate.
 			StateDiff.
-			StorageDiffs["0x735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c"]
+			StorageDiffs[felt.UnsafeFromString[felt.Address](
+			"0x735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c",
+		)]
 		require.True(t, ok)
 		assert.Equal(t, 2, len(diff))
 		assert.Equal(t, "0x5", diff[0].Key.String())
@@ -759,7 +761,7 @@ func TestTransactionStatus(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		transactionHash := felt.NewUnsafeFromString[felt.Felt](
+		transactionHash := felt.NewUnsafeFromString[felt.TransactionHash](
 			"0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
 		)
 		actualStatus, err := client.TransactionStatus(t.Context(), transactionHash)
@@ -767,7 +769,7 @@ func TestTransactionStatus(t *testing.T) {
 		assert.NotZero(t, actualStatus)
 	})
 	t.Run("Test case when transaction_hash does not exist", func(t *testing.T) {
-		transactionHash := felt.NewUnsafeFromString[felt.Felt]("0xffff")
+		transactionHash := felt.NewUnsafeFromString[felt.TransactionHash]("0xffff")
 		actualStatus, err := client.TransactionStatus(t.Context(), transactionHash)
 		assert.NoError(t, err)
 		assert.Equal(t, actualStatus.FinalityStatus, starknet.NotReceived)
@@ -775,13 +777,13 @@ func TestTransactionStatus(t *testing.T) {
 
 	sepoliaIntegration := feeder.NewTestClient(t, &networks.SepoliaIntegration)
 	t.Run("Test revert reason", func(t *testing.T) {
-		transactionHash := felt.NewUnsafeFromString[felt.Felt]("0x1011")
+		transactionHash := felt.NewUnsafeFromString[felt.TransactionHash]("0x1011")
 		actualStatus, err := sepoliaIntegration.TransactionStatus(t.Context(), transactionHash)
 		require.NoError(t, err)
 		assert.Equal(t, "some error", actualStatus.TxRevertReason)
 	})
 	t.Run("Test failure reason", func(t *testing.T) {
-		transactionHash := felt.NewUnsafeFromString[felt.Felt]("0x1111")
+		transactionHash := felt.NewUnsafeFromString[felt.TransactionHash]("0x1111")
 		actualStatus, err := sepoliaIntegration.TransactionStatus(t.Context(), transactionHash)
 		require.NoError(t, err)
 		assert.Equal(t, "SOME_ERROR_CODE", actualStatus.TxFailureReason.Code)
@@ -813,7 +815,7 @@ func TestClassDefinition(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt](
+		classHash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
 		)
 
@@ -822,7 +824,7 @@ func TestClassDefinition(t *testing.T) {
 		assert.NotZero(t, actualClass)
 	})
 	t.Run("Test classHash not find", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt]("0x000")
+		classHash := felt.NewUnsafeFromString[felt.ClassHash]("0x000")
 		actualClass, err := client.ClassDefinition(t.Context(), classHash)
 		assert.Zero(t, actualClass)
 		assert.Error(t, err)
@@ -852,12 +854,12 @@ func TestHttpError(t *testing.T) {
 	})
 
 	t.Run("HTTP err in GetTransaction", func(t *testing.T) {
-		_, err := client.TransactionStatus(t.Context(), new(felt.Felt))
+		_, err := client.TransactionStatus(t.Context(), new(felt.Zero[felt.TransactionHash]()))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
 	t.Run("HTTP err in GetClassDefinition", func(t *testing.T) {
-		_, err := client.ClassDefinition(t.Context(), new(felt.Felt))
+		_, err := client.ClassDefinition(t.Context(), new(felt.Zero[felt.ClassHash]()))
 		assert.EqualError(t, err, "500 Internal Server Error")
 	})
 
@@ -962,7 +964,7 @@ func TestFailFastRetryPolicy(t *testing.T) {
 func TestCompiledClassDefinition(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 
-	classHash := felt.NewUnsafeFromString[felt.Felt](
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
 	class, err := client.CasmClassDefinition(t.Context(), classHash)
@@ -1066,9 +1068,10 @@ func TestStateUpdateWithBlockAndSignature(t *testing.T) {
 		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
 		assert.Equal(
 			t,
-			map[string]*felt.Felt{
-				//nolint:lll // Break this line would be ugly
-				"0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8": felt.NewFromUint64[felt.Felt](2),
+			map[felt.Address]*felt.Felt{
+				felt.UnsafeFromString[felt.Address](
+					"0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8",
+				): felt.NewFromUint64[felt.Felt](2),
 			},
 			actualStateUpdate.StateUpdate.StateDiff.Nonces,
 		)

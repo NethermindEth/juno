@@ -264,7 +264,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpcv10.Transaction{
 						Version:       &version3,
 						Type:          rpcv10.TxnDeclare,
-						SenderAddress: new(felt.Zero[felt.Felt]()),
+						SenderAddress: new(felt.Zero[felt.Address]()),
 					},
 				},
 			},
@@ -295,7 +295,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpcv10.Transaction{
 						Version:       &version3,
 						Type:          rpcv10.TxnInvoke,
-						SenderAddress: new(felt.Zero[felt.Felt]()),
+						SenderAddress: new(felt.Zero[felt.Address]()),
 					},
 				},
 			},
@@ -465,7 +465,7 @@ func TestSimulateTransactionsWithReturnInitialReads(t *testing.T) {
 			returnInitialReads := slices.Contains(test.traceFlags, rpcv10.TraceReturnInitialReadsFlag)
 
 			version3 := felt.FromUint64[felt.Felt](3)
-			senderAddr := felt.FromUint64[felt.Felt](1)
+			senderAddr := felt.FromUint64[felt.Address](1)
 			nonce := felt.FromUint64[felt.Felt](1)
 			daMode := rpcv10.DAModeL1
 			broadcastedTxns := []rpcv10.BroadcastedTransaction{{
@@ -552,7 +552,9 @@ func TestSimulateTransactionsResponseMarshalJSON(t *testing.T) {
 }
 
 func TestTraceBlockTransactionsResponseMarshalJSON(t *testing.T) {
-	traces := []rpcv10.TracedBlockTransaction{{TransactionHash: felt.NewFromUint64[felt.Felt](9)}}
+	traces := []rpcv10.TracedBlockTransaction{
+		{TransactionHash: felt.NewFromUint64[felt.TransactionHash](9)},
+	}
 
 	t.Run("without initial reads marshals as an array", func(t *testing.T) {
 		data, err := json.Marshal(rpcv10.TraceBlockTransactionsResponse{Traces: traces})

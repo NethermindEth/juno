@@ -49,7 +49,7 @@ type SubscriptionEmittedEvent struct {
 }
 
 type SentEvent struct {
-	TransactionHash  felt.Felt
+	TransactionHash  felt.TransactionHash
 	TransactionIndex uint
 	EventIndex       uint
 }

@@ -215,9 +215,9 @@ func TestStateUpdate(t *testing.T) {
 			require.Nil(t, rpcErr)
 
 			require.Len(t, update.StateDiff.StorageDiffs, 1)
-			assert.Equal(t, felt.Felt(storageFilterAddr), update.StateDiff.StorageDiffs[0].Address)
+			assert.Equal(t, storageFilterAddr, update.StateDiff.StorageDiffs[0].Address)
 			require.Len(t, update.StateDiff.Nonces, 1)
-			assert.Equal(t, felt.Felt(nonceFilterAddr), update.StateDiff.Nonces[0].ContractAddress)
+			assert.Equal(t, nonceFilterAddr, update.StateDiff.Nonces[0].ContractAddress)
 			// Class declarations unaffected
 			assert.Len(t, update.StateDiff.DeclaredClasses, len(update3077642.StateDiff.DeclaredV1Classes))
 			assert.Len(

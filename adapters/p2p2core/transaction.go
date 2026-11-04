@@ -50,8 +50,8 @@ func AdaptDeclareV0TxnCommon(
 	tx *synctransaction.TransactionInBlock_DeclareV0WithoutClass,
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		TransactionHash:      AdaptHash[felt.Felt](t.TransactionHash),
-		ClassHash:            AdaptHash[felt.Felt](tx.ClassHash),
+		TransactionHash:      AdaptHash[felt.TransactionHash](t.TransactionHash),
+		ClassHash:            AdaptHash[felt.ClassHash](tx.ClassHash),
 		SenderAddress:        AdaptAddress(tx.Sender),
 		MaxFee:               AdaptFelt[felt.Felt](tx.MaxFee),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -74,8 +74,8 @@ func AdaptDeclareV1TxnCommon(
 	tx *synctransaction.TransactionInBlock_DeclareV1WithoutClass,
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		TransactionHash:       AdaptHash[felt.Felt](t.TransactionHash),
-		ClassHash:             AdaptHash[felt.Felt](tx.ClassHash),
+		TransactionHash:       AdaptHash[felt.TransactionHash](t.TransactionHash),
+		ClassHash:             AdaptHash[felt.ClassHash](tx.ClassHash),
 		SenderAddress:         AdaptAddress(tx.Sender),
 		MaxFee:                AdaptFelt[felt.Felt](tx.MaxFee),
 		TransactionSignature:  adaptAccountSignature(tx.Signature),
@@ -96,14 +96,14 @@ func AdaptDeclareV2TxnCommon(
 	tx *synctransaction.TransactionInBlock_DeclareV2WithoutClass,
 ) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		TransactionHash:       AdaptHash[felt.Felt](t.TransactionHash),
-		ClassHash:             AdaptHash[felt.Felt](tx.ClassHash),
+		TransactionHash:       AdaptHash[felt.TransactionHash](t.TransactionHash),
+		ClassHash:             AdaptHash[felt.ClassHash](tx.ClassHash),
 		SenderAddress:         AdaptAddress(tx.Sender),
 		MaxFee:                AdaptFelt[felt.Felt](tx.MaxFee),
 		TransactionSignature:  adaptAccountSignature(tx.Signature),
 		Nonce:                 AdaptFelt[felt.Felt](tx.Nonce),
 		Version:               txVersion(2),
-		CompiledClassHash:     AdaptHash[felt.Felt](tx.CompiledClassHash),
+		CompiledClassHash:     AdaptHash[felt.CasmClassHash](tx.CompiledClassHash),
 		ResourceBounds:        nil, // this field is not available on v2
 		Tip:                   0,   // this field is not available on v2
 		PaymasterData:         nil, // this field is not available on v2
@@ -115,7 +115,7 @@ func AdaptDeclareV2TxnCommon(
 
 func AdaptDeclareV3TxnCommon(
 	tx *transaction.DeclareV3Common,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 	txnHash *common.Hash,
 ) (*core.DeclareTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
@@ -133,14 +133,14 @@ func AdaptDeclareV3TxnCommon(
 			)
 	}
 	declareTx := &core.DeclareTransaction{
-		TransactionHash:      AdaptHash[felt.Felt](txnHash),
+		TransactionHash:      AdaptHash[felt.TransactionHash](txnHash),
 		ClassHash:            classHash,
 		SenderAddress:        AdaptAddress(tx.Sender),
 		MaxFee:               nil, // in 3 version this field was removed
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		Nonce:                AdaptFelt[felt.Felt](tx.Nonce),
 		Version:              txVersion(3),
-		CompiledClassHash:    AdaptHash[felt.Felt](tx.CompiledClassHash),
+		CompiledClassHash:    AdaptHash[felt.CasmClassHash](tx.CompiledClassHash),
 		Tip:                  tx.Tip,
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
@@ -160,16 +160,16 @@ func AdaptDeployTxnCommon(
 	tx *synctransaction.TransactionInBlock_Deploy,
 ) *core.DeployTransaction {
 	addressSalt := AdaptFelt[felt.Felt](tx.AddressSalt)
-	classHash := AdaptHash[felt.Felt](tx.ClassHash)
+	classHash := AdaptHash[felt.ClassHash](tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		classHash,
 		addressSalt,
 		callData,
 	)
 	return &core.DeployTransaction{
-		TransactionHash:     AdaptHash[felt.Felt](t.TransactionHash),
+		TransactionHash:     AdaptHash[felt.TransactionHash](t.TransactionHash),
 		ContractAddress:     &contractAddress,
 		ContractAddressSalt: addressSalt,
 		ClassHash:           classHash,
@@ -183,17 +183,17 @@ func AdaptDeployAccountV1TxnCommon(
 	tx *synctransaction.TransactionInBlock_DeployAccountV1,
 ) *core.DeployAccountTransaction {
 	addressSalt := AdaptFelt[felt.Felt](tx.AddressSalt)
-	classHash := AdaptHash[felt.Felt](tx.ClassHash)
+	classHash := AdaptHash[felt.ClassHash](tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		classHash,
 		addressSalt,
 		callData,
 	)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     AdaptHash[felt.Felt](t.TransactionHash),
+			TransactionHash:     AdaptHash[felt.TransactionHash](t.TransactionHash),
 			ContractAddressSalt: addressSalt,
 			ContractAddress:     &contractAddress,
 			ClassHash:           classHash,
@@ -233,17 +233,17 @@ func AdaptDeployAccountV3TxnCommon(
 	}
 
 	addressSalt := AdaptFelt[felt.Felt](tx.AddressSalt)
-	classHash := AdaptHash[felt.Felt](tx.ClassHash)
+	classHash := AdaptHash[felt.ClassHash](tx.ClassHash)
 	callData := AdaptFeltSlice(tx.Calldata)
 	contractAddress := core.ContractAddress(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.Address]()),
 		classHash,
 		addressSalt,
 		callData,
 	)
 	return &core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     AdaptHash[felt.Felt](txnHash),
+			TransactionHash:     AdaptHash[felt.TransactionHash](txnHash),
 			ContractAddressSalt: addressSalt,
 			ContractAddress:     &contractAddress,
 			ClassHash:           classHash,
@@ -270,7 +270,7 @@ func AdaptInvokeV0TxnCommon(
 	tx *synctransaction.TransactionInBlock_InvokeV0,
 ) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
-		TransactionHash:      AdaptHash[felt.Felt](t.TransactionHash),
+		TransactionHash:      AdaptHash[felt.TransactionHash](t.TransactionHash),
 		CallData:             AdaptFeltSlice(tx.Calldata),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
 		MaxFee:               AdaptFelt[felt.Felt](tx.MaxFee),
@@ -296,7 +296,7 @@ func AdaptInvokeV1TxnCommon(
 	tx *synctransaction.TransactionInBlock_InvokeV1,
 ) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
-		TransactionHash:      AdaptHash[felt.Felt](t.TransactionHash),
+		TransactionHash:      AdaptHash[felt.TransactionHash](t.TransactionHash),
 		ContractAddress:      nil, // todo call core.ContractAddress() ?
 		Nonce:                AdaptFelt[felt.Felt](tx.Nonce),
 		SenderAddress:        AdaptAddress(tx.Sender),
@@ -337,7 +337,7 @@ func AdaptInvokeV3TxnCommon(
 	}
 
 	return &core.InvokeTransaction{
-		TransactionHash:      AdaptHash[felt.Felt](txnHash),
+		TransactionHash:      AdaptHash[felt.TransactionHash](txnHash),
 		ContractAddress:      nil, // todo call core.ContractAddress() ?
 		CallData:             AdaptFeltSlice(tx.Calldata),
 		TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -362,7 +362,7 @@ func AdaptInvokeV3TxnCommon(
 
 func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1HandlerTransaction {
 	return &core.L1HandlerTransaction{
-		TransactionHash:    AdaptHash[felt.Felt](txnHash),
+		TransactionHash:    AdaptHash[felt.TransactionHash](txnHash),
 		ContractAddress:    AdaptAddress(tx.Address),
 		EntryPointSelector: AdaptFelt[felt.Felt](tx.EntryPointSelector),
 		Nonce:              AdaptFelt[felt.Felt](tx.Nonce),
@@ -386,7 +386,11 @@ func AdaptTransaction(
 		return AdaptDeclareV2TxnCommon(t, t.GetDeclareV2()), nil
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
-		return AdaptDeclareV3TxnCommon(tx.Common, AdaptHash[felt.Felt](tx.ClassHash), t.TransactionHash)
+		return AdaptDeclareV3TxnCommon(
+			tx.Common,
+			AdaptHash[felt.ClassHash](tx.ClassHash),
+			t.TransactionHash,
+		)
 	case *synctransaction.TransactionInBlock_Deploy_:
 		return AdaptDeployTxnCommon(t, t.GetDeploy()), nil
 	case *synctransaction.TransactionInBlock_DeployAccountV1_:
