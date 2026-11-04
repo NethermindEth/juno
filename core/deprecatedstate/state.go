@@ -993,21 +993,16 @@ func (s *State) lastUpdatedBlockNumber(
 	}
 	defer it.Close()
 
-	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
-
-	if it.SeekGE(seekKey) {
-		seekedKey := it.Key()
-		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
-		if seekedBlock == upToBlock {
-			return upToBlock, nil
-		}
-	}
-
-	if !it.Prev() {
+	if !seekAtOrBefore(it, historyKeyPrefix, upToBlock) {
 		return 0, nil
 	}
+	return binary.BigEndian.Uint64(it.Key()[len(historyKeyPrefix):]), nil
+}
 
-	foundKey := it.Key()
-	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
-	return blockNum, nil
+// seekAtOrBefore moves it, bounded to prefix, to the last history entry at or before blockNum.
+func seekAtOrBefore(it db.Iterator, prefix []byte, blockNum uint64) bool {
+	if blockNum == math.MaxUint64 {
+		return it.Last()
+	}
+	return it.SeekLT(binary.BigEndian.AppendUint64(prefix, blockNum+1))
 }
