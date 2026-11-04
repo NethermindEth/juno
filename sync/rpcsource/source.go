@@ -177,7 +177,7 @@ func (s *Source) fetchBlock(
 
 	return sync.CommittedBlock{
 		Block:       &block,
-		StateUpdate: stateUpdate,
+		StateUpdate: &stateUpdate,
 		NewClasses:  newClasses,
 		Persisted:   make(chan error, 1),
 	}, nil
@@ -204,22 +204,22 @@ func (s *Source) block(ctx context.Context, blockNumber uint64) (core.Block, err
 func (s *Source) stateUpdate(
 	ctx context.Context,
 	blockNumber uint64,
-) (*core.StateUpdate, error) {
+) (core.StateUpdate, error) {
 	response, err := s.client.Call(
 		ctx,
 		starknetrpc.StateUpdate,
 		starknetrpc.BlockParams{BlockNumber: blockNumber},
 	)
 	if err != nil {
-		return nil, err
+		return core.StateUpdate{}, err
 	}
 
 	stateUpdate, err := rpc2core.AdaptStateUpdate(response)
 	if err != nil {
-		return nil, fmt.Errorf("adapting state update %d: %w", blockNumber, err)
+		return core.StateUpdate{}, fmt.Errorf("adapting state update %d: %w", blockNumber, err)
 	}
 
-	return &stateUpdate, nil
+	return stateUpdate, nil
 }
 
 func (s *Source) classes(
