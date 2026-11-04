@@ -296,7 +296,7 @@ func (s *BlockFetcher) processSpecBlockParts(
 							prevBlockRoot = new(felt.Zero[felt.Felt]())
 						} else if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
 							// First check cache if the header is not present, then get it from the db.
-							prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.StateRoot)
+							prevBlockRoot = p2p2core.AdaptHash[felt.Felt](oldHeader.header.StateRoot)
 						} else {
 							stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
 							if err != nil {
@@ -358,7 +358,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			txHashEventsM := make(map[felt.Felt][]*core.Event)
 			for _, event := range events {
-				txH := p2p2core.AdaptHash(event.TransactionHash)
+				txH := p2p2core.AdaptHash[felt.Felt](event.TransactionHash)
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 

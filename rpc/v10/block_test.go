@@ -1275,16 +1275,16 @@ func TestBlockWithTxsV013(t *testing.T) {
 	}, got)
 }
 
-func nilToZero(f *felt.Felt) *felt.Felt {
+func nilToZero[K any](f *felt.Typed[K]) *felt.Typed[K] {
 	if f == nil {
-		return new(felt.Zero[felt.Felt]())
+		return new(felt.Zero[felt.Typed[K]]())
 	}
 	return f
 }
 
-func nilToOne(f *felt.Felt) *felt.Felt {
+func nilToOne[K any](f *felt.Typed[K]) *felt.Typed[K] {
 	if f == nil {
-		return new(felt.One[felt.Felt]())
+		return new(felt.One[felt.Typed[K]]())
 	}
 	return f
 }
