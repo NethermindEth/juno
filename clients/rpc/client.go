@@ -1,4 +1,4 @@
-package starknetrpc
+package rpc
 
 import (
 	"context"

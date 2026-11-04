@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
-	"github.com/NethermindEth/juno/clients/starknetrpc"
+	"github.com/NethermindEth/juno/clients/rpc"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -397,12 +397,12 @@ func makeFeederMetrics() feeder.EventListener {
 	}
 }
 
-func makeRPCSyncMetrics() starknetrpc.EventListener {
+func makeRPCSyncMetrics() rpc.EventListener {
 	requestLatencies := newClientRequestLatency(
 		"rpcsync",
 		"RPC sync client request latency in seconds",
 	)
-	return &starknetrpc.SelectiveListener{
+	return &rpc.SelectiveListener{
 		OnResponseCb: func(method, outcome string, took time.Duration) {
 			requestLatencies.WithLabelValues(method, outcome).Observe(took.Seconds())
 		},

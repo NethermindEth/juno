@@ -11,7 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/rpc2core"
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/starknetrpc"
+	"github.com/NethermindEth/juno/clients/rpc"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -35,7 +35,7 @@ var _ sync.DataSource = (*Source)(nil)
 
 type Source struct {
 	blockchain *blockchain.Blockchain
-	client     *starknetrpc.Client
+	client     *rpc.Client
 	logger     log.StructuredLogger
 	errorPause time.Duration
 }
@@ -49,7 +49,7 @@ func WithErrorPause(d time.Duration) Option {
 
 func New(
 	chain *blockchain.Blockchain,
-	client *starknetrpc.Client,
+	client *rpc.Client,
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Source {
@@ -75,7 +75,7 @@ func (s *Source) CheckRemote(ctx context.Context) error {
 }
 
 func (s *Source) checkChainID(ctx context.Context) error {
-	chainID, err := s.client.Call(ctx, starknetrpc.ChainID, starknetrpc.NoParams{})
+	chainID, err := s.client.Call(ctx, rpc.ChainID, rpc.NoParams{})
 	if err != nil {
 		return fmt.Errorf("querying the RPC sync node chain id: %w", err)
 	}
@@ -95,7 +95,7 @@ func (s *Source) checkChainID(ctx context.Context) error {
 }
 
 func (s *Source) checkSpecVersion(ctx context.Context) error {
-	specVersion, err := s.client.Call(ctx, starknetrpc.SpecVersion, starknetrpc.NoParams{})
+	specVersion, err := s.client.Call(ctx, rpc.SpecVersion, rpc.NoParams{})
 	if err != nil {
 		return fmt.Errorf("querying the RPC sync node spec version: %w", err)
 	}
@@ -186,8 +186,8 @@ func (s *Source) fetchBlock(
 func (s *Source) block(ctx context.Context, blockNumber uint64) (core.Block, error) {
 	response, err := s.client.Call(
 		ctx,
-		starknetrpc.BlockWithReceipts,
-		starknetrpc.BlockWithReceiptsParams{BlockNumber: blockNumber},
+		rpc.BlockWithReceipts,
+		rpc.BlockWithReceiptsParams{BlockNumber: blockNumber},
 	)
 	if err != nil {
 		return core.Block{}, err
@@ -207,8 +207,8 @@ func (s *Source) stateUpdate(
 ) (core.StateUpdate, error) {
 	response, err := s.client.Call(
 		ctx,
-		starknetrpc.StateUpdate,
-		starknetrpc.BlockParams{BlockNumber: blockNumber},
+		rpc.StateUpdate,
+		rpc.BlockParams{BlockNumber: blockNumber},
 	)
 	if err != nil {
 		return core.StateUpdate{}, err
@@ -257,8 +257,8 @@ func (s *Source) class(
 ) (core.ClassDefinition, error) {
 	class, err := s.client.Call(
 		ctx,
-		starknetrpc.Class,
-		starknetrpc.ClassParams{BlockNumber: blockNumber, ClassHash: classHash},
+		rpc.Class,
+		rpc.ClassParams{BlockNumber: blockNumber, ClassHash: classHash},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("fetching class %s: %w", classHash, err)
@@ -268,8 +268,8 @@ func (s *Source) class(
 	if rpc2core.IsSierraClass(class) {
 		casm, err = s.client.Call(
 			ctx,
-			starknetrpc.CompiledCasm,
-			starknetrpc.ClassHashParams{ClassHash: classHash},
+			rpc.CompiledCasm,
+			rpc.ClassHashParams{ClassHash: classHash},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("fetching compiled class %s: %w", classHash, err)
@@ -280,7 +280,7 @@ func (s *Source) class(
 }
 
 func (s *Source) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
-	head, err := s.client.Call(ctx, starknetrpc.BlockHashAndNumber, starknetrpc.NoParams{})
+	head, err := s.client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
 	if err != nil {
 		return nil, err
 	}

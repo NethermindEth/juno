@@ -19,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
-	"github.com/NethermindEth/juno/clients/starknetrpc"
+	"github.com/NethermindEth/juno/clients/rpc"
 	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -34,7 +34,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/pruner"
-	"github.com/NethermindEth/juno/rpc"
+	junorpc "github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
@@ -175,7 +175,7 @@ type Node struct {
 	// retentionFloor is shared with the blockchain and pruner; seeded in
 	// Run after migrations.
 	retentionFloor *pruner.RetentionFloor
-	rpcSyncClient  *starknetrpc.Client
+	rpcSyncClient  *rpc.Client
 	rpcSyncSource  *rpcsource.Source
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
@@ -345,9 +345,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	var synchronizer *sync.Synchronizer
-	var rpcHandler *rpc.Handler
+	var rpcHandler *junorpc.Handler
 	var client *feeder.Client
-	var rpcSyncClient *starknetrpc.Client
+	var rpcSyncClient *rpc.Client
 	var rpcSyncSource *rpcsource.Source
 	var gatewayClient *gateway.Client
 	var p2pService *p2p.Service
@@ -411,7 +411,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		seq := sequencer.New(&builder, mempool, felt.NewFromUint64[felt.Felt](sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
 		seq.WithPlugin(junoPlugin)
-		rpcHandler = rpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
+		rpcHandler = junorpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
 			WithCompiler(throttledCompiler).
 			WithMempool(mempool).
 			WithCallMaxSteps(cfg.RPCCallMaxSteps).
@@ -485,14 +485,14 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid RPC sync URL: %w", err)
 			}
-			rpcSyncOpts := []starknetrpc.Option{starknetrpc.WithUserAgent(ua)}
+			rpcSyncOpts := []rpc.Option{rpc.WithUserAgent(ua)}
 			if cfg.Metrics {
-				rpcSyncOpts = append(rpcSyncOpts, starknetrpc.WithListener(makeRPCSyncMetrics()))
+				rpcSyncOpts = append(rpcSyncOpts, rpc.WithListener(makeRPCSyncMetrics()))
 			}
 			// ws and wss dial eagerly, so an unroutable host would stall startup
 			// until the OS gives up on the TCP connection.
 			dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Minute)
-			rpcSyncClient, err = starknetrpc.New(
+			rpcSyncClient, err = rpc.New(
 				dialCtx,
 				rpcSyncURL,
 				timeout.New(timeouts, fixed),
@@ -579,7 +579,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			cfg.SubmittedTransactionsCacheSize,
 		)
 		services = append(services, submittedTransactionsCache)
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
+		rpcHandler = junorpc.New(chain, syncReader, throttledVM, version, logger, &cfg.Network).
 			WithCompiler(throttledCompiler).
 			WithGateway(gatewayClient).
 			WithFeeder(client).

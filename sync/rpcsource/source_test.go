@@ -13,8 +13,8 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/starknetrpc"
-	"github.com/NethermindEth/juno/clients/starknetrpc/testutils"
+	"github.com/NethermindEth/juno/clients/rpc"
+	"github.com/NethermindEth/juno/clients/rpc/testutils"
 	"github.com/NethermindEth/juno/clients/timeout"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -72,27 +72,27 @@ func storeBlocks(
 	}
 }
 
-func newClientAt(t *testing.T, serverURL *url.URL) *starknetrpc.Client {
+func newClientAt(t *testing.T, serverURL *url.URL) *rpc.Client {
 	t.Helper()
-	client, err := starknetrpc.New(
+	client, err := rpc.New(
 		t.Context(),
 		serverURL,
 		timeout.New([]time.Duration{time.Second}, true),
 		log.NewNopZapLogger(),
-		starknetrpc.WithMinWait(time.Millisecond),
-		starknetrpc.WithMaxWait(time.Millisecond),
+		rpc.WithMinWait(time.Millisecond),
+		rpc.WithMaxWait(time.Millisecond),
 	)
 	require.NoError(t, err)
 	t.Cleanup(client.Close)
 	return client
 }
 
-func newClient(t *testing.T, handler http.Handler) *starknetrpc.Client {
+func newClient(t *testing.T, handler http.Handler) *rpc.Client {
 	t.Helper()
 	return newClientAt(t, testutils.Listen(t, handler))
 }
 
-func newUnreachableClient(t *testing.T) *starknetrpc.Client {
+func newUnreachableClient(t *testing.T) *rpc.Client {
 	t.Helper()
 	server := httptest.NewServer(http.NotFoundHandler())
 	serverURL, err := url.Parse(server.URL)
@@ -102,7 +102,7 @@ func newUnreachableClient(t *testing.T) *starknetrpc.Client {
 	return client
 }
 
-func newSource(t *testing.T, chain *blockchain.Blockchain, client *starknetrpc.Client) *Source {
+func newSource(t *testing.T, chain *blockchain.Blockchain, client *rpc.Client) *Source {
 	t.Helper()
 	return New(chain, client, log.NewNopZapLogger(), WithErrorPause(time.Millisecond))
 }
@@ -121,20 +121,20 @@ func TestCheckRemote(t *testing.T) {
 	tests := []struct {
 		name    string
 		network *networks.Network
-		client  func(t *testing.T) *starknetrpc.Client
+		client  func(t *testing.T) *rpc.Client
 		wantErr string
 	}{
 		{
 			name:    "node on the same network",
 			network: &networks.Sepolia,
-			client: func(t *testing.T) *starknetrpc.Client {
+			client: func(t *testing.T) *rpc.Client {
 				return newClient(t, testutils.Serve(t, remote))
 			},
 		},
 		{
 			name:    "node on another network",
 			network: &networks.Mainnet,
-			client: func(t *testing.T) *starknetrpc.Client {
+			client: func(t *testing.T) *rpc.Client {
 				return newClient(t, testutils.Serve(t, remote))
 			},
 			wantErr: fmt.Sprintf(
@@ -148,7 +148,7 @@ func TestCheckRemote(t *testing.T) {
 		{
 			name:    "node serving an older spec",
 			network: &networks.Sepolia,
-			client: func(t *testing.T) *starknetrpc.Client {
+			client: func(t *testing.T) *rpc.Client {
 				return newClient(t, testutils.ServeV0_9(t, remote))
 			},
 			wantErr: "RPC sync node serves spec version 0.9.0, want 0.10; " +
@@ -303,7 +303,7 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		client         func(t *testing.T) *starknetrpc.Client
+		client         func(t *testing.T) *rpc.Client
 		ctx            func(t *testing.T) context.Context
 		wantNotFound   bool
 		wantMinElapsed time.Duration
@@ -313,7 +313,7 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 	}{
 		{
 			name:           "waits before reporting a missing block",
-			client:         func(t *testing.T) *starknetrpc.Client { return newClient(t, remote) },
+			client:         func(t *testing.T) *rpc.Client { return newClient(t, remote) },
 			ctx:            func(t *testing.T) context.Context { return t.Context() },
 			wantNotFound:   true,
 			wantMinElapsed: errorPause,
@@ -332,7 +332,7 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 		},
 		{
 			name:   "cancellation cuts the pause short",
-			client: func(t *testing.T) *starknetrpc.Client { return newClient(t, remote) },
+			client: func(t *testing.T) *rpc.Client { return newClient(t, remote) },
 			ctx: func(t *testing.T) context.Context {
 				ctx, cancel := context.WithTimeout(t.Context(), cancelAfter)
 				t.Cleanup(cancel)
@@ -346,7 +346,7 @@ func TestBlockByNumberPausesAfterError(t *testing.T) {
 		},
 		{
 			name:   "cancelled context skips the pause",
-			client: func(t *testing.T) *starknetrpc.Client { return newClient(t, remote) },
+			client: func(t *testing.T) *rpc.Client { return newClient(t, remote) },
 			ctx: func(t *testing.T) context.Context {
 				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
