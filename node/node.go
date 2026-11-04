@@ -484,7 +484,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				rpcSyncOpts...,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("set up RPC sync client: %w", err)
+				return nil, fmt.Errorf("setting up RPC sync client: %w", err)
 			}
 			rpcSyncSource = rpcsource.New(chain, rpcSyncClient, logger)
 			logger.Info("Syncing committed blocks from an RPC node; "+
