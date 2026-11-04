@@ -151,11 +151,6 @@ func (s *Source) pauseAfterError(ctx context.Context, blockNumber uint64, err er
 	}
 }
 
-func isBlockNotFound(err error) bool {
-	var rpcErr gethrpc.Error
-	return errors.As(err, &rpcErr) && rpcErr.ErrorCode() == rpccore.ErrBlockNotFound.Code
-}
-
 func (s *Source) fetchBlock(
 	ctx context.Context,
 	blockNumber uint64,
@@ -291,4 +286,9 @@ func (s *Source) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
 	}
 
 	return &core.Header{Number: head.Number, Hash: head.Hash}, nil
+}
+
+func isBlockNotFound(err error) bool {
+	var rpcErr gethrpc.Error
+	return errors.As(err, &rpcErr) && rpcErr.ErrorCode() == rpccore.ErrBlockNotFound.Code
 }
