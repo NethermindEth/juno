@@ -5,6 +5,7 @@ linters:
     - lll
     - nolintlint
     - staticcheck
+    - testpackage
   settings:
     lll:
       line-length: 100
@@ -14,6 +15,11 @@ linters:
     staticcheck:
       checks:
         - "SA1019"
+    testpackage:
+      # Every test file must use the external `<pkg>_test` package, `main` included.
+      # "^$" skips no file; an empty list would fall back to the default `[main]`.
+      skip-regexp: "^$"
+      allow-packages: [""]
   exclusions:
     rules:
       - linters:
