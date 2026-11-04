@@ -175,6 +175,7 @@ type Node struct {
 	// retentionFloor is shared with the blockchain and pruner; seeded in
 	// Run after migrations.
 	retentionFloor *pruner.RetentionFloor
+	rpcSyncClient  *starknetrpc.Client
 	rpcSyncSource  *rpcsource.Source
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
@@ -757,6 +758,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		services:       services,
 		earlyServices:  earlyServices,
 		retentionFloor: retentionFloor,
+		rpcSyncClient:  rpcSyncClient,
 		rpcSyncSource:  rpcSyncSource,
 	}
 
@@ -863,6 +865,10 @@ func (n *Node) Run(ctx context.Context) {
 			n.logger.Error("Error while closing the DB", zap.Error(closeErr))
 		}
 	}()
+
+	if n.rpcSyncClient != nil {
+		defer n.rpcSyncClient.Close()
+	}
 
 	defer func() {
 		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
