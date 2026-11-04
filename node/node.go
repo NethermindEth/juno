@@ -480,13 +480,17 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			if cfg.Metrics {
 				rpcSyncOpts = append(rpcSyncOpts, starknetrpc.WithListener(makeRPCSyncMetrics()))
 			}
+			// ws and wss dial eagerly, so an unroutable host would stall startup
+			// until the OS gives up on the TCP connection.
+			dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Minute)
 			rpcSyncClient, err = starknetrpc.New(
-				context.Background(),
+				dialCtx,
 				rpcSyncURL,
 				timeout.New(timeouts, fixed),
 				logger,
 				rpcSyncOpts...,
 			)
+			cancelDial()
 			if err != nil {
 				return nil, fmt.Errorf("setting up RPC sync client: %w", err)
 			}
