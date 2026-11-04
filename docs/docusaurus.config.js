@@ -84,10 +84,6 @@ const config = {
             to: "/configuring",
           },
           {
-            from: "/installing-on-gcp",
-            to: "/running-on-gcp",
-          },
-          {
             from: "/updating_node",
             to: "/updating",
           },

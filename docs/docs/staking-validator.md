@@ -16,7 +16,7 @@ Staking on Starknet provides an opportunity to contribute to network security an
 
 ## 1. Set up Juno
 
-Juno is a reliable choice for running a Starknet node. Follow the [Installation](running-juno) guide to configure Juno using Docker, binaries, source builds, [Kubernetes with Helm](running-on-kubernetes), or Google Cloud Platform (GCP).
+Juno is a reliable choice for running a Starknet node. Follow the [Installation](running-juno) guide to configure Juno using Docker, binaries, source builds, or [Kubernetes with Helm](running-on-kubernetes).
 
 ## 2. Stake STRK tokens
 
