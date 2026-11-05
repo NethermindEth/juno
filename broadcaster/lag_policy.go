@@ -81,7 +81,7 @@ type BlockByNumberReader interface {
 }
 
 // LagPolicyBlockReplay forwards live blocks and, on a lag notification, recovers
-// the dropped blocks from durable storage.
+// the dropped blocks from durable storage, rebuilding each one's event bloom.
 //
 // Stateful per subscription. Lag is mapped onto block numbers from the last delivered
 // block; a lag before any event is held and replayed in front of the first block,
@@ -96,15 +96,18 @@ type BlockByNumberReader interface {
 // and the anchor are not re-sent.
 func LagPolicyBlockReplay(
 	reader BlockByNumberReader, logger log.StructuredLogger,
-) LagPolicy[*core.Block] {
-	return func(seq iter.Seq[ring.EventOrLag[*core.Block]]) iter.Seq[*core.Block] {
+) LagPolicy[*core.WithBloom[*core.Block]] {
+	return func(
+		seq iter.Seq[ring.EventOrLag[*core.WithBloom[*core.Block]]],
+	) iter.Seq[*core.WithBloom[*core.Block]] {
 		var lastDeliveredNumber uint64
 		anchored := false
 		// Missed count accumulated from lags seen before the first block anchors us.
 		var pendingMissed uint64
-		return func(yield func(*core.Block) bool) {
+		return func(yield func(*core.WithBloom[*core.Block]) bool) {
 			for event := range seq {
-				if block, ok := event.AsEvent(); ok {
+				if blockWithBloom, ok := event.AsEvent(); ok {
+					block := blockWithBloom.Value
 					if !anchored && pendingMissed > 0 {
 						// The missed count exceeds the height gap by the depth of any reorg in
 						// it, so clamp at genesis instead of underflowing.
@@ -114,7 +117,7 @@ func LagPolicyBlockReplay(
 						}
 						pendingMissed = 0
 					}
-					if !yield(block) {
+					if !yield(blockWithBloom) {
 						return
 					}
 					lastDeliveredNumber, anchored = block.Number, true
@@ -153,7 +156,7 @@ func replayBlocks(
 	logger log.StructuredLogger,
 	fromBlock,
 	toBlockExclusive uint64,
-	yield func(*core.Block) bool,
+	yield func(*core.WithBloom[*core.Block]) bool,
 ) bool {
 	for number := fromBlock; number < toBlockExclusive; number++ {
 		block, err := reader.BlockByNumber(number)
@@ -167,7 +170,7 @@ func replayBlocks(
 			)
 			continue
 		}
-		if !yield(block) {
+		if !yield(&core.WithBloom[*core.Block]{Value: block, Bloom: core.EventsBloom(block.Receipts)}) {
 			return false
 		}
 	}
