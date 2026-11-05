@@ -77,7 +77,9 @@ docker logs juno
 </TabItem>
 <TabItem value="binary" label="Standalone Binary">
 
-Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
+1. Stop the node.
+2. Run the download command for your platform from the [Installation](running-juno) page (**Standalone Binary** tab, step 1). It replaces `./juno` with the latest release.
+3. Start `./juno` again with the same flags as before, including `--db-path`.
 
 </TabItem>
 </Tabs>
@@ -87,33 +89,36 @@ Download the latest binary from the [Juno GitHub Releases](https://github.com/Ne
 <Tabs groupId="install">
 <TabItem value="docker" label="Docker" default>
 
-Pull the latest changes and rebuild the Docker image:
+From your `juno` clone, fetch the release tags, switch to the latest release, and rebuild the Docker image:
 
 ```bash
-# Pull the latest updates to the codebase
-git pull
+# Switch to the latest release
+git fetch --tags
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 
 # Rebuild the Docker image
 docker build -t nethermind/juno:latest .
 ```
 
-Then stop, remove, and start the container again with the rebuilt image, as shown in the **Docker** tab above.
+Then stop, remove, and start the container again with the rebuilt image, as shown in the **Docker** tab above. To build a version other than the latest, see [Building from source](running-juno#building-from-source).
 
 </TabItem>
 <TabItem value="binary" label="Standalone Binary">
 
-You can update the standalone binary by pulling the latest changes from GitHub and rebuilding it.
-
+From your `juno` clone, fetch the release tags, switch to the latest release, and rebuild the binary:
 
 ```bash
-# Pull the latest updates to the codebase
-git pull
+# Switch to the latest release
+git fetch --tags
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 
 # Rebuild the binary
 make juno
 ```
 
-See [Building from source](running-juno#building-from-source) for the full prerequisites and build steps.
+Then stop the node and start `./build/juno` again with the same `--db-path`. See [Building from source](running-juno#building-from-source) for the prerequisites and for building a version other than the latest.
 
 </TabItem>
 </Tabs>
