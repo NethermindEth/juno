@@ -300,7 +300,7 @@ func (t *wsTransport) dispatchNotification(data []byte) {
 		// Late notification between our eth_unsubscribe and the server processing it. Harmless.
 		t.logger.Trace(
 			"drop notification for unknown subscription",
-			zap.String("subscription", notif.Params.Subscription),
+			zap.String("subscription", log.SanitizeString(notif.Params.Subscription)),
 		)
 		return
 	}
@@ -521,7 +521,7 @@ func (t *wsTransport) unsubscribeInBackground(subID string) {
 		if _, err := t.call(ctx, "eth_unsubscribe", subID); err != nil {
 			t.logger.Trace(
 				"best-effort eth_unsubscribe failed",
-				zap.String("subscription", subID),
+				zap.String("subscription", log.SanitizeString(subID)),
 				zap.Error(err),
 			)
 		}
