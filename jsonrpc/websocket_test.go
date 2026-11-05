@@ -697,7 +697,8 @@ func TestWebsocketSubscriptionSlotsArePerConnection(t *testing.T) {
 				return "", rpcErr
 			}
 			if !conn.TryAcquireSubscription() {
-				return "", &jsonrpc.Error{Code: 101, Message: "Too many subscriptions"}
+				return "", jsonrpc.Err(jsonrpc.InvalidRequest,
+					map[string]string{"reason": "Too many subscriptions"})
 			}
 			return "subscribed", nil
 		},
@@ -738,7 +739,8 @@ func TestWebsocketSubscriptionSlotsArePerConnection(t *testing.T) {
 
 	const (
 		subscribed = `{"jsonrpc":"2.0","result":"subscribed","id":%d}`
-		tooMany    = `{"jsonrpc":"2.0","error":{"code":101,"message":"Too many subscriptions"},"id":%d}`
+		tooMany    = `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request",` +
+			`"data":{"reason":"Too many subscriptions"}},"id":%d}`
 	)
 
 	connA, connB := dial(), dial()
