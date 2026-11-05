@@ -10,7 +10,7 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 <details>
   <summary>How can I run Juno?</summary>
 
-Check out the [Installation](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [GCP](running-on-gcp) guide to learn how to run Juno on GCP.
+Check out the [Installation](running-juno) guide to learn the simplest and fastest ways to run a Juno node.
 
 </details>
 

@@ -23,7 +23,6 @@ Append `.md` to any docs page URL below for its raw Markdown (e.g. `https://juno
 - Deployments
 
   - [Kubernetes](https://juno.nethermind.io/running-on-kubernetes): Deploy Juno on Kubernetes with the official Helm chart.
-  - [GCP](https://juno.nethermind.io/running-on-gcp): Run a Juno node on Google Cloud Platform.
   - [Starknet Staking](https://juno.nethermind.io/staking-validator): Prerequisites and setup for using a Juno node as a Starknet staking validator.
   - [Monitoring](https://juno.nethermind.io/monitoring): Monitor a Juno node with Prometheus metrics, Grafana, and the /live and /ready readiness endpoints.
 

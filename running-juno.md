@@ -5,7 +5,6 @@ You can run a Juno node using several methods:
 - **Docker container** or **Standalone binary** (see below)
 - [Building from source](#building-from-source)
 - [Kubernetes with Helm](running-on-kubernetes)
-- [Google Cloud Platform (GCP)](running-on-gcp)
 
 :::tip
 You can use a snapshot to quickly synchronise your node with the network. Check out the [Sync from a Snapshot](snapshots) guide to get started.
