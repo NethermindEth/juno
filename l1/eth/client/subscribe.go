@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +58,7 @@ func (s *wsLogSub) Unsubscribe() {
 	if _, err := s.transport.call(ctx, "eth_unsubscribe", id); err != nil {
 		s.transport.logger.Trace(
 			"eth_unsubscribe failed",
-			zap.String("subscription", id),
+			zap.String("subscription", log.SanitizeString(id)),
 			zap.Error(err),
 		)
 	}
