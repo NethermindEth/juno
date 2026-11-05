@@ -40,7 +40,7 @@ const sidebars = {
       type: "category",
       label: "Deployments",
       collapsed: true,
-      items: ["running-on-kubernetes", "running-on-gcp"],
+      items: ["running-on-kubernetes"],
     },
     "staking-validator",
     "monitoring",

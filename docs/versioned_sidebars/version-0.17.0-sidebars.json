@@ -36,8 +36,7 @@
       "label": "Deployments",
       "collapsed": true,
       "items": [
-        "running-on-kubernetes",
-        "running-on-gcp"
+        "running-on-kubernetes"
       ]
     },
     "staking-validator",
