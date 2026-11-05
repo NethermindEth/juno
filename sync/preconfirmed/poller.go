@@ -9,21 +9,16 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/broadcaster"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils/log"
 	"go.uber.org/zap"
 )
-
-// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type Subscription struct {
-	*feed.Subscription[*core.WithBloom[*pending.PreConfirmed]]
-}
 
 // DataSource is the narrow surface the Poller needs from the wire side.
 //
@@ -43,6 +38,11 @@ type DataSource interface {
 	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
 }
 
+// preConfirmedCapacity bounds the pre-confirmed hub on the ring backend (KindBroadcast);
+// ignored by KindFeed. Each update is a cumulative snapshot that supersedes the last, so a
+// lagged consumer wants the tip rather than history: 8 ticks of slack is ample.
+const preConfirmedCapacity = 8
+
 // Poller drives the pre-confirmed chain from a single goroutine.
 //
 // One tick reads as: poll the server's latest pre-confirmed, backfill any gap
@@ -50,14 +50,14 @@ type DataSource interface {
 // it re-polls the old mostRecent with delta hints and the intermediate slots up
 // to latest-1 as full blocks (capturing each slot's declared classes) and applies
 // each. Same-height polls (latest matches our mostRecent) skip backfill and land
-// in apply as delta / preserve / replace.
+// in apply as delta / preserve / replace. Every applied pre-confirmed is published to out.
 type Poller struct {
-	dataSource DataSource
-	blockchain *blockchain.Blockchain
-
+	dataSource         DataSource
+	blockchain         *blockchain.Blockchain
+	hub                broadcaster.BroadcastHub[*core.WithBloom[*pending.PreConfirmed]]
+	out                broadcaster.Publisher[*core.WithBloom[*pending.PreConfirmed]]
 	highestBlockHeader *atomic.Pointer[core.Header]
 	interval           time.Duration
-	feed               *feed.Feed[*core.WithBloom[*pending.PreConfirmed]]
 	listener           EventListener
 	logger             log.StructuredLogger
 
@@ -73,6 +73,7 @@ type Poller struct {
 func NewPoller(
 	dataSource DataSource,
 	blockchain *blockchain.Blockchain,
+	broadcasterKind broadcaster.Kind,
 	highestBlockHeader *atomic.Pointer[core.Header],
 	logger log.StructuredLogger,
 	opts ...Option,
@@ -87,13 +88,16 @@ func NewPoller(
 		opt(&o)
 	}
 
+	hub := broadcaster.New[*core.WithBloom[*pending.PreConfirmed]](
+		broadcaster.WithKind(broadcasterKind), broadcaster.WithCapacity(preConfirmedCapacity),
+	)
 	return &Poller{
-		dataSource: dataSource,
-		blockchain: blockchain,
-
+		dataSource:         dataSource,
+		blockchain:         blockchain,
+		hub:                hub,
+		out:                hub.NewPublisher(),
 		highestBlockHeader: highestBlockHeader,
 		interval:           o.pollInterval,
-		feed:               feed.New[*core.WithBloom[*pending.PreConfirmed]](),
 		listener:           o.listener,
 		logger:             logger,
 
@@ -102,8 +106,10 @@ func NewPoller(
 	}
 }
 
-func (p *Poller) Subscribe() Subscription {
-	return Subscription{p.feed.Subscribe()}
+// Source exposes the pre-confirmed stream so each consumer subscribes with its own
+// lag policy.
+func (p *Poller) Source() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] {
+	return p.hub
 }
 
 // RequestPreConfirmedChain returns the pre-confirmed chain. If current chain is older than
@@ -355,7 +361,7 @@ func (p *Poller) apply(
 		return nil
 	}
 	if applied != nil {
-		p.feed.Send(applied)
+		p.out.Send(applied)
 	}
 
 	return nil

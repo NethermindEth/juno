@@ -84,6 +84,9 @@ test: clean-testcache rustdeps ## Run tests
 test-new-state: clean-testcache rustdeps ## Run tests with new state
 	JUNO_NEW_STATE=true go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
+test-broadcast: clean-testcache rustdeps ## Run tests with the ring-buffer broadcaster
+	JUNO_BROADCAST=true go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
+
 test-cached: rustdeps ## Run cached tests
 	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 

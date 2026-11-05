@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/blockchain/networks"
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
@@ -71,7 +72,9 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, logger), logger, false, true)
 	testBuilder := builder.New(bc, executor)
 	// We use the sequencer to build a non-empty blockchain
-	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, logger)
+	seq := sequencer.New(
+		&testBuilder, p, seqAddr, privKey, blockTime, logger, broadcastertestutils.Kind(),
+	)
 	head, err := seq.RunOnce()
 	require.NoError(t, err)
 	return &testBuilder, head
