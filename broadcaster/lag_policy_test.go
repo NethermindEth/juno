@@ -123,31 +123,41 @@ func TestLagPolicyBlockReplay(t *testing.T) {
 		want      []uint64 // expected yielded block numbers, in order
 	}{
 		{
-			name:   "steady stream forwards events, no recovery",
-			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{blockEvent(1), blockEvent(2), blockEvent(3)},
-			want:   []uint64{1, 2, 3},
+			name: "steady stream forwards events, no recovery",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				blockEvent(1), blockEvent(2), blockEvent(3),
+			},
+			want: []uint64{1, 2, 3},
 		},
 		{
-			name:      "single block gap recovered",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{blockEvent(5), lagEvent(6, 7), blockEvent(7)},
+			name: "single block gap recovered",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				blockEvent(5), lagEvent(6, 7), blockEvent(7),
+			},
 			available: []uint64{6},
 			want:      []uint64{5, 6, 7},
 		},
 		{
-			name:      "multi block gap recovered in order",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{blockEvent(10), lagEvent(11, 14), blockEvent(14)},
+			name: "multi block gap recovered in order",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				blockEvent(10), lagEvent(11, 14), blockEvent(14),
+			},
 			available: []uint64{11, 12, 13},
 			want:      []uint64{10, 11, 12, 13, 14},
 		},
 		{
-			name:      "genesis anchor recovers following gap",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{blockEvent(0), lagEvent(1, 3), blockEvent(3)},
+			name: "genesis anchor recovers following gap",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				blockEvent(0), lagEvent(1, 3), blockEvent(3),
+			},
 			available: []uint64{1, 2},
 			want:      []uint64{0, 1, 2, 3},
 		},
 		{
-			name:      "lag before first event is anchored on that event",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{lagEvent(1, 6), blockEvent(6), blockEvent(7)},
+			name: "lag before first event is anchored on that event",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				lagEvent(1, 6), blockEvent(6), blockEvent(7),
+			},
 			available: []uint64{1, 2, 3, 4, 5},
 			want:      []uint64{1, 2, 3, 4, 5, 6, 7},
 		},
@@ -160,8 +170,10 @@ func TestLagPolicyBlockReplay(t *testing.T) {
 			want:      []uint64{1, 2, 3, 4, 5},
 		},
 		{
-			name:      "reorg in pre-anchor gap clamps replay to genesis",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{lagEvent(1, 10), blockEvent(3)},
+			name: "reorg in pre-anchor gap clamps replay to genesis",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				lagEvent(1, 10), blockEvent(3),
+			},
 			available: []uint64{0, 1, 2},
 			want:      []uint64{0, 1, 2, 3},
 		},
@@ -174,8 +186,10 @@ func TestLagPolicyBlockReplay(t *testing.T) {
 			want:      []uint64{1, 2, 3, 4, 5, 6},
 		},
 		{
-			name:      "unrecoverable block skipped, alignment preserved",
-			stream:    []ring.EventOrLag[*core.WithBloom[*core.Block]]{blockEvent(5), lagEvent(6, 9), blockEvent(9)},
+			name: "unrecoverable block skipped, alignment preserved",
+			stream: []ring.EventOrLag[*core.WithBloom[*core.Block]]{
+				blockEvent(5), lagEvent(6, 9), blockEvent(9),
+			},
 			available: []uint64{6, 8}, // 7 missing
 			want:      []uint64{5, 6, 8, 9},
 		},
