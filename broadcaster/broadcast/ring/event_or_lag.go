@@ -38,20 +38,13 @@ func NewLag[T any](missedSeq, nextSeq uint64) EventOrLag[T] {
 // AsEvent returns the event and true, or the zero value and false if this holds a lag
 // notification instead.
 func (e *EventOrLag[T]) AsEvent() (T, bool) {
-	if !e.isLag {
-		return e.event, true
-	}
-	var zero T
-	return zero, false
+	return e.event, !e.isLag
 }
 
 // AsLag returns the lag notification and true, or the zero [LaggedError] and false if this
 // holds an event instead.
 func (e *EventOrLag[T]) AsLag() (LaggedError, bool) {
-	if e.isLag {
-		return e.lag, true
-	}
-	return LaggedError{}, false
+	return e.lag, e.isLag
 }
 
 // Err returns the lag error if this is a lag notification, nil otherwise.
