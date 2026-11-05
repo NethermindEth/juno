@@ -40,6 +40,10 @@ You can also build the image locally:
 git clone https://github.com/NethermindEth/juno
 cd juno
 
+# Switch to the latest release
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
+
 # Build the Docker image (distroless). To build the Debian image, add --target debian.
 docker build -t nethermind/juno:latest .
 ```
@@ -180,16 +184,18 @@ You can build the Juno binary or Docker image from the source code to access the
 
 Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`. Skip `git switch` to build the unreleased code on `main`.
 
 **2. Build the Docker image**
 
@@ -247,16 +253,18 @@ brew install jemalloc pkg-config
 </TabItem>
 </Tabs>
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`. Skip `git switch` to build the unreleased code on `main`.
 
 **2. Build the binary**
 
