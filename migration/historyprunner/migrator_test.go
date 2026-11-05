@@ -260,9 +260,9 @@ func (i *countingIterator) Next() bool {
 	return i.Iterator.Next()
 }
 
-func (i *countingIterator) Seek(key []byte) bool {
+func (i *countingIterator) SeekGE(key []byte) bool {
 	i.read()
-	return i.Iterator.Seek(key)
+	return i.Iterator.SeekGE(key)
 }
 
 // runCancellable runs Migrate with a wrapped DB that cancels the context

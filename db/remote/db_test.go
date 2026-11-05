@@ -103,7 +103,7 @@ func TestRemote(t *testing.T) {
 		require.NoError(t, err)
 		defer it.Close()
 
-		assert.True(t, it.Seek([]byte{1}))
+		assert.True(t, it.SeekGE([]byte{1}))
 		assert.Equal(t, it.Key(), []byte{1})
 		v, err := it.Value()
 		require.NoError(t, err)
@@ -171,11 +171,22 @@ func TestRemoteIteratorBounds(t *testing.T) {
 
 	// Prev after an out-of-range Seek lands on the last key within the bounds,
 	// then walks back and stops at the lower bound.
-	require.False(t, it.Seek([]byte{0x01, 0xFF}))
+	require.False(t, it.SeekGE([]byte{0x01, 0xFF}))
 	found = nil
 	for valid := it.Prev(); valid; valid = it.Prev() {
 		found = append(found, slices.Clone(it.Key()))
 	}
 	assert.Equal(t, [][]byte{{0x01, 0x02}, {0x01, 0x01}, {0x01, 0x00}}, found)
 	assert.False(t, it.Valid())
+
+	require.True(t, it.Last())
+	assert.Equal(t, []byte{0x01, 0x02}, it.Key())
+
+	require.True(t, it.SeekLT([]byte{0x01, 0x01}))
+	assert.Equal(t, []byte{0x01, 0x00}, it.Key())
+
+	require.True(t, it.SeekLT([]byte{0x01, 0xFF}), "SeekLT past the bounds lands on the last key")
+	assert.Equal(t, []byte{0x01, 0x02}, it.Key())
+
+	require.False(t, it.SeekLT([]byte{0x01, 0x00}))
 }

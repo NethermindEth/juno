@@ -63,29 +63,33 @@ func (i *iterator) UncopiedValue() ([]byte, error) {
 }
 
 func (i *iterator) First() bool {
-	if err := i.doOpAndUpdate(gen.Op_FIRST, nil); err != nil {
-		i.logger.Debug("Error", zap.Stringer("op", gen.Op_FIRST), zap.Error(err))
-	}
-	return len(i.currentK) > 0 || len(i.currentV) > 0
+	return i.move(gen.Op_FIRST, nil)
+}
+
+func (i *iterator) Last() bool {
+	return i.move(gen.Op_LAST, nil)
 }
 
 func (i *iterator) Prev() bool {
-	if err := i.doOpAndUpdate(gen.Op_PREV, nil); err != nil {
-		i.logger.Debug("Error", zap.Stringer("op", gen.Op_PREV), zap.Error(err))
-	}
-	return len(i.currentK) > 0 || len(i.currentV) > 0
+	return i.move(gen.Op_PREV, nil)
 }
 
 func (i *iterator) Next() bool {
-	if err := i.doOpAndUpdate(gen.Op_NEXT, nil); err != nil {
-		i.logger.Debug("Error", zap.Stringer("op", gen.Op_NEXT), zap.Error(err))
-	}
-	return len(i.currentK) > 0 || len(i.currentV) > 0
+	return i.move(gen.Op_NEXT, nil)
 }
 
-func (i *iterator) Seek(key []byte) bool {
-	if err := i.doOpAndUpdate(gen.Op_SEEK, key); err != nil {
-		i.logger.Debug("Error", zap.Stringer("op", gen.Op_SEEK), zap.Error(err))
+func (i *iterator) SeekGE(key []byte) bool {
+	return i.move(gen.Op_SEEK_GE, key)
+}
+
+func (i *iterator) SeekLT(key []byte) bool {
+	return i.move(gen.Op_SEEK_LT, key)
+}
+
+// move runs a positioning op and reports whether the iterator landed on an entry.
+func (i *iterator) move(op gen.Op, key []byte) bool {
+	if err := i.doOpAndUpdate(op, key); err != nil {
+		i.logger.Debug("Error", zap.Stringer("op", op), zap.Error(err))
 	}
 	return len(i.currentK) > 0 || len(i.currentV) > 0
 }

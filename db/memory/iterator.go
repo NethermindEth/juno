@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"bytes"
 	"errors"
 	"slices"
 
@@ -101,22 +100,34 @@ func (i *iterator) UncopiedValue() ([]byte, error) {
 	return i.values[i.curInd], nil
 }
 
-func (i *iterator) Seek(key []byte) bool {
+func (i *iterator) Last() bool {
 	if i.closed {
 		panic(errIteratorClosed)
 	}
 
-	for j := range i.keys {
-		if bytes.Compare(key, []byte(i.keys[j])) <= 0 {
-			i.curInd = j
-			return true
-		}
+	i.curInd = len(i.keys) - 1
+	return i.Valid()
+}
+
+// SeekGE positions one past the end when key is past all entries, so that Prev() gives the
+// last valid key, consistent with pebble's behaviour.
+func (i *iterator) SeekGE(key []byte) bool {
+	if i.closed {
+		panic(errIteratorClosed)
 	}
 
-	// key is past all entries: position one past the end so that Prev() gives the last valid key,
-	// consistent with pebble's behaviour when SeekGE finds no key within the iterator bounds.
-	i.curInd = len(i.keys)
-	return false
+	i.curInd, _ = slices.BinarySearch(i.keys, string(key))
+	return i.Valid()
+}
+
+func (i *iterator) SeekLT(key []byte) bool {
+	if i.closed {
+		panic(errIteratorClosed)
+	}
+
+	index, _ := slices.BinarySearch(i.keys, string(key))
+	i.curInd = index - 1
+	return i.Valid()
 }
 
 func (i *iterator) Close() error {
