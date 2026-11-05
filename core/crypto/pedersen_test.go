@@ -33,7 +33,7 @@ func TestPedersen(t *testing.T) {
 			b := felt.NewUnsafeFromString[felt.Felt](tt.b)
 			want := felt.UnsafeFromString[felt.Felt](tt.want)
 
-			got := crypto.Pedersen(a, b)
+			got := crypto.Pedersen[felt.Felt](a, b)
 			assert.Equal(t, want, got)
 		})
 	}
@@ -99,17 +99,19 @@ func TestPedersenArray(t *testing.T) {
 			digest.Update(elem)
 			data[i] = elem
 		}
-		digestWhole.Update(data...)
+		for _, elem := range data {
+			digestWhole.Update(elem)
+		}
 		want := felt.UnsafeFromString[felt.Felt](tt.want)
 		// PedersenArray (value slice) must match the pointer version exactly.
 		vals := make([]felt.Felt, len(data))
 		for i, e := range data {
 			vals[i] = *e
 		}
-		assert.Equal(t, want, crypto.PedersenElems(data...))
-		assert.Equal(t, want, crypto.PedersenArray(vals))
-		assert.Equal(t, want, digest.Finish())
-		assert.Equal(t, want, digestWhole.Finish())
+		assert.Equal(t, want, crypto.PedersenElems[felt.Felt](data...))
+		assert.Equal(t, want, crypto.PedersenArray[felt.Felt](vals))
+		assert.Equal(t, want, digest.Finish[felt.Felt]())
+		assert.Equal(t, want, digestWhole.Finish[felt.Felt]())
 	}
 }
 
@@ -124,8 +126,10 @@ func TestPedersenDigestUpdateArrayMatchesUpdate(t *testing.T) {
 
 		var byArray, byElems crypto.PedersenDigest
 		byArray.UpdateArray(vals)
-		byElems.Update(ptrs...)
-		assert.Equal(t, byElems.Finish(), byArray.Finish())
+		for _, elem := range ptrs {
+			byElems.Update(elem)
+		}
+		assert.Equal(t, byElems.Finish[felt.Felt](), byArray.Finish[felt.Felt]())
 	}
 }
 
@@ -134,7 +138,7 @@ func TestPedersenMatchesGnarkCryptoOnRandomPairs(t *testing.T) {
 		a := felt.NewRandom[felt.Felt]()
 		b := felt.NewRandom[felt.Felt]()
 
-		got := crypto.Pedersen(a, b)
+		got := crypto.Pedersen[felt.Felt](a, b)
 		want := felt.Felt(pedersenhash.Pedersen(a.Impl(), b.Impl()))
 		assert.Equal(t, want, got)
 	}
@@ -148,7 +152,7 @@ func TestPedersenArrayMatchesGnarkCryptoOnRandomSlices(t *testing.T) {
 			data[i] = elem
 		}
 
-		got := crypto.PedersenElems(data...)
+		got := crypto.PedersenElems[felt.Felt](data...)
 		want := felt.Felt(pedersenhash.PedersenArray(mapFeltsToFPElems(data)...))
 		assert.Equal(t, want, got)
 	}

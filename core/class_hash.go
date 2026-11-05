@@ -55,7 +55,7 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 		return felt.Felt{}, hintedClassHashErr
 	}
 
-	hash := crypto.PedersenElems(
+	hash := crypto.PedersenElems[felt.Felt](
 		new(felt.Zero[felt.Felt]()),
 		&externalEntryPointsHash,
 		&l1HandlerEntryPointsHash,
@@ -70,9 +70,9 @@ func deprecatedCairoClassHash(class *DeprecatedCairoClass) (felt.Felt, error) {
 func hashDeprecatedEntryPoints(entryPoints []DeprecatedEntryPoint) felt.Felt {
 	var digest crypto.PedersenDigest
 	for i := range entryPoints {
-		digest.Update(entryPoints[i].Selector, entryPoints[i].Offset)
+		digest.Update(entryPoints[i].Selector).Update(entryPoints[i].Offset)
 	}
-	return digest.Finish()
+	return digest.Finish[felt.Felt]()
 }
 
 func hashBuiltinNames(builtinNames []string) felt.Felt {
@@ -81,7 +81,7 @@ func hashBuiltinNames(builtinNames []string) felt.Felt {
 		builtin := felt.FromBytes[felt.Felt]([]byte(builtinNames[i]))
 		digest.Update(&builtin)
 	}
-	return digest.Finish()
+	return digest.Finish[felt.Felt]()
 }
 
 func hashDeprecatedProgramData(data []felt.Felt) felt.Felt {
@@ -89,5 +89,5 @@ func hashDeprecatedProgramData(data []felt.Felt) felt.Felt {
 	for i := range data {
 		digest.Update(&data[i])
 	}
-	return digest.Finish()
+	return digest.Finish[felt.Felt]()
 }

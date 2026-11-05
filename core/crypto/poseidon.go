@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 const (
@@ -15,12 +16,12 @@ const (
 // Caches the {0, 1, 0} input (state for hashing a single zero felt).
 // emptyDataOutput is computed in initializePoseidon.
 var (
-	emptyDataInput  = [3]felt.Felt{{}, felt.One[felt.Felt](), {}}
-	emptyDataOutput [3]felt.Felt
+	emptyDataInput  = [3]fp.Element{{}, fp.One(), {}}
+	emptyDataOutput [3]fp.Element
 )
 
-// HadesPermutation applies the Hades permutation to state in place.
-func HadesPermutation(state *[3]felt.Felt) {
+// hadesPermutation applies the Hades permutation to state in place.
+func hadesPermutation(state *[3]fp.Element) {
 	poseidonInit.Do(initializePoseidon)
 	if *state == emptyDataInput {
 		*state = emptyDataOutput
@@ -35,8 +36,8 @@ func HadesPermutation(state *[3]felt.Felt) {
 //
 // The only remaining way to speed up Poseidon is FFI, see the discussion:
 // https://github.com/NethermindEth/juno/pull/3731
-func hadesPermutationRounds(state *[3]felt.Felt) {
-	var squared, stateSum, triple felt.Felt
+func hadesPermutationRounds(state *[3]fp.Element) {
+	var squared, stateSum, triple fp.Element
 	for i := range totalRounds {
 		full := (i < fullRounds/2) || (totalRounds-i <= fullRounds/2)
 
@@ -61,35 +62,46 @@ func hadesPermutationRounds(state *[3]felt.Felt) {
 	}
 }
 
-var two = felt.FromUint64[felt.Felt](2)
+var (
+	one = fp.One()
+	two = fp.NewElement(2)
+)
 
 // Poseidon implements the [Poseidon hash].
 //
 // [Poseidon hash]: https://docs.starknet.io/learn/protocol/cryptography#poseidon-hash
-func Poseidon(x, y *felt.Felt) felt.Felt {
-	state := [3]felt.Felt{*x, *y, two}
-	HadesPermutation(&state)
+func Poseidon[R, A, B felt.FeltLike](x *A, y *B) R {
+	return R(poseidon(felt.ImplOf(x), felt.ImplOf(y)))
+}
+
+func poseidon(x, y *fp.Element) fp.Element {
+	state := [3]fp.Element{*x, *y, two}
+	hadesPermutation(&state)
 	return state[0]
 }
 
 // PoseidonElems is the pointer-element variant of [PoseidonArray], for
 // callers that already hold a []*felt.Felt (e.g. transaction hashing) and would
 // otherwise pay a copy to convert into a value slice.
-func PoseidonElems(elems ...*felt.Felt) felt.Felt {
-	state := [3]felt.Felt{}
+func PoseidonElems[R, F felt.FeltLike](elems ...*F) R {
+	return R(poseidonElems(felt.CastPointerSlice[fp.Element](elems)))
+}
+
+func poseidonElems(elems []*fp.Element) fp.Element {
+	state := [3]fp.Element{}
 
 	for i := range len(elems) / 2 {
 		state[0].Add(&state[0], elems[2*i])
 		state[1].Add(&state[1], elems[2*i+1])
-		HadesPermutation(&state)
+		hadesPermutation(&state)
 	}
 
 	rem := len(elems) % 2
 	if rem == 1 {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], new(felt.One[felt.Felt]()))
-	HadesPermutation(&state)
+	state[rem].Add(&state[rem], &one)
+	hadesPermutation(&state)
 
 	return state[0]
 }
@@ -101,28 +113,32 @@ func PoseidonElems(elems ...*felt.Felt) felt.Felt {
 // PoseidonArray implements [Poseidon array hashing].
 //
 // [Poseidon array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
-func PoseidonArray(elems []felt.Felt) felt.Felt {
-	state := [3]felt.Felt{}
+func PoseidonArray[R, F felt.FeltLike](elems []F) R {
+	return R(poseidonArray(felt.CastSlice[fp.Element](elems)))
+}
+
+func poseidonArray(elems []fp.Element) fp.Element {
+	state := [3]fp.Element{}
 
 	for i := range len(elems) / 2 {
 		state[0].Add(&state[0], &elems[2*i])
 		state[1].Add(&state[1], &elems[2*i+1])
-		HadesPermutation(&state)
+		hadesPermutation(&state)
 	}
 
 	rem := len(elems) % 2
 	if rem == 1 {
 		state[0].Add(&state[0], &elems[len(elems)-1])
 	}
-	state[rem].Add(&state[rem], new(felt.One[felt.Felt]()))
-	HadesPermutation(&state)
+	state[rem].Add(&state[rem], &one)
+	hadesPermutation(&state)
 
 	return state[0]
 }
 
 var (
 	poseidonInit sync.Once
-	roundKeys    [totalRounds][3]felt.Felt
+	roundKeys    [totalRounds][3]fp.Element
 )
 
 // initializePoseidon loads the round keys and precomputes the empty-data output.
@@ -133,11 +149,9 @@ func initializePoseidon() {
 }
 
 func setRoundKeys() {
-	var err error
 	for round, keysStr := range roundKeysSpec {
 		for i, keyStr := range keysStr {
-			roundKeys[round][i], err = felt.FromString[felt.Felt](keyStr)
-			if err != nil {
+			if _, err := roundKeys[round][i].SetString(keyStr); err != nil {
 				panic(err)
 			}
 			if keyStr != roundKeys[round][i].Text(felt.Base10) {
@@ -147,52 +161,55 @@ func setRoundKeys() {
 	}
 }
 
-var _ Digest = (*PoseidonDigest)(nil)
-
 type PoseidonDigest struct {
-	state    [3]felt.Felt
-	lastElem felt.Felt
+	state    [3]fp.Element
+	lastElem fp.Element
 	hasLast  bool
 }
 
-func (d *PoseidonDigest) UpdateArray(elems []felt.Felt) Digest {
-	for idx := range elems {
-		if !d.hasLast {
-			d.lastElem = elems[idx]
-			d.hasLast = true
-		} else {
-			d.state[0].Add(&d.state[0], &d.lastElem)
-			d.state[1].Add(&d.state[1], &elems[idx])
-			HadesPermutation(&d.state)
-			d.hasLast = false
-		}
-	}
+// Update adds one element of any felt type to the digest.
+func (d *PoseidonDigest) Update[F felt.FeltLike](elem *F) *PoseidonDigest {
+	d.update(felt.ImplOf(elem))
 	return d
 }
 
-func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
-	for idx := range elems {
-		if !d.hasLast {
-			d.lastElem = *elems[idx]
-			d.hasLast = true
-		} else {
-			d.state[0].Add(&d.state[0], &d.lastElem)
-			d.state[1].Add(&d.state[1], elems[idx])
-			HadesPermutation(&d.state)
-			d.hasLast = false
-		}
-	}
+// UpdateArray adds every element of elems to the digest.
+func (d *PoseidonDigest) UpdateArray[F felt.FeltLike](elems []F) *PoseidonDigest {
+	d.updateArray(felt.CastSlice[fp.Element](elems))
 	return d
 }
 
-func (d *PoseidonDigest) Finish() felt.Felt {
+func (d *PoseidonDigest) updateArray(elems []fp.Element) {
+	for idx := range elems {
+		d.update(&elems[idx])
+	}
+}
+
+func (d *PoseidonDigest) update(elem *fp.Element) {
 	if !d.hasLast {
-		d.state[0].Add(&d.state[0], new(felt.One[felt.Felt]()))
+		d.lastElem = *elem
+		d.hasLast = true
+		return
+	}
+	d.state[0].Add(&d.state[0], &d.lastElem)
+	d.state[1].Add(&d.state[1], elem)
+	hadesPermutation(&d.state)
+	d.hasLast = false
+}
+
+// Finish completes the digest and returns it as felt type R.
+func (d *PoseidonDigest) Finish[R felt.FeltLike]() R {
+	return R(d.finish())
+}
+
+func (d *PoseidonDigest) finish() fp.Element {
+	if !d.hasLast {
+		d.state[0].Add(&d.state[0], &one)
 	} else {
 		d.state[0].Add(&d.state[0], &d.lastElem)
-		d.state[1].Add(&d.state[1], new(felt.One[felt.Felt]()))
+		d.state[1].Add(&d.state[1], &one)
 	}
-	HadesPermutation(&d.state)
+	hadesPermutation(&d.state)
 	return d.state[0]
 }
 
