@@ -86,7 +86,7 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (n *NoopSynchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] {
+func (n *NoopSynchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] { //nolint:lll // generic type
 	return broadcaster.New[*core.WithBloom[*core.Block]]()
 }
 
@@ -647,7 +647,7 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
 }
 
-func (s *Synchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] {
+func (s *Synchronizer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] { //nolint:lll // generic type
 	return s.newHeadsHub
 }
 
@@ -655,7 +655,7 @@ func (s *Synchronizer) ReorgsSource() broadcaster.SubscribableSource[*ReorgBlock
 	return s.reorgHub
 }
 
-func (s *Synchronizer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] {
+func (s *Synchronizer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] { //nolint:lll // generic type
 	return s.preConfirmedPoller.Source()
 }
 

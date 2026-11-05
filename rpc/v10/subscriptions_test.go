@@ -82,7 +82,9 @@ type fakeSyncer struct {
 }
 
 func newFakeSyncer() *fakeSyncer {
-	newHeadsHub := broadcaster.New[*core.WithBloom[*core.Block]](broadcaster.WithKind(broadcastertestutils.Kind()))
+	newHeadsHub := broadcaster.New[*core.WithBloom[*core.Block]](
+		broadcaster.WithKind(broadcastertestutils.Kind()),
+	)
 	reorgsHub := broadcaster.New[*sync.ReorgBlockRange](
 		broadcaster.WithKind(broadcastertestutils.Kind()),
 	)
@@ -102,7 +104,7 @@ func newFakeSyncer() *fakeSyncer {
 	}
 }
 
-func (fs *fakeSyncer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] {
+func (fs *fakeSyncer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBloom[*core.Block]] { //nolint:lll // generic type
 	return fs.newHeadsHub
 }
 
@@ -110,7 +112,7 @@ func (fs *fakeSyncer) ReorgsSource() broadcaster.SubscribableSource[*sync.ReorgB
 	return fs.reorgsHub
 }
 
-func (fs *fakeSyncer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] {
+func (fs *fakeSyncer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] { //nolint:lll // generic type
 	return fs.preConfirmedHub
 }
 
@@ -1003,7 +1005,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
 
-		newHeadsHub := broadcaster.New[*core.WithBloom[*core.Block]](broadcaster.WithKind(broadcastertestutils.Kind()))
+		newHeadsHub := broadcaster.New[*core.WithBloom[*core.Block]](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		)
 		reorgsHub := broadcaster.New[*sync.ReorgBlockRange](
 			broadcaster.WithKind(broadcastertestutils.Kind()),
 		)

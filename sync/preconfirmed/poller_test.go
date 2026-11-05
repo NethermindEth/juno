@@ -192,7 +192,9 @@ func wirePoller(
 }
 
 // subscribe opens a lag-dropping subscription to the poller's output, closed at test end.
-func (h harness) subscribe(t *testing.T) broadcaster.Subscription[*core.WithBloom[*pending.PreConfirmed]] {
+func (h harness) subscribe(
+	t *testing.T,
+) broadcaster.Subscription[*core.WithBloom[*pending.PreConfirmed]] {
 	t.Helper()
 	sub := h.poller.Source().
 		NewSubscribable(broadcaster.LagPolicyDrop[*core.WithBloom[*pending.PreConfirmed]]).

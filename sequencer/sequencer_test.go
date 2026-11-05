@@ -290,11 +290,15 @@ func TestHelpers(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, header)
 
-	reorgSource := seq.ReorgsSource().NewSubscribable(broadcaster.LagPolicyDrop[*sync.ReorgBlockRange])
+	reorgSource := seq.ReorgsSource().NewSubscribable(
+		broadcaster.LagPolicyDrop[*sync.ReorgBlockRange],
+	)
 	reorgSub := reorgSource.Subscribe()
 	require.NotNil(t, reorgSub)
 
-	newHeadsSource := seq.NewHeadsSource().NewSubscribable(broadcaster.LagPolicyDrop[*core.WithBloom[*core.Block]])
+	newHeadsSource := seq.NewHeadsSource().NewSubscribable(
+		broadcaster.LagPolicyDrop[*core.WithBloom[*core.Block]],
+	)
 	newHeadsSub := newHeadsSource.Subscribe()
 	require.NotNil(t, newHeadsSub)
 

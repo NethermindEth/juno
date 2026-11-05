@@ -276,6 +276,6 @@ func (s *Sequencer) NewHeadsSource() broadcaster.SubscribableSource[*core.WithBl
 	return s.newHeadsHub
 }
 
-func (s *Sequencer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] {
+func (s *Sequencer) PreConfirmedSource() broadcaster.SubscribableSource[*core.WithBloom[*pending.PreConfirmed]] { //nolint:lll // generic type
 	return s.preConfirmedHub
 }

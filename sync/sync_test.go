@@ -459,7 +459,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 		sync.WithBroadcasterKind(broadcastertestutils.Kind()),
 	)
 
-	newHeadsSource := syncer.NewHeadsSource().NewSubscribable(broadcaster.LagPolicyDrop[*core.WithBloom[*core.Block]])
+	newHeadsSource := syncer.NewHeadsSource().NewSubscribable(
+		broadcaster.LagPolicyDrop[*core.WithBloom[*core.Block]],
+	)
 	sub := newHeadsSource.Subscribe()
 
 	// Receive on new block.

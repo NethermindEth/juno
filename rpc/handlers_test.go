@@ -42,13 +42,17 @@ func TestRun(t *testing.T) {
 		broadcaster.New[*core.L1Head](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
 	mockSyncReader.EXPECT().NewHeadsSource().Return(
-		broadcaster.New[*core.WithBloom[*core.Block]](broadcaster.WithKind(broadcastertestutils.Kind())),
+		broadcaster.New[*core.WithBloom[*core.Block]](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		),
 	).AnyTimes()
 	mockSyncReader.EXPECT().ReorgsSource().Return(
 		broadcaster.New[*sync.ReorgBlockRange](broadcaster.WithKind(broadcastertestutils.Kind())),
 	).AnyTimes()
 	mockSyncReader.EXPECT().PreConfirmedSource().Return(
-		broadcaster.New[*core.WithBloom[*pending.PreConfirmed]](broadcaster.WithKind(broadcastertestutils.Kind())),
+		broadcaster.New[*core.WithBloom[*pending.PreConfirmed]](
+			broadcaster.WithKind(broadcastertestutils.Kind()),
+		),
 	).AnyTimes()
 
 	handler := &Handler{
