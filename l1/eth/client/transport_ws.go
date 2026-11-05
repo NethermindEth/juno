@@ -177,7 +177,7 @@ func (t *wsTransport) dispatch(data []byte) {
 	default:
 		t.logger.Trace(
 			"drop frame with no id and no recognised method",
-			zap.ByteString("method", []byte(probe.Method)),
+			zap.String("method", log.SanitizeString(probe.Method)),
 		)
 	}
 }
@@ -187,7 +187,7 @@ func (t *wsTransport) dispatchResponse(data []byte, rawID json.RawMessage) {
 	if err != nil {
 		t.logger.Trace(
 			"drop response (bad id)",
-			zap.ByteString("rawID", rawID),
+			zap.String("rawID", log.SanitizeString(string(rawID))),
 			zap.Error(err),
 		)
 		return
