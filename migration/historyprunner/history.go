@@ -154,7 +154,7 @@ func restoreBucket(
 
 	var ok bool
 	if resumeHistoryFrom != nil {
-		ok = it.Seek(resumeHistoryFrom)
+		ok = it.SeekGE(resumeHistoryFrom)
 	} else {
 		ok = it.First()
 	}

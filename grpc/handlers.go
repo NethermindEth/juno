@@ -58,7 +58,6 @@ func (h Handler) Tx(server gen.KV_TxServer) error {
 	}
 }
 
-//nolint:gocyclo
 func (h Handler) handleTxCursor(
 	cur *gen.Cursor,
 	tx *tx,
@@ -86,6 +85,11 @@ func (h Handler) handleTxCursor(
 			return err
 		}
 		return server.Send(responsePair)
+	} else if cur.Op == gen.Op_CLOSE {
+		if err := tx.closeCursor(cur.Cursor); err != nil {
+			return fmt.Errorf("cursor %d operation %q: %w", cur.Cursor, cur.Op, err)
+		}
+		return server.Send(responsePair)
 	}
 
 	it, err := tx.iterator(cur.Cursor)
@@ -94,43 +98,10 @@ func (h Handler) handleTxCursor(
 	}
 	responsePair.CursorId = cur.Cursor
 
-	switch cur.Op {
-	case gen.Op_FIRST:
-		if it.First() {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_SEEK:
-		key := slices.Concat(cur.BucketName, cur.K)
-		if it.Seek(key) {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_SEEK_EXACT:
-		key := slices.Concat(cur.BucketName, cur.K)
-		if it.Seek(key) && bytes.Equal(it.Key(), key) {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_NEXT:
-		if it.Next() {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_PREV:
-		if it.Prev() {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_CURRENT:
-		if it.Valid() {
-			responsePair.K = it.Key()
-			responsePair.V, err = it.Value()
-		}
-	case gen.Op_CLOSE:
-		err = tx.closeCursor(cur.Cursor)
-	default:
-		err = fmt.Errorf("unknown operation %q", cur.Op)
+	valid, err := moveCursor(it, cur)
+	if valid {
+		responsePair.K = it.Key()
+		responsePair.V, err = it.Value()
 	}
 
 	if err != nil {
@@ -138,4 +109,29 @@ func (h Handler) handleTxCursor(
 	}
 
 	return server.Send(responsePair)
+}
+
+// moveCursor applies a positioning op to it and reports whether it landed on an entry.
+func moveCursor(it db.Iterator, cur *gen.Cursor) (bool, error) {
+	switch cur.Op {
+	case gen.Op_FIRST:
+		return it.First(), nil
+	case gen.Op_LAST:
+		return it.Last(), nil
+	case gen.Op_SEEK_GE:
+		return it.SeekGE(slices.Concat(cur.BucketName, cur.K)), nil
+	case gen.Op_SEEK_LT:
+		return it.SeekLT(slices.Concat(cur.BucketName, cur.K)), nil
+	case gen.Op_SEEK_EXACT:
+		key := slices.Concat(cur.BucketName, cur.K)
+		return it.SeekGE(key) && bytes.Equal(it.Key(), key), nil
+	case gen.Op_NEXT:
+		return it.Next(), nil
+	case gen.Op_PREV:
+		return it.Prev(), nil
+	case gen.Op_CURRENT:
+		return it.Valid(), nil
+	default:
+		return false, fmt.Errorf("unknown operation %q", cur.Op)
+	}
 }

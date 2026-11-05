@@ -61,7 +61,7 @@ func (s *stager) Run(index int, task stageTask, outputs chan<- db.Batch) error {
 	}()
 
 	batch := s.batches[index]
-	ok := it.Seek(task.start)
+	ok := it.SeekGE(task.start)
 	for ok {
 		key := it.Key()
 		if bytes.Compare(key, task.end) >= 0 {
