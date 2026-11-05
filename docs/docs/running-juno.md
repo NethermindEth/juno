@@ -80,6 +80,55 @@ docker logs -f juno
 
 Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
 
+To download the latest release and extract it as `./juno`, pick your platform (`uname -sm` prints it):
+
+<Tabs>
+<TabItem value="linux-amd64" label="Linux (x86_64)" default>
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+</TabItem>
+<TabItem value="linux-arm64" label="Linux (ARM64)">
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+</TabItem>
+<TabItem value="darwin-arm64" label="macOS (Apple Silicon)">
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+</TabItem>
+<TabItem value="darwin-amd64" label="macOS (Intel)">
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+</TabItem>
+</Tabs>
+
+To install a specific version instead of the latest, replace the first line with that version, e.g. `VERSION=v0.17.0`.
+
+The binary needs jemalloc at runtime: install it with `sudo apt-get install -y libjemalloc2` on Ubuntu/Debian, or `brew install jemalloc` on macOS.
+
 **2. Run the binary**
 
 ```bash
