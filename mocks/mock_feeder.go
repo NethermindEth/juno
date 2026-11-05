@@ -88,7 +88,7 @@ func (mr *MockFeederReaderMockRecorder) BlockTrace(ctx, blockHash any) *gomock.C
 }
 
 // CasmClassDefinition mocks base method.
-func (m *MockFeederReader) CasmClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.CasmClass, error) {
+func (m *MockFeederReader) CasmClassDefinition(ctx context.Context, classHash *felt.ClassHash) (starknet.CasmClass, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CasmClassDefinition", ctx, classHash)
 	ret0, _ := ret[0].(starknet.CasmClass)
@@ -103,7 +103,7 @@ func (mr *MockFeederReaderMockRecorder) CasmClassDefinition(ctx, classHash any) 
 }
 
 // ClassDefinition mocks base method.
-func (m *MockFeederReader) ClassDefinition(ctx context.Context, classHash *felt.Felt) (starknet.ClassDefinition, error) {
+func (m *MockFeederReader) ClassDefinition(ctx context.Context, classHash *felt.ClassHash) (starknet.ClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassDefinition", ctx, classHash)
 	ret0, _ := ret[0].(starknet.ClassDefinition)
@@ -224,7 +224,7 @@ func (mr *MockFeederReaderMockRecorder) StateUpdateWithBlockAndSignature(ctx, bl
 }
 
 // TransactionStatus mocks base method.
-func (m *MockFeederReader) TransactionStatus(ctx context.Context, transactionHash *felt.Felt) (starknet.TransactionStatus, error) {
+func (m *MockFeederReader) TransactionStatus(ctx context.Context, transactionHash *felt.TransactionHash) (starknet.TransactionStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionStatus", ctx, transactionHash)
 	ret0, _ := ret[0].(starknet.TransactionStatus)

@@ -260,7 +260,7 @@ type FeePayment struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt            `json:"from_address,omitempty"`
+	From    *felt.Address         `json:"from_address,omitempty"`
 	To      felt.Felt             `json:"to_address"`
 	Payload felt.Slice[felt.Felt] `json:"payload"`
 }
@@ -290,17 +290,17 @@ type ExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType    `json:"type"`
-	Hash               *felt.Felt         `json:"transaction_hash"`
-	ActualFee          FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
-	MessagesSent       []MsgToL1          `json:"messages_sent"`
-	Events             []*Event           `json:"events"`
-	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
-	RevertReason       string             `json:"revert_reason,omitempty"`
-	ExecutionResources ExecutionResources `json:"execution_resources"`
-	MessageHash        string             `json:"message_hash,omitempty"`
+	Type               TransactionType       `json:"type"`
+	Hash               *felt.TransactionHash `json:"transaction_hash"`
+	ActualFee          FeePayment            `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus    `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus     `json:"finality_status"`
+	MessagesSent       []MsgToL1             `json:"messages_sent"`
+	Events             []*Event              `json:"events"`
+	ContractAddress    *felt.Address         `json:"contract_address,omitempty"`
+	RevertReason       string                `json:"revert_reason,omitempty"`
+	ExecutionResources ExecutionResources    `json:"execution_resources"`
+	MessageHash        string                `json:"message_hash,omitempty"`
 }
 
 // TransactionReceiptWithBlockInfo is TXN_RECEIPT_WITH_BLOCK_INFO.
@@ -317,7 +317,7 @@ type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimi
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
 type FunctionCall struct {
-	ContractAddress    felt.Felt      `json:"contract_address"`
+	ContractAddress    felt.Address   `json:"contract_address"`
 	EntryPointSelector felt.Felt      `json:"entry_point_selector"`
 	Calldata           CalldataInputs `json:"calldata"`
 }
@@ -404,20 +404,20 @@ func adaptExecutionResources(resources *core.ExecutionResources) ExecutionResour
 //
 //nolint:lll // We can't break the json tags lines
 type Transaction struct {
-	Hash                  *felt.Felt             `json:"transaction_hash,omitempty"`
+	Hash                  *felt.TransactionHash  `json:"transaction_hash,omitempty"`
 	Type                  TransactionType        `json:"type" validate:"required"`
 	Version               *felt.Felt             `json:"version,omitempty" validate:"required,version_0x3"`
 	Nonce                 *felt.Felt             `json:"nonce,omitempty" validate:"required"`
 	MaxFee                *felt.Felt             `json:"max_fee,omitempty"`
-	ContractAddress       *felt.Felt             `json:"contract_address,omitempty"`
+	ContractAddress       *felt.Address          `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt             `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt             `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.ClassHash        `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ConstructorCallData   *felt.Slice[felt.Felt] `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt             `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
+	SenderAddress         *felt.Address          `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
 	Signature             *felt.Slice[felt.Felt] `json:"signature,omitempty" validate:"required"`
 	CallData              *felt.Slice[felt.Felt] `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt             `json:"entry_point_selector,omitempty"`
-	CompiledClassHash     *felt.Felt             `json:"compiled_class_hash,omitempty"`
+	CompiledClassHash     *felt.CasmClassHash    `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *ResourceBoundsMap     `json:"resource_bounds,omitempty" validate:"required"`
 	Tip                   *felt.Felt             `json:"tip,omitempty" validate:"required"`
 	PaymasterData         *felt.Slice[felt.Felt] `json:"paymaster_data,omitempty" validate:"required"`

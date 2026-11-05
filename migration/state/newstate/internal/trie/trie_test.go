@@ -220,8 +220,8 @@ func TestMigrationWritesContractStorageRoot(t *testing.T) {
 	for name, leaves := range cases {
 		t.Run(name, func(t *testing.T) {
 			memDB := memory.New()
-			addr := felt.FromUint64[felt.Felt](42)
-			nonce, classHash := felt.FromUint64[felt.Felt](3), felt.FromUint64[felt.Felt](7)
+			addr := felt.FromUint64[felt.Address](42)
+			nonce, classHash := felt.FromUint64[felt.Felt](3), felt.FromUint64[felt.ClassHash](7)
 			require.NoError(t, state.WriteContract(memDB, &addr, nonce, classHash, 5))
 
 			ownerBytes := addr.Bytes()
@@ -414,7 +414,7 @@ func buildFullDB(t *testing.T, leaves leafMap) db.KeyValueStore {
 func seedContract(t *testing.T, database db.KeyValueStore, owner *felt.Address) {
 	t.Helper()
 	require.NoError(t, state.WriteContract(
-		database, (*felt.Felt)(owner), felt.Zero[felt.Felt](), felt.Zero[felt.Felt](), 0,
+		database, owner, felt.Zero[felt.Felt](), felt.Zero[felt.ClassHash](), 0,
 	))
 }
 

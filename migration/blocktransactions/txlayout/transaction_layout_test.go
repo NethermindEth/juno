@@ -64,7 +64,7 @@ func assertByTransactionHash(
 		expectedErr,
 		expected,
 		func(database db.KeyValueReader, blockNumber, index uint64) (core.Transaction, error) {
-			hash := (*felt.TransactionHash)(expected[blockNumber][index].Hash())
+			hash := expected[blockNumber][index].Hash()
 			return layout.TransactionByHash(database, hash)
 		},
 	)

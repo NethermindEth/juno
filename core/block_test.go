@@ -184,13 +184,11 @@ func TestBlockHash(t *testing.T) {
 		})
 	}
 
-	h1 := felt.NewRandom[felt.Felt]()
-
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
-		mainnetBlock1.Hash = h1
+		mainnetBlock1.Hash = felt.NewRandom[felt.Felt]()
 
 		expectedErr := "can not verify hash in block header"
 		commitments, err := core.VerifyBlockHash(mainnetBlock1, &networks.Mainnet, nil, testTrieBackend())
@@ -223,7 +221,7 @@ func TestBlockHash(t *testing.T) {
 	t.Run("error if hash of transaction doesn't match corresponding receipt hash", func(t *testing.T) {
 		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
-		mainnetBlock1.Receipts[1].TransactionHash = h1
+		mainnetBlock1.Receipts[1].TransactionHash = felt.NewRandom[felt.TransactionHash]()
 		expectedErr := fmt.Sprintf(
 			"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 			mainnetBlock1.Transactions[1].Hash().String(), 1,

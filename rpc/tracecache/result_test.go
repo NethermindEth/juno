@@ -12,7 +12,9 @@ import (
 )
 
 func TestVMResult(t *testing.T) {
-	txs := []core.Transaction{&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())}}
+	txs := []core.Transaction{
+		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.TransactionHash]())},
+	}
 	valid := vm.ExecutionResults{
 		Traces:      []vm.TransactionTrace{{Type: vm.TxnInvoke}},
 		GasConsumed: []core.GasConsumed{{L2Gas: 7}},
@@ -20,7 +22,7 @@ func TestVMResult(t *testing.T) {
 	t.Run("metadata", func(t *testing.T) {
 		block, err := tracecache.FromVM(txs, &valid, false)
 		require.NoError(t, err)
-		require.Equal(t, felt.One[felt.Felt](), block.Traces[0].Hash)
+		require.Equal(t, felt.One[felt.TransactionHash](), block.Traces[0].Hash)
 		require.Equal(t, uint64(7), block.Traces[0].Gas.L2Gas)
 		require.False(t, block.Complete)
 		require.False(t, block.Covers(false))
@@ -76,11 +78,11 @@ func TestVMResult(t *testing.T) {
 
 func TestFeederMetadataAndReadCoverage(t *testing.T) {
 	source := starknet.BlockTrace{Traces: []starknet.TransactionTrace{
-		{TransactionHash: felt.One[felt.Felt]()},
-		{TransactionHash: felt.Zero[felt.Felt]()},
+		{TransactionHash: felt.One[felt.TransactionHash]()},
+		{TransactionHash: felt.Zero[felt.TransactionHash]()},
 	}}
 	receipt := &core.TransactionReceipt{
-		TransactionHash: new(felt.One[felt.Felt]()),
+		TransactionHash: new(felt.One[felt.TransactionHash]()),
 		ExecutionResources: &core.ExecutionResources{
 			TotalGasConsumed: &core.GasConsumed{L1Gas: 5},
 		},

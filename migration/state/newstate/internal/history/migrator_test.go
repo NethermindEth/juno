@@ -22,8 +22,9 @@ import (
 func seedContract(
 	t *testing.T,
 	memDB db.KeyValueStore,
-	addr felt.Felt,
-	nonce, classHash felt.Felt,
+	addr felt.Address,
+	nonce felt.Felt,
+	classHash felt.ClassHash,
 ) {
 	t.Helper()
 	require.NoError(t, state.WriteContract(memDB, &addr, nonce, classHash, 100))
@@ -32,9 +33,9 @@ func seedContract(
 func seedDeprecatedClassHashHistory(
 	t *testing.T,
 	w db.KeyValueWriter,
-	addr felt.Felt,
+	addr felt.Address,
 	block uint64,
-	oldValue felt.Felt,
+	oldValue felt.ClassHash,
 ) {
 	t.Helper()
 	require.NoError(t, deprecatedstate.WriteContractClassHashHistory(w, &addr, &oldValue, block))
@@ -43,7 +44,7 @@ func seedDeprecatedClassHashHistory(
 func seedDeprecatedNonceHistory(
 	t *testing.T,
 	w db.KeyValueWriter,
-	addr felt.Felt,
+	addr felt.Address,
 	block uint64,
 	oldValue felt.Felt,
 ) {
@@ -54,7 +55,8 @@ func seedDeprecatedNonceHistory(
 func seedDeprecatedStorageHistory(
 	t *testing.T,
 	w db.KeyValueWriter,
-	addr, slot felt.Felt,
+	addr felt.Address,
+	slot felt.Felt,
 	block uint64,
 	oldValue felt.Felt,
 ) {
@@ -65,7 +67,7 @@ func seedDeprecatedStorageHistory(
 func seedDeprecatedStorageTrie(
 	t *testing.T,
 	memDB db.KeyValueStore,
-	addr felt.Felt,
+	addr felt.Address,
 	leaves map[felt.Felt]felt.Felt,
 ) {
 	t.Helper()
@@ -116,8 +118,8 @@ func TestMigrate_ClassHash_DeployOnly(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	classHash := felt.FromUint64[felt.Felt](170)
+	addr := felt.FromUint64[felt.Address](1)
+	classHash := felt.FromUint64[felt.ClassHash](170)
 	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), classHash)
 
 	res, err := (&history.Migrator{}).Migrate(
@@ -130,7 +132,7 @@ func TestMigrate_ClassHash_DeployOnly(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -150,9 +152,9 @@ func TestMigrate_ClassHash_Reclassed(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	deployClass := felt.FromUint64[felt.Felt](170)
-	replacedClass := felt.FromUint64[felt.Felt](187)
+	addr := felt.FromUint64[felt.Address](1)
+	deployClass := felt.FromUint64[felt.ClassHash](170)
+	replacedClass := felt.FromUint64[felt.ClassHash](187)
 	deployHeight := uint64(100)
 	replaceBlock := uint64(300)
 
@@ -169,7 +171,7 @@ func TestMigrate_ClassHash_Reclassed(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -194,8 +196,8 @@ func TestMigrate_Nonce_Updated(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	classHash := felt.FromUint64[felt.Felt](170)
+	addr := felt.FromUint64[felt.Address](1)
+	classHash := felt.FromUint64[felt.ClassHash](170)
 	headNonce := felt.FromUint64[felt.Felt](66)
 
 	seedContract(t, memDB, addr, headNonce, classHash)
@@ -212,7 +214,7 @@ func TestMigrate_Nonce_Updated(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -242,8 +244,8 @@ func TestMigrate_Nonce_DeployOnly(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](170))
+	addr := felt.FromUint64[felt.Address](1)
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](170))
 
 	res, err := (&history.Migrator{}).Migrate(
 		context.Background(),
@@ -266,13 +268,13 @@ func TestMigrate_Storage_MultiWrite(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	slot := felt.FromUint64[felt.Felt](170)
 	firstVal := felt.FromUint64[felt.Felt](5)
 	secondVal := felt.FromUint64[felt.Felt](12)
 	headVal := felt.FromUint64[felt.Felt](7)
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](187))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](187))
 
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 100, felt.Zero[felt.Felt]())
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 200, firstVal)
@@ -290,7 +292,7 @@ func TestMigrate_Storage_MultiWrite(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -319,11 +321,11 @@ func TestMigrate_Storage_SingleWrite(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	slot := felt.FromUint64[felt.Felt](170)
 	v := felt.FromUint64[felt.Felt](9)
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](187))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](187))
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 100, felt.Zero[felt.Felt]())
 	seedDeprecatedStorageTrie(t, memDB, addr, map[felt.Felt]felt.Felt{slot: v})
 
@@ -337,7 +339,7 @@ func TestMigrate_Storage_SingleWrite(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -353,9 +355,9 @@ func TestMigrate_Idempotent(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	deployClass := felt.FromUint64[felt.Felt](170)
-	replacedClass := felt.FromUint64[felt.Felt](187)
+	addr := felt.FromUint64[felt.Address](1)
+	deployClass := felt.FromUint64[felt.ClassHash](170)
+	replacedClass := felt.FromUint64[felt.ClassHash](187)
 
 	seedContract(t, memDB, addr, felt.FromUint64[felt.Felt](66), replacedClass)
 	seedDeprecatedClassHashHistory(t, memDB, addr, 300, deployClass)
@@ -373,20 +375,20 @@ func TestMigrate_Idempotent(t *testing.T) {
 	}
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
 
-	got, err := reader.ContractClassHashAt(&addr, 100)
+	gotClass, err := reader.ContractClassHashAt(&addr, 100)
 	require.NoError(t, err)
-	assert.Equal(t, deployClass, got)
+	assert.Equal(t, deployClass, gotClass)
 
-	got, err = reader.ContractClassHashAt(&addr, 300)
+	gotClass, err = reader.ContractClassHashAt(&addr, 300)
 	require.NoError(t, err)
-	assert.Equal(t, replacedClass, got)
+	assert.Equal(t, replacedClass, gotClass)
 
-	got, err = reader.ContractNonceAt(&addr, 200)
+	got, err := reader.ContractNonceAt(&addr, 200)
 	require.NoError(t, err)
 	assert.Equal(t, felt.FromUint64[felt.Felt](66), got)
 }
@@ -395,9 +397,9 @@ func TestMigrate_ClassHash_ResumeFromPartial(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	deployClass := felt.FromUint64[felt.Felt](170)
-	replacedClass := felt.FromUint64[felt.Felt](187)
+	addr := felt.FromUint64[felt.Address](1)
+	deployClass := felt.FromUint64[felt.ClassHash](170)
+	replacedClass := felt.FromUint64[felt.ClassHash](187)
 	deployHeight := uint64(100)
 	replaceBlock := uint64(300)
 
@@ -416,7 +418,7 @@ func TestMigrate_ClassHash_ResumeFromPartial(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -441,12 +443,12 @@ func TestMigrate_Storage_ZeroedSlotHasNoLeaf(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	zeroedSlot := felt.FromUint64[felt.Felt](170)
 	keptSlot := felt.FromUint64[felt.Felt](187)
 	keptHead := felt.FromUint64[felt.Felt](9)
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](204))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](204))
 
 	seedDeprecatedStorageHistory(t, memDB, addr, zeroedSlot, 100, felt.Zero[felt.Felt]())
 	seedDeprecatedStorageHistory(t, memDB, addr, zeroedSlot, 200, felt.FromUint64[felt.Felt](5))
@@ -464,7 +466,7 @@ func TestMigrate_Storage_ZeroedSlotHasNoLeaf(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -493,10 +495,10 @@ func TestMigrate_Storage_ManyEntries(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	headValues := map[felt.Felt]felt.Felt{}
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](187))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](187))
 
 	const (
 		numSlots          = 50
@@ -537,7 +539,7 @@ func TestMigrate_Storage_ManyEntries(t *testing.T) {
 	)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -554,10 +556,10 @@ func TestMigrate_Storage_MultiAddress(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addrs := []felt.Felt{
-		felt.FromUint64[felt.Felt](1),
-		felt.FromUint64[felt.Felt](2),
-		felt.FromUint64[felt.Felt](3),
+	addrs := []felt.Address{
+		felt.FromUint64[felt.Address](1),
+		felt.FromUint64[felt.Address](2),
+		felt.FromUint64[felt.Address](3),
 	}
 	slots := []felt.Felt{
 		felt.FromUint64[felt.Felt](100),
@@ -570,7 +572,7 @@ func TestMigrate_Storage_MultiAddress(t *testing.T) {
 			memDB,
 			addrs[i],
 			felt.Zero[felt.Felt](),
-			felt.FromUint64[felt.Felt](uint64(170+i)),
+			felt.FromUint64[felt.ClassHash](uint64(170+i)),
 		)
 		for _, slot := range slots {
 			seedDeprecatedStorageHistory(t, memDB, addrs[i], slot, 100, felt.Zero[felt.Felt]())
@@ -595,7 +597,7 @@ func TestMigrate_Storage_MultiAddress(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -628,9 +630,9 @@ func TestMigrate_CancelledContext_ResumesCleanly(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](170))
-	seedDeprecatedClassHashHistory(t, memDB, addr, 200, felt.FromUint64[felt.Felt](42))
+	addr := felt.FromUint64[felt.Address](1)
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](170))
+	seedDeprecatedClassHashHistory(t, memDB, addr, 200, felt.FromUint64[felt.ClassHash](42))
 	seedDeprecatedNonceHistory(t, memDB, addr, 200, felt.Zero[felt.Felt]())
 	slot := felt.FromUint64[felt.Felt](5)
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 200, felt.Zero[felt.Felt]())
@@ -666,13 +668,13 @@ func TestMigrate_Storage_ResumeFromPartial(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	slot := felt.FromUint64[felt.Felt](170)
 	firstVal := felt.FromUint64[felt.Felt](5)
 	secondVal := felt.FromUint64[felt.Felt](12)
 	headVal := felt.FromUint64[felt.Felt](7)
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](187))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](187))
 
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 100, felt.Zero[felt.Felt]())
 	seedDeprecatedStorageHistory(t, memDB, addr, slot, 200, firstVal)
@@ -691,7 +693,7 @@ func TestMigrate_Storage_ResumeFromPartial(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -715,9 +717,9 @@ func TestMigrate_AddressWithEmptyHistoryForOnePhase(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
-	classHash := felt.FromUint64[felt.Felt](170)
-	deployClass := felt.FromUint64[felt.Felt](42)
+	addr := felt.FromUint64[felt.Address](1)
+	classHash := felt.FromUint64[felt.ClassHash](170)
+	deployClass := felt.FromUint64[felt.ClassHash](42)
 
 	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), classHash)
 	seedDeprecatedClassHashHistory(t, memDB, addr, 300, deployClass)
@@ -732,7 +734,7 @@ func TestMigrate_AddressWithEmptyHistoryForOnePhase(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -760,7 +762,7 @@ func TestMigrate_Storage_InterleavedZeroedSlots(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addr := felt.FromUint64[felt.Felt](1)
+	addr := felt.FromUint64[felt.Address](1)
 	slot1 := felt.FromUint64[felt.Felt](100) // zeroed
 	slot2 := felt.FromUint64[felt.Felt](200) // kept
 	slot3 := felt.FromUint64[felt.Felt](300) // zeroed
@@ -768,7 +770,7 @@ func TestMigrate_Storage_InterleavedZeroedSlots(t *testing.T) {
 	head2 := felt.FromUint64[felt.Felt](22)
 	head4 := felt.FromUint64[felt.Felt](44)
 
-	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.Felt](204))
+	seedContract(t, memDB, addr, felt.Zero[felt.Felt](), felt.FromUint64[felt.ClassHash](204))
 
 	for _, slot := range []felt.Felt{slot1, slot2, slot3, slot4} {
 		seedDeprecatedStorageHistory(t, memDB, addr, slot, 100, felt.Zero[felt.Felt]())
@@ -788,7 +790,7 @@ func TestMigrate_Storage_InterleavedZeroedSlots(t *testing.T) {
 	require.Nil(t, res)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)
@@ -814,15 +816,15 @@ func TestMigrate_Before_ResumesPhaseFromAddress(t *testing.T) {
 	memDB := memory.New()
 	t.Cleanup(func() { memDB.Close() })
 
-	addrs := []felt.Felt{
-		felt.FromUint64[felt.Felt](1),
-		felt.FromUint64[felt.Felt](2),
-		felt.FromUint64[felt.Felt](3),
+	addrs := []felt.Address{
+		felt.FromUint64[felt.Address](1),
+		felt.FromUint64[felt.Address](2),
+		felt.FromUint64[felt.Address](3),
 	}
 	slot := felt.FromUint64[felt.Felt](5)
 	for _, addr := range addrs {
-		seedContract(t, memDB, addr, felt.FromUint64[felt.Felt](9), felt.FromUint64[felt.Felt](170))
-		seedDeprecatedClassHashHistory(t, memDB, addr, 200, felt.FromUint64[felt.Felt](42))
+		seedContract(t, memDB, addr, felt.FromUint64[felt.Felt](9), felt.FromUint64[felt.ClassHash](170))
+		seedDeprecatedClassHashHistory(t, memDB, addr, 200, felt.FromUint64[felt.ClassHash](42))
 		seedDeprecatedNonceHistory(t, memDB, addr, 200, felt.Zero[felt.Felt]())
 		seedDeprecatedStorageHistory(t, memDB, addr, slot, 200, felt.Zero[felt.Felt]())
 		seedDeprecatedStorageTrie(t, memDB, addr, map[felt.Felt]felt.Felt{

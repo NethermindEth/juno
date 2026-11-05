@@ -13,7 +13,7 @@ var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
 type State struct {
 	stateDiff  *core.StateDiff
-	newClasses map[felt.Felt]core.ClassDefinition
+	newClasses map[felt.ClassHash]core.ClassDefinition
 	head       core.StateReader
 
 	// The block number of the pending block that this
@@ -23,7 +23,7 @@ type State struct {
 
 func NewState(
 	stateDiff *core.StateDiff,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	head core.StateReader,
 	blockNumber uint64,
 ) *State {
@@ -39,7 +39,7 @@ func (p *State) StateDiff() *core.StateDiff {
 	return p.stateDiff
 }
 
-func (p *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (p *State) ContractClassHash(addr *felt.Address) (felt.ClassHash, error) {
 	if classHash, ok := p.stateDiff.ReplacedClasses[*addr]; ok {
 		return *classHash, nil
 	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
@@ -48,7 +48,7 @@ func (p *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	return p.head.ContractClassHash(addr)
 }
 
-func (p *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (p *State) ContractNonce(addr *felt.Address) (felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return *nonce, nil
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
@@ -57,7 +57,7 @@ func (p *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return p.head.ContractNonce(addr)
 }
 
-func (p *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (p *State) ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error) {
 	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
 		if value, found := diffs[*key]; found {
 			return *value, nil
@@ -75,19 +75,18 @@ func (p *State) ContractStorageLastUpdatedBlock(
 	addr *felt.Address,
 	key *felt.Felt,
 ) (uint64, error) {
-	addrFelt := felt.Felt(*addr)
-	if diffs, found := p.stateDiff.StorageDiffs[addrFelt]; found {
+	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
 		if _, found := diffs[*key]; found {
 			return p.blockNumber, nil
 		}
 	}
-	if _, found := p.stateDiff.DeployedContracts[addrFelt]; found {
+	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
 		return 0, nil
 	}
 	return p.head.ContractStorageLastUpdatedBlock(addr, key)
 }
 
-func (p *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (p *State) Class(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 	if class, found := p.newClasses[*classHash]; found {
 		return &core.DeclaredClassDefinition{
 			At:    0,
@@ -101,9 +100,8 @@ func (p *State) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, erro
 func (p *State) CompiledClassHash(
 	classHash *felt.SierraClassHash,
 ) (felt.CasmClassHash, error) {
-	classHashFelt := felt.Felt(*classHash)
-	if casmHash, found := p.stateDiff.DeclaredV1Classes[classHashFelt]; found {
-		return felt.CasmClassHash(*casmHash), nil
+	if casmHash, found := p.stateDiff.DeclaredV1Classes[*classHash]; found {
+		return *casmHash, nil
 	}
 	return p.head.CompiledClassHash(classHash)
 }
@@ -125,7 +123,7 @@ func (p *State) ContractTrie() (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (p *State) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
+func (p *State) ContractStorageTrie(addr *felt.Address) (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
@@ -135,7 +133,7 @@ type StateWriter struct {
 
 func NewStateWriter(
 	stateDiff *core.StateDiff,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	head core.StateReader,
 ) StateWriter {
 	return StateWriter{
@@ -147,7 +145,11 @@ func NewStateWriter(
 	}
 }
 
-func (p *StateWriter) SetStorage(contractAddress, key, value *felt.Felt) error {
+func (p *StateWriter) SetStorage(
+	contractAddress *felt.Address,
+	key *felt.Felt,
+	value *felt.Felt,
+) error {
 	if _, found := p.stateDiff.StorageDiffs[*contractAddress]; !found {
 		p.stateDiff.StorageDiffs[*contractAddress] = make(map[felt.Felt]*felt.Felt)
 	}
@@ -155,7 +157,7 @@ func (p *StateWriter) SetStorage(contractAddress, key, value *felt.Felt) error {
 	return nil
 }
 
-func (p *StateWriter) IncrementNonce(contractAddress *felt.Felt) error {
+func (p *StateWriter) IncrementNonce(contractAddress *felt.Address) error {
 	currentNonce, err := p.ContractNonce(contractAddress)
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
@@ -164,7 +166,7 @@ func (p *StateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	return nil
 }
 
-func (p *StateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error {
+func (p *StateWriter) SetClassHash(contractAddress *felt.Address, classHash *felt.ClassHash) error {
 	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			p.stateDiff.DeployedContracts[*contractAddress] = new(*classHash)
@@ -178,7 +180,10 @@ func (p *StateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error 
 
 // SetContractClass writes a new CairoV0 class to the PendingState
 // Assumption: SetCompiledClassHash should be called for CairoV1 contracts
-func (p *StateWriter) SetContractClass(classHash *felt.Felt, class core.ClassDefinition) error {
+func (p *StateWriter) SetContractClass(
+	classHash *felt.ClassHash,
+	class core.ClassDefinition,
+) error {
 	// Only declare the class if it has not already been declared, and return
 	// and unexepcted errors (ie any error that isn't db.ErrKeyNotFound)
 	_, err := p.Class(classHash)
@@ -200,14 +205,20 @@ func (p *StateWriter) SetContractClass(classHash *felt.Felt, class core.ClassDef
 
 // SetCompiledClassHash writes CairoV1 classes to the pending state
 // Assumption: SetContractClass was called for classHash and succeeded
-func (p *StateWriter) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
+func (p *StateWriter) SetCompiledClassHash(
+	classHash *felt.SierraClassHash,
+	compiledClassHash *felt.CasmClassHash,
+) error {
 	p.stateDiff.DeclaredV1Classes[*classHash] = new(*compiledClassHash)
 	return nil
 }
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *StateWriter) StateDiffAndClasses() (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
+func (p *StateWriter) StateDiffAndClasses() (
+	core.StateDiff,
+	map[felt.ClassHash]core.ClassDefinition,
+) {
 	return *p.stateDiff, p.newClasses
 }
 

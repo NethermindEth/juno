@@ -12,21 +12,21 @@ func PeerKey(peerID []byte) []byte {
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractClassHashKey(addr *felt.Felt) []byte {
+func DeprecatedContractClassHashKey(addr *felt.Address) []byte {
 	return DeprecatedContractClassHash.Key(addr.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractStorageKey(addr *felt.Felt, key []byte) []byte {
+func DeprecatedContractStorageKey(addr *felt.Address, key []byte) []byte {
 	return DeprecatedContractStorage.Key(addr.Marshal(), key)
 }
 
-func ClassKey(classHash *felt.Felt) []byte {
+func ClassKey(classHash *felt.ClassHash) []byte {
 	return Class.Key(classHash.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractNonceKey(addr *felt.Felt) []byte {
+func DeprecatedContractNonceKey(addr *felt.Address) []byte {
 	return DeprecatedContractNonce.Key(addr.Marshal())
 }
 
@@ -72,34 +72,34 @@ func StateUpdateByBlockNumKey(num uint64) []byte {
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
+func DeprecatedContractStorageHistoryKey(addr *felt.Address, loc *felt.Felt) []byte {
 	return DeprecatedContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractNonceHistoryKey(addr *felt.Felt) []byte {
+func DeprecatedContractNonceHistoryKey(addr *felt.Address) []byte {
 	return DeprecatedContractNonceHistory.Key(addr.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractClassHashHistoryKey(addr *felt.Felt) []byte {
+func DeprecatedContractClassHashHistoryKey(addr *felt.Address) []byte {
 	return DeprecatedContractClassHashHistory.Key(addr.Marshal())
 }
 
-func ContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
+func ContractStorageHistoryKey(addr *felt.Address, loc *felt.Felt) []byte {
 	return ContractStorageHistory.Key(addr.Marshal(), loc.Marshal())
 }
 
-func ContractNonceHistoryKey(addr *felt.Felt) []byte {
+func ContractNonceHistoryKey(addr *felt.Address) []byte {
 	return ContractNonceHistory.Key(addr.Marshal())
 }
 
-func ContractClassHashHistoryKey(addr *felt.Felt) []byte {
+func ContractClassHashHistoryKey(addr *felt.Address) []byte {
 	return ContractClassHashHistory.Key(addr.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractDeploymentHeightKey(addr *felt.Felt) []byte {
+func DeprecatedContractDeploymentHeightKey(addr *felt.Address) []byte {
 	return DeprecatedContractDeploymentHeight.Key(addr.Marshal())
 }
 
@@ -112,43 +112,47 @@ func L1HandlerTxnHashByMsgHashKey(msgHash []byte) []byte {
 	return L1HandlerTxnHashByMsgHash.Key(msgHash)
 }
 
-func MempoolNodeKey(txnHash *felt.Felt) []byte {
+func MempoolNodeKey(txnHash *felt.TransactionHash) []byte {
 	return MempoolNode.Key(txnHash.Marshal())
 }
 
-func ContractKey(addr *felt.Felt) []byte {
+func ContractKey(addr *felt.Address) []byte {
 	return Contract.Key(addr.Marshal())
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+func DeprecatedContractNonceHistoryAtBlockKey(addr *felt.Address, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractNonceHistory.Key(addr.Marshal(), b[:])
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+func DeprecatedContractClassHashHistoryAtBlockKey(addr *felt.Address, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
 // Deprecated: old state layout key.
-func DeprecatedContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
+func DeprecatedContractStorageHistoryAtBlockKey(
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNum uint64,
+) []byte {
 	b := uint64ToBytes(blockNum)
 	return DeprecatedContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }
 
-func ContractNonceHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+func ContractNonceHistoryAtBlockKey(addr *felt.Address, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractNonceHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractClassHashHistoryAtBlockKey(addr *felt.Felt, blockNum uint64) []byte {
+func ContractClassHashHistoryAtBlockKey(addr *felt.Address, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
 }
 
-func ContractStorageHistoryAtBlockKey(addr, key *felt.Felt, blockNum uint64) []byte {
+func ContractStorageHistoryAtBlockKey(addr *felt.Address, key *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }

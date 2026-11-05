@@ -353,17 +353,17 @@ func (h *Server) onStateDiffRequest(
 			diff := stateUpdate.StateDiff
 
 			type contractDiff struct {
-				address      *felt.Felt
+				address      *felt.Address
 				storageDiffs map[felt.Felt]*felt.Felt
 				nonce        *felt.Felt
-				classHash    *felt.Felt // set only if contract deployed or replaced
+				classHash    *felt.ClassHash // set only if contract deployed or replaced
 			}
-			modifiedContracts := make(map[felt.Felt]*contractDiff)
+			modifiedContracts := make(map[felt.Address]*contractDiff)
 
-			initContractDiff := func(addr *felt.Felt) *contractDiff {
+			initContractDiff := func(addr *felt.Address) *contractDiff {
 				return &contractDiff{address: addr}
 			}
-			updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
+			updateModifiedContracts := func(addr felt.Address, f func(*contractDiff)) error {
 				cDiff, ok := modifiedContracts[addr]
 				if !ok {
 					cDiff = initContractDiff(&addr)
@@ -499,7 +499,7 @@ func (h *Server) onClassesRequest(
 				})
 			}
 			for classHash := range stateDiff.DeclaredV1Classes {
-				cls, err := stateReader.Class(&classHash)
+				cls, err := stateReader.Class((*felt.ClassHash)(&classHash))
 				if err != nil {
 					return nil, err
 				}

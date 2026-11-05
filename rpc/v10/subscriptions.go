@@ -151,14 +151,14 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	case *core.InvokeTransaction:
 		for _, addr := range senderAddr {
 			// todo: remove the cast to felt.Felt
-			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
+			if t.SenderAddress.Equal(&addr) {
 				return true
 			}
 		}
 	case *core.DeclareTransaction:
 		for _, addr := range senderAddr {
 			// todo: remove the cast to felt.Felt
-			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
+			if t.SenderAddress.Equal(&addr) {
 				return true
 			}
 		}

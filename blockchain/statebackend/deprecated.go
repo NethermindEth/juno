@@ -97,7 +97,7 @@ func (b *deprecatedStateBackend) Store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	eventsBloom *bloom.BloomFilter,
 ) error {
 	//nolint:staticcheck,nolintlint // used by old state
@@ -189,7 +189,7 @@ func (b *deprecatedStateBackend) GetReverseStateDiff() (core.StateDiff, error) {
 func (b *deprecatedStateBackend) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) (SimulateResult, error) {
 	//nolint:staticcheck,nolintlint // used by old state
@@ -229,7 +229,7 @@ func (b *deprecatedStateBackend) Simulate(
 func (b *deprecatedStateBackend) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 	eventsBloom *bloom.BloomFilter,
 ) error {

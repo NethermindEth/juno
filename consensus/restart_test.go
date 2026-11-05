@@ -196,7 +196,7 @@ func openRestartNodeStores(
 	consensusDBPath string,
 	blockchainDBPath string,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.ClassDefinition,
+	genesisClasses map[felt.ClassHash]core.ClassDefinition,
 ) restartNodeStores {
 	t.Helper()
 
@@ -243,7 +243,7 @@ func startNetworkBeforeRestart(
 	logger *log.ZapLogger,
 	restartStores restartNodeStores,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.ClassDefinition,
+	genesisClasses map[felt.ClassHash]core.ClassDefinition,
 	requiredWALEntriesWritten chan<- struct{},
 ) (runningConsensusNode, []runningConsensusNode) {
 	t.Helper()
@@ -286,7 +286,7 @@ func startPeerNode(
 	p2pNode *testutils.Node,
 	logger *log.ZapLogger,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.ClassDefinition,
+	genesisClasses map[felt.ClassHash]core.ClassDefinition,
 ) runningConsensusNode {
 	t.Helper()
 

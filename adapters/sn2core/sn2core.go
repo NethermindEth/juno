@@ -3,6 +3,7 @@ package sn2core
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core"
@@ -239,7 +240,7 @@ func adaptResourceBounds(
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
 		contractAddress := core.ContractAddress(
-			new(felt.Zero[felt.Felt]()),
+			new(felt.Zero[felt.Address]()),
 			t.ClassHash,
 			t.ContractAddressSalt,
 			*t.ConstructorCallData,
@@ -456,7 +457,10 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 	var stateDiff core.StateDiff
 	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
 
-	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
+	stateDiff.DeclaredV1Classes = make(
+		map[felt.SierraClassHash]*felt.CasmClassHash,
+		len(response.DeclaredClasses),
+	)
 	for _, declaredV1Class := range response.DeclaredClasses {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
 	}
@@ -468,39 +472,32 @@ func AdaptStateDiff(response *starknet.StateDiff) (core.StateDiff, error) {
 		stateDiff.MigratedClasses[migratedClass.ClassHash] = migratedClass.CompiledClassHash
 	}
 
-	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))
+	stateDiff.ReplacedClasses = make(map[felt.Address]*felt.ClassHash, len(response.ReplacedClasses))
 	for _, replacedClass := range response.ReplacedClasses {
 		stateDiff.ReplacedClasses[*replacedClass.Address] = replacedClass.ClassHash
 	}
 
-	stateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(response.DeployedContracts))
+	stateDiff.DeployedContracts = make(
+		map[felt.Address]*felt.ClassHash,
+		len(response.DeployedContracts),
+	)
 	for _, deployedContract := range response.DeployedContracts {
 		stateDiff.DeployedContracts[*deployedContract.Address] = deployedContract.ClassHash
 	}
 
-	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(response.Nonces))
-	for addrStr, nonce := range response.Nonces {
-		addr, err := felt.NewFromString[felt.Felt](addrStr)
-		if err != nil {
-			return core.StateDiff{}, err
-		}
-		stateDiff.Nonces[*addr] = nonce
-	}
+	stateDiff.Nonces = make(map[felt.Address]*felt.Felt, len(response.Nonces))
+	maps.Copy(stateDiff.Nonces, response.Nonces)
 
 	stateDiff.StorageDiffs = make(
-		map[felt.Felt]map[felt.Felt]*felt.Felt,
+		map[felt.Address]map[felt.Felt]*felt.Felt,
 		len(response.StorageDiffs),
 	)
-	for addrStr, diffs := range response.StorageDiffs {
-		addr, err := felt.NewFromString[felt.Felt](addrStr)
-		if err != nil {
-			return core.StateDiff{}, err
-		}
-
-		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
+	for addr, diffs := range response.StorageDiffs {
+		storage := make(map[felt.Felt]*felt.Felt, len(diffs))
 		for _, diff := range diffs {
-			stateDiff.StorageDiffs[*addr][*diff.Key] = diff.Value
+			storage[*diff.Key] = diff.Value
 		}
+		stateDiff.StorageDiffs[addr] = storage
 	}
 
 	return stateDiff, nil

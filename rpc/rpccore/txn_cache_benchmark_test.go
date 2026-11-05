@@ -27,7 +27,7 @@ func BenchmarkCache(b *testing.B) {
 
 	perTick := totalEntries / numTicks
 
-	keys := make([]felt.Felt, totalEntries)
+	keys := make([]felt.TransactionHash, totalEntries)
 	for i := range totalEntries {
 		keys[i].SetUint64(rand.Uint64())
 	}

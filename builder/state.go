@@ -81,8 +81,10 @@ func cloneStateDiff(stateDiff *core.StateDiff) *core.StateDiff {
 	}
 }
 
-func cloneStorageDiffs(storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt) map[felt.Felt]map[felt.Felt]*felt.Felt {
-	result := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+func cloneStorageDiffs(
+	storageDiffs map[felt.Address]map[felt.Felt]*felt.Felt,
+) map[felt.Address]map[felt.Felt]*felt.Felt {
+	result := make(map[felt.Address]map[felt.Felt]*felt.Felt)
 	for key := range storageDiffs {
 		result[key] = maps.Clone(storageDiffs[key])
 	}

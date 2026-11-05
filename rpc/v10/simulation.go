@@ -111,8 +111,8 @@ func (r SimulateTransactionsResponse) MarshalJSONTo(enc *jsontext.Encoder) error
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace     `json:"trace_root,omitempty"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash,omitempty"`
 }
 
 // TraceBlockTransactionsResponse represents the response for traceBlockTransactions.

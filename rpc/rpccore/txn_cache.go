@@ -24,7 +24,7 @@ const (
 // On every tick (i.e., TTL duration), the index advances and the evictor clears the oldest bucket in-place.
 type TransactionCache struct {
 	ttl           time.Duration
-	buckets       [NumTimeBuckets]map[felt.Felt]time.Time // map[txn-hash]entry-time
+	buckets       [NumTimeBuckets]map[felt.TransactionHash]time.Time // map[txn-hash]entry-time
 	locks         [NumTimeBuckets]sync.RWMutex
 	curTimeBucket atomic.Uint32
 	tickC         <-chan time.Time
@@ -34,7 +34,7 @@ type TransactionCache struct {
 func NewTransactionCache(ttl time.Duration, cacheSizeHint uint) *TransactionCache {
 	cache := &TransactionCache{}
 	for b := range NumTimeBuckets {
-		cache.buckets[b] = make(map[felt.Felt]time.Time, cacheSizeHint)
+		cache.buckets[b] = make(map[felt.TransactionHash]time.Time, cacheSizeHint)
 	}
 	cache.curTimeBucket.Store(0)
 	cache.tickC = time.NewTicker(ttl).C
@@ -47,14 +47,14 @@ func (c *TransactionCache) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *TransactionCache) Add(key *felt.Felt) {
+func (c *TransactionCache) Add(key *felt.TransactionHash) {
 	timeSlot := c.getCurTimeSlot()
 	c.locks[timeSlot].Lock()
 	c.buckets[timeSlot][*key] = time.Now()
 	c.locks[timeSlot].Unlock()
 }
 
-func (c *TransactionCache) Contains(key *felt.Felt) bool {
+func (c *TransactionCache) Contains(key *felt.TransactionHash) bool {
 	for _, b := range [2]uint32{c.getCurTimeSlot(), c.getPartialExpiredTimeSlot()} {
 		c.locks[b].RLock()
 		insertTime, ok := c.buckets[b][*key]

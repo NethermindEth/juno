@@ -32,7 +32,7 @@ func AdaptProposalInit(msg *p2pconsensus.ProposalInit) (consensus.ProposalInit, 
 		BlockNum:   consensus.Height(msg.BlockNumber),
 		Round:      consensus.Round(msg.Round),
 		ValidRound: validRound,
-		Proposer:   felt.FromBytes[felt.Felt](msg.Proposer.Elements),
+		Proposer:   felt.FromBytes[felt.Address](msg.Proposer.Elements),
 	}, nil
 }
 
@@ -41,7 +41,7 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) (consensus.BlockInfo, error) {
 		return consensus.BlockInfo{}, err
 	}
 
-	var builder felt.Felt
+	var builder felt.Address
 	if err := builder.SetBytesCanonical(msg.Builder.Elements); err != nil {
 		return consensus.BlockInfo{}, err
 	}
@@ -79,7 +79,7 @@ func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) (consensus.Pr
 		return consensus.ProposalCommitment{}, err
 	}
 
-	var builder felt.Felt
+	var builder felt.Address
 	if err := builder.SetBytesCanonical(msg.Builder.Elements); err != nil {
 		return consensus.ProposalCommitment{}, err
 	}
@@ -89,7 +89,7 @@ func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) (consensus.Pr
 		return consensus.ProposalCommitment{}, err
 	}
 
-	var oldStateRoot felt.Felt
+	var oldStateRoot felt.StateRootHash
 	if err := oldStateRoot.SetBytesCanonical(msg.OldStateRoot.Elements); err != nil {
 		return consensus.ProposalCommitment{}, err
 	}

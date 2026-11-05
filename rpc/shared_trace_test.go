@@ -41,11 +41,11 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	transactions := []core.Transaction{
 		&core.InvokeTransaction{
 			Version:         new(core.TransactionVersion),
-			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 		},
 		&core.InvokeTransaction{
 			Version:         new(core.TransactionVersion),
-			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](2),
 		},
 	}
 	reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
@@ -53,7 +53,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
 	for i := range transactions {
 		reader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(transactions[i].Hash()),
+			transactions[i].Hash(),
 		).Return(header.Number, uint64(i), nil).AnyTimes()
 	}
 	reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(transactions, nil).Times(3)
@@ -106,13 +106,13 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	h := rpc.New(reader, syncReader, runner, "test", log.NewNopZapLogger(), &networks.Mainnet)
 	methods := registeredTraceMethods(t, h)
 	first, steps, err := methods.transaction9(
-		t.Context(), (*felt.TransactionHash)(transactions[0].Hash()),
+		t.Context(), transactions[0].Hash(),
 	)
 	require.Nil(t, err)
 	require.Equal(t, "11", steps.Get(rpcv9.ExecutionStepsHeader))
 	require.Equal(t, uint64(1), first.ExecutionResources.L1Gas)
 	second, steps, err := methods.transaction10(
-		t.Context(), (*felt.TransactionHash)(transactions[1].Hash()),
+		t.Context(), transactions[1].Hash(),
 	)
 	require.Nil(t, err)
 	require.Equal(t, "11", steps.Get(rpcv10.ExecutionStepsHeader))
@@ -128,7 +128,7 @@ func TestSharedTraceCacheInitialReads(t *testing.T) {
 	require.Len(t, withReads.Traces, 2)
 	require.Equal(t, uint64(1), withReads.Traces[0].TraceRoot.ExecutionResources.L1Gas)
 	require.Equal(t, uint64(2), withReads.Traces[1].TraceRoot.ExecutionResources.L1Gas)
-	_, steps, err = methods.transaction9(t.Context(), (*felt.TransactionHash)(transactions[0].Hash()))
+	_, steps, err = methods.transaction9(t.Context(), transactions[0].Hash())
 	require.Nil(t, err)
 	require.Equal(t, "0", steps.Get(rpcv9.ExecutionStepsHeader))
 	require.Equal(t, 3, calls)
@@ -146,11 +146,11 @@ func TestSharedFeederTraceCachePreservesVersionShapes(t *testing.T) {
 	txs := []core.Transaction{
 		&core.DeployTransaction{
 			Version:         new(core.TransactionVersion),
-			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 		},
 		&core.L1HandlerTransaction{
 			Version:         new(core.TransactionVersion),
-			TransactionHash: felt.NewFromUint64[felt.Felt](2),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](2),
 		},
 	}
 	blockTrace := starknet.BlockTrace{Traces: []starknet.TransactionTrace{
@@ -212,7 +212,7 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 				txs := []core.Transaction{
 					&core.InvokeTransaction{
 						Version:         new(core.TransactionVersion),
-						TransactionHash: felt.NewFromUint64[felt.Felt](1),
+						TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 					},
 				}
 				reader.EXPECT().Network().Return(&networks.Mainnet).AnyTimes()
@@ -235,7 +235,7 @@ func TestSharedTraceCacheCoordinatesConcurrentVersions(t *testing.T) {
 				feederResult := starknet.BlockTrace{Traces: []starknet.TransactionTrace{{
 					TransactionHash: *txs[0].Hash(),
 					ValidateInvocation: &starknet.FunctionInvocation{
-						InternalCalls: []starknet.FunctionInvocation{{ContractAddress: felt.One[felt.Felt]()}},
+						InternalCalls: []starknet.FunctionInvocation{{ContractAddress: felt.One[felt.Address]()}},
 					},
 				}}}
 				before, err := json.Marshal([]any{vmResult, feederResult})
@@ -329,7 +329,7 @@ func TestSharedTraceCacheReleasesFailedProducer(t *testing.T) {
 	txs := []core.Transaction{
 		&core.InvokeTransaction{
 			Version:         new(core.TransactionVersion),
-			TransactionHash: felt.NewFromUint64[felt.Felt](1),
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 		},
 	}
 	reader.EXPECT().Network().Return(&networks.Mainnet).Times(2)
@@ -364,12 +364,12 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 				}
 				txs := []core.Transaction{
 					&core.InvokeTransaction{
-						TransactionHash: new(felt.One[felt.Felt]()),
+						TransactionHash: new(felt.One[felt.TransactionHash]()),
 						Version:         new(core.TransactionVersion),
 					},
 				}
 				receipts := []*core.TransactionReceipt{{
-					TransactionHash: new(felt.One[felt.Felt]()),
+					TransactionHash: new(felt.One[felt.TransactionHash]()),
 					ExecutionResources: &core.ExecutionResources{
 						TotalGasConsumed: &core.GasConsumed{L1Gas: 7},
 					},
@@ -383,7 +383,7 @@ func TestSharedTraceCacheEachProducer(t *testing.T) {
 						Return(txs, receipts, nil)
 					feeder.EXPECT().BlockTrace(gomock.Any(), header.Hash.String()).
 						Return(starknet.BlockTrace{
-							Traces: []starknet.TransactionTrace{{TransactionHash: felt.One[felt.Felt]()}},
+							Traces: []starknet.TransactionTrace{{TransactionHash: felt.One[felt.TransactionHash]()}},
 						}, nil)
 				} else {
 					reader.EXPECT().TransactionsByBlockNumber(header.Number).Return(txs, nil)
@@ -451,10 +451,12 @@ func TestProgressiveTraceEachVersionExtends(t *testing.T) {
 			}
 			txs := make([]core.Transaction, 3)
 			for i := range txs {
-				txs[i] = &core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](uint64(i + 1))}
+				txs[i] = &core.InvokeTransaction{
+					TransactionHash: felt.NewFromUint64[felt.TransactionHash](uint64(i + 1)),
+				}
 
 				reader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(txs[i].Hash()),
+					txs[i].Hash(),
 				).Return(header.Number, uint64(i), nil).AnyTimes()
 			}
 			reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
@@ -499,11 +501,11 @@ func TestProgressiveTraceEachVersionExtends(t *testing.T) {
 				switch version {
 				case 0:
 					_, steps, rpcErr = methods.transaction9(
-						t.Context(), (*felt.TransactionHash)(txs[index].Hash()),
+						t.Context(), txs[index].Hash(),
 					)
 				case 1:
 					_, steps, rpcErr = methods.transaction10(
-						t.Context(), (*felt.TransactionHash)(txs[index].Hash()),
+						t.Context(), txs[index].Hash(),
 					)
 				}
 				require.Nil(t, rpcErr)

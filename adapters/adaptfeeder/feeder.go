@@ -41,7 +41,10 @@ func (f *Feeder) BlockHeaderLatest(ctx context.Context) (core.Header, error) {
 
 // Class gets the class for a given class hash from the feeder,
 // then adapts it to the core.Class type.
-func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error) {
+func (f *Feeder) Class(
+	ctx context.Context,
+	classHash *felt.ClassHash,
+) (core.ClassDefinition, error) {
 	response, err := f.client.ClassDefinition(ctx, classHash)
 	if err != nil {
 		return nil, err

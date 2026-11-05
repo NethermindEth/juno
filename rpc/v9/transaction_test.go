@@ -62,7 +62,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	txHash := felt.NewRandom[felt.Felt]()
+	txHash := felt.NewRandom[felt.TransactionHash]()
 
 	// The finalised store is read again after the pre_confirmed miss.
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).Times(2)
@@ -84,9 +84,9 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	searchTxHash := felt.NewFromUint64[felt.Felt](0x123456)
+	searchTxHash := felt.NewFromUint64[felt.TransactionHash](0x123456)
 
-	otherTxHash := felt.NewFromUint64[felt.Felt](0x789abc)
+	otherTxHash := felt.NewFromUint64[felt.TransactionHash](0x789abc)
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         felt.NewFromUint64[core.TransactionVersion](1),
@@ -480,7 +480,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
-				func(hash *felt.Felt) (core.Transaction, error) {
+				func(hash *felt.TransactionHash) (core.Transaction, error) {
 					tx := adaptfeedertest.Block(t, client, test.block).Transactions[test.index]
 					require.Equal(t, hash, tx.Hash())
 					return tx, nil
@@ -488,7 +488,7 @@ func TestTransactionByHash(t *testing.T) {
 			).Times(1)
 			handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
-			hash, err := felt.NewFromString[felt.Felt](test.hash)
+			hash, err := felt.NewFromString[felt.TransactionHash](test.hash)
 			require.NoError(t, err)
 
 			expectedMap := make(map[string]any)
@@ -545,10 +545,10 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 
 	oldestPreConf := uint64(1) // canonical head at 0
 	storage := preconfirmed.NewChainStorage()
-	hashes := make([]*felt.Felt, 3)
+	hashes := make([]*felt.TransactionHash, 3)
 	receiptBlockNumbers := []uint64{1, 2, 3}
 	for i, blockNumber := range receiptBlockNumbers {
-		hash := felt.NewFromUint64[felt.Felt](100 + uint64(i))
+		hash := felt.NewFromUint64[felt.TransactionHash](100 + uint64(i))
 		hashes[i] = hash
 		emptySlice := []felt.Felt{}
 		block := starknet.PreConfirmedBlock{
@@ -556,7 +556,7 @@ func TestTransactionByHash_MultiplePreConfirmed(t *testing.T) {
 			Status:           "PRE_CONFIRMED",
 			Timestamp:        1,
 			Version:          core.Ver0_14_0.String(),
-			SequencerAddress: new(felt.One[felt.Felt]()),
+			SequencerAddress: new(felt.One[felt.Address]()),
 			L1GasPrice: &starknet.GasPrice{
 				PriceInWei: new(felt.One[felt.Felt]()),
 				PriceInFri: new(felt.One[felt.Felt]()),
@@ -831,11 +831,11 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 // (utils.NonNilSlice), so no other test exercises this branch.
 func TestAdaptReceiptNilEventsMarshalsAsEmptyArray(t *testing.T) {
 	txn := &core.InvokeTransaction{
-		TransactionHash: new(felt.Felt),
+		TransactionHash: new(felt.Zero[felt.TransactionHash]()),
 		Version:         felt.NewFromUint64[core.TransactionVersion](1),
 	}
 	receipt := &core.TransactionReceipt{
-		Fee:             new(felt.Felt),
+		Fee:             new(felt.Zero[felt.Felt]()),
 		Events:          nil,
 		TransactionHash: txn.TransactionHash,
 	}
@@ -857,10 +857,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
-		txHash := felt.NewFromBytes[felt.Felt]([]byte("random hash"))
+		txHash := felt.NewFromBytes[felt.TransactionHash]([]byte("random hash"))
 		// The finalised store is read again after the pre_confirmed miss.
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound)
@@ -876,7 +876,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 	block0 := adaptfeedertest.Block(t, client, 0)
 
-	checkTxReceipt := func(t *testing.T, hash *felt.Felt, expected string) {
+	checkTxReceipt := func(t *testing.T, hash *felt.TransactionHash, expected string) {
 		t.Helper()
 
 		expectedMap := make(map[string]any)
@@ -950,7 +950,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			txHash := block0.Transactions[test.index].Hash()
 			mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(block0.Number, uint64(test.index), nil)
 			mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 				block0.Number, uint64(test.index),
@@ -1043,7 +1043,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txHash := block0.Transactions[i].Hash()
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(block0.Number, uint64(i), nil)
 		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block0.Number, uint64(i),
@@ -1088,7 +1088,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(revertedTxnHash),
+			revertedTxnHash,
 		).Return(blockWithRevertedTxn.Number, uint64(revertedTxnIdx), nil)
 		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			blockWithRevertedTxn.Number, uint64(revertedTxnIdx),
@@ -1157,7 +1157,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txnHash := block.Transactions[index].Hash()
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txnHash),
+			txnHash,
 		).Return(block.Number, uint64(index), nil)
 		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
@@ -1213,7 +1213,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txnHash := block.Transactions[index].Hash()
 		mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txnHash),
+			txnHash,
 		).Return(block.Number, uint64(index), nil)
 		mockReader.EXPECT().TransactionAndReceiptByBlockNumberAndIndex(
 			block.Number, uint64(index),
@@ -1558,9 +1558,9 @@ func TestAddTransaction(t *testing.T) {
 			got, rpcErr := handler.AddTransaction(t.Context(), new(test.txn))
 			require.Nil(t, rpcErr)
 			require.Equal(t, rpc.AddTxResponse{
-				TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
-				ContractAddress: felt.NewFromUint64[felt.Felt](0x2),
-				ClassHash:       felt.NewFromUint64[felt.Felt](0x3),
+				TransactionHash: felt.NewFromUint64[felt.TransactionHash](0x1),
+				ContractAddress: felt.NewFromUint64[felt.Address](0x2),
+				ClassHash:       felt.NewFromUint64[felt.ClassHash](0x3),
 			}, got)
 		})
 	}
@@ -1720,21 +1720,33 @@ func TestTransactionStatus(t *testing.T) {
 
 	tests := []struct {
 		network           *networks.Network
-		verifiedTxHash    *felt.Felt
-		nonVerifiedTxHash *felt.Felt
-		notFoundTxHash    *felt.Felt
+		verifiedTxHash    *felt.TransactionHash
+		nonVerifiedTxHash *felt.TransactionHash
+		notFoundTxHash    *felt.TransactionHash
 	}{
 		{
-			network:           &networks.Mainnet,
-			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
-			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
-			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
+			network: &networks.Mainnet,
+			verifiedTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
+			),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
+			),
+			notFoundTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9",
+			),
 		},
 		{
-			network:           &networks.Integration,
-			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
-			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
+			network: &networks.Integration,
+			verifiedTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3",
+			),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838",
+			),
+			notFoundTxHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15",
+			),
 		},
 	}
 
@@ -1758,7 +1770,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 					mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-						(*felt.TransactionHash)(tx.Hash()),
+						tx.Hash(),
 					).Return(block.Number, uint64(0), nil)
 					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 						block.Number, uint64(0),
@@ -1783,7 +1795,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 					mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-						(*felt.TransactionHash)(tx.Hash()),
+						tx.Hash(),
 					).Return(block.Number, uint64(0), nil)
 					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 						block.Number, uint64(0),
@@ -1810,7 +1822,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 					mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil)
 					mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-						(*felt.TransactionHash)(tx.Hash()),
+						tx.Hash(),
 					).Return(block.Number, uint64(0), nil)
 					mockReader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 						block.Number, uint64(0),
@@ -1835,7 +1847,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
 					finality rpc.TxnStatus
-					hash     *felt.Felt
+					hash     *felt.TransactionHash
 				}{
 					"verified": {
 						finality: rpc.TxnStatusAcceptedOnL1,
@@ -1852,7 +1864,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-							(*felt.TransactionHash)(notFoundTest.hash),
+							notFoundTest.hash,
 						).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(4)
 						mockSyncReader.EXPECT().
 							ReadPreConfirmedChain().
@@ -1879,7 +1891,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-					(*felt.TransactionHash)(test.notFoundTxHash),
+					test.notFoundTxHash,
 				).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 				mockSyncReader.EXPECT().
 					ReadPreConfirmedChain().
@@ -1929,12 +1941,12 @@ func TestTransactionStatus(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			client := feeder.NewTestClient(t, &networks.SepoliaIntegration)
-			txHash, err := felt.NewFromString[felt.Felt]("0x1111")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1111")
 			require.NoError(t, err)
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, logger).WithFeeder(client)
 			mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			mockSyncReader.EXPECT().
 				ReadPreConfirmedChain().
@@ -2216,10 +2228,16 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		}`
 	expectedTxn := core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     felt.NewUnsafeFromString[felt.Felt]("0x279b4c80718c256682226b098aecd3f5b0d0ddcfeb697d0047f4aa31a6e449f"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash](
+				"0x279b4c80718c256682226b098aecd3f5b0d0ddcfeb697d0047f4aa31a6e449f",
+			),
 			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt]("0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-			ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
-			ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			ClassHash: felt.NewUnsafeFromString[felt.ClassHash](
+				"0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			),
+			ContractAddress: felt.NewUnsafeFromString[felt.Address](
+				"0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91",
+			),
 			ConstructorCallData: []felt.Felt{
 				felt.UnsafeFromString[felt.Felt](
 					"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
@@ -2373,7 +2391,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](12345),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		TransactionSignature: []felt.Felt{
 			felt.FromUint64[felt.Felt](0x1),
@@ -2398,14 +2416,14 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		},
 		Tip:           0,
 		PaymasterData: []felt.Felt{},
-		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
+		SenderAddress: felt.NewFromUint64[felt.Address](0x1),
 		CallData:      []felt.Felt{},
 	}
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: rpc.AdaptTransaction(txnToAdd)}
 
 	var gatewayResponse struct {
-		TransactionHash *felt.Felt `json:"transaction_hash"`
+		TransactionHash *felt.TransactionHash `json:"transaction_hash"`
 	}
 
 	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
@@ -2439,7 +2457,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(res.TransactionHash),
+			res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
 			ReadPreConfirmedChain().
@@ -2473,7 +2491,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(res.TransactionHash),
+			res.TransactionHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 		mockSyncReader.EXPECT().
 			ReadPreConfirmedChain().
@@ -2506,7 +2524,7 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	block := adaptfeedertest.BlockLatest(t, client)
 	txn := block.Transactions[0]
-	txHash := (*felt.TransactionHash)(txn.Hash())
+	txHash := txn.Hash()
 	pastBlock := &pending.PreConfirmed{
 		Block: &core.Block{Header: &core.Header{Number: block.Number + 1}},
 	}
@@ -2525,7 +2543,7 @@ func handlerWithBlockCommittedMidRequest(t *testing.T) (*rpc.Handler, *core.Bloc
 			return mustNewChain(t, pastBlock), nil
 		}).AnyTimes()
 	mockReader.EXPECT().TransactionByHash(txn.Hash()).
-		DoAndReturn(func(*felt.Felt) (core.Transaction, error) {
+		DoAndReturn(func(*felt.TransactionHash) (core.Transaction, error) {
 			if !committed {
 				return nil, db.ErrKeyNotFound
 			}

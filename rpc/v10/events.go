@@ -17,7 +17,7 @@ import (
 // json tags differ), which lets `AdaptReceipt` reinterpret a receipt's []*core.Event as []*Event
 // with zero copies. The conversion guard below makes any divergence a compile error.
 type Event struct {
-	From *felt.Felt            `json:"from_address,omitempty"`
+	From *felt.Address         `json:"from_address,omitempty"`
 	Keys felt.Slice[felt.Felt] `json:"keys"`
 	Data felt.Slice[felt.Felt] `json:"data"`
 }
@@ -78,11 +78,11 @@ func (a AddressList) Contains(addr *felt.Address) bool {
 
 type EmittedEvent struct {
 	*Event
-	BlockNumber      uint64     `json:"block_number"`
-	BlockHash        *felt.Felt `json:"block_hash,omitempty"`
-	TransactionHash  *felt.Felt `json:"transaction_hash"`
-	TransactionIndex uint       `json:"transaction_index"`
-	EventIndex       uint       `json:"event_index"`
+	BlockNumber      uint64                `json:"block_number"`
+	BlockHash        *felt.Felt            `json:"block_hash,omitempty"`
+	TransactionHash  *felt.TransactionHash `json:"transaction_hash"`
+	TransactionIndex uint                  `json:"transaction_index"`
+	EventIndex       uint                  `json:"event_index"`
 }
 
 type EventsChunk struct {

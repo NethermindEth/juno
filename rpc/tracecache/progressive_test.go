@@ -14,17 +14,17 @@ import (
 )
 
 func TestResumeStateAppliesCachedChanges(t *testing.T) {
-	address := felt.FromUint64[felt.Felt](1)
+	address := felt.FromUint64[felt.Address](1)
 	key := felt.FromUint64[felt.Felt](2)
 	value := felt.FromUint64[felt.Felt](3)
 	nonce := felt.FromUint64[felt.Felt](4)
-	classHash := felt.FromUint64[felt.Felt](5)
-	compiledHash := felt.FromUint64[felt.Felt](6)
-	replacement := felt.FromUint64[felt.Felt](7)
+	classHash := felt.FromUint64[felt.ClassHash](5)
+	compiledHash := felt.FromUint64[felt.CasmClassHash](6)
+	replacement := felt.FromUint64[felt.ClassHash](7)
 	migratedClass := felt.FromUint64[felt.SierraClassHash](8)
 	migratedCompiled := felt.FromUint64[felt.CasmClassHash](9)
-	replacedAddress := felt.FromUint64[felt.Felt](10)
-	legacyHash := felt.FromUint64[felt.Felt](11)
+	replacedAddress := felt.FromUint64[felt.Address](10)
+	legacyHash := felt.FromUint64[felt.ClassHash](11)
 
 	diff := vm.StateDiff{
 		StorageDiffs: []vm.StorageDiff{{
@@ -32,9 +32,9 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 		}},
 		Nonces:                    []vm.Nonce{{ContractAddress: address, Nonce: nonce}},
 		DeployedContracts:         []vm.DeployedContract{{Address: address, ClassHash: classHash}},
-		DeprecatedDeclaredClasses: []*felt.Felt{&legacyHash},
+		DeprecatedDeclaredClasses: []*felt.ClassHash{&legacyHash},
 		DeclaredClasses: []vm.DeclaredClass{{
-			ClassHash: classHash, CompiledClassHash: compiledHash,
+			ClassHash: felt.SierraClassHash(classHash), CompiledClassHash: compiledHash,
 		}},
 		ReplacedClasses: []vm.ReplacedClass{{ContractAddress: replacedAddress, ClassHash: replacement}},
 		MigratedCompiledClasses: []vm.MigratedCompiledClass{{
@@ -42,8 +42,8 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 		}},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
+		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.TransactionHash]())},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](2)},
 	}
 	result := vm.ExecutionResults{
 		Traces:      []vm.TransactionTrace{{StateDiff: &diff}},
@@ -86,7 +86,7 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 	sierraHash := felt.SierraClassHash(classHash)
 	compiled, err := state.CompiledClassHash(&sierraHash)
 	require.NoError(t, err)
-	require.Equal(t, felt.CasmClassHash(compiledHash), compiled)
+	require.Equal(t, compiledHash, compiled)
 	replaced, err := state.ContractClassHash(&replacedAddress)
 	require.NoError(t, err)
 	require.Equal(t, replacement, replaced)
@@ -110,7 +110,7 @@ func TestResumeStateAppliesCachedChanges(t *testing.T) {
 }
 
 func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
-	address := felt.FromUint64[felt.Felt](1)
+	address := felt.FromUint64[felt.Address](1)
 	key := felt.FromUint64[felt.Felt](2)
 	untouchedKey := felt.FromUint64[felt.Felt](3)
 	inheritedKey := felt.FromUint64[felt.Felt](4)
@@ -136,9 +136,9 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 		},
 	}
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.Felt]())},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](3)},
+		&core.InvokeTransaction{TransactionHash: new(felt.One[felt.TransactionHash]())},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](2)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](3)},
 	}
 	result := vm.ExecutionResults{
 		Traces:      []vm.TransactionTrace{{StateDiff: &diffs[0]}, {StateDiff: &diffs[1]}},
@@ -172,9 +172,9 @@ func TestResumeStateAppliesDiffsInOrder(t *testing.T) {
 
 func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 	txs := []core.Transaction{
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](1)},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](2)},
-		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](3)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](1)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](2)},
+		&core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.TransactionHash](3)},
 	}
 	execute := func(txs []core.Transaction) *tracecache.BlockTrace {
 		result := vm.ExecutionResults{
@@ -188,7 +188,7 @@ func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 		require.NoError(t, err)
 		return block
 	}
-	target := &tracecache.TransactionTarget{Index: 0, Hash: (*felt.TransactionHash)(txs[0].Hash())}
+	target := &tracecache.TransactionTarget{Index: 0, Hash: txs[0].Hash()}
 	first, err := tracecache.PlanRange(nil, txs, target, false)
 	require.NoError(t, err)
 	require.Zero(t, first.Start)
@@ -230,7 +230,7 @@ func TestRangeCoverageAndPrefixPreservingCombination(t *testing.T) {
 	require.False(t, complete.Covers(true))
 	for _, replayTarget := range []*tracecache.TransactionTarget{
 		nil,
-		{Index: 2, Hash: (*felt.TransactionHash)(txs[2].Hash())},
+		{Index: 2, Hash: txs[2].Hash()},
 	} {
 		replay, replayErr := tracecache.PlanRange(prefix, txs, replayTarget, true)
 		require.NoError(t, replayErr)

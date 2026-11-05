@@ -18,14 +18,14 @@ import (
 func TestNewStateReader(t *testing.T) {
 	t.Run("returns read-only state at root", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		st, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
+		st, err := NewStateReader(new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 		assert.NotNil(t, st)
 	})
 
 	t.Run("state commitment readable", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		st, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
+		st, err := NewStateReader(new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		_, err = st.Commitment("")
@@ -44,7 +44,7 @@ func TestContractClassHash(t *testing.T) {
 	state, err := NewStateReader(su1.NewRoot, stateDB)
 	require.NoError(t, err)
 
-	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
+	allDeployedContracts := make(map[felt.Address]*felt.ClassHash)
 	maps.Copy(allDeployedContracts, su0.StateDiff.DeployedContracts)
 	maps.Copy(allDeployedContracts, su1.StateDiff.DeployedContracts)
 
@@ -56,19 +56,19 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	addr := felt.UnsafeFromString[felt.Felt](
+	addr := felt.UnsafeFromString[felt.Address](
 		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 	)
-	root := felt.NewUnsafeFromString[felt.Felt](
+	root := felt.NewUnsafeFromString[felt.StateRootHash](
 		"0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368",
 	)
 
 	su0 := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
-				addr: felt.NewUnsafeFromString[felt.Felt](
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
+				addr: felt.NewUnsafeFromString[felt.ClassHash](
 					"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
 				),
 			},
@@ -78,7 +78,7 @@ func TestNonce(t *testing.T) {
 	t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
 		require.NoError(t, batch.Write())
@@ -93,18 +93,18 @@ func TestNonce(t *testing.T) {
 	t.Run("update contract nonce", func(t *testing.T) {
 		stateDB := setupState(t, nil, 0)
 		batch := stateDB.disk.NewBatch()
-		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 		require.NoError(t, state.Update(&core.Header{Number: block0}, su0, nil, false))
 		require.NoError(t, batch.Write())
 
 		su1 := &core.StateUpdate{
-			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",
 			),
 			OldRoot: root,
 			StateDiff: &core.StateDiff{
-				Nonces: map[felt.Felt]*felt.Felt{addr: new(felt.One[felt.Felt]())},
+				Nonces: map[felt.Address]*felt.Felt{addr: new(felt.One[felt.Felt]())},
 			},
 		}
 
@@ -148,7 +148,7 @@ func TestContractMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedStorageRoot, storageRoot)
 
-	missing := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
+	missing := felt.NewUnsafeFromString[felt.Address]("0xdeadbeef")
 	missingClassHash, missingNonce, missingStorageRoot, err := reader.ContractMetadata(missing)
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 	assert.True(t, missingClassHash.IsZero())
@@ -162,26 +162,27 @@ func TestClass(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
-	deprecatedCairoHash := felt.NewUnsafeFromString[felt.Felt](
+	deprecatedCairoHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
 	)
 	deprecatedCairoClass, err := gw.Class(t.Context(), deprecatedCairoHash)
 	require.NoError(t, err)
-	sierraHash := felt.NewUnsafeFromString[felt.Felt](
+	sierraHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
 	)
 	sierraClass, err := gw.Class(t.Context(), sierraHash)
 	require.NoError(t, err)
 
 	batch := stateDB.disk.NewBatch()
-	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 	require.NoError(t, err)
 
 	su0 := adaptfeedertest.StateUpdate(t, client, 0)
-	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, map[felt.Felt]core.ClassDefinition{
+	declaredClasses := map[felt.ClassHash]core.ClassDefinition{
 		*deprecatedCairoHash: deprecatedCairoClass,
 		*sierraHash:          sierraClass,
-	}, false))
+	}
+	require.NoError(t, state.Update(&core.Header{Number: 0}, su0, declaredClasses, false))
 	require.NoError(t, batch.Write())
 
 	reader, err := NewStateReader(su0.NewRoot, stateDB)
@@ -230,7 +231,7 @@ func TestContractDeployedAt(t *testing.T) {
 		state, err := NewStateReader(&root, stateDB)
 		require.NoError(t, err)
 
-		d0 := felt.NewUnsafeFromString[felt.Felt](
+		d0 := felt.NewUnsafeFromString[felt.Address](
 			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 		)
 		deployed, err := state.ContractDeployedAt(d0, block0)
@@ -246,7 +247,7 @@ func TestContractDeployedAt(t *testing.T) {
 		state, err := NewStateReader(&root, stateDB)
 		require.NoError(t, err)
 
-		d1 := felt.NewUnsafeFromString[felt.Felt](
+		d1 := felt.NewUnsafeFromString[felt.Address](
 			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
 		)
 		deployed, err := state.ContractDeployedAt(d1, block0)
@@ -262,7 +263,7 @@ func TestContractDeployedAt(t *testing.T) {
 		state, err := NewStateReader(&root, stateDB)
 		require.NoError(t, err)
 
-		notDeployed := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+		notDeployed := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 		deployed, err := state.ContractDeployedAt(notDeployed, block0)
 		require.NoError(t, err)
 		assert.False(t, deployed)
@@ -270,33 +271,35 @@ func TestContractDeployedAt(t *testing.T) {
 }
 
 func TestContractHistory(t *testing.T) {
-	addr := felt.UnsafeFromString[felt.Felt]("0x1234567890abcdef")
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0xc1a55")
+	addr := felt.UnsafeFromString[felt.Address]("0x1234567890abcdef")
+	classHash := felt.NewUnsafeFromString[felt.ClassHash]("0xc1a55")
 	nonce := felt.NewUnsafeFromString[felt.Felt]("0xace")
 	storageKey := felt.NewUnsafeFromString[felt.Felt]("0x5107e")
 	storageValue := felt.NewUnsafeFromString[felt.Felt]("0x5a1")
 
 	emptyStateUpdate := &core.StateUpdate{
-		OldRoot:   new(felt.Zero[felt.Felt]()),
-		NewRoot:   new(felt.Zero[felt.Felt]()),
+		OldRoot:   new(felt.Zero[felt.StateRootHash]()),
+		NewRoot:   new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{},
 	}
 
 	su := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{addr: classHash},
-			Nonces:            map[felt.Felt]*felt.Felt{addr: nonce},
-			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{addr: {*storageKey: storageValue}},
+			DeployedContracts: map[felt.Address]*felt.ClassHash{addr: classHash},
+			Nonces:            map[felt.Address]*felt.Felt{addr: nonce},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*storageKey: storageValue},
+			},
 		},
 	}
 
 	t.Run("empty", func(t *testing.T) {
 		stateDB := newTestStateDB()
-		state, err := NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
+		state, err := NewStateReader(new(felt.Zero[felt.StateRootHash]()), stateDB)
 		require.NoError(t, err)
 
 		nonce, err := state.ContractNonceAt(&addr, block0)
@@ -305,7 +308,7 @@ func TestContractHistory(t *testing.T) {
 
 		classHash, err := state.ContractClassHashAt(&addr, block0)
 		require.NoError(t, err)
-		assert.Equal(t, felt.Zero[felt.Felt](), classHash)
+		assert.Equal(t, felt.Zero[felt.ClassHash](), classHash)
 
 		storage, err := state.ContractStorageAt(&addr, storageKey, block0)
 		require.NoError(t, err)
@@ -315,18 +318,20 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height is the same as update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 
 		su0 := &core.StateUpdate{
-			OldRoot: new(felt.Zero[felt.Felt]()),
-			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			OldRoot: new(felt.Zero[felt.StateRootHash]()),
+			NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x164c1b480d2a20afe107d1cc193a78128452d5205d1721f9a7aee35babca845",
 			),
 			StateDiff: &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{addr: classHash},
-				Nonces:            map[felt.Felt]*felt.Felt{addr: nonce},
-				StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{addr: {*storageKey: storageValue}},
+				DeployedContracts: map[felt.Address]*felt.ClassHash{addr: classHash},
+				Nonces:            map[felt.Address]*felt.Felt{addr: nonce},
+				StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+					addr: {*storageKey: storageValue},
+				},
 			},
 		}
 
@@ -352,7 +357,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height before update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := emptyStateUpdate
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -374,7 +379,7 @@ func TestContractHistory(t *testing.T) {
 
 		gotClassHash, err := reader.ContractClassHashAt(&addr, block0)
 		require.NoError(t, err)
-		assert.Equal(t, felt.Zero[felt.Felt](), gotClassHash)
+		assert.Equal(t, felt.Zero[felt.ClassHash](), gotClassHash)
 
 		gotStorage, err := reader.ContractStorageAt(&addr, storageKey, block0)
 		require.NoError(t, err)
@@ -384,7 +389,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height in between updates", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := su
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -404,18 +409,19 @@ func TestContractHistory(t *testing.T) {
 		batch = stateDB.disk.NewBatch()
 		state2, err := New(su1.NewRoot, stateDB, batch)
 		require.NoError(t, err)
+		otherContract := felt.UnsafeFromString[felt.Address]("0xc1a55")
 		su2 := &core.StateUpdate{
 			OldRoot: su1.NewRoot,
-			NewRoot: felt.NewUnsafeFromString[felt.Felt](
+			NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 				"0x719e4c1206c30bb8e2924c821910582045c2acd0be342ad4ec9037d15f955be",
 			),
 			StateDiff: &core.StateDiff{
-				Nonces: map[felt.Felt]*felt.Felt{addr: felt.NewUnsafeFromString[felt.Felt]("0xaced")},
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				Nonces: map[felt.Address]*felt.Felt{addr: felt.NewUnsafeFromString[felt.Felt]("0xaced")},
+				StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 					addr: {*storageKey: felt.NewUnsafeFromString[felt.Felt]("0x5a1e")},
 				},
-				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*classHash: felt.NewUnsafeFromString[felt.Felt]("0xc1a5e"),
+				DeployedContracts: map[felt.Address]*felt.ClassHash{
+					otherContract: felt.NewUnsafeFromString[felt.ClassHash]("0xc1a5e"),
 				},
 			},
 		}
@@ -441,7 +447,7 @@ func TestContractHistory(t *testing.T) {
 	t.Run("retrieve block height after last update", func(t *testing.T) {
 		stateDB := newTestStateDB()
 		batch := stateDB.disk.NewBatch()
-		state0, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+		state0, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 		require.NoError(t, err)
 		su0 := su
 		require.NoError(t, state0.Update(&core.Header{Number: block0}, su0, nil, false))
@@ -466,13 +472,12 @@ func TestContractHistory(t *testing.T) {
 
 func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	addr := felt.FromUint64[felt.Address](1)
-	addrFelt := felt.Felt(addr)
 	key := felt.NewFromUint64[felt.Felt](10)
 	value := felt.NewFromUint64[felt.Felt](99)
 
 	stateDB := newTestStateDB()
 	batch := stateDB.disk.NewBatch()
-	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 	require.NoError(t, err)
 
 	t.Run("storage never updated returns not found", func(t *testing.T) {
@@ -482,11 +487,11 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	})
 
 	su := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*key: value},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*key: value},
 			},
 		},
 	}
@@ -507,10 +512,10 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su1 := &core.StateUpdate{
 		OldRoot: &root0,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*key: value},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*key: value},
 			},
 		},
 	}
@@ -525,10 +530,10 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su2 := &core.StateUpdate{
 		OldRoot: &root0,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {felt.Random[felt.Felt](): value}, // unrelated key
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {felt.Random[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}
@@ -542,10 +547,10 @@ func TestContractStorageLastUpdatedBlock(t *testing.T) {
 	require.NoError(t, err)
 	su3 := &core.StateUpdate{
 		OldRoot: &root2,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {felt.Random[felt.Felt](): value}, // unrelated key
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {felt.Random[felt.Felt](): value}, // unrelated key
 			},
 		},
 	}
@@ -572,18 +577,18 @@ func TestStateCommitmentPre014ReturnsContractRoot(t *testing.T) {
 	// the raw contractRoot, not a Poseidon hash.
 	stateDB := newTestStateDB()
 	batch := stateDB.disk.NewBatch()
-	state, err := New(new(felt.Zero[felt.Felt]()), stateDB, batch)
+	state, err := New(new(felt.Zero[felt.StateRootHash]()), stateDB, batch)
 	require.NoError(t, err)
 
 	storageKey := felt.NewFromUint64[felt.Felt](0)
 	storageVal := felt.NewFromUint64[felt.Felt](0x80)
-	contractAddr := felt.NewFromUint64[felt.Felt](2)
+	contractAddr := felt.NewFromUint64[felt.Address](2)
 
 	su := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: new(felt.Zero[felt.Felt]()), // skip root verification
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()), // skip root verification
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 				*contractAddr: {*storageKey: storageVal},
 			},
 		},

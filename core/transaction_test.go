@@ -33,9 +33,9 @@ func TestTransactionEncoding(t *testing.T) {
 		{
 			name: "Declare Transaction",
 			tx: &core.DeclareTransaction{
-				TransactionHash: felt.NewFromUint64[felt.Felt](1),
-				ClassHash:       felt.NewFromUint64[felt.Felt](2),
-				SenderAddress:   felt.NewFromUint64[felt.Felt](3),
+				TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
+				ClassHash:       felt.NewFromUint64[felt.ClassHash](2),
+				SenderAddress:   felt.NewFromUint64[felt.Address](3),
 				MaxFee:          felt.NewFromUint64[felt.Felt](4),
 				TransactionSignature: []felt.Felt{
 					felt.FromUint64[felt.Felt](5),
@@ -48,10 +48,10 @@ func TestTransactionEncoding(t *testing.T) {
 		{
 			name: "Deploy Transaction",
 			tx: &core.DeployTransaction{
-				TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+				TransactionHash:     felt.NewFromUint64[felt.TransactionHash](1),
 				ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
-				ContractAddress:     felt.NewFromUint64[felt.Felt](3),
-				ClassHash:           felt.NewFromUint64[felt.Felt](4),
+				ContractAddress:     felt.NewFromUint64[felt.Address](3),
+				ClassHash:           felt.NewFromUint64[felt.ClassHash](4),
 				ConstructorCallData: []felt.Felt{
 					felt.FromUint64[felt.Felt](5),
 					felt.FromUint64[felt.Felt](6),
@@ -62,7 +62,7 @@ func TestTransactionEncoding(t *testing.T) {
 		{
 			name: "Invoke Transaction",
 			tx: &core.InvokeTransaction{
-				TransactionHash: felt.NewFromUint64[felt.Felt](1),
+				TransactionHash: felt.NewFromUint64[felt.TransactionHash](1),
 				CallData: []felt.Felt{
 					felt.FromUint64[felt.Felt](2),
 					felt.FromUint64[felt.Felt](3),
@@ -72,7 +72,7 @@ func TestTransactionEncoding(t *testing.T) {
 					felt.FromUint64[felt.Felt](5),
 				},
 				MaxFee:             felt.NewFromUint64[felt.Felt](6),
-				ContractAddress:    felt.NewFromUint64[felt.Felt](7),
+				ContractAddress:    felt.NewFromUint64[felt.Address](7),
 				Version:            felt.NewFromUint64[core.TransactionVersion](8),
 				EntryPointSelector: felt.NewFromUint64[felt.Felt](9),
 				Nonce:              felt.NewFromUint64[felt.Felt](10),
@@ -82,10 +82,10 @@ func TestTransactionEncoding(t *testing.T) {
 			name: "Deploy Account Transaction",
 			tx: &core.DeployAccountTransaction{
 				DeployTransaction: core.DeployTransaction{
-					TransactionHash:     felt.NewFromUint64[felt.Felt](1),
+					TransactionHash:     felt.NewFromUint64[felt.TransactionHash](1),
 					ContractAddressSalt: felt.NewFromUint64[felt.Felt](2),
-					ContractAddress:     felt.NewFromUint64[felt.Felt](3),
-					ClassHash:           felt.NewFromUint64[felt.Felt](4),
+					ContractAddress:     felt.NewFromUint64[felt.Address](3),
+					ClassHash:           felt.NewFromUint64[felt.ClassHash](4),
 					ConstructorCallData: []felt.Felt{
 						felt.FromUint64[felt.Felt](5),
 						felt.FromUint64[felt.Felt](6),
@@ -103,8 +103,8 @@ func TestTransactionEncoding(t *testing.T) {
 		{
 			name: "L1 Handler Transaction",
 			tx: &core.L1HandlerTransaction{
-				TransactionHash:    felt.NewFromUint64[felt.Felt](1),
-				ContractAddress:    felt.NewFromUint64[felt.Felt](2),
+				TransactionHash:    felt.NewFromUint64[felt.TransactionHash](1),
+				ContractAddress:    felt.NewFromUint64[felt.Address](2),
 				EntryPointSelector: felt.NewFromUint64[felt.Felt](3),
 				Nonce:              felt.NewFromUint64[felt.Felt](4),
 				CallData: []felt.Felt{
@@ -164,9 +164,9 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		badTxn1 := new(core.L1HandlerTransaction)
 		*badTxn1 = *txn3.(*core.L1HandlerTransaction)
-		badTxn1.TransactionHash = felt.NewUnsafeFromString[felt.Felt]("0xab")
+		badTxn1.TransactionHash = felt.NewUnsafeFromString[felt.TransactionHash]("0xab")
 
-		tests := map[felt.Felt]struct {
+		tests := map[felt.TransactionHash]struct {
 			name    string
 			wantErr error
 			txn     core.Transaction
@@ -208,7 +208,7 @@ func TestTransactionV3Hash(t *testing.T) {
 
 	tests := map[string]struct {
 		tx   func(t *testing.T) core.Transaction
-		want felt.Felt
+		want felt.TransactionHash
 	}{
 		"invoke": {
 			// https://alpha-sepolia.starknet.io/feeder_gateway/get_block?blockNumber=567941, transaction 0
@@ -219,7 +219,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				invoke.TransactionHash = nil
 				return invoke
 			},
-			want: felt.UnsafeFromString[felt.Felt](
+			want: felt.UnsafeFromString[felt.TransactionHash](
 				"0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea",
 			),
 		},
@@ -232,7 +232,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				declare.TransactionHash = nil
 				return declare
 			},
-			want: felt.UnsafeFromString[felt.Felt](
+			want: felt.UnsafeFromString[felt.TransactionHash](
 				"0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155",
 			),
 		},
@@ -245,7 +245,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				deployAccount.TransactionHash = nil
 				return deployAccount
 			},
-			want: felt.UnsafeFromString[felt.Felt](
+			want: felt.UnsafeFromString[felt.TransactionHash](
 				"0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975",
 			),
 		},
@@ -302,7 +302,9 @@ func TestMessageHash(t *testing.T) {
 		{
 			expected: "f3507cad1b674c2b2f26a0a51cc8abebe96ad7a8a9cd1aa54b00fddee776e4cf",
 			tx: &core.L1HandlerTransaction{
-				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
+				ContractAddress: felt.NewUnsafeFromString[felt.Address](
+					"0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82",
+				),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x02d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
 				Nonce:              felt.NewUnsafeFromString[felt.Felt]("0xbf0dd"),
 				CallData: []felt.Felt{
@@ -318,7 +320,9 @@ func TestMessageHash(t *testing.T) {
 		{
 			expected: "546479edde51ea965cfa77ecde8d749d198e54e4ec71e4b543866dbe837d8a26",
 			tx: &core.L1HandlerTransaction{
-				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac"),
+				ContractAddress: felt.NewUnsafeFromString[felt.Address](
+					"0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac",
+				),
 				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b"),
 				CallData: []felt.Felt{
 					felt.UnsafeFromString[felt.Felt]("0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
@@ -354,16 +358,18 @@ func TestDeclareV0TransactionHash(t *testing.T) {
 
 func TestContractAddress(t *testing.T) {
 	tests := []struct {
-		callerAddress       *felt.Felt
-		classHash           *felt.Felt
+		callerAddress       *felt.Address
+		classHash           *felt.ClassHash
 		salt                *felt.Felt
 		constructorCallData []felt.Felt
-		want                *felt.Felt
+		want                *felt.Address
 	}{
 		{
 			// https://alpha-mainnet.starknet.io/feeder_gateway/get_transaction?transactionHash=0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0
-			callerAddress: felt.NewUnsafeFromString[felt.Felt]("0x0000000000000000000000000000000000000000"),
-			classHash: felt.NewUnsafeFromString[felt.Felt](
+			callerAddress: felt.NewUnsafeFromString[felt.Address](
+				"0x0000000000000000000000000000000000000000",
+			),
+			classHash: felt.NewUnsafeFromString[felt.ClassHash](
 				"0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486",
 			),
 			salt: felt.NewUnsafeFromString[felt.Felt](
@@ -384,7 +390,7 @@ func TestContractAddress(t *testing.T) {
 					"0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328",
 				),
 			},
-			want: felt.NewUnsafeFromString[felt.Felt](
+			want: felt.NewUnsafeFromString[felt.Address](
 				"0x3ec215c6c9028ff671b46a2a9814970ea23ed3c4bcc3838c6d1dcbf395263c3",
 			),
 		},

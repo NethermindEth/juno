@@ -26,7 +26,11 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt) (sequencer.Sequencer, *blockchain.Blockchain) {
+func getEmptySequencer(
+	t *testing.T,
+	blockTime time.Duration,
+	seqAddr *felt.Address,
+) (sequencer.Sequencer, *blockchain.Blockchain) {
 	t.Helper()
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
@@ -54,7 +58,7 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 func getGenesisSequencer(
 	t *testing.T,
 	blockTime time.Duration,
-	seqAddr *felt.Felt) (
+	seqAddr *felt.Address) (
 	sequencer.Sequencer,
 	*blockchain.Blockchain,
 	*rpc.Handler,
@@ -65,7 +69,7 @@ func getGenesisSequencer(
 	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
+			SenderAddress: felt.NewUnsafeFromString[felt.Address]("0x101"),
 			Version:       felt.NewFromUint64[felt.Felt](1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         felt.NewFromUint64[felt.Felt](0),
@@ -96,7 +100,7 @@ func getGenesisSequencer(
 	invokeTxn2 := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
+			SenderAddress: felt.NewUnsafeFromString[felt.Address]("0x101"),
 			Version:       felt.NewFromUint64[felt.Felt](1),
 			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         felt.NewFromUint64[felt.Felt](1),
@@ -169,7 +173,7 @@ func getGenesisSequencer(
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {
-	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc := getEmptySequencer(t, blockTime, seqAddr)
 
@@ -190,7 +194,7 @@ func TestBuildEmptyBlocks(t *testing.T) {
 }
 
 func TestPrefundedAccounts(t *testing.T) {
-	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
 
@@ -230,7 +234,7 @@ func TestPrefundedAccounts(t *testing.T) {
 
 // Example of how other tests can use the sequencer to execute txns in a controlled manner.
 func TestRunOnce(t *testing.T) {
-	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
 
@@ -256,7 +260,7 @@ func TestRunOnce(t *testing.T) {
 }
 
 func TestHelpers(t *testing.T) {
-	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr) //nolint:dogsled
 

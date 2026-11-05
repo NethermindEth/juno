@@ -15,7 +15,7 @@ import (
 
 // StateReader is a read-only view of the state at a given root.
 type StateReader struct {
-	initRoot     felt.Felt
+	initRoot     felt.StateRootHash
 	db           *StateDB
 	contractTrie *trie2.Trie
 	classTrie    *trie2.Trie
@@ -23,7 +23,7 @@ type StateReader struct {
 
 // NewStateReader creates a read-only view of the state at the given root.
 // Should be used for read operations that don't require state mutations.
-func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*StateReader, error) {
+func NewStateReader(stateRoot *felt.StateRootHash, db *StateDB) (*StateReader, error) {
 	// todo(rdr): change this function to not return an error
 	return &StateReader{
 		initRoot: *stateRoot,
@@ -34,15 +34,15 @@ func NewStateReader(stateRoot *felt.Felt, db *StateDB) (*StateReader, error) {
 	}, nil
 }
 
-func (s *StateReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *StateReader) ContractClassHash(addr *felt.Address) (felt.ClassHash, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.ClassHash{}, err
 	}
 	return contract.ClassHash, nil
 }
 
-func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *StateReader) ContractNonce(addr *felt.Address) (felt.Felt, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, err
@@ -51,23 +51,23 @@ func (s *StateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 }
 
 func (s *StateReader) ContractMetadata(
-	addr *felt.Felt,
-) (classHash, nonce, storageRoot felt.Felt, err error) {
+	addr *felt.Address,
+) (classHash felt.ClassHash, nonce, storageRoot felt.Felt, err error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
-		return felt.Felt{}, felt.Felt{}, felt.Felt{}, err
+		return felt.ClassHash{}, felt.Felt{}, felt.Felt{}, err
 	}
 	return contract.ClassHash, contract.Nonce, contract.StorageRoot, nil
 }
 
 // ContractStorage reads a storage slot directly from the trie at this reader's
 // root. Missing slots read as zero.
-func (s *StateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *StateReader) ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error) {
 	path := trieutils.FeltToPath(key, ContractStorageTrieHeight)
 	v, err := trieutils.GetNodeByPath(
 		s.db.disk,
 		db.ContractTrieStorage,
-		(*felt.Address)(addr),
+		addr,
 		&path,
 		true,
 	)
@@ -87,11 +87,11 @@ func (s *StateReader) ContractStorageLastUpdatedBlock(
 	addr *felt.Address,
 	key *felt.Felt,
 ) (uint64, error) {
-	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
+	prefix := db.ContractStorageHistoryKey(addr, key)
 	return s.lastUpdatedBlockNumber(prefix, math.MaxUint64)
 }
 
-func (s *StateReader) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
+func (s *StateReader) ContractDeployedAt(addr *felt.Address, blockNum uint64) (bool, error) {
 	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -103,7 +103,7 @@ func (s *StateReader) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool
 	return contract.DeployedHeight <= blockNum, nil
 }
 
-func (s *StateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (s *StateReader) Class(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 	return GetClass(s.db.disk, classHash)
 }
 
@@ -129,7 +129,7 @@ func (s *StateReader) ContractTrie() (core.TrieReader, error) {
 	return s.contractTrie, nil
 }
 
-func (s *StateReader) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
+func (s *StateReader) ContractStorageTrie(addr *felt.Address) (core.TrieReader, error) {
 	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
@@ -153,23 +153,23 @@ func (s *StateReader) CompiledClassHashV2(
 	return metadata.CasmHashV2(), nil
 }
 
-func (s *StateReader) Commitment(protocolVersion string) (felt.Felt, error) {
+func (s *StateReader) Commitment(protocolVersion string) (felt.StateRootHash, error) {
 	contractTrie, err := s.ContractTrie()
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.StateRootHash{}, err
 	}
 	classTrie, err := s.ClassTrie()
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.StateRootHash{}, err
 	}
 
 	contractRoot, err := contractTrie.Hash()
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.StateRootHash{}, err
 	}
 	classRoot, err := classTrie.Hash()
 	if err != nil {
-		return felt.Felt{}, err
+		return felt.StateRootHash{}, err
 	}
 	return stateCommitment(&contractRoot, &classRoot, protocolVersion), nil
 }
@@ -179,9 +179,9 @@ func (s *StateReader) GetReverseStateDiff(
 	diff *core.StateDiff,
 ) (core.StateDiff, error) {
 	reverse := core.StateDiff{
-		StorageDiffs:    make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs)),
-		Nonces:          make(map[felt.Felt]*felt.Felt, len(diff.Nonces)),
-		ReplacedClasses: make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses)),
+		StorageDiffs:    make(map[felt.Address]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs)),
+		Nonces:          make(map[felt.Address]*felt.Felt, len(diff.Nonces)),
+		ReplacedClasses: make(map[felt.Address]*felt.ClassHash, len(diff.ReplacedClasses)),
 	}
 
 	for addr, stDiffs := range diff.StorageDiffs {
@@ -212,7 +212,7 @@ func (s *StateReader) GetReverseStateDiff(
 	}
 
 	for addr := range diff.ReplacedClasses {
-		oldCh := felt.Zero[felt.Felt]()
+		oldCh := felt.Zero[felt.ClassHash]()
 		if blockNum > 0 {
 			var err error
 			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
@@ -227,7 +227,11 @@ func (s *StateReader) GetReverseStateDiff(
 }
 
 // Returns the storage value of a contract at a given storage key at a given block number.
-func (s *StateReader) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.Felt, error) {
+func (s *StateReader) ContractStorageAt(
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNum uint64,
+) (felt.Felt, error) {
 	prefix := db.ContractStorageHistoryKey(addr, key)
 	return s.getHistoricalValue(prefix, blockNum)
 }
@@ -239,20 +243,24 @@ func (s *StateReader) ContractStorageLastUpdatedAt(
 	key *felt.Felt,
 	blockNum uint64,
 ) (uint64, error) {
-	prefix := db.ContractStorageHistoryKey((*felt.Felt)(addr), key)
+	prefix := db.ContractStorageHistoryKey(addr, key)
 	return s.lastUpdatedBlockNumber(prefix, blockNum)
 }
 
 // Returns the nonce of a contract at a given block number.
-func (s *StateReader) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+func (s *StateReader) ContractNonceAt(addr *felt.Address, blockNum uint64) (felt.Felt, error) {
 	prefix := db.ContractNonceHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
 }
 
 // Returns the class hash of a contract at a given block number.
-func (s *StateReader) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+func (s *StateReader) ContractClassHashAt(
+	addr *felt.Address,
+	blockNum uint64,
+) (felt.ClassHash, error) {
 	prefix := db.ContractClassHashHistoryKey(addr)
-	return s.getHistoricalValue(prefix, blockNum)
+	classHash, err := s.getHistoricalValue(prefix, blockNum)
+	return felt.ClassHash(classHash), err
 }
 
 func (s *StateReader) CompiledClassHashAt(
@@ -353,15 +361,19 @@ func (s *StateReader) lastUpdatedBlockNumber(
 
 // Calculate the commitment of the state.
 // Since v0.14.0, the Poseidon hash is always applied even when classRoot is zero.
-func stateCommitment(contractRoot, classRoot *felt.Felt, protocolVersion string) felt.Felt {
+func stateCommitment(
+	contractRoot *felt.Felt,
+	classRoot *felt.Felt,
+	protocolVersion string,
+) felt.StateRootHash {
 	if classRoot.IsZero() && contractRoot.IsZero() {
-		return felt.Zero[felt.Felt]()
+		return felt.Zero[felt.StateRootHash]()
 	}
 
 	ver, _ := core.ParseBlockVersion(protocolVersion)
 	if classRoot.IsZero() && ver.LessThan(core.Ver0_14_0) {
-		return *contractRoot
+		return felt.StateRootHash(*contractRoot)
 	}
 
-	return crypto.PoseidonElems[felt.Felt](stateVersion0, contractRoot, classRoot)
+	return crypto.PoseidonElems[felt.StateRootHash](stateVersion0, contractRoot, classRoot)
 }

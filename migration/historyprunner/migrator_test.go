@@ -40,7 +40,7 @@ func setupChain(
 	require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 		BlockNumber: tip,
 		BlockHash:   blocks[tip].Header.Hash,
-		StateRoot:   felt.NewRandom[felt.Felt](),
+		StateRoot:   felt.NewRandom[felt.StateRootHash](),
 	}))
 	return database, blocks
 }
@@ -128,7 +128,7 @@ func TestMigrate_MinAgeFloorTightensCutoff(t *testing.T) {
 			require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 				BlockNumber: tip,
 				BlockHash:   blocks[tip].Header.Hash,
-				StateRoot:   felt.NewRandom[felt.Felt](),
+				StateRoot:   felt.NewRandom[felt.StateRootHash](),
 			}))
 
 			m := historyprunner.New(retainedBlocks, minAge)
@@ -168,7 +168,7 @@ func TestMigrate_MinAgeFloorIgnoredInDeepCatchUp(t *testing.T) {
 			require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, &core.L1Head{
 				BlockNumber: tip,
 				BlockHash:   blocks[tip].Header.Hash,
-				StateRoot:   felt.NewRandom[felt.Felt](),
+				StateRoot:   felt.NewRandom[felt.StateRootHash](),
 			}))
 
 			m := historyprunner.New(retainedBlocks, minAge)
@@ -327,7 +327,7 @@ func TestMigrate_CancelAndResume(t *testing.T) {
 // interrupted midway: some history is converted, the rest is not.
 func TestMigrate_RejectsMixedHistoryLayouts(t *testing.T) {
 	database, _ := setupChain(t, 30, testutils.DeprecatedLayout)
-	addr, value := felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](1)
+	addr, value := felt.FromUint64[felt.Address](1), felt.FromUint64[felt.Felt](1)
 	require.NoError(t, state.WriteNonceHistory(database, &addr, 0, &value))
 
 	_, err := historyprunner.New(10, 0).

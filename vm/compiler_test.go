@@ -25,7 +25,7 @@ func TestCompileSierraToCasm(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		cl := feeder.NewTestClient(t, &networks.Integration)
-		classHash := felt.NewUnsafeFromString[felt.Felt](
+		classHash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b",
 		)
 

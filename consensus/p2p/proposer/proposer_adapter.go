@@ -29,7 +29,7 @@ func (a *starknetProposerAdapter) ProposalInit(proposal *starknet.Proposal) (typ
 		BlockNum:   proposal.Height,
 		Round:      proposal.Round,
 		ValidRound: proposal.ValidRound,
-		Proposer:   felt.Felt(proposal.Sender),
+		Proposer:   proposal.Sender,
 	}, nil
 }
 

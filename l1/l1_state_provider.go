@@ -16,7 +16,7 @@ type StateUpdate struct {
 	L2BlockHash felt.Felt
 	// StateRoot is the Starknet global state root after the block
 	// (the "globalRoot" field in the on-chain event).
-	StateRoot felt.Felt
+	StateRoot felt.StateRootHash
 	// L1RefHeight is the L1 block number where the commit was observed.
 	// Used by the L1 sync loop to gate writes on L1 finality.
 	L1RefHeight uint64

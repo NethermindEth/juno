@@ -166,7 +166,7 @@ func TestDecodePreConfirmedUpdate(t *testing.T) {
 }
 
 func nonEmptyTx() starknet.Transaction {
-	return starknet.Transaction{Hash: felt.NewRandom[felt.Felt]()}
+	return starknet.Transaction{Hash: felt.NewRandom[felt.TransactionHash]()}
 }
 
 // validBlock returns a PreConfirmedBlock that passes validate(), so individual
@@ -180,7 +180,7 @@ func validBlock() starknet.PreConfirmedBlock {
 		TransactionStateDiffs: []*starknet.StateDiff{{}},
 		Status:                "PRE_CONFIRMED",
 		Version:               "0.14.0",
-		SequencerAddress:      felt.NewFromUint64[felt.Felt](0xaa),
+		SequencerAddress:      felt.NewFromUint64[felt.Address](0xaa),
 		L1GasPrice:            &starknet.GasPrice{},
 		L2GasPrice:            &starknet.GasPrice{},
 		L1DataGasPrice:        &starknet.GasPrice{},

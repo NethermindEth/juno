@@ -275,20 +275,20 @@ func (r ResourceBoundsMap) MarshalJSONTo(enc *jsontext.Encoder) error {
 //
 //nolint:lll
 type Transaction struct {
-	Hash                  *felt.Felt             `json:"transaction_hash,omitempty"`
+	Hash                  *felt.TransactionHash  `json:"transaction_hash,omitempty"`
 	Type                  TransactionType        `json:"type" validate:"required"`
 	Version               *felt.Felt             `json:"version,omitempty" validate:"required,version_0x3"`
 	Nonce                 *felt.Felt             `json:"nonce,omitempty" validate:"required"`
 	MaxFee                *felt.Felt             `json:"max_fee,omitempty"`
-	ContractAddress       *felt.Felt             `json:"contract_address,omitempty"`
+	ContractAddress       *felt.Address          `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt             `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt             `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.ClassHash        `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ConstructorCallData   *felt.Slice[felt.Felt] `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt             `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
+	SenderAddress         *felt.Address          `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
 	Signature             *felt.Slice[felt.Felt] `json:"signature,omitempty" validate:"required"`
 	CallData              *felt.Slice[felt.Felt] `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt             `json:"entry_point_selector,omitempty"`
-	CompiledClassHash     *felt.Felt             `json:"compiled_class_hash,omitempty"`
+	CompiledClassHash     *felt.CasmClassHash    `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *ResourceBoundsMap     `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
 	Tip                   *felt.Felt             `json:"tip,omitempty" validate:"required"`
 	PaymasterData         *felt.Slice[felt.Felt] `json:"paymaster_data,omitempty" validate:"required"`
@@ -304,7 +304,7 @@ type TransactionStatus struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt            `json:"from_address,omitempty"`
+	From    *felt.Address         `json:"from_address,omitempty"`
 	To      felt.Felt             `json:"to_address"`
 	Payload felt.Slice[felt.Felt] `json:"payload"`
 }
@@ -334,17 +334,17 @@ type InnerExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType    `json:"type"`
-	Hash               *felt.Felt         `json:"transaction_hash"`
-	ActualFee          FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus  `json:"finality_status"`
-	MessagesSent       []MsgToL1          `json:"messages_sent"`
-	Events             []*Event           `json:"events"`
-	ContractAddress    *felt.Felt         `json:"contract_address,omitempty"`
-	RevertReason       string             `json:"revert_reason,omitempty"`
-	ExecutionResources ExecutionResources `json:"execution_resources"`
-	MessageHash        string             `json:"message_hash,omitempty"`
+	Type               TransactionType       `json:"type"`
+	Hash               *felt.TransactionHash `json:"transaction_hash"`
+	ActualFee          FeePayment            `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus    `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus     `json:"finality_status"`
+	MessagesSent       []MsgToL1             `json:"messages_sent"`
+	Events             []*Event              `json:"events"`
+	ContractAddress    *felt.Address         `json:"contract_address,omitempty"`
+	RevertReason       string                `json:"revert_reason,omitempty"`
+	ExecutionResources ExecutionResources    `json:"execution_resources"`
+	MessageHash        string                `json:"message_hash,omitempty"`
 }
 
 // TransactionReceiptWithBlockInfo is TXN_RECEIPT_WITH_BLOCK_INFO.
@@ -363,9 +363,9 @@ type FeePayment struct {
 }
 
 type AddTxResponse struct {
-	TransactionHash *felt.Felt `json:"transaction_hash"`
-	ContractAddress *felt.Felt `json:"contract_address,omitempty"`
-	ClassHash       *felt.Felt `json:"class_hash,omitempty"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+	ContractAddress *felt.Address         `json:"contract_address,omitempty"`
+	ClassHash       *felt.ClassHash       `json:"class_hash,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1273-L1287
@@ -542,7 +542,7 @@ func AdaptRPCTxToFeederTx(rpcTx *Transaction) starknet.Transaction {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
-func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByHash(hash *felt.TransactionHash) (Transaction, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
 	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
 		if preConfirmedTxn, err := chain.TransactionByHash(hash); err == nil {
@@ -577,7 +577,7 @@ func (h *Handler) TransactionByHash(hash *felt.Felt) (Transaction, *jsonrpc.Erro
 // finalisedTransactionByHash looks a transaction up in the finalised blocks.
 // Returns rpccore.ErrTxnHashNotFound if it is not there.
 func (h *Handler) finalisedTransactionByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (core.Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
@@ -647,7 +647,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // Reports whether the chain holds the transaction.
 func preConfirmedTransactionReceipt(
 	chain *preconfirmed.ChainReader,
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, bool) {
 	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {
@@ -673,7 +673,7 @@ func preConfirmedTransactionReceipt(
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
 	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
@@ -702,9 +702,9 @@ func (h *Handler) TransactionReceiptByHash(
 // getFinalisedTransactionReceipt searches for a transaction receipt in the finalised blocks.
 // Returns rpccore.ErrTxnHashNotFound if the transaction is not in a finalised block.
 func (h *Handler) getFinalisedTransactionReceipt(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
-	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
@@ -794,7 +794,7 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	switch tx.Type {
 	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
-			new(felt.Zero[felt.Felt]()),
+			new(felt.Zero[felt.Address]()),
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,
@@ -863,9 +863,9 @@ func (h *Handler) pushToFeederGateway(
 	}
 
 	var gatewayResponse struct {
-		TransactionHash *felt.Felt `json:"transaction_hash"`
-		ContractAddress *felt.Felt `json:"address"`
-		ClassHash       *felt.Felt `json:"class_hash"`
+		TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+		ContractAddress *felt.Address         `json:"address"`
+		ClassHash       *felt.ClassHash       `json:"class_hash"`
 	}
 	if err = jsonv1.Unmarshal(respJSON, &gatewayResponse); err != nil {
 		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
@@ -894,7 +894,7 @@ var ErrTransactionNotFound = errors.New("transaction not found")
 
 func (h *Handler) TransactionStatus(
 	ctx context.Context,
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
 	status, txErr := h.transactionStatusFromStore(hash)
 	switch txErr {
@@ -933,7 +933,7 @@ func (h *Handler) TransactionStatus(
 // the status needs instead of adapting the whole receipt. Returns
 // rpccore.ErrTxnHashNotFound if the transaction is not found locally.
 func (h *Handler) transactionStatusFromStore(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
 	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
@@ -967,11 +967,9 @@ func (h *Handler) transactionStatusFromStore(
 // store. Returns rpccore.ErrTxnHashNotFound if the transaction is not in a
 // finalised block.
 func (h *Handler) finalisedTransactionStatus(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
-	blockNumber, index, err := h.bcReader.BlockNumberAndIndexByTxHash(
-		(*felt.TransactionHash)(hash),
-	)
+	blockNumber, index, err := h.bcReader.BlockNumberAndIndexByTxHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return TransactionStatus{}, rpccore.ErrInternal.CloneWithData(err)
@@ -1154,7 +1152,7 @@ func AdaptReceipt(
 	}
 
 	var messageHash string
-	var contractAddress *felt.Felt
+	var contractAddress *felt.Address
 	switch v := txn.(type) {
 	case *core.DeployTransaction:
 		contractAddress = v.ContractAddress

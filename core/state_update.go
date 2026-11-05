@@ -10,27 +10,23 @@ import (
 
 type StateUpdate struct {
 	BlockHash *felt.Felt
-	NewRoot   *felt.Felt
-	OldRoot   *felt.Felt
+	NewRoot   *felt.StateRootHash
+	OldRoot   *felt.StateRootHash
 	StateDiff *StateDiff
 }
 
 type StateDiff struct {
 	// todo(rdr): replace felt.Felt for the right types (felt.Address to felt.What? to felt.What?)
 	//            felt.What? means I'm not sure which type, but if it doesn't exist, create it.
-	StorageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
+	StorageDiffs map[felt.Address]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
 	// todo(rdr): felt.Address to felt.Nonce (`Nonce` is a new type that should be created?)
-	Nonces map[felt.Felt]*felt.Felt
-	// todo(rdr): felt.Addr to felt.ClassHash (do we know if it will be `SierraClassHash or
-	//            `CasmClassHash`)
-	DeployedContracts map[felt.Felt]*felt.Felt
+	Nonces            map[felt.Address]*felt.Felt
+	DeployedContracts map[felt.Address]*felt.ClassHash
 	// todo(rdr): an array of felt.ClassHash, or perhaps, felt.DeprecatedCairoClassHash
 	//            Also, change the name from `DeclaredV0Classes` to `DeprecatedDeclaredClasses`
-	DeclaredV0Classes []*felt.Felt
-	// todo(rdr): felt.SierraClassHash to felt.CasmClassHash
-	DeclaredV1Classes map[felt.Felt]*felt.Felt // class hash -> compiled class hash
-	// todo(rdr): felt.Address to (felt.SierraClassHash or felt.CasmClassHash, I'm unsure)
-	ReplacedClasses map[felt.Felt]*felt.Felt // addr -> class hash
+	DeclaredV0Classes []*felt.ClassHash
+	DeclaredV1Classes map[felt.SierraClassHash]*felt.CasmClassHash
+	ReplacedClasses   map[felt.Address]*felt.ClassHash
 	// Sierra Class definitions which had their compiled class hash definition (CASM)
 	// migrated from poseidon hash to blake2s hash (Starknet 0.14.1)
 	MigratedClasses map[felt.SierraClassHash]felt.CasmClassHash
@@ -200,7 +196,11 @@ func sortedFeltKeys[K, V any](m map[felt.Typed[K]]V) []felt.Typed[K] {
 	return slices.SortedFunc(maps.Keys(m), func(a, b felt.Typed[K]) int { return a.Cmp(&b) })
 }
 
-func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func updatedContractsDigest(
+	deployedContracts,
+	replacedClasses map[felt.Address]*felt.ClassHash,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfUpdatedContracts := uint64(len(deployedContracts) + len(replacedClasses))
 	digest.Update(felt.NewFromUint64[felt.Felt](numOfUpdatedContracts))
 
@@ -208,18 +208,18 @@ func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*fe
 	// - deployed twice,
 	// - deployed and have its class replaced in the same state diff, or
 	// - have its class replaced multiple times in the same state diff.
-	updatedContracts := make(map[felt.Felt]*felt.Felt)
+	updatedContracts := make(map[felt.Address]*felt.ClassHash)
 	maps.Copy(updatedContracts, deployedContracts)
 	maps.Copy(updatedContracts, replacedClasses)
 
-	sortedUpdatedContractsHashes := sortedFeltKeys(updatedContracts)
-	for _, hash := range sortedUpdatedContractsHashes {
-		digest.Update(&hash).Update(updatedContracts[hash])
+	sortedUpdatedContractsAddresses := sortedFeltKeys(updatedContracts)
+	for _, address := range sortedUpdatedContractsAddresses {
+		digest.Update(&address).Update(updatedContracts[address])
 	}
 }
 
 func declaredClassesDigest(
-	declaredClasses map[felt.Felt]*felt.Felt,
+	declaredClasses map[felt.SierraClassHash]*felt.CasmClassHash,
 	migratedClasses map[felt.SierraClassHash]felt.CasmClassHash,
 	digest *crypto.PoseidonDigest,
 ) {
@@ -229,42 +229,36 @@ func declaredClassesDigest(
 
 	// Sorting the two keys without actually modifying `declaredClasses` or `migratedClasses`
 	// to avoid the memory overhead of creating a new map since we **mustn't** mutate them
-	keys := make([]felt.Felt, mapsLen)
-	index := 0
-	for key := range declaredClasses {
-		keys[index] = key
-		index += 1
-	}
-	for key := range migratedClasses {
-		// todo(rdr): we shouldn't need to convert the key to a felt here but the right fix
-		// includes a bigger refactor
-		keys[index] = felt.Felt(key)
-		index += 1
-	}
-	slices.SortFunc(keys, func(a felt.Felt, b felt.Felt) int { return a.Cmp(&b) })
+	keys := make([]felt.SierraClassHash, 0, mapsLen)
+	keys = slices.AppendSeq(keys, maps.Keys(declaredClasses))
+	keys = slices.AppendSeq(keys, maps.Keys(migratedClasses))
+	slices.SortFunc(keys, func(a, b felt.SierraClassHash) int { return a.Cmp(&b) })
 
 	for _, classHash := range keys {
 		if casmHash, ok := declaredClasses[classHash]; ok {
 			digest.Update(&classHash).Update(casmHash)
 		} else {
-			casmHash := migratedClasses[felt.SierraClassHash(classHash)]
+			casmHash := migratedClasses[classHash]
 			digest.Update(&classHash).Update(&casmHash)
 		}
 	}
 }
 
-func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *crypto.PoseidonDigest) {
+func deprecatedDeclaredClassesDigest(
+	declaredV0Classes []*felt.ClassHash,
+	digest *crypto.PoseidonDigest,
+) {
 	numOfDeclaredV0Classes := uint64(len(declaredV0Classes))
 	digest.Update(felt.NewFromUint64[felt.Felt](numOfDeclaredV0Classes))
 
-	slices.SortFunc(declaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
+	slices.SortFunc(declaredV0Classes, func(a, b *felt.ClassHash) int { return a.Cmp(b) })
 	for _, classHash := range declaredV0Classes {
 		digest.Update(classHash)
 	}
 }
 
 func storageDiffDigest(
-	storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+	storageDiffs map[felt.Address]map[felt.Felt]*felt.Felt,
 	digest *crypto.PoseidonDigest,
 ) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
@@ -283,7 +277,7 @@ func storageDiffDigest(
 	}
 }
 
-func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func noncesDigest(nonces map[felt.Address]*felt.Felt, digest *crypto.PoseidonDigest) {
 	numOfNonces := uint64(len(nonces))
 	digest.Update(felt.NewFromUint64[felt.Felt](numOfNonces))
 
@@ -295,12 +289,12 @@ func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest
 
 func EmptyStateDiff() StateDiff {
 	return StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-		Nonces:            make(map[felt.Felt]*felt.Felt),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt),
-		DeclaredV0Classes: []*felt.Felt{},
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+		StorageDiffs:      make(map[felt.Address]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Address]*felt.Felt),
+		DeployedContracts: make(map[felt.Address]*felt.ClassHash),
+		DeclaredV0Classes: []*felt.ClassHash{},
+		DeclaredV1Classes: make(map[felt.SierraClassHash]*felt.CasmClassHash),
+		ReplacedClasses:   make(map[felt.Address]*felt.ClassHash),
 		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash),
 	}
 }

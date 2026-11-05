@@ -16,17 +16,17 @@ func TestStateContract_MarshalUnmarshal(t *testing.T) {
 		{
 			name: "Full contract",
 			contract: &stateContract{
-				Nonce:          newFelt(123),
-				ClassHash:      newFelt(456),
-				StorageRoot:    newFelt(789),
+				Nonce:          felt.FromUint64[felt.Felt](123),
+				ClassHash:      felt.FromUint64[felt.ClassHash](456),
+				StorageRoot:    felt.FromUint64[felt.Felt](789),
 				DeployedHeight: 1000,
 			},
 		},
 		{
 			name: "Empty root contract",
 			contract: &stateContract{
-				Nonce:          newFelt(123),
-				ClassHash:      newFelt(456),
+				Nonce:          felt.FromUint64[felt.Felt](123),
+				ClassHash:      felt.FromUint64[felt.ClassHash](456),
 				StorageRoot:    felt.Zero[felt.Felt](),
 				DeployedHeight: 1000,
 			},
@@ -65,10 +65,4 @@ func TestStateContract_UnmarshalInvalidLength(t *testing.T) {
 	err := contract.UnmarshalBinary([]byte{1, 2, 3}) // Invalid length
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid length for state contract")
-}
-
-func newFelt(n int) felt.Felt {
-	var f felt.Felt
-	f.SetUint64(uint64(n))
-	return f
 }

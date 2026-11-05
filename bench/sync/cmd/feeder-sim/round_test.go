@@ -167,22 +167,36 @@ func checkRoundAdapts(t *testing.T, round []byte, number uint64, block *confirme
 	require.Equal(t, uint64(0), adapted.TransactionStateDiffs[2].Length(), "null diff")
 
 	diff := adapted.StateUpdate.StateDiff
-	require.Equal(t, "0x10", diff.StorageDiffs[asFelt("0xa1")][asFelt("0x1")].String())
-	require.Equal(t, "0x20", diff.StorageDiffs[asFelt("0xa1")][asFelt("0x2")].String())
-	require.Equal(t, "0x5", diff.Nonces[asFelt("0xa1")].String())
-	require.Equal(t, "0xc1", diff.DeployedContracts[asFelt("0xa2")].String())
-	require.Equal(t, []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0xc0")}, diff.DeclaredV0Classes)
-	require.Equal(t, "0xd1", diff.DeclaredV1Classes[asFelt("0xc1")].String())
-	require.Equal(t, "0xc2", diff.ReplacedClasses[asFelt("0xa3")].String())
+	contract := felt.UnsafeFromString[felt.Address]("0xa1")
+	storage := diff.StorageDiffs[contract]
+	require.Equal(t, "0x10", storage[felt.UnsafeFromString[felt.Felt]("0x1")].String())
+	require.Equal(t, "0x20", storage[felt.UnsafeFromString[felt.Felt]("0x2")].String())
+	require.Equal(t, "0x5", diff.Nonces[contract].String())
+	require.Equal(
+		t,
+		"0xc1",
+		diff.DeployedContracts[felt.UnsafeFromString[felt.Address]("0xa2")].String(),
+	)
+	require.Equal(
+		t,
+		[]*felt.ClassHash{felt.NewUnsafeFromString[felt.ClassHash]("0xc0")},
+		diff.DeclaredV0Classes,
+	)
+	require.Equal(
+		t,
+		"0xd1",
+		diff.DeclaredV1Classes[felt.UnsafeFromString[felt.SierraClassHash]("0xc1")].String(),
+	)
+	require.Equal(
+		t,
+		"0xc2",
+		diff.ReplacedClasses[felt.UnsafeFromString[felt.Address]("0xa3")].String(),
+	)
 	require.Equal(
 		t,
 		felt.UnsafeFromString[felt.CasmClassHash]("0xd3"),
 		diff.MigratedClasses[felt.UnsafeFromString[felt.SierraClassHash]("0xc3")],
 	)
-}
-
-func asFelt(hex string) felt.Felt {
-	return felt.UnsafeFromString[felt.Felt](hex)
 }
 
 func TestDecodeRound(t *testing.T) {

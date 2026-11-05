@@ -16,9 +16,9 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	t := adaptTransaction(txn)
 	version := (*core.TransactionVersion)(t.Version)
 	txnAndQueryBit := struct {
-		QueryBit bool           `json:"query_bit"`
-		Txn      map[string]any `json:"txn"`
-		TxnHash  *felt.Felt     `json:"txn_hash"`
+		QueryBit bool                  `json:"query_bit"`
+		Txn      map[string]any        `json:"txn"`
+		TxnHash  *felt.TransactionHash `json:"txn_hash"`
 	}{Txn: make(map[string]any), QueryBit: version.HasQueryBit(), TxnHash: txn.Hash()}
 
 	versionWithoutQueryBit := version.WithoutQueryBit()
@@ -52,17 +52,17 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 
 type Transaction struct {
 	Version               *felt.Felt                   `json:"version,omitempty"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
+	ContractAddress       *felt.Address                `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty"`
+	ClassHash             *felt.ClassHash              `json:"class_hash,omitempty"`
 	ConstructorCallData   *felt.Slice[felt.Felt]       `json:"constructor_calldata,omitempty"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty"`
+	SenderAddress         *felt.Address                `json:"sender_address,omitempty"`
 	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
 	Signature             *felt.Slice[felt.Felt]       `json:"signature,omitempty"`
 	CallData              *felt.Slice[felt.Felt]       `json:"calldata,omitempty"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
 	Nonce                 *felt.Felt                   `json:"nonce,omitempty"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
+	CompiledClassHash     *felt.CasmClassHash          `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty"`
 	Tip                   *felt.Felt                   `json:"tip,omitempty"`
 	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty"`

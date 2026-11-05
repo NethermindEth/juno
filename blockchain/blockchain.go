@@ -52,7 +52,7 @@ type Reader interface {
 		hash *felt.TransactionHash,
 	) (blockNumber uint64, index uint64, err error)
 
-	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
+	TransactionByHash(hash *felt.TransactionHash) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(
 		blockNumber, index uint64,
 	) (transaction core.Transaction, err error)
@@ -62,10 +62,10 @@ type Reader interface {
 		receipts []*core.TransactionReceipt,
 		err error,
 	)
-	TransactionHashesByBlockNumber(blockNumber uint64) (hashes []felt.Felt, err error)
+	TransactionHashesByBlockNumber(blockNumber uint64) (hashes []felt.TransactionHash, err error)
 
 	Receipt(
-		hash *felt.Felt,
+		hash *felt.TransactionHash,
 	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	TransactionAndReceiptByBlockNumberAndIndex(
 		blockNumber, index uint64,
@@ -81,7 +81,7 @@ type Reader interface {
 
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
-	L1HandlerTxnHash(msgHash *eth.Hash) (l1HandlerTxnHash felt.Felt, err error)
+	L1HandlerTxnHash(msgHash *eth.Hash) (l1HandlerTxnHash felt.TransactionHash, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
@@ -258,7 +258,7 @@ func (b *Blockchain) BlockHeaderHashByNumber(number uint64) (*felt.Felt, error) 
 	return core.GetBlockHeaderHashByNumber(b.database, number)
 }
 
-func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.Felt, error) {
+func (b *Blockchain) GlobalStateRootByBlockNumber(number uint64) (*felt.StateRootHash, error) {
 	b.listener.OnRead("GlobalStateRootByBlockNumber")
 	return core.GetGlobalStateRootByBlockNumber(b.database, number)
 }
@@ -298,7 +298,7 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 	return core.GetStateUpdateByHash(b.database, hash)
 }
 
-func (b *Blockchain) L1HandlerTxnHash(msgHash *eth.Hash) (felt.Felt, error) {
+func (b *Blockchain) L1HandlerTxnHash(msgHash *eth.Hash) (felt.TransactionHash, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
 	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
 }
@@ -310,9 +310,9 @@ func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64)
 }
 
 // TransactionByHash gets the transaction for a given hash.
-func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
+func (b *Blockchain) TransactionByHash(hash *felt.TransactionHash) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return core.GetTransactionByHash(b.database, (*felt.TransactionHash)(hash))
+	return core.GetTransactionByHash(b.database, hash)
 }
 
 // TransactionsByBlockNumber gets all transactions for a given block number
@@ -340,10 +340,11 @@ func (b *Blockchain) BlockNumberAndIndexByTxHash(
 
 // Receipt gets the transaction receipt for a given transaction hash.
 // TODO: Return TransactionReceipt instead of *TransactionReceipt.
-func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+func (b *Blockchain) Receipt(
+	hash *felt.TransactionHash,
+) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
-	txHash := (*felt.TransactionHash)(hash)
-	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, txHash)
+	bnIndex, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(b.database, hash)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("locating transaction %v: %w", hash, err)
 	}
@@ -396,7 +397,7 @@ func (b *Blockchain) TransactionAndReceiptByBlockNumberAndIndex(
 }
 
 // TransactionHashesByBlockNumber returns the transaction hashes of a given block.
-func (b *Blockchain) TransactionHashesByBlockNumber(number uint64) ([]felt.Felt, error) {
+func (b *Blockchain) TransactionHashesByBlockNumber(number uint64) ([]felt.TransactionHash, error) {
 	b.listener.OnRead("TransactionHashesByBlockNumber")
 	return core.GetTransactionHashesByBlockNumber(b.database, number)
 }
@@ -428,7 +429,7 @@ func (b *Blockchain) Store(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	eventsBloom *bloom.BloomFilter,
 ) error {
 	return b.stateBackend.Store(
@@ -452,7 +453,7 @@ func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCo
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return nil, errors.New("block hashes do not match")
@@ -539,7 +540,7 @@ func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 func (b *Blockchain) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 ) (SimulateResult, error) {
 	return b.stateBackend.Simulate(block, stateUpdate, newClasses, sign)
@@ -549,7 +550,7 @@ func (b *Blockchain) Simulate(
 func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 	sign core.BlockSignFunc,
 	eventsBloom *bloom.BloomFilter,
 ) error {
@@ -558,7 +559,7 @@ func (b *Blockchain) Finalise(
 
 func (b *Blockchain) StoreGenesis(
 	diff *core.StateDiff,
-	classes map[felt.Felt]core.ClassDefinition,
+	classes map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 
@@ -566,7 +567,7 @@ func (b *Blockchain) StoreGenesis(
 		Header: &core.Header{
 			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.Zero[felt.Address]()),
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 		},
@@ -574,7 +575,7 @@ func (b *Blockchain) StoreGenesis(
 		Receipts:     receipts,
 	}
 	stateUpdate := &core.StateUpdate{
-		OldRoot:   new(felt.Zero[felt.Felt]()),
+		OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: diff,
 	}
 	newClasses := classes

@@ -33,7 +33,7 @@ func BenchmarkStorageProof(b *testing.B) {
 type storageProofBenchmarkFixture struct {
 	blkHash         *felt.Felt
 	nonce           *felt.Felt
-	classHash       *felt.Felt
+	classHash       *felt.ClassHash
 	blockLatest     rpc.BlockID
 	blockNumber     uint64
 	smallClasses    []felt.Felt
@@ -48,8 +48,8 @@ type storageProofBenchmarkCase struct {
 	classTrieKeys    []felt.Felt
 	contractTrieKeys []felt.Felt
 	storageTrieKeys  []felt.Felt
-	classes          []felt.Felt
-	contracts        []felt.Felt
+	classes          []felt.ClassHash
+	contracts        []felt.Address
 	blockID          rpc.BlockID
 }
 
@@ -61,7 +61,7 @@ func newStorageProofBenchmarkFixture() *storageProofBenchmarkFixture {
 	return &storageProofBenchmarkFixture{
 		blkHash:         felt.NewFromUint64[felt.Felt](0x11ead),
 		nonce:           felt.NewFromUint64[felt.Felt](121),
-		classHash:       felt.NewFromUint64[felt.Felt](1234),
+		classHash:       felt.NewFromUint64[felt.ClassHash](1234),
 		blockLatest:     rpc.BlockIDLatest(),
 		blockNumber:     1313,
 		smallClasses:    []felt.Felt{*key, *key2},
@@ -79,7 +79,7 @@ func (f *storageProofBenchmarkFixture) cases() []storageProofBenchmarkCase {
 			classTrieKeys:    f.manyClasses,
 			contractTrieKeys: f.smallContracts,
 			storageTrieKeys:  f.storageTrieKeys,
-			classes:          f.manyClasses,
+			classes:          felt.CastSlice[felt.ClassHash](f.manyClasses),
 			blockID:          f.blockLatest,
 		},
 		{
@@ -87,7 +87,7 @@ func (f *storageProofBenchmarkFixture) cases() []storageProofBenchmarkCase {
 			classTrieKeys:    f.smallClasses,
 			contractTrieKeys: f.manyContracts,
 			storageTrieKeys:  f.storageTrieKeys,
-			contracts:        f.manyContracts,
+			contracts:        felt.CastSlice[felt.Address](f.manyContracts),
 			blockID:          f.blockLatest,
 		},
 		{
@@ -95,8 +95,8 @@ func (f *storageProofBenchmarkFixture) cases() []storageProofBenchmarkCase {
 			classTrieKeys:    f.manyClasses,
 			contractTrieKeys: f.manyContracts,
 			storageTrieKeys:  f.storageTrieKeys,
-			classes:          f.manyClasses,
-			contracts:        f.manyContracts,
+			classes:          felt.CastSlice[felt.ClassHash](f.manyClasses),
+			contracts:        felt.CastSlice[felt.Address](f.manyContracts),
 			blockID:          f.blockLatest,
 		},
 	}

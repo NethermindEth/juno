@@ -27,11 +27,11 @@ var (
 // of StateDiff.DeployedContracts and are auto-created during state commit so
 // their storage trie can exist.
 var (
-	SystemContract1Address = felt.One[felt.Felt]() // block-hash storage contract
+	SystemContract1Address = felt.One[felt.Address]() // block-hash storage contract
 	// https://community.starknet.io/t/starknet-v0-13-4-pre-release-notes/115257#p-2358763-stateful-compression-11
-	SystemContract2Address   = felt.FromUint64[felt.Felt](2) // global counter
-	SystemContractsClassHash = felt.Zero[felt.Felt]()
-	SystemContracts          = [...]felt.Felt{SystemContract1Address, SystemContract2Address}
+	SystemContract2Address   = felt.FromUint64[felt.Address](2) // global counter
+	SystemContractsClassHash = felt.Zero[felt.ClassHash]()
+	SystemContracts          = [...]felt.Address{SystemContract1Address, SystemContract2Address}
 )
 
 var (
@@ -43,14 +43,14 @@ var (
 type State struct {
 	StateReader
 
-	stateObjects map[felt.Felt]*stateObject
+	stateObjects map[felt.Address]*stateObject
 	batch        db.Batch
 }
 
 // New creates a writable state at the given root. The caller must provide a non-nil batch.
 // Should be used for operations, where state mutations are required. Read operations are
 // also supported.
-func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
+func New(stateRoot *felt.StateRootHash, db *StateDB, batch db.Batch) (*State, error) {
 	if batch == nil {
 		return nil, errors.New("cannot create state, nil Batch received")
 	}
@@ -61,14 +61,14 @@ func New(stateRoot *felt.Felt, db *StateDB, batch db.Batch) (*State, error) {
 
 	return &State{
 		StateReader:  *reader,
-		stateObjects: make(map[felt.Felt]*stateObject),
+		stateObjects: make(map[felt.Address]*stateObject),
 		batch:        batch,
 	}, nil
 }
 
 // IsSystemContract reports whether addr is a protocol system contract (0x1, 0x2)
 // that has no Cairo class.
-func IsSystemContract(addr *felt.Felt) bool {
+func IsSystemContract(addr *felt.Address) bool {
 	return addr.Equal(&SystemContract1Address) || addr.Equal(&SystemContract2Address)
 }
 
@@ -77,7 +77,7 @@ func IsSystemContract(addr *felt.Felt) bool {
 func (s *State) Update(
 	header *core.Header,
 	update *core.StateUpdate,
-	declaredClasses map[felt.Felt]core.ClassDefinition,
+	declaredClasses map[felt.ClassHash]core.ClassDefinition,
 	skipVerifyNewRoot bool,
 ) error {
 	blockNum := header.Number
@@ -86,7 +86,7 @@ func (s *State) Update(
 		return err
 	}
 
-	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
+	dirtyClasses := make(map[felt.ClassHash]core.ClassDefinition)
 
 	// Register the declared classes
 	for hash, class := range declaredClasses {
@@ -173,14 +173,14 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 	// Gather the classes to be reverted
 	v0Classes := update.StateDiff.DeclaredV0Classes
 	v1Classes := update.StateDiff.DeclaredV1Classes
-	classHashes := make([]*felt.Felt, 0, len(v0Classes)+len(v1Classes))
+	classHashes := make([]*felt.ClassHash, 0, len(v0Classes)+len(v1Classes))
 	classHashes = append(classHashes, v0Classes...)
 	for hash := range v1Classes {
-		classHashes = append(classHashes, &hash)
+		classHashes = append(classHashes, (*felt.ClassHash)(&hash))
 	}
 
 	// Revert the classes
-	dirtyClasses := make(map[felt.Felt]core.ClassDefinition)
+	dirtyClasses := make(map[felt.ClassHash]core.ClassDefinition)
 	for _, hash := range classHashes {
 		dc, err := s.Class(hash)
 		if err != nil {
@@ -192,7 +192,8 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 		}
 
 		if _, ok := dc.Class.(*core.SierraClass); ok {
-			if err := s.classTrie.Update(hash, new(felt.Zero[felt.Felt]())); err != nil {
+			err := s.classTrie.Update((*felt.Felt)(hash), new(felt.Zero[felt.Felt]()))
+			if err != nil {
 				return err
 			}
 		}
@@ -241,7 +242,7 @@ func (s *State) Revert(header *core.Header, update *core.StateUpdate) error {
 }
 
 //nolint:gocyclo
-func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
+func (s *State) commit(protocolVersion string) (felt.StateRootHash, stateUpdate, error) {
 	// Sort in descending order of the number of storage changes
 	// so that we start with the heaviest update first
 	keys := slices.SortedStableFunc(maps.Keys(s.stateObjects), s.compareContracts)
@@ -287,12 +288,13 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	}
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero[felt.Felt](), emptyStateUpdate, err
+		return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 	}
 
 	for i, addr := range keys {
-		if err := s.contractTrie.Update(&addr, &comms[i]); err != nil {
-			return felt.Zero[felt.Felt](), emptyStateUpdate, err
+		err := s.contractTrie.Update((*felt.Felt)(&addr), &comms[i])
+		if err != nil {
+			return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 		}
 
 		// As system contracts are not in StateDiff.DeployedContracts we can only purge them if
@@ -306,12 +308,13 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 			}
 			root, err := obj.getStorageRoot()
 			if err != nil {
-				return felt.Zero[felt.Felt](), emptyStateUpdate, err
+				return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 			}
 
 			if root.IsZero() {
-				if err := s.contractTrie.Update(&addr, new(felt.Zero[felt.Felt]())); err != nil {
-					return felt.Zero[felt.Felt](), emptyStateUpdate, err
+				err := s.contractTrie.Update((*felt.Felt)(&addr), new(felt.Zero[felt.Felt]()))
+				if err != nil {
+					return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 				}
 
 				s.stateObjects[addr] = nil // mark for deletion
@@ -335,11 +338,11 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 	})
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero[felt.Felt](), emptyStateUpdate, err
+		return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 	}
 
 	if err := merge(contractNodes); err != nil {
-		return felt.Zero[felt.Felt](), emptyStateUpdate, err
+		return felt.Zero[felt.StateRootHash](), emptyStateUpdate, err
 	}
 
 	newComm := stateCommitment(&contractRoot, &classRoot, protocolVersion)
@@ -360,11 +363,11 @@ func (s *State) commit(protocolVersion string) (felt.Felt, stateUpdate, error) {
 func (s *State) flush(
 	blockNum uint64,
 	update *stateUpdate,
-	classes map[felt.Felt]core.ClassDefinition,
+	classes map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	err := s.db.triedb.Update(
-		(*felt.StateRootHash)(&update.curComm),
-		(*felt.StateRootHash)(&update.prevComm),
+		&update.curComm,
+		&update.prevComm,
 		blockNum,
 		update.classNodes,
 		update.contractNodes,
@@ -381,7 +384,7 @@ func (s *State) flush(
 			}
 
 			// TODO(weiihann): handle hash-based, and there should be better ways of doing this
-			err := trieutils.DeleteStorageNodesByPath(s.batch, (*felt.Address)(&addr))
+			err := trieutils.DeleteStorageNodesByPath(s.batch, &addr)
 			if err != nil {
 				return err
 			}
@@ -412,17 +415,18 @@ func (s *State) flush(
 }
 
 func (s *State) updateClassTrie(
-	declaredClasses map[felt.Felt]*felt.Felt,
-	classDefs map[felt.Felt]core.ClassDefinition,
+	declaredClasses map[felt.SierraClassHash]*felt.CasmClassHash,
+	classDefs map[felt.ClassHash]core.ClassDefinition,
 	migratedClasses map[felt.SierraClassHash]felt.CasmClassHash,
 ) error {
 	for classHash, compiledClassHash := range declaredClasses {
-		if _, found := classDefs[classHash]; !found {
+		if _, found := classDefs[felt.ClassHash(classHash)]; !found {
 			continue
 		}
 
 		leafVal := crypto.Poseidon[felt.Felt](leafVersion0, compiledClassHash)
-		if err := s.classTrie.Update(&classHash, &leafVal); err != nil {
+		err := s.classTrie.Update((*felt.Felt)(&classHash), &leafVal)
+		if err != nil {
 			return err
 		}
 	}
@@ -437,7 +441,7 @@ func (s *State) updateClassTrie(
 	return nil
 }
 
-func (s *State) verifyComm(comm *felt.Felt, protocolVersion string) error {
+func (s *State) verifyComm(comm *felt.StateRootHash, protocolVersion string) error {
 	curComm, err := s.Commitment(protocolVersion)
 	if err != nil {
 		return err
@@ -466,7 +470,7 @@ func (s *State) updateContracts(blockNum uint64, diff *core.StateDiff) error {
 	return nil
 }
 
-func (s *State) updateContractClasses(classes map[felt.Felt]*felt.Felt) error {
+func (s *State) updateContractClasses(classes map[felt.Address]*felt.ClassHash) error {
 	for addr, classHash := range classes {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
@@ -479,7 +483,7 @@ func (s *State) updateContractClasses(classes map[felt.Felt]*felt.Felt) error {
 	return nil
 }
 
-func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
+func (s *State) updateContractNonces(nonces map[felt.Address]*felt.Felt) error {
 	for addr, nonce := range nonces {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
@@ -492,7 +496,10 @@ func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
 	return nil
 }
 
-func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+func (s *State) updateContractStorage(
+	blockNum uint64,
+	storage map[felt.Address]map[felt.Felt]*felt.Felt,
+) error {
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {
@@ -512,7 +519,7 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	return nil
 }
 
-func (s *State) getStateObject(addr *felt.Felt) (*stateObject, error) {
+func (s *State) getStateObject(addr *felt.Address) (*stateObject, error) {
 	objPointer, ok := s.stateObjects[*addr]
 	if ok {
 		return objPointer, nil
@@ -592,7 +599,7 @@ func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {
 	return nil
 }
 
-func (s *State) compareContracts(a, b felt.Felt) int {
+func (s *State) compareContracts(a, b felt.Address) int {
 	contractA, contractB := s.stateObjects[a], s.stateObjects[b]
 
 	switch {

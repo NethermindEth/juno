@@ -27,23 +27,27 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	contractAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
+		"0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	testState, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
+			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{
+	}, map[felt.ClassHash]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 	require.NoError(t, batch.Write())
@@ -76,7 +80,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	// for new state, each block needs a fresh batch and a state rooted at the previous block's root
 	if statetestutils.UseNewState() {
 		batch = testDB.NewBatch()
-		newRoot := felt.NewUnsafeFromString[felt.Felt](
+		newRoot := felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
 		)
 		testState, err = NewState(t, newRoot, testDB, batch)
@@ -84,10 +88,14 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	}
 
 	require.NoError(t, testState.Update(&core.Header{Number: 1}, &core.StateUpdate{
-		OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
+		OldRoot: felt.NewUnsafeFromString[felt.StateRootHash](
+			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+		),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
+			"0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f",
+		),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
 					felt.UnsafeFromString[felt.Felt](
 						"0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091",
@@ -125,24 +133,28 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	contractAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
+		"0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	testState, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
+			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
+		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{
+	}, map[felt.ClassHash]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 	require.NoError(t, batch.Write())
@@ -175,31 +187,31 @@ func TestCallCairo(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Goerli)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewFromUint64[felt.Felt](0xdeadbeef)
+	contractAddr := felt.NewFromUint64[felt.Address](0xdeadbeef)
 
 	// todo(rdr): change this tests with obscure contracts for tests with out own written
 	// and compiled contracts
 	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
-	classHash := felt.NewUnsafeFromString[felt.Felt](
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292",
 	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	state, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	state, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 	firstStateUpdate := core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
 		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
 				*contractAddr: classHash,
 			},
 		},
 	}
-	declaredClass := map[felt.Felt]core.ClassDefinition{*classHash: simpleClass}
+	declaredClass := map[felt.ClassHash]core.ClassDefinition{*classHash: simpleClass}
 	require.NoError(t, state.Update(&core.Header{Number: 0}, &firstStateUpdate, declaredClass, false))
 	require.NoError(t, batch.Write())
 
@@ -242,14 +254,14 @@ func TestCallCairo(t *testing.T) {
 	assert.Equal(t, []*felt.Felt{new(felt.Zero[felt.Felt]())}, ret.Result)
 
 	secondStateUpdate := core.StateUpdate{
-		OldRoot: felt.NewUnsafeFromString[felt.Felt](
+		OldRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84",
 		),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552",
 		),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
 					*storageLocation: felt.NewFromUint64[felt.Felt](37),
 				},
@@ -287,22 +299,26 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Sepolia)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0x123")
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+	contractAddr := felt.NewUnsafeFromString[felt.Address]("0x123")
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
+		"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
+	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	testState, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt]("0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
+			"0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42",
+		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{
+	}, map[felt.ClassHash]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 	require.NoError(t, batch.Write())
@@ -364,7 +380,7 @@ func TestExecute(t *testing.T) {
 	testDB := memory.New()
 	batch := testDB.NewBatch()
 
-	state, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	state, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
@@ -377,7 +393,7 @@ func TestExecute(t *testing.T) {
 			execute([]core.Transaction{}, []core.ClassDefinition{}, []*felt.Felt{}, &BlockInfo{
 				Header: &core.Header{
 					Timestamp: 1666877926,
-					SequencerAddress: felt.NewUnsafeFromString[felt.Felt](
+					SequencerAddress: felt.NewUnsafeFromString[felt.Address](
 						"0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b",
 					),
 					L1GasPriceETH:  new(felt.Zero[felt.Felt]()),
@@ -395,7 +411,7 @@ func TestExecute(t *testing.T) {
 		}
 		_, err := New(&chainInfo, false, nil).(*vm).execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
-				SequencerAddress: new(felt.Zero[felt.Felt]()),
+				SequencerAddress: new(felt.Zero[felt.Address]()),
 				L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 				L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			},
@@ -429,7 +445,7 @@ func TestSetVersionedConstants(t *testing.T) {
 
 func NewState(
 	t *testing.T,
-	stateRoot *felt.Felt,
+	stateRoot *felt.StateRootHash,
 	testDB db.KeyValueStore,
 	batch db.Batch,
 ) (core.State, error) {
@@ -450,7 +466,9 @@ type classFetchCounter struct {
 	fetches int
 }
 
-func (c *classFetchCounter) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (c *classFetchCounter) Class(
+	classHash *felt.ClassHash,
+) (*core.DeclaredClassDefinition, error) {
 	c.fetches++
 	return c.StateReader.Class(classHash)
 }
@@ -461,27 +479,27 @@ func TestClassCacheKeyedOnDeclarationHeight(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	contractAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
-	classHash := felt.NewUnsafeFromString[felt.Felt](
+	classHash := felt.NewUnsafeFromString[felt.ClassHash](
 		"0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
 	)
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState, err := NewState(t, new(felt.Zero[felt.Felt]()), testDB, batch)
+	testState, err := NewState(t, new(felt.Zero[felt.StateRootHash]()), testDB, batch)
 	require.NoError(t, err)
 	require.NoError(t, testState.Update(&core.Header{Number: 0}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: felt.NewUnsafeFromString[felt.Felt](
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: felt.NewUnsafeFromString[felt.StateRootHash](
 			"0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8",
 		),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
 				*contractAddr: classHash,
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{
+	}, map[felt.ClassHash]core.ClassDefinition{
 		*classHash: simpleClass,
 	}, false))
 	require.NoError(t, batch.Write())

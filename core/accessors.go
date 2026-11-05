@@ -20,16 +20,20 @@ State-related accessors
 
 **/
 
-func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClassDefinition, error) {
-	class, err := ClassBucket.Get(r, (*felt.ClassHash)(classHash))
+func GetClass(r db.KeyValueReader, classHash *felt.ClassHash) (*DeclaredClassDefinition, error) {
+	class, err := ClassBucket.Get(r, classHash)
 	if err != nil {
 		return nil, err
 	}
 	return &class, nil
 }
 
-func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClassDefinition) error {
-	return ClassBucket.Put(w, (*felt.ClassHash)(classHash), class)
+func WriteClass(
+	w db.KeyValueWriter,
+	classHash *felt.ClassHash,
+	class *DeclaredClassDefinition,
+) error {
+	return ClassBucket.Put(w, classHash, class)
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, error) {
@@ -57,8 +61,11 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 
  **/
 
-func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Felt, error) {
-	var l1HandlerTxnHash felt.Felt
+func GetL1HandlerTxnHashByMsgHash(
+	r db.KeyValueReader,
+	msgHash []byte,
+) (felt.TransactionHash, error) {
+	var l1HandlerTxnHash felt.TransactionHash
 	err := r.Get(db.L1HandlerTxnHashByMsgHashKey(msgHash), func(data []byte) error {
 		l1HandlerTxnHash.Unmarshal(data)
 		return nil
@@ -66,7 +73,11 @@ func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Fel
 	return l1HandlerTxnHash, err
 }
 
-func WriteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte, l1HandlerTxnHash *felt.Felt) error {
+func WriteL1HandlerTxnHashByMsgHash(
+	w db.KeyValueWriter,
+	msgHash []byte,
+	l1HandlerTxnHash *felt.TransactionHash,
+) error {
 	return w.Put(db.L1HandlerTxnHashByMsgHashKey(msgHash), l1HandlerTxnHash.Marshal())
 }
 
@@ -92,7 +103,10 @@ func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 
 // GetGlobalStateRootByBlockNumber only materialise GlobalStateRoot from the header,
 // callers opening state don't need the rest of the header.
-func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
+func GetGlobalStateRootByBlockNumber(
+	r db.KeyValueReader,
+	blockNum uint64,
+) (*felt.StateRootHash, error) {
 	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return cbor.Unmarshal(data, &header)
@@ -152,7 +166,7 @@ func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint
 func GetBlockHeaderHashAndStateRootByNumber(
 	r db.KeyValueReader,
 	blockNum uint64,
-) (hash, stateRoot *felt.Felt, err error) {
+) (hash *felt.Felt, stateRoot *felt.StateRootHash, err error) {
 	var header headerHashAndStateRootProjection
 	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
 		return cbor.Unmarshal(data, &header)
@@ -256,7 +270,7 @@ func GetTransactionEventsByBlockNumber(
 func GetTransactionHashesByBlockNumber(
 	r db.KeyValueReader,
 	blockNumber uint64,
-) ([]felt.Felt, error) {
+) ([]felt.TransactionHash, error) {
 	return BlockTransactionsAllTransactionHashesPartialBucket.Get(r, blockNumber, struct{}{})
 }
 
@@ -344,7 +358,7 @@ func WriteTransactionsAndReceipts(
 	receipts []*TransactionReceipt,
 ) error {
 	for index, tx := range transactions {
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		key := db.BlockNumIndexKey{
 			Number: blockNumber,
 			Index:  uint64(index),
@@ -374,7 +388,7 @@ func DeleteTransactionsAndReceipts(
 		if err != nil {
 			return err
 		}
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		err := TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash)
 		if err != nil {
 			return err

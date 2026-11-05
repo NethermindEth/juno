@@ -42,7 +42,7 @@ func (m *MockStateReader) EXPECT() *MockStateReaderMockRecorder {
 }
 
 // Class mocks base method.
-func (m *MockStateReader) Class(classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
+func (m *MockStateReader) Class(classHash *felt.ClassHash) (*core.DeclaredClassDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Class", classHash)
 	ret0, _ := ret[0].(*core.DeclaredClassDefinition)
@@ -102,10 +102,10 @@ func (mr *MockStateReaderMockRecorder) CompiledClassHashV2(classHash any) *gomoc
 }
 
 // ContractClassHash mocks base method.
-func (m *MockStateReader) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (m *MockStateReader) ContractClassHash(addr *felt.Address) (felt.ClassHash, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractClassHash", addr)
-	ret0, _ := ret[0].(felt.Felt)
+	ret0, _ := ret[0].(felt.ClassHash)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -117,7 +117,7 @@ func (mr *MockStateReaderMockRecorder) ContractClassHash(addr any) *gomock.Call 
 }
 
 // ContractNonce mocks base method.
-func (m *MockStateReader) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (m *MockStateReader) ContractNonce(addr *felt.Address) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractNonce", addr)
 	ret0, _ := ret[0].(felt.Felt)
@@ -132,7 +132,7 @@ func (mr *MockStateReaderMockRecorder) ContractNonce(addr any) *gomock.Call {
 }
 
 // ContractStorage mocks base method.
-func (m *MockStateReader) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (m *MockStateReader) ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorage", addr, key)
 	ret0, _ := ret[0].(felt.Felt)
@@ -162,7 +162,7 @@ func (mr *MockStateReaderMockRecorder) ContractStorageLastUpdatedBlock(addr, key
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateReader) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
+func (m *MockStateReader) ContractStorageTrie(addr *felt.Address) (core.TrieReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
 	ret0, _ := ret[0].(core.TrieReader)

@@ -50,27 +50,32 @@ func newClassHashIngestor(
 // wiped with the whole bucket once the phase completes. Resume-safe:
 // empty-deprecated + existing deploy entry → no-op.
 func (i *classHashIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
-	addrFelt := (*felt.Felt)(&addr)
 	t := &i.Tasks[index]
 
-	deprecatedPrefix := db.DeprecatedContractClassHashHistoryKey(addrFelt)
-	contract, err := state.GetContract(i.Database, addrFelt)
+	//nolint:staticcheck,nolintlint // old state layout
+	deprecatedPrefix := db.DeprecatedContractClassHashHistoryKey(&addr)
+	contract, err := state.GetContract(i.Database, &addr)
 	if err != nil {
-		return fmt.Errorf("class-hash: GetContract(%s): %w", addrFelt, err)
+		return fmt.Errorf("class-hash: GetContract(%s): %w", &addr, err)
 	}
 
 	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
-		return fmt.Errorf("class-hash: open deprecated iter(%s): %w", addrFelt, err)
+		return fmt.Errorf("class-hash: open deprecated iter(%s): %w", &addr, err)
 	}
 	defer depIt.Close()
 
 	if !depIt.First() {
-		return i.writeDeployOnly(t, outputs, addrFelt, contract.DeployedHeight, &contract.ClassHash)
+		return i.writeDeployOnly(t, outputs, &addr, contract.DeployedHeight, &contract.ClassHash)
 	}
 	return i.writeShiftedHistory(
-		t, outputs, depIt, deprecatedPrefix, addrFelt,
-		contract.DeployedHeight, &contract.ClassHash,
+		t,
+		outputs,
+		depIt,
+		deprecatedPrefix,
+		&addr,
+		contract.DeployedHeight,
+		&contract.ClassHash,
 	)
 }
 
@@ -80,9 +85,9 @@ func (i *classHashIngestor) Run(index int, addr felt.Address, outputs chan<- com
 func (i *classHashIngestor) writeDeployOnly(
 	t *common.Task,
 	outputs chan<- common.Task,
-	addr *felt.Felt,
+	addr *felt.Address,
 	deployHeight uint64,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) error {
 	deployKey := db.ContractClassHashHistoryAtBlockKey(addr, deployHeight)
 	deployEntryExists, err := i.Database.Has(deployKey)
@@ -110,15 +115,15 @@ func (i *classHashIngestor) writeShiftedHistory(
 	outputs chan<- common.Task,
 	depIt db.Iterator,
 	prefix []byte,
-	addr *felt.Felt,
+	addr *felt.Address,
 	deployHeight uint64,
-	headClassHash *felt.Felt,
+	headClassHash *felt.ClassHash,
 ) error {
 	rawValue, err := depIt.Value()
 	if err != nil {
 		return fmt.Errorf("class-hash: read first value(%s): %w", addr, err)
 	}
-	deployClassHash := felt.FromBytes[felt.Felt](rawValue)
+	deployClassHash := felt.FromBytes[felt.ClassHash](rawValue)
 	if err := state.WriteClassHashHistory(t.Batch, addr, deployHeight, &deployClassHash); err != nil {
 		return err
 	}
@@ -139,7 +144,7 @@ func (i *classHashIngestor) writeShiftedHistory(
 			if err != nil {
 				return fmt.Errorf("class-hash(%s): %w", addr, err)
 			}
-			historyValue = felt.FromBytes[felt.Felt](rawValue)
+			historyValue = felt.FromBytes[felt.ClassHash](rawValue)
 		}
 		if err := state.WriteClassHashHistory(t.Batch, addr, block, &historyValue); err != nil {
 			return err

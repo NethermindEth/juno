@@ -16,7 +16,7 @@ import (
 
 func TestMsgToL1_JSONShape_Stable_v9(t *testing.T) {
 	in := rpc.MsgToL1{
-		From:    felt.NewFromUint64[felt.Felt](0xabc),
+		From:    felt.NewFromUint64[felt.Address](0xabc),
 		To:      felt.UnsafeFromString[felt.Felt]("0xc662c410c0ecf747543f5ba90660f6abebd9c8c4"),
 		Payload: []felt.Felt{felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2)},
 	}
@@ -81,7 +81,7 @@ func TestMsgFromL1_JSONShape_Stable_v9(t *testing.T) {
 	two := felt.NewFromUint64[felt.Felt](2)
 	in := rpc.MsgFromL1{
 		From:     eth.AddressFromString("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		To:       felt.FromUint64[felt.Felt](0xdef),
+		To:       felt.FromUint64[felt.Address](0xdef),
 		Payload:  []felt.Felt{*one, *two},
 		Selector: felt.FromUint64[felt.Felt](0x3),
 	}

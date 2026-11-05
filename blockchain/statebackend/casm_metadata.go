@@ -16,7 +16,7 @@ func storeCasmHashMetadata(
 	blockNumber uint64,
 	protocolVersion string,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	ver, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
@@ -43,11 +43,11 @@ func storeCasmHashMetadataV2(
 	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		metadata := core.NewCasmHashMetadataDeclaredV2(
 			blockNumber,
-			(*felt.CasmClassHash)(casmHash),
+			casmHash,
 		)
 		err := core.ClassCasmHashMetadataBucket.Put(
 			writer,
-			(*felt.SierraClassHash)(&sierraClassHash),
+			&sierraClassHash,
 			&metadata,
 		)
 		if err != nil {
@@ -85,12 +85,12 @@ func storeCasmHashMetadataV1(
 	writer db.KeyValueWriter,
 	blockNumber uint64,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	for sierraClassHash, casmHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		casmHashV1 := (*felt.CasmClassHash)(casmHash)
+		casmHashV1 := casmHash
 
-		classDef, ok := newClasses[sierraClassHash]
+		classDef, ok := newClasses[felt.ClassHash(sierraClassHash)]
 		if !ok {
 			return fmt.Errorf("class %s not available in newClasses at block %d",
 				sierraClassHash.String(),
@@ -107,12 +107,12 @@ func storeCasmHashMetadataV1(
 		}
 
 		v2Hash := sierraClass.Compiled.Hash(core.HashVersionV2)
-		casmHashV2 := felt.CasmClassHash(v2Hash)
+		casmHashV2 := v2Hash
 
 		metadata := core.NewCasmHashMetadataDeclaredV1(blockNumber, casmHashV1, &casmHashV2)
 		err := core.ClassCasmHashMetadataBucket.Put(
 			writer,
-			(*felt.SierraClassHash)(&sierraClassHash),
+			&sierraClassHash,
 			&metadata,
 		)
 		if err != nil {
@@ -129,7 +129,7 @@ func revertCasmHashMetadata(
 	stateUpdate *core.StateUpdate,
 ) error {
 	for sierraClassHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		err := core.ClassCasmHashMetadataBucket.Delete(w, (*felt.SierraClassHash)(&sierraClassHash))
+		err := core.ClassCasmHashMetadataBucket.Delete(w, &sierraClassHash)
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateObject, error) {
+func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Address) (*stateObject, error) {
 	contract, err := GetContract(r, addr)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateO
 // Gets a contract instance from the database.
 // Returns db.ErrKeyNotFound when the contract does not exist, for backward compatibility.
 // TODO: return more precise error (e.g. ErrContractNotDeployed) once deprecated state is removed.
-func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
+func GetContract(r db.KeyValueReader, addr *felt.Address) (stateContract, error) {
 	key := db.ContractKey(addr)
 	var contract stateContract
 	if err := r.Get(key, func(val []byte) error {
@@ -35,16 +35,16 @@ func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
 	return contract, nil
 }
 
-// todo(rdr): `addr` should be a felt.Addr
-func HasContract(r db.KeyValueReader, addr *felt.Felt) (bool, error) {
+func HasContract(r db.KeyValueReader, addr *felt.Address) (bool, error) {
 	key := db.ContractKey(addr)
 	return r.Has(key)
 }
 
 func WriteContract(
 	w db.KeyValueWriter,
-	addr *felt.Felt,
-	nonce, classHash felt.Felt,
+	addr *felt.Address,
+	nonce felt.Felt,
+	classHash felt.ClassHash,
 	deployHeight uint64,
 ) error {
 	contract := stateContract{
@@ -56,7 +56,7 @@ func WriteContract(
 }
 
 // WriteContractRecord stores a whole contract record
-func WriteContractRecord(w db.KeyValueWriter, addr *felt.Felt, contract *stateContract) error {
+func WriteContractRecord(w db.KeyValueWriter, addr *felt.Address, contract *stateContract) error {
 	key := db.ContractKey(addr)
 	data, err := contract.MarshalBinary()
 	if err != nil {
@@ -66,62 +66,86 @@ func WriteContractRecord(w db.KeyValueWriter, addr *felt.Felt, contract *stateCo
 	return w.Put(key, data)
 }
 
-func DeleteContract(w db.KeyValueWriter, addr *felt.Felt) error {
+func DeleteContract(w db.KeyValueWriter, addr *felt.Address) error {
 	key := db.ContractKey(addr)
 	return w.Delete(key)
 }
 
-func WriteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, nonce *felt.Felt) error {
+func WriteNonceHistory(
+	w db.KeyValueWriter,
+	addr *felt.Address,
+	blockNum uint64,
+	nonce *felt.Felt,
+) error {
 	key := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, nonce.Marshal())
 }
 
-func WriteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64, classHash *felt.Felt) error {
+func WriteClassHashHistory(
+	w db.KeyValueWriter,
+	addr *felt.Address,
+	blockNum uint64,
+	classHash *felt.ClassHash,
+) error {
 	key := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Put(key, classHash.Marshal())
 }
 
-func WriteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64, value *felt.Felt) error {
+func WriteStorageHistory(
+	w db.KeyValueWriter,
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNum uint64,
+	value *felt.Felt,
+) error {
 	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Put(dbKey, value.Marshal())
 }
 
-func DeleteStorageHistory(w db.KeyValueWriter, addr, key *felt.Felt, blockNum uint64) error {
+func DeleteStorageHistory(
+	w db.KeyValueWriter,
+	addr *felt.Address,
+	key *felt.Felt,
+	blockNum uint64,
+) error {
 	dbKey := db.ContractStorageHistoryAtBlockKey(addr, key, blockNum)
 	return w.Delete(dbKey)
 }
 
-func DeleteNonceHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
+func DeleteNonceHistory(w db.KeyValueWriter, addr *felt.Address, blockNum uint64) error {
 	dbKey := db.ContractNonceHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 
-func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Felt, blockNum uint64) error {
+func DeleteClassHashHistory(w db.KeyValueWriter, addr *felt.Address, blockNum uint64) error {
 	dbKey := db.ContractClassHashHistoryAtBlockKey(addr, blockNum)
 	return w.Delete(dbKey)
 }
 
 func WriteClass(
 	w db.KeyValueWriter,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 	class *core.DeclaredClassDefinition,
 ) error {
-	return core.ClassBucket.Put(w, (*felt.ClassHash)(classHash), class)
+	return core.ClassBucket.Put(w, classHash, class)
 }
 
-func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
-	return core.ClassBucket.Delete(w, (*felt.ClassHash)(classHash))
+func DeleteClass(w db.KeyValueWriter, classHash *felt.ClassHash) error {
+	return core.ClassBucket.Delete(w, classHash)
 }
 
-func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*core.DeclaredClassDefinition, error) {
-	class, err := core.ClassBucket.Get(r, (*felt.ClassHash)(classHash))
+func GetClass(
+	r db.KeyValueReader,
+	classHash *felt.ClassHash,
+) (*core.DeclaredClassDefinition, error) {
+	class, err := core.ClassBucket.Get(r, classHash)
 	if err != nil {
 		return nil, err
 	}
 	return &class, nil
 }
 
-func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
+func HasClass(r db.KeyValueReader, classHash *felt.ClassHash) (bool, error) {
 	key := db.ClassKey(classHash)
 	return r.Has(key)
 }

@@ -150,7 +150,7 @@ func TestGetTransactionByHash(t *testing.T) {
 	t.Run("valid transaction", func(t *testing.T) {
 		t.Parallel()
 		for _, expectedTx := range block.Transactions {
-			tx, err := core.GetTransactionByHash(memDB, (*felt.TransactionHash)(expectedTx.Hash()))
+			tx, err := core.GetTransactionByHash(memDB, expectedTx.Hash())
 			require.NoError(t, err)
 			assert.Equal(t, expectedTx, tx)
 		}
@@ -412,65 +412,71 @@ func TestPartialBlockHeaderAccessorsByNumber(t *testing.T) {
 	memDB, block := setupForTxsAndReceiptsTests(t)
 	require.NoError(t, core.BlockHeadersByNumberBucket.Put(memDB, block.Number, block.Header))
 
-	tests := []struct {
-		name               string
-		readPartial        func(db.KeyValueReader, uint64) (*felt.Felt, error)
-		getExpected        func(*core.Header) *felt.Felt
-		headerWithoutField any
-	}{
-		{
-			name:        "global state root",
+	t.Run("global state root", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderAccessorCase[felt.StateRootHash]{
 			readPartial: core.GetGlobalStateRootByBlockNumber,
-			getExpected: func(header *core.Header) *felt.Felt {
+			getExpected: func(header *core.Header) *felt.StateRootHash {
 				return header.GlobalStateRoot
 			},
 			headerWithoutField: struct {
 				Hash *felt.Felt
 			}{Hash: block.Hash},
-		},
-		{
-			name:        "block hash",
+		}.run(t, memDB, block.Number)
+	})
+
+	t.Run("block hash", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderAccessorCase[felt.Felt]{
 			readPartial: core.GetBlockHeaderHashByNumber,
 			getExpected: func(header *core.Header) *felt.Felt {
 				return header.Hash
 			},
 			headerWithoutField: struct {
-				GlobalStateRoot *felt.Felt
+				GlobalStateRoot *felt.StateRootHash
 			}{GlobalStateRoot: block.GlobalStateRoot},
-		},
-	}
+		}.run(t, memDB, block.Number)
+	})
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+type partialHeaderAccessorCase[K felt.FeltLike] struct {
+	readPartial        func(db.KeyValueReader, uint64) (*K, error)
+	getExpected        func(*core.Header) *K
+	headerWithoutField any
+}
 
-			t.Run("matches full header decode", func(t *testing.T) {
-				t.Parallel()
-				header, err := core.BlockHeadersByNumberBucket.Get(memDB, block.Number)
-				require.NoError(t, err)
-				got, err := tt.readPartial(memDB, block.Number)
-				require.NoError(t, err)
-				assert.Equal(t, tt.getExpected(&header), got)
-			})
+func (c partialHeaderAccessorCase[K]) run(
+	t *testing.T,
+	memDB db.KeyValueStore,
+	blockNumber uint64,
+) {
+	t.Helper()
 
-			t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
-				t.Parallel()
-				_, err := tt.readPartial(memDB, nonexistentBlockNumber)
-				require.ErrorIs(t, err, db.ErrKeyNotFound)
-			})
+	t.Run("matches full header decode", func(t *testing.T) {
+		t.Parallel()
+		header, err := core.BlockHeadersByNumberBucket.Get(memDB, blockNumber)
+		require.NoError(t, err)
+		got, err := c.readPartial(memDB, blockNumber)
+		require.NoError(t, err)
+		assert.Equal(t, c.getExpected(&header), got)
+	})
 
-			t.Run("missing field returns error", func(t *testing.T) {
-				t.Parallel()
-				partialHeaderDB := memory.New()
-				data, err := cbor.Marshal(tt.headerWithoutField)
-				require.NoError(t, err)
-				require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
+	t.Run("missing block returns ErrKeyNotFound", func(t *testing.T) {
+		t.Parallel()
+		_, err := c.readPartial(memDB, nonexistentBlockNumber)
+		require.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
 
-				_, err = tt.readPartial(partialHeaderDB, block.Number)
-				require.Error(t, err)
-			})
-		})
-	}
+	t.Run("missing field returns error", func(t *testing.T) {
+		t.Parallel()
+		partialHeaderDB := memory.New()
+		data, err := cbor.Marshal(c.headerWithoutField)
+		require.NoError(t, err)
+		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(blockNumber), data))
+
+		_, err = c.readPartial(partialHeaderDB, blockNumber)
+		require.Error(t, err)
+	})
 }
 
 func TestGetBlockTransactionCountByNumber(t *testing.T) {
@@ -565,7 +571,7 @@ func TestGetBlockHeaderHashAndStateRootByNumber(t *testing.T) {
 		t.Parallel()
 		partialHeaderDB := memory.New()
 		data, err := cbor.Marshal(
-			struct{ GlobalStateRoot *felt.Felt }{GlobalStateRoot: block.GlobalStateRoot},
+			struct{ GlobalStateRoot *felt.StateRootHash }{GlobalStateRoot: block.GlobalStateRoot},
 		)
 		require.NoError(t, err)
 		require.NoError(t, partialHeaderDB.Put(db.BlockHeaderByNumberKey(block.Number), data))
