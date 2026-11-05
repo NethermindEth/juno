@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/utils/cbor"
 )
 
@@ -109,7 +110,7 @@ func GetGlobalStateRootByBlockNumber(
 ) (*felt.StateRootHash, error) {
 	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
+		return value.FastCbor[headerGlobalStateRootProjection]().Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -125,7 +126,7 @@ func GetGlobalStateRootByBlockNumber(
 func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header headerHashProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
+		return value.FastCbor[headerHashProjection]().Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -141,7 +142,7 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTransactionCountProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
+		return value.FastCbor[headerTransactionCountProjection]().Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -152,7 +153,7 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTimestampProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
+		return value.FastCbor[headerTimestampProjection]().Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -169,7 +170,7 @@ func GetBlockHeaderHashAndStateRootByNumber(
 ) (hash *felt.Felt, stateRoot *felt.StateRootHash, err error) {
 	var header headerHashAndStateRootProjection
 	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.Unmarshal(data, &header)
+		return value.FastCbor[headerHashAndStateRootProjection]().Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, nil, err
