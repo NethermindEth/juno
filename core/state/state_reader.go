@@ -304,7 +304,7 @@ func (s *StateReader) valueAt(prefix []byte, blockNum uint64, cb func(val []byte
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 
-	if !it.Seek(seekKey) || binary.BigEndian.Uint64(it.Key()[len(prefix):]) != blockNum {
+	if !it.SeekGE(seekKey) || binary.BigEndian.Uint64(it.Key()[len(prefix):]) != blockNum {
 		if !it.Prev() {
 			return ErrNoHistoryValue
 		}
@@ -333,7 +333,7 @@ func (s *StateReader) lastUpdatedBlockNumber(
 
 	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
 
-	if it.Seek(seekKey) {
+	if it.SeekGE(seekKey) {
 		seekedKey := it.Key()
 		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
 		if seekedBlock == upToBlock {

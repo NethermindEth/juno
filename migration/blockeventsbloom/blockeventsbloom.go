@@ -104,7 +104,7 @@ func stripHeaders(
 	}
 	defer it.Close()
 
-	if !it.Seek(db.BlockHeaderByNumberKey(startFrom)) {
+	if !it.SeekGE(db.BlockHeaderByNumberKey(startFrom)) {
 		return chainHeight + 1, nil
 	}
 	firstBlock := blockNumberFromKey(it.Key())

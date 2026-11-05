@@ -855,7 +855,7 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 	}
 
 	seekKey := binary.BigEndian.AppendUint64(key, height)
-	for it.Seek(seekKey); it.Valid(); it.Next() {
+	for it.SeekGE(seekKey); it.Valid(); it.Next() {
 		seekedKey := it.Key()
 		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
 		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
@@ -995,7 +995,7 @@ func (s *State) lastUpdatedBlockNumber(
 
 	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
 
-	if it.Seek(seekKey) {
+	if it.SeekGE(seekKey) {
 		seekedKey := it.Key()
 		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
 		if seekedBlock == upToBlock {

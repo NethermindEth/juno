@@ -60,6 +60,12 @@ func (i *iterator) First() bool {
 	return i.iter.First()
 }
 
+func (i *iterator) Last() bool {
+	defer i.listener.OnIO(false, time.Now())
+	i.positioned = true
+	return i.iter.Last()
+}
+
 func (i *iterator) Prev() bool {
 	if !i.positioned {
 		return i.First()
@@ -74,10 +80,16 @@ func (i *iterator) Next() bool {
 	return i.iter.Next()
 }
 
-func (i *iterator) Seek(key []byte) bool {
+func (i *iterator) SeekGE(key []byte) bool {
 	defer i.listener.OnIO(false, time.Now())
 	i.positioned = true
 	return i.iter.SeekGE(key)
+}
+
+func (i *iterator) SeekLT(key []byte) bool {
+	defer i.listener.OnIO(false, time.Now())
+	i.positioned = true
+	return i.iter.SeekLT(key)
 }
 
 func (i *iterator) Close() error {
