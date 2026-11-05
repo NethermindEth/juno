@@ -391,12 +391,11 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 	}
 
 	t.Run("hash version v1", func(t *testing.T) {
-		hasher := core.NewCasmHasher(core.HashVersionV1)
 		// nested case that is not covered by class hash tests
 		segmentedByteCodeHash := core.SegmentedBytecodeHash(
 			byteCode,
 			segmentLengths,
-			hasher,
+			core.HashVersionV1,
 		)
 		require.Equal(
 			t,
@@ -406,12 +405,11 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 	})
 
 	t.Run("hash version v2", func(t *testing.T) {
-		hasher := core.NewCasmHasher(core.HashVersionV2)
 		// nested case that is not covered by class hash tests
 		segmentedByteCodeHash := core.SegmentedBytecodeHash(
 			byteCode,
 			segmentLengths,
-			hasher,
+			core.HashVersionV2,
 		)
 		require.Equal(
 			t,
@@ -787,25 +785,62 @@ func BenchmarkSierraClassHash(b *testing.B) {
 	}
 }
 
+// BenchmarkCasmClassHashV1 measures local recomputation of the Poseidon CASM hash.
+func BenchmarkCasmClassHashV1(b *testing.B) {
+	benchmarkCasmClassHash(b, core.HashVersionV1)
+}
+
 // BenchmarkCasmClassHashV2 measures local recomputation of the Blake2s CASM hash.
 func BenchmarkCasmClassHashV2(b *testing.B) {
-	sierra := loadSierraClass(b)
-	require.NotNil(b, sierra.Compiled)
+	benchmarkCasmClassHash(b, core.HashVersionV2)
+}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for range b.N {
-		_ = sierra.Compiled.Hash(core.HashVersionV2)
+func benchmarkCasmClassHash(b *testing.B, version core.CasmHashVersion) {
+	classes := []struct {
+		name      string
+		network   *networks.Network
+		classHash string
+	}{
+		{
+			name:      "flat",
+			network:   &networks.Integration,
+			classHash: "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
+		},
+		{
+			name:      "segmented",
+			network:   &networks.SepoliaIntegration,
+			classHash: "0x941a2dc3ab607819fdc929bea95831a2e0c1aab2f2f34b3a23c55cebc8a040",
+		},
+	}
+	for _, class := range classes {
+		b.Run(class.name, func(b *testing.B) {
+			casm := loadSierraClassFrom(b, class.network, class.classHash).Compiled
+			require.NotNil(b, casm)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				_ = casm.Hash(version)
+			}
+		})
 	}
 }
 
 func loadSierraClass(b *testing.B) *core.SierraClass {
 	b.Helper()
+	return loadSierraClassFrom(
+		b,
+		&networks.Integration,
+		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
+	)
+}
 
-	client := feeder.NewTestClient(b, &networks.Integration)
+func loadSierraClassFrom(b *testing.B, network *networks.Network, key string) *core.SierraClass {
+	b.Helper()
+
+	client := feeder.NewTestClient(b, network)
 	gw := adaptfeeder.New(client)
 
-	key := "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc"
 	hash := felt.UnsafeFromString[felt.Felt](key)
 	class, err := gw.Class(b.Context(), &hash)
 	require.NoError(b, err)

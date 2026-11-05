@@ -59,7 +59,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 
 func newBlockSigner(privKey *ecdsa.PrivateKey) core.BlockSignFunc {
 	return func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
-		data := crypto.PoseidonElems(blockHash, stateDiffCommitment)
+		data := crypto.PoseidonElems[felt.Felt](blockHash, stateDiffCommitment)
 		dataBytes := data.Bytes()
 		signatureBytes, err := privKey.Sign(dataBytes[:], nil)
 		if err != nil {

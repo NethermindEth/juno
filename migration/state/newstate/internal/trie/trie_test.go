@@ -46,7 +46,7 @@ var trieCases = []trieCase{
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewClassTrieID(felt.One[felt.StateRootHash]())
 		},
-		hashFn:     crypto.Poseidon,
+		hashFn:     crypto.Poseidon[felt.Felt, felt.Felt, felt.Felt],
 		buildOldFn: trie.NewTriePoseidon,
 	},
 	{
@@ -59,7 +59,7 @@ var trieCases = []trieCase{
 		newTrieID: func(_ *felt.Address) trieutils.TrieID {
 			return trieutils.NewContractTrieID(felt.One[felt.StateRootHash]())
 		},
-		hashFn:     crypto.Pedersen,
+		hashFn:     crypto.Pedersen[felt.Felt, felt.Felt, felt.Felt],
 		buildOldFn: trie.NewTriePedersen,
 	},
 	{
@@ -76,7 +76,7 @@ var trieCases = []trieCase{
 		newTrieID: func(owner *felt.Address) trieutils.TrieID {
 			return trieutils.NewContractStorageTrieID(felt.One[felt.StateRootHash](), *owner)
 		},
-		hashFn:     crypto.Pedersen,
+		hashFn:     crypto.Pedersen[felt.Felt, felt.Felt, felt.Felt],
 		buildOldFn: trie.NewTriePedersen,
 	},
 }

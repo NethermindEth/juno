@@ -580,8 +580,8 @@ func TestDatabase(t *testing.T) {
 			stateCommitment := felt.NewFromUint64[felt.StateRootHash](1000)
 			classRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
 			contractRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
-			classRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
-			contractRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
+			classRootHash := crypto.Poseidon[felt.Felt](leaf1Hash, leaf2Hash)
+			contractRootHash := crypto.Poseidon[felt.Felt](leaf1Hash, leaf2Hash)
 
 			val := append(classRootHash.Marshal(), contractRootHash.Marshal()...)
 			err := memDB.Put(db.StateHashToTrieRootsKey(stateCommitment), val)

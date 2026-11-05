@@ -199,9 +199,13 @@ func enumerateTries(r db.KeyValueReader) ([]TrieDesc, error) {
 		hashFn               crypto.HashFn
 	}{
 		//nolint:staticcheck // the deprecated buckets are this migration's input
-		{db.DeprecatedClassesTrie, db.ClassTrie, crypto.Poseidon},
+		{db.DeprecatedClassesTrie, db.ClassTrie, crypto.Poseidon[felt.Felt, felt.Felt, felt.Felt]},
 		//nolint:staticcheck // the deprecated buckets are this migration's input
-		{db.DeprecatedStateTrie, db.ContractTrieContract, crypto.Pedersen},
+		{
+			db.DeprecatedStateTrie,
+			db.ContractTrieContract,
+			crypto.Pedersen[felt.Felt, felt.Felt, felt.Felt],
+		},
 	} {
 		desc, err := enumerateGlobalTrie(r, spec.oldBucket, spec.newBucket, spec.hashFn)
 		if err != nil {
@@ -275,7 +279,7 @@ func enumerateStorageTries(r db.KeyValueReader) ([]TrieDesc, error) {
 			DeprecatedTrieBucket: db.DeprecatedContractStorage,
 			TrieBucket:           db.ContractTrieStorage,
 			Owner:                owner,
-			HashFn:               crypto.Pedersen,
+			HashFn:               crypto.Pedersen[felt.Felt, felt.Felt, felt.Felt],
 			NodeCount:            count,
 			RootPath:             &rootPath,
 		})

@@ -3,7 +3,7 @@ package blake2s
 import (
 	"encoding/binary"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 const (
@@ -18,13 +18,13 @@ const (
 // encodeFelts encodes felts as little-endian u32 words.
 // Small values (< 2**63) use two words.
 // Larger values use eight words with a marker bit on the first word.
-func encodeFelts(felts ...*felt.Felt) []byte {
+func encodeFelts(felts ...*fp.Element) []byte {
 	buf := make([]byte, len(felts)*maxWordsPerFelt*4)
 	return buf[:encodeFeltsInto(buf, felts...)]
 }
 
 // encodeFeltsInto encodes felts into data and returns the number of bytes written.
-func encodeFeltsInto(data []byte, felts ...*felt.Felt) int {
+func encodeFeltsInto(data []byte, felts ...*fp.Element) int {
 	offset := 0
 	for _, f := range felts {
 		offset += encodeFeltInto(data[offset:], f)
@@ -33,7 +33,7 @@ func encodeFeltsInto(data []byte, felts ...*felt.Felt) int {
 }
 
 // encodeFeltInto encodes a single felt into data and returns the number of bytes written.
-func encodeFeltInto(data []byte, f *felt.Felt) int {
+func encodeFeltInto(data []byte, f *fp.Element) int {
 	const largeFeltMarker uint32 = 1 << 31
 
 	// Bits() leaves Montgomery form once.
