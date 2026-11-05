@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -328,8 +327,8 @@ type websocketConn struct {
 	ctx    context.Context
 	params *WebsocketConnParams
 
-	subscriptions    atomic.Int64
-	maxSubscriptions int64
+	// subscriptions caps the connection's subscriptions; nil leaves them unbounded
+	subscriptions *semaphore.Weighted
 }
 
 var _ SubscriptionSlots = (*websocketConn)(nil)
@@ -341,29 +340,26 @@ func newWebsocketConn(
 	maxSubscriptions int64,
 ) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
-	return &websocketConn{
-		conn:             conn,
-		ctx:              ctx,
-		params:           params,
-		maxSubscriptions: maxSubscriptions,
+	wsc := &websocketConn{
+		conn:   conn,
+		ctx:    ctx,
+		params: params,
 	}
+	if maxSubscriptions > 0 {
+		wsc.subscriptions = semaphore.NewWeighted(maxSubscriptions)
+	}
+	return wsc
 }
 
 // TryAcquireSubscription takes a slot if the connection is below its limit
 func (wsc *websocketConn) TryAcquireSubscription() bool {
-	for {
-		held := wsc.subscriptions.Load()
-		if wsc.maxSubscriptions > 0 && held >= wsc.maxSubscriptions {
-			return false
-		}
-		if wsc.subscriptions.CompareAndSwap(held, held+1) {
-			return true
-		}
-	}
+	return wsc.subscriptions == nil || wsc.subscriptions.TryAcquire(1)
 }
 
 func (wsc *websocketConn) ReleaseSubscription() {
-	wsc.subscriptions.Add(-1)
+	if wsc.subscriptions != nil {
+		wsc.subscriptions.Release(1)
+	}
 }
 
 func (wsc *websocketConn) Read(p []byte) (int, error) {
