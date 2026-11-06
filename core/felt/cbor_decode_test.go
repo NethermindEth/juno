@@ -2,7 +2,6 @@ package felt_test
 
 import (
 	"math"
-	"math/big"
 	"math/rand"
 	"strings"
 	"testing"
@@ -45,47 +44,15 @@ var legacyDecodeCornerCases = []struct {
 
 // Fixed compact vectors decode in every build, whichever form the build writes.
 func TestCBORDecodeCompact(t *testing.T) {
-	twoToThe := func(exponent uint) felt.Felt {
-		return feltFromBigInt(new(big.Int).Lsh(big.NewInt(1), exponent))
-	}
-
-	cases := []struct {
-		name string
-		data string
-		want felt.Felt
-	}{
-		{"zero", "00", felt.FromUint64[felt.Felt](0)},
-		{"one", "01", felt.FromUint64[felt.Felt](1)},
-		{"largest uint", "17", felt.FromUint64[felt.Felt](23)},
-		{"smallest byte string", "41 18", felt.FromUint64[felt.Felt](24)},
-		{"largest one byte", "41 ff", felt.FromUint64[felt.Felt](math.MaxUint8)},
-		{"smallest two bytes", "42 0100", felt.FromUint64[felt.Felt](math.MaxUint8 + 1)},
-		{"largest uint64", "48 ffffffffffffffff", felt.FromUint64[felt.Felt](math.MaxUint64)},
-		{"2^64", "49 01 0000000000000000", twoToThe(64)},
-		{"largest inline length", "57 01" + strings.Repeat("00", 22), twoToThe(22 * 8)},
-		{"smallest one-byte length", "58 18 01" + strings.Repeat("00", 23), twoToThe(23 * 8)},
-		{"largest canonical byte string", "58 1e 80" + strings.Repeat("00", 29), twoToThe(30*8 - 1)},
-		{
-			"smallest Montgomery value (2^240)",
-			"58 20 07dfffffd4ab5e1143ffffffffffff6f800000000001330ffffffffffd737e01",
-			twoToThe(240),
-		},
-		{
-			"largest felt (p - 1)",
-			"58 20 0000000000000220000000000000000000000000000000000000000000000020",
-			largestFelt(t),
-		},
-	}
-
-	for _, tc := range cases {
+	for _, tc := range compactVectors(t) {
 		t.Run(tc.name, func(t *testing.T) {
 			var decoded felt.Felt
-			require.NoError(t, decoded.UnmarshalCBOR(mustDecodeHex(t, tc.data)))
-			require.Equal(t, tc.want, decoded)
+			require.NoError(t, decoded.UnmarshalCBOR(mustDecodeHex(t, tc.encoded)))
+			require.Equal(t, tc.value, decoded)
 
 			var viaFacade felt.Felt
-			require.NoError(t, cbor.Unmarshal(mustDecodeHex(t, tc.data), &viaFacade))
-			require.Equal(t, tc.want, viaFacade)
+			require.NoError(t, cbor.Unmarshal(mustDecodeHex(t, tc.encoded), &viaFacade))
+			require.Equal(t, tc.value, viaFacade)
 		})
 	}
 }
