@@ -854,35 +854,16 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 		return nil, err
 	}
 
-	seekKey := binary.BigEndian.AppendUint64(key, height)
-	for it.SeekGE(seekKey); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
-			break
-		}
-
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
-			// last change happened before the height we are looking for
-			// check head state
-			break
-		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this
-			// log entry is not useful. Advance the iterator and see we can use the next entry.
-			// If not, ErrCheckHeadState will be returned.
-			continue
-		}
-
-		val, itErr := it.Value()
-		if err = errors.Join(itErr, it.Close()); err != nil {
-			return nil, err
-		}
-		// seekedHeight > height
-		return val, nil
+	// Entries hold the value before the change at their block, so the first one after height has it.
+	if height == math.MaxUint64 || !it.SeekGE(binary.BigEndian.AppendUint64(key, height+1)) {
+		return nil, errors.Join(ErrCheckHeadState, it.Close())
 	}
 
-	return nil, errors.Join(ErrCheckHeadState, it.Close())
+	val, itErr := it.Value()
+	if err = errors.Join(itErr, it.Close()); err != nil {
+		return nil, err
+	}
+	return val, nil
 }
 
 // ContractStorageAt returns the value of a storage location
