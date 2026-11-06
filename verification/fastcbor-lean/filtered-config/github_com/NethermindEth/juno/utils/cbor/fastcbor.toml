@@ -1,0 +1,1 @@
+translate = ["*", "!unsafe_New", "!unsafe_NewArray", "!makemap", "!mapassign0", "!typedmemclr", "!mapassign", "!mapassign_fast32", "!mapassign_fast64", "!isZero", "!readPtrSliceOf"]

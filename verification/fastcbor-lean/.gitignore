@@ -1,0 +1,6 @@
+.tools/
+.lake/
+__pycache__/
+FastcborCheck/Code/
+FastcborCheck/GeneratedProof/
+Full/

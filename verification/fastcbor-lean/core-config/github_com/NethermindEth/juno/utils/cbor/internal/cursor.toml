@@ -1,0 +1,2 @@
+translate = ["Cursor", "Fields", "fieldKey", "Struct", "NewCursor", "Cursor.Remaining", "Cursor.Len", "Cursor.Pos", "Cursor.Peek", "Cursor.Null", "Cursor.Uint64", "Cursor.Int64", "Cursor.Bool", "Cursor.head", "Cursor.headSlow", "Cursor.expect", "Cursor.expectSlow", "Cursor.mismatch", "Cursor.fail", "describe", "errDepth", "Cursor.ArrayLen", "Cursor.MapLen", "Cursor.containerLen", "Cursor.enter", "Cursor.Leave", "Cursor.Tag", "Err*", "major*", "Major*", "info*", "simple*", "maxNestedLevels", "_"]
+imports = ["!*", "encoding/binary", "errors", "fmt"]

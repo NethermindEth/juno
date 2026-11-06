@@ -1,0 +1,15 @@
+conversion failed: [unsupported]: builtin that isn't an ident
+unsafe.SliceData
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).maybeHandleSpecialBuiltin
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:391
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).callExpr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:447
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).exprSpecial
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1172
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).expr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1111
+
+  src: <JUNO>/verification/fastcbor-lean/probes/slicedata/probe.go:5:46
+
+1 errors

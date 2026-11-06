@@ -1,0 +1,9 @@
+name = "fastcborcheck"
+defaultTargets = ["FastcborCheck"]
+
+[[require]]
+name = "perennial"
+path = ".tools/perennial"
+
+[[lean_lib]]
+name = "FastcborCheck"

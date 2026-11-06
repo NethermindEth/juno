@@ -1,0 +1,15 @@
+conversion failed: [unsupported]: unexpected type for indexing
+0
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).getIndexType
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1688
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).exprAddr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1732
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).assignFromTo
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1767
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).assignStmtWith
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1818
+
+  src: <JUNO>/verification/fastcbor-lean/probes/genericarray/probe.go:3:53
+
+1 errors

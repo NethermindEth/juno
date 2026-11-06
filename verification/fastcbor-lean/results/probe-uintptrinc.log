@@ -1,0 +1,15 @@
+conversion failed: [unsupported]: inc or dec statement with unsupported type uintptr
+i
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).incDecStmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1949
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).stmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2489
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).stmtList
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1216
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).blockStmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1222
+
+  src: <JUNO>/verification/fastcbor-lean/probes/uintptrinc/probe.go:3:37
+
+1 errors

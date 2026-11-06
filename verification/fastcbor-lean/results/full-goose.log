@@ -1,0 +1,186 @@
+conversion failed: [unsupported]: builtin that isn't an ident
+unsafe.SliceData
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).maybeHandleSpecialBuiltin
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:391
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).callExpr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:447
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).exprSpecial
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1172
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).expr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1111
+
+  src: <JUNO>/utils/cbor/internal/cursor/felt.go:142:56
+
+1 errors
+conversion failed: [unsupported]: external function
+// unsafe_New returns a new zeroed value of the type.
+//
+//go:linkname unsafe_New reflect.unsafe_New
+//nolint:revive // the name is the runtime's
+func unsafe_New(*runtimeType) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:24:1
+
+[unsupported]: external function
+// unsafe_NewArray returns a new zeroed array of n values of the type.
+//
+//go:linkname unsafe_NewArray reflect.unsafe_NewArray
+//nolint:revive // the name is the runtime's
+func unsafe_NewArray(typ *runtimeType, n int) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:30:1
+
+[unsupported]: external function
+// makemap returns a new map of the type with room for cap entries.
+//
+//go:linkname makemap reflect.makemap
+func makemap(t *runtimeType, cap int) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:35:1
+
+[unsupported]: external function
+// mapassign0 stores a copy of the value val points to under a copy of the key key points to.
+//
+//go:linkname mapassign0 reflect.mapassign0
+//nolint:revive // the name is the runtime's
+func mapassign0(t *runtimeType, m, key, val unsafe.Pointer)
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:41:1
+
+[unsupported]: external function
+// typedmemclr zeroes the value of the type that ptr points to.
+//
+//go:linkname typedmemclr reflect.typedmemclr
+func typedmemclr(t *runtimeType, ptr unsafe.Pointer)
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:46:1
+
+[unsupported]: external function
+// mapassign returns where the map keeps the value of the key, which is zeroed if the map had no
+// such key. The value stays valid until the map next grows.
+//
+//go:linkname mapassign runtime.mapassign
+func mapassign(t *runtimeType, m, key unsafe.Pointer) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:52:1
+
+[unsupported]: external function
+// mapassign_fast32 is mapassign for a map whose keys are 4 bytes of integer.
+//
+//go:linkname mapassign_fast32 runtime.mapassign_fast32
+//nolint:revive // the name is the runtime's
+func mapassign_fast32(t *runtimeType, m unsafe.Pointer, key uint32) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:58:1
+
+[unsupported]: external function
+// mapassign_fast64 is mapassign for a map whose keys are 8 bytes of integer.
+//
+//go:linkname mapassign_fast64 runtime.mapassign_fast64
+//nolint:revive // the name is the runtime's
+func mapassign_fast64(t *runtimeType, m unsafe.Pointer, key uint64) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/utils/cbor/fastcbor/alloc.go:64:1
+
+[unsupported]: inc or dec statement with unsupported type uintptr
+i
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).incDecStmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1949
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).stmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2489
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).forStmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1392
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).stmt
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2493
+
+  src: <JUNO>/utils/cbor/fastcbor/fastcbor.go:78:49
+
+[unsupported]: builtin that isn't an ident
+unsafe.SliceData
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).maybeHandleSpecialBuiltin
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:391
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).callExpr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:447
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).exprSpecial
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1172
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).expr
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:1111
+
+  src: <JUNO>/utils/cbor/fastcbor/plan.go:761:26
+
+10 errors

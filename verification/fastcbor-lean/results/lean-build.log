@@ -1,0 +1,480 @@
+⚠ [974/1146] Replayed Perennial.Std.GMap
+warning: Perennial/Std/GMap.lean:331:14: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Std/GMap.lean:1120:12: This simp argument is unused:
+  hp
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/GMap.lean:1121:12: This simp argument is unused:
+  hp
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/GMap.lean:1175:22: `if_neg` has been deprecated: Use `ite_eq_right` instead
+⚠ [1001/1146] Replayed Perennial.Golang.Defn.PostLang
+warning: Perennial/Golang/Defn/PostLang.lean:111:11: Definition `Perennial.GoSemanticsFunctions.float_ops` of class type is semireducible. Most type class instances should be instance-reducible, so consider marking this
+definition with `@[instance_reducible]`. If it is intentionally semireducible, this warning can be disabled with `set_option warn.classDefReducibility false`.
+⚠ [1067/1146] Replayed Perennial.Golang.Defn
+warning: Perennial/Golang/Defn.lean:28:11: Definition `Perennial.go.Semantics.sem_fn` of class type is semireducible. Most type class instances should be instance-reducible, so consider marking this
+definition with `@[instance_reducible]`. If it is intentionally semireducible, this warning can be disabled with `set_option warn.classDefReducibility false`.
+⚠ [1097/1146] Replayed Perennial.Std.ListBasics
+warning: Perennial/Std/ListBasics.lean:160:41: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Perennial/Std/ListBasics.lean:360:31: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Perennial/Std/ListBasics.lean:363:55: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+⚠ [1111/1146] Replayed Perennial.Std.Word.Automation
+warning: Perennial/Std/Word/Automation.lean:1092:5: Variable name `h1` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h1
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/Word/Automation.lean:1093:5: Variable name `h2` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h2
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/Word/Automation.lean:1129:19: Variable name `h` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/Word/Automation.lean:1141:32: Variable name `hj2` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hj2
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/Word/Automation.lean:1156:5: Variable name `Hf1` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _Hf1
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/Word/Automation.lean:1156:34: Variable name `Hf2` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _Hf2
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [1117/1146] Replayed Perennial.Std.List
+warning: Perennial/Std/List.lean:315:4: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Std/List.lean:315:46: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Std/List.lean:316:4: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+⚠ [1119/1146] Replayed Perennial.Std.ListSplice
+warning: Perennial/Std/ListSplice.lean:28:77: This simp argument is unused:
+  List.length_append
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_drop]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/ListSplice.lean:28:97: This simp argument is unused:
+  List.length_drop
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_append]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/ListSplice.lean:29:77: This simp argument is unused:
+  List.length_append
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_drop]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/ListSplice.lean:29:97: This simp argument is unused:
+  List.length_drop
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_append]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/ListSplice.lean:29:172: This simp argument is unused:
+  List.length_append
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_drop]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Std/ListSplice.lean:29:192: This simp argument is unused:
+  List.length_drop
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [List.length_take, List.length_append]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [1123/1146] Replayed Perennial.Std.ListZ
+warning: Perennial/Std/ListZ.lean:39:6: `if_pos` has been deprecated: Use `ite_eq_left` instead
+⚠ [1125/1146] Replayed Perennial.Std.ListSolver
+warning: Perennial/Std/ListSolver.lean:107:32: Variable name `h` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Std/ListSolver.lean:121:42: Variable name `h` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [1136/1146] Replayed Perennial.Std.RangeSet
+warning: Perennial/Std/RangeSet.lean:29:57: Variable name `h2` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h2
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [1147/1527] Replayed Perennial.Std.Word.MulOverflow
+warning: Perennial/Std/Word/MulOverflow.lean:9:53: Variable name `h0` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _h0
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [1238/1527] Replayed Perennial.GooseLang.Countable
+warning: Perennial/GooseLang/Countable.lean:181:95: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+warning: Perennial/GooseLang/Countable.lean:266:49: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+⚠ [1260/1527] Replayed Perennial.Golang.Theory.ProofMode
+warning: Perennial/Golang/Theory/ProofMode.lean:416:25: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Perennial/Golang/Theory/ProofMode.lean:3200:5: Variable name `hyps` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hyps
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Perennial/Golang/Theory/ProofMode.lean:3751:74: Variable name `bi` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _bi
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [1264/1527] Replayed Perennial.GooseLang.LiftingBytes
+warning: Perennial/GooseLang/LiftingBytes.lean:57:56: This simp argument is unused:
+  BitVec.toNat_lt_twoPow_of_le
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [bytesVal, natBytes_length, bytesNat_natBytes, show (256 : Nat) ^ 1 = 2 ^ 8 from rfl,
+    show (256 : Nat) ^ 2 = 2 ^ 16 from rfl, show (256 : Nat) ^ 4 = 2 ^ 32 from rfl,
+    show (256 : Nat) ^ 8 = 2 ^ 64 from rfl, Nat.mod_eq_of_lt (BitVec.isLt _)]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [1269/1527] Replayed Perennial.Golang.Theory.PostLifting
+warning: Perennial/Golang/Theory/PostLifting.lean:616:0: Definition `Perennial.heapTypedPointsto` of class type is semireducible. Most type class instances should be instance-reducible, so consider marking this
+definition with `@[instance_reducible]`. If it is intentionally semireducible, this warning can be disabled with `set_option warn.classDefReducibility false`.
+⚠ [1281/1527] Replayed Perennial.Golang.Theory.Assume
+warning: Perennial/Golang/Theory/Assume.lean:69:34: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_true h1]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:72:36: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_true h2]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:79:37: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h2, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:79:57: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h2, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:82:37: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h3, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:82:57: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h3, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:87:35: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h1, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:87:55: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h1, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:90:36: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_true h3]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:93:38: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_true h4]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:100:39: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h4, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:100:59: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h4, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:105:37: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h3, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:105:57: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false h3, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:145:10: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Perennial/Golang/Theory/Assume.lean:134:35: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false hx, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:134:55: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false hx, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:143:37: This simp argument is unused:
+  Bool.false_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false hy, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Assume.lean:143:57: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [decide_eq_false hy, Bool.false_eq_true]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [1303/1527] Replayed Perennial.Golang.Theory.Array
+warning: Perennial/Golang/Theory/Array.lean:269:68: This simp argument is unused:
+  ↓reduceIte
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [show ((k : Int) < n) = True from eq_true (by omega)]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Array.lean:402:10: `List.take_succ` has been deprecated: Use `List.take_add_one` instead
+⚠ [1308/1527] Replayed Perennial.Golang.Theory.Map
+warning: Perennial/Golang/Theory/Map.lean:142:50: `List.Sublist.cons₂` has been deprecated: Use `List.Sublist.cons_cons` instead
+warning: Perennial/Golang/Theory/Map.lean:294:12: `if_neg` has been deprecated: Use `ite_eq_right` instead
+warning: Perennial/Golang/Theory/Map.lean:289:16: This simp argument is unused:
+  interface_mkOk_inj
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [ht]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Map.lean:463:19: This simp argument is unused:
+  GMap.lookup_insert
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Map.lean:475:19: This simp argument is unused:
+  GMap.lookup_delete
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: Perennial/Golang/Theory/Map.lean:1138:8: `if_pos` has been deprecated: Use `ite_eq_left` instead
+warning: Perennial/Golang/Theory/Map.lean:1144:8: `if_neg` has been deprecated: Use `ite_eq_right` instead
+⚠ [1346/1527] Replayed Perennial.Proof.github_com.mit_pdos.perennial.goose.model.strings.StringToByteSlice
+warning: Perennial/Proof/github_com/mit_pdos/perennial/goose/model/strings/StringToByteSlice.lean:78:35: This simp argument is unused:
+  decide_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [Bool.false_eq_true, ↓reduceIte]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [1348/1527] Replayed Perennial.Proof.github_com.mit_pdos.perennial.goose.model.strings.decoderune_
+warning: Perennial/Proof/github_com/mit_pdos/perennial/goose/model/strings/decoderune_.lean:33:6: `if_pos` has been deprecated: Use `ite_eq_left` instead
+⚠ [1372/1527] Replayed Perennial.Golang.Theory.Lock
+warning: Perennial/Golang/Theory/Lock.lean:65:13: This simp argument is unused:
+  typedPointsto_bool
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [typedPointstoDef_heap]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [1375/1527] Replayed Perennial.Proof.github_com.goose_lang.primitive.Base
+warning: Perennial/Proof/github_com/goose_lang/primitive/Base.lean:42:8: The declaration 'wp_RandomUint64__impl' contains '__', which does not follow the Iris-Lean naming conventions. Consider using single underscores instead.
+
+Note: This linter can be disabled with `set_option linter.iris.style.nameCheck false`
+⚠ [1439/1527] Replayed Perennial.Golang.Theory.Chan.AuSpec.ChanAuBase
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:521:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:542:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:558:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:574:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:595:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:611:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: Perennial/Golang/Theory/Chan/AuSpec/ChanAuBase.lean:628:6: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+⚠ [1495/1527] Replayed Perennial.GeneratedProof.sync
+warning: Perennial/GeneratedProof/sync.lean:253:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/sync.lean:257:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/sync.lean:471:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/sync.lean:475:23: declaration uses `sorry`
+⚠ [1499/1527] Replayed Perennial.GeneratedProof.reflect
+warning: Perennial/GeneratedProof/reflect.lean:27:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:31:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:46:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:50:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:65:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:69:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:84:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:88:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:103:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:107:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:122:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:126:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:141:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:145:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:160:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:164:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:179:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:183:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:198:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:202:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:217:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:221:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:236:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:240:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:255:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:259:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:274:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:278:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:293:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:297:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:312:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:316:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:331:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:335:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:350:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:354:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:369:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:373:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:388:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:392:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:407:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:411:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:426:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:430:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:445:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:449:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:464:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:468:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:483:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:487:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:502:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:506:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:521:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:525:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:540:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:544:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:559:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:563:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:578:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:582:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:597:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:601:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:616:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:620:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:635:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:639:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:654:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:658:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:673:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:677:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:692:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:696:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:711:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/reflect.lean:715:23: declaration uses `sorry`
+⚠ [1523/1527] Replayed Perennial.GeneratedProof.fmt
+warning: Perennial/GeneratedProof/fmt.lean:429:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/fmt.lean:433:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/fmt.lean:721:23: declaration uses `sorry`
+warning: Perennial/GeneratedProof/fmt.lean:725:23: declaration uses `sorry`
+ℹ [1525/1527] Replayed FastcborCheck.MemoryBoundary
+info: FastcborCheck/MemoryBoundary.lean:24:0: 'Perennial.feltPlainLayout' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: FastcborCheck/MemoryBoundary.lean:25:0: 'Perennial.feltCastSteps' depends on axioms: [propext, Classical.choice, Quot.sound]
+Build completed successfully (1527 jobs).

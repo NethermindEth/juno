@@ -1,0 +1,102 @@
+[
+  {
+    "case": "go-tests",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-go-build",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "full-goose",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "filtered-goose",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "filtered-proofgen",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-external",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "probe-genericarray",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "probe-genericsize",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "probe-language",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-opaqueunsafe",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-plainunsafe",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-pool",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-reflection",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "probe-slicedata",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "probe-uintptrinc",
+    "exit": 1,
+    "expected_exit": 1
+  },
+  {
+    "case": "proofgen",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "core-goose",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "core-proofgen",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "lean-build",
+    "exit": 0,
+    "expected_exit": 0
+  },
+  {
+    "case": "boundary-axioms",
+    "exit": 0,
+    "expected_exit": 0
+  }
+]

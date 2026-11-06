@@ -1,0 +1,20 @@
+{
+  "juno": "a4a67242cc67f3855915a97bf4e79a97d217fae4",
+  "perennial": "84d5380639a38f56cd517f1e81246fad7be5b21b",
+  "sha256": {
+    "utils/cbor/fastcbor/alloc.go": "50234636caf6cad579dc6215d058675b0f4aa9f8ed9533b447ec129f0881668d",
+    "utils/cbor/fastcbor/fastcbor.go": "dfdf33391d80c82f6b54c4c27e804d27f606893ec1f1c5624c4b5ff6245cf5e3",
+    "utils/cbor/fastcbor/generic.go": "8300fcfcbe340451ad35cb1d2c1956659e1288404e3bf4298810109637439aa3",
+    "utils/cbor/fastcbor/helpers.go": "c8fb03ddb03293a8ae82a4b958c4c0476cdab2b234e24db808ac74041113940c",
+    "utils/cbor/fastcbor/plan.go": "fab2f3ef07e9396d5f9ff6c8132960708ac5c94819336a33db778e9740241a77",
+    "utils/cbor/fastcbor/readers.go": "0516413618998a7d39efc34da99eec1bb029c53114f34875b26df96b92551ff0",
+    "utils/cbor/fastcbor/register.go": "7fd1ec31036decc66f24fefaee44e95b9dd68358d0904a947fa1b97c720e6578",
+    "utils/cbor/fastcbor/state_update.go": "620dd52fd8c9543f4f762ef1396931a871059544e4fa3b31bad8956080b1a38d",
+    "utils/cbor/internal/cursor/cursor.go": "18411a9b59fcbacfb64ed917f4d775f491989fd0cb5bea2c94bb77c34495cbd4",
+    "utils/cbor/internal/cursor/errors.go": "3794caf00cb66deb6ac5c84ba12275614f2ac7d54c153b96bb99293031bf000e",
+    "utils/cbor/internal/cursor/felt.go": "c02233a3802abbb812ff64a9adda360e1a2a3ebc07b35a6667ce4eca52f86e3c",
+    "utils/cbor/internal/cursor/fields.go": "03827c05d6a8b00529451a5145e3b9aa77d2e8123e9b89b9a170fe94f95efc09",
+    "utils/cbor/internal/cursor/skip.go": "eca8420bf7b8399fdaece3b2aa709100a67b33af64d5b6925c0a23dbae3abaef",
+    "utils/cbor/internal/cursor/values.go": "deca403ecf69f280e8e405759cda3586d6dca381c69f2b7d974cec08aecff0d5"
+  }
+}

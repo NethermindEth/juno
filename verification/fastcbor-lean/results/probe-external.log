@@ -1,0 +1,16 @@
+conversion failed: [unsupported]: external function
+//go:linkname unsafe_New reflect.unsafe_New
+func unsafe_New(*runtimeType) unsafe.Pointer
+  goose call stack:
+  github.com/mit-pdos/perennial/goose.(*Ctx).funcDecl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2649
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).decl
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/goose.go:2995
+↻ github.com/mit-pdos/perennial/goose.(*Ctx).files.func3
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:53
+↻ github.com/mit-pdos/perennial/goose.(*errorCatcher).do
+  <JUNO>/verification/fastcbor-lean/.tools/perennial/goose/interface.go:33
+
+  src: <JUNO>/verification/fastcbor-lean/probes/external/probe.go:8:1
+
+1 errors
