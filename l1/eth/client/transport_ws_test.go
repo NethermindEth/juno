@@ -22,6 +22,9 @@ func newTestClient(t *testing.T, srv *clienttest.TestServer, opts ...client.Opti
 	cli, err := client.New(t.Context(), srv.WSURL(), opts...)
 	require.NoError(t, err)
 	t.Cleanup(cli.Close)
+	// wait for server to register the ws conn
+	require.Eventually(t, func() bool { return srv.WSConnCount() == 1 },
+		time.Second, time.Millisecond, "server never registered the conn")
 	return cli
 }
 
