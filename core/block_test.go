@@ -234,6 +234,58 @@ func TestBlockHash(t *testing.T) {
 	})
 }
 
+// Early mainnet blocks have no sequencer address: the feeder gateway serves it as null and
+// the JSON-RPC as zero. Their hashes commit to either zero or the network's fallback address.
+func TestVerifyBlockHashWithoutSequencerAddress(t *testing.T) {
+	t.Parallel()
+	network := &networks.Mainnet
+	client := feeder.NewTestClient(t, network)
+
+	t.Run("block 1466 commits to the fallback sequencer address", func(t *testing.T) {
+		t.Parallel()
+		block := adaptfeedertest.Block(t, client, 1466)
+		require.Nil(t, block.SequencerAddress)
+
+		hash, _, err := core.BlockHash(
+			block, nil, network, new(felt.Zero[felt.Felt]()), testTrieBackend(),
+		)
+		require.NoError(t, err)
+		assert.NotEqual(t, block.Hash, &hash)
+
+		hash, _, err = core.BlockHash(
+			block, nil, network, network.BlockHashMetaInfo.FallBackSequencerAddress, testTrieBackend(),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, block.Hash, &hash)
+	})
+
+	for _, number := range []uint64{833, 1059, 1466} {
+		block := adaptfeedertest.Block(t, client, number)
+		require.Nil(t, block.SequencerAddress)
+
+		t.Run(fmt.Sprintf("block %d with a null sequencer address", number), func(t *testing.T) {
+			t.Parallel()
+			commitments, err := core.VerifyBlockHash(block, network, nil, testTrieBackend())
+			require.NoError(t, err)
+			assert.NotNil(t, commitments)
+		})
+
+		zeroAddressBlock := *block
+		zeroAddressHeader := *block.Header
+		zeroAddressHeader.SequencerAddress = new(felt.Zero[felt.Felt]())
+		zeroAddressBlock.Header = &zeroAddressHeader
+
+		t.Run(fmt.Sprintf("block %d with a zero sequencer address", number), func(t *testing.T) {
+			t.Parallel()
+			commitments, err := core.VerifyBlockHash(
+				&zeroAddressBlock, network, nil, testTrieBackend(),
+			)
+			require.NoError(t, err)
+			assert.NotNil(t, commitments)
+		})
+	}
+}
+
 //nolint:dupl
 func Test0132BlockHash(t *testing.T) {
 	t.Parallel()

@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,7 @@ func (f fixtureBlock) String() string {
 
 var (
 	mainnet0                  = fixtureBlock{&networks.Mainnet, 0}
+	mainnet1466               = fixtureBlock{&networks.Mainnet, 1466}
 	mainnet2889               = fixtureBlock{&networks.Mainnet, 2889}
 	mainnet16697              = fixtureBlock{&networks.Mainnet, 16697}
 	mainnet763497             = fixtureBlock{&networks.Mainnet, 763497}
@@ -181,6 +183,33 @@ func TestAdaptBlock(t *testing.T) {
 	for _, fixture := range fixtures {
 		t.Run(fixture.String(), func(t *testing.T) {
 			assertBlockRoundTrip(t, fixture.network, coreBlock(t, fixture))
+		})
+	}
+}
+
+// The wire format serves an absent sequencer address as zero, so early mainnet blocks must
+// still verify once adapted, including those whose hash commits to the fallback address.
+func TestAdaptBlockVerifiesBlockHash(t *testing.T) {
+	trieBackend := core.DeprecatedTrieBackend
+	if statetestutils.UseNewState() {
+		trieBackend = core.TrieBackend
+	}
+
+	fixtures := []fixtureBlock{
+		mainnet0,    // pre-0.7 hash, which ignores the sequencer address
+		mainnet1466, // no sequencer address, hash commits to the fallback address
+		mainnet2889, // sequencer address present
+	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.String(), func(t *testing.T) {
+			block := coreBlock(t, fixture)
+			adapted, err := rpc2core.AdaptBlock(servedBlock(t, block), fixture.network)
+			require.NoError(t, err)
+			require.Equal(t, expectedBlock(block), adapted)
+
+			commitments, err := core.VerifyBlockHash(&adapted, fixture.network, nil, trieBackend)
+			require.NoError(t, err)
+			assert.NotNil(t, commitments)
 		})
 	}
 }

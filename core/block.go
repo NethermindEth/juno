@@ -139,7 +139,9 @@ func VerifyBlockHash(
 
 	// A nil override means the block hash uses the header's own sequencer address.
 	fallbackSeqAddresses := []*felt.Felt{nil}
-	if b.SequencerAddress == nil {
+	// Some early blocks have no sequencer address: the feeder gateway serves it as null and
+	// the JSON-RPC as zero. Their hash commits to either zero or the network's fallback address.
+	if b.SequencerAddress == nil || b.SequencerAddress.IsZero() {
 		fallbackSeqAddresses[0] = new(felt.Zero[felt.Felt]())
 		if metaInfo.FallBackSequencerAddress != nil {
 			fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
