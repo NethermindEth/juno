@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebblev2"
 	"github.com/NethermindEth/juno/db/remote"
+	"github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
@@ -199,6 +200,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	value.SetFastCborLogger(logger)
 
 	if cfg.DisableSync {
 		if cfg.Sequencer {

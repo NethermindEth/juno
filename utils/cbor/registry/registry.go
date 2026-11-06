@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
 
 var once sync.Once
@@ -43,6 +44,16 @@ func init() {
 			if err != nil {
 				panic(err)
 			}
+			// fastcbor reads the tag that was just given, which a value of the type starts with.
+			encoded, err := cbor.Marshal(reflect.New(t).Elem().Interface())
+			if err != nil {
+				panic(err)
+			}
+			tag, err := fastcbor.TagOf(encoded)
+			if err != nil {
+				panic(err)
+			}
+			fastcbor.RegisterType(t, tag)
 		}
 	})
 }
