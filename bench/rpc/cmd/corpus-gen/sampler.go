@@ -16,6 +16,7 @@ type samplerInput[T any] struct {
 	ctx    context.Context
 	client *rpcClient
 	rng    *rand.Rand
+	index  int
 	args   *T
 	cache  *sierraCache
 }
@@ -32,6 +33,7 @@ func (input samplerInput[T]) rebindArgs[U any](args *U) samplerInput[U] {
 		ctx:    input.ctx,
 		client: input.client,
 		rng:    input.rng,
+		index:  input.index,
 		args:   args,
 		cache:  input.cache,
 	}
@@ -60,11 +62,12 @@ func (cfg *rootConfig) newSampledCmd[T any, PT interface {
 	PT(args).bind(cmd, client)
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		cache := newSierraCache()
-		gen := func(ctx context.Context, rng *rand.Rand) (any, error) {
+		gen := func(ctx context.Context, rng *rand.Rand, index int) (any, error) {
 			input := samplerInput[T]{
 				ctx:    ctx,
 				client: client,
 				rng:    rng,
+				index:  index,
 				args:   args,
 				cache:  cache,
 			}

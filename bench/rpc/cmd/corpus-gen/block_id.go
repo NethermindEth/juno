@@ -77,9 +77,8 @@ func resolveBlockID(
 }
 
 func blockIDSampler(input samplerInput[blockIDArgs]) (blockIDParams, error) {
-	id, err := resolveBlockID(
-		input.ctx, input.client, input.args.BlockIDKind, input.args.sampleBlockNumber(input.rng),
-	)
+	blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
+	id, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, blockNumber)
 	if err != nil {
 		return blockIDParams{}, err
 	}

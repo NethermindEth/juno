@@ -131,7 +131,7 @@ func eventsSampler(input samplerInput[eventsArgs]) (eventsParams, error) {
 }
 
 func sampleAnchor(input samplerInput[eventsArgs]) (uint64, receiptEvent, []receiptEvent, error) {
-	number := input.args.sampleBlockNumber(input.rng)
+	number := input.args.sampleBlockNumber(input.rng, input.index)
 	if input.args.Addresses == 0 && len(input.args.Keys) == 0 {
 		return number, receiptEvent{}, nil, nil
 	}

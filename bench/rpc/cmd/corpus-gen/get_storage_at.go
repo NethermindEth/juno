@@ -18,7 +18,7 @@ func (a *storageAtArgs) bind(cmd *cobra.Command, client *rpcClient) {
 }
 
 func storageAtSampler(input samplerInput[storageAtArgs]) (storageAtParams, error) {
-	blockNumber := input.args.sampleBlockNumber(input.rng)
+	blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
 	update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 	if err != nil {
 		return storageAtParams{}, err
