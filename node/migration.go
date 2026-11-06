@@ -20,7 +20,8 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 )
 
-const CompactFeltMigrationName = "compact-felt"
+// compactFeltEnableHint tells the operator how to enable the compact felt migration.
+const compactFeltEnableHint = "build with -tags compactfelt"
 
 // registerMigrations creates and configures the migration registry with all migrations.
 // This is where all migrations should be registered. Optional migrations can use
@@ -31,12 +32,12 @@ func registerMigrations(cfg *Config) *migration.Registry {
 		WithOptional(
 			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
 			cfg.Prune,
-			PruneModeFlag,
+			"set the --"+PruneModeFlag+" flag",
 		).
-		WithOptional(newstate.New(), cfg.NewState, "new-state").
+		WithOptional(newstate.New(), cfg.NewState, "set the --new-state flag").
 		With(&statedifflength.Migrator{}).
 		With(&blockeventsbloom.Migrator{}).
-		WithOptional(&compactfelt.Migrator{}, felt.CompactWrites, CompactFeltMigrationName)
+		WithOptional(&compactfelt.Migrator{}, felt.CompactWrites, compactFeltEnableHint)
 
 	return registry
 }
