@@ -36,7 +36,10 @@ func (z *Typed[K]) UnmarshalCBOR(data []byte) error {
 		return fmt.Errorf("decoding felt: %w", err)
 	}
 	if consumed != len(data) {
-		return fmt.Errorf("decoding felt: %w", errFeltTrailingBytes)
+		return fmt.Errorf(
+			"decoding felt: %w: input has %d bytes but the felt encoding ends after %d",
+			errFeltTrailingBytes, len(data), consumed,
+		)
 	}
 	*(*fp.Element)(z) = decoded
 	return nil
@@ -148,10 +151,12 @@ func decodeCompact(data []byte, value *fp.Element) (int, error) {
 			return 0, err
 		}
 		if length > feltByteLen {
-			return 0, errFeltTooLong
+			return 0, fmt.Errorf("%w: got %d", errFeltTooLong, length)
 		}
-		if len(data)-offset < length {
-			return 0, errFeltTruncated
+		if available := len(data) - offset; available < length {
+			return 0, fmt.Errorf(
+				"%w: header declares %d bytes, got %d", errFeltTruncated, length, available,
+			)
 		}
 		if err := decodeByteStringBody(data[offset:offset+length], value); err != nil {
 			return 0, err
@@ -171,11 +176,11 @@ func decodeByteStringHeader(data []byte) (length, offset int, err error) {
 		return int(additionalInfo), 1, nil
 	case additionalInfo == cborUint8AdditionalInfo && len(data) >= 2:
 		if data[1] < cborUint8AdditionalInfo {
-			return 0, 0, errFeltLengthHeader
+			return 0, 0, fmt.Errorf("%w: length %d must be in the header byte", errFeltLengthHeader, data[1])
 		}
 		return int(data[1]), 2, nil
 	case additionalInfo == cborUint8AdditionalInfo:
-		return 0, 0, errFeltTruncated
+		return 0, 0, fmt.Errorf("%w: missing the length byte", errFeltTruncated)
 	default:
 		// Wider length headers and indefinite lengths never hold a felt
 		return 0, 0, errFeltLengthEncoding

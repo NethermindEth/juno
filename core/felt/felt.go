@@ -252,7 +252,7 @@ func (z *Typed[K]) SetMinimalBytes(data []byte) error {
 	case len(data) == 0:
 		return errFeltEmpty
 	case len(data) > feltByteLen:
-		return errFeltTooLong
+		return fmt.Errorf("%w: got %d", errFeltTooLong, len(data))
 	}
 	var buffer [feltByteLen]byte
 	copy(buffer[feltByteLen-len(data):], data)
