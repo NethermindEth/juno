@@ -284,8 +284,7 @@ func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.F
 }
 
 // Returns the value at the given block number.
-// Seeks to the entry for blockNum if it exists; otherwise steps back to the
-// last recorded block strictly less than blockNum. Returns ErrNoHistoryValue
+// Reads the last recorded entry at or before blockNum. Returns ErrNoHistoryValue
 // if no entry exists at or before blockNum.
 //
 // Each history entry stores the post-update value at the block it was written.
