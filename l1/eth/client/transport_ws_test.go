@@ -1,4 +1,4 @@
-package client
+package client_test
 
 import (
 	"context"
@@ -9,34 +9,32 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/l1/eth/client"
 	"github.com/NethermindEth/juno/l1/internal/clienttest"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newTestTransport(t *testing.T, srv *clienttest.TestServer, opts ...Option) *wsTransport {
+func newTestClient(t *testing.T, srv *clienttest.TestServer, opts ...client.Option) *client.Client {
 	t.Helper()
-	o := options{logger: log.NewNopZapLogger()}
-	for _, opt := range opts {
-		opt(&o)
-	}
-	tr, err := dialWS(t.Context(), srv.WSURL(), o)
+	opts = append([]client.Option{client.WithLogger(log.NewNopZapLogger())}, opts...)
+	cli, err := client.New(t.Context(), srv.WSURL(), opts...)
 	require.NoError(t, err)
-	t.Cleanup(tr.close)
-	return tr
+	t.Cleanup(cli.Close)
+	return cli
 }
 
 func TestWS_UnaryCall(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
-		require.Equal(t, "eth_chainId", req.Method)
+		assert.Equal(t, "eth_chainId", req.Method)
 		return "0x539", nil
 	})
 
-	tr := newTestTransport(t, srv)
+	cli := newTestClient(t, srv)
 
-	raw, err := tr.call(t.Context(), "eth_chainId")
+	raw, err := cli.Call(t.Context(), "eth_chainId")
 	require.NoError(t, err)
 	assert.Equal(t, `"0x539"`, string(raw))
 }
@@ -54,22 +52,21 @@ func TestWS_ContextCancelMidCall(t *testing.T) {
 		return "0x0", nil
 	})
 
-	tr := newTestTransport(t, srv)
+	cli := newTestClient(t, srv)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		<-received
 		cancel()
 	}()
-	_, err := tr.call(ctx, "eth_chainId")
+	_, err := cli.Call(ctx, "eth_chainId")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
 }
 
-func TestWS_PingLoopFires(t *testing.T) {
+func TestWS_PingsServerPeriodically(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
-	tr := newTestTransport(t, srv, WithPingConfig(20*time.Millisecond, time.Second))
-	_ = tr
+	newTestClient(t, srv, client.WithPingConfig(20*time.Millisecond, time.Second))
 
 	require.Eventually(t, func() bool {
 		return srv.PingsReceived() >= 3
@@ -77,43 +74,31 @@ func TestWS_PingLoopFires(t *testing.T) {
 		"expected >= 3 pings within window; got %d", srv.PingsReceived())
 }
 
-func TestWS_PingTimeoutClosesTransport(t *testing.T) {
+func TestWS_UnansweredPingClosesConn(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
 	srv.SetDropPings(true)
-	tr := newTestTransport(t, srv, WithPingConfig(20*time.Millisecond, 50*time.Millisecond))
+	cli := newTestClient(t, srv, client.WithPingConfig(20*time.Millisecond, 50*time.Millisecond))
 
-	select {
-	case <-tr.closed:
-	case <-time.After(2 * time.Second):
-		t.Fatal("transport did not shut down after ping timeout")
-	}
-	_, err := tr.call(t.Context(), "eth_chainId")
-	require.ErrorIs(t, err, ErrTransportClosed)
+	require.Eventually(t, func() bool { return srv.WSConnCount() == 0 },
+		2*time.Second, 10*time.Millisecond, "conn not closed after ping timeout")
+	_, err := cli.Call(t.Context(), "eth_chainId")
+	require.ErrorIs(t, err, client.ErrTransportClosed)
 }
 
-func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
-	const subID = "0xabc"
+func TestWS_MalformedFramesDoNotBreakClient(t *testing.T) {
 	srv := clienttest.NewTestServer(t)
-	srv.SetHandler(func(req clienttest.TestRequest) (any, *clienttest.TestRPCError) {
-		switch req.Method {
-		case "eth_subscribe":
-			return subID, nil
-		case "eth_unsubscribe":
-			return true, nil
-		case "eth_chainId":
-			return "0x1", nil
-		}
-		return nil, &clienttest.TestRPCError{Code: -32601, Message: req.Method}
+	srv.SetHandler(func(_ clienttest.TestRequest) (any, *clienttest.TestRPCError) {
+		return "0x1", nil
 	})
 
-	tr := newTestTransport(t, srv)
+	cli := newTestClient(t, srv)
 
 	frames := [][]byte{
 		// Unparseable top-level JSON.
 		[]byte(`{not json`),
-		// No id and no recognised method → "drop frame" branch.
+		// No id and an unknown method.
 		[]byte(`{"jsonrpc":"2.0","method":"unknown_method"}`),
-		// Response with a string id that isn't numeric — parseResponseID errors.
+		// Response with a non-numeric id.
 		[]byte(`{"jsonrpc":"2.0","id":"not-a-number","result":"0x1"}`),
 		// Response with a numeric id that doesn't match any in-flight call.
 		[]byte(`{"jsonrpc":"2.0","id":999999,"result":"0x1"}`),
@@ -122,7 +107,7 @@ func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
 			`"params":{"subscription":"0xdead","result":{}}}`),
 		// Notification with broken envelope (decode fails on params).
 		[]byte(`{"jsonrpc":"2.0","method":"eth_subscription","params":"oops"}`),
-		// Response with malformed body (id present, but result not decodable as JSON).
+		// Truncated response.
 		[]byte(`{"jsonrpc":"2.0","id":1,"result":`),
 	}
 	for _, f := range frames {
@@ -130,7 +115,7 @@ func TestWS_DispatchDropsMalformedFrames(t *testing.T) {
 			"server-side write should not fail")
 	}
 
-	raw, err := tr.call(t.Context(), "eth_chainId")
+	raw, err := cli.Call(t.Context(), "eth_chainId")
 	require.NoError(t, err, "transport must survive every malformed frame")
 	assert.Equal(t, `"0x1"`, string(raw))
 }
@@ -153,7 +138,7 @@ func TestWS_ConcurrentCallsGetTheirOwnReplies(t *testing.T) {
 		return tag, nil
 	})
 
-	tr := newTestTransport(t, srv)
+	cli := newTestClient(t, srv)
 
 	const goroutines, callsEach = 8, 25
 	var wg sync.WaitGroup
@@ -163,13 +148,13 @@ func TestWS_ConcurrentCallsGetTheirOwnReplies(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := range callsEach {
-				want := fmt.Sprintf("%q", fmt.Sprintf("0x%x", uint64(g*callsEach+i+1)))
-				raw, err := tr.call(t.Context(), "eth_getBlockByNumber", fmt.Sprintf("0x%x", uint64(g*callsEach+i+1)))
+				tag := fmt.Sprintf("0x%x", uint64(g*callsEach+i+1))
+				raw, err := cli.Call(t.Context(), "eth_getBlockByNumber", tag)
 				if err != nil {
 					errCh <- err
 					return
 				}
-				if string(raw) != want {
+				if want := fmt.Sprintf("%q", tag); string(raw) != want {
 					errCh <- fmt.Errorf("cross-wired reply: got %s, want %s", raw, want)
 					return
 				}
@@ -184,7 +169,7 @@ func TestWS_ConcurrentCallsGetTheirOwnReplies(t *testing.T) {
 }
 
 // TestWS_CloseRacesInFlightCalls verifies no caller hangs or panics when the
-// client closes with calls in flight: each gets a result or ErrTransportClosed.
+// client closes with calls in flight: each returns client.ErrTransportClosed.
 func TestWS_CloseRacesInFlightCalls(t *testing.T) {
 	received := make(chan struct{}, 1)
 	gate := make(chan struct{})
@@ -199,27 +184,36 @@ func TestWS_CloseRacesInFlightCalls(t *testing.T) {
 		return "0x1", nil
 	})
 
-	tr := newTestTransport(t, srv)
+	cli := newTestClient(t, srv)
 
 	const callers = 16
 	done := make(chan error, callers)
 	for range callers {
 		go func() {
-			_, err := tr.call(t.Context(), "eth_chainId")
+			_, err := cli.Call(t.Context(), "eth_chainId")
 			done <- err
 		}()
 	}
 
 	<-received // at least one call is in the server's hands
-	tr.close()
+	cli.Close()
 
 	for range callers {
 		select {
 		case err := <-done:
 			require.Error(t, err)
-			require.ErrorIs(t, err, ErrTransportClosed)
+			require.ErrorIs(t, err, client.ErrTransportClosed)
 		case <-time.After(5 * time.Second):
 			t.Fatal("caller hung after Close")
 		}
 	}
+}
+
+func TestWS_NewFailsWhenServerUnreachable(t *testing.T) {
+	srv := clienttest.NewTestServer(t)
+	url := srv.WSURL()
+	srv.Close()
+
+	_, err := client.New(t.Context(), url, client.WithDialTimeout(time.Second))
+	require.Error(t, err)
 }
