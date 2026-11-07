@@ -31,6 +31,8 @@ func (f fixtureBlock) String() string {
 
 var (
 	mainnet0                  = fixtureBlock{&networks.Mainnet, 0}
+	mainnet833                = fixtureBlock{&networks.Mainnet, 833}
+	mainnet1466               = fixtureBlock{&networks.Mainnet, 1466}
 	mainnet2889               = fixtureBlock{&networks.Mainnet, 2889}
 	mainnet16697              = fixtureBlock{&networks.Mainnet, 16697}
 	mainnet763497             = fixtureBlock{&networks.Mainnet, 763497}
@@ -74,13 +76,12 @@ func servedBlock(t *testing.T, block *core.Block) *rpcv10.BlockWithReceipts {
 
 // expectedBlock is what a client recovers from a served block. The wire format carries no
 // consensus signatures, no L1->L2 message, no proof facts unless requested and no execution
-// resources beyond the gas totals; the server serves an absent sequencer as zero, absent gas
-// prices as one, an absent L1 handler nonce as zero, no nonce for version 0 transactions and
-// the fee unit of the transaction version.
+// resources beyond the gas totals; the server serves absent gas prices as one, an absent L1
+// handler nonce as zero, no nonce for version 0 transactions and the fee unit of the
+// transaction version.
 func expectedBlock(block *core.Block) core.Block {
 	header := *block.Header
 	header.Signatures = [][]*felt.Felt{}
-	header.SequencerAddress = cmp.Or(header.SequencerAddress, new(felt.Zero[felt.Felt]()))
 	header.L1GasPriceETH = cmp.Or(header.L1GasPriceETH, new(felt.One[felt.Felt]()))
 	header.L1GasPriceSTRK = cmp.Or(header.L1GasPriceSTRK, new(felt.One[felt.Felt]()))
 	header.L1DataGasPrice = servedGasPrice(header.L1DataGasPrice)
@@ -165,6 +166,7 @@ func assertBlockRoundTrip(t *testing.T, network *networks.Network, block *core.B
 func TestAdaptBlock(t *testing.T) {
 	fixtures := []fixtureBlock{
 		mainnet0,                  // deploy and invoke v0 without a protocol version or gas prices
+		mainnet1466,               // no sequencer address, hashed with the fallback
 		mainnet2889,               // declare v0 and L1 handler
 		goerli485004,              // deploy v1, deploy account v1 and invoke v1
 		mainnet16697,              // declare v1
@@ -181,6 +183,46 @@ func TestAdaptBlock(t *testing.T) {
 	for _, fixture := range fixtures {
 		t.Run(fixture.String(), func(t *testing.T) {
 			assertBlockRoundTrip(t, fixture.network, coreBlock(t, fixture))
+		})
+	}
+}
+
+func TestAdaptBlockVerifiesHash(t *testing.T) {
+	fixtures := []fixtureBlock{
+		mainnet833,  // no sequencer address, hashed with zero
+		mainnet1466, // no sequencer address, hashed with the fallback
+	}
+
+	for _, fixture := range fixtures {
+		t.Run(fixture.String(), func(t *testing.T) {
+			served := servedBlock(t, coreBlock(t, fixture))
+			adapted, err := rpc2core.AdaptBlock(served, fixture.network)
+			require.NoError(t, err)
+
+			_, err = core.VerifyBlockHash(&adapted, fixture.network, nil, core.TrieBackend)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestAdaptBlockZeroSequencer(t *testing.T) {
+	tests := []struct {
+		fixture fixtureBlock
+		want    *felt.Felt
+	}{
+		{fixture: mainnet1466, want: nil},
+		{fixture: mainnet763497, want: new(felt.Zero[felt.Felt]())},
+		{fixture: sepoliaIntegration64164, want: new(felt.Zero[felt.Felt]())},
+	}
+
+	for _, test := range tests {
+		t.Run(test.fixture.String(), func(t *testing.T) {
+			served := servedBlock(t, coreBlock(t, test.fixture))
+			served.SequencerAddress = new(felt.Zero[felt.Felt]())
+
+			adapted, err := rpc2core.AdaptBlock(served, test.fixture.network)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, adapted.SequencerAddress)
 		})
 	}
 }
@@ -297,6 +339,12 @@ func TestAdaptBlockErrors(t *testing.T) {
 			fixture: sepoliaIntegration35749,
 			mutate:  func(t *testing.T, block *rpcv10.BlockWithReceipts) { block.L1DAMode = 7 },
 			err:     "block 35749: header has unknown l1_da_mode 7",
+		},
+		{
+			name:    "header unparsable starknet_version",
+			fixture: sepoliaIntegration35749,
+			mutate:  func(t *testing.T, block *rpcv10.BlockWithReceipts) { block.StarknetVersion = "0.x" },
+			err:     `block 35749: cannot parse starknet protocol version "0.x"`,
 		},
 		{
 			name:    "receipt missing transaction_hash",

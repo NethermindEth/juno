@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -77,6 +78,11 @@ func adaptHeader(
 		return core.Header{}, fmt.Errorf("header is missing %s", missingField)
 	}
 
+	version, err := core.ParseBlockVersion(header.StarknetVersion)
+	if err != nil {
+		return core.Header{}, err
+	}
+
 	var l1DAMode core.L1DAMode
 	switch header.L1DAMode {
 	case rpcv10.Blob:
@@ -97,7 +103,7 @@ func adaptHeader(
 		ParentHash:       header.ParentHash,
 		Number:           *header.Number,
 		GlobalStateRoot:  header.NewRoot,
-		SequencerAddress: header.SequencerAddress,
+		SequencerAddress: adaptSequencerAddress(header.SequencerAddress, version),
 		TransactionCount: uint64(len(receipts)),
 		EventCount:       eventCount,
 		Timestamp:        header.Timestamp,
@@ -109,6 +115,15 @@ func adaptHeader(
 		L2GasPrice:       new(adaptGasPrice(&header.L2GasPrice)),
 		Signatures:       [][]*felt.Felt{},
 	}, nil
+}
+
+// The server serves an unknown sequencer as zero. Only pre-0.13.2 hashing retries an unknown
+// sequencer with the fallback, and post-0.13.4 hashing panics on one.
+func adaptSequencerAddress(address *felt.Felt, version *semver.Version) *felt.Felt {
+	if address.IsZero() && version.LessThan(core.Ver0_13_2) {
+		return nil
+	}
+	return address
 }
 
 func adaptGasPrice(price *rpcv10.ResourcePrice) core.GasPrice {
