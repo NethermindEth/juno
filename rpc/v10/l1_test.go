@@ -10,13 +10,13 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/core/pending"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/l1/eth"
-	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
+	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -240,5 +240,4 @@ func TestGetMessageStatus(t *testing.T) {
 			})
 		}
 	})
-
 }
