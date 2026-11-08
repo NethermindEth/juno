@@ -10,8 +10,11 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/core/pending"
 	"github.com/NethermindEth/juno/l1/eth"
+	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/stretchr/testify/require"
@@ -160,4 +163,82 @@ func TestGetMessageStatus(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.Empty(t, msgStatuses)
 	})
+
+	t.Run("skip missing execution status without leaving invalid entries", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			logs     []eth.Log
+			statuses []starknet.TransactionStatus
+		}{
+			{
+				name: "candidate only",
+				logs: l1TxnReceipt.Logs,
+				statuses: []starknet.TransactionStatus{
+					{FinalityStatus: starknet.Candidate},
+				},
+			},
+			{
+				name: "candidate before accepted",
+				logs: append(append([]eth.Log{}, l1TxnReceipt.Logs...), l1TxnReceiptSepolia.Logs...),
+				statuses: []starknet.TransactionStatus{
+					{FinalityStatus: starknet.Candidate},
+					{FinalityStatus: starknet.AcceptedOnL2, ExecutionStatus: starknet.Succeeded},
+				},
+			},
+			{
+				name: "candidate after accepted",
+				logs: append(append([]eth.Log{}, l1TxnReceiptSepolia.Logs...), l1TxnReceipt.Logs...),
+				statuses: []starknet.TransactionStatus{
+					{FinalityStatus: starknet.AcceptedOnL2, ExecutionStatus: starknet.Succeeded},
+					{FinalityStatus: starknet.Candidate},
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				reader := mocks.NewMockReader(ctrl)
+				syncReader := mocks.NewMockSyncReader(ctrl)
+				l1Client := mocks.NewMockL1Client(ctrl)
+				feederReader := mocks.NewMockFeederReader(ctrl)
+				handler := rpc.New(reader, syncReader, nil, nil).
+					WithL1Client(l1Client).
+					WithFeeder(feederReader)
+
+				l1Client.EXPECT().TransactionReceipt(gomock.Any(), gomock.Any()).
+					Return(eth.Receipt{Logs: tt.logs}, nil)
+
+				emptyChain := preconfirmed.ChainReader{}
+				syncReader.EXPECT().ReadPreConfirmedChain().
+					Return(emptyChain, db.ErrKeyNotFound).Times(len(tt.statuses))
+				syncReader.EXPECT().RequestPreConfirmedChain().
+					Return(emptyChain, db.ErrKeyNotFound).Times(len(tt.statuses))
+				reader.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
+					Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2 * len(tt.statuses))
+
+				want := make([]rpc.MsgStatus, 0, len(tt.statuses))
+				for i, feederStatus := range tt.statuses {
+					txHash := felt.FromUint64[felt.Felt](uint64(i + 1))
+					reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(txHash, nil)
+					feederReader.EXPECT().TransactionStatus(gomock.Any(), &txHash).
+						Return(feederStatus, nil)
+					if feederStatus.FinalityStatus == starknet.AcceptedOnL2 {
+						want = append(want, rpc.MsgStatus{
+							L1HandlerHash:   &txHash,
+							FinalityStatus:  rpc.TxnStatusAcceptedOnL2,
+							ExecutionStatus: rpc.TxnSuccess,
+						})
+					}
+				}
+
+				got, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
+				require.Nil(t, rpcErr)
+				require.Equal(t, want, got)
+				_, err := json.Marshal(got)
+				require.NoError(t, err)
+			})
+		}
+	})
+
 }
