@@ -1,7 +1,7 @@
 import ProofCheck.GeneratedProof.github_com.NethermindEth.juno.core
 
 import Perennial.Proof.encoding.binary.Base
-import Perennial.Proof.math.big.Base
+import ProofCheck.GeneratedProof.math.big
 import Perennial.Proof.strings.Base
 import Perennial.Proof.slices.Base
 import Perennial.Proof.unsafe.Base
@@ -33,6 +33,11 @@ instance depWf1 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno
 instance depInit2 : IsPkgInit (IProp GF) pkg_id.unicode.utf8 :=
   define_is_pkg_init iprop(True)
 instance depWf2 : GetIsPkgInitWf (IProp GF) pkg_id.unicode.utf8 :=
+  build_get_is_pkg_init_wf
+
+instance depInitBig : IsPkgInit (IProp GF) pkg_id.math.big :=
+  define_is_pkg_init iprop(True)
+instance depWfBig : GetIsPkgInitWf (IProp GF) pkg_id.math.big :=
   build_get_is_pkg_init_wf
 
 instance depInit3 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor :=
@@ -216,6 +221,15 @@ theorem wp_decodeHeaderFirst_nonzero (dst : Loc) (h : Header) (s : GoSlice)
   wp_auto
   wp_end
 
+/-- The actual cleanup operation clears every field, including a partial result. -/
+theorem wp_clearHeader (dst : Loc) (h : Header) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗ dst ↦ h }}
+      (App (Val (@! cborClearHeader)) (Val #dst))
+    {{ RET #(); dst ↦ (zero_val Header) }} := by
+  wp_start as Hdst
+  wp_auto
+  wp_end
+
 /-- The full-input entry rejects a null item with trailing data and clears dst. -/
 theorem wp_decodeHeader_trailing (dst fields : Loc) (s : GoSlice)
     (tail : List w8) (dq : DFrac) (kind : GoInterface) (hmore : tail ≠ []) :
@@ -238,6 +252,8 @@ theorem wp_decodeHeader_trailing (dst fields : Loc) (s : GoSlice)
     word
   simp only [slice.slice, hne, decide_false]
   wp_auto
+  wp_apply wp_clearHeader dst (zero_val Header) $$ [Hdst] with Hdst
+  · iframe Hdst
   wp_alloc err as Herr
   wp_auto
   wp_end
@@ -364,6 +380,8 @@ theorem wp_decodeHeaderFirst_empty (dst fields : Loc) (kind : GoInterface) :
   wp_apply wp_newCursor slice.nil
   wp_apply wp_readHeader_empty _ dst fields (zero_val Header) kind $$ [c Hdst] as %err ⟨Hdst, Hc, Herr⟩
   · iframe c Hdst Hfields Hkind
+  wp_apply wp_clearHeader dst (zero_val Header) $$ [Hdst] with Hdst
+  · iframe Hdst
   wp_end
 
 /-- All 24 inline unsigned integers, with an arbitrary suffix. -/
@@ -433,3 +451,5 @@ end Perennial
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_expect_inline
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_uint64_inline
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_clearHeader

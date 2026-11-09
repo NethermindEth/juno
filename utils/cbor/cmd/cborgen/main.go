@@ -10,6 +10,7 @@ import (
 	"go/types"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -40,8 +41,7 @@ func run(check bool) error {
 		if !ok {
 			return fmt.Errorf("%s is not a struct", name)
 		}
-		fmt.Fprintf(&b, "\nvar cbor%sFields = cursor.NewFields(\n", name)
-		var reads, zeros []string
+		var reads, zeros, names []string
 		for i := 0; i < st.NumFields(); i++ {
 			f := st.Field(i)
 			if !f.Exported() || f.Embedded() {
@@ -51,7 +51,7 @@ func run(check bool) error {
 			if wire == "" {
 				wire = f.Name()
 			}
-			fmt.Fprintf(&b, "%q,\n", wire)
+			names = append(names, wire)
 			typ := types.TypeString(f.Type(), func(p *types.Package) string { return p.Path() })
 			var read, zero string
 			switch typ {
@@ -85,7 +85,9 @@ func run(check bool) error {
 			reads = append(reads, read)
 			zeros = append(zeros, zero)
 		}
-		b.WriteString(")\n")
+		if err := emitFields(&b, name, names); err != nil {
+			return err
+		}
 		fmt.Fprintf(&b, "\nfunc cborZero%s(dst *%s) bool { return %s }\n", name, name, strings.Join(zeros, " && "))
 		fmt.Fprintf(&b, "\nfunc cborRead%s(c *cursor.Cursor, dst *%s) error {\n", name, name)
 		if name == "Header" {
@@ -114,18 +116,21 @@ func cborReadGasPriceSlot(c *cursor.Cursor, dst **GasPrice, shared **[2]GasPrice
 	return nil
 }
 
+// cborClearHeader drops every partially decoded field after an error.
+func cborClearHeader(dst *Header) { *dst=Header{} }
+
 // DecodeHeaderFirst reads one header, enforcing fastcbor's zero-destination contract.
 func DecodeHeaderFirst(data []byte, dst *Header) ([]byte,error) {
  if !cborZeroHeader(dst) {return nil,&fastcbor.DecodeError{Kind:fastcbor.ErrUnsupported,Detail:"the destination is not the zero value"}}
  c:=cursor.NewCursor(data)
- if err:=cborReadHeader(&c,dst);err!=nil {*dst=Header{};return nil,err}
+ if err:=cborReadHeader(&c,dst);err!=nil {cborClearHeader(dst);return nil,err}
  return c.Remaining(),nil
 }
 
 // DecodeHeader reads exactly one header and clears the destination on failure.
 func DecodeHeader(data []byte,dst *Header) error {
  rest,err:=DecodeHeaderFirst(data,dst)
- if err==nil && len(rest)!=0 {*dst=Header{};return &fastcbor.DecodeError{Kind:fastcbor.ErrExtraneousData,Extra:len(rest)}}
+ if err==nil && len(rest)!=0 {cborClearHeader(dst);return &fastcbor.DecodeError{Kind:fastcbor.ErrExtraneousData,Extra:len(rest)}}
  return err
 }
 
@@ -148,4 +153,55 @@ func RegisterTypedCBORReaders() { fastcbor.RegisterTyped[Header](DecodeHeaderFir
 		return nil
 	}
 	return os.WriteFile(path, out, 0644)
+}
+
+// emitFields does every metadata calculation at generation time. The resulting
+// literals are also the inputs to the field-table ownership proofs.
+func emitFields(b *bytes.Buffer, name string, names []string) error {
+	if len(names) > 64 {
+		return fmt.Errorf("%s: more than 64 fields", name)
+	}
+	type entry struct {
+		encoded      string
+		index        int
+		words, masks [3]uint64
+	}
+	entries := make([]entry, len(names))
+	folded := make(map[string]bool, len(names))
+	for i, key := range names {
+		if len(key) >= 256 {
+			return fmt.Errorf("%s: field name too long: %q", name, key)
+		}
+		for _, c := range []byte(key) {
+			if c >= 128 {
+				return fmt.Errorf("%s: non-ASCII field: %q", name, key)
+			}
+		}
+		lower := strings.ToLower(key)
+		if folded[lower] {
+			return fmt.Errorf("%s: duplicate field ignoring case: %q", name, key)
+		}
+		folded[lower] = true
+		head := []byte{0x60 | byte(len(key))}
+		if len(key) >= 24 {
+			head = []byte{0x78, byte(len(key))}
+		}
+		e := entry{encoded: string(head) + key, index: i}
+		for j := 0; j < len(e.encoded) && j < 24; j++ {
+			e.words[j/8] |= uint64(e.encoded[j]) << (j % 8 * 8)
+			e.masks[j/8] |= 0xff << (j % 8 * 8)
+		}
+		entries[i] = e
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].encoded < entries[j].encoded })
+	fmt.Fprintf(b, "\nvar cbor%sFields = cborMake%sFields()\n\nfunc cborMake%sFields() *cursor.Fields {\n return cursor.NewStaticFields([]string{\n", name, name, name)
+	for _, key := range names {
+		fmt.Fprintf(b, "%q,\n", key)
+	}
+	b.WriteString("}, []cursor.StaticField{\n")
+	for _, e := range entries {
+		fmt.Fprintf(b, "{Words:[3]uint64{%#x,%#x,%#x},Masks:[3]uint64{%#x,%#x,%#x},Encoded:%q,Index:%d,Bit:%#x,Short:%t},\n", e.words[0], e.words[1], e.words[2], e.masks[0], e.masks[1], e.masks[2], e.encoded, e.index, uint64(1)<<e.index, len(e.encoded) <= 24)
+	}
+	b.WriteString("})\n}\n")
+	return nil
 }

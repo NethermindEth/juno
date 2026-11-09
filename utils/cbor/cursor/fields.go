@@ -31,22 +31,34 @@ type Fields struct {
 // keyWords is how many 8 byte words of a key are compared as words.
 const keyWords = 3
 
-// fieldKey is a field's key as encoded. Its first bytes are also held as little-endian words, with
-// masks selecting the bytes that belong to it, so a key is compared a word at a time. bit is the
-// field's bit in Struct.seen, and short is whether the words hold all of encoded.
-type fieldKey struct {
-	words, masks [keyWords]uint64
-	encoded      string
-	field        int
-	bit          uint64
-	short        bool
+// StaticField is a precomputed lookup entry emitted by a reader generator.
+// Words and Masks contain the first 24 encoded bytes in little-endian words.
+// Index is the field number, Bit is 1<<Index, and Short says those words cover
+// the entire encoded key. Callers must not modify entries after installing them.
+type StaticField struct {
+	Words, Masks [keyWords]uint64
+	Encoded      string
+	Index        int
+	Bit          uint64
+	Short        bool
+}
+
+type fieldKey = StaticField
+
+// NewStaticFields installs precomputed lookup metadata without sorting or folding
+// names at runtime. It is intended for generated readers. names must satisfy
+// NewFields' requirements; order must contain exactly one correctly encoded entry
+// per name, sorted by Encoded, with matching words, masks, index, bit and short flag.
+// Neither slice may be modified after this call.
+func NewStaticFields(names []string, order []StaticField) *Fields {
+	return &Fields{order: order, names: names, all: 1<<len(names) - 1}
 }
 
 func newFieldKey(encoded string, field int) fieldKey {
-	out := fieldKey{encoded: encoded, field: field, bit: 1 << field, short: len(encoded) <= keyWords*8}
+	out := fieldKey{Encoded: encoded, Index: field, Bit: 1 << field, Short: len(encoded) <= keyWords*8}
 	for i := 0; i < len(encoded) && i < keyWords*8; i++ {
-		out.words[i/8] |= uint64(encoded[i]) << (i % 8 * 8)
-		out.masks[i/8] |= 0xff << (i % 8 * 8)
+		out.Words[i/8] |= uint64(encoded[i]) << (i % 8 * 8)
+		out.Masks[i/8] |= 0xff << (i % 8 * 8)
 	}
 	return out
 }
@@ -84,7 +96,7 @@ func NewFields(names ...string) *Fields {
 	// The head of an encoded name holds its length, so comparing the bytes puts shorter names first,
 	// as a canonical encoder does.
 	slices.SortFunc(out.order, func(a, b fieldKey) int {
-		return strings.Compare(a.encoded, b.encoded)
+		return strings.Compare(a.Encoded, b.Encoded)
 	})
 	return out
 }
@@ -121,15 +133,15 @@ func (c *Cursor) NextField(s *Struct) (int, error) {
 	if s.left > 0 && s.next < len(s.fields.order) && c.pos+keyWords*8 <= len(c.buf) {
 		key := &s.fields.order[s.next]
 		buf := c.buf[c.pos : c.pos+keyWords*8]
-		if (binary.LittleEndian.Uint64(buf)^key.words[0])&key.masks[0]|
-			(binary.LittleEndian.Uint64(buf[8:])^key.words[1])&key.masks[1]|
-			(binary.LittleEndian.Uint64(buf[16:])^key.words[2])&key.masks[2]|
-			s.seen&key.bit == 0 && key.short {
-			c.pos += len(key.encoded)
+		if (binary.LittleEndian.Uint64(buf)^key.Words[0])&key.Masks[0]|
+			(binary.LittleEndian.Uint64(buf[8:])^key.Words[1])&key.Masks[1]|
+			(binary.LittleEndian.Uint64(buf[16:])^key.Words[2])&key.Masks[2]|
+			s.seen&key.Bit == 0 && key.Short {
+			c.pos += len(key.Encoded)
 			s.left--
 			s.next++
-			s.seen |= key.bit
-			return key.field, nil
+			s.seen |= key.Bit
+			return key.Index, nil
 		}
 	}
 	return c.nextField(s)
@@ -173,9 +185,9 @@ func (c *Cursor) nextField(s *Struct) (int, error) {
 	s.left--
 	if i := s.find(c.buf[c.pos:]); i >= 0 {
 		key := &s.fields.order[i]
-		c.pos += len(key.encoded)
+		c.pos += len(key.Encoded)
 		s.next = i + 1
-		return c.mark(s, key.field)
+		return c.mark(s, key.Index)
 	}
 	return c.otherField(s)
 }
@@ -192,24 +204,24 @@ func (s *Struct) find(buf []byte) int {
 		head := byte(w0)
 		for i := s.next; i < len(order); i++ {
 			key := &order[i]
-			if keyHead := byte(key.words[0]); keyHead != head {
+			if keyHead := byte(key.Words[0]); keyHead != head {
 				if keyHead > head {
 					break // every key from here on sorts after this one
 				}
 				continue
 			}
-			if (w0^key.words[0])&key.masks[0]|
-				(w1^key.words[1])&key.masks[1]|
-				(w2^key.words[2])&key.masks[2] == 0 &&
-				(key.short || len(buf) >= len(key.encoded) &&
-					string(buf[keyWords*8:len(key.encoded)]) == key.encoded[keyWords*8:]) {
+			if (w0^key.Words[0])&key.Masks[0]|
+				(w1^key.Words[1])&key.Masks[1]|
+				(w2^key.Words[2])&key.Masks[2] == 0 &&
+				(key.Short || len(buf) >= len(key.Encoded) &&
+					string(buf[keyWords*8:len(key.Encoded)]) == key.Encoded[keyWords*8:]) {
 				return i
 			}
 		}
 		return -1
 	}
 	for i := s.next; i < len(order) && len(buf) > 0; i++ {
-		key := order[i].encoded
+		key := order[i].Encoded
 		if key[0] != buf[0] {
 			if key[0] > buf[0] {
 				break

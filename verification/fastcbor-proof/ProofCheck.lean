@@ -1,1 +1,1 @@
-import ProofCheck.Header
+import ProofCheck.Number

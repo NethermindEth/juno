@@ -6,10 +6,17 @@ import (
 	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
 
-var cborGasPriceFields = cursor.NewFields(
-	"PriceInWei",
-	"PriceInFri",
-)
+var cborGasPriceFields = cborMakeGasPriceFields()
+
+func cborMakeGasPriceFields() *cursor.Fields {
+	return cursor.NewStaticFields([]string{
+		"PriceInWei",
+		"PriceInFri",
+	}, []cursor.StaticField{
+		{Words: [3]uint64{0x6e4965636972506a, 0x697246, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jPriceInFri", Index: 1, Bit: 0x2, Short: true},
+		{Words: [3]uint64{0x6e4965636972506a, 0x696557, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jPriceInWei", Index: 0, Bit: 0x1, Short: true},
+	})
+}
 
 func cborZeroGasPrice(dst *GasPrice) bool { return dst.PriceInWei == nil && dst.PriceInFri == nil }
 
@@ -32,23 +39,43 @@ func cborReadGasPrice(c *cursor.Cursor, dst *GasPrice) error {
 	return err
 }
 
-var cborHeaderFields = cursor.NewFields(
-	"Hash",
-	"ParentHash",
-	"Number",
-	"GlobalStateRoot",
-	"SequencerAddress",
-	"TransactionCount",
-	"EventCount",
-	"Timestamp",
-	"ProtocolVersion",
-	"gasprice",
-	"Signatures",
-	"gaspricestrk",
-	"L1DAMode",
-	"L1DataGasPrice",
-	"L2GasPrice",
-)
+var cborHeaderFields = cborMakeHeaderFields()
+
+func cborMakeHeaderFields() *cursor.Fields {
+	return cursor.NewStaticFields([]string{
+		"Hash",
+		"ParentHash",
+		"Number",
+		"GlobalStateRoot",
+		"SequencerAddress",
+		"TransactionCount",
+		"EventCount",
+		"Timestamp",
+		"ProtocolVersion",
+		"gasprice",
+		"Signatures",
+		"gaspricestrk",
+		"L1DAMode",
+		"L1DataGasPrice",
+		"L2GasPrice",
+	}, []cursor.StaticField{
+		{Words: [3]uint64{0x6873614864, 0x0, 0x0}, Masks: [3]uint64{0xffffffffff, 0x0, 0x0}, Encoded: "dHash", Index: 0, Bit: 0x1, Short: true},
+		{Words: [3]uint64{0x7265626d754e66, 0x0, 0x0}, Masks: [3]uint64{0xffffffffffffff, 0x0, 0x0}, Encoded: "fNumber", Index: 2, Bit: 0x4, Short: true},
+		{Words: [3]uint64{0x646f4d4144314c68, 0x65, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xff, 0x0}, Encoded: "hL1DAMode", Index: 12, Bit: 0x1000, Short: true},
+		{Words: [3]uint64{0x6369727073616768, 0x65, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xff, 0x0}, Encoded: "hgasprice", Index: 9, Bit: 0x200, Short: true},
+		{Words: [3]uint64{0x617473656d695469, 0x706d, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffff, 0x0}, Encoded: "iTimestamp", Index: 7, Bit: 0x80, Short: true},
+		{Words: [3]uint64{0x6f43746e6576456a, 0x746e75, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jEventCount", Index: 6, Bit: 0x40, Short: true},
+		{Words: [3]uint64{0x7250736147324c6a, 0x656369, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jL2GasPrice", Index: 14, Bit: 0x4000, Short: true},
+		{Words: [3]uint64{0x48746e657261506a, 0x687361, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jParentHash", Index: 1, Bit: 0x2, Short: true},
+		{Words: [3]uint64{0x7574616e6769536a, 0x736572, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffff, 0x0}, Encoded: "jSignatures", Index: 10, Bit: 0x400, Short: true},
+		{Words: [3]uint64{0x636972707361676c, 0x6b72747365, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffff, 0x0}, Encoded: "lgaspricestrk", Index: 11, Bit: 0x800, Short: true},
+		{Words: [3]uint64{0x4761746144314c6e, 0x65636972507361, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffffffff, 0x0}, Encoded: "nL1DataGasPrice", Index: 13, Bit: 0x2000, Short: true},
+		{Words: [3]uint64{0x536c61626f6c476f, 0x746f6f5265746174, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffffffffff, 0x0}, Encoded: "oGlobalStateRoot", Index: 3, Bit: 0x8, Short: true},
+		{Words: [3]uint64{0x6f636f746f72506f, 0x6e6f69737265566c, 0x0}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffffffffff, 0x0}, Encoded: "oProtocolVersion", Index: 8, Bit: 0x100, Short: true},
+		{Words: [3]uint64{0x636e657571655370, 0x7365726464417265, 0x73}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xff}, Encoded: "pSequencerAddress", Index: 4, Bit: 0x10, Short: true},
+		{Words: [3]uint64{0x6361736e61725470, 0x6e756f436e6f6974, 0x74}, Masks: [3]uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xff}, Encoded: "pTransactionCount", Index: 5, Bit: 0x20, Short: true},
+	})
+}
 
 func cborZeroHeader(dst *Header) bool {
 	return dst.Hash == nil && dst.ParentHash == nil && dst.Number == 0 && dst.GlobalStateRoot == nil && dst.SequencerAddress == nil && dst.TransactionCount == 0 && dst.EventCount == 0 && dst.Timestamp == 0 && dst.ProtocolVersion == "" && dst.L1GasPriceETH == nil && dst.Signatures == nil && dst.L1GasPriceSTRK == nil && dst.L1DAMode == 0 && dst.L1DataGasPrice == nil && dst.L2GasPrice == nil
@@ -116,6 +143,9 @@ func cborReadGasPriceSlot(c *cursor.Cursor, dst **GasPrice, shared **[2]GasPrice
 	return nil
 }
 
+// cborClearHeader drops every partially decoded field after an error.
+func cborClearHeader(dst *Header) { *dst = Header{} }
+
 // DecodeHeaderFirst reads one header, enforcing fastcbor's zero-destination contract.
 func DecodeHeaderFirst(data []byte, dst *Header) ([]byte, error) {
 	if !cborZeroHeader(dst) {
@@ -123,7 +153,7 @@ func DecodeHeaderFirst(data []byte, dst *Header) ([]byte, error) {
 	}
 	c := cursor.NewCursor(data)
 	if err := cborReadHeader(&c, dst); err != nil {
-		*dst = Header{}
+		cborClearHeader(dst)
 		return nil, err
 	}
 	return c.Remaining(), nil
@@ -133,7 +163,7 @@ func DecodeHeaderFirst(data []byte, dst *Header) ([]byte, error) {
 func DecodeHeader(data []byte, dst *Header) error {
 	rest, err := DecodeHeaderFirst(data, dst)
 	if err == nil && len(rest) != 0 {
-		*dst = Header{}
+		cborClearHeader(dst)
 		return &fastcbor.DecodeError{Kind: fastcbor.ErrExtraneousData, Extra: len(rest)}
 	}
 	return err

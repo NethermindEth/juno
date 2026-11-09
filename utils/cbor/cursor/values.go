@@ -1,9 +1,11 @@
 package cursor
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"math/big"
+	"math/bits"
 	"unicode/utf8"
 )
 
@@ -126,7 +128,12 @@ func (c *Cursor) BigInt() (*big.Int, error) {
 	case MajorUint:
 		return new(big.Int).SetUint64(argument), nil
 	case majorNegInt:
-		return new(big.Int).Not(new(big.Int).SetUint64(argument)), nil
+		if argument != math.MaxUint64 {
+			out := new(big.Int).SetUint64(argument + 1)
+			return out.Neg(out), nil
+		}
+		// -1-MaxUint64 has magnitude 2^64, one bit beyond a uint64.
+		return bigIntMagnitude([]byte{1, 0, 0, 0, 0, 0, 0, 0, 0}, true, false), nil
 	case MajorTag:
 		if argument != tagPositiveBignum && argument != tagNegativeBignum {
 			c.pos = start
@@ -140,11 +147,8 @@ func (c *Cursor) BigInt() (*big.Int, error) {
 			}
 			return nil, err
 		}
-		out := new(big.Int).SetBytes(magnitude)
-		if argument == tagNegativeBignum {
-			out.Not(out)
-		}
-		return out, nil
+		negative := argument == tagNegativeBignum
+		return bigIntMagnitude(magnitude, negative, negative), nil
 	default:
 		c.pos = start
 		return nil, c.mismatch("an integer", c.buf[start])
@@ -156,3 +160,54 @@ const (
 	tagPositiveBignum = 2
 	tagNegativeBignum = 3
 )
+
+// bigIntMagnitude constructs an integer from owned words. CBOR tag 3 stores
+// one less than the negative number's magnitude, so increment adds that one.
+// SetBits normalizes leading zero words; Neg is called on the same Int, avoiding
+// the assembly arithmetic used by Int.Not. No returned word aliases data.
+func bigIntMagnitude(data []byte, negative, increment bool) *big.Int {
+	const wordBytes = bits.UintSize / 8
+	count := len(data) / wordBytes
+	if len(data)%wordBytes != 0 {
+		count++
+	}
+	if increment {
+		// Room for a carry beyond every input word.
+		count++
+	}
+	var words []big.Word
+	if count != 0 {
+		words = make([]big.Word, count)
+	}
+	i := 0
+	for len(data) >= wordBytes {
+		start := len(data) - wordBytes
+		if wordBytes == 8 {
+			words[i] = big.Word(binary.BigEndian.Uint64(data[start:]))
+		} else {
+			words[i] = big.Word(binary.BigEndian.Uint32(data[start:]))
+		}
+		data = data[:start]
+		i++
+	}
+	if len(data) != 0 {
+		var word big.Word
+		for _, b := range data {
+			word = word<<8 | big.Word(b)
+		}
+		words[i] = word
+	}
+	if increment {
+		for i := range words {
+			words[i]++
+			if words[i] != 0 {
+				break
+			}
+		}
+	}
+	out := new(big.Int).SetBits(words)
+	if negative {
+		out.Neg(out)
+	}
+	return out
+}
