@@ -91,6 +91,8 @@ var (
 	ErrCallOnPreConfirmed                = &jsonrpc.Error{
 		Code: 70, Message: "This method does not support being called on the pre_confirmed block",
 	}
+	ErrTooManySubscriptions = jsonrpc.Err(jsonrpc.InvalidRequest,
+		map[string]string{"reason": "Too many subscriptions"})
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
