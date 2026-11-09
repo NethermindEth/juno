@@ -195,7 +195,9 @@ TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
 git switch --detach "$TAG"
 ```
 
-To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`. Skip `git switch` to build the unreleased code on `main`.
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the Docker image**
 
@@ -264,7 +266,9 @@ TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
 git switch --detach "$TAG"
 ```
 
-To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`. Skip `git switch` to build the unreleased code on `main`.
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the binary**
 
