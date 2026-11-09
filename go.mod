@@ -2,6 +2,8 @@ module github.com/NethermindEth/juno
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/KimMachineGun/automemlimit v1.0.1
 	github.com/Masterminds/semver/v3 v3.5.0

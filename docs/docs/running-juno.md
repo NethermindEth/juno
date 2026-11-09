@@ -234,7 +234,7 @@ docker run -d \
 **Prerequisites**
 
 - [Golang 1.27](https://go.dev/doc/install) or later
-- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher, installed with `rustup`. The build uses `llvm-objcopy` from the `llvm-tools` component, which `rustup` installs automatically. With a different Rust installation, set `OBJCOPY` to the path of `llvm-objcopy`.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
 
