@@ -6,6 +6,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	broadcastertestutils "github.com/NethermindEth/juno/broadcaster/testutils"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
@@ -31,7 +32,13 @@ func TestPollerDefaults(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		highest := &atomic.Pointer[core.Header]{}
 		highest.Store(fx.head)
-		poller := preconfirmed.NewPoller(ds, fx.bc, highest, log.NewNopZapLogger())
+		poller := preconfirmed.NewPoller(
+			ds,
+			fx.bc,
+			broadcastertestutils.Kind(),
+			highest,
+			log.NewNopZapLogger(),
+		)
 
 		go poller.Run(t.Context())
 		synctest.Wait()
