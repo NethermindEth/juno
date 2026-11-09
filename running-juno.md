@@ -29,6 +29,10 @@ You can also build the image locally:
 git clone https://github.com/NethermindEth/juno
 cd juno
 
+# Switch to the latest release
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
+
 # Build the Docker image (distroless). To build the Debian image, add --target debian.
 docker build -t nethermind/juno:latest .
 ```
@@ -67,6 +71,48 @@ docker logs -f juno
 **1. Download the binary**
 
 Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
+
+To download the latest release and extract it as `./juno`, pick your platform (`uname -sm` prints it):
+
+### Linux (x86_64)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### Linux (ARM64)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### macOS (Apple Silicon)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### macOS (Intel)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+To install a specific version instead of the latest, replace the first line with that version, e.g. `VERSION=v0.17.0`.
+
+The binary needs jemalloc at runtime: install it with `sudo apt-get install -y libjemalloc2` on Ubuntu/Debian, or `brew install jemalloc` on macOS.
 
 **2. Run the binary**
 
@@ -115,16 +161,20 @@ You can build the Juno binary or Docker image from the source code to access the
 
 Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the Docker image**
 
@@ -176,16 +226,20 @@ sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-co
 brew install jemalloc pkg-config
 ```
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the binary**
 

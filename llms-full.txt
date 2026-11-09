@@ -135,6 +135,10 @@ You can also build the image locally:
 git clone https://github.com/NethermindEth/juno
 cd juno
 
+# Switch to the latest release
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
+
 # Build the Docker image (distroless). To build the Debian image, add --target debian.
 docker build -t nethermind/juno:latest .
 ```
@@ -173,6 +177,48 @@ docker logs -f juno
 **1. Download the binary**
 
 Download the standalone binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as a ZIP archive for Linux and MacOS (amd64 and arm64). For Windows users, consider running Juno via **Docker** instead.
+
+To download the latest release and extract it as `./juno`, pick your platform (`uname -sm` prints it):
+
+### Linux (x86_64)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### Linux (ARM64)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-linux-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### macOS (Apple Silicon)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-arm64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+### macOS (Intel)
+
+```bash
+VERSION=$(basename "$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/NethermindEth/juno/releases/latest)")
+NAME=juno-$VERSION-darwin-amd64
+curl -fsSLO https://github.com/NethermindEth/juno/releases/download/$VERSION/$NAME.zip
+unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
+```
+
+To install a specific version instead of the latest, replace the first line with that version, e.g. `VERSION=v0.17.0`.
+
+The binary needs jemalloc at runtime: install it with `sudo apt-get install -y libjemalloc2` on Ubuntu/Debian, or `brew install jemalloc` on macOS.
 
 **2. Run the binary**
 
@@ -221,16 +267,20 @@ You can build the Juno binary or Docker image from the source code to access the
 
 Building the Docker image requires only [Docker](https://docs.docker.com/get-docker/).
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the Docker image**
 
@@ -282,16 +332,20 @@ sudo apt-get install -y build-essential make libjemalloc-dev libjemalloc2 pkg-co
 brew install jemalloc pkg-config
 ```
 
-**1. Clone the repository**
+**1. Clone the repository and switch to a release**
 
 ```bash
 git clone https://github.com/NethermindEth/juno
 cd juno
+
+# Switch to the latest release (tags with a suffix, like -rc.0, are release candidates)
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 ```
 
-:::tip
-You can use `git tag -l` to view specific version tags.
-:::
+To build another version, set `TAG` to one of the tags on [GitHub Releases](https://github.com/NethermindEth/juno/releases) or in `git tag -l`.
+
+Skip this step altogether if you want to use the latest version and possibly unstable version of Juno.
 
 **2. Build the binary**
 
@@ -646,12 +700,6 @@ It is important to run the latest version of Juno as each update brings new feat
 
 :::info
 When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database. The commands below use paths relative to your current directory, so run them from the same directory as the previous node.
-
-Since v0.17.0, Juno can't migrate a database last used with a version older than v0.15.17. Update such a node to v0.16.x first and let it complete its migrations, or resynchronise it from the beginning.
-
-Since v0.17.0, Juno no longer serves RPC v0.8: every `/v0_8` endpoint, HTTP and WebSocket, returns 404. Move clients to v0.9 or the default v0.10, and use `starknet_subscribeNewTransactions` instead of `starknet_subscribePendingTransactions`.
-
-Since v0.17.0, the default `rpc-max-concurrent-requests` is 1024 and the default `rpc-max-request-queue` is 2048 (both were 256000). If your node serves heavy RPC traffic, set these flags explicitly.
 :::
 
 ### Docker
@@ -707,37 +755,45 @@ docker logs juno
 
 ### Standalone Binary
 
-Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
+1. Stop the node.
+2. Run the download command for your platform from the [Installation](running-juno) page (**Standalone Binary** tab, step 1). It replaces `./juno` with the latest release.
+3. Start `./juno` again with the same flags as before, including `--db-path`.
 
 ## Updating from source
 
 ### Docker
 
-Pull the latest changes and rebuild the Docker image:
+From your `juno` clone, fetch the release tags, switch to the latest release, and rebuild the Docker image:
 
 ```bash
-# Pull the latest updates to the codebase
-git pull
+# Switch to the latest release
+git fetch --tags
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 
 # Rebuild the Docker image
 docker build -t nethermind/juno:latest .
 ```
 
 Then stop, remove, and start the container again with the rebuilt image, as shown in the **Docker** tab above.
+To build a version other than the latest, see [Building from source](running-juno#building-from-source).
 
 ### Standalone Binary
 
-You can update the standalone binary by pulling the latest changes from GitHub and rebuilding it.
+From your `juno` clone, fetch the release tags, switch to the latest release, and rebuild the binary:
 
 ```bash
-# Pull the latest updates to the codebase
-git pull
+# Switch to the latest release
+git fetch --tags
+TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- - | head -n1)
+git switch --detach "$TAG"
 
 # Rebuild the binary
 make juno
 ```
 
-See [Building from source](running-juno#building-from-source) for the full prerequisites and build steps.
+Then stop the node and start `./build/juno` again with the same `--db-path`.
+See [Building from source](running-juno#building-from-source) for the prerequisites and for building a version other than the latest.
 
 :::tip
 To learn how to configure Juno, check out the [Configuration](configuring) guide.
