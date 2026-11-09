@@ -55,5 +55,6 @@ func init() {
 			}
 			fastcbor.RegisterType(t, tag)
 		}
+		core.RegisterTypedCBORReaders()
 	})
 }

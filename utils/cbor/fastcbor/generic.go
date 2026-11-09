@@ -12,7 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 func hasExportedField(t reflect.Type) bool {

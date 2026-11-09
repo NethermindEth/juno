@@ -1,0 +1,9 @@
+.tools/
+.lake/
+__pycache__/
+ProofCheck/Code/
+ProofCheck/GeneratedProof/
+
+# Translation configuration is part of the reproducible proof input.
+!config/
+!config/**

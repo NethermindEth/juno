@@ -1,0 +1,173 @@
+package core_test
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"math/rand/v2"
+	"testing"
+
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
+	_ "github.com/NethermindEth/juno/utils/cbor/registry"
+	"github.com/stretchr/testify/require"
+)
+
+func TestTypedHeader(t *testing.T) {
+	headers := []core.Header{
+		{},
+		{Number: 24, Timestamp: 1 << 40, ProtocolVersion: "0.13.α", Hash: felt.NewFromUint64[felt.Felt](17), Signatures: [][]*felt.Felt{}},
+		{Number: 7, Signatures: [][]*felt.Felt{nil, {}, {nil, felt.NewFromUint64[felt.Felt](19)}}, L1DataGasPrice: &core.GasPrice{PriceInWei: felt.NewFromUint64[felt.Felt](3)}, L2GasPrice: &core.GasPrice{PriceInFri: felt.NewFromUint64[felt.Felt](5)}},
+	}
+	for _, want := range headers {
+		data, err := cbor.Marshal(want)
+		require.NoError(t, err)
+		for _, decode := range []func([]byte, *core.Header) error{core.DecodeHeader, fastcbor.Unmarshal[core.Header]} {
+			var got core.Header
+			require.NoError(t, decode(data, &got))
+			require.Equal(t, want, got)
+		}
+		input := append(bytes.Clone(data), 0x07)
+		before := bytes.Clone(input)
+		var got core.Header
+		rest, err := core.DecodeHeaderFirst(input, &got)
+		require.NoError(t, err)
+		require.Equal(t, []byte{7}, rest)
+		require.Equal(t, want, got)
+		require.Equal(t, before, input)
+		rest[0] = 8
+		require.Equal(t, byte(8), input[len(data)])
+		for i := range data {
+			input[i] ^= 0xff
+		}
+		require.Equal(t, want, got, "decoded values must not borrow the input")
+		for i := 0; i < len(data); i++ {
+			var truncated core.Header
+			require.Error(t, core.DecodeHeader(data[:i], &truncated))
+			require.Equal(t, core.Header{}, truncated)
+		}
+		var trailing core.Header
+		require.ErrorIs(t, core.DecodeHeader(append(bytes.Clone(data), 7), &trailing), fastcbor.ErrExtraneousData)
+		require.Equal(t, core.Header{}, trailing)
+	}
+}
+
+func TestTypedHeaderRejectsNonzeroWithoutMutation(t *testing.T) {
+	for _, want := range []core.Header{{Number: 1}, {Signatures: [][]*felt.Felt{}}, {L1DataGasPrice: &core.GasPrice{}}} {
+		got := want
+		rest, err := core.DecodeHeaderFirst([]byte{0xa0}, &got)
+		require.Nil(t, rest)
+		require.ErrorIs(t, err, fastcbor.ErrUnsupported)
+		require.Equal(t, want, got)
+	}
+}
+
+func TestTypedHeaderKeysAndNull(t *testing.T) {
+	for _, data := range [][]byte{{0xf6}, {0xf7}, {0xa0}, {0xa1, 0x66, 'n', 'u', 'm', 'b', 'e', 'r', 7}, {0xa1, 0x63, 'o', 'l', 'd', 0x81, 1}} {
+		var got, want core.Header
+		require.NoError(t, cbor.Unmarshal(data, &want))
+		require.NoError(t, core.DecodeHeader(data, &got))
+		require.Equal(t, want, got)
+	}
+	repeated := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 2}
+	var got core.Header
+	require.ErrorIs(t, core.DecodeHeader(repeated, &got), cursor.ErrUnsupported)
+	require.Equal(t, core.Header{}, got)
+}
+
+func TestTypedHeaderErrorsKeepDiagnostics(t *testing.T) {
+	var got core.Header
+	err := core.DecodeHeader([]byte{}, &got)
+	require.ErrorIs(t, err, cursor.ErrTruncated)
+	require.EqualError(t, err, "cbor: unexpected end of input at byte 0: input ends before the item")
+	require.ErrorIs(t, core.DecodeHeader([]byte{0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 0xf5}, &got), cursor.ErrType)
+	require.Equal(t, core.Header{}, got)
+}
+
+// A distinct named type selects the original planner through the public API.
+// It has the exact Header field types and tags, without a generated registration.
+type plannerHeader core.Header
+
+func FuzzTypedHeaderMatchesPlanner(f *testing.F) {
+	for _, data := range [][]byte{{0xa0}, {0xf6}, {0xf7}, {0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}, {0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 2}} {
+		f.Add(data)
+	}
+	data, err := cbor.Marshal(core.Header{Number: 128, ProtocolVersion: "0.13", L1DataGasPrice: &core.GasPrice{PriceInWei: felt.NewFromUint64[felt.Felt](7)}})
+	require.NoError(f, err)
+	f.Add(data)
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var got core.Header
+		var want plannerHeader
+		gr, ge := core.DecodeHeaderFirst(data, &got)
+		wr, we := fastcbor.UnmarshalFirst(data, &want)
+		require.Equal(t, we == nil, ge == nil)
+		require.Equal(t, core.Header(want), got)
+		require.Equal(t, wr, gr)
+		if we != nil {
+			require.Equal(t, we.Error(), ge.Error())
+		}
+	})
+}
+
+// Generate valid values before encoding so limb, string and nested-slice paths
+// receive coverage independently of the byte-mutation fuzzer's seed corpus.
+func FuzzTypedHeaderRoundTrip(f *testing.F) {
+	for _, seed := range []string{"nil", "empty", "populated", "legacy gas keys"} {
+		f.Add([]byte(seed))
+	}
+	f.Fuzz(func(t *testing.T, seed []byte) {
+		rng := rand.New(rand.NewChaCha8(sha256.Sum256(seed)))
+		nextFelt := func() *felt.Felt {
+			if rng.IntN(4) == 0 {
+				return nil
+			}
+			var b [32]byte
+			for i := range b {
+				b[i] = byte(rng.Uint32())
+			}
+			return new(felt.Felt).SetBytes(b[:])
+		}
+		nextGas := func() *core.GasPrice {
+			if rng.IntN(3) == 0 {
+				return nil
+			}
+			return &core.GasPrice{PriceInWei: nextFelt(), PriceInFri: nextFelt()}
+		}
+		want := core.Header{
+			Hash: nextFelt(), ParentHash: nextFelt(), Number: rng.Uint64(), GlobalStateRoot: nextFelt(),
+			SequencerAddress: nextFelt(), TransactionCount: rng.Uint64(), EventCount: rng.Uint64(), Timestamp: rng.Uint64(),
+			L1GasPriceETH: nextFelt(), L1GasPriceSTRK: nextFelt(), L1DAMode: core.L1DAMode(rng.Uint64()),
+			L1DataGasPrice: nextGas(), L2GasPrice: nextGas(),
+		}
+		alphabet := []rune("0.13alphaα世界\x00")
+		var version []rune
+		for n := rng.IntN(40); n > 0; n-- {
+			version = append(version, alphabet[rng.IntN(len(alphabet))])
+		}
+		want.ProtocolVersion = string(version)
+		if rng.IntN(3) != 0 {
+			want.Signatures = make([][]*felt.Felt, rng.IntN(6))
+			for i := range want.Signatures {
+				if rng.IntN(3) == 0 {
+					continue
+				}
+				want.Signatures[i] = make([]*felt.Felt, rng.IntN(6))
+				for j := range want.Signatures[i] {
+					want.Signatures[i][j] = nextFelt()
+				}
+			}
+		}
+		data, err := cbor.Marshal(want)
+		require.NoError(t, err)
+		var got, fx core.Header
+		require.NoError(t, core.DecodeHeader(data, &got))
+		require.NoError(t, cbor.Unmarshal(data, &fx))
+		require.Equal(t, want, got)
+		require.Equal(t, fx, got)
+		var planned plannerHeader
+		require.NoError(t, fastcbor.Unmarshal(data, &planned))
+		require.Equal(t, core.Header(planned), got)
+	})
+}

@@ -2,7 +2,7 @@ package fastcbor
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 //nolint:gocritic // dst is given the map made here when there is none

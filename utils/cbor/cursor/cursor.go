@@ -13,7 +13,6 @@ package cursor
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 )
 
@@ -196,7 +195,8 @@ func describe(head byte) string {
 	case MajorTag:
 		return "a tag"
 	default:
-		return fmt.Sprintf("a simple value or float (head 0x%02x)", head)
+		const hex = "0123456789abcdef"
+		return "a simple value or float (head 0x" + string([]byte{hex[head>>4], hex[head&15]}) + ")"
 	}
 }
 

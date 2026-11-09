@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 var (

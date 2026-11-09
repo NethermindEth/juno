@@ -1,0 +1,54 @@
+{
+  "version": "1.2.0",
+  "packagesDir": ".lake/packages",
+  "packages": [
+    {
+      "type": "path",
+      "scope": "",
+      "name": "perennial",
+      "manifestFile": "lake-manifest.json",
+      "inherited": false,
+      "dir": ".tools/perennial",
+      "configFile": "lakefile.toml"
+    },
+    {
+      "url": "https://github.com/leanprover-community/iris-lean",
+      "type": "git",
+      "subDir": "Iris",
+      "scope": "",
+      "rev": "6d6544a4394c1f89ce43b26a35f09de9b2158bc9",
+      "name": "iris",
+      "manifestFile": "lake-manifest.json",
+      "inputRev": "6d6544a4394c1f89ce43b26a35f09de9b2158bc9",
+      "inherited": true,
+      "configFile": "lakefile.toml"
+    },
+    {
+      "url": "https://github.com/leanprover-community/batteries",
+      "type": "git",
+      "subDir": null,
+      "scope": "leanprover-community",
+      "rev": "f2effa3d803fda822b1f97b806c47cf2adfbcbc2",
+      "name": "batteries",
+      "manifestFile": "lake-manifest.json",
+      "inputRev": "v4.34.0",
+      "inherited": true,
+      "configFile": "lakefile.toml"
+    },
+    {
+      "url": "https://github.com/leanprover-community/quote4",
+      "type": "git",
+      "subDir": null,
+      "scope": "leanprover-community",
+      "rev": "6a489d9af5d0c47e5b259e2e8bcdfc1811b5a259",
+      "name": "Qq",
+      "manifestFile": "lake-manifest.json",
+      "inputRev": "v4.34.0",
+      "inherited": true,
+      "configFile": "lakefile.toml"
+    }
+  ],
+  "name": "fastcborproof",
+  "lakeDir": ".lake",
+  "fixedToolchain": false
+}

@@ -1,0 +1,2 @@
+translate = ["DecodeError", "DecodeError.Unwrap", "ErrUnsupported", "ErrExtraneousData"]
+imports = ["!*", "errors"]

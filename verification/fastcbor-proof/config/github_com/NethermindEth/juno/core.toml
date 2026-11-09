@@ -1,0 +1,2 @@
+translate = ["Header", "GasPrice", "L1DAMode", "cborRead*", "cborZero*", "DecodeHeader*", "cbor*Fields"]
+imports = ["!*", "github.com/NethermindEth/juno/core/felt", "github.com/NethermindEth/juno/utils/cbor/cursor", "github.com/NethermindEth/juno/utils/cbor/fastcbor"]

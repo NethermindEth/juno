@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 // readFelt reads a felt. Null leaves the pointer nil.

@@ -43,6 +43,9 @@ func Unmarshal[T any](data []byte, dst *T) error {
 // the bytes after it. On an error dst holds no partial value, and a dst that was not zero is left
 // as it was.
 func UnmarshalFirst[T any](data []byte, dst *T) ([]byte, error) {
+	if read, ok := typedReaders.Load(reflect.TypeFor[T]()); ok {
+		return read.(typedReader)(data, dst)
+	}
 	if !isZero(dst) {
 		// The readers assume a zero value, as other decoders merge into one that is not.
 		return nil, fmt.Errorf("%w: the destination is not the zero value", ErrUnsupported)

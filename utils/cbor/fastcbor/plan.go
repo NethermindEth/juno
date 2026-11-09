@@ -14,7 +14,7 @@ import (
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 // A structPlan reads one struct type. It is planned once, from the type and its cbor and json

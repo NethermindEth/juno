@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
 // A Reader reads one item from the start of data into the value at dst, which must be the zero

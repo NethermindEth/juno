@@ -1,0 +1,2 @@
+translate = ["*", "!DecodeError.Error"]
+imports = ["!*", "encoding/binary", "errors", "math", "slices", "strings", "unicode/utf8", "math/big", "unsafe"]

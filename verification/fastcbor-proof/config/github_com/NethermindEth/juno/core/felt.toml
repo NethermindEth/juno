@@ -1,0 +1,2 @@
+translate = ["Typed", "*Kind", "Felt", "Slice"]
+imports = ["!*", "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"]

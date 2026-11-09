@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
+	"github.com/NethermindEth/juno/utils/cbor/cursor"
 	"github.com/stretchr/testify/require"
 )
 

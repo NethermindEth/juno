@@ -139,7 +139,10 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 	}
 	out := make([]F, count)
 	// F has the layout of [Limbs]uint64, so the slice can be read as one.
-	felts := unsafe.Slice((*[Limbs]uint64)(unsafe.Pointer(unsafe.SliceData(out))), len(out))
+	var felts [][Limbs]uint64
+	if len(out) != 0 {
+		felts = unsafe.Slice((*[Limbs]uint64)(unsafe.Pointer(&out[0])), len(out))
+	}
 	err = c.readLimbs(felts)
 	c.depth--
 	if err != nil {

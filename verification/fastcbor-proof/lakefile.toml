@@ -1,0 +1,9 @@
+name = "fastcborproof"
+defaultTargets = ["ProofCheck"]
+
+[[require]]
+name = "perennial"
+path = ".tools/perennial"
+
+[[lean_lib]]
+name = "ProofCheck"
