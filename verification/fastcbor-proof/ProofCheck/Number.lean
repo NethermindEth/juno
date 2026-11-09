@@ -108,22 +108,25 @@ theorem wp_findHeaderNumber (st fields : Loc) (v : cursor.Struct)
     wp_end
 
 /-- Reading the Number key advances exactly seven bytes and marks the field seen. -/
-theorem wp_nextHeaderNumber (c st fields : Loc) (order names data : GoSlice)
-    (b : w8) (dq : DFrac) (depth : w64)
+theorem wp_nextHeaderNumber_count (c st fields : Loc) (order names data : GoSlice)
+    (b head : w8) (left : w64) (dq : DFrac) (depth : w64)
+    (hleft : 0 < sint.Z left)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
-       st ↦ cursor.Struct.mk fields (W64 1) (W64 0) (W64 0) true ∗
+       st ↦ cursor.Struct.mk fields left (W64 0) (W64 0) true ∗
        c ↦ cursor.Cursor.mk data (W64 1) depth (zero_val (GoArray w64 4)) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
-       order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
+       order ↦* headerFieldKeys ∗ data ↦*{dq} (head :: (go!"fNumber" ++ [b])) }}
       (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"NextField")) (Val #st))
     {{ RET (PairV #(W64 2) #interface.nil);
-       st ↦ cursor.Struct.mk fields (W64 0) (W64 2) (W64 4) true ∗
+       st ↦ cursor.Struct.mk fields (left - W64 1) (W64 2) (W64 4) true ∗
        c ↦ cursor.Cursor.mk data (W64 8) depth (zero_val (GoArray w64 4)) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
-       order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }} := by
+       order ↦* headerFieldKeys ∗ data ↦*{dq} (head :: (go!"fNumber" ++ [b])) }} := by
   wp_start as ⟨Hst, Hc, Hfields, Horder, Hdata⟩
   ihave %Hwf := ownSlice_wf _ _ _ $$ Hdata
+  wp_auto
+  simp only [show sint.Z (W64 0) = 0 from rfl, hleft, _root_.decide_true]
   wp_auto
   simp only [horder]
   wp_auto
@@ -132,23 +135,26 @@ theorem wp_nextHeaderNumber (c st fields : Loc) (order names data : GoSlice)
   wp_method_call
   wp_call
   wp_auto
+  have hn : left ≠ W64 0 := by intro h; rw [h] at hleft; contradiction
+  simp only [hn, _root_.decide_false]
+  wp_auto
   have hb : 0 ≤ sint.Z (W64 1) ∧ sint.Z (W64 1) ≤ sint.Z data.len ∧
       sint.Z data.len ≤ sint.Z data.cap := by rw [hdata] at *; exact ⟨by decide, by decide, Hwf.2⟩
   rw [ite_eq_left_of_eq_true _ _ (eq_true hb)]
-  icases (ownSlice_slice (W64 1) data.len data dq (W8 161 :: (go!"fNumber" ++ [b]))
+  icases (ownSlice_slice (W64 1) data.len data dq (head :: (go!"fNumber" ++ [b]))
     ⟨hb.1, hb.2.1, Int.le_refl _⟩).1 $$ Hdata with ⟨Hpre, Hbytes, Hpost⟩
   have hs : subslice (sint.nat (W64 1)) (sint.nat data.len)
-      (W8 161 :: (go!"fNumber" ++ [b])) = go!"fNumber" ++ [b] := by rw [hdata]; rfl
+      (head :: (go!"fNumber" ++ [b])) = go!"fNumber" ++ [b] := by rw [hdata]; rfl
   isimp only [hs] at Hbytes
   wp_auto
-  ieval (change (st ↦ cursor.Struct.mk fields (W64 0) (W64 0) (W64 0) true : IProp GF) ⊢ _) at Hst
-  wp_apply wp_findHeaderNumber st fields (cursor.Struct.mk fields (W64 0) (W64 0) (W64 0) true)
+  ieval (change (st ↦ cursor.Struct.mk fields (left - W64 1) (W64 0) (W64 0) true : IProp GF) ⊢ _) at Hst
+  wp_apply wp_findHeaderNumber st fields (cursor.Struct.mk fields (left - W64 1) (W64 0) (W64 0) true)
     order names (slice.slice data w8 (W64 1) data.len) b dq rfl rfl horder
-    (by simp only [slice.slice, slice.fullSlice, hdata]; rfl)
+    (by simp only [slice.slice, hdata]; rfl)
     $$ [Hst Hfields Horder Hbytes] with ⟨Hst, Hfields, Horder, Hbytes⟩
   · iframe Hst Hfields Horder Hbytes
-  ihave Hdata : (data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) : IProp GF) $$ [Hpre Hbytes Hpost]
-  · iapply (ownSlice_slice (W64 1) data.len data dq (W8 161 :: (go!"fNumber" ++ [b]))
+  ihave Hdata : (data ↦*{dq} (head :: (go!"fNumber" ++ [b])) : IProp GF) $$ [Hpre Hbytes Hpost]
+  · iapply (ownSlice_slice (W64 1) data.len data dq (head :: (go!"fNumber" ++ [b]))
       ⟨hb.1, hb.2.1, Int.le_refl _⟩).2
     rw [hs]
     iframe Hpre Hbytes Hpost
@@ -165,6 +171,29 @@ theorem wp_nextHeaderNumber (c st fields : Loc) (order names data : GoSlice)
   wp_auto
   wp_apply wp_shiftCount_int
   · ipureintro; decide
+  wp_end
+
+/-- Reading the Number key advances exactly seven bytes and marks the field seen. -/
+theorem wp_nextHeaderNumber (c st fields : Loc) (order names data : GoSlice)
+    (b : w8) (dq : DFrac) (depth : w64)
+    (horder : order.len = W64 15) (hdata : data.len = W64 9) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       st ↦ cursor.Struct.mk fields (W64 1) (W64 0) (W64 0) true ∗
+       c ↦ cursor.Cursor.mk data (W64 1) depth (zero_val (GoArray w64 4)) ∗
+       fields ↦ cursor.Fields.mk order names (W64 32767) ∗
+       order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"NextField")) (Val #st))
+    {{ RET (PairV #(W64 2) #interface.nil);
+       st ↦ cursor.Struct.mk fields (W64 0) (W64 2) (W64 4) true ∗
+       c ↦ cursor.Cursor.mk data (W64 8) depth (zero_val (GoArray w64 4)) ∗
+       fields ↦ cursor.Fields.mk order names (W64 32767) ∗
+       order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }} := by
+  iintro %Φ ⟨#Hpkg, Hst, Hc, Hfields, Horder, Hdata⟩ HΦ
+  wp_apply wp_nextHeaderNumber_count c st fields order names data b (W8 161) (W64 1)
+    dq depth (by decide) horder hdata $$ [Hst Hc Hfields Horder Hdata]
+    with ⟨Hst, Hc, Hfields, Horder, Hdata⟩
+  · iframe Hst Hc Hfields Horder Hdata
+  ieval (change (st ↦ cursor.Struct.mk fields (W64 0) (W64 2) (W64 4) true : IProp GF) ⊢ _) at Hst
   wp_end
 
 /-- Open the one-pair map containing Number, consuming only its map head. -/
@@ -327,3 +356,5 @@ end Perennial
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_decodeHeaderFirst_Number
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_decodeHeader_Number
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_nextHeaderNumber_count

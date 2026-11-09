@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"math/rand/v2"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -77,6 +78,31 @@ func TestTypedHeaderKeysAndNull(t *testing.T) {
 	require.Equal(t, core.Header{}, got)
 }
 
+func TestTypedHeaderFeltNullAndEmptyArray(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		item byte
+		want *felt.Felt
+	}{
+		{"null", 0xf6, nil},
+		{"empty array", 0x80, new(felt.Felt)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := []byte{0xa1, 0x64, 'H', 'a', 's', 'h', tc.item}
+			before := bytes.Clone(data)
+			var got, want core.Header
+			var planned plannerHeader
+			require.NoError(t, cbor.Unmarshal(data, &want))
+			require.NoError(t, fastcbor.Unmarshal(data, &planned))
+			require.NoError(t, core.DecodeHeader(data, &got))
+			require.Equal(t, tc.want, got.Hash)
+			require.Equal(t, want, got)
+			require.Equal(t, core.Header(planned), got)
+			require.Equal(t, before, data)
+		})
+	}
+}
+
 func TestTypedHeaderErrorsKeepDiagnostics(t *testing.T) {
 	var got core.Header
 	err := core.DecodeHeader([]byte{}, &got)
@@ -86,12 +112,42 @@ func TestTypedHeaderErrorsKeepDiagnostics(t *testing.T) {
 	require.Equal(t, core.Header{}, got)
 }
 
+// A valid first field must not escape when the next declared pair is missing.
+func TestTypedHeaderClearsPartialResult(t *testing.T) {
+	for number := range byte(24) {
+		t.Run(strconv.Itoa(int(number)), func(t *testing.T) {
+			data := []byte{0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', number}
+			var got core.Header
+			require.NoError(t, core.DecodeHeader(data, &got))
+			require.Equal(t, core.Header{Number: uint64(number)}, got)
+
+			data[0] = 0xa2 // Two pairs declared; only the first is present.
+			before := bytes.Clone(data)
+			checkError := func(err error) {
+				t.Helper()
+				require.ErrorIs(t, err, cursor.ErrTruncated)
+				var detail *cursor.DecodeError
+				require.ErrorAs(t, err, &detail)
+				require.Equal(t, len(data), detail.Offset)
+				require.EqualError(t, err, "cbor: unexpected end of input at byte 9: input ends before the item")
+				require.Equal(t, core.Header{}, got)
+				require.Equal(t, before, data)
+			}
+			got = core.Header{}
+			rest, err := core.DecodeHeaderFirst(data, &got)
+			checkError(err)
+			require.Nil(t, rest)
+			checkError(core.DecodeHeader(data, &got))
+		})
+	}
+}
+
 // A distinct named type selects the original planner through the public API.
 // It has the exact Header field types and tags, without a generated registration.
 type plannerHeader core.Header
 
 func FuzzTypedHeaderMatchesPlanner(f *testing.F) {
-	for _, data := range [][]byte{{0xa0}, {0xf6}, {0xf7}, {0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}, {0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 2}} {
+	for _, data := range [][]byte{{0xa0}, {0xf6}, {0xf7}, {0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}, {0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}, {0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 2}} {
 		f.Add(data)
 	}
 	data, err := cbor.Marshal(core.Header{Number: 128, ProtocolVersion: "0.13", L1DataGasPrice: &core.GasPrice{PriceInWei: felt.NewFromUint64[felt.Felt](7)}})

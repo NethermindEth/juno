@@ -49,7 +49,7 @@ report = {
     "theorem_axiom_set": theorem_sets,
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
-    "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. The populated Header proof covers only a single inline Number field. Arbitrary-state cleanup is proved as a helper, not yet composed with a late parse failure. UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
+    "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. The populated Header proofs cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. The felt pointer-conversion witness covers only the empty-array encoding. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

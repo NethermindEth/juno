@@ -58,14 +58,23 @@ The follow-up modules extend this pilot:
   arbitrary word slices, including preservation of their mathematical magnitude;
   in-place `Set` and `Neg`; and fresh `SetUint64` for zero and every nonzero uint64.
 - `Header.lean` additionally proves that the production cleanup function clears
-  **any** Header state. Its composition with a parser failure after a successful
-  field write is still pending.
+  **any** Header state.
+- `LateError.lean`: a map declares two pairs but contains only `Number: n`, for
+  every inline uint from 0 through 23. The internal reader writes Number, then
+  returns the truncation error at byte 9. Both public entries clear the partial
+  result and preserve the original error and input bytes; First returns a nil suffix.
+- `Felt.lean`: the production felt reader on an empty-array encoding, including
+  allocation, conversion from `*felt.Felt` to `*[4]uint64`, limb stores and
+  publication of a nonnil, independently owned zero felt. This is a pointer-conversion
+  witness, not a proof of the four-limb fast path or the general felt contract.
 
 These are partial-correctness triples under the pinned Goose/Perennial semantics,
 on the 64-bit target. They require package initialization and, where used, ownership
 of the relevant initialized globals. The field factories are proved, but the global
 package initializer and its connection to those factories are **not** yet proved.
-The populated example does not cover arbitrary Header fields, widths or suffixes.
+The populated examples do not cover arbitrary Header fields, widths or suffixes.
+The field-table proofs currently require exclusive ownership and return it unchanged;
+shared read-only table ownership for concurrent decoder calls is not yet established.
 
 The BigInt decoder now packs bytes into owned Go words, uses `SetBits` to normalize,
 and uses in-place `Neg`. Negative CBOR bignums add one with a Go carry loop. This
@@ -111,16 +120,19 @@ and varied felt limbs. Primitive differential fuzzing passed 4,424,589 execution
 in five minutes after the BigInt change. The short Go suite and race/checkptr run
 passed. New BigInt tests cover zero, leading zeros, word boundaries, carry chains,
 MaxUint64, suffixes and output ownership, on amd64 and 386. The formal target remains
-64-bit. These counts are historical observations, not promises about future runs.
+64-bit. The new public-API regressions exercise partial-result cleanup for all 24
+inline uints and compare null versus empty-array felt results against FX and the
+original planner. `go test -short ./core -run '^TestTypedHeader'` passed with these
+additions. These counts are historical observations, not promises about future runs.
 
 ## Remaining gates, in order
 
-1. **Complete feasibility:** connect cleanup to an actual parse failure after partial
-   writes; connect the proved field factories to global initialization; verify
-   witnesses for felt pointer conversion, nested slices/maps, tagged interfaces,
-   UTF8 and the complete BigInt helper. The populated Number path is checked; the
-   required general helper contracts and complete semantic dependency audit remain
-   unfinished. Legacy planner types still use runtime `cursor.NewFields`.
+1. **Complete feasibility:** connect the proved field factories to global
+   initialization; verify witnesses for nested slices/maps, tagged interfaces,
+   UTF8 and the complete BigInt helper. The populated Number path, a late failure
+   with cleanup, and an empty-array felt pointer conversion are checked. General
+   helper contracts, shared table ownership and the complete semantic dependency
+   audit remain unfinished. Legacy planner types still use runtime `cursor.NewFields`.
 2. **Complete the generator:** cover the agreed known roots, nested types,
    projections, integer-key structs, registration tags, overrides, and special
    allocation patterns. Extend the static metadata generator. Check the manifest against
