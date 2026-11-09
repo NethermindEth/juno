@@ -2,7 +2,8 @@
 """Record the exact pilot inputs and reject admitted pilot theorems.
 
 Generated modules can contain unused declarations with sorry; this checks each
-exported pilot theorem's transitive axiom list, not just build success. Opaque
+exported pilot theorem's transitive axiom list, not just build success. Native
+evaluation axioms are also rejected. Opaque
 Goose type axioms are reported, not silently treated as proved definitions.
 """
 import hashlib
@@ -24,6 +25,9 @@ if set(found) != expected:
     sys.exit(f"missing/unexpected axiom reports: {set(found) ^ expected}")
 if any("sorryAx" in ax for xs in found.values() for ax in xs):
     sys.exit("a pilot theorem depends on sorryAx")
+if any("._native." in ax or ax in {"Lean.ofReduceBool", "Lean.trustCompiler"}
+       for xs in found.values() for ax in xs):
+    sys.exit("a pilot theorem depends on a native evaluation axiom")
 if any(re.search(r"^\s*(axiom|opaque)\b|\b(sorry|admit)\b", proof.read_text(), re.M) for proof in proofs):
     sys.exit("a handwritten proof contains an opaque declaration or admission")
 rev = subprocess.check_output(["git", "-C", str(here / ".tools/perennial"), "rev-parse", "HEAD"], text=True).strip()
@@ -49,9 +53,10 @@ report = {
     "theorem_axiom_set": theorem_sets,
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
-    "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. The populated Header proofs cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. The felt pointer-conversion witness covers only the empty-array encoding. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
+    "native_evaluation_axioms_in_pilot": False,
+    "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, extended-head truncation and null-field contracts are proved separately; their full Header composition and other error cases remain pending. The felt pointer-conversion witness covers only the empty-array encoding. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)
 (here / "results/proof-audit.json").write_text(json.dumps(report, indent=2) + "\n")
-print(f"Audited {len(found)} pilot theorems: none depends on sorryAx.")
+print(f"Audited {len(found)} pilot theorems: none depends on sorryAx or native evaluation axioms.")

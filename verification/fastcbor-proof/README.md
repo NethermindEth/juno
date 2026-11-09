@@ -29,6 +29,55 @@ rejects trailing data. A nonzero destination is rejected unchanged. Duplicate st
 keys are unsupported, as in the baseline planner; they are not silently accepted
 with first-wins semantics. Projection semantics remain a separate obligation.
 
+## Immediate target: complete Header
+
+The next target is one general Header contract, covering all 15 fields and its
+GasPrice children, arbitrary supported field order/widths and suffixes, and
+failure cleanup. It is not a proof about one populated sample. Header needs
+unsigned integers, UTF-8 strings, felts, nested signature slices, and GasPrice;
+BigInt, tagged transaction interfaces, and typed Go maps are later library work.
+This prioritizes a complete Header proof before widening the generator. The
+whole-library performance gate remains mandatory before full-library proofs.
+
+The specification is to be independent of fxamacker. RFC 8949 supplies the wire
+rules; the Juno schema supplies the mapping into Go values. CBOR does not specify
+that `gasprice` names L1GasPriceETH, that undefined behaves like null, or how a
+four-word Montgomery felt is represented. Differential tests against FX remain
+compatibility evidence, not an assumption of the Lean theorems.
+
+The complete contract must account for these current application choices:
+
+- A zero destination is required. First returns the exact unread suffix; the full
+  entry rejects trailing bytes. Parse failures clear the destination; a nonzero
+  destination is rejected unchanged.
+- Header and GasPrice are definite-length maps (or null/undefined). Missing fields
+  stay zero. Known text names match exactly or with ASCII case folding; legacy
+  `gasprice` and `gaspricestrk` map to their explicit fields. Repeated known fields
+  are unsupported, including differently cased names of the same field.
+- Integer fields accept all unsigned CBOR widths, including non-preferred wider
+  encodings, plus null/undefined leaving the field unchanged. On the 64-bit target,
+  L1DAMode accepts any representable uint, not just the two named enum constants.
+- String fields check UTF-8. Felt pointers distinguish null from an allocated
+  zero felt; array elements are uint64 Montgomery limbs. Short arrays zero-fill;
+  long arrays discard extra elements using Skip.
+- Signatures preserve nil versus empty at both slice levels and nil felt entries.
+  The two GasPrice pointers may share one allocation, with separate element ownership.
+- Unknown text fields and supported integer keys have their values skipped. Skip
+  deliberately does not validate text UTF-8, so successful Header decoding is
+  **not** a blanket assertion of RFC 8949 validity for ignored content. Duplicate
+  unknown map keys are not tracked as known-field duplicates.
+- Indefinite lengths and some tags are unsupported. Container/tag depth is bounded
+  by the production limit of 32, including the special chained-tag counting rule.
+
+These choices are to be formalized explicitly; this list is not a completed
+proof. Strict validation of all ignored CBOR content would require a separately
+specified behavior change and performance evaluation. No such change is made here.
+
+The implementation proof order is general head/uint contracts, container and felt
+contracts, strings and nested outputs, field lookup/Skip, then the Header loop and
+public entries. Initialization and immutable shared-table ownership must also be
+closed. General success and error proofs must replace the current bounded examples.
+
 ## What Lean checks
 
 `ProofCheck/Header.lean` proves limited paths through the **translated production
@@ -68,6 +117,28 @@ The follow-up modules extend this pilot:
   publication of a nonnil, independently owned zero felt. This is a pointer-conversion
   witness, not a proof of the four-limb fast path or the general felt contract.
 
+The general Header proof now has reusable primitive contracts:
+
+- `Head.lean`: an explicit definite-head argument relation covering inline values
+  and 1/2/4/8-byte big-endian arguments; both head paths and both expectation paths;
+  Uint64 and the typed uint/mode readers at arbitrary offsets with arbitrary
+  remaining input. Non-preferred widths are included. A separate theorem proves
+  cursor/input preservation and the error offset for truncation inside an extended
+  head. This is not yet a complete classification of invalid heads or type errors.
+- `Containers.lean`: all supported widths through both ArrayLen and MapLen paths,
+  OpenStruct, and restoration of the enclosing depth when a struct finishes. The
+  success contracts require a mathematical bound on the remaining bytes and room
+  in the nesting limit; count/depth failure contracts remain to be proved.
+- `Null.lean`: null and undefined at arbitrary offsets, composed with every shared
+  scalar/string/felt/signature field reader. Scalar fields stay unchanged; pointer
+  and slice fields become nil. Non-null nested allocation contracts are pending.
+
+These contracts are not yet composed into a general Header theorem. Its remaining
+critical dependencies are general felt contents, UTF-8, nested signature/GasPrice
+ownership, field lookup and Skip (including their errors), plus initialization and
+shared table ownership. The earlier restricted Header examples still define the
+current end-to-end proof coverage.
+
 These are partial-correctness triples under the pinned Goose/Perennial semantics,
 on the 64-bit target. They require package initialization and, where used, ownership
 of the relevant initialized globals. The field factories are proved, but the global
@@ -83,8 +154,10 @@ required math/big implementations are translated locally; no arithmetic helper
 correctness theorem has been assumed. **The byte packing, carry loop and complete
 CBOR BigInt contract still need proofs.** This change is not yet performance-tested.
 
-`audit.py` checks every pilot theorem's transitive axiom report for `sorryAx` and
-records its source hashes. None of the checked pilot theorems depends on `sorryAx`.
+`audit.py` rejects `sorryAx` and native evaluation axioms in every pilot theorem's
+transitive axiom report and records source hashes. The byte-mask identity is checked
+by kernel reduction over all 256 bytes; it does not use `bv_decide`'s native oracle.
+None of the checked pilot theorems depends on either rejected class of axioms.
 Generated modules still contain unused admitted instances and opaque type axioms
 for untranslated declarations. The audit lists the transitive opaque axioms; this
 is not an assertion that the whole generated project is free of axioms or admissions.
@@ -123,7 +196,11 @@ MaxUint64, suffixes and output ownership, on amd64 and 386. The formal target re
 64-bit. The new public-API regressions exercise partial-result cleanup for all 24
 inline uints and compare null versus empty-array felt results against FX and the
 original planner. `go test -short ./core -run '^TestTypedHeader'` passed with these
-additions. These counts are historical observations, not promises about future runs.
+additions. A further public Header test constructs all five unsigned widths directly,
+including non-preferred encodings and width maxima, checks suffix/input preservation,
+and tests every truncation inside each extended head. That test also passes without
+using an FX-produced expected result. These counts are historical observations, not
+promises about future runs.
 
 ## Remaining gates, in order
 

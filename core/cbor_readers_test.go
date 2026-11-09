@@ -3,6 +3,7 @@ package core_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"math/rand/v2"
 	"strconv"
 	"testing"
@@ -52,6 +53,56 @@ func TestTypedHeader(t *testing.T) {
 		var trailing core.Header
 		require.ErrorIs(t, core.DecodeHeader(append(bytes.Clone(data), 7), &trailing), fastcbor.ErrExtraneousData)
 		require.Equal(t, core.Header{}, trailing)
+	}
+}
+
+// Exercise non-preferred widths as well as each width's maximum, without using
+// another CBOR implementation to construct the expected result.
+func TestTypedHeaderUnsignedWidths(t *testing.T) {
+	for _, width := range []int{0, 1, 2, 4, 8} {
+		maxValue := uint64(23)
+		if width != 0 {
+			maxValue = ^uint64(0) >> (64 - width*8)
+		}
+		values := []uint64{0, 7, 23}
+		if maxValue != 23 {
+			values = append(values, maxValue)
+		}
+		for _, value := range values {
+			t.Run(strconv.Itoa(width)+"/"+strconv.FormatUint(value, 10), func(t *testing.T) {
+				var encoded []byte
+				switch width {
+				case 0:
+					encoded = []byte{byte(value)}
+				case 1:
+					encoded = []byte{0x18, byte(value)}
+				case 2:
+					encoded = binary.BigEndian.AppendUint16([]byte{0x19}, uint16(value))
+				case 4:
+					encoded = binary.BigEndian.AppendUint32([]byte{0x1a}, uint32(value))
+				case 8:
+					encoded = binary.BigEndian.AppendUint64([]byte{0x1b}, value)
+				}
+				record := append([]byte{0xa1, 0x66, 'N', 'u', 'm', 'b', 'e', 'r'}, encoded...)
+				input := append(bytes.Clone(record), 0xff, 0x00)
+				before := bytes.Clone(input)
+				var got core.Header
+				rest, err := core.DecodeHeaderFirst(input, &got)
+				require.NoError(t, err)
+				require.Equal(t, core.Header{Number: value}, got)
+				require.Equal(t, []byte{0xff, 0x00}, rest)
+				require.Equal(t, before, input)
+				for cut := 1; cut < len(encoded); cut++ {
+					got = core.Header{}
+					err := core.DecodeHeader(record[:8+cut], &got)
+					require.ErrorIs(t, err, cursor.ErrTruncated)
+					var detail *cursor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, 8, detail.Offset)
+					require.Equal(t, core.Header{}, got)
+				}
+			})
+		}
 	}
 }
 
