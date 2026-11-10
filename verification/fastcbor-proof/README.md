@@ -99,7 +99,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures, rejection/converse completeness and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map recursive rejection remains pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; deeper failing containers and remaining leaf classes still need recursive rejection composition |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -107,7 +107,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 
 This is dependency order, not eight isolated phases: nested GasPrice uses field
 lookup, and successful felt decoding now composes the recursive Skip theorem.
-The next primitive work is array/map Skip rejection and complete felt rejection/converse, alongside UTF-8;
+The next primitive work is deeper array/map Skip rejection, remaining leaf classes and complete rejection/converse, alongside UTF-8;
 the latter has a proposed one-line repair to the pinned generic slice-index semantics
 (see the approval proposal below), while independent work remains available.
 The general Header relation and field lookup still need development alongside
@@ -427,6 +427,40 @@ read, exact inner offsets, repeated-read rollback and unchanged input.
 `TestTypedHeaderTaggedErrorsClearPartialResult` checks both Header APIs after a
 Number field, with tagged failures in an unknown field or an ignored felt value;
 the result clears, First returns nil and the inner offset survives.
+
+`SkipElementsBoundary.lean` proves depth rejection before count or child access,
+and oversized-count rejection before multiplication. `SkipContainerReject.lean`
+composes the actual array/map dispatch with an explicit loop proof, checking
+all outer wide-shortcut guards when depth permits that shortcut.
+`SkipContainerBoundary.lean` closes both worker/public boundary contracts for
+all array/map head widths, including unsigned counts above the signed range.
+A wire lemma excludes the outer four-limb shortcut on count-truncated input;
+at depth 32 the production guard disables it directly. Diagnostics use the end
+of the container head, and public Skip restores all cursor fields.
+
+`SkipElementsReject.lean` proves actual loop error propagation after an arbitrary
+valid prefix. Its invariant counts remaining children without multiplication
+wraparound, tracks exact cursor progress and preserves the whole input. Valid
+children use the proved recursive acceptance contract, including the loop's own
+inlined wide-felt shortcut. A supplied leaf proof and a wire property excluding
+that shortcut discharge the failed-child branch; these are explicit composition
+premises, not assumed decoder correctness.
+
+`SkipContainerPrefix.lean` derives the count/multiplication bounds from remaining
+input and composes that loop through actual array/map dispatch. Pure wire lemmas
+show that valid skipped contents before a malformed head cannot satisfy the
+outer four-limb shortcut, including inline `0x84`. Closed worker/public contracts
+instantiate every premise for malformed heads after arbitrary valid nested
+prefixes, retaining the exact inner diagnostic and whole-input ownership.
+This still leaves failing children that are themselves containers, remaining
+leaf-error classes and a complete Skip rejection/converse theorem to compose.
+
+`TestSkipContainerBoundaries` covers all head widths, short bodies, counts through
+max uint64 and depth 32 precedence, including empty containers.
+`TestSkipContainerMalformedChildren` covers arrays/maps, all head widths, later
+malformed children, valid wide felts and nested maps before the failure, loop
+shortcut/depth boundaries, long fast-path windows, repeated rollback, exact
+inner offsets and unchanged input.
 
 `Payload.lean` proves complete definite payload extraction at arbitrary offsets and
 length-head widths, returning the exact borrowed range while preserving the whole
@@ -923,6 +957,16 @@ unchanged. Next are array/map count/depth rejection and recursive child-error
 propagation, followed by rejection/converse composition and the other Header
 obligations above. The general Header theorem and frozen performance gate remain
 unfinished.
+
+The container rejection milestone passed full regeneration/check (1953 build
+jobs) with 389 audited theorems, no added transitive axioms, admissions or native
+evaluation axioms. Fresh public Skip, later-felt-error and typed Header tests
+passed with `-short -count=1`, including the new count/depth boundaries and
+malformed children after nested/wide prefixes. Production decoder behavior and
+pinned trusted semantics remain unchanged. Remaining rejection work includes
+failing nested containers and other leaf classes, plus complete classification
+and converse composition. The general Header proof, UTF-8, nested output
+ownership, initialization and the frozen performance gate remain unfinished.
 
 ## Whole-library gates after the Header milestone
 

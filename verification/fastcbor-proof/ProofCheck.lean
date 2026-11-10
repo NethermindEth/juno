@@ -1,1 +1,1 @@
-import ProofCheck.SkipTaggedBoundary
+import ProofCheck.SkipContainerPrefix

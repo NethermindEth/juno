@@ -191,3 +191,106 @@ func TestSkipTaggedErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipContainerBoundaries(t *testing.T) {
+	limits := [...]uint64{23, 255, 65535, 1<<32 - 1, ^uint64(0)}
+	for _, major := range []byte{0x80, 0xa0} {
+		perCount := uint64(1)
+		if major == 0xa0 {
+			perCount = 2
+		}
+		for width, limit := range limits {
+			for _, count := range []uint64{0, 1, 4, 24, 255, 1 << 63, ^uint64(0)} {
+				if count > limit {
+					continue
+				}
+				for _, tail := range []int{0, 1, 3, 40} {
+					for _, depth := range []int{0, 31, 32} {
+						if depth < 32 && count <= uint64(tail)/perCount {
+							continue
+						}
+						t.Run(fmt.Sprintf("major%x/width%d/count%d/tail%d/depth%d", major, width, count, tail, depth), func(t *testing.T) {
+							input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+							start := len(input)
+							input = appendTestCBORArgument(input, major, count, byte(width))
+							offset := len(input)
+							input = append(input, bytes.Repeat([]byte{0x1b}, tail)...)
+							before := bytes.Clone(input)
+							r := openSkipCursor(t, input, depth)
+							kind := cursor.ErrTruncated
+							if depth == 32 {
+								kind = cursor.ErrDepth
+							}
+							for range 2 {
+								err := r.Skip()
+								require.ErrorIs(t, err, kind)
+								var detail *cursor.DecodeError
+								require.ErrorAs(t, err, &detail)
+								require.Equal(t, offset, detail.Offset)
+								require.Equal(t, start, r.Pos())
+								require.Equal(t, input[start:], r.Remaining())
+							}
+							require.Equal(t, before, input)
+						})
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestSkipContainerMalformedChildren(t *testing.T) {
+	for _, major := range []byte{0x80, 0xa0} {
+		for width := byte(0); width < 5; width++ {
+			for prefix := range 8 {
+				for _, depth := range []int{0, 30, 31} {
+					for _, bad := range []byte{0x1c, 0x9f, 0xdc, 0xff} {
+						t.Run(fmt.Sprintf("major%x/width%d/prefix%d/depth%d/bad%x", major, width, prefix, depth, bad), func(t *testing.T) {
+							input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+							start := len(input)
+							count := max(4, prefix+1)
+							if major == 0xa0 {
+								count = (prefix + 2) / 2
+							}
+							input = appendTestCBORArgument(input, major, uint64(count), width)
+							for i := range prefix {
+								switch {
+								case depth < 31 && i%3 == 0:
+									// A valid wide felt exercises the loop's own shortcut.
+									input = append(input, 0x84)
+									for limb := range 4 {
+										input = appendTestCBORArgument(input, 0, uint64(limb+1), 4)
+									}
+								case depth < 31 && i%3 == 1:
+									input = append(input, 0xa1, 0, 0xf6)
+								default:
+									input = appendTestCBORArgument(input, 0, uint64(i), 4)
+								}
+							}
+							offset := len(input)
+							input = append(input, bad)
+							// Keep enough bytes for the count check and both fast windows.
+							input = append(input, bytes.Repeat([]byte{0x1b}, 40)...)
+							before := bytes.Clone(input)
+							r := openSkipCursor(t, input, depth)
+							kind := cursor.ErrSyntax
+							if bad == 0x9f {
+								kind = cursor.ErrUnsupported
+							}
+							for range 2 {
+								err := r.Skip()
+								require.ErrorIs(t, err, kind)
+								var detail *cursor.DecodeError
+								require.ErrorAs(t, err, &detail)
+								require.Equal(t, offset, detail.Offset)
+								require.Equal(t, start, r.Pos())
+								require.Equal(t, input[start:], r.Remaining())
+							}
+							require.Equal(t, before, input)
+						})
+					}
+				}
+			}
+		}
+	}
+}
