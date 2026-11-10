@@ -88,3 +88,6 @@ import ProofCheck.HeaderValueFailureSpec
 import ProofCheck.HeaderMapValueFailure
 
 import ProofCheck.HeaderValueFailureAPI
+
+import ProofCheck.FieldsShared
+import ProofCheck.HeaderSharedAPI

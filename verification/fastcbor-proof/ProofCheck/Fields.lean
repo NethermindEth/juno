@@ -40,7 +40,7 @@ attribute [-instance] go.SliceSemantics.composite_literal_slice
 
 /-- The generated factory allocates the actual complete GasPrice field table. -/
 theorem wp_makeGasPriceFields :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor }}
       (App (Val (@! cborMakeGasPriceFields)) (Val #()))
     {{ (fields : Loc), RET #fields; ∃ (names order : GoSlice),
        fields ↦ cursor.Fields.mk order names (W64 3) ∗
@@ -115,7 +115,7 @@ def headerFieldKeys : List cursor.StaticField := [
 
 /-- The generated factory allocates the actual complete Header field table. -/
 theorem wp_makeHeaderFields :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor }}
       (App (Val (@! cborMakeHeaderFields)) (Val #()))
     {{ (fields : Loc), RET #fields; ∃ (names order : GoSlice),
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
