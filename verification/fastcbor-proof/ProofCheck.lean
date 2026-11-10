@@ -41,3 +41,9 @@ import ProofCheck.HeaderGasFields
 import ProofCheck.HeaderGasMap
 
 import ProofCheck.HeaderGasFailure
+
+import ProofCheck.HeaderZero
+
+import ProofCheck.StringFailure
+
+import ProofCheck.HeaderString
