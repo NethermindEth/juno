@@ -87,9 +87,59 @@ theorem utf8Tables_classify (a : w8) :
     rw [utf8AcceptTable_bytes, List.getElem?_map, haccept]
     rfl
 
+/-- The remaining-byte checks selected by a decoded first-byte descriptor. -/
+def utf8NextInfo (size lo hi : Nat) (rest : List w8) : Option (List w8) :=
+  match size, rest with
+  | 2, b :: tail => if lo ≤ uint.Z b ∧ uint.Z b ≤ hi then some tail else none
+  | 3, b :: c :: tail => if lo ≤ uint.Z b ∧ uint.Z b ≤ hi ∧ (128 ≤ uint.Z c ∧ uint.Z c ≤ 191) then some tail else none
+  | 4, b :: c :: d :: tail =>
+    if lo ≤ uint.Z b ∧ uint.Z b ≤ hi ∧ (128 ≤ uint.Z c ∧ uint.Z c ≤ 191) ∧ (128 ≤ uint.Z d ∧ uint.Z d ≤ 191) then some tail else none
+  | _, _ => none
+
+/-- Go's size/interval branch tests realize the independent character classifier,
+    including insufficient bytes and all malformed continuations. -/
+theorem utf8Next_by_info (a : w8) (rest : List w8) (size lo hi : Nat)
+    (info : utf8LeadInfo a = some (size, lo, hi)) (nonascii : ¬ uint.Z a < 128) :
+    utf8Next (a :: rest) = utf8NextInfo size lo hi rest := by
+  have bounds := utf8Tables_classify a
+  simp only [info] at bounds
+  have sizes : size = 2 ∨ size = 3 ∨ size = 4 := by omega
+  rcases sizes with rfl | rfl | rfl
+  all_goals
+    cases rest with
+    | nil => simp [utf8Next, utf8NextInfo, nonascii]
+    | cons b tail =>
+      cases tail with
+      | nil =>
+        have grammar := utf8LeadInfo_grammar a b (W8 0) (W8 0)
+        simp only [info, Utf8Tail] at grammar
+        simp [utf8Next, utf8NextInfo, Utf8Tail, nonascii, grammar.1]
+      | cons c tail =>
+        cases tail with
+        | nil =>
+          have grammar := utf8LeadInfo_grammar a b c (W8 0)
+          simp only [info, Utf8Tail] at grammar
+          simp [utf8Next, utf8NextInfo, Utf8Tail, nonascii, grammar.1, grammar.2.1]
+        | cons d tail =>
+          have grammar := utf8LeadInfo_grammar a b c d
+          simp only [info, Utf8Tail] at grammar
+          simp [utf8Next, utf8NextInfo, Utf8Tail, nonascii, grammar.1, grammar.2.1, grammar.2.2]
+
+/-- A declared multibyte character cannot be accepted without all of its bytes. -/
+theorem utf8NextInfo_truncated (size lo hi : Nat) (rest : List w8)
+    (short : rest.length + 1 < size) : utf8NextInfo size lo hi rest = none := by
+  unfold utf8NextInfo
+  repeat' split
+  all_goals simp_all
+  all_goals omega
+
 end github_com.NethermindEth.juno.core
 end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.utf8LeadInfo_grammar
 #print axioms Perennial.github_com.NethermindEth.juno.core.utf8Tables_classify
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.utf8AcceptTable_bytes
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.utf8Next_by_info
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.utf8NextInfo_truncated

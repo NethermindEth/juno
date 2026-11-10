@@ -2065,6 +2065,51 @@ whole-function theorem. The generic-index semantics repair remains unapplied.
 Production Go and trusted semantics are unchanged, and the complete Header and
 frozen performance gates remain open.
 
+### Production UTF-8 loop composition and precise remaining obstruction
+
+Full regeneration/check passed (2086 build jobs): **755 audited theorems**,
+259 matching project hashes and 28 matching standard-library source hashes.
+No admissions, native-evaluation axioms or new axioms were introduced. The full
+log is `check-utf8-loop-descriptor-full.log`.
+
+`Utf8TableSpec.lean` now relates the independent one-character classifier to
+its size/second-byte-interval continuation checks for every non-ASCII descriptor,
+including malformed continuations and arbitrary following bytes. A separate
+lemma rejects every descriptor whose required bytes are truncated. These are
+checked supporting theorems, not assumptions about the production validator.
+
+`repros/Utf8Loop.lean` contains the general, all-input `unicode/utf8.Valid` proof
+attempt. It follows the actual translated production loop: capacity clamping,
+original-buffer reads, table lookup, two/three/four-byte bounds and continuation
+checks, exact suffix advancement, rejection after arbitrary valid prefixes, and
+success on exhaustion. It also handles the single ASCII-byte advance when the
+word fast path is skipped. These branches elaborate without additional goals;
+**the whole theorem is unfinished and has not been kernel-checked**.
+
+The only currently reported proof error is in the remaining ASCII fast-path
+branch, at the first byte load of the actual generic `word[[]byte]` helper.
+After reducing its call, the pinned model presents
+`IndexRef (0, window)` instead of `IndexRef (window, 0)`, reproducing the same
+trusted-semantics defect as `repros/Utf8Word.lean` inside the full validator.
+The existing proposed repair remains unapplied and awaits explicit approval.
+Fixing that rule will still leave the eight-byte helper contract, batched ASCII
+control flow and loop composition to prove; it does not automatically close
+this theorem or the Header milestone.
+
+Reproduction after a normal checked build:
+
+```sh
+lake env lean repros/Utf8Loop.lean
+```
+
+This command is **expected to fail**. The file is outside `ProofCheck.lean`,
+the theorem audit and source-hash manifest; it contributes no counted theorem.
+There are no admitted helper contracts or substitutions for the actual Go code.
+The full Header contract, string/key integration, exhaustive outcome
+classification and the frozen performance gate remain open. This checkpoint
+changes proof work and documentation only; production Go and pinned trusted
+semantics are unchanged.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
