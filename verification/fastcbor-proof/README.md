@@ -79,8 +79,8 @@ Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
 all successful zero-to-four-limb felt encodings through the typed reader, felt
-depth rejection, atomic Skip success/rejection/EOF contracts, and bounded public
-Header examples. The reproducible audit records the current lemma count.
+depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
+and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
@@ -88,7 +88,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | All zero-to-four-limb success paths and depth rejection proved through the typed reader; long arrays, remaining failures and UTF-8 pending |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved; atomic Skip success, simple/string/tag rejection and EOF proved with public rollback; recursive arrays/maps/tags and other errors pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved; general recursive Skip success proved, including both wide shortcuts; atomic rejection/EOF and public rollback proved, with recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -99,7 +99,10 @@ Skip, and nested GasPrice uses field lookup. Useful independent work can advance
 while those dependencies are being proved. The next implementation work is to
 close the primitive error contracts and generalize felt decoding, with the Header
 relation developed alongside them. BigInt, tagged transaction interfaces and
-ordinary Go maps do not block this Header milestone.
+ordinary Go maps do not block this Header milestone. The next felt dependency is
+now to compose `wp_Skip_valid` into the excess-element branch of `limbsSlow`;
+that will extend successful felt decoding beyond four elements. Recursive Skip
+rejection and remaining felt errors still require separate contracts.
 
 ### Definition of Header complete
 
@@ -248,8 +251,23 @@ The general Header proof now has reusable primitive contracts:
 - `SkipReject.lean`: simple values below 32 encoded in two bytes, strings longer
   than the available input, tags 0–3, and EOF. Public `Skip` restores the complete
   cursor state while retaining the worker's diagnostic offset and owned error.
-  These are atomic building blocks: recursive arrays/maps, accepted tags,
-  wide-felt skip shortcuts, and propagation of other head errors remain unproved.
+  Propagation of other head errors and recursive rejection remain unproved.
+- `SkipSpec.lean`: the recursive application acceptance relation for ignored
+  values, including arrays, arbitrary map keys/values, supported tags, all
+  definite head widths, and the chained-tag depth rule. Pure proofs establish
+  nonempty child encodings and show that a wide-shape match on a valid value
+  consumes exactly 37 bytes without stealing bytes from its suffix.
+- `SkipWide.lean`, `SkipElements.lean`, `SkipContainer.lean`, and `SkipTag.lean`:
+  the actual scanner shortcut, container loop (including its separate inline
+  shortcut), array/map dispatch, and supported tag path. The loop and dispatch
+  lemmas expose child contracts as induction hypotheses.
+- `SkipValid.lean`: well-founded induction on encoded length discharges every
+  child hypothesis and proves the actual worker and public `Skip` for every
+  encoding in `SkipValid`, at starting depths 0 through 32. It proves exact
+  consumption/suffix, no signed cursor wraparound, and unchanged input, depth
+  and scratch. This is success on the specified valid inputs, not yet a converse
+  or complete rejection theorem; recursive malformed-input behavior remains
+  to be proved. It does not assume a correct recursive child scanner.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
@@ -333,7 +351,18 @@ lemmas and no new transitive axioms. `go test -short ./utils/cbor/cursor` passed
 checkptr instrumentation. They exercise supported head widths, ignored invalid
 UTF-8, rejected short simple values/tags/oversized lengths, EOF, repeated errors,
 nonzero cursor offsets, and enclosing depths 0, 31 and 32. The recursive Skip
-proof remains outstanding.
+rejection proof remains outstanding.
+
+The recursive Skip success proof subsequently passed full regeneration and the
+axiom audit with 183 lemmas and no new transitive axioms. The complete cursor
+short suite passed. `FuzzSkipRecursive` builds nested values directly and checks
+exact consumption, suffix/input preservation and rollback on a sampled proper
+prefix; a 10-second run passed 528,339 executions. Deterministic tests cover 32
+nested arrays/maps, 33 consecutive tags, tags interleaved with arrays, and the
+wide-felt shortcut at the last permitted level, including every truncation of
+those examples. The recursive fuzz seeds and boundary tests also passed with
+race/checkptr instrumentation. Recursive rejection is tested here but is not yet
+formally proved.
 
 ## Whole-library gates after the Header milestone
 

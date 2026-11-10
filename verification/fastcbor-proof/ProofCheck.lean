@@ -1,1 +1,1 @@
-import ProofCheck.SkipReject
+import ProofCheck.SkipValid
