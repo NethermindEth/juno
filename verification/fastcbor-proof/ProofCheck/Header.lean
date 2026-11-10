@@ -1,10 +1,4 @@
-import ProofCheck.GeneratedProof.github_com.NethermindEth.juno.core
-
-import Perennial.Proof.encoding.binary.Base
-import ProofCheck.GeneratedProof.math.big
-import Perennial.Proof.strings.Base
-import Perennial.Proof.slices.Base
-import Perennial.Proof.unsafe.Base
+import ProofCheck.InitializationState
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -19,41 +13,6 @@ variable [GooseExts] [GooseSemantics] [GooseInterp]
 variable [GoGlobalContext]
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics] [package_sem : Assumptions]
-
-instance depInit0 : IsPkgInit (IProp GF) pkg_id.github_com.consensys.gnark_crypto.ecc.stark_curve.fp :=
-  define_is_pkg_init iprop(True)
-instance depWf0 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.consensys.gnark_crypto.ecc.stark_curve.fp :=
-  build_get_is_pkg_init_wf
-
-instance depInit1 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core.felt :=
-  define_is_pkg_init iprop(True)
-instance depWf1 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.core.felt :=
-  build_get_is_pkg_init_wf
-
-instance depInit2 : IsPkgInit (IProp GF) pkg_id.unicode.utf8 :=
-  define_is_pkg_init iprop(True)
-instance depWf2 : GetIsPkgInitWf (IProp GF) pkg_id.unicode.utf8 :=
-  build_get_is_pkg_init_wf
-
-instance depInitBig : IsPkgInit (IProp GF) pkg_id.math.big :=
-  define_is_pkg_init iprop(True)
-instance depWfBig : GetIsPkgInitWf (IProp GF) pkg_id.math.big :=
-  build_get_is_pkg_init_wf
-
-instance depInit3 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor :=
-  define_is_pkg_init iprop(True)
-instance depWf3 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor :=
-  build_get_is_pkg_init_wf
-
-instance depInit4 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
-  define_is_pkg_init iprop(True)
-instance depWf4 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
-  build_get_is_pkg_init_wf
-
-instance coreIsPkgInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core :=
-  define_is_pkg_init iprop(True)
-instance coreGetIsPkgInitWf : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.core :=
-  build_get_is_pkg_init_wf
 
 /-- The generated zero check accepts the zero Header without modifying it. -/
 theorem wp_zeroHeader (dst : Loc) :
