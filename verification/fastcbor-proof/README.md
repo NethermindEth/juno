@@ -94,7 +94,10 @@ and all frozen benchmark cases; it does not advance the Header milestone or clai
 additional typed/proved readers. See “Checked remaining-entry inventory” below.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
-section below. This is independent of the unresolved Header helper.
+section below. Twelve transaction-interface witness contracts now also check
+boxing and type-switch recovery for the five concrete pointer variants, including
+typed nils and unknown-type handling. These are independent of the unresolved
+Header helper; they do not prove transaction payload decoding.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -112,7 +115,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1009 audited theorems, no added axioms (six opaque resource-type declarations removed), 346 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1021 audited theorems, no added axioms (three opaque Transaction declarations removed in the latest checkpoint), 350 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3007,6 +3010,73 @@ declarations from the theorem dependency union; other documented generated opaqu
 declarations remain. The 51 direct validator-premise theorems and two direct
 word-helper-premise theorems remain conditional. All recorded hashes match.
 The full log is `check-map-feasibility-full.log`.
+
+### Transaction interface feasibility: boxing and type switches pass
+
+`feasibility/interfaces/witness.go` imports the actual `core.Transaction` interface
+and its five registered concrete pointer variants: DeployTransaction,
+DeployAccountTransaction, InvokeTransaction, DeclareTransaction and
+L1HandlerTransaction. Five exported functions box the corresponding pointer as
+Transaction. `ClassifyTransaction` uses an ordinary Go type switch to recover each
+pointer type and check whether it is nil; it has explicit nil-interface and
+default branches. Its numbers 0–6 are local witness labels, **not CBOR wire tags**.
+The witness is isolated from production decoder entries.
+
+`ProofCheck/InterfaceFeasibility.lean` contains twelve checked weakest-precondition
+contracts for these actual translated functions:
+
+- Five boxing contracts preserve the exact dynamic type and pointer, for any
+  pointer including null.
+- Five classification contracts cover arbitrary pointers of each recognized
+  dynamic type; the returned nil flag is exactly pointer equality with null.
+- The nil-interface contract returns the separate nil label.
+- The default contract covers every dynamic type distinct from those five,
+  without reading its payload or calling an interface method.
+
+All twelve contracts use the pinned model's existing interface conversion,
+type-assertion, type-comparison and pointer-comparison rules. There is no new
+trusted semantics and no assumed helper-correctness contract. The generated
+Transaction representation now comes from its actual method-set interface rather
+than an opaque type placeholder. The concrete transaction **payload layouts remain
+opaque in this selected translation**: these witnesses neither allocate nor read
+a transaction payload, so they establish only pointer publication and recovery.
+Future typed payload readers still need translated concrete layouts and their own
+independent ownership/correctness contracts. These results do not establish
+CBOR tag parsing, the numeric registry mapping, dynamic method invocation, class
+interfaces, or complete transaction decoding.
+
+The Go test checks all five non-null pointer round trips, all five typed-nil
+pointers, a nil interface, and an external implementation of Transaction with
+both non-null and nil pointers. That external implementation's methods panic if
+called, so the passing test also exercises the intended no-method-call default
+path. Ordinary and race/strict-checkptr tests pass. `check.sh` now runs both map
+and interface witness tests before translating and checking the Lean target.
+
+```sh
+# Repository root; public witness APIs, no production decoder replacement.
+go test -short ./verification/fastcbor-proof/feasibility/...
+go test -short -race -gcflags=all=-d=checkptr=2 ./verification/fastcbor-proof/feasibility/...
+```
+
+The checked entry manifest retains its 15 roots, 140 shapes, 18 registrations and
+185 benchmark cases; its build-selected non-test package list now has 156 entries,
+including the new witness package. Ordinary and race/checkptr frozen-corpus smoke
+were rerun for the changed source inventory. Each revision retains 177 compatible
+fast cases, six incompatible projections and two no-decoder controls, with no FX
+fallback in fast scopes. Production Go decoder code, original and baseline
+worktrees, pinned semantics, and the frozen benchmark universe remain unchanged.
+No performance timing was collected. Header still needs the approved generic
+slice-index repair and actual UTF-8 word-helper proof; felt-key map proofs still
+need the separate array-equality model work.
+
+Full regeneration/check passes with **1021 audited theorems**, **350 project
+hashes**, **28 standard-library hashes** and 2167 build jobs. The twelve interface
+witness contracts add no axioms, admissions or native-evaluation dependencies.
+Translating Transaction removes its three previous opaque type/underlying/zero
+value declarations from the dependency union; other documented generated opaque
+declarations remain. The 51 direct validator-premise theorems and two direct
+word-helper-premise theorems are unchanged. All recorded hashes match.
+The full log is `check-interface-feasibility-full.log`.
 
 ## Whole-library gates after the Header milestone
 

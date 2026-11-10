@@ -185,3 +185,5 @@ import ProofCheck.Utf8Loop
 import ProofCheck.Utf8FromWord
 
 import ProofCheck.MapFeasibility
+
+import ProofCheck.InterfaceFeasibility

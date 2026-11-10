@@ -47,6 +47,7 @@ compatibility_smoke = json.loads((here / "results/compatibility-smoke.json").rea
 inputs += [here / "results/compatibility-smoke-race-checkptr.json"]
 race_checkptr_smoke = json.loads((here / "results/compatibility-smoke-race-checkptr.json").read_text())
 inputs += list((here / "feasibility/maps").glob("*.go"))
+inputs += list((here / "feasibility/interfaces").glob("*.go"))
 inputs += [here / "repros/FeltMap.lean", here / "repros/MapKeyEquality.lean"]
 # Record the build-selected Go sources for standard-library packages translated
 # directly by this harness. Other standard-library models are pinned by Perennial.
@@ -99,6 +100,15 @@ report = {
         "blocker": "pinned ArraySemantics checks array comparability but supplies no array-value GoEquals step; felt and SierraClassHash resolve to [4]uint64",
         "excluded_attempts": ["repros/FeltMap.lean", "repros/MapKeyEquality.lean"],
         "scope": "language-feature witnesses only; no map decoder, wire specification, generator extension or whole-library proof is claimed; trusted semantics unchanged",
+    },
+    "transaction_interface_feasibility": {
+        "go_witness": "verification/fastcbor-proof/feasibility/interfaces/witness.go",
+        "proof": "verification/fastcbor-proof/ProofCheck/InterfaceFeasibility.lean",
+        "proved": "actual pointer-to-Transaction boxing for all five registered transaction variants; concrete type-switch classification for arbitrary pointers including typed nil; nil-interface and unrecognized dynamic-type branches",
+        "theorems": 12,
+        "boundary": "generated Transaction interface representation and concrete pointer type identities; transaction payload layouts remain outside these witnesses and are not accessed or allocated",
+        "excluded": "CBOR tag parsing and numeric tag-to-type mapping, payload decoding/ownership, dynamic method calls, registration/routing/fallback and class interfaces",
+        "scope": "language-feature witnesses only; local classification numbers are not wire tags; no new trusted semantics or helper correctness premise",
     },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
     "initialization_boundary": {
