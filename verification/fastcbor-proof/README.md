@@ -137,7 +137,8 @@ progress, unpublished partial price contents and cleanup of populated Headers.
 The independent UTF-8 byte grammar now has a complete character classifier and
 an all-input specification-checker equivalence proof. All 256 first-byte cases
 are linked to Go's actual size/continuation-range tables. This does not yet prove
-the production validator loop. Illegal leading-byte
+the production validator loop. Its pure scan invariant and the actual window
+creation, byte-load and suffix-slice ownership contracts are now checked. Illegal leading-byte
 rejection is proved through the actual validator, cursor.String, typed reader and
 Header value-failure APIs, with arbitrary following payload bytes and suffixes.
 It also composes through the public key reader, cached field lookup, Header and
@@ -2027,6 +2028,42 @@ validator, successful string decoder or complete Header theorem is claimed here;
 existing production UTF-8 proofs still cover illegal initial bytes only.
 Production Go, trusted semantics and the frozen performance-gate status are
 unchanged by this proof/specification checkpoint.
+
+### UTF-8 scan invariant and input ownership foundations
+
+Full regeneration/check passed (2086 build jobs): **753 audited theorems**,
+259 matching project hashes and 28 matching standard-library source hashes.
+No admissions, native-evaluation axioms or new axioms were introduced. The full
+log is `check-utf8-scan-foundations-full.log`.
+
+`Utf8Window.lean` relates each successful independent character step to its exact
+unconsumed suffix and proves validity preservation across that step. Its
+`utf8Window` describes the production validator's capacity clamp and successive
+suffix slices. Checked pointer/index and slice-composition identities account for
+signed-word bounds and the unchanged underlying buffer.
+
+Three weakest-precondition contracts prove the actual translated expression
+shapes for the initial full-slice operation, direct byte indexing/loading at any
+in-bounds window offset, and suffix slicing by any bounded count. Each preserves
+ownership of the **entire original input** at its original fraction. These are
+ordinary `IndexRef`/load operations used by the validator's multibyte branches;
+they neither invoke nor repair the separate generic `Index` rule used by its
+ASCII word helper.
+
+`Utf8Scan.lean` defines the pure scan invariant: the current position is in bounds,
+and validity of the original input is equivalent to validity of the remaining
+suffix. It proves initialization, exact progress by any successfully classified
+character, progress by arbitrary ASCII batches, validity on exhaustion and
+invalidity when the next nonempty suffix is rejected. Those statements allow
+malformed bytes after an arbitrary valid prefix; they are not restricted to a
+fixed record, character width or string length.
+
+The production validator's loop still needs to compose these facts with its
+actual table lookups, continuation-byte tests, control flow and ASCII word path.
+This checkpoint supplies expression contracts and an invariant, not the missing
+whole-function theorem. The generic-index semantics repair remains unapplied.
+Production Go and trusted semantics are unchanged, and the complete Header and
+frozen performance gates remain open.
 
 ## Whole-library gates after the Header milestone
 

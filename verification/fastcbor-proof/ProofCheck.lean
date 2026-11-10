@@ -117,3 +117,6 @@ import ProofCheck.FieldUtf8Reject
 
 import ProofCheck.Utf8Classify
 import ProofCheck.Utf8TableSpec
+
+import ProofCheck.Utf8Window
+import ProofCheck.Utf8Scan
