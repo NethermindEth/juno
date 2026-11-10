@@ -1,4 +1,4 @@
-import ProofCheck.HeaderGasFields
+import ProofCheck.HeaderSeen
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -18,10 +18,10 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
     pair, publishes exactly the selected slot, and restores the loop invariant.
     The key-family restriction is inherited from the proved GasPrice map contract. -/
 theorem wp_headerGas_existing_map (c dst shared base fields : Loc) (h : Header) (old : HeaderValue)
-    (second : Bool) (prices : GoArray GasPrice 2) (snapshot : HeaderGasSnapshot) (g : GasPrice)
+    (second : Bool) (prices : GoArray GasPrice 2) (snapshot : HeaderGasSnapshot) (g : GasPrice) (seen : w64)
     (v : cursor.Cursor) (f : cursor.Fields) (xs payload rem : List w8) (head : w8)
     (kind : GoInterface) (qf qo qn dq : DFrac) (d : Nat) (entries : List (GasPriceEntry (d + 1)))
-    (layout : snapshot.layout (GF := GF) base h old)
+    (layout : snapshot.layout (GF := GF) base h old) (unseen : HeaderGasUnseen seen snapshot)
     (hg : prices.arr[(sint.Z (headerGasSlot second)).toNat]? = some g)
     (enc : HeadArgument head payload (W64 entries.length)) (major : head &&& W8 224 = W8 160)
     (hd : sint.Z v.depth' = d) (hdepth : d < 32) (fresh : GasEntriesFresh (W64 0) entries)
@@ -40,8 +40,9 @@ theorem wp_headerGas_existing_map (c dst shared base fields : Loc) (h : Header) 
        HeaderBody (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
          (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply (snapshot.value second)))) ∗
        shared ↦ base ∗
-       HeaderGasState base (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
-         (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply (snapshot.value second)))) ∗
+       HeaderGasReady base (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
+         (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply (snapshot.value second))))
+         (headerKeySeen seen (some (headerGasKey second))) ∗
        c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)} ∗
        v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗ f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames ∗
        ⌜sint.Z (v.pos' + W64 (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)) =
@@ -71,9 +72,10 @@ theorem wp_headerGas_existing_map (c dst shared base fields : Loc) (h : Header) 
   · iframe Hglobal Hkind Hfield Hshared Hprices Hc Hs Hfields Horder Hnames
   ihave Hh := Hclose $$ %(arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base) Hfield
   isimp only [headerGasSnapshot_set snapshot second _ true] at Hprices
-  ihave Hstate := headerGasState_snapshot base _ _ _
+  ihave Hstate := headerGasReady_snapshot base _ _ _ (headerKeySeen seen (some (headerGasKey second)))
     (snapshot.update second (entries.foldl GasPriceEntry.apply (snapshot.value second)) true)
-    (headerGasLayout_success (GF := GF) snapshot base h old second _ layout) $$ Hprices
+    (headerGasLayout_success (GF := GF) snapshot base h old second _ layout)
+    (headerGasUnseen_write seen snapshot second _ true unseen) $$ Hprices
   iapply HΦ
   isimp only [headerBody_set_gas]
   iframe Hh Hbody Hshared Hstate Hc Hs Hfields Horder Hnames
@@ -82,7 +84,7 @@ theorem wp_headerGas_existing_map (c dst shared base fields : Loc) (h : Header) 
 
 /-- With no previous allocation, the actual Header call allocates and zeroes
     both structs before decoding and publishing the selected one. -/
-theorem wp_headerGas_new_map (c dst shared fields : Loc) (h : Header) (old : HeaderValue) (second : Bool)
+theorem wp_headerGas_new_map (c dst shared fields : Loc) (h : Header) (old : HeaderValue) (second : Bool) (seen : w64)
     (v : cursor.Cursor) (f : cursor.Fields) (xs payload rem : List w8) (head : w8)
     (kind : GoInterface) (qf qo qn dq : DFrac) (d : Nat) (entries : List (GasPriceEntry (d + 1)))
     (layout : headerGasZeroSnapshot.layout (GF := GF) null h old)
@@ -103,8 +105,9 @@ theorem wp_headerGas_new_map (c dst shared fields : Loc) (h : Header) (old : Hea
        HeaderBody (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
          (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply ⟨none, none⟩))) ∗
        shared ↦ base ∗
-       HeaderGasState base (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
-         (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply ⟨none, none⟩))) ∗
+       HeaderGasReady base (headerSetGasPointer second h (arrayIndexRef GasPrice (sint.Z (headerGasSlot second)) base))
+         (headerSetGasValue second old (some (entries.foldl GasPriceEntry.apply ⟨none, none⟩)))
+         (headerKeySeen seen (some (headerGasKey second))) ∗
        c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)} ∗
        v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗ f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames ∗
        ⌜sint.Z (v.pos' + W64 (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)) =
@@ -140,9 +143,10 @@ theorem wp_headerGas_new_map (c dst shared fields : Loc) (h : Header) (old : Hea
     (sint.Z (headerGasSlot second)).toNat (entries.foldl GasPriceEntry.apply ⟨none, none⟩)) =
     (headerGasZeroSnapshot.update second (entries.foldl GasPriceEntry.apply ⟨none, none⟩) true).values at hvalues
   isimp only [hvalues] at Hprices
-  ihave Hstate := headerGasState_snapshot base _ _ _
+  ihave Hstate := headerGasReady_snapshot base _ _ _ (headerKeySeen seen (some (headerGasKey second)))
     (headerGasZeroSnapshot.update second (entries.foldl GasPriceEntry.apply ⟨none, none⟩) true)
-    (headerGasLayout_success (GF := GF) headerGasZeroSnapshot base h old second _ layout') $$ Hprices
+    (headerGasLayout_success (GF := GF) headerGasZeroSnapshot base h old second _ layout')
+    (headerGasUnseen_write seen headerGasZeroSnapshot second _ true (headerGasUnseen_zero seen)) $$ Hprices
   iapply HΦ
   isimp only [headerBody_set_gas]
   iframe Hh Hbody Hshared Hstate Hc Hs Hfields Horder Hnames

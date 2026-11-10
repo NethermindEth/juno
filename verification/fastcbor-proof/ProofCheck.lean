@@ -57,3 +57,11 @@ import ProofCheck.StructOpenSound
 import ProofCheck.StructOpenComplete
 
 import ProofCheck.HeaderOpenContract
+
+import ProofCheck.HeaderKeys
+
+import ProofCheck.HeaderKeyDuplicate
+
+import ProofCheck.HeaderSeen
+
+import ProofCheck.HeaderGasReady

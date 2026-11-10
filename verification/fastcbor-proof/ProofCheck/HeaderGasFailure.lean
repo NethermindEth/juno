@@ -1,4 +1,4 @@
-import ProofCheck.HeaderGasFields
+import ProofCheck.HeaderSeen
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -18,11 +18,11 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
     retains the selected partial value in the shared state, and propagates the
     actual owned diagnostic. All specified GasPrice failure families are covered. -/
 theorem wp_headerGas_existing_failure (c dst shared base fields : Loc) (h : Header) (old : HeaderValue)
-    (second : Bool) (prices : GoArray GasPrice 2) (snapshot : HeaderGasSnapshot) (g : GasPrice) (final : GasPriceValue)
+    (second : Bool) (prices : GoArray GasPrice 2) (snapshot : HeaderGasSnapshot) (g : GasPrice) (final : GasPriceValue) (seen : w64)
     (v : cursor.Cursor) (f : cursor.Fields) (xs wire : List w8)
     (kinds : FeltErrorKinds) (qf qo qn dq : DFrac) (d consumed offset : Nat) (entered : Bool)
     (reason : GasPriceFailureReason)
-    (layout : snapshot.layout (GF := GF) base h old)
+    (layout : snapshot.layout (GF := GF) base h old) (unseen : HeaderGasUnseen seen snapshot)
     (hg : prices.arr[(sint.Z (headerGasSlot second)).toNat]? = some g)
     (failure : GasPriceFailure d wire (snapshot.value second) final consumed offset entered reason)
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
@@ -37,7 +37,8 @@ theorem wp_headerGas_existing_failure (c dst shared base fields : Loc) (h : Head
         (Val #(structFieldRef Header (headerGasName second) dst))) (Val #shared)) (Val #(headerGasSlot second)))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
        dst ↦ h ∗ HeaderBody h (headerSetGasValue second old (if snapshot.published second then some final else none)) ∗
-       shared ↦ base ∗ HeaderGasState base h (headerSetGasValue second old (if snapshot.published second then some final else none)) ∗
+       shared ↦ base ∗ HeaderGasReady base h (headerSetGasValue second old (if snapshot.published second then some final else none))
+         (headerKeySeen seen (some (headerGasKey second))) ∗
        c ↦ {v with pos' := v.pos' + W64 consumed, depth' := if entered then v.depth' + W64 1 else v.depth'} ∗
        v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗ f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames ∗
        GasPriceFailureError err (v.pos' + W64 offset) reason (gasPriceFailureKind reason kinds) ∗
@@ -57,8 +58,9 @@ theorem wp_headerGas_existing_failure (c dst shared base fields : Loc) (h : Head
   ihave Hh := Hclose $$ %(headerGasPointer second h) Hfield
   isimp only [headerSetGasPointer_original] at Hh
   isimp only [headerGasSnapshot_set snapshot second final (snapshot.published second)] at Hprices
-  ihave Hstate := headerGasState_snapshot base _ _ _ (snapshot.update second final (snapshot.published second))
-    (headerGasLayout_failure (GF := GF) snapshot base h old second final layout) $$ Hprices
+  ihave Hstate := headerGasReady_snapshot base _ _ _ (headerKeySeen seen (some (headerGasKey second))) (snapshot.update second final (snapshot.published second))
+    (headerGasLayout_failure (GF := GF) snapshot base h old second final layout)
+    (headerGasUnseen_write seen snapshot second final (snapshot.published second) unseen) $$ Hprices
   iapply HΦ
   isimp only [headerBody_set_gas_value]
   iframe Hh Hbody Hshared Hstate Hc Hs Hfields Horder Hnames Herr
@@ -68,7 +70,7 @@ theorem wp_headerGas_existing_failure (c dst shared base fields : Loc) (h : Head
 /-- A failure after lazy allocation publishes neither pointer. The complete
     partial shared allocation remains accounted for until Header cleanup. -/
 theorem wp_headerGas_new_failure (c dst shared fields : Loc) (h : Header) (old : HeaderValue)
-    (second : Bool) (final : GasPriceValue) (v : cursor.Cursor) (f : cursor.Fields) (xs wire : List w8)
+    (second : Bool) (final : GasPriceValue) (seen : w64) (v : cursor.Cursor) (f : cursor.Fields) (xs wire : List w8)
     (kinds : FeltErrorKinds) (qf qo qn dq : DFrac) (d consumed offset : Nat) (entered : Bool)
     (reason : GasPriceFailureReason)
     (layout : headerGasZeroSnapshot.layout (GF := GF) null h old)
@@ -83,7 +85,7 @@ theorem wp_headerGas_new_failure (c dst shared fields : Loc) (h : Header) (old :
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c))
         (Val #(structFieldRef Header (headerGasName second) dst))) (Val #shared)) (Val #(headerGasSlot second)))
     {{ (err base : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
-       dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasState base h old ∗
+       dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasReady base h old (headerKeySeen seen (some (headerGasKey second))) ∗
        c ↦ {v with pos' := v.pos' + W64 consumed, depth' := if entered then v.depth' + W64 1 else v.depth'} ∗
        v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗ f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames ∗
        GasPriceFailureError err (v.pos' + W64 offset) reason (gasPriceFailureKind reason kinds) ∗
@@ -109,7 +111,9 @@ theorem wp_headerGas_new_failure (c dst shared fields : Loc) (h : Header) (old :
     (sint.Z (headerGasSlot second)).toNat final) =
     (headerGasZeroSnapshot.update second final false).values at hvalues
   isimp only [hvalues] at Hprices
-  ihave Hstate := headerGasState_snapshot base _ h old (headerGasZeroSnapshot.update second final false) layout' $$ Hprices
+  ihave Hstate := headerGasReady_snapshot base _ h old (headerKeySeen seen (some (headerGasKey second)))
+    (headerGasZeroSnapshot.update second final false) layout'
+    (headerGasUnseen_write seen headerGasZeroSnapshot second final false (headerGasUnseen_zero seen)) $$ Hprices
   iapply HΦ
   iframe Hh Hbody Hshared Hstate Hc Hs Hfields Horder Hnames Herr
   ipureintro
