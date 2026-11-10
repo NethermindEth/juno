@@ -129,3 +129,5 @@ import ProofCheck.StringConversion
 import ProofCheck.KeySpec
 
 import ProofCheck.SchemaKeySpec
+
+import ProofCheck.GasPriceSpec
