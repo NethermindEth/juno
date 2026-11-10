@@ -44,6 +44,8 @@ inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.js
 entry_manifest = json.loads((here / "results/entry-manifest.json").read_text())
 inputs += [here / "smoke/run.py", here / "smoke/frozen_test.go.txt", here / "results/compatibility-smoke.json"]
 compatibility_smoke = json.loads((here / "results/compatibility-smoke.json").read_text())
+inputs += [here / "results/compatibility-smoke-race-checkptr.json"]
+race_checkptr_smoke = json.loads((here / "results/compatibility-smoke-race-checkptr.json").read_text())
 # Record the build-selected Go sources for standard-library packages translated
 # directly by this harness. Other standard-library models are pinned by Perennial.
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
@@ -131,6 +133,13 @@ report = {
         "checker": "python3 verification/fastcbor-proof/smoke/run.py --check (separate source/corpus evidence check)",
         "baseline_counts": compatibility_smoke["baseline"]["counts"],
         "candidate_counts": compatibility_smoke["candidate"]["counts"],
+        "race_checkptr": {
+            "path": "verification/fastcbor-proof/results/compatibility-smoke-race-checkptr.json",
+            "flags": race_checkptr_smoke["go_build_flags"],
+            "baseline_counts": race_checkptr_smoke["baseline"]["counts"],
+            "candidate_counts": race_checkptr_smoke["candidate"]["counts"],
+            "claim": "saved corpus and instrumentation checks passed under race/checkptr=2; not universal race-freedom or memory-safety proof",
+        },
         "status": "saved no-fallback corpus compatibility evidence for the recorded Go source hashes; not a formal equivalence proof or performance-gate result",
     },
     "theorem_axiom_set": theorem_sets,

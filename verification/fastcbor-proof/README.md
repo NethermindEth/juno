@@ -96,6 +96,9 @@ The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
 performance gate and remaining typed-reader implementation are still open.
+The same corpus and no-fallback instrumentation checks also pass on both revisions
+with `-race -gcflags=all=-d=checkptr=2`; these are runtime checks, not formal safety
+or performance results.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
@@ -106,7 +109,7 @@ performance gate and remaining typed-reader implementation are still open.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 339 project hashes and 28 standard-library hashes. The checked entry manifest and saved compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 340 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -2878,6 +2881,43 @@ dependencies are unchanged, with no admissions or native-evaluation axioms. The
 full log is `check-frozen-smoke-full.log`. The baseline, original worktree and pinned
 trusted semantics are unchanged. The Header proof still requires the separately
 approved indexing repair and actual eight-byte helper proof.
+
+### Race and strict pointer checks on the frozen corpus
+
+The full smoke now also passes on both the untouched baseline and current candidate
+with **`-race -gcflags=all=-d=checkptr=2`**. Each revision retains the same complete
+classification: 177 compatible fast cases, 6 removed-projection cases and 2 controls
+with no decoder calls. No data race or strict pointer-check failure was reported.
+The negative instrumentation test also passed on both revisions, and every recorded
+fast case reports zero FX calls inside its guarded decode scope.
+
+The driver records the exact Go build flags and clears ambient `GOFLAGS` so an
+ordinary run cannot silently inherit instrumentation or other compiler flags.
+Ordinary and instrumented results use separate artifacts; source/corpus evidence
+checks require the requested flags to match the saved record.
+
+```sh
+# Repository root: execute both revisions with race and strict checkptr.
+python3 verification/fastcbor-proof/smoke/run.py --race --checkptr
+# Revalidate the saved instrumented evidence without running the decoders again.
+python3 verification/fastcbor-proof/smoke/run.py --race --checkptr --check
+# Ordinary evidence is retained and checked independently.
+python3 verification/fastcbor-proof/smoke/run.py --check
+```
+
+The instrumented artifact is `results/compatibility-smoke-race-checkptr.json`.
+The ordinary smoke was rerun with the updated harness and retains its prior case
+classification. Both artifacts match the recorded source trees, harness and frozen
+historical sources/corpus files. These checks exercise the current implementation;
+they do not prove universal race freedom, memory safety or correctness of future
+typed readers. No instrumented or ordinary timings were collected.
+
+Full regeneration/check passed (2161 build jobs): **1008 audited theorems** and
+**340 project hashes**, with unchanged theorem/axiom dependencies and 28 matching
+standard-library hashes. There are no admissions or native-evaluation axioms. The
+full log is `check-frozen-race-checkptr-full.log`. Decoder Go code, the baseline and
+the pinned semantics remain unchanged. Header's unresolved helper proof, remaining
+typed implementation and the performance gate remain open.
 
 ## Whole-library gates after the Header milestone
 

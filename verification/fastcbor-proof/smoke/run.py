@@ -74,7 +74,7 @@ def tracked_sources(repo):
     return {p: sha((repo / p).read_bytes()) for p in sorted(paths) if p}
 
 
-def run_target(repo, label, expected_ids):
+def run_target(repo, label, expected_ids, build_flags):
     revision = git(repo, 'rev-parse', 'HEAD')
     status = git(repo, 'status', '--porcelain')
     if label == 'baseline' and (revision != BASELINE_SHA or status):
@@ -100,9 +100,9 @@ def run_target(repo, label, expected_ids):
         overlay_file = tmp / 'overlay.json'
         overlay_file.write_text(json.dumps({'Replace': overlay}))
         rows_path = tmp / 'rows.json'
-        env = dict(os.environ, GOTOOLCHAIN='go1.27.0', GOWORK='off', GOOS='linux', GOARCH='amd64', GOAMD64='v1',
+        env = dict(os.environ, GOTOOLCHAIN='go1.27.0', GOWORK='off', GOOS='linux', GOARCH='amd64', GOAMD64='v1', GOFLAGS='',
                    JUNO_PROOF_SMOKE_UNIVERSE=str(UNIVERSE), JUNO_PROOF_SMOKE_OUTPUT=str(rows_path))
-        command = ['go', 'test', '-overlay=' + str(overlay_file), '-run', '^TestFrozenCBORSmoke($|Instrumentation$)', '-count=1', '-timeout=10m', '-v', './core']
+        command = ['go', 'test', *build_flags, '-overlay=' + str(overlay_file), '-run', '^TestFrozenCBORSmoke($|Instrumentation$)', '-count=1', '-timeout=10m', '-v', './core']
         log = tmp / 'go-test.log'
         with log.open('w') as out:
             result = subprocess.run(command, cwd=repo, env=env, stdout=out, stderr=subprocess.STDOUT)
@@ -126,6 +126,8 @@ def run_target(repo, label, expected_ids):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='verify saved evidence source/corpus hashes without rerunning smoke')
+    parser.add_argument('--race', action='store_true', help='run the Go race detector')
+    parser.add_argument('--checkptr', action='store_true', help='run strict checkptr=2 instrumentation')
     parser.add_argument('--baseline', type=Path, default=BASELINE)
     parser.add_argument('--candidate', type=Path, default=REPO)
     args = parser.parse_args()
@@ -141,9 +143,13 @@ def main():
     ids = sorted(case['id'] for case in universe['cases'])
     if len(ids) != 185 or len(set(ids)) != 185:
         raise RuntimeError('unexpected frozen universe')
-    output = HERE.parent / 'results/compatibility-smoke.json'
+    build_flags = (['-race'] if args.race else []) + (['-gcflags=all=-d=checkptr=2'] if args.checkptr else [])
+    mode = ('-race' if args.race else '') + ('-checkptr' if args.checkptr else '')
+    output = HERE.parent / f'results/compatibility-smoke{mode}.json'
     if args.check:
         report = json.loads(output.read_text())
+        if report['go_build_flags'] != build_flags:
+            raise RuntimeError('saved evidence uses different race/checkptr flags')
         if report['universe_sha256'] != sha(UNIVERSE.read_bytes()):
             raise RuntimeError('smoke evidence uses a different frozen universe')
         for path in [Path(__file__), HERE / 'frozen_test.go.txt']:
@@ -161,12 +167,14 @@ def main():
         return
     report = {
         'go_target': 'go1.27.0 linux/amd64/v1',
+        'go_build_flags': build_flags,
+        'ambient_GOFLAGS': 'cleared; only recorded flags apply',
         'status': 'compatibility classification only; no performance samples or gate result',
         'scope': 'Actual fast public APIs and block serializers with test-only wrapper overlays that remove fallback; FX calls within the fast decode scope are rejected and counted. FX framing setup for block operations is outside that scope. Tests do not time the overlays.',
         'universe_sha256': sha(UNIVERSE.read_bytes()),
         'harness_sha256': {p.name: sha(p.read_bytes()) for p in [Path(__file__), HERE / 'frozen_test.go.txt']},
-        'baseline': run_target(args.baseline.resolve(), 'baseline', ids),
-        'candidate': run_target(args.candidate.resolve(), 'candidate', ids),
+        'baseline': run_target(args.baseline.resolve(), 'baseline', ids, build_flags),
+        'candidate': run_target(args.candidate.resolve(), 'candidate', ids, build_flags),
     }
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
     print('Wrote', output)

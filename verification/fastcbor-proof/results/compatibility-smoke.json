@@ -1,4 +1,5 @@
 {
+  "ambient_GOFLAGS": "cleared; only recorded flags apply",
   "baseline": {
     "cases": [
       {
@@ -4725,7 +4726,7 @@
       "db/typed/value/cbor.go": "40caf7a9d873b400ccef9e2b95762ebd79b2762977ac8509ba3a9f40e84ac074",
       "utils/cbor/fxamacker/cbor.go": "6ccfd5b3604ed9011152a98702fce23397d115ec8ec02f89d3c180fbc78eda46"
     },
-    "revision": "d286f45e23b178ac030d5b3e1e952346053225e5",
+    "revision": "9cb54e7f39035b45e691e2fc06547c18ac9830e8",
     "tracked_go_source_sha256": {
       "adapters/adaptfeeder/adaptfeedertest/adaptfeedertest.go": "0e69732d57a0332b4c54a49f7eb45aa72fc876cf9d94832cd721dcf943319cc1",
       "adapters/adaptfeeder/feeder.go": "8e664787a751648442e7ea30d4bc6eac1e62ce439c3b238f604befe9d404c6d2",
@@ -5743,10 +5744,11 @@
       "vm/vm_test.go": "a62c35e3fa5700feca4c6f5bc1c6faa32f7277bf3303b534a3325a5c73e13a66"
     }
   },
+  "go_build_flags": [],
   "go_target": "go1.27.0 linux/amd64/v1",
   "harness_sha256": {
     "frozen_test.go.txt": "26dff0c7d652944982f489e8fce64d07bd8bc5d1bd97287396df2f71f7e6c354",
-    "run.py": "73e1d07eb2acf17db375e4178f1b61e485e052b165e12abe8efcc36bf7fc7085"
+    "run.py": "14e24e614eb08608465f56820374f8c2c2581c89f1841f86e564ff132c6ef8de"
   },
   "scope": "Actual fast public APIs and block serializers with test-only wrapper overlays that remove fallback; FX calls within the fast decode scope are rejected and counted. FX framing setup for block operations is outside that scope. Tests do not time the overlays.",
   "status": "compatibility classification only; no performance samples or gate result",
