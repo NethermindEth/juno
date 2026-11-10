@@ -135,3 +135,6 @@ import ProofCheck.GasPriceSpec
 import ProofCheck.HeaderItemSpec
 import ProofCheck.HeaderRecordSpec
 import ProofCheck.HeaderAPISpec
+
+import ProofCheck.SupportedAPI
+import ProofCheck.SupportedFailureAPI

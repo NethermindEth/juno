@@ -2303,6 +2303,48 @@ families. The generic-index semantics repair remains unapplied and awaits explic
 approval. Production Go and pinned trusted semantics are unchanged; the frozen
 performance gate has not run.
 
+### Production-proved families refine the complete specification
+
+Full regeneration/check passed (2101 build jobs): **853 audited theorems**,
+274 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged: no admissions, native-evaluation axioms
+or new axioms. The full log is `check-supported-spec-refinement-full.log`.
+
+`SupportedSpec.lean` connects the existing successful Header/GasPrice wire
+families to the complete independent specification. The actual seen-bit masks
+correspond to membership in semantic field lists; setting a field bit corresponds
+to recording that identity. Induction over successful entries preserves byte
+order, fresh-field checks and every decoded value. Nested GasPrice results retain
+the distinction between nil and an allocated record with nil amounts. The
+representable-length premises exclude mathematical word-wrap cases and are
+derived from actual slice ownership in the API theorems.
+
+`SupportedFailureSpec.lean` and `SupportedHeaderFailureSpec.lean` connect all
+existing GasPrice failure constructors and Header lookup/value failure witnesses
+to the complete record relations. They preserve every successful prefix update,
+duplicate-before-value precedence, bytes consumed, diagnostic offset and retained
+nested depth. Failed GasPrice values retain their private partial record without
+publishing it into the Header.
+
+`SupportedAPI.lean` and `SupportedFailureAPI.lean` provide seven actual production
+WP contracts with the independent `HeaderFirstSpec`/`HeaderFullSpec` in their
+postconditions: successful First/full decoding, full trailing-data rejection, and
+lookup/value failures through both APIs. They preserve exact suffix aliasing,
+whole fractional input ownership, output/diagnostic ownership and actual cleanup.
+Tables and error globals come from the checked initialization contracts; no
+missing helper correctness is assumed.
+
+These theorems retain the existing `HeaderMapWire`, `HeaderLookupFailure` and
+`HeaderValueFailureWire` restrictions. In particular, successful prefixes still
+use the proved key families and nullish ProtocolVersion values. This connects
+previous production proofs to the new specification; it does not expand their
+input coverage or complete the general Header milestone. Whole-record
+uniqueness/disjointness, production UTF8/key completion, general field lookup,
+record-loop refinement and final arbitrary-input public contracts remain open.
+The proposed generic-index semantics repair remains unapplied. Production Go and
+pinned trusted semantics are unchanged, and the frozen performance gate has not
+run.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
