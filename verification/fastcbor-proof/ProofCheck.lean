@@ -1,1 +1,3 @@
-import ProofCheck.GasPriceFieldComplete
+import ProofCheck.GasPriceMap
+
+import ProofCheck.GasPriceMapSlot
