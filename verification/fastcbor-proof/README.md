@@ -76,11 +76,12 @@ specified behavior change and performance evaluation. No such change is made her
 
 ### Header work queue and exit criteria
 
-Latest checkpoint: complete GasPrice record and Header price-field composition
-passes against the independent specifications, **conditional on the unproved
-`Utf8ValidatorContract`**. The general Header loop and public API composition
-remain open. See “Complete GasPrice record and Header price-field composition”
-below for the exact checked scope and remaining work.
+Latest checkpoint: the complete Header success/failure loops, record reader and
+initialized public APIs pass for **every input from a zero destination**, against
+`HeaderFirstSpec`/`HeaderFullSpec`, **conditional on the unproved
+`Utf8ValidatorContract`**. The nonzero-destination guard still needs to be joined
+to the unified specification, and the validator premise must be discharged.
+See “Complete Header loops and initialized zero-destination APIs” below.
 
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
@@ -2642,6 +2643,65 @@ Header milestone. The next independent work is the complete Header success/failu
 loop, followed by record/public API composition and cleanup against
 `HeaderFirstSpec`/`HeaderFullSpec`. The validator must also be proved before the
 milestone passes. Production Go and pinned trusted semantics are unchanged; the
+frozen 185-case performance gate has not run.
+
+### Complete Header loops and initialized zero-destination APIs
+
+Full regeneration/check passed (2154 build jobs): **995 audited theorems**,
+327 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. **49 theorems explicitly require the unproved validator contract**;
+all 13 new implementation theorems in this checkpoint have that premise. They
+are separately listed in `unproved_contract_premises`. The full log is
+`check-header-zero-complete-full.log`.
+
+`HeaderStringValid.lean` and `HeaderStringRejected.lean` expose direct field
+contracts for complete independent string success/rejection, preserving the other
+fields and private shared state. Successful ProtocolVersion reads also mark the
+field in the loop invariant. Null/undefined preserve the prior string value.
+
+`HeaderMapComplete.lean` proves the actual generated Header loop directly against
+`HeaderPairsValid`. It covers all fifteen fields, arbitrary supported key encodings
+and field order, arbitrary valid strings, felt limbs, nested signatures, complete
+nullable GasPrice records and ignored nested values. Its invariant connects the
+semantic seen-field list to the machine mask, the remaining pair specification to
+the partial Header, and the shared GasPrice storage to the publication state.
+Successful map closure restores the incoming depth, preserves the whole fractional
+input, returns the exact suffix and publishes independently owned children.
+
+`HeaderMapRejected.lean` proves every `HeaderPairsRejected` outcome after arbitrary
+successful prefixes. Malformed keys, duplicates and all child-value failures have
+the exact partial public Header, error category and owned diagnostic. Retained
+consumption, diagnostic position and retained child depth are tracked separately.
+A failed field never publishes its replacement; private partial allocations remain
+accounted for until the loop's ownership is converted to the caller-visible result
+under the existing GC/affine model. This is not a physical reclamation claim.
+`HeaderRecordError.lean` maps the independent record reasons to actual diagnostic
+ownership, including duplicate-field arguments.
+
+`HeaderRecordComplete.lean` adds null/undefined and every opening error, yielding
+complete successful/rejected record contracts from the public zero destination.
+`HeaderValidAPI.lean` proves actual First success with exact suffix aliasing, full
+success, and trailing-byte rejection with cleanup. `HeaderRejectedAPI.lean` proves
+both actual public error paths with a cleared destination, unchanged input and
+exact diagnostic; First returns the nil suffix on failure.
+
+`HeaderZeroComplete.lean` obtains immutable field metadata and canonical error
+globals from the proved relevant package initialization. Its two all-input public
+contracts, `wp_decodeHeaderFirst_zero_complete` and `wp_decodeHeader_zero_complete`,
+combine the independent record classification with the implementation WPs. They
+state results against `HeaderFirstSpec` and `HeaderFullSpec`, including owned
+outputs/errors, exact suffixes, trailing-data policy and cleanup. Callers provide
+initialization, a zero destination and input ownership; they do not provide
+metadata, error globals or a record-decoder correctness assumption.
+
+These are **conditional partial-correctness theorems**, not a completed Header
+proof: `Utf8ValidatorContract` remains unproved and the trusted generic-index
+repair remains unapplied. The already-checked nonzero-destination guard must also
+be joined to the unified independent-spec outcome, relating concrete Header zero
+checks to the owned abstract value. Those are the next Header proof obligations.
+Production Go and the pinned trusted semantics are unchanged. Termination and
+compiler/runtime implementation correctness remain outside the claim, and the
 frozen 185-case performance gate has not run.
 
 ## Whole-library gates after the Header milestone

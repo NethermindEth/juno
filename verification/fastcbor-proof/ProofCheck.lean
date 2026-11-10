@@ -164,3 +164,13 @@ import ProofCheck.HeaderGasMapValid
 import ProofCheck.HeaderGasRejected
 import ProofCheck.HeaderGasFreshComplete
 import ProofCheck.HeaderGasComplete
+
+import ProofCheck.HeaderStringValid
+import ProofCheck.HeaderStringRejected
+import ProofCheck.HeaderRecordError
+import ProofCheck.HeaderMapComplete
+import ProofCheck.HeaderMapRejected
+import ProofCheck.HeaderRecordComplete
+import ProofCheck.HeaderValidAPI
+import ProofCheck.HeaderRejectedAPI
+import ProofCheck.HeaderZeroComplete
