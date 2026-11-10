@@ -91,13 +91,24 @@ instance depInitBig : IsPkgInit (IProp GF) pkg_id.math.big :=
 instance depWfBig : GetIsPkgInitWf (IProp GF) pkg_id.math.big :=
   build_get_is_pkg_init_wf
 
+/-- A canonical error global retains its concrete immutable object. Distinct
+    messages therefore imply distinct pointer identities, as required by Is. -/
+def CursorErrorGlobal (name message : GoString) : IProp GF := iprop(
+  ∃ p : Loc, globalAddr name ↦□ (interface.mkOk (go.PointerType errors.errorString.ty) #p) ∗
+    p ↦□ errors.errorString.mk message)
+
+instance cursorErrorGlobal_persistent (name message : GoString) :
+    Persistent (CursorErrorGlobal (GF := GF) name message) := by
+  unfold CursorErrorGlobal
+  infer_instance
+
 /-- The actual immutable error objects retained by cursor package initialization. -/
 def CursorInitialized : IProp GF := iprop(
-  errors.newVar cursor.ErrTruncated go!"cbor: unexpected end of input" ∗
-  errors.newVar cursor.ErrSyntax go!"cbor: malformed item" ∗
-  errors.newVar cursor.ErrType go!"cbor: item does not fit the destination" ∗
-  errors.newVar cursor.ErrDepth go!"cbor: nesting too deep" ∗
-  errors.newVar cursor.ErrUnsupported go!"cbor: unsupported encoding")
+  CursorErrorGlobal cursor.ErrTruncated go!"cbor: unexpected end of input" ∗
+  CursorErrorGlobal cursor.ErrSyntax go!"cbor: malformed item" ∗
+  CursorErrorGlobal cursor.ErrType go!"cbor: item does not fit the destination" ∗
+  CursorErrorGlobal cursor.ErrDepth go!"cbor: nesting too deep" ∗
+  CursorErrorGlobal cursor.ErrUnsupported go!"cbor: unsupported encoding")
 
 instance cursorInitialized_persistent : Persistent (CursorInitialized (GF := GF)) := by
   unfold CursorInitialized

@@ -23,6 +23,22 @@ variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics] [package_sem : Assumptions]
 
+/-- Actual errors.New allocation with the concrete immutable error object,
+    retaining enough information to distinguish canonical categories. -/
+theorem wp_cursor_new_error_owned (message : GoString) :
+    {{ (True : IProp GF) }}
+      (App (Val (@! errors.New)) (Val #message))
+    {{ (p : Loc), RET #(interface.mkOk (go.PointerType errors.errorString.ty) #p);
+       p ↦□ errors.errorString.mk message }} := by
+  wp_start
+  wp_auto
+  wp_alloc p as Hp
+  iapply wp_fupd
+  wp_auto
+  ipersist Hp
+  imodintro
+  wp_end
+
 /-- Actual cursor package startup: allocates all five globals, executes the
     dependency initializers, calls the proved errors.New implementation, stores
     the returned objects, and retains them immutably. Already-initialized calls
@@ -59,19 +75,19 @@ theorem wp_cursor_initialize (get_is_pkg_init : GoString → IProp GF)
     _ Hinit.2.2.2.1 $$ Hown as ⟨Hown, #Herrors⟩
   wp_apply «unsafe».initialize'.wp_proof _ Hinit.2.2.1 $$ Hown as ⟨Hown, #Hunsafe⟩
   wp_apply wp_binary_initialize _ Hinit.2.1 $$ Hown as ⟨Hown, #Hbinary⟩
-  wp_apply errors.wp_New_errorString as %truncated #Etruncated
+  wp_apply wp_cursor_new_error_owned as %truncated #Etruncated
   ipersist Htruncated
-  wp_apply errors.wp_New_errorString as %syntaxError #Esyntax
+  wp_apply wp_cursor_new_error_owned as %syntaxError #Esyntax
   ipersist Hsyntax
-  wp_apply errors.wp_New_errorString as %typeError #Etype
+  wp_apply wp_cursor_new_error_owned as %typeError #Etype
   ipersist Htype
-  wp_apply errors.wp_New_errorString as %depth #Edepth
+  wp_apply wp_cursor_new_error_owned as %depth #Edepth
   ipersist Hdepth
   iapply wp_fupd
-  wp_apply errors.wp_New_errorString as %unsupported #Eunsupported
+  wp_apply wp_cursor_new_error_owned as %unsupported #Eunsupported
   ipersist Hunsupported
   ihave #Hcontents : CursorInitialized (GF := GF) $$ []
-  · isimp only [CursorInitialized, errors.newVar]
+  · isimp only [CursorInitialized, CursorErrorGlobal]
     repeat (first | isplitr | iexists _ | iassumption)
   imodintro
   iframe Hown
@@ -81,3 +97,5 @@ end github_com.NethermindEth.juno.core
 end Perennial
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_cursor_initialize
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_cursor_new_error_owned

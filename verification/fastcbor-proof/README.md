@@ -85,7 +85,7 @@ contract to the validator contract is checked. The actual eight-byte generic hel
 remains unproved because of the documented pinned slice-index defect. The proposed
 trusted repair is still unapplied; no unconditional Header proof is claimed.
 
-The full check audits **1045 theorems**, with no admissions or native-evaluation
+The full check audits **1070 theorems**, with no admissions or native-evaluation
 axioms and no change to the transitive axiom union. The count is not a coverage
 percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
@@ -98,9 +98,11 @@ section below. Twelve transaction-interface witness contracts now also check
 boxing and type-switch recovery for the five concrete pointer variants, including
 typed nils and unknown-type handling. These are independent of the unresolved
 Header helper; they do not prove transaction payload decoding.
-The BigInt dependency work now checks the complete production magnitude helper,
-including allocation, all packing/carry loops, normalization, sign and owned
-output. The public BigInt CBOR parsing/diagnostic contract remains unproved.
+The BigInt dependency work now checks the complete public `Cursor.BigInt` decoder
+for every byte input at any valid cursor position, including all integer forms,
+owned output, exact consumption and every specified rejection/rollback. Its
+head, payload, magnitude, category identity and `errors.Is` dependencies are
+proved under the documented pinned model. See “Complete public BigInt decoder”.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -118,7 +120,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1045 audited theorems, unchanged axiom union, 353 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, unchanged axiom union, 361 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3206,6 +3208,70 @@ with `-race -gcflags=all=-d=checkptr=2`. Saved ordinary and race/checkptr frozen
 corpus evidence was revalidated against the unchanged Go sources and corpus;
 the corpus was not rerun and no performance timings were collected. The trusted
 Perennial checkout and both preserved original/baseline worktrees remain clean.
+
+### Complete public BigInt decoder
+
+`BigIntComplete.lean` proves `wp_bigInt_complete` for the actual translated
+`Cursor.BigInt` on **every byte input at every valid cursor position**. Its
+postcondition preserves the entire fractional input ownership and provides either:
+
+- An independently specified mathematical integer, separately owned normalized
+  `big.Int` storage, exact consumed length without machine-word wrapping, and the
+  exact remaining suffix.
+- A specified rejection, a nil integer result, the original cursor restored,
+  and the owned error object with its exact offset, diagnostic and arguments.
+
+`BigIntSpec.lean` defines the independent success and rejection relations. Every
+input is classified into a supported consumed prefix or a rejection. Successful
+prefixes are unique in value, bytes consumed and suffix. All unsigned and negative
+integer head widths are covered, including the `-2^64` case; tags 2 and 3 accept
+arbitrary-length byte-string magnitudes, empty payloads and leading zero bytes.
+This matches the supported Juno integer contract, including non-preferred heads.
+
+`BigIntOwned.lean` and `BigIntValid.lean` compose the actual allocation, SetUint64,
+Neg, head, payload and complete magnitude-helper proofs. `BigIntRootFailure.lean`,
+`BigIntPayloadFailure.lean` and `BigIntFailure.lean` cover every rejection. A wrong
+payload type inside tag 2/3 becomes ErrSyntax at the **outer** start; other payload
+errors retain the **inner** offset even though the cursor rolls back to the outer
+start. Invalid/truncated heads, EOF, unsupported tags and truncated bodies are
+all included, with owned variadic diagnostic arguments where applicable.
+
+`BigIntErrorIs.lean` proves the actual DecodeError.Unwrap method and specializes
+the translated `errors.is` loop to the decoder's pointer categories. The existing
+pinned `errors.Is` model replaces reflection's comparability check by true; this
+proof only uses targets whose dynamic type is `*errors.errorString`, which meets
+that restriction. No new trusted model or semantics rule is introduced.
+
+The local cursor initialization predicate now retains each concrete immutable
+errorString object. `wp_cursor_new_error_owned` proves that resource from the
+actual `errors.New` allocation. Distinct messages and heap agreement establish
+that type errors have different pointer identities from truncation, syntax and
+unsupported errors. Consequently the complete decoder theorem requires package
+initialization and ordinary input/cursor ownership, **no helper-correctness or
+category-distinctness premise**. Initialization is still established after the
+same modeled runtime CPU startup boundary as before.
+
+This is partial correctness/model safety on the pinned 64-bit target. It does
+not prove termination, OOM handling, compiler/runtime implementation correctness
+or fxamacker equivalence. It closes a library dependency, not a containing typed
+record root. Header remains conditional on its unapproved generic-index repair;
+felt-key maps, remaining generated readers and the performance gate remain open.
+Production Go, translation selection and pinned trusted semantics are unchanged.
+
+Full regeneration/check passes with **1070 audited theorems**, **361 matching
+project hashes**, **28 matching standard-library hashes** and 2178 build jobs.
+All 1045 previous theorem dependency lists and the transitive axiom union remain
+unchanged. The 25 new results contain no admissions or native-evaluation axioms.
+The full log is `check-bigint-public-complete-full.log`; the audit explicitly
+records the BigInt scope and pinned `errors.Is` boundary. Its current caveat now
+summarizes the actual remaining limits instead of accumulating obsolete statuses.
+
+The entire cursor test package passes with `go test -short -race
+-gcflags=all=-d=checkptr=2 ./utils/cbor/cursor` (3.838s). Saved ordinary and
+race/checkptr frozen-corpus evidence was revalidated against both unchanged Go
+source trees and all harness/corpus hashes; it was not rerun for these proof-only
+changes. No performance timings were collected. The trusted Perennial checkout
+and preserved original/baseline worktrees remain clean.
 
 ## Whole-library gates after the Header milestone
 

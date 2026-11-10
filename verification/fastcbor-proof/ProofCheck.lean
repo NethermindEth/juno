@@ -191,3 +191,12 @@ import ProofCheck.InterfaceFeasibility
 import ProofCheck.BigIntMagnitudeSpec
 import ProofCheck.BigIntMagnitudeWord
 import ProofCheck.BigIntMagnitude
+
+import ProofCheck.BigIntSpec
+import ProofCheck.BigIntOwned
+import ProofCheck.BigIntValid
+import ProofCheck.BigIntRootFailure
+import ProofCheck.BigIntErrorIs
+import ProofCheck.BigIntPayloadFailure
+import ProofCheck.BigIntFailure
+import ProofCheck.BigIntComplete

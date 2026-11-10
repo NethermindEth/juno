@@ -21,7 +21,7 @@ theorem cursor_initialized_felt_globals :
       ∃ kinds : FeltErrorKinds, FeltErrorGlobals (GF := GF) kinds := by
   iintro #Hpkg
   ihave Hcontents := cursor_initialized_errors $$ Hpkg
-  isimp only [CursorInitialized, errors.newVar] at Hcontents
+  isimp only [CursorInitialized, CursorErrorGlobal] at Hcontents
   icases Hcontents with ⟨⟨%truncated, #Htruncated, _⟩, ⟨%syntaxError, #Hsyntax, _⟩,
     ⟨%typeError, #Htype, _⟩, ⟨%depth, #Hdepth, _⟩, ⟨%unsupported, #Hunsupported, _⟩⟩
   iexists ({
