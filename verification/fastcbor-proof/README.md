@@ -2704,6 +2704,49 @@ Production Go and the pinned trusted semantics are unchanged. Termination and
 compiler/runtime implementation correctness remain outside the claim, and the
 frozen 185-case performance gate has not run.
 
+### Unified all-destination Header API composition
+
+Full regeneration/check passed (2157 build jobs): **1003 audited theorems**,
+330 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. **51 theorems explicitly require the unproved validator contract**;
+the two new public implementation contracts have that premise. The six new
+ownership/result bridge theorems have no validator premise. The full log is
+`check-header-api-complete-full.log`.
+
+`HeaderOwnedZero.lean` proves that the concrete Header zero test agrees exactly
+with the independent abstract value under `HeaderChildren`. Allocated zero felts,
+allocated empty signature slices and allocated GasPrice records with nil amounts
+remain distinct from absent children. This discharges the ownership connection
+needed to use the separately checked guard with the independent API specification.
+
+`HeaderAPIOutcome.lean` defines a common owned representation of successful and
+failed First/full results and converts the complete zero-destination outcomes to
+it. Success retains the decoded Header and First's exact aliased suffix. Failures
+retain the specified destination and a concrete diagnostic tied to initialized
+canonical error sentinels; parser offsets have an explicit no-wrap equality.
+First failures return the nil suffix.
+
+`HeaderAPIComplete.lean` proves `wp_decodeHeaderFirst_complete` and
+`wp_decodeHeader_complete` for **every owned initial Header and every byte input**.
+The nonzero branch preserves the original Header and its nested ownership, and
+returns the canonical unsupported error. The zero branch composes the complete
+record and wrapper proofs, including all fifteen fields, nested children, cleanup
+and trailing-data policy. Both branches preserve fractional input ownership.
+The postconditions state `HeaderFirstSpec` / `HeaderFullSpec` and the concrete owned
+result. Callers supply relevant initialized packages, an owned initial Header and
+input ownership; no record-decoder, metadata or initializer WP is assumed.
+
+**The general Header milestone remains open:** these two API theorems explicitly
+require `Utf8ValidatorContract`, which is not proved. The proposed trusted generic
+slice-index repair remains unapplied. The destination-guard composition is now
+complete; the next Header obligation is to discharge the actual production UTF-8
+validator premise and instantiate the final API theorems without it. Repairing the
+pinned semantics requires the separately documented explicit approval below.
+Production Go and the pinned trusted semantics are unchanged in this checkpoint.
+The formal claim remains partial correctness, excluding termination and compiler/
+runtime implementation correctness. No new performance-gate results are claimed.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

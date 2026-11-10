@@ -174,3 +174,7 @@ import ProofCheck.HeaderRecordComplete
 import ProofCheck.HeaderValidAPI
 import ProofCheck.HeaderRejectedAPI
 import ProofCheck.HeaderZeroComplete
+
+import ProofCheck.HeaderOwnedZero
+import ProofCheck.HeaderAPIOutcome
+import ProofCheck.HeaderAPIComplete
