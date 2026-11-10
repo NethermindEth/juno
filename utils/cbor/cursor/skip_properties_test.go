@@ -129,3 +129,65 @@ func checkSkipAtomic(t *testing.T, wire []byte, wantErr error, errorOffset int) 
 		require.Equal(t, before, input)
 	}
 }
+
+func TestSkipTaggedErrors(t *testing.T) {
+	leaves := []struct {
+		name   string
+		wire   []byte
+		kind   error
+		offset int
+	}{
+		{name: "eof", kind: cursor.ErrTruncated},
+		{name: "reserved", wire: []byte{0x1c}, kind: cursor.ErrSyntax},
+		{name: "break", wire: []byte{0xff}, kind: cursor.ErrSyntax},
+		{name: "indefinite", wire: []byte{0x9f}, kind: cursor.ErrUnsupported},
+		{name: "badTagHead", wire: []byte{0xdc}, kind: cursor.ErrSyntax},
+		{name: "shortUint", wire: []byte{0x1b, 1, 2}, kind: cursor.ErrTruncated},
+		{name: "shortTag", wire: []byte{0xdb, 1, 2}, kind: cursor.ErrTruncated},
+		{name: "simple", wire: []byte{0xf8, 24}, kind: cursor.ErrSyntax, offset: 2},
+		{name: "bytes", wire: []byte{0x42, 1}, kind: cursor.ErrTruncated, offset: 1},
+		{name: "text", wire: []byte{0x62, 1}, kind: cursor.ErrTruncated, offset: 1},
+		{name: "unsupportedTag", wire: []byte{0xc0}, kind: cursor.ErrUnsupported, offset: 1},
+	}
+	for _, depth := range []int{0, 1, 15, 31, 32} {
+		for count := range 35 {
+			for _, leaf := range leaves {
+				t.Run(fmt.Sprintf("%s/depth%d/tags%d", leaf.name, depth, count), func(t *testing.T) {
+					input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+					start := len(input)
+					ends := make([]int, count)
+					for i := range count {
+						// Alternate preferred and non-preferred tag encodings.
+						input = appendTestCBORArgument(input, 0xc0, uint64(4+i%20), byte(i%5))
+						ends[i] = len(input)
+					}
+					wantOffset := len(input) + leaf.offset
+					wantErr := leaf.kind
+					input = append(input, leaf.wire...)
+					// A tag before a non-tag (or EOF) is free. A tag before
+					// another tag charges depth before that child's head is read.
+					charged := count - 1
+					if len(leaf.wire) > 0 && leaf.wire[0]&0xe0 == 0xc0 {
+						charged = count
+					}
+					if depth+charged > 32 {
+						wantErr = cursor.ErrDepth
+						wantOffset = ends[32-depth]
+					}
+					before := bytes.Clone(input)
+					r := openSkipCursor(t, input, depth)
+					for range 2 {
+						err := r.Skip()
+						require.ErrorIs(t, err, wantErr)
+						var detail *cursor.DecodeError
+						require.ErrorAs(t, err, &detail)
+						require.Equal(t, wantOffset, detail.Offset)
+						require.Equal(t, start, r.Pos())
+						require.Equal(t, input[start:], r.Remaining())
+					}
+					require.Equal(t, before, input)
+				})
+			}
+		}
+	}
+}

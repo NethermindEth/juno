@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 	"strconv"
 	"testing"
@@ -459,6 +460,60 @@ func TestTypedHeaderFeltErrorsClearPartialResult(t *testing.T) {
 					require.Equal(t, before, data)
 				}
 			}
+		}
+	}
+}
+
+func TestTypedHeaderTaggedErrorsClearPartialResult(t *testing.T) {
+	for _, feltExtra := range []bool{false, true} {
+		for _, tc := range []struct {
+			name  string
+			tags  int
+			tail  []byte
+			kind  error
+			delta int
+		}{
+			{name: "head", tags: 3, tail: []byte{0x1c}, kind: cursor.ErrSyntax},
+			{name: "short", tags: 3, tail: []byte{0xdb, 1}, kind: cursor.ErrTruncated},
+			{name: "simple", tags: 3, tail: []byte{0xf8, 24}, kind: cursor.ErrSyntax, delta: 2},
+			{name: "eof", tags: 3, kind: cursor.ErrTruncated},
+			{name: "depth", tags: 34, tail: []byte{0xf6}, kind: cursor.ErrDepth},
+		} {
+			t.Run(fmt.Sprintf("%s/feltExtra%t", tc.name, feltExtra), func(t *testing.T) {
+				data := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}
+				depth := 1 // Header itself.
+				if feltExtra {
+					data = append(data, 0x64, 'H', 'a', 's', 'h', 0x85, 0, 1, 2, 3)
+					depth++ // Felt array containing the ignored fifth value.
+				} else {
+					data = append(data, 0x67, 'u', 'n', 'k', 'n', 'o', 'w', 'n')
+				}
+				start := len(data)
+				data = append(data, bytes.Repeat([]byte{0xc4}, tc.tags)...)
+				data = append(data, tc.tail...)
+				wantOffset := start + tc.tags + tc.delta
+				if tc.kind == cursor.ErrDepth {
+					wantOffset = start + 33 - depth
+				}
+				before := bytes.Clone(data)
+				for _, first := range []bool{false, true} {
+					var got core.Header
+					var err error
+					if first {
+						var rest []byte
+						rest, err = core.DecodeHeaderFirst(data, &got)
+						require.Nil(t, rest)
+					} else {
+						err = core.DecodeHeader(data, &got)
+					}
+					require.ErrorIs(t, err, tc.kind)
+					var detail *cursor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, wantOffset, detail.Offset)
+					require.Equal(t, core.Header{}, got)
+					require.Equal(t, before, data)
+				}
+			})
 		}
 	}
 }

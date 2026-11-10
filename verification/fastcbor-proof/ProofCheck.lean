@@ -1,1 +1,1 @@
-import ProofCheck.SkipHeadTruncated
+import ProofCheck.SkipTaggedBoundary
