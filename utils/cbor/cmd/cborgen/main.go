@@ -140,6 +140,8 @@ func DecodeHeader(data []byte,dst *Header) error {
 func RegisterTypedCBORReaders() {
  fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
  registerTypedHeaderProjections()
+ registerTypedReceipts()
+ registerTypedReceiptProjections()
  fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }
 `)
@@ -148,6 +150,14 @@ func RegisterTypedCBORReaders() {
 		return err
 	}
 	indexes, err := emitIntegerRecord(p, "BlockTransactionsIndexes")
+	if err != nil {
+		return err
+	}
+	receipts, receiptSchema, err := emitReceipts(p)
+	if err != nil {
+		return err
+	}
+	receiptProjections, receiptProjectionSchema, err := emitProjections(p, "TransactionReceipt", "discardedReceiptSkeleton", []string{"receiptExecutionStatusProjection", "receiptEventsProjection"}, "Receipt")
 	if err != nil {
 		return err
 	}
@@ -160,6 +170,10 @@ func RegisterTypedCBORReaders() {
 		{"core/cbor_projections_generated.go", projections},
 		{"core/internal/cborprojections/fields_generated.go", projectionSchema},
 		{"core/cbor_indexes_generated.go", indexes},
+		{"core/cbor_receipts_generated.go", receipts},
+		{"core/internal/cborreceipts/fields_generated.go", receiptSchema},
+		{"core/cbor_receipt_projections_generated.go", receiptProjections},
+		{"core/internal/cborprojections/receipts_generated.go", receiptProjectionSchema},
 	}
 	for _, output := range outputs {
 		out, err := format.Source(output.buf.Bytes())

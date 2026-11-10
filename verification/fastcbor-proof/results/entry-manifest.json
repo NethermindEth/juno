@@ -62,6 +62,7 @@
     "github.com/NethermindEth/juno/core/felt",
     "github.com/NethermindEth/juno/core/indexed",
     "github.com/NethermindEth/juno/core/internal/cborprojections",
+    "github.com/NethermindEth/juno/core/internal/cborreceipts",
     "github.com/NethermindEth/juno/core/internal/cborschema",
     "github.com/NethermindEth/juno/core/pending",
     "github.com/NethermindEth/juno/core/state",
@@ -200,8 +201,8 @@
         "block/block-p95/onePair",
         "block/block-p95/oneReceipt"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
@@ -404,8 +405,8 @@
         "record/receipt-p75",
         "record/receipt-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection",
@@ -540,8 +541,8 @@
         "projection/receiptEvents/receipt-p75",
         "projection/receiptEvents/receipt-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection",
@@ -570,8 +571,8 @@
         "projection/receiptStatus/receipt-p75",
         "projection/receiptStatus/receipt-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.transactionHashProjection",
@@ -5178,7 +5179,9 @@
     "core/block_transaction.go": "97ce766a52f19c33a90f9a72245957e0f3d7fcbd1b28baa9f2545133321147c8",
     "core/block_transaction_serializer.go": "2e5b96248b9fdf4d7a5df2fd4971c6aa1380f424dc6a474a2cc62d9958b7062f",
     "core/cbor_projections_generated.go": "14f347880d15178a0e64471e382c79a755fc9881d5d2d3a13515e99c83a236d3",
-    "core/cbor_readers_generated.go": "dba134ab005517f5395fa1de903a5490ac64fdafade4d6ba9059e0dbdaae203a",
+    "core/cbor_readers_generated.go": "b6b810c1dd325f6cf8685b9189e7ed0fc491ca9edcdd86994027e4e57d5a6be8",
+    "core/cbor_receipt_projections_generated.go": "39421c05337be28b90040fd1d7895ebcd6c2e6ad38666d5b1d3d1da707a6db85",
+    "core/cbor_receipts_generated.go": "6062cb3ae0750aaa71838f2def62f9d1aebc33bc20352082162e6a82145d5cda",
     "core/class.go": "1eadd1d130098240085dd24d68fdc10cd8cf261737fb16278f118d04a10a8c8d",
     "core/felt/felt.go": "3f5ff701b588989fddec4562b6b2af7e4dfc6b3aa15ec99502195a7aa6a479c1",
     "core/felt/slice.go": "0745d0657895383c9e3785ac7729e4e23852bf6cee058cdb0cef70294fd6106d",
@@ -5193,7 +5196,7 @@
     "go.mod": "1d65ced05fb232688eb817bcbc788560db533a42f30b974200a74fccba18ac24",
     "go.sum": "a730dbbe54e53e42bf4283f6e7163ed4ce2495081c662224697345a37e5c22f6",
     "l1/eth/address.go": "4061def57efb343110c936d1e021f04cf46687c731f4828debf7e2b9cdb91d3b",
-    "utils/cbor/cmd/cborgen/main.go": "9bcfb8c48c6c9b75fc6952732844cdc381f127c902b92963b6954c25ed169dba",
+    "utils/cbor/cmd/cborgen/main.go": "163ccaefffee53502ab73239661766744c873d39d9d72d749d28b0e5d3e1314c",
     "utils/cbor/fastcbor/fastcbor.go": "cec7a29d6f26bbbc9834ca9d1aba6303354cf309548517fac132871d55c4ca25",
     "utils/cbor/fastcbor/generic.go": "5b3bf3c30f5f462633b3c1a97e9224a6f84e7ffa5c52685d456f70a64b200aaf",
     "utils/cbor/fastcbor/plan.go": "b2b7d9ad141061394833b524205a92b8f9070c0ed4fd4c7a02cce5f504bafa7c",

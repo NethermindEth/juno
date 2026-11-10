@@ -39,7 +39,7 @@ dirty = subprocess.check_output(["git", "-C", str(here / ".tools/perennial"), "s
 if dirty:
     sys.exit("the pinned Perennial checkout has tracked modifications")
 inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", here / "lean-toolchain", here / "lake-manifest.json", here / "lakefile.toml", here / "check.sh", here / "bootstrap.sh", here / "audit.py"]
-for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/cmd/cborgen"]:
+for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/cmd/cborgen"]:
     inputs += [p for p in (repo / rel).glob("*.go") if not p.name.endswith("_test.go")]
 inputs += list((here / "config").rglob("*.toml"))
 inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.json"]
@@ -141,6 +141,16 @@ report = {
         "proof_status": "translated implementations; complete independent projection specifications, NextWanted contract, table initialization and public entry proofs remain open",
         "performance": "no timing or performance gate result; compatibility evidence only",
     },
+    "typed_receipts": {
+        "generator": "utils/cbor/cmd/cborgen/receipts.go",
+        "implementation": "core/cbor_receipts_generated.go",
+        "projections": "core/cbor_receipt_projections_generated.go",
+        "metadata": ["core/internal/cborreceipts/fields_generated.go", "core/internal/cborprojections/receipts_generated.go"],
+        "entries": ["TransactionReceipt", "*TransactionReceipt", "receiptExecutionStatusProjection", "receiptEventsProjection"],
+        "behavior": "typed nested records, felt-value slices, bool/string/byte-backed FeeUnit and fixed byte-array addresses; bounded shared event/message slice storage; execution resource children allocated with their parent; original full-record duplicate rejection and projection first-wins policy; zero guards, exact suffix, owned output and failure cleanup",
+        "proof_status": "translated implementations and concrete layouts; complete independent receipt specifications, nested slice/record contracts, table initialization and public API proofs remain open",
+        "performance": "no timing or performance gate result; compatibility evidence only",
+    },
     "typed_block_indexes": {
         "generator": "utils/cbor/cmd/cborgen/integer_records.go",
         "implementation": "core/cbor_indexes_generated.go",
@@ -207,7 +217,7 @@ report = {
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. Header, its five projections and BlockTransactionsIndexes have registered typed readers; other production roots retain the original planner. Projection and integer-key index implementations are translated and behavior-tested, but their complete decoder contracts remain open. Projection table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. Header, its five projections, BlockTransactionsIndexes and the receipt family have registered typed readers (11 of 15 manifested destinations); transaction, transaction-hash projection, state and class roots retain the original planner. Projection, integer-key index and receipt implementations are translated and behavior-tested, but their complete decoder contracts remain open. Projection and receipt table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

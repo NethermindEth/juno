@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
 
@@ -178,4 +179,45 @@ func cborReadSignatures(c *cursor.Cursor, dst *[][]*felt.Felt) error {
 	c.Leave()
 	*dst = out
 	return nil
+}
+
+func cborReadBool(c *cursor.Cursor, dst *bool) error {
+	if c.Null() {
+		return nil
+	}
+	value, err := c.Bool()
+	if err == nil {
+		*dst = value
+	}
+	return err
+}
+
+func cborReadFeeUnit(c *cursor.Cursor, dst *FeeUnit) error {
+	if c.Null() {
+		return nil
+	}
+	value, err := c.Uint64()
+	if err != nil {
+		return err
+	}
+	if value > math.MaxUint8 {
+		return cursor.ErrType
+	}
+	*dst = FeeUnit(value)
+	return nil
+}
+
+func cborReadFeltValues(c *cursor.Cursor, dst *felt.Slice[felt.Felt]) error {
+	value, err := cursor.LimbSlice[felt.Felt](c)
+	if err == nil {
+		*dst = value
+	}
+	return err
+}
+
+func cborReadAddress(c *cursor.Cursor, dst *eth.Address) error {
+	if c.Null() {
+		return nil
+	}
+	return c.BytesInto(dst[:])
 }
