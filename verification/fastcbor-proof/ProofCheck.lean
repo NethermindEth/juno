@@ -131,3 +131,7 @@ import ProofCheck.KeySpec
 import ProofCheck.SchemaKeySpec
 
 import ProofCheck.GasPriceSpec
+
+import ProofCheck.HeaderItemSpec
+import ProofCheck.HeaderRecordSpec
+import ProofCheck.HeaderAPISpec
