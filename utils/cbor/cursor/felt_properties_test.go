@@ -160,3 +160,67 @@ func appendTestCBORArgument(input []byte, major byte, value uint64, width byte) 
 		return binary.BigEndian.AppendUint64(append(input, major|27), value)
 	}
 }
+
+// Extra array elements need not be integers: they are ignored CBOR values, whose
+// nested contents must be consumed without changing the four retained words.
+func FuzzLimbsExtended(f *testing.F) {
+	for _, shape := range []byte{0, 1, 7, 9, 23, 39} {
+		for _, depth := range []byte{0, 30, 31} {
+			f.Add(uint64(1), uint64(255), uint64(65535), ^uint64(0), uint16(586), shape, depth,
+				[]byte{4, 0, 2, 8, 6, 0, 5, 0, 1}, []byte{0xf6, 0xff})
+		}
+	}
+	f.Fuzz(func(t *testing.T, a, b, c, d uint64, widths uint16, shape, depth byte, choices, suffix []byte) {
+		depth %= 32
+		extra, arrayWidth := shape%8, (shape/8)%5
+		cutSelector := int(widths)
+		input := append(bytes.Repeat([]byte{0x81}, int(depth)), 0, 1, 2)
+		start := len(input)
+		input = appendTestCBORArgument(input, 0x80, uint64(cursor.Limbs)+uint64(extra), arrayWidth)
+		values := [cursor.Limbs]uint64{a, b, c, d}
+		var want [cursor.Limbs]uint64
+		for i, word := range values {
+			width := byte(widths % 5)
+			widths /= 5
+			switch width {
+			case 0:
+				word %= 24
+			case 1:
+				word &= 0xff
+			case 2:
+				word &= 0xffff
+			case 3:
+				word &= 0xffffffff
+			}
+			want[i] = word
+			input = appendTestCBORArgument(input, 0, word, width)
+		}
+		g := skipGenerator{choices: choices, fuel: 64}
+		for range extra {
+			input = append(input, g.item(int(depth)+1, false)...)
+		}
+		end := len(input)
+		input = append(input, suffix...)
+		before := bytes.Clone(input)
+		r := openSkipCursor(t, input, int(depth))
+		got := [cursor.Limbs]uint64{9, 8, 7, 6}
+		require.NoError(t, r.Limbs(&got))
+		require.Equal(t, want, got)
+		require.Equal(t, end, r.Pos())
+		require.True(t, bytes.Equal(suffix, r.Remaining()))
+		require.Equal(t, before, input)
+
+		cut := start + cutSelector%(end-start)
+		short := bytes.Clone(input[:cut])
+		shortBefore := bytes.Clone(short)
+		r = openSkipCursor(t, short, int(depth))
+		old := [cursor.Limbs]uint64{9, 8, 7, 6}
+		got = old
+		for range 2 {
+			require.ErrorIs(t, r.Limbs(&got), cursor.ErrTruncated)
+			require.Equal(t, old, got)
+			require.Equal(t, start, r.Pos())
+		}
+		require.Equal(t, shortBefore, short)
+	})
+}

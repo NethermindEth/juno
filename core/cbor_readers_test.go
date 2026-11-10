@@ -278,3 +278,69 @@ func FuzzTypedHeaderRoundTrip(f *testing.F) {
 		require.Equal(t, core.Header(planned), got)
 	})
 }
+
+func TestTypedHeaderExtendedFelt(t *testing.T) {
+	want := core.Header{Number: 17, Hash: &felt.Felt{1, 255, 65535, ^uint64(0)}}
+	limbs := []byte{1, 0x18, 0xff, 0x19, 0xff, 0xff}
+	limbs = binary.BigEndian.AppendUint64(append(limbs, 0x1b), ^uint64(0))
+	wide := []byte{0x84}
+	for range cursor.Limbs {
+		wide = binary.BigEndian.AppendUint64(append(wide, 0x1b), 0x1b1b1b1b1b1b1b1b)
+	}
+	extras := [][]byte{
+		{0x80},                           // empty array
+		{0xa1, 0x61, 'k', 0x82, 0, 0xf6}, // nested map value
+		{0xc4, 0x82, 0, 1},               // tagged decimal fraction
+		{0x43, 0x1b, 0xff, 0},            // bytes resembling item heads
+		{0xf7},                           // undefined
+		wide,                             // wide-felt Skip shortcut
+	}
+	count := uint64(cursor.Limbs + len(extras))
+	for _, width := range []int{0, 1, 2, 4, 8} {
+		t.Run(strconv.Itoa(width), func(t *testing.T) {
+			record := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 17, 0x64, 'H', 'a', 's', 'h'}
+			switch width {
+			case 0:
+				record = append(record, 0x80|byte(count))
+			case 1:
+				record = append(record, 0x98, byte(count))
+			case 2:
+				record = binary.BigEndian.AppendUint16(append(record, 0x99), uint16(count))
+			case 4:
+				record = binary.BigEndian.AppendUint32(append(record, 0x9a), uint32(count))
+			case 8:
+				record = binary.BigEndian.AppendUint64(append(record, 0x9b), count)
+			}
+			record = append(record, limbs...)
+			for _, extra := range extras {
+				record = append(record, extra...)
+			}
+			var reference core.Header
+			var planned plannerHeader
+			require.NoError(t, cbor.Unmarshal(record, &reference))
+			require.NoError(t, fastcbor.Unmarshal(record, &planned))
+			require.Equal(t, want, reference)
+			require.Equal(t, want, core.Header(planned))
+
+			input := append(bytes.Clone(record), 0xf6, 0xff)
+			before := bytes.Clone(input)
+			var got core.Header
+			rest, err := core.DecodeHeaderFirst(input, &got)
+			require.NoError(t, err)
+			require.Equal(t, want, got)
+			require.Equal(t, []byte{0xf6, 0xff}, rest)
+			require.Equal(t, before, input)
+			for i := range record {
+				input[i] ^= 0xff
+			}
+			require.Equal(t, want, got, "felt output must own its words")
+			for cut := range len(record) {
+				got = core.Header{}
+				rest, err = core.DecodeHeaderFirst(record[:cut], &got)
+				require.ErrorIs(t, err, cursor.ErrTruncated, "cut %d", cut)
+				require.Nil(t, rest)
+				require.Equal(t, core.Header{}, got)
+			}
+		})
+	}
+}

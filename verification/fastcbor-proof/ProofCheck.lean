@@ -1,1 +1,1 @@
-import ProofCheck.SkipValid
+import ProofCheck.FeltValid

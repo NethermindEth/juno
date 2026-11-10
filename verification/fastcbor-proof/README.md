@@ -78,31 +78,28 @@ specified behavior change and performance evaluation. No such change is made her
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
-all successful zero-to-four-limb felt encodings through the typed reader, felt
-depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
+general felt success through an independent nullable/short/extended wire relation,
+felt depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
 and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
-| 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
+| 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | All zero-to-four-limb success paths and depth rejection proved through the typed reader; long arrays, remaining failures and UTF-8 pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; remaining failures, converse and UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved; general recursive Skip success proved, including both wide shortcuts; atomic rejection/EOF and public rollback proved, with recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
 | 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
 
-This is dependency order, not eight isolated phases: the felt slow path also needs
-Skip, and nested GasPrice uses field lookup. Useful independent work can advance
-while those dependencies are being proved. The next implementation work is to
-close the primitive error contracts and generalize felt decoding, with the Header
-relation developed alongside them. BigInt, tagged transaction interfaces and
-ordinary Go maps do not block this Header milestone. The next felt dependency is
-now to compose `wp_Skip_valid` into the excess-element branch of `limbsSlow`;
-that will extend successful felt decoding beyond four elements. Recursive Skip
-rejection and remaining felt errors still require separate contracts.
+This is dependency order, not eight isolated phases: nested GasPrice uses field
+lookup, and successful felt decoding now composes the recursive Skip theorem.
+The next primitive work is the remaining felt/Skip rejection contracts and UTF-8;
+the general Header relation and field lookup still need development alongside
+them. BigInt, tagged transaction interfaces and ordinary Go maps do not block
+this Header milestone.
 
 ### Definition of Header complete
 
@@ -240,8 +237,8 @@ The general Header proof now has reusable primitive contracts:
   cursor advancement without signed wraparound. `TestLimbsWidthCombinations`
   checks all 3,905 count/array-width/limb-width combinations with three suffixes
   (11,715 cases), including trailing bytes resembling wide-integer heads.
-  Excess-element Skip and remaining failures still need proofs before the
-  complete felt contract can be claimed.
+  Extended arrays now compose this work with recursive Skip in `FeltLong.lean`;
+  the remaining error cases are still needed for a complete felt contract.
 - `SkipAtom.lean`: an independent atomic acceptance relation and proofs of the
   actual recursive worker and public `Skip` for unsigned/negative integers,
   simple values, floats, and byte/text strings. It covers every supported head
@@ -268,6 +265,19 @@ The general Header proof now has reusable primitive contracts:
   and scratch. This is success on the specified valid inputs, not yet a converse
   or complete rejection theorem; recursive malformed-input behavior remains
   to be proved. It does not assume a correct recursive child scanner.
+- `FeltLong.lean`: the actual slow loop for four arbitrary-width unsigned limbs
+  followed by any number of values satisfying `SkipValid` at the felt's nested
+  depth. Its invariant separates retained limbs from skipped values and proves
+  count/position bounds, unchanged retained words, restored depth and exact
+  consumption. Public Limbs dispatch and the typed field reader compose the
+  result, including fresh nonnull allocation and owned words.
+- `FeltValid.lean`: one application acceptance/value relation for null,
+  undefined, short zero-filled arrays and extended arrays. `FeltResult`
+  distinguishes a nil pointer from an owned allocated zero felt.
+  `wp_readFelt_valid` proves the actual typed reader against this relation with
+  exact suffix, unchanged input/depth/scratch, no signed cursor wraparound and
+  output ownership. This remains a success theorem, not a complete rejection
+  or converse theorem.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
@@ -363,6 +373,17 @@ wide-felt shortcut at the last permitted level, including every truncation of
 those examples. The recursive fuzz seeds and boundary tests also passed with
 race/checkptr instrumentation. Recursive rejection is tested here but is not yet
 formally proved.
+
+The extended felt composition passed full regeneration/check with 189 audited
+lemmas and no new transitive axioms. `FuzzLimbsExtended` passed 466,284 executions
+in 10 seconds, generating independent limb widths, array-head widths, nested
+extra values, enclosing depths and suffixes, plus sampled proper-prefix failures
+that preserve the prior output. `TestTypedHeaderExtendedFelt` agrees with FX and
+the planner across all array-head widths, checks ownership/suffix preservation,
+and tests cleanup at every truncation of a record containing Number and Hash.
+The cursor suite and targeted Header test passed, as did the new tests/seeds
+with race/checkptr instrumentation. These malformed-input checks do not replace
+the outstanding rejection proofs.
 
 ## Whole-library gates after the Header milestone
 
