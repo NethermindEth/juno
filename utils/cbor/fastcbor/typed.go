@@ -1,26 +1,14 @@
 package fastcbor
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
+
+	"github.com/NethermindEth/juno/utils/cbor/cborerr"
 )
 
-// DecodeError describes a typed reader failure. Formatting is outside the read path.
-type DecodeError struct {
-	Kind   error
-	Detail string
-	Extra  int
-}
-
-func (e *DecodeError) Error() string {
-	if e.Kind == ErrExtraneousData {
-		return fmt.Sprintf("%s: %d bytes", e.Kind, e.Extra)
-	}
-	return e.Kind.Error() + ": " + e.Detail
-}
-
-func (e *DecodeError) Unwrap() error { return e.Kind }
+// DecodeError describes a typed reader failure. The alias preserves errors.As.
+type DecodeError = cborerr.DecodeError
 
 type typedReader func([]byte, any) ([]byte, error)
 

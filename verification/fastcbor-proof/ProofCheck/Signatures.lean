@@ -24,7 +24,7 @@ theorem wp_readSignatures_array (c dst : Loc) (old : GoSlice) (v : cursor.Cursor
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ items.flatMap SignatureWire.bytes ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #dst))
     {{ (out : GoSlice), RET #interface.nil; dst ↦ out ∗ SignaturesOwned out (items.map SignatureWire.value) ∗
@@ -186,7 +186,7 @@ theorem wp_readSignatures_valid (c dst : Loc) (old : GoSlice) (v : cursor.Cursor
     (hd : sint.Z v.depth' = d) (_hdepth : d ≤ 32) (valid : SignaturesValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #dst))
     {{ (out : GoSlice), RET #interface.nil; dst ↦ out ∗ SignaturesResult out value ∗

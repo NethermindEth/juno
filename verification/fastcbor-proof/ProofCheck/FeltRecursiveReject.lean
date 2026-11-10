@@ -27,7 +27,7 @@ theorem wp_readFelt_extras_headFailure (c dst : Loc) (old : Loc) (v : cursor.Cur
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ unsignedBytes items ++ extras.flatten ++ wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        headFaultAddr (GF := GF) reason ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

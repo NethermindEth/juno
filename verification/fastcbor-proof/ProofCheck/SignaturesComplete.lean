@@ -44,7 +44,7 @@ theorem wp_readSignatures_complete (c dst : Loc) (old : GoSlice) (v : cursor.Cur
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #dst))
     {{ (result : GoInterface), RET #result;

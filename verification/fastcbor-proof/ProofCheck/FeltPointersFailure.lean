@@ -29,7 +29,7 @@ theorem wp_readFeltPointers_prefix_failure (c dst : Loc) (old : GoSlice) (v : cu
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ items.flatMap FeltWire.bytes ++ wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        feltFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

@@ -22,7 +22,7 @@ theorem wp_decodeHeaderFirst_lookup_failure (dst fields gasFields : Loc) (input 
     (value : HeaderValue) (f gasF : cursor.Fields) (wire : List w8) (offset : Nat)
     (reason : HeaderLookupFailureReason) (kinds : FeltErrorKinds) (qf qo qn qgf qgo qgn dq : DFrac)
     (failure : HeaderLookupFailure 0 wire value offset reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
@@ -70,7 +70,7 @@ theorem wp_decodeHeader_lookup_failure (dst fields gasFields : Loc) (input : GoS
     (value : HeaderValue) (f gasF : cursor.Fields) (wire : List w8) (offset : Nat)
     (reason : HeaderLookupFailureReason) (kinds : FeltErrorKinds) (qf qo qn qgf qgo qgn dq : DFrac)
     (failure : HeaderLookupFailure 0 wire value offset reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗

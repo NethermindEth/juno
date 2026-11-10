@@ -73,7 +73,7 @@ theorem wp_readFelt_limb_type (c dst : Loc) (old : Loc) (v : cursor.Cursor)
       (head :: payload) ++ unsignedBytes items ++ ((bad :: badpayload) ++ rem))
     (badenc : HeadArgument bad badpayload argument)
     (hbadmajor : bad &&& W8 224 ≠ W8 0) (hbadtag : bad &&& W8 224 ≠ W8 192) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrType ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -123,7 +123,7 @@ theorem wp_readFelt_limb_tag (c dst : Loc) (old : Loc) (v : cursor.Cursor)
       (head :: payload) ++ unsignedBytes items ++ ((bad :: badpayload) ++ rem))
     (badenc : HeadArgument bad badpayload argument)
     (hbadtag : bad &&& W8 224 = W8 192) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -174,7 +174,7 @@ theorem wp_readFelt_limb_truncated (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hinfo : 24 ≤ uint.Z (bad &&& W8 31) ∧ uint.Z (bad &&& W8 31) ≤ 27)
     (hsize : W64 1 <<< W64 (uint.Z ((bad &&& W8 31) - W8 24)) = size)
     (htrunc : rem.length < sint.Z size) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -220,7 +220,7 @@ theorem wp_readFelt_limb_eof (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hdepth : sint.Z v.depth' < 32)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ unsignedBytes items) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

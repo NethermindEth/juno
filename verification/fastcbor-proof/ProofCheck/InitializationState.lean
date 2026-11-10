@@ -108,19 +108,23 @@ instance depInit3 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.ut
 instance depWf3 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor :=
   build_get_is_pkg_init_wf
 
-instance depInit4 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
-  define_is_pkg_init iprop(True)
-instance depWf4 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
+/-- The actual shared public-API error objects retained after package startup. -/
+def EntryErrorsInitialized : IProp GF := iprop(
+  errors.newVar cborerr.ErrUnsupported go!"fastcbor: unsupported" ∗
+  errors.newVar cborerr.ErrExtraneousData go!"fastcbor: extraneous data")
+
+instance entryErrorsInitialized_persistent : Persistent (EntryErrorsInitialized (GF := GF)) := by
+  unfold EntryErrorsInitialized
+  infer_instance
+
+instance entryErrorInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cborerr :=
+  define_is_pkg_init (EntryErrorsInitialized (GF := GF))
+instance entryErrorWf : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cborerr :=
   build_get_is_pkg_init_wf
 
 instance schemaIsPkgInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema :=
   define_is_pkg_init (HeaderMetadata (GF := GF))
 instance schemaGetIsPkgInitWf : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema :=
-  build_get_is_pkg_init_wf
-
-instance coreIsPkgInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core :=
-  define_is_pkg_init iprop(True)
-instance coreGetIsPkgInitWf : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.core :=
   build_get_is_pkg_init_wf
 
 /-- Standard modular initialization contract. Its predicate records the actual

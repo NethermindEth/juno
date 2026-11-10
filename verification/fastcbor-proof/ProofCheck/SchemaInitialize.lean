@@ -52,10 +52,10 @@ theorem schema_initialized_metadata :
       HeaderMetadata (GF := GF) := by
   exact isPkgInit_access _
 
-/-- Core's declared schema dependency supplies the initialized tables. This does
-    not assert correctness of the unrelated remainder of core initialization. -/
+/-- Header callers use the proved schema startup directly. Unrelated core and
+    planner initialization are not preconditions of the decoder contracts. -/
 theorem header_initialized_metadata :
-    isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ⊢
+    isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ⊢
       HeaderMetadata (GF := GF) := by
   iintro #Hpkg
   iapply schema_initialized_metadata

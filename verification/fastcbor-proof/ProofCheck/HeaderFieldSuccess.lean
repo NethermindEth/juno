@@ -42,7 +42,7 @@ theorem wp_headerFelt_success (c dst base : Loc) (h : Header) (old : HeaderValue
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32) (valid : FeltValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #(structFieldRef Header (headerFeltName field) dst)))
     {{ (p : Loc), RET #interface.nil;
@@ -72,7 +72,7 @@ theorem wp_headerScalar_success (c dst base : Loc) (h : Header) (old : HeaderVal
     (value : w64) (dq : DFrac) (valid : ScalarValid (headerScalarValue field old) wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if headerScalarMode field then (@! cborReadMode) else (@! cborReadUint64))) (Val #c))
         (Val #(structFieldRef Header (headerScalarName field) dst)))
@@ -117,7 +117,7 @@ theorem wp_headerSignatures_success (c dst base : Loc) (h : Header) (old : Heade
     (valid : SignaturesValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #(structFieldRef Header go!"Signatures" dst)))
     {{ (p : GoSlice), RET #interface.nil;

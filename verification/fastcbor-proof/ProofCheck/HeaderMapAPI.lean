@@ -20,7 +20,7 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
 theorem wp_decodeHeaderFirst_map_supported (dst fields gasFields : Loc) (input : GoSlice)
     (f gasF : cursor.Fields) (item : HeaderMapWire 0) (rem : List w8)
     (kind : GoInterface) (qf qo qn qgf qgo qgn dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ dst ↦ (zero_val Header) ∗ input ↦*{dq} (item.bytes ++ rem) ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
@@ -75,7 +75,7 @@ theorem wp_decodeHeaderFirst_map_supported (dst fields gasFields : Loc) (input :
 theorem wp_decodeHeader_map_supported (dst fields gasFields : Loc) (input : GoSlice)
     (f gasF : cursor.Fields) (item : HeaderMapWire 0)
     (kind : GoInterface) (qf qo qn qgf qgo qgn dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
@@ -107,18 +107,18 @@ theorem wp_decodeHeader_map_supported (dst fields gasFields : Loc) (input : GoSl
 theorem wp_decodeHeader_map_trailing (dst fields gasFields : Loc) (input : GoSlice)
     (f gasF : cursor.Fields) (item : HeaderMapWire 0) (rem : List w8)
     (kind extraKind : GoInterface) (qf qo qn qgf qgo qgn dq : DFrac) (hmore : rem ≠ []) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗
-       globalAddr cursor.ErrUnsupported ↦□ kind ∗ globalAddr fastcbor.ErrExtraneousData ↦□ extraKind ∗
+       globalAddr cursor.ErrUnsupported ↦□ kind ∗ globalAddr cborerr.ErrExtraneousData ↦□ extraKind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} (item.bytes ++ rem) ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
        gasFields ↦{qgf} gasF ∗ gasF.order' ↦*{qgo} gasFieldKeys ∗ gasF.names' ↦*{qgn} gasFieldNames }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
-    {{ (err : Loc), RET #(interface.mkOk (go.PointerType fastcbor.DecodeError.ty) #err);
+    {{ (err : Loc), RET #(interface.mkOk (go.PointerType cborerr.DecodeError.ty) #err);
        HeaderOwned dst headerZeroValue ∗ input ↦*{dq} (item.bytes ++ rem) ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
        gasFields ↦{qgf} gasF ∗ gasF.order' ↦*{qgo} gasFieldKeys ∗ gasF.names' ↦*{qgn} gasFieldNames ∗
-       err ↦ {(zero_val fastcbor.DecodeError) with Kind' := extraKind, Extra' := W64 rem.length} }} := by
+       err ↦ {(zero_val cborerr.DecodeError) with Kind' := extraKind, Extra' := W64 rem.length} }} := by
   wp_start as ⟨#Hglobal, #HgasGlobal, #Hkind, #HextraKind, Hdst, Hs, Hfields, Horder, Hnames, HgasFields, HgasOrder, HgasNames⟩
   wp_auto
   wp_apply wp_decodeHeaderFirst_map_supported dst fields gasFields input f gasF item rem kind qf qo qn qgf qgo qgn dq

@@ -22,7 +22,7 @@ theorem wp_headerScalar_failure (c dst : Loc) (h : Header) (old : HeaderValue) (
     (failure : ScalarFailure wire reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        expectedFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ h ∗ HeaderBody h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if headerScalarMode field then (@! cborReadMode) else (@! cborReadUint64))) (Val #c))
         (Val #(structFieldRef Header (headerScalarName field) dst)))
@@ -48,7 +48,7 @@ theorem wp_headerSignatures_failure (c dst : Loc) (h : Header) (old : HeaderValu
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        feltFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ h ∗ HeaderBody h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #(structFieldRef Header go!"Signatures" dst)))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

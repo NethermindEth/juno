@@ -427,7 +427,7 @@ theorem wp_readUint64_encoded (c dst : Loc) (old : w64) (v : cursor.Cursor)
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ argument ∗
@@ -520,7 +520,7 @@ theorem wp_readMode_encoded (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor)
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadMode)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ argument ∗

@@ -28,7 +28,7 @@ theorem wp_headerGas_existing_map (c dst shared base fields : Loc) (h : Header) 
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ GasPricesOwned base prices snapshot.values ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
@@ -93,7 +93,7 @@ theorem wp_headerGas_new_map (c dst shared fields : Loc) (h : Header) (old : Hea
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ null ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗

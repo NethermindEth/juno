@@ -65,7 +65,7 @@ theorem wp_headerGas_null_ready (c dst shared base : Loc) (h : Header) (old : He
     (hn : head = W8 246 ∨ head = W8 247)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = head :: rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c))
         (Val #(structFieldRef Header (headerGasName second) dst))) (Val #shared)) (Val #(headerGasSlot second)))
@@ -98,7 +98,7 @@ theorem wp_headerGas_null_ready (c dst shared base : Loc) (h : Header) (old : He
 /-- The stronger loop state still discharges actual Header cleanup, including
     unpublished partial values, without any extra heap assumptions. -/
 theorem wp_clearHeader_ready (dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen }}
       (App (Val (@! cborClearHeader)) (Val #dst))
     {{ RET #(); HeaderOwned dst headerZeroValue }} := by

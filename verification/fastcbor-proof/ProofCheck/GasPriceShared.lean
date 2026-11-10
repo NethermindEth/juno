@@ -70,7 +70,7 @@ theorem wp_newGasPrices :
 theorem wp_gasPriceSlot_null (c dst shared base old : Loc) (slot : w64) (v : cursor.Cursor)
     (xs : List w8) (head : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some head) (hn : head = W8 246 ∨ head = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ shared ↦ base ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c)) (Val #dst)) (Val #shared)) (Val #slot))
     {{ RET #interface.nil; dst ↦ null ∗ shared ↦ base ∗

@@ -22,7 +22,7 @@ theorem wp_readHeader_nullish_owned (c dst fields : Loc) (h : Header) (value : H
     (hn : head = W8 246 ∨ head = W8 247)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = head :: rest) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ h ∗ HeaderChildren h value ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ h ∗ HeaderChildren h value ∗
@@ -44,7 +44,7 @@ theorem wp_readHeader_nullish_owned (c dst fields : Loc) (h : Header) (value : H
 theorem wp_decodeHeaderFirst_open_failure (dst fields : Loc) (input : GoSlice) (wire : List w8)
     (dq : DFrac) (reason : FeltFailureReason) (kind : GoInterface)
     (failure : StructOpenFailure 0 wire reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #input)) (Val #dst))
@@ -77,7 +77,7 @@ theorem wp_decodeHeaderFirst_open_failure (dst fields : Loc) (input : GoSlice) (
 theorem wp_decodeHeader_open_failure (dst fields : Loc) (input : GoSlice) (wire : List w8)
     (dq : DFrac) (reason : FeltFailureReason) (kind : GoInterface)
     (failure : StructOpenFailure 0 wire reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))

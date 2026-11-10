@@ -98,7 +98,7 @@ theorem wp_limbs_emptyArray (c dst : Loc) (old : GoArray w64 4) (data : GoSlice)
 /-- The production felt reader allocates a nonnil result and writes through the named-type pointer conversion. -/
 theorem wp_readFelt_emptyArray (c dst : Loc) (old : Loc) (data : GoSlice) (dq : DFrac)
     (hdata : data.len = W64 1) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗ dst ↦ old ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗ dst ↦ old ∗
        c ↦ cursor.Cursor.mk data (W64 0) (W64 0) (zero_val (GoArray w64 4)) ∗ data ↦*{dq} [W8 128] }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (p : Loc), RET #interface.nil; dst ↦ p ∗ p ↦ (zero_val (GoArray w64 4)) ∗

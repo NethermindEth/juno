@@ -25,11 +25,11 @@ theorem wp_gasPriceSlot_existing_success (c dst shared old : Loc) (base : Loc) (
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire)
     (hread : ∀ target : Loc,
-      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
          R ∗ target ↦ g ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
         (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #target))
       {{ (out : GasPrice), RET #interface.nil; target ↦ out ∗ Q out }}) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        R ∗ dst ↦ old ∗ shared ↦ base ∗ base ↦ prices ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c)) (Val #dst)) (Val #shared)) (Val #slot))
     {{ RET #interface.nil; ∃ out : GasPrice, dst ↦ arrayIndexRef GasPrice (sint.Z slot) base ∗ shared ↦ base ∗
@@ -62,11 +62,11 @@ theorem wp_gasPriceSlot_existing_failure (c dst shared old : Loc) (base : Loc) (
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire)
     (hread : ∀ target : Loc,
-      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
          R ∗ target ↦ g ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
         (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #target))
       {{ (out : GasPrice) (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err); target ↦ out ∗ Q out err }}) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        R ∗ dst ↦ old ∗ shared ↦ base ∗ base ↦ prices ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c)) (Val #dst)) (Val #shared)) (Val #slot))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err); ∃ out : GasPrice, dst ↦ old ∗ shared ↦ base ∗
@@ -98,11 +98,11 @@ theorem wp_gasPriceSlot_new_success (c dst shared old : Loc) (slot : w64)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire)
     (hread : ∀ target : Loc,
-      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
          R ∗ target ↦ zero_val GasPrice ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
         (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #target))
       {{ (out : GasPrice), RET #interface.nil; target ↦ out ∗ Q out }}) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        R ∗ dst ↦ old ∗ shared ↦ null ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c)) (Val #dst)) (Val #shared)) (Val #slot))
     {{ RET #interface.nil; ∃ (base : Loc) (out : GasPrice), dst ↦ arrayIndexRef GasPrice (sint.Z slot) base ∗ shared ↦ base ∗
@@ -137,11 +137,11 @@ theorem wp_gasPriceSlot_new_failure (c dst shared old : Loc) (slot : w64)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire)
     (hread : ∀ target : Loc,
-      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
          R ∗ target ↦ zero_val GasPrice ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
         (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #target))
       {{ (out : GasPrice) (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err); target ↦ out ∗ Q out err }}) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        R ∗ dst ↦ old ∗ shared ↦ null ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c)) (Val #dst)) (Val #shared)) (Val #slot))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err); ∃ (base : Loc) (out : GasPrice), dst ↦ old ∗ shared ↦ base ∗

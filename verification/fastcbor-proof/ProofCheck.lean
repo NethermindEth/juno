@@ -103,3 +103,6 @@ import ProofCheck.RuntimeInitialize
 import ProofCheck.BigInitialize
 
 import ProofCheck.SchemaInitialize
+
+import ProofCheck.EntryErrorsInitialize
+import ProofCheck.HeaderInitializedAPI

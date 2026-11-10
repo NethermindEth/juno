@@ -3,6 +3,7 @@ package core
 
 import (
 	"github.com/NethermindEth/juno/core/internal/cborschema"
+	"github.com/NethermindEth/juno/utils/cbor/cborerr"
 	"github.com/NethermindEth/juno/utils/cbor/cursor"
 	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
 )
@@ -100,7 +101,7 @@ func cborClearHeader(dst *Header) { *dst = Header{} }
 // DecodeHeaderFirst reads one header, enforcing fastcbor's zero-destination contract.
 func DecodeHeaderFirst(data []byte, dst *Header) ([]byte, error) {
 	if !cborZeroHeader(dst) {
-		return nil, &fastcbor.DecodeError{Kind: fastcbor.ErrUnsupported, Detail: "the destination is not the zero value"}
+		return nil, &cborerr.DecodeError{Kind: cborerr.ErrUnsupported, Detail: "the destination is not the zero value"}
 	}
 	c := cursor.NewCursor(data)
 	if err := cborReadHeader(&c, dst); err != nil {
@@ -115,7 +116,7 @@ func DecodeHeader(data []byte, dst *Header) error {
 	rest, err := DecodeHeaderFirst(data, dst)
 	if err == nil && len(rest) != 0 {
 		cborClearHeader(dst)
-		return &fastcbor.DecodeError{Kind: fastcbor.ErrExtraneousData, Extra: len(rest)}
+		return &cborerr.DecodeError{Kind: cborerr.ErrExtraneousData, Extra: len(rest)}
 	}
 	return err
 }

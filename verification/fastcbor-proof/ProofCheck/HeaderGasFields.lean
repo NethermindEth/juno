@@ -149,7 +149,7 @@ theorem wp_headerGas_null (c dst shared base : Loc) (h : Header) (old : HeaderVa
     (hn : head = W8 246 ∨ head = W8 247)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = head :: rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasState base h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c))
         (Val #(structFieldRef Header (headerGasName second) dst))) (Val #shared)) (Val #(headerGasSlot second)))
@@ -182,7 +182,7 @@ theorem wp_headerGas_null (c dst shared base : Loc) (h : Header) (old : HeaderVa
     GasPrice slots. Ownership is discharged under the existing affine/GC model;
     the claim is reset of the public Header, not physical reclamation. -/
 theorem wp_clearHeader_internal (dst base : Loc) (h : Header) (old : HeaderValue) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old }}
       (App (Val (@! cborClearHeader)) (Val #dst))
     {{ RET #(); HeaderOwned dst headerZeroValue }} := by

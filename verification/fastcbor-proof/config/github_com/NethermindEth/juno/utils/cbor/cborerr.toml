@@ -1,0 +1,3 @@
+translate = ["*", "!DecodeError.Error"]
+imports = ["!*", "errors", "fmt"]
+trusted = []

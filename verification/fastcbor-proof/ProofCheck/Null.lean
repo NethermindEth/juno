@@ -48,7 +48,7 @@ theorem wp_null_at (c : Loc) (v : cursor.Cursor) (xs : List w8) (b : w8)
 theorem wp_readUint64_null_at (c dst : Loc) (old : w64) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗
@@ -63,7 +63,7 @@ theorem wp_readUint64_null_at (c dst : Loc) (old : w64) (v : cursor.Cursor)
 theorem wp_readMode_null_at (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadMode)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗
@@ -78,7 +78,7 @@ theorem wp_readMode_null_at (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor)
 theorem wp_readString_null_at (c dst : Loc) (old : GoString) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadString)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗
@@ -93,7 +93,7 @@ theorem wp_readString_null_at (c dst : Loc) (old : GoString) (v : cursor.Cursor)
 theorem wp_readFelt_null_at (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ null ∗
@@ -108,7 +108,7 @@ theorem wp_readFelt_null_at (c dst : Loc) (old : Loc) (v : cursor.Cursor)
 theorem wp_readFeltPointers_null_at (c dst : Loc) (old : GoSlice) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ slice.nil ∗
@@ -123,7 +123,7 @@ theorem wp_readFeltPointers_null_at (c dst : Loc) (old : GoSlice) (v : cursor.Cu
 theorem wp_readSignatures_null_at (c dst : Loc) (old : GoSlice) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hn : b = W8 246 ∨ b = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ slice.nil ∗

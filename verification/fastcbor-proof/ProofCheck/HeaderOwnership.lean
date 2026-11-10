@@ -161,7 +161,7 @@ theorem headerGasState_publish (base : Loc) (h : Header) (value : HeaderValue) :
     Header. Child resources can be discarded under the GC/affine model; this
     proves reset and ownership of the zero result, not physical reclamation. -/
 theorem wp_clearHeader_owned (dst : Loc) (h : Header) (value : HeaderValue) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗ dst ↦ h ∗ HeaderChildren h value }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗ dst ↦ h ∗ HeaderChildren h value }}
       (App (Val (@! cborClearHeader)) (Val #dst))
     {{ RET #(); HeaderOwned dst headerZeroValue }} := by
   wp_start_folded as ⟨Hdst, Hchildren⟩

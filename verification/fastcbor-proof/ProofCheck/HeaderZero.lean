@@ -17,7 +17,7 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
 /-- The generated guard checks all fifteen actual fields, including nil rather
     than merely empty signatures. This contract is independent of input bytes. -/
 theorem wp_zeroHeader_complete (dst : Loc) (h : Header) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗ dst ↦ h }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗ dst ↦ h }}
       (App (Val (@! cborZeroHeader)) (Val #dst))
     {{ (result : Bool), RET #result; dst ↦ h ∗ ⌜result = true ↔ h = zero_val Header⌝ }} := by
   wp_start as Hdst
@@ -243,11 +243,11 @@ theorem wp_zeroHeader_complete (dst : Loc) (h : Header) :
     it nonzero. The input need not be owned because the API never reads it. -/
 theorem wp_decodeHeaderFirst_nonzero_complete (dst : Loc) (h : Header) (input : GoSlice)
     (kind : GoInterface) (hne : h ≠ zero_val Header) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr fastcbor.ErrUnsupported ↦□ kind ∗ dst ↦ h }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
+       globalAddr cborerr.ErrUnsupported ↦□ kind ∗ dst ↦ h }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #input)) (Val #dst))
-    {{ (err : Loc), RET (PairV #slice.nil #(interface.mkOk (go.PointerType fastcbor.DecodeError.ty) #err));
-       dst ↦ h ∗ err ↦ ({ (zero_val fastcbor.DecodeError) with Kind' := kind, Detail' := go!"the destination is not the zero value" }) }} := by
+    {{ (err : Loc), RET (PairV #slice.nil #(interface.mkOk (go.PointerType cborerr.DecodeError.ty) #err));
+       dst ↦ h ∗ err ↦ ({ (zero_val cborerr.DecodeError) with Kind' := kind, Detail' := go!"the destination is not the zero value" }) }} := by
   wp_start as ⟨#Hkind, Hdst⟩
   wp_auto
   wp_apply wp_zeroHeader_complete dst h $$ [Hdst] as %result ⟨Hdst, %Hzero⟩
@@ -263,11 +263,11 @@ theorem wp_decodeHeaderFirst_nonzero_complete (dst : Loc) (h : Header) (input : 
     the same rejection, without reading input or running failure cleanup. -/
 theorem wp_decodeHeader_nonzero_complete (dst : Loc) (h : Header) (input : GoSlice)
     (kind : GoInterface) (hne : h ≠ zero_val Header) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr fastcbor.ErrUnsupported ↦□ kind ∗ dst ↦ h }}
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
+       globalAddr cborerr.ErrUnsupported ↦□ kind ∗ dst ↦ h }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
-    {{ (err : Loc), RET #(interface.mkOk (go.PointerType fastcbor.DecodeError.ty) #err);
-       dst ↦ h ∗ err ↦ ({ (zero_val fastcbor.DecodeError) with Kind' := kind, Detail' := go!"the destination is not the zero value" }) }} := by
+    {{ (err : Loc), RET #(interface.mkOk (go.PointerType cborerr.DecodeError.ty) #err);
+       dst ↦ h ∗ err ↦ ({ (zero_val cborerr.DecodeError) with Kind' := kind, Detail' := go!"the destination is not the zero value" }) }} := by
   wp_start as ⟨#Hkind, Hdst⟩
   wp_auto
   wp_apply wp_decodeHeaderFirst_nonzero_complete dst h input kind hne $$ [Hdst] as %err ⟨Hdst, Herr⟩

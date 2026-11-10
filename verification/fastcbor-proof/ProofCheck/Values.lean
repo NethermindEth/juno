@@ -92,7 +92,7 @@ theorem wp_uint64_inline_at (c : Loc) (v : cursor.Cursor) (xs : List w8) (b : w8
 theorem wp_readUint64_inline_at (c dst : Loc) (old : w64) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hb : uint.Z b < 24) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ W64 (uint.Z b) ∗
@@ -109,7 +109,7 @@ theorem wp_readUint64_inline_at (c dst : Loc) (old : w64) (v : cursor.Cursor)
 theorem wp_headerNumber_inline_at (c dst : Loc) (h : Header) (v : cursor.Cursor)
     (xs : List w8) (b : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some b) (hb : uint.Z b < 24) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c))
         (Val #(structFieldRef Header go!"Number" dst)))

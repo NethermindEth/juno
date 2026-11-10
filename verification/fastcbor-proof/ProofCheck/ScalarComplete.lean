@@ -45,7 +45,7 @@ theorem wp_readScalar_valid (mode : Bool) (c dst : Loc) (old : w64) (v : cursor.
     (xs wire rem : List w8) (value : w64) (dq : DFrac) (valid : ScalarValid old wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if mode then (@! cborReadMode) else (@! cborReadUint64))) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ value ∗
@@ -112,7 +112,7 @@ theorem wp_readScalar_failure (mode : Bool) (c dst : Loc) (old : w64) (v : curso
     (failure : ScalarFailure wire reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        expectedFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if mode then (@! cborReadMode) else (@! cborReadUint64))) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -146,7 +146,7 @@ theorem wp_readScalar_complete (mode : Bool) (c dst : Loc) (old : w64) (v : curs
     (xs wire : List w8) (dq : DFrac) (kinds : FeltErrorKinds)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if mode then (@! cborReadMode) else (@! cborReadUint64))) (Val #c)) (Val #dst))
     {{ (result : GoInterface), RET #result;

@@ -117,6 +117,43 @@ func TestTypedHeaderRejectsNonzeroWithoutMutation(t *testing.T) {
 	}
 }
 
+func TestTypedHeaderPublicErrors(t *testing.T) {
+	for _, api := range []struct {
+		name          string
+		decode        func([]byte, *core.Header) error
+		typedTrailing bool
+	}{
+		{"direct", core.DecodeHeader, true},
+		{"registered", fastcbor.Unmarshal[core.Header], false},
+	} {
+		for _, tc := range []struct {
+			name    string
+			data    []byte
+			dst     core.Header
+			kind    error
+			message string
+		}{
+			{"nonzero", []byte{0xf6}, core.Header{Number: 7}, fastcbor.ErrUnsupported, "fastcbor: unsupported: the destination is not the zero value"},
+			{"trailing", []byte{0xf6, 0x01}, core.Header{}, fastcbor.ErrExtraneousData, "fastcbor: extraneous data: 1 bytes"},
+		} {
+			t.Run(api.name+"/"+tc.name, func(t *testing.T) {
+				got := tc.dst
+				err := api.decode(tc.data, &got)
+				require.ErrorIs(t, err, tc.kind)
+				require.EqualError(t, err, tc.message)
+				// Unmarshal formats its own trailing-data error after the typed
+				// First reader returns; the direct API returns DecodeError.
+				if tc.kind == fastcbor.ErrUnsupported || api.typedTrailing {
+					var detail *fastcbor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, tc.kind, detail.Kind)
+				}
+				require.Equal(t, tc.dst, got)
+			})
+		}
+	}
+}
+
 func TestTypedHeaderKeysAndNull(t *testing.T) {
 	for _, data := range [][]byte{{0xf6}, {0xf7}, {0xa0}, {0xa1, 0x66, 'n', 'u', 'm', 'b', 'e', 'r', 7}, {0xa1, 0x63, 'o', 'l', 'd', 0x81, 1}} {
 		var got, want core.Header

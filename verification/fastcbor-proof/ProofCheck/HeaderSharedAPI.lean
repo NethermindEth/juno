@@ -20,12 +20,12 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
    persistent, so independent invocations can use the same tables without dividing
    exclusive ownership. They retain the input-family restrictions of the underlying
    Header proofs. Schema startup now establishes HeaderMetadata, which is recovered
-   through the core dependency instead of being a separate caller precondition. -/
+   directly from schema startup instead of being a separate caller precondition. -/
 
 /-- Successful DecodeHeaderFirst using persistent published metadata. -/
 theorem wp_decodeHeaderFirst_map_shared (dst : Loc) (input : GoSlice)
     (item : HeaderMapWire 0) (rem : List w8) (kind : GoInterface) (dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} (item.bytes ++ rem) }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #input)) (Val #dst))
@@ -52,7 +52,7 @@ theorem wp_decodeHeaderFirst_map_shared (dst : Loc) (input : GoSlice)
 /-- Successful DecodeHeader using persistent published metadata. -/
 theorem wp_decodeHeader_map_shared (dst : Loc) (input : GoSlice)
     (item : HeaderMapWire 0) (kind : GoInterface) (dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
@@ -78,7 +78,7 @@ theorem wp_decodeHeaderFirst_lookup_failure_shared (dst : Loc) (input : GoSlice)
     (value : HeaderValue) (wire : List w8) (offset : Nat)
     (reason : HeaderLookupFailureReason) (kinds : FeltErrorKinds) (dq : DFrac)
     (failure : HeaderLookupFailure 0 wire value offset reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #input)) (Val #dst))
@@ -108,7 +108,7 @@ theorem wp_decodeHeader_lookup_failure_shared (dst : Loc) (input : GoSlice)
     (value : HeaderValue) (wire : List w8) (offset : Nat)
     (reason : HeaderLookupFailureReason) (kinds : FeltErrorKinds) (dq : DFrac)
     (failure : HeaderLookupFailure 0 wire value offset reason) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} wire }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
@@ -136,7 +136,7 @@ theorem wp_decodeHeader_lookup_failure_shared (dst : Loc) (input : GoSlice)
 /-- Specified value failures through DecodeHeaderFirst, sharing immutable metadata. -/
 theorem wp_decodeHeaderFirst_value_failure_shared (dst : Loc) (input : GoSlice)
     (item : HeaderValueFailureWire 0) (kinds : FeltErrorKinds) (dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #input)) (Val #dst))
@@ -163,7 +163,7 @@ theorem wp_decodeHeaderFirst_value_failure_shared (dst : Loc) (input : GoSlice)
 /-- Specified value failures through DecodeHeader, sharing immutable metadata. -/
 theorem wp_decodeHeader_value_failure_shared (dst : Loc) (input : GoSlice)
     (item : HeaderValueFailureWire 0) (kinds : FeltErrorKinds) (dq : DFrac) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
@@ -191,14 +191,14 @@ theorem wp_decodeHeader_value_failure_shared (dst : Loc) (input : GoSlice)
 theorem wp_decodeHeader_map_trailing_shared (dst : Loc) (input : GoSlice)
     (item : HeaderMapWire 0) (rem : List w8) (kind extraKind : GoInterface) (dq : DFrac)
     (hmore : rem ≠ []) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗
-       globalAddr fastcbor.ErrExtraneousData ↦□ extraKind ∗
+       globalAddr cborerr.ErrExtraneousData ↦□ extraKind ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} (item.bytes ++ rem) }}
       (App (App (Val (@! DecodeHeader)) (Val #input)) (Val #dst))
-    {{ (err : Loc), RET #(interface.mkOk (go.PointerType fastcbor.DecodeError.ty) #err);
+    {{ (err : Loc), RET #(interface.mkOk (go.PointerType cborerr.DecodeError.ty) #err);
        HeaderOwned dst headerZeroValue ∗ input ↦*{dq} (item.bytes ++ rem) ∗
-       err ↦ {(zero_val fastcbor.DecodeError) with Kind' := extraKind, Extra' := W64 rem.length} }} := by
+       err ↦ {(zero_val cborerr.DecodeError) with Kind' := extraKind, Extra' := W64 rem.length} }} := by
   wp_start_folded as ⟨#Hkind, #HextraKind, Hdst, Hs⟩
   ihave #Hmeta := header_initialized_metadata (GF := GF) $$ []
   · solve_pkg_init

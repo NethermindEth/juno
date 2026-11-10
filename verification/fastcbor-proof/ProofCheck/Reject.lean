@@ -506,7 +506,7 @@ theorem wp_readUint64_tag (c dst : Loc) (old : w64) (v : cursor.Cursor) (xs payl
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -532,7 +532,7 @@ theorem wp_readMode_tag (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor) (xs p
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadMode)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -558,7 +558,7 @@ theorem wp_readUint64_type (c dst : Loc) (old : w64) (v : cursor.Cursor) (xs pay
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrType ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -584,7 +584,7 @@ theorem wp_readMode_type (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor) (xs 
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrType ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadMode)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -687,7 +687,7 @@ theorem wp_readUint64_truncated (c dst : Loc) (old : w64) (v : cursor.Cursor) (x
     (hinfo : 24 ≤ uint.Z (head &&& W8 31) ∧ uint.Z (head &&& W8 31) ≤ 27)
     (hsize : W64 1 <<< W64 (uint.Z ((head &&& W8 31) - W8 24)) = size)
     (htrunc : sint.Z v.buf'.len - (sint.Z v.pos' + 1) < sint.Z size) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadUint64)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -712,7 +712,7 @@ theorem wp_readMode_truncated (c dst : Loc) (old : L1DAMode) (v : cursor.Cursor)
     (hinfo : 24 ≤ uint.Z (head &&& W8 31) ∧ uint.Z (head &&& W8 31) ≤ 27)
     (hsize : W64 1 <<< W64 (uint.Z ((head &&& W8 31) - W8 24)) = size)
     (htrunc : sint.Z v.buf'.len - (sint.Z v.pos' + 1) < sint.Z size) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadMode)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

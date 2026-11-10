@@ -1,0 +1,110 @@
+{
+  "status": "focused exploratory comparison only; not the frozen 185-case performance gate",
+  "baseline_commit": "bb87db50e0fb63cc61b9d4fbdb0ae4ea93b1bba9",
+  "baseline_note": "same benchmark compiled before shared entry-error isolation; original frozen baseline untouched",
+  "protocol": {
+    "rounds": 5,
+    "ordering": "before/after on even rounds, after/before on odd rounds",
+    "cpu": 2,
+    "GOMAXPROCS": 1,
+    "benchtime": "300ms",
+    "lock": "/mnt/dev/juno-benchmark/cbor-comparison-20261008/measurement.lock",
+    "scope": "direct core.DecodeHeader, no fallback; four synthetic shapes",
+    "interference": "Lean rebuild was running concurrently; this exploratory check does not establish statistical equivalence"
+  },
+  "build_command": "go test -c -o /tmp/juno-header-errors-{before,after}.test ./core (separately before and after the production change)",
+  "run_command": "GOMAXPROCS=1 taskset -c 2 /tmp/juno-header-errors-{before,after}.test -test.run=^$ -test.bench=^BenchmarkTypedHeader$ -test.benchmem -test.benchtime=300ms -test.count=1",
+  "binary_sha256": {
+    "before": "531e348e33c50532dd36fa1e4c8210ba515e136f7d6e5fbfcd05019599dab2fb",
+    "after": "ecc01eb46b94d4b8773d6684d3f43b84df9db04b2266f848634358982cc9f39f"
+  },
+  "source_sha256": {
+    "core/cbor_readers_bench_test.go": "026c2424010394c1cba8a6f39fc4532aee92e49b5f2bcc0062f352bf86852099",
+    "core/cbor_readers_generated.go": "c3daeacd31198d02e5117bc7a6005102d870dba81f1b4acd829dbf4de672cb05",
+    "core/internal/cborschema/fields_generated.go": "328a49a486a2ef878706a8889926d0a38ec6ef6debda42c0f85eeb2ce552c5de",
+    "utils/cbor/cmd/cborgen/main.go": "324d86472cede3f96cc3e07752d4d821327f83364696fb5e011d781435521455",
+    "utils/cbor/cborerr/errors.go": "e8abda369c26c0060aaccb983adf5fac2a1b5635ba25d911e9332ce509a2b8aa",
+    "utils/cbor/fastcbor/fastcbor.go": "cec7a29d6f26bbbc9834ca9d1aba6303354cf309548517fac132871d55c4ca25",
+    "utils/cbor/fastcbor/typed.go": "765cc9079912a0c6e37983762e77eca241d5c021cd20ad0e16932e7172a9d3d5"
+  },
+  "cases": {
+    "zero": {
+      "before_median_ns": 71.25,
+      "after_median_ns": 73.03,
+      "median_paired_ns_change_percent": 2.2972405098753423,
+      "before_B_per_op": [
+        0
+      ],
+      "after_B_per_op": [
+        0
+      ],
+      "before_allocs_per_op": [
+        0
+      ],
+      "after_allocs_per_op": [
+        0
+      ]
+    },
+    "scalars": {
+      "before_median_ns": 100.9,
+      "after_median_ns": 101.6,
+      "median_paired_ns_change_percent": 0.7960199004975133,
+      "before_B_per_op": [
+        8
+      ],
+      "after_B_per_op": [
+        8
+      ],
+      "before_allocs_per_op": [
+        1
+      ],
+      "after_allocs_per_op": [
+        1
+      ]
+    },
+    "prices": {
+      "before_median_ns": 178.7,
+      "after_median_ns": 177.6,
+      "median_paired_ns_change_percent": -0.9513150531617165,
+      "before_B_per_op": [
+        160
+      ],
+      "after_B_per_op": [
+        160
+      ],
+      "before_allocs_per_op": [
+        5
+      ],
+      "after_allocs_per_op": [
+        5
+      ]
+    },
+    "full": {
+      "before_median_ns": 391.5,
+      "after_median_ns": 389.1,
+      "median_paired_ns_change_percent": -0.8662420382165581,
+      "before_B_per_op": [
+        560
+      ],
+      "after_B_per_op": [
+        560
+      ],
+      "before_allocs_per_op": [
+        15
+      ],
+      "after_allocs_per_op": [
+        15
+      ]
+    }
+  },
+  "raw_files": {
+    "before": {
+      "path": "entry-errors-bench-before.txt",
+      "sha256": "50ba6fb5f0db0dc173d37c1787297db64c188772952894e4788de5d7bbb8df86"
+    },
+    "after": {
+      "path": "entry-errors-bench-after.txt",
+      "sha256": "72b9bb90f486ab92a10c03e77a03da5d474a7496ab16a9356c6786f99a05110d"
+    }
+  }
+}

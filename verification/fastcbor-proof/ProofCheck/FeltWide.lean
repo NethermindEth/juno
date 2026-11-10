@@ -210,7 +210,7 @@ theorem wp_readFelt_wide (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hp : 0 ≤ sint.Z v.pos') (hdepth : sint.Z v.depth' < 32)
     (hbound : sint.Z v.pos' + 37 ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wideFeltBytes a b cc d ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (p : Loc), RET #interface.nil; dst ↦ p ∗ p ↦ wideFeltValue a b cc d ∗
@@ -293,7 +293,7 @@ theorem wp_readFelt_depth (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hbound : sint.Z v.pos' + 1 + payload.length ≤ sint.Z v.buf'.len)
     (hi : xs[(sint.Z v.pos').toNat]? = some head)
     (hbytes : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = payload ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr cursor.ErrDepth ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -317,7 +317,7 @@ theorem wp_readFelt_wide_words (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hp : 0 ≤ sint.Z v.pos') (hdepth : sint.Z v.depth' < 32)
     (hbound : sint.Z v.pos' + 37 ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wideFeltBytes (u64Le w0).reverse (u64Le w1).reverse (u64Le w2).reverse (u64Le w3).reverse ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (p : Loc), RET #interface.nil; dst ↦ p ∗ p ↦ array.mk 4 [w0, w1, w2, w3] ∗

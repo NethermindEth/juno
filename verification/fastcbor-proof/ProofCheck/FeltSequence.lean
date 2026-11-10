@@ -311,7 +311,7 @@ theorem wp_readFelt_nonfast_small (c dst : Loc) (old : Loc) (v : cursor.Cursor)
     (hdepth : sint.Z v.depth' < 32)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ unsignedBytes items ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #dst))
     {{ (p : Loc), RET #interface.nil; dst ↦ p ∗ p ↦ paddedLimbs items ∗

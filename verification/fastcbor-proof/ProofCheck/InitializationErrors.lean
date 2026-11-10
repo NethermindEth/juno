@@ -33,10 +33,10 @@ theorem cursor_initialized_felt_globals :
   isimp only [FeltErrorGlobals, SkipErrorGlobals]
   iframe Hsyntax Htruncated Hunsupported Hdepth Htype
 
-/-- Header callers obtain those globals through core's actual cursor dependency;
+/-- Header callers obtain those globals through the schema's cursor dependency;
     final API contracts need not separately assume their initialization. -/
 theorem header_initialized_felt_globals :
-    isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ⊢
+    isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ⊢
       ∃ kinds : FeltErrorKinds, FeltErrorGlobals (GF := GF) kinds := by
   iintro #Hpkg
   iapply cursor_initialized_felt_globals

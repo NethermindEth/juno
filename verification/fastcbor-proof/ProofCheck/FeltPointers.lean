@@ -24,7 +24,7 @@ theorem wp_readFeltPointers_array (c dst : Loc) (old : GoSlice) (v : cursor.Curs
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ items.flatMap FeltWire.bytes ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c)) (Val #dst))
     {{ (out : GoSlice), RET #interface.nil; dst ↦ out ∗ FeltPointersOwned out (items.map FeltWire.value) ∗
@@ -254,7 +254,7 @@ theorem wp_readFeltPointers_valid (c dst : Loc) (old : GoSlice) (v : cursor.Curs
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32) (valid : FeltPointersValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c)) (Val #dst))
     {{ (out : GoSlice), RET #interface.nil; dst ↦ out ∗ FeltPointersResult out value ∗

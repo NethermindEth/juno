@@ -17,15 +17,17 @@
 package fastcbor
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/NethermindEth/juno/utils/cbor/cborerr"
 )
 
+// Error sentinels are shared with typed readers and must be treated as read-only.
 var (
-	ErrUnsupported    = errors.New("fastcbor: unsupported")
-	ErrExtraneousData = errors.New("fastcbor: extraneous data")
+	ErrUnsupported    = cborerr.ErrUnsupported
+	ErrExtraneousData = cborerr.ErrExtraneousData
 )
 
 // Unmarshal reads data, which holds one item, into dst, which must be the zero value. On an error

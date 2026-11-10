@@ -68,7 +68,7 @@ theorem wp_gasPrice_field_valid (c dst : Loc) (g : GasPrice) (wei : Bool) (v : c
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32) (valid : FeltValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ g ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #(structFieldRef GasPrice (gasPriceFieldName wei) dst)))
     {{ (p : Loc), RET #interface.nil; dst ↦ gasPriceSet wei g p ∗ FeltResult p value ∗
@@ -92,7 +92,7 @@ theorem wp_gasPrice_field_failure (c dst : Loc) (g : GasPrice) (wei : Bool) (v :
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        feltFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ g ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFelt)) (Val #c)) (Val #(structFieldRef GasPrice (gasPriceFieldName wei) dst)))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

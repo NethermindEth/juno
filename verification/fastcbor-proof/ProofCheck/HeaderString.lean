@@ -41,7 +41,7 @@ theorem wp_headerString_null (c dst base : Loc) (h : Header) (old : HeaderValue)
     (hn : head = W8 246 ∨ head = W8 247)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = head :: rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadString)) (Val #c)) (Val #(structFieldRef Header go!"ProtocolVersion" dst)))
     {{ RET #interface.nil; dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗
@@ -68,7 +68,7 @@ theorem wp_headerString_failure (c dst base : Loc) (h : Header) (old : HeaderVal
     (failure : StringFailure wire reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        stringFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadString)) (Val #c)) (Val #(structFieldRef Header go!"ProtocolVersion" dst)))

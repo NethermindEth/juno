@@ -248,7 +248,7 @@ theorem wp_doneHeaderNumber (c st fields : Loc) (data : GoSlice) :
 theorem wp_readHeaderNumber (c dst fields : Loc) (order names data : GoSlice)
     (h : Header) (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ h ∗
        c ↦ cursor.Cursor.mk data (W64 0) (W64 0) (zero_val (GoArray w64 4)) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
@@ -300,7 +300,7 @@ theorem wp_readHeaderNumber (c dst fields : Loc) (order names data : GoSlice)
 theorem wp_decodeHeaderFirst_Number (dst fields : Loc) (order names data : GoSlice)
     (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
@@ -329,7 +329,7 @@ theorem wp_decodeHeaderFirst_Number (dst fields : Loc) (order names data : GoSli
 theorem wp_decodeHeader_Number (dst fields : Loc) (order names data : GoSlice)
     (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}

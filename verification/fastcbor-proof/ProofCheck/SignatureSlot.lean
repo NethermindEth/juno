@@ -24,7 +24,7 @@ theorem wp_readFeltPointers_slice_valid (c : Loc) (data : GoSlice) (values : Lis
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32) (valid : FeltPointersValid d wire value)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire ++ rem) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        data ↦* values ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c))
         (Val #(sliceIndexRef GoSlice i data)))
@@ -51,7 +51,7 @@ theorem wp_readFeltPointers_slice_failure (c : Loc) (data : GoSlice) (values : L
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        feltFailureAddr (GF := GF) reason ↦□ kind ∗ data ↦* values ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadFeltPointers)) (Val #c))
         (Val #(sliceIndexRef GoSlice i data)))

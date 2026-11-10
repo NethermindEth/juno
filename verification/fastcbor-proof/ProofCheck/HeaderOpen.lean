@@ -22,7 +22,7 @@ theorem wp_readHeader_open_failure (c dst fields : Loc) (old : Header) (v : curs
     (failure : StructOpenFailure d wire reason) (hd : sint.Z v.depth' = d)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
@@ -44,7 +44,7 @@ theorem wp_readHeader_open_failure (c dst fields : Loc) (old : Header) (v : curs
 theorem wp_readHeader_nullish (c dst fields : Loc) (old : Header) (v : cursor.Cursor)
     (xs : List w8) (head : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some head) (hn : head = W8 246 ∨ head = W8 247) :
-    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
        globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗ c ↦ {v with pos' := v.pos' + W64 1} ∗ v.buf' ↦*{dq} xs }} := by
