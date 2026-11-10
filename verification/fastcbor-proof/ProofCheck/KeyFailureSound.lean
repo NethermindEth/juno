@@ -24,6 +24,7 @@ theorem wp_nextField_failure (c st fields : Loc) (v : cursor.Cursor) (s : cursor
     (hstart : 0 ≤ sint.Z s.next' ∧ (sint.Z s.next').toNat ≤ order.length)
     (hnonempty : ∀ entry ∈ order, entry.Encoded' ≠ []) (hsorted : FieldHeadsOrdered order)
     (hcache : CachedShortTable order) (htable : InlineFieldTable order names)
+    (hascii : ∀ name ∈ names, ASCIIBytes name)
     (failure : KeyFailure wire reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
@@ -93,6 +94,10 @@ theorem wp_nextField_failure (c st fields : Loc) (v : cursor.Cursor) (s : cursor
     simpa only [keyFailureAddr, KeyFailureError] using
       wp_nextField_text_truncated (GF := GF) c st fields v s f order names xs payload tail head argument qf qo dq kind
         hfields hleft hstart hnonempty hsorted hcache htable enc major short hp hbytes
+  | @badLead head b payload tail rem enc major bad =>
+    simpa only [keyFailureAddr, KeyFailureError] using
+      wp_nextField_bad_lead (GF := GF) c st fields v s f order names xs payload tail rem head b qf qo dq kind
+        hfields hleft hstart hnonempty hsorted hcache htable hascii enc major bad hp hbytes
 
 end github_com.NethermindEth.juno.core
 end Perennial

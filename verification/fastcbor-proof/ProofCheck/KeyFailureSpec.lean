@@ -1,5 +1,6 @@
 import ProofCheck.FieldHead
 import ProofCheck.FeltComplete
+import ProofCheck.FieldUtf8Reject
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -23,6 +24,7 @@ inductive KeyFailureReason where
   | tag
   | typeMismatch (bad : w8)
   | textTruncated
+  | invalidUTF8
 
 def keyFailureAddr (reason : KeyFailureReason) : Loc :=
   match reason with
@@ -30,6 +32,7 @@ def keyFailureAddr (reason : KeyFailureReason) : Loc :=
   | .incomplete | .eof | .textTruncated => globalAddr cursor.ErrTruncated
   | .integerRange | .typeMismatch _ => globalAddr cursor.ErrType
   | .tag => globalAddr cursor.ErrUnsupported
+  | .invalidUTF8 => globalAddr cursor.ErrSyntax
 
 def keyFailureKind (reason : KeyFailureReason) (kinds : FeltErrorKinds) : GoInterface :=
   match reason with
@@ -37,6 +40,7 @@ def keyFailureKind (reason : KeyFailureReason) (kinds : FeltErrorKinds) : GoInte
   | .incomplete | .eof | .textTruncated => kinds.truncatedKind
   | .integerRange | .typeMismatch _ => kinds.typeKind
   | .tag => kinds.unsupportedKind
+  | .invalidUTF8 => kinds.syntaxKind
 
 def KeyFailureError (err : Loc) (pos : w64) (reason : KeyFailureReason) (kind : GoInterface) : IProp GF :=
   match reason with
@@ -45,6 +49,7 @@ def KeyFailureError (err : Loc) (pos : w64) (reason : KeyFailureReason) (kind : 
   | .eof => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"input ends before the item") slice.nil)
   | .integerRange => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"integer key does not fit int64") slice.nil)
   | .textTruncated => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"key longer than the input") slice.nil)
+  | .invalidUTF8 => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"key is not valid UTF-8") slice.nil)
   | .tag => iprop(∃ args : GoSlice,
       err ↦ cursor.DecodeError.mk kind pos (go!"tag where %s is expected") args ∗
       args ↦* [interface.mkOk go.string #(go!"a text or integer key")])
@@ -53,8 +58,8 @@ def KeyFailureError (err : Loc) (pos : w64) (reason : KeyFailureReason) (kind : 
       args ↦* [interface.mkOk go.string #(go!"a text or integer key"), interface.mkOk go.string #(headDescription bad)])
 
 /-- Key errors whose production paths are currently closed. Every diagnostic is
-    at the original key position and the cursor is restored. Invalid UTF-8 is
-    a further error family awaiting the general validation contract. -/
+    at the original key position and the cursor is restored. UTF-8 rejection
+    currently covers illegal initial bytes; the other malformed sequences remain open. -/
 inductive KeyFailure : List w8 → KeyFailureReason → Prop where
   | head {bad : w8} (tail : List w8) {reason : HeadError} (fault : HeadFault bad reason) :
       KeyFailure (bad :: tail) (.head bad reason)
@@ -77,6 +82,10 @@ inductive KeyFailure : List w8 → KeyFailureReason → Prop where
   | textTruncated {head : w8} {payload tail : List w8} {argument : w64}
       (enc : HeadArgument head payload argument) (major : head &&& W8 224 = W8 96)
       (short : tail.length < uint.Z argument) : KeyFailure ((head :: payload) ++ tail) .textTruncated
+  | badLead {head b : w8} {payload tail rem : List w8}
+      (enc : HeadArgument head payload (W64 (b :: tail).length))
+      (major : head &&& W8 224 = W8 96) (bad : Utf8BadLead b) :
+      KeyFailure ((head :: payload) ++ (b :: tail) ++ rem) .invalidUTF8
 
 theorem keyErrorGlobals_lookup (kinds : FeltErrorKinds) (reason : KeyFailureReason) :
     FeltErrorGlobals kinds ⊢ (keyFailureAddr (GF := GF) reason ↦□ keyFailureKind reason kinds : IProp GF) := by
@@ -95,6 +104,9 @@ theorem keyErrorGlobals_lookup (kinds : FeltErrorKinds) (reason : KeyFailureReas
   | tag =>
     isimp only [keyFailureAddr, keyFailureKind]
     iexact Hunsupported
+  | invalidUTF8 =>
+    isimp only [keyFailureAddr, keyFailureKind]
+    iexact Hsyntax
 
 end github_com.NethermindEth.juno.core
 end Perennial

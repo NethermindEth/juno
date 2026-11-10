@@ -119,7 +119,7 @@ theorem wp_readHeader_map_key_failure (c dst fields gasFields : Loc)
     have hwire : subslice (sint.nat pos) (sint.nat v.buf'.len) xs = wire := by simpa using Hremaining
     wp_apply wp_nextField_failure c s_ptr fields {v with pos' := pos, depth' := v.depth' + W64 1}
       (cursor.Struct.mk fields (W64 (count - done.length)) next seen true) f headerFieldKeys headerFieldNames xs wire qf qo dq reason errorKind
-      rfl hleft Hsearch headerFieldEncodings_nonempty headerFieldHeads_ordered headerCachedShortTable headerInlineFieldTable failure Hpos hwire
+      rfl hleft Hsearch headerFieldEncodings_nonempty headerFieldHeads_ordered headerCachedShortTable headerInlineFieldTable headerFieldNames_ascii failure Hpos hwire
       $$ [Hc Hst Hfields Horder Hs] as %err ⟨Hc, Hst, Hfields, Horder, Hs, Herr⟩
     · iframe HerrorKind Hc Hst Hfields Horder Hs
     wp_for_post

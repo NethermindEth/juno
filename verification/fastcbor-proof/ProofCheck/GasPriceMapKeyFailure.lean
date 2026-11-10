@@ -111,7 +111,7 @@ theorem wp_readGasPrice_map_key_failure (c dst fields : Loc) (g : GasPrice) (ini
     have hwire : subslice (sint.nat pos) (sint.nat v.buf'.len) xs = wire := by simpa using Hremaining
     wp_apply wp_nextField_failure c s_ptr fields {v with pos' := pos, depth' := v.depth' + W64 1}
       (cursor.Struct.mk fields (W64 (count - done.length)) next seen true) f gasFieldKeys gasFieldNames xs wire qf qo dq reason errorKind
-      rfl hleft Hsearch gasFieldEncodings_nonempty gasFieldHeads_ordered gasCachedShortTable gasInlineFieldTable failure Hpos hwire
+      rfl hleft Hsearch gasFieldEncodings_nonempty gasFieldHeads_ordered gasCachedShortTable gasInlineFieldTable gasFieldNames_ascii failure Hpos hwire
       $$ [Hc Hst Hfields Horder Hs] as %err ⟨Hc, Hst, Hfields, Horder, Hs, Herr⟩
     · iframe HerrorKind Hc Hst Hfields Horder Hs
     wp_for_post
