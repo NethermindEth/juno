@@ -68,3 +68,9 @@ import ProofCheck.HeaderGasReady
 
 import ProofCheck.HeaderGasFresh
 import ProofCheck.HeaderFieldSuccess
+
+import ProofCheck.HeaderMapSpec
+
+import ProofCheck.HeaderMap
+
+import ProofCheck.HeaderMapAPI
