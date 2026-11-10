@@ -64,6 +64,7 @@
     "github.com/NethermindEth/juno/core/internal/cborprojections",
     "github.com/NethermindEth/juno/core/internal/cborreceipts",
     "github.com/NethermindEth/juno/core/internal/cborschema",
+    "github.com/NethermindEth/juno/core/internal/cborstate",
     "github.com/NethermindEth/juno/core/internal/cbortransactions",
     "github.com/NethermindEth/juno/core/pending",
     "github.com/NethermindEth/juno/core/state",
@@ -321,8 +322,8 @@
         "record/state-p75",
         "record/state-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.Transaction",
@@ -5180,9 +5181,10 @@
     "core/block_transaction.go": "97ce766a52f19c33a90f9a72245957e0f3d7fcbd1b28baa9f2545133321147c8",
     "core/block_transaction_serializer.go": "2e5b96248b9fdf4d7a5df2fd4971c6aa1380f424dc6a474a2cc62d9958b7062f",
     "core/cbor_projections_generated.go": "14f347880d15178a0e64471e382c79a755fc9881d5d2d3a13515e99c83a236d3",
-    "core/cbor_readers_generated.go": "b165c6241b2841b7cbf442b783fdd605abd1ddce2de974bdd2620a99cff5db93",
+    "core/cbor_readers_generated.go": "26acd7c19b28559e83c238dfd7be48e4b5beefb0b3b7e84e89426ba9edcbd74a",
     "core/cbor_receipt_projections_generated.go": "39421c05337be28b90040fd1d7895ebcd6c2e6ad38666d5b1d3d1da707a6db85",
     "core/cbor_receipts_generated.go": "6062cb3ae0750aaa71838f2def62f9d1aebc33bc20352082162e6a82145d5cda",
+    "core/cbor_state_generated.go": "ad1c2c131ca8dafce8eee522fafa05006b1f323bf3462a63ca03cb7bf3af6f52",
     "core/cbor_transactions_generated.go": "c182d46354677f18e3757cb2b18267abcfa0582d6880c9e1a7d532d9a810041b",
     "core/class.go": "1eadd1d130098240085dd24d68fdc10cd8cf261737fb16278f118d04a10a8c8d",
     "core/felt/felt.go": "3f5ff701b588989fddec4562b6b2af7e4dfc6b3aa15ec99502195a7aa6a479c1",
@@ -5198,7 +5200,7 @@
     "go.mod": "1d65ced05fb232688eb817bcbc788560db533a42f30b974200a74fccba18ac24",
     "go.sum": "a730dbbe54e53e42bf4283f6e7163ed4ce2495081c662224697345a37e5c22f6",
     "l1/eth/address.go": "4061def57efb343110c936d1e021f04cf46687c731f4828debf7e2b9cdb91d3b",
-    "utils/cbor/cmd/cborgen/main.go": "4531d4d75d520305b0ccf30b587aa1213e13d17d40ffebafac5177031835e7bb",
+    "utils/cbor/cmd/cborgen/main.go": "fd33b9c4ec798990e7a7ec2b6f2ce6d0e7c036073af8e6fb3c006556aedf8407",
     "utils/cbor/fastcbor/fastcbor.go": "cec7a29d6f26bbbc9834ca9d1aba6303354cf309548517fac132871d55c4ca25",
     "utils/cbor/fastcbor/generic.go": "5b3bf3c30f5f462633b3c1a97e9224a6f84e7ffa5c52685d456f70a64b200aaf",
     "utils/cbor/fastcbor/plan.go": "b2b7d9ad141061394833b524205a92b8f9070c0ed4fd4c7a02cce5f504bafa7c",

@@ -6,7 +6,7 @@ repo_dir=$(cd ../.. && pwd)
 export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.27.0}"
 export GOWORK=off
 export ELAN_HOME="${ELAN_HOME:-$proof_dir/.tools/elan}"
-packages=(./core ./core/internal/cborschema ./core/internal/cborprojections ./core/internal/cborreceipts ./core/internal/cbortransactions ./l1/eth ./core/felt ./utils/cbor/cursor ./utils/cbor/cborerr ./verification/fastcbor-proof/feasibility/maps ./verification/fastcbor-proof/feasibility/interfaces github.com/consensys/gnark-crypto/ecc/stark-curve/fp unicode/utf8 math/big internal/cpu)
+packages=(./core ./core/internal/cborschema ./core/internal/cborprojections ./core/internal/cborreceipts ./core/internal/cbortransactions ./core/internal/cborstate ./l1/eth ./core/felt ./utils/cbor/cursor ./utils/cbor/cborerr ./verification/fastcbor-proof/feasibility/maps ./verification/fastcbor-proof/feasibility/interfaces github.com/consensys/gnark-crypto/ecc/stark-curve/fp unicode/utf8 math/big internal/cpu)
 roots=(-lean-root github.com/NethermindEth/juno=ProofCheck -lean-root github.com/consensys/gnark-crypto=ProofCheck -lean-root unicode/utf8=ProofCheck -lean-root math/big=ProofCheck -lean-root internal/cpu=ProofCheck)
 (cd "$repo_dir" && go run ./verification/fastcbor-proof/cmd/entrymanifest -check)
 (cd "$repo_dir" && go run ./utils/cbor/cmd/cborgen -check)

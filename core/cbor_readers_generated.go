@@ -128,5 +128,6 @@ func RegisterTypedCBORReaders() {
 	registerTypedReceipts()
 	registerTypedReceiptProjections()
 	registerTypedTransactionHashProjection()
+	registerTypedStateUpdate()
 	fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }

@@ -143,6 +143,7 @@ func RegisterTypedCBORReaders() {
  registerTypedReceipts()
  registerTypedReceiptProjections()
  registerTypedTransactionHashProjection()
+ registerTypedStateUpdate()
  fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }
 `)
@@ -166,6 +167,10 @@ func RegisterTypedCBORReaders() {
 	if err != nil {
 		return err
 	}
+	state, stateSchema, err := emitStateUpdate(p)
+	if err != nil {
+		return err
+	}
 	outputs := []struct {
 		path string
 		buf  *bytes.Buffer
@@ -177,6 +182,8 @@ func RegisterTypedCBORReaders() {
 		{"core/cbor_indexes_generated.go", indexes},
 		{"core/cbor_receipts_generated.go", receipts},
 		{"core/cbor_transactions_generated.go", transactions},
+		{"core/cbor_state_generated.go", state},
+		{"core/internal/cborstate/fields_generated.go", stateSchema},
 		{"core/internal/cbortransactions/fields_generated.go", transactionSchema},
 		{"core/internal/cborreceipts/fields_generated.go", receiptSchema},
 		{"core/cbor_receipt_projections_generated.go", receiptProjections},

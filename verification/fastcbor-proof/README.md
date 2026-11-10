@@ -14,11 +14,11 @@ and no result from the frozen whole-library performance gate yet.
   Go: 1.27.0, linux/amd64. Upstream semantics are unchanged.
 
 `utils/cbor/cmd/cborgen` reads the actual Go types and emits typed Header/GasPrice,
-index, receipt, transaction and projection readers in core. Unknown field shapes fail generation.
+index, receipt, transaction, state-update and projection readers in core. Unknown field shapes fail generation.
 The generated entries use typed stores, allocation, and zero checks instead of
 runtime field offsets and runtime allocation hooks. The registry installs Header, its five projections, BlockTransactionsIndexes,
 TransactionReceipt (value and pointer), both receipt projections, Transaction and
-transactionHashProjection. StateUpdate and ClassDefinition still use the planner.
+transactionHashProjection and StateUpdate. ClassDefinition still uses the planner.
 The Transaction adapter captures the actual registry tags in an immutable value
 profile; the direct decoder takes that profile explicitly. The routing adapter, registration,
 logging, FX fallback, and diagnostic formatting are outside the proposed proof scope.
@@ -90,7 +90,7 @@ remains unproved because of the documented pinned slice-index defect. The propos
 trusted repair is still unapplied; no unconditional Header proof is claimed.
 
 The full check audits **1070 theorems**, with no admissions or native-evaluation
-axioms. Concrete transaction layouts replace 24 previously opaque type axioms. The count is not a coverage
+axioms. Concrete state-update layouts replace six previously opaque type axioms. The count is not a coverage
 percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
 A checked preparatory inventory now records the remaining production destinations
@@ -124,7 +124,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, no added axioms, 385 project hashes and 28 standard-library hashes; concrete transaction types remove 24 more opaque declarations. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. The transaction checkpoint changes generated readers, helpers and the registry adapter; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, no added axioms, 390 project hashes and 28 standard-library hashes; concrete state types remove six more opaque declarations. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. The state checkpoint changes generated readers and typed map/allocation helpers; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3515,8 +3515,9 @@ race/checkptr=2. A 20-second differential fuzz run passed 233,061 executions wit
 two workers. A generator CLI probe rejects changing Resource from uint32 to
 uint64; the source was restored byte-for-byte.
 
-There are now **thirteen registered typed roots out of fifteen**. Only StateUpdate
-and ClassDefinition remain on the planner. The inventory still has 140 shapes,
+At the transaction checkpoint, **thirteen typed roots out of fifteen** were
+registered. StateUpdate and ClassDefinition still used the planner; the state
+checkpoint below converts StateUpdate. The inventory still has 140 shapes,
 18 registry entries and 185 frozen cases, with 159 build-selected production
 packages. These transaction implementations and their concrete layouts translate
 through Goose/proofgen; their complete independent specifications and decoder
@@ -3538,6 +3539,75 @@ and race/checkptr=2 modes. The source/corpus hashes match. The original worktree
 baseline and pinned trusted semantics remain unchanged. No timing measurements
 or complete transaction decoder proof are claimed by this checkpoint.
 
+### Generated typed state-update reader
+
+`core/cbor_state_generated.go` supplies `DecodeStateUpdateFirst` and
+`DecodeStateUpdate`, with source-derived StateUpdate and StateDiff field dispatch
+and private literal tables in `core/internal/cborstate`. The registry installs the
+value root. There are now **fourteen registered typed roots out of fifteen**;
+ClassDefinition is the remaining planner destination. The inventory still records
+140 shapes, 18 registry entries and 185 frozen cases, with 160 build-selected
+production packages.
+
+`core/cbor_state.go` implements ordinary typed felt-keyed maps, nested storage
+diffs and migrated-class maps. The helpers preserve the planner's duplicate-map
+policy: later entries replace the entire old value, including nil pointers and
+nil/empty inner maps. Known record-field duplicates remain unsupported. Felt
+keys are decoded by their four stored limbs; different wire widths and short
+arrays can denote the same Go key. Migrated class keys and values use direct
+fixed-array pointer conversions rather than the generic unsafe-pointer helper.
+
+Felt-pointer map values share fresh arrays; storage maps share spare capacity
+across their inner maps. The first version called `slices.Grow(nil, want)` exactly
+as the planner does, but the pinned slices library exposes only its symbol and
+has no translated Grow body. The final helper specializes the positive-count
+nil-slice case to `append([]felt.Felt(nil), make([]felt.Felt, want)...)` and then
+uses the whole returned capacity. This is the same growth expression used by
+Go 1.27's Grow at zero initial length/capacity, retaining its capacity-rounding
+policy without introducing an unproved library call or changing trusted sources.
+The new helper body is translated with the decoder; its complete buffer-ownership
+contract remains future work.
+
+Public-API tests compare 128 generated valid updates with FX and an unregistered
+named type using the original planner. They cover every map shape, pointer/slice
+nilness, explicit empty containers, each limb of the map key, duplicate logical
+keys with different byte encodings, whole-inner-map replacement, malformed keys
+and values, every truncated prefix of a populated record, late errors, nonzero
+destination preservation, original suffixes, read-only input, and failure cleanup.
+A varying-inner-map workload exercises repeated shared-buffer growth; mutating one
+decoded value leaves every other value unchanged. Depth checks follow nested maps
+to verify restoration of the whole-record counter. A generator CLI probe rejects
+an unsupported integer-key tag on StateUpdate.NewRoot and restores the source
+byte-for-byte.
+
+Targeted race/checkptr=2 tests pass, including a repeat after specializing Grow.
+The full short `core` and `utils/cbor/...` suites pass after that change. The final
+20-second differential fuzz run passed 253,676 executions with two workers,
+comparing the direct API, registered route and original planner. An earlier
+411,993-execution run covered the version before Grow specialization.
+
+Goose/proofgen accept the state layouts, map assignments, typed pointer
+conversions and explicit allocation helper. This is **not a complete state-update
+proof**. Independent state/map specifications, value-buffer ownership, relevant
+initialization and complete API contracts remain open. The already documented
+array-value equality gap still blocks felt-key map operation proofs; no trusted
+repair or assumed map-correctness contract has been added. Header's UTF-8 premise
+also remains open. No performance result is claimed.
+
+Full regeneration/check passes with **1070 audited theorems**, **390 matching
+project hashes**, **28 matching standard-library hashes**, and 2194 build jobs
+(`check-typed-state-full.log`). No theorem gained an axiom. Making StateUpdate and
+StateDiff concrete removes their six opaque type/underlying/zero declarations
+from 662 theorem dependency lists; all remaining dependencies are unchanged.
+Header's explicit validator and word-helper premise counts remain 51 and 2.
+
+Both frozen-corpus sweeps were rerun against the final append/make implementation:
+177 compatible fast cases, six removed projections and two controls on each
+revision, in ordinary and race/checkptr=2 modes. The saved source/corpus hashes
+match. The original worktree, baseline and pinned trusted semantics remain
+unchanged. These results do not establish performance or complete state decoding
+proofs.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** close the Header UTF-8 helper after the separately
@@ -3547,7 +3617,7 @@ or complete transaction decoder proof are claimed by this checkpoint.
    Recursive SegmentLengths, class interfaces, raw JSON and the remaining concrete
    payload shapes need their own contracts and initialization dependencies.
 2. **Complete the generator:** Header, its five projections, block indexes, receipts,
-   transactions and their projections have typed readers. Cover StateUpdate and class definitions,
+   transactions, state updates and their projections have typed readers. Cover class definitions,
    including nested types, registry tags, overrides and shared allocations.
    Extend static metadata and maintain the checked entry manifest. Arbitrary
    runtime types remain fallback. Complete projection proofs are still pending.
