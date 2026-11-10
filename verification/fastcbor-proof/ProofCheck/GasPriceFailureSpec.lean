@@ -1,5 +1,6 @@
 import ProofCheck.GasPriceMapDuplicate
 import ProofCheck.GasPriceMapFailure
+import ProofCheck.GasPriceMapKeyFailure
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -18,22 +19,25 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
 inductive GasPriceFailureReason where
   | inner (reason : FeltFailureReason)
   | duplicate (wei : Bool)
+  | key (reason : KeyFailureReason)
 
 def gasPriceFailureAddr (reason : GasPriceFailureReason) : Loc :=
   match reason with
   | .inner reason => feltFailureAddr (GF := GF) reason
   | .duplicate _ => globalAddr cursor.ErrUnsupported
+  | .key reason => keyFailureAddr (GF := GF) reason
 
 def GasPriceFailureError (err : Loc) (pos : w64) (reason : GasPriceFailureReason) (kind : GoInterface) : IProp GF :=
   match reason with
   | .inner reason => FeltFailureError err pos reason kind
+  | .key reason => KeyFailureError err pos reason kind
   | .duplicate wei => iprop(∃ args : GoSlice,
       err ↦ cursor.DecodeError.mk kind pos (go!"field %s named twice") args ∗
       args ↦* [interface.mkOk go.string #(gasPriceFieldName wei)])
 
 /-- Currently closed GasPrice failure families. This relation retains the final
     abstract value because successful prefix fields remain in the destination.
-    General key rejection and wider/non-ASCII keys still need additional cases;
+    Invalid UTF-8 and wider/non-ASCII keys still need additional contracts;
     no exhaustive-decoding claim is made for this relation yet. -/
 inductive GasPriceFailure : Nat → List w8 → GasPriceValue → GasPriceValue → Nat → Nat → Bool → GasPriceFailureReason → Prop where
   | opening {d : Nat} {wire : List w8} {reason : FeltFailureReason} (initial : GasPriceValue)
@@ -62,6 +66,17 @@ inductive GasPriceFailure : Nat → List w8 → GasPriceValue → GasPriceValue 
         (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length + key.bytes.length)
         (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length + key.bytes.length)
         true (.duplicate wei)
+  | key {d count : Nat} {head : w8} {payload tail : List w8} {reason : KeyFailureReason}
+      (initial : GasPriceValue) (entries : List (GasPriceEntry (d + 1)))
+      (enc : HeadArgument head payload (W64 count)) (major : head &&& W8 224 = W8 160)
+      (depth : d < 32) (more : entries.length < count)
+      (fit : 2 * count ≤ (entries.flatMap GasPriceEntry.bytes ++ tail).length)
+      (fresh : GasEntriesFresh (W64 0) entries) (failure : KeyFailure tail reason) :
+      GasPriceFailure d ((head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ tail)
+        initial (entries.foldl GasPriceEntry.apply initial)
+        (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)
+        (1 + payload.length + (entries.flatMap GasPriceEntry.bytes).length)
+        true (.key reason)
 
 /-- Retained progress precedes the diagnostic; both lie inside the unread input
     or at its end. Only the map's own depth entry survives these failures. -/
@@ -76,6 +91,9 @@ theorem gasPriceFailure_bounds (d consumed offset : Nat) (entered : Bool) (wire 
     simp only [List.length_append, List.length_cons, ite_true]
     omega
   | duplicate initial entries key enc major depth more fit beforeDuplicate choice =>
+    simp only [List.length_append, List.length_cons, ite_true]
+    omega
+  | key initial entries enc major depth more fit fresh failure =>
     simp only [List.length_append, List.length_cons, ite_true]
     omega
 
@@ -95,6 +113,8 @@ theorem gasPriceFailure_not_nullish (d consumed offset : Nat) (entered : Bool) (
   | value initial entries key enc major depth more fit fresh failure =>
     constructor <;> intro h <;> have hh := Option.some.inj h <;> rw [hh] at major <;> contradiction
   | duplicate initial entries key enc major depth more fit beforeDuplicate choice =>
+    constructor <;> intro h <;> have hh := Option.some.inj h <;> rw [hh] at major <;> contradiction
+  | key initial entries enc major depth more fit fresh failure =>
     constructor <;> intro h <;> have hh := Option.some.inj h <;> rw [hh] at major <;> contradiction
 
 end github_com.NethermindEth.juno.core

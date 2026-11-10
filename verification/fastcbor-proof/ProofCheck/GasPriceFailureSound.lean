@@ -18,8 +18,9 @@ def gasPriceFailureKind (reason : GasPriceFailureReason) (kinds : FeltErrorKinds
   match reason with
   | .inner reason => feltFailureKind reason kinds
   | .duplicate _ => kinds.unsupportedKind
+  | .key reason => keyFailureKind reason kinds
 
-/-- One actual-reader contract for the currently specified opening, value and
+/-- One actual-reader contract for the currently specified opening, value, key and
     duplicate failures. Every child proof is discharged; earlier fields remain
     owned, and the cursor/diagnostic/depth are bounded without machine wrap. -/
 theorem wp_readGasPrice_failure (c dst fields : Loc) (g : GasPrice) (initial final : GasPriceValue)
@@ -110,6 +111,21 @@ theorem wp_readGasPrice_failure (c dst fields : Loc) (g : GasPrice) (initial fin
       iframe Herr Hargs
     ipureintro
     simpa only [Int.natCast_add, Int.natCast_one, hc, ite_true] using hprogress
+  | @key count head payload tail reason initial entries enc major depth more fit fresh failure =>
+    ihave #Hkind : (keyFailureAddr (GF := GF) reason ↦□ keyFailureKind reason kinds : IProp GF) $$ []
+    · iapply keyErrorGlobals_lookup kinds reason
+      unfold FeltErrorGlobals SkipErrorGlobals
+      iframe Hsyntax Htruncated Hunsupported Hdepth Htype
+    wp_apply wp_readGasPrice_map_key_failure c dst fields g initial v f xs payload tail head kinds.unsupportedKind
+      (keyFailureKind reason kinds) qf qo qn dq d count entries reason enc major hd depth more fit fresh failure hp hbytes
+      $$ [Hdst Hchildren Hc Hs Hfields Horder Hnames]
+      as %out %err ⟨Hdst, Hchildren, Hc, Hs, Hfields, Horder, Hnames, Herr, %Hpositions⟩
+    · iframe Hglobal Hunsupported Hkind Hdst Hchildren Hc Hs Hfields Horder Hnames
+    isimp only [GasPriceFailureError, gasPriceFailureKind, Int.natCast_add, Int.natCast_one, ite_true] at HΦ
+    iapply HΦ
+    iframe Hdst Hchildren Hc Hs Hfields Horder Hnames Herr
+    ipureintro
+    simpa only [Int.natCast_add, Int.natCast_one, ite_true] using hprogress
 
 end github_com.NethermindEth.juno.core
 end Perennial

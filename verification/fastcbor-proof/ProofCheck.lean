@@ -19,3 +19,7 @@ import ProofCheck.GasPriceFailureSpec
 import ProofCheck.GasPriceFailureSound
 
 import ProofCheck.GasPriceFailureSlot
+
+import ProofCheck.KeyFailureSound
+
+import ProofCheck.GasPriceMapKeyFailure
