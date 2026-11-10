@@ -1,1 +1,1 @@
-import ProofCheck.SkipHeadFault
+import ProofCheck.SkipHeadTruncated

@@ -81,3 +81,74 @@ func TestMalformedHeadsInFeltAndSkip(t *testing.T) {
 		}
 	}
 }
+
+func TestIncompleteHeadsInFeltAndSkip(t *testing.T) {
+	for major := byte(0); major < 8; major++ {
+		for info := byte(24); info <= 27; info++ {
+			for cut := range 1 << (info - 24) {
+				for _, depth := range []int{0, 31, 32} {
+					t.Run(fmt.Sprintf("major%d/info%d/cut%d/depth%d", major, info, cut, depth), func(t *testing.T) {
+						input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+						start := len(input)
+						input = append(input, major<<5|info)
+						input = append(input, bytes.Repeat([]byte{0xff}, cut)...)
+						before := bytes.Clone(input)
+						r := openSkipCursor(t, input, depth)
+						old := [cursor.Limbs]uint64{9, 8, 7, 6}
+						got := old
+						for range 2 {
+							checkPayloadError(t, &r, r.Skip(), cursor.ErrTruncated, start, input[start:])
+							checkPayloadError(t, &r, r.Limbs(&got), cursor.ErrTruncated, start, input[start:])
+							require.Equal(t, old, got)
+						}
+						require.Equal(t, before, input)
+					})
+				}
+			}
+		}
+	}
+}
+
+func TestLimbsOuterRejection(t *testing.T) {
+	for _, depth := range []int{0, 31, 32} {
+		t.Run(fmt.Sprintf("eof/depth%d", depth), func(t *testing.T) {
+			input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+			before := bytes.Clone(input)
+			r := openSkipCursor(t, input, depth)
+			old := [cursor.Limbs]uint64{9, 8, 7, 6}
+			got := old
+			for range 2 {
+				require.False(t, r.Null())
+				checkPayloadError(t, &r, r.Limbs(&got), cursor.ErrTruncated, len(input), input[len(input):])
+				require.Equal(t, old, got)
+			}
+			require.Equal(t, before, input)
+		})
+		for major := byte(0); major < 8; major++ {
+			if major == 4 {
+				continue
+			}
+			for width := byte(0); width < 5; width++ {
+				t.Run(fmt.Sprintf("major%d/width%d/depth%d", major, width, depth), func(t *testing.T) {
+					input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+					start := len(input)
+					input = appendTestCBORArgument(input, major<<5, 0, width)
+					input = append(input, bytes.Repeat([]byte{0x1b}, 40)...)
+					before := bytes.Clone(input)
+					r := openSkipCursor(t, input, depth)
+					kind := cursor.ErrType
+					if major == 6 {
+						kind = cursor.ErrUnsupported
+					}
+					old := [cursor.Limbs]uint64{9, 8, 7, 6}
+					got := old
+					for range 2 {
+						checkPayloadError(t, &r, r.Limbs(&got), kind, start, input[start:])
+						require.Equal(t, old, got)
+					}
+					require.Equal(t, before, input)
+				})
+			}
+		}
+	}
+}
