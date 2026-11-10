@@ -2149,6 +2149,43 @@ restrictions. The pending generic-index semantics repair, full Header theorem an
 frozen performance gate remain open. Production Go and pinned trusted semantics
 are unchanged.
 
+### String conversion ownership and complete key outcome specification
+
+Full regeneration/check passed (2091 build jobs): **772 audited theorems**,
+264 matching project hashes and 28 matching standard-library source hashes.
+No admissions, native-evaluation axioms or new axioms were introduced. The full
+log is `check-key-specification-full.log`.
+
+`StringConversion.lean` proves the actual byte-slice-to-string conversion used
+by the successful string reader. Given any bounded payload subrange, it returns
+exactly those bytes as the Go string and restores fractional ownership of the
+entire original input buffer. It composes Perennial's checked conversion theorem
+with subrange borrowing; it adds no conversion semantics or helper-correctness
+assumption. Conversion accepts arbitrary bytes, so the separate UTF-8 validator
+still must establish the text requirement before this result is used by String.
+
+`KeySpec.lean` specifies every supported key encoding independently of dispatch
+shortcuts and field caches: definite UTF-8 text at every head width, and positive
+or negative integer keys whose argument is below 2^63. Integer keys produce a
+non-text result and are ignored by the Header/GasPrice schema lookup. Unlike
+string field values, null and undefined are rejected as keys. Declared text
+lengths are related to payload lengths in mathematical integers.
+
+The specification covers all key errors, including arbitrary malformed UTF-8,
+head faults/truncation, missing input, integer overflow, tags, wrong major types
+and truncated text payloads. Checked theorems show that every input has an
+outcome, successful keys consume bytes, successful prefix/result/suffix triples
+are unique, and success and rejection are disjoint. Existing production-proved
+`KeyFailure` cases embed into the full relation under the representable-length
+bound supplied by actual slice ownership.
+
+These results remove specification and conversion obligations from the remaining
+key/string work. They do not complete the production UTF-8 or Key proofs, wider
+and non-ASCII field-lookup proofs, exhaustive GasPrice/Header classification or
+the final Header contract. The general validator remains at the documented
+unapproved generic-index repair. Production Go and pinned trusted semantics
+are unchanged, and the frozen performance gate remains open.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

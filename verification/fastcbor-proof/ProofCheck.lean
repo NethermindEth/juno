@@ -124,3 +124,6 @@ import ProofCheck.Utf8Scan
 import ProofCheck.HeadDeterminism
 import ProofCheck.ExpectedDeterminism
 import ProofCheck.StringSpec
+
+import ProofCheck.StringConversion
+import ProofCheck.KeySpec
