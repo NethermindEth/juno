@@ -75,14 +75,15 @@ specified behavior change and performance evaluation. No such change is made her
 
 ### Header work queue and exit criteria
 
-Status at `f4f7db81a`: 99 audited lemmas, general head/uint/container success and
-null-field contracts, selected error paths, and bounded public Header examples.
+Current status: general head/uint/container success and null-field contracts,
+container count/depth failures, selected other error paths, and bounded public
+Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
-| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | General success paths and selected truncation paths proved |
+| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | General success, container count/depth failures and selected truncation paths proved; invalid heads and wrong types pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Empty-array felt witness only; UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
@@ -186,7 +187,13 @@ The general Header proof now has reusable primitive contracts:
 - `Containers.lean`: all supported widths through both ArrayLen and MapLen paths,
   OpenStruct, and restoration of the enclosing depth when a struct finishes. The
   success contracts require a mathematical bound on the remaining bytes and room
-  in the nesting limit; count/depth failure contracts remain to be proved.
+  in the nesting limit.
+- `Errors.lean`: arbitrary supported count widths and offsets through ArrayLen,
+  MapLen and OpenStruct. Excessive counts report truncation before checking depth;
+  valid counts at excessive depth report the depth error. Both preserve the cursor
+  and input and report the original offset. The depth diagnostic's argument slice
+  is allocated and owned in the proof. Public API regression tests cover all five
+  widths, maximum uint64 counts, repeated failures and depth restoration.
 - `Null.lean`: null and undefined at arbitrary offsets, composed with every shared
   scalar/string/felt/signature field reader. Scalar fields stay unchanged; pointer
   and slice fields become nil. Non-null nested allocation contracts are pending.

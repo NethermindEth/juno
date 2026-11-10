@@ -1,1 +1,1 @@
-import ProofCheck.Null
+import ProofCheck.Errors

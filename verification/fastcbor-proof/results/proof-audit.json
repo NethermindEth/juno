@@ -101,7 +101,17 @@
     "wp_readString_null_at": 0,
     "wp_readFelt_null_at": 0,
     "wp_readFeltPointers_null_at": 0,
-    "wp_readSignatures_null_at": 0
+    "wp_readSignatures_null_at": 0,
+    "wp_errDepth": 0,
+    "wp_enter_depth": 0,
+    "wp_containerLen_count": 0,
+    "wp_containerLen_depth": 0,
+    "wp_ArrayLen_depth": 0,
+    "wp_ArrayLen_count": 0,
+    "wp_MapLen_depth": 0,
+    "wp_MapLen_count": 0,
+    "wp_openStruct_count": 0,
+    "wp_openStruct_depth": 0
   },
   "axiom_sets": [
     [
@@ -557,7 +567,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, extended-head truncation and null-field contracts are proved separately; their full Header composition and other error cases remain pending. The felt pointer-conversion witness covers only the empty-array encoding. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
+  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, container count/depth failures, extended-head truncation and null-field contracts are proved separately; their full Header composition and other error cases remain pending. The felt pointer-conversion witness covers only the empty-array encoding. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -609,6 +619,7 @@
     "utils/cbor/fastcbor/typed.go": "7a5ca85e1f56e76970b42f513dcb3bfa1a92f0d8c8bb39fa940a7d6f75b48bba",
     "verification/fastcbor-proof/ProofCheck/BigInt.lean": "80df16497e7e0de2ecfcc2b5bd1b312b053a1be29cf8bf8f6dd9b7de619bc3a6",
     "verification/fastcbor-proof/ProofCheck/Containers.lean": "2c0db41911adf6a9e7c5cf8eda20a492fc89199da83b8d36e995e333f418c459",
+    "verification/fastcbor-proof/ProofCheck/Errors.lean": "4f029d0c2cc58de62109046f58fe18ef1d2eb10a027c3cad549bb6eee2bd39e3",
     "verification/fastcbor-proof/ProofCheck/Felt.lean": "82d83d486e9ce41c111272b479b86a6594487b2ac5744821b66f516883a39cff",
     "verification/fastcbor-proof/ProofCheck/Fields.lean": "a3a94394399f0bb109d42c9b19799605c1f28201f342e936d39bc2b281ee69cb",
     "verification/fastcbor-proof/ProofCheck/Head.lean": "d1cd45b23db300f8a740cdb4917baf8d89fa7bc274535f53f656a44e32ee7889",
@@ -617,8 +628,8 @@
     "verification/fastcbor-proof/ProofCheck/Null.lean": "4e5e1cd46d0e12a52dfe98ce72527ab725cc9c5e4582a31cdb1458e1dfee1473",
     "verification/fastcbor-proof/ProofCheck/Number.lean": "3046965c9e0106917198f9a494f69787b6293ed64728e9c6dae4bf2060cd3a77",
     "verification/fastcbor-proof/ProofCheck/Values.lean": "d1edfe03b5c4834361188829f5da420276ca6116b691735794f0af4dca97b721",
-    "verification/fastcbor-proof/ProofCheck.lean": "ddcbf9b8c05bd4add3b7d3b01cd63cf117e8055409c3ec2e89a0c74c56d5e20d",
-    "verification/fastcbor-proof/audit.py": "95a6d86629020bc72e9733bd48386543ff5e760a27faf804e77e1c485a0607ed",
+    "verification/fastcbor-proof/ProofCheck.lean": "3da0724572b01a84f639c469f22efbe2c67872df3878b46b724c7c589de84c53",
+    "verification/fastcbor-proof/audit.py": "bf65ae4d70570d4654f45de16619acc27aea6fa4cfbd293d297950c291b3a83b",
     "verification/fastcbor-proof/bootstrap.sh": "488054f7d2e26b40539a0bc8e5111138502fdd39033647792ef34d192c2115d7",
     "verification/fastcbor-proof/check.sh": "8859059e7b87e286be21b0b597dc1bfe9698b7f5d6c432ec5b31de411b0ed4bf",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core/felt.toml": "473e2922f325412bac8d646beb7004b566fe4d1c241ae98cd6acb7eac4e0090a",
