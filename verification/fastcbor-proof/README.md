@@ -2425,6 +2425,42 @@ refinement and final arbitrary-input implementation contracts remain open. The
 trusted generic-index repair remains unapplied, production Go is unchanged, and
 the frozen performance gate has not run.
 
+### Unique primitive and recursive Skip failure diagnostics
+
+Full regeneration/check passed (2118 build jobs): **916 audited theorems**,
+291 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. The full log is `check-primitive-skip-failure-uniqueness-full.log`.
+
+`ExpectedFailureUnique.lean` proves unique head-fault, type-expectation and scalar
+failure reasons, including the offending head byte. `OpeningFailureUnique.lean`
+proves unique complete string and typed-map-opening diagnostics. It checks
+expectation versus complete-head errors, truncation before UTF8 validation, and
+count truncation before depth rejection.
+
+`KeyFailureUnique.lean` proves unique diagnostic reasons for the complete key
+rejection relation: malformed/incomplete heads, EOF, integer overflow, tags,
+type mismatch, text truncation and arbitrary malformed UTF8. The existing
+production-proved key/string failure families inherit uniqueness through their
+checked bounded embeddings into the complete relations.
+
+`SkipLeafFailureUnique.lean` proves unique atomic rejection reasons and exact
+local Skip offsets/reasons, including count/depth and chained-tag EOF/depth
+precedence. `SkipFailureUnique.lean` extends that to arbitrary recursive failure
+paths. A local error cannot also lie below supported enclosing checks. Equal
+successful sibling counts have identical byte boundaries; unequal counts would
+place a successful child where the other path already fails, contradicting the
+checked success/error separation. Induction through containers and chained tags
+then fixes the entire failure offset and reason.
+
+This closes failure determinism for these primitive contracts and all recursive
+Skip errors. Felt, nullable/nested slices, GasPrice and Header still need their
+failure-determinism composition. No additional production WP coverage is claimed;
+UTF8/key completion, broader field lookup, general record refinement and the final
+Header implementation theorem remain open. Production Go and pinned trusted
+semantics are unchanged, the generic-index repair remains unapplied, and the
+frozen performance gate has not run.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
