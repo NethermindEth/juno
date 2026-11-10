@@ -82,14 +82,14 @@ func (s *wsLogSub) dispatch() {
 	for {
 		select {
 		case raw := <-s.logCh:
-			var log eth.Log
-			if err := json.Unmarshal(raw, &log); err != nil {
+			var ethLog eth.Log
+			if err := json.Unmarshal(raw, &ethLog); err != nil {
 				s.fail(fmt.Errorf("decoding log: %w", err))
 				s.transport.removeSub(s)
 				return
 			}
 			select {
-			case s.sink <- &log:
+			case s.sink <- &ethLog:
 			case <-s.closed:
 				return
 			}
@@ -118,7 +118,7 @@ func (t *wsTransport) subscribeLogs(
 	go sub.dispatch()
 
 	if _, err := t.callWithSubReg(ctx, "eth_subscribe", sub, "logs", q); err != nil {
-		sub.closeOnce.Do(func() { close(sub.closed); close(sub.errCh) })
+		sub.fail(nil)
 		return nil, fmt.Errorf("subscribing to logs: %w", err)
 	}
 

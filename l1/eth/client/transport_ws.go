@@ -245,7 +245,7 @@ func (t *wsTransport) dispatchResponse(data []byte, rawID json.RawMessage) {
 	if !hasPending {
 		// Caller's ctx fired before the reply landed (or an unsolicited reply). A successful
 		// subscribe orphaned a server-side sub the caller will never own — release it.
-		if (isSubscribe || isOrphaned) && resp.Error == nil {
+		if isOrphaned && resp.Error == nil {
 			if subID, derr := decodeSubID(resp.Result); derr == nil {
 				t.unsubscribeInBackground(subID)
 			}
