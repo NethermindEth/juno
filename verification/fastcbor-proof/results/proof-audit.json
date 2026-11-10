@@ -36,8 +36,11 @@
     "specification": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeSpec.lean",
     "word_dependency": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean",
     "proved": "arbitrary-length base-256 magnitude agrees with 64-bit word grouping; exact allocation counts and signed-int bounds; spare-zero carry adds exactly one; short-word shift/OR is exact base-256 accumulation; actual BigEndian.Uint64 load agrees with the numeric specification and preserves whole fractional input ownership",
-    "pending": "refinement of the actual bigIntMagnitude allocation, full-word/partial-word and carry loops; output ownership and SetBits/Neg composition; complete public BigInt success/failure contract",
-    "scope": "mathematical dependencies and one actual word-load contract; no correctness premise for the enclosing helper is assumed and no complete BigInt decoder theorem is claimed"
+    "implementation": "verification/fastcbor-proof/ProofCheck/BigIntMagnitude.lean",
+    "implementation_theorem": "wp_bigMagnitude",
+    "implementation_proved": "actual bigIntMagnitude for every owned byte slice and both negative/increment flags: count arithmetic, zeroed allocation, full-word and partial-byte packing loops, carry range loop and early break, actual SetBits normalization and in-place Neg; exact unbounded integer, canonical zero/sign, separately owned output and unchanged fractional input; no helper correctness premise",
+    "pending": "complete public Cursor.BigInt CBOR success/failure contract: initial head, tags, plain integer paths, overflow case, exact consumption, diagnostics and rollback",
+    "scope": "complete production magnitude helper under the pinned 64-bit Go model; package initialization is required; excludes compiler/runtime correctness, OOM and termination; no complete public BigInt decoder theorem is claimed"
   },
   "stdlib_go_source_sha256": {
     "src/internal/cpu/cpu.go": "9af4310772f84d92f2a98e9f16e6553fdbefc4ce6286e0f508121e6c8819faf7",
@@ -1242,6 +1245,9 @@
     "bigPackedWords_increment_value": 1,
     "wp_bigMagnitude_word_load": 0,
     "bigMagnitude_shift_byte": 1,
+    "wp_bigMagnitude_window_load": 0,
+    "bigNormalizedPrefix_take": 2,
+    "wp_bigMagnitude": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -1691,8 +1697,9 @@
     "verification/fastcbor-proof/ProofCheck/ArrayExpectedFailure.lean": "cde9299e06bc0636b557ce9bbb5f9c54c4770dd247065bebb25b7f20f0ad898b",
     "verification/fastcbor-proof/ProofCheck/BigInitialize.lean": "29162a92ca74b9bfacb3418d8651eb8627fec64da088eaa629760630356d87c8",
     "verification/fastcbor-proof/ProofCheck/BigInt.lean": "80df16497e7e0de2ecfcc2b5bd1b312b053a1be29cf8bf8f6dd9b7de619bc3a6",
+    "verification/fastcbor-proof/ProofCheck/BigIntMagnitude.lean": "ba888e8c3ed2ba3616945c5eac9e6d2facba5bc07fa0f4058de8e779d01f0056",
     "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeSpec.lean": "08945c8ae456d40127d289f29d464c4a2116388d984b10121b94acf2baba5ec6",
-    "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean": "c1659395915f45b806977359494e5b6e1e8db017b73ec208ed4c9b135ed38a74",
+    "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean": "ee7c1899b67b857f13be98419bda3acc10d0a018eb7d32eae67d87676ac968e5",
     "verification/fastcbor-proof/ProofCheck/BinaryInitialize.lean": "f3c8e3b9239c076285b1e308453e960ba0dca8c54ba12de01a56a495d18bb4d3",
     "verification/fastcbor-proof/ProofCheck/CacheEOF.lean": "95bb4985c81fc18a8621bac962e328249b2323fffc4280cc3f0b6858d90fa79a",
     "verification/fastcbor-proof/ProofCheck/CacheFast.lean": "3b7c2f31ef72a30b010c5cb39b602ca3c7e5f311999c2262aaf17d8abd7f13f5",
@@ -1958,8 +1965,8 @@
     "verification/fastcbor-proof/ProofCheck/Values.lean": "8e59928740e0d8adf8698cfa250c38c2232b85a14697c562da0e8ebcfb529d07",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "ba79574b47e672c8e618e3fddb8f5f9987e98c7a9facab26651d0aaf29521491",
-    "verification/fastcbor-proof/audit.py": "a9b5b40775a9ceb487a3e853e5e4954b5e00985d088a6ea449df74df02a301a0",
+    "verification/fastcbor-proof/ProofCheck.lean": "0a958b34eb7257f7a8f34e77ef74df2289fa6a03ba09264cbaf95b6d6bcf283b",
+    "verification/fastcbor-proof/audit.py": "8094ee82a69b2b053187badb32b1bc942fdcca6b2166da29bdfae5ada845eed9",
     "verification/fastcbor-proof/bootstrap.sh": "488054f7d2e26b40539a0bc8e5111138502fdd39033647792ef34d192c2115d7",
     "verification/fastcbor-proof/check.sh": "d28fdf09e3c23ac72c2afb26c4390a09cf10ee281f4fd8c6858a985093b09e0c",
     "verification/fastcbor-proof/cmd/entrymanifest/main.go": "a6b35342a630fcaec00a68dcfbf8f40603768257651523ed858684a58bd1a7d6",

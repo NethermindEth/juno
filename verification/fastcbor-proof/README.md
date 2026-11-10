@@ -85,7 +85,7 @@ contract to the validator contract is checked. The actual eight-byte generic hel
 remains unproved because of the documented pinned slice-index defect. The proposed
 trusted repair is still unapplied; no unconditional Header proof is claimed.
 
-The full check audits **1008 theorems**, with no admissions or native-evaluation
+The full check audits **1045 theorems**, with no admissions or native-evaluation
 axioms and no change to the transitive axiom union. The count is not a coverage
 percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
@@ -98,9 +98,9 @@ section below. Twelve transaction-interface witness contracts now also check
 boxing and type-switch recovery for the five concrete pointer variants, including
 typed nils and unknown-type handling. These are independent of the unresolved
 Header helper; they do not prove transaction payload decoding.
-The BigInt dependency work now also checks arbitrary-length packing/carry
-arithmetic and the numeric contract of its actual eight-byte load. The enclosing
-Go helper loops and complete BigInt API remain unproved.
+The BigInt dependency work now checks the complete production magnitude helper,
+including allocation, all packing/carry loops, normalization, sign and owned
+output. The public BigInt CBOR parsing/diagnostic contract remains unproved.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -118,7 +118,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1042 audited theorems, unchanged axiom union, 352 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1045 audited theorems, unchanged axiom union, 353 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3113,7 +3113,9 @@ it preserves ownership of the entire fractional input. This composes the existin
 word-load proof with the new numeric relation; it is not a proof of the enclosing
 allocation or loop.
 
-The next implementation obligations are concrete:
+At the arithmetic-foundation checkpoint, the remaining implementation obligations
+were the following. The complete helper milestone below now closes items 1–4
+and the helper/output portion of item 5:
 
 1. Establish the fresh, zeroed word allocation, including empty input and the
    optional extra carry word.
@@ -3129,7 +3131,7 @@ The next implementation obligations are concrete:
    `Cursor.BigInt` success and failure relation, including tags, plain negative
    overflow, exact suffixes, diagnostics and cursor behavior.
 
-The latest checkpoint adds 21 results: 20 arithmetic/specification results and
+That arithmetic-foundation checkpoint added 21 results: 20 arithmetic/specification results and
 one actual word-load contract. All pre-existing theorem dependencies are
 unchanged. Full regeneration/check passes with **1042 audited theorems**, **352
 project hashes**, **28 standard-library hashes** and 2169 build jobs. The axiom
@@ -3150,6 +3152,60 @@ ordinary and race/checkptr frozen-corpus evidence still matches both source tree
 and all corpus/harness hashes; it was revalidated, not rerun for proof-only edits.
 Header remains conditional on its documented helper repair, full BigInt and
 felt-key maps remain open, and no performance gate has been run.
+
+
+### Complete production BigInt magnitude helper
+
+`ProofCheck/BigIntMagnitude.lean` proves `wp_bigMagnitude` for the actual translated
+`cursor.bigIntMagnitude`, for every owned byte slice and both values of each
+`negative` and `increment` flag. The theorem states the exact mathematical result:
+
+```text
+(negative ? -1 : 1) * (bigEndianMagnitude(input) + (increment ? 1 : 0))
+```
+
+Its postcondition preserves the entire fractional input ownership and supplies a
+separately owned `big.Int` and normalized word slice. Empty magnitude has a false
+sign; nonempty normalized storage ends in a nonzero word. Leading zero bytes,
+empty input, arbitrary-length carry chains, and the extra high carry word are
+included. No assumption of a packing, carry, allocation or magnitude-helper
+correctness contract appears in the theorem.
+
+The proof follows the actual Go control flow:
+
+- The allocation count is computed using signed machine division/remainder and
+  the partial/carry increments; it fits for every valid input slice length.
+- The full-word loop writes the low words while shrinking the pending byte
+  prefix. Its invariant equates the original packing to the written words
+  followed by the packing of that prefix. Interior eight-byte reads restore
+  ownership of the entire input, including previously consumed bytes.
+- The partial-byte range loop accumulates the pending big-endian prefix without
+  overflow and writes its last word.
+- The carry range loop refines `incrementMagnitudeWords`, including its early
+  break and loop exhaustion. The spare zero word gives the exact +1 meaning.
+- Existing contracts for the actual `SetBits` and in-place `Neg` implementations
+  establish the canonical, independently owned result. The new pure
+  `bigNormalizedPrefix_take` lemma transfers normalization to the retained slice.
+
+This closes the magnitude-helper dependency; it does **not** prove the public
+`Cursor.BigInt` CBOR parser. Next, define its independent success/error relation
+and compose head/tag/payload parsing, plain integer paths and their overflow
+case, exact consumption, diagnostics and cursor rollback with this helper.
+The Header UTF-8 helper, felt-key map semantics gap, remaining typed readers and
+frozen performance gate remain open. No production Go or trusted semantics were
+changed for this milestone.
+
+Full regeneration/check passes with **1045 audited theorems**, **353 matching
+project hashes**, **28 matching standard-library hashes** and 2170 build jobs.
+All 1042 prior theorem dependency lists and the transitive axiom union are
+unchanged; the three new results contain no admissions or native-evaluation
+axioms. The full log is `check-bigint-magnitude-implementation-full.log`.
+
+The public `TestBigIntCarryAndOwnership` and `TestRFC8949AppendixA` tests pass
+with `-race -gcflags=all=-d=checkptr=2`. Saved ordinary and race/checkptr frozen
+corpus evidence was revalidated against the unchanged Go sources and corpus;
+the corpus was not rerun and no performance timings were collected. The trusted
+Perennial checkout and both preserved original/baseline worktrees remain clean.
 
 ## Whole-library gates after the Header milestone
 

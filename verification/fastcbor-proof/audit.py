@@ -116,8 +116,11 @@ report = {
         "specification": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeSpec.lean",
         "word_dependency": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean",
         "proved": "arbitrary-length base-256 magnitude agrees with 64-bit word grouping; exact allocation counts and signed-int bounds; spare-zero carry adds exactly one; short-word shift/OR is exact base-256 accumulation; actual BigEndian.Uint64 load agrees with the numeric specification and preserves whole fractional input ownership",
-        "pending": "refinement of the actual bigIntMagnitude allocation, full-word/partial-word and carry loops; output ownership and SetBits/Neg composition; complete public BigInt success/failure contract",
-        "scope": "mathematical dependencies and one actual word-load contract; no correctness premise for the enclosing helper is assumed and no complete BigInt decoder theorem is claimed",
+        "implementation": "verification/fastcbor-proof/ProofCheck/BigIntMagnitude.lean",
+        "implementation_theorem": "wp_bigMagnitude",
+        "implementation_proved": "actual bigIntMagnitude for every owned byte slice and both negative/increment flags: count arithmetic, zeroed allocation, full-word and partial-byte packing loops, carry range loop and early break, actual SetBits normalization and in-place Neg; exact unbounded integer, canonical zero/sign, separately owned output and unchanged fractional input; no helper correctness premise",
+        "pending": "complete public Cursor.BigInt CBOR success/failure contract: initial head, tags, plain integer paths, overflow case, exact consumption, diagnostics and rollback",
+        "scope": "complete production magnitude helper under the pinned 64-bit Go model; package initialization is required; excludes compiler/runtime correctness, OOM and termination; no complete public BigInt decoder theorem is claimed",
     },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
     "initialization_boundary": {

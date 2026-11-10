@@ -190,3 +190,4 @@ import ProofCheck.InterfaceFeasibility
 
 import ProofCheck.BigIntMagnitudeSpec
 import ProofCheck.BigIntMagnitudeWord
+import ProofCheck.BigIntMagnitude

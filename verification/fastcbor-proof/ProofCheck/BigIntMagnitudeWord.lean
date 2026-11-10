@@ -67,8 +67,34 @@ theorem wp_bigMagnitude_word_load (data : GoSlice) (xs bytes rem : List w8)
   ipureintro
   exact bigWord_bigEndian_value bytes (by omega)
 
+/-- The full-word packing loop can borrow an interior eight-byte window while
+    retaining ownership of the already-consumed suffix and unread prefix. -/
+theorem wp_bigMagnitude_window_load (data : GoSlice) (xs bytes : List w8)
+    (low high : w64) (dq : DFrac)
+    (hbound : 0 ≤ sint.Z low ∧ sint.Z low ≤ sint.Z high ∧ sint.Z high ≤ sint.Z data.len)
+    (hbytes : subslice (sint.nat low) (sint.nat high) xs = bytes)
+    (hlen : bytes.length = 8) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.encoding.binary ∗ data ↦*{dq} xs }}
+      (App (Val ((globalAddr encoding.binary.BigEndian) @!!
+        go.PointerType encoding.binary.bigEndian.ty @!! go!"Uint64"))
+        (Val #(slice.slice data w8 low high)))
+    {{ RET #(leToU64 bytes.reverse); data ↦*{dq} xs }} := by
+  iintro %Φ ⟨#Hpkg, Hs⟩ HΦ
+  icases (ownSlice_slice low high data dq xs hbound).1 $$ Hs with ⟨Hpre, Hbytes, Hpost⟩
+  isimp only [hbytes] at Hbytes
+  wp_apply encoding.binary.wp_BigEndian_Uint64 (slice.slice data w8 low high)
+    bytes dq [] hlen $$ [Hbytes] with Hbytes
+  · isimp only [List.append_nil]; iframe Hbytes
+  iapply HΦ
+  iapply (ownSlice_slice low high data dq xs hbound).2
+  rw [hbytes]
+  isimp only [List.append_nil] at Hbytes
+  iframe Hpre Hbytes Hpost
+
 end github_com.NethermindEth.juno.core
 end Perennial
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_bigMagnitude_word_load
 #print axioms Perennial.github_com.NethermindEth.juno.core.bigMagnitude_shift_byte
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_bigMagnitude_window_load
