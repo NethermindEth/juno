@@ -151,3 +151,16 @@ import ProofCheck.FieldKeySpec
 
 import ProofCheck.HeaderStringComplete
 import ProofCheck.FieldTextComplete
+
+import ProofCheck.SchemaKeysComplete
+import ProofCheck.GasPriceMapComplete
+import ProofCheck.GasPriceRecordComplete
+import ProofCheck.GasPriceMapRejected
+import ProofCheck.GasPriceRecordRejected
+import ProofCheck.GasPriceComplete
+import ProofCheck.GasPriceSlotValid
+import ProofCheck.GasPriceSlotRejected
+import ProofCheck.HeaderGasMapValid
+import ProofCheck.HeaderGasRejected
+import ProofCheck.HeaderGasFreshComplete
+import ProofCheck.HeaderGasComplete

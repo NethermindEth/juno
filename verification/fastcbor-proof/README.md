@@ -76,6 +76,12 @@ specified behavior change and performance evaluation. No such change is made her
 
 ### Header work queue and exit criteria
 
+Latest checkpoint: complete GasPrice record and Header price-field composition
+passes against the independent specifications, **conditional on the unproved
+`Utf8ValidatorContract`**. The general Header loop and public API composition
+remain open. See “Complete GasPrice record and Header price-field composition”
+below for the exact checked scope and remaining work.
+
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
@@ -2581,6 +2587,62 @@ The trusted generic-index repair remains unapplied. The validator premise still
 must be proved; it is not acceptable as an assumption in the final Header milestone.
 General GasPrice/Header map refinement and final public API composition remain
 open. Production Go is unchanged, and the frozen performance gate has not run.
+
+### Complete GasPrice record and Header price-field composition
+
+Full regeneration/check passed (2145 build jobs): **982 audited theorems**,
+318 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. **36 theorems explicitly require the unproved validator contract**;
+all 21 new theorems in this checkpoint are conditional in that way. Their names
+are recorded separately in `unproved_contract_premises`. The full log is
+`check-gasprice-complete-full.log`.
+
+`SchemaKeysComplete.lean` supplies actual NextField contracts directly against
+`GasKeyValid` and `HeaderKeyValid`, including arbitrary supported text widths,
+UTF-8 names, integer/unknown keys, fresh fields and duplicate rejection. Search
+bounds, seen masks, pair-count progress, owned errors and exact key consumption
+are preserved. These contracts remove the previous successful-key witness
+restriction from the new composition proofs.
+
+`GasPriceMapComplete.lean` and `GasPriceMapRejected.lean` prove the actual generated
+loop directly against `GasPairsValid` and `GasPairsRejected`. The invariant relates
+the semantic seen-field list to the machine mask and tracks the remaining pair
+specification, owned partial record and exact input suffix. Failure tracks retained
+consumption separately from the diagnostic offset. It covers rejected keys,
+duplicates and felt/Skip errors after arbitrary successful prefixes. Failed values
+preserve the current record; earlier fields stay owned. Success closes the map and
+restores its incoming depth; pair failure retains the entered map depth.
+
+`GasPriceRecordComplete.lean` and `GasPriceRecordRejected.lean` add null/undefined
+old-value preservation and all opening failures. `GasPriceComplete.lean` combines
+these with independent all-input classification into `wp_readGasPrice_complete`:
+every input has the specified owned successful or rejected outcome, conditional
+on the validator. This is a partial-correctness contract, not a termination claim.
+
+`GasPriceSlotValid.lean` and `GasPriceSlotRejected.lean` lift the full contracts
+through both existing and newly allocated shared storage. On failure the selected
+slot retains exactly its private partial contents and the caller's destination
+pointer is unchanged. Both slots and their nested felt allocations remain owned.
+`HeaderGasMapValid.lean`, `HeaderGasRejected.lean` and
+`HeaderGasFreshComplete.lean` connect this to either Header GasPrice field while
+preserving every other public field. A first use of either slot starts from zero,
+including when its sibling already allocated the shared pair.
+
+`HeaderGasComplete.lean` composes null/undefined, complete successful maps and every
+record rejection through the actual Header field call. `wp_headerGas_valid` covers
+`GasPointerValid`, distinguishing nil from an allocated record with nil amounts.
+`wp_headerGas_complete` gives an arbitrary-input field outcome: success publishes
+the specified value and exact suffix; failure preserves the entire public Header
+and retains private partial allocation ownership for cleanup.
+
+All new production contracts still require `Utf8ValidatorContract`. The trusted
+generic-index repair remains unapplied, and these results do not close the general
+Header milestone. The next independent work is the complete Header success/failure
+loop, followed by record/public API composition and cleanup against
+`HeaderFirstSpec`/`HeaderFullSpec`. The validator must also be proved before the
+milestone passes. Production Go and pinned trusted semantics are unchanged; the
+frozen 185-case performance gate has not run.
 
 ## Whole-library gates after the Header milestone
 
