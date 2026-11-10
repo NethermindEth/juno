@@ -3,6 +3,7 @@ package cursor_test
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/utils/cbor/cursor"
@@ -100,6 +101,49 @@ func FuzzLimbsWidths(f *testing.F) {
 		require.True(t, bytes.Equal(suffix, r.Remaining()))
 		require.Equal(t, before, input)
 	})
+}
+
+// Cover every width combination for zero through four limbs. The trailing 0x1b
+// bytes resemble wide-integer heads, so shape checks must respect the actual
+// encoded item boundaries. The shortest four-limb case straddles the 37-byte
+// fast-path threshold with the two nonempty suffixes.
+func TestLimbsWidthCombinations(t *testing.T) {
+	values := [...]uint64{23, 0x1b, 0x1b1b, 0x1b1b1b1b, 0x1b1b1b1b1b1b1b1b}
+	suffixes := [][]byte{nil, bytes.Repeat([]byte{0x1b}, 31), bytes.Repeat([]byte{0x1b}, 32)}
+	combinations := 1
+	for count := 0; count <= cursor.Limbs; count++ {
+		for arrayWidth := byte(0); arrayWidth < 5; arrayWidth++ {
+			for widths := 0; widths < combinations; widths++ {
+				t.Run(fmt.Sprintf("count%d/array%d/widths%d", count, arrayWidth, widths), func(t *testing.T) {
+					encoded := appendTestCBORArgument([]byte{0, 1, 2}, 0x80, uint64(count), arrayWidth)
+					var want [cursor.Limbs]uint64
+					choices := widths
+					for i := range count {
+						width := byte(choices % 5)
+						choices /= 5
+						want[i] = values[width]
+						encoded = appendTestCBORArgument(encoded, 0, want[i], width)
+					}
+					for _, suffix := range suffixes {
+						input := append(bytes.Clone(encoded), suffix...)
+						before := bytes.Clone(input)
+						r := cursor.NewCursor(input)
+						for range 3 {
+							_, err := r.Uint64()
+							require.NoError(t, err)
+						}
+						got := [cursor.Limbs]uint64{9, 8, 7, 6}
+						require.NoError(t, r.Limbs(&got))
+						require.Equal(t, want, got)
+						require.Equal(t, len(encoded), r.Pos())
+						require.True(t, bytes.Equal(suffix, r.Remaining()))
+						require.Equal(t, before, input)
+					}
+				})
+			}
+		}
+		combinations *= 5
+	}
 }
 
 func appendTestCBORArgument(input []byte, major byte, value uint64, width byte) []byte {

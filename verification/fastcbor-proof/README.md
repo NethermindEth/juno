@@ -78,16 +78,16 @@ specified behavior change and performance evaluation. No such change is made her
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
-mixed-width slow decoding of zero through four limbs, felt depth rejection, and
-bounded public Header examples. The
-reproducible audit records the current lemma count.
+all successful zero-to-four-limb felt encodings through the typed reader, felt
+depth rejection, and bounded public Header examples. The reproducible audit
+records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Wide fast path, depth rejection and short-array slow path proved through the typed reader; inline four-limb mixed-width shortcut, long arrays, remaining failures and UTF-8 pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | All zero-to-four-limb success paths and depth rejection proved through the typed reader; long arrays, remaining failures and UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
@@ -225,10 +225,20 @@ The general Header proof now has reusable primitive contracts:
   arbitrary values, zero-filling the remaining words. The public Limbs and typed
   felt reader compose this for every short array and every extended-width
   four-element array head, including fresh owned allocation. `FuzzLimbsWidths`
-  generates counts, array-head widths and limb widths independently. The inline
-  four-element mixed-width shortcut, excess-element Skip and remaining failures
-  are still needed for complete felt correctness; the slow-loop theorem alone
-  does not establish those paths.
+  generates counts, array-head widths and limb widths independently.
+- `FeltShortcut.lean`: the actual inline four-element shortcut loop, including all
+  five unsigned widths, standard-library big-endian reads, bounds checks and
+  stores. A classification lemma ties the independent wire-item relation to
+  each branch; a shape lemma rules out false wide-path matches on valid input.
+- `FeltDispatch.lean`: composition of the wide path, mixed-width shortcut and
+  slow loop into a public `Limbs` contract for every zero-to-four-limb array,
+  with all supported array-head and limb widths. The typed reader additionally
+  proves fresh nonnull output ownership, exact suffix, unchanged input and
+  cursor advancement without signed wraparound. `TestLimbsWidthCombinations`
+  checks all 3,905 count/array-width/limb-width combinations with three suffixes
+  (11,715 cases), including trailing bytes resembling wide-integer heads.
+  Excess-element Skip and remaining failures still need proofs before the
+  complete felt contract can be claimed.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
@@ -298,6 +308,13 @@ including non-preferred encodings and width maxima, checks suffix/input preserva
 and tests every truncation inside each extended head. That test also passes without
 using an FX-produced expected result. These counts are historical observations, not
 promises about future runs.
+
+After closing the zero-to-four-limb dispatch proof, the full regeneration/check
+passed with 161 audited lemmas and no new transitive axioms. The complete cursor
+short suite passed; the bounded width combinations and both felt fuzz seed suites
+also passed with `-race -gcflags=all=-d=checkptr=2`. The new bounded test exercises
+11,715 valid inputs independently of FX. These checks do not establish long-array
+Skip or malformed-limb behavior, which remain the next felt proof dependencies.
 
 ## Whole-library gates after the Header milestone
 
