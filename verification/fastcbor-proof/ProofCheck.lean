@@ -47,3 +47,13 @@ import ProofCheck.HeaderZero
 import ProofCheck.StringFailure
 
 import ProofCheck.HeaderString
+
+import ProofCheck.StructOpenSpec
+
+import ProofCheck.HeaderOpen
+
+import ProofCheck.StructOpenSound
+
+import ProofCheck.StructOpenComplete
+
+import ProofCheck.HeaderOpenContract
