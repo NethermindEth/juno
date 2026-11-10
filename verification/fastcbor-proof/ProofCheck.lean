@@ -35,3 +35,9 @@ import ProofCheck.HeaderSignatures
 import ProofCheck.ScalarComplete
 
 import ProofCheck.HeaderScalars
+
+import ProofCheck.HeaderGasFields
+
+import ProofCheck.HeaderGasMap
+
+import ProofCheck.HeaderGasFailure
