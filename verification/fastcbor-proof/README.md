@@ -98,6 +98,9 @@ section below. Twelve transaction-interface witness contracts now also check
 boxing and type-switch recovery for the five concrete pointer variants, including
 typed nils and unknown-type handling. These are independent of the unresolved
 Header helper; they do not prove transaction payload decoding.
+The BigInt dependency work now also checks arbitrary-length packing/carry
+arithmetic and the numeric contract of its actual eight-byte load. The enclosing
+Go helper loops and complete BigInt API remain unproved.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -115,7 +118,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1021 audited theorems, no added axioms (three opaque Transaction declarations removed in the latest checkpoint), 350 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1042 audited theorems, unchanged axiom union, 352 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3077,6 +3080,76 @@ value declarations from the dependency union; other documented generated opaque
 declarations remain. The 51 direct validator-premise theorems and two direct
 word-helper-premise theorems are unchanged. All recorded hashes match.
 The full log is `check-interface-feasibility-full.log`.
+
+### BigInt magnitude: arithmetic foundation and actual word-load dependency
+
+`ProofCheck/BigIntMagnitudeSpec.lean` specifies an arbitrary-length big-endian
+magnitude as an unbounded base-256 number. It defines mathematical 64-bit word
+grouping and fixed-length carry propagation, and proves their numeric meaning.
+These definitions are proof-side functions, **not replacements for the Go code**.
+No correctness of the Go packing/carry helper is assumed from those definitions.
+
+The checked arithmetic results cover:
+
+- Every byte list, including empty input and leading zeros: grouping its reversed
+  bytes into eight-byte words preserves its unbounded magnitude exactly.
+- Removing a full final byte group gives the next low word; a nonempty partial
+  final group occupies one word. Group count agrees with the Go `len/8` plus
+  remainder increment. Even one additional carry word fits the signed 64-bit
+  count for every valid Go input length. This is an arithmetic bound, not an OOM
+  or runtime-allocation guarantee.
+- The actual partial-word expression `acc << 8 | uint64(byte)` equals
+  `256*acc + byte` when the accumulator fits 56 bits; the big-endian prefix bound
+  supplies this condition. This connects the bit operations to the byte meaning.
+- Increment preserves word count. With the spare high zero word allocated by the
+  implementation, increment adds exactly one, even when every preceding word
+  overflows. Applied to the grouped bytes, the result is exactly magnitude + 1,
+  the magnitude needed for the tag-3 negative result.
+
+`ProofCheck/BigIntMagnitudeWord.lean` also checks the actual standard-library
+`BigEndian.Uint64` call used by `bigIntMagnitude`, borrowing an arbitrary valid
+input window. Its unsigned return equals the unbounded eight-byte magnitude and
+it preserves ownership of the entire fractional input. This composes the existing
+word-load proof with the new numeric relation; it is not a proof of the enclosing
+allocation or loop.
+
+The next implementation obligations are concrete:
+
+1. Establish the fresh, zeroed word allocation, including empty input and the
+   optional extra carry word.
+2. Prove the full-word loop with the invariant that the original packing is the
+   already-written words followed by the packing of the pending byte prefix;
+   preserve the whole input and the disjoint output allocation.
+3. Prove the partial-word loop using the checked base-256 step and then store its
+   single final word.
+4. Prove the actual range/carry loop refines `incrementMagnitudeWords`, including
+   its early break and complete carry chains.
+5. Compose with the existing real `SetBits` normalization and in-place `Neg`
+   contracts, establish owned normalized output, then prove the complete public
+   `Cursor.BigInt` success and failure relation, including tags, plain negative
+   overflow, exact suffixes, diagnostics and cursor behavior.
+
+The latest checkpoint adds 21 results: 20 arithmetic/specification results and
+one actual word-load contract. All pre-existing theorem dependencies are
+unchanged. Full regeneration/check passes with **1042 audited theorems**, **352
+project hashes**, **28 standard-library hashes** and 2169 build jobs. The axiom
+union is unchanged, with no admissions or native-evaluation dependencies. The
+full log is `check-bigint-magnitude-full.log`.
+
+One new theorem is entirely axiom-free. `audit.py` now recognizes Lean's explicit
+“does not depend on any axioms” report as the empty dependency set, while still
+requiring an explicit report for every handwritten theorem. Negative checks
+confirmed that removing that report, replacing it with `sorryAx`, or replacing it
+with `Lean.ofReduceBool` each fails the audit; those checks leave the authoritative
+audit artifact unchanged.
+
+The existing public `TestBigIntCarryAndOwnership` and `TestRFC8949AppendixA` tests
+passed with `-race -gcflags=all=-d=checkptr=2`. Go decoder code, translation
+selection, all Go witness sources and pinned semantics are unchanged. The saved
+ordinary and race/checkptr frozen-corpus evidence still matches both source trees
+and all corpus/harness hashes; it was revalidated, not rerun for proof-only edits.
+Header remains conditional on its documented helper repair, full BigInt and
+felt-key maps remain open, and no performance gate has been run.
 
 ## Whole-library gates after the Header milestone
 

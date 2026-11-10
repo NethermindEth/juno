@@ -21,6 +21,8 @@ expected = {name for proof in proofs for name in re.findall(r"^theorem (\w+)", p
 found = {}
 for name, body in re.findall(r"'Perennial\.github_com\.NethermindEth\.juno\.core\.(\w+)' depends on axioms: \[(.*?)\]", log, re.S):
     found[name] = [x.strip() for x in body.split(",") if x.strip()]
+for name in re.findall(r"'Perennial\.github_com\.NethermindEth\.juno\.core\.(\w+)' does not depend on any axioms", log):
+    found[name] = []
 if set(found) != expected:
     sys.exit(f"missing/unexpected axiom reports: {set(found) ^ expected}")
 if any("sorryAx" in ax for xs in found.values() for ax in xs):
@@ -109,6 +111,13 @@ report = {
         "boundary": "generated Transaction interface representation and concrete pointer type identities; transaction payload layouts remain outside these witnesses and are not accessed or allocated",
         "excluded": "CBOR tag parsing and numeric tag-to-type mapping, payload decoding/ownership, dynamic method calls, registration/routing/fallback and class interfaces",
         "scope": "language-feature witnesses only; local classification numbers are not wire tags; no new trusted semantics or helper correctness premise",
+    },
+    "bigint_magnitude_foundation": {
+        "specification": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeSpec.lean",
+        "word_dependency": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean",
+        "proved": "arbitrary-length base-256 magnitude agrees with 64-bit word grouping; exact allocation counts and signed-int bounds; spare-zero carry adds exactly one; short-word shift/OR is exact base-256 accumulation; actual BigEndian.Uint64 load agrees with the numeric specification and preserves whole fractional input ownership",
+        "pending": "refinement of the actual bigIntMagnitude allocation, full-word/partial-word and carry loops; output ownership and SetBits/Neg composition; complete public BigInt success/failure contract",
+        "scope": "mathematical dependencies and one actual word-load contract; no correctness premise for the enclosing helper is assumed and no complete BigInt decoder theorem is claimed",
     },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
     "initialization_boundary": {

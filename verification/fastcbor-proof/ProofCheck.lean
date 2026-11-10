@@ -187,3 +187,6 @@ import ProofCheck.Utf8FromWord
 import ProofCheck.MapFeasibility
 
 import ProofCheck.InterfaceFeasibility
+
+import ProofCheck.BigIntMagnitudeSpec
+import ProofCheck.BigIntMagnitudeWord
