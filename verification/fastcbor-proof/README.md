@@ -2345,6 +2345,43 @@ The proposed generic-index semantics repair remains unapplied. Production Go and
 pinned trusted semantics are unchanged, and the frozen performance gate has not
 run.
 
+### Unique successful outcomes for the complete Header specification
+
+Full regeneration/check passed (2107 build jobs): **874 audited theorems**,
+280 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. The full log is `check-header-success-determinism-full.log`.
+
+`WireDeterminism.lean` proves that exact item boundaries and decoded values lift
+to fixed-length sequences without requiring equality of proof-bearing witnesses.
+It also proves scalar value/prefix/suffix uniqueness and scalar success/error
+disjointness, including null/undefined preservation and every unsigned head width.
+
+`SkipDeterminism.lean` proves unique consumption for all recursively valid ignored
+values: atoms, arrays, maps and tags. It preserves the existing deliberate lack of
+UTF8 validation for ignored text and the chained-tag depth policy.
+`FeltDeterminism.lean` normalizes short and extended felt arrays into up to four
+unsigned limbs plus ignored extras, then proves unique values and boundaries for
+every successful felt encoding. `SignaturesDeterminism.lean` lifts that result
+through nullable felt-pointer slices and nested signatures, including nil versus
+allocated-empty distinctions at both levels.
+
+`GasPriceDeterminism.lean` proves complete child-value, pair, record and nullable
+pointer success uniqueness. `HeaderDeterminism.lean` checks that every schema
+identity selects one field kind/update, then composes key and child determinism
+through arbitrary successful Header pair sequences and complete records. Two
+successful `HeaderFirstSpec` outcomes on the same input have the same decoded
+Header and exact unread suffix; two successful `HeaderFullSpec` outcomes have the
+same Header value. These results apply to the complete independent specification,
+including all text keys/strings, every field order and nested child encoding.
+
+This closes successful-outcome uniqueness, not full specification determinism:
+success/error disjointness and unique failure values/progress/diagnostics remain
+open. It does not prove the missing production UTF8/key paths or the general
+Header implementation theorem. The trusted generic-index repair remains unapplied;
+production Go and pinned semantics are unchanged. The frozen performance gate has
+not run.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

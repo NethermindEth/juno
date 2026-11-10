@@ -138,3 +138,5 @@ import ProofCheck.HeaderAPISpec
 
 import ProofCheck.SupportedAPI
 import ProofCheck.SupportedFailureAPI
+
+import ProofCheck.HeaderDeterminism
