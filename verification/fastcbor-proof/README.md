@@ -2382,6 +2382,49 @@ Header implementation theorem. The trusted generic-index repair remains unapplie
 production Go and pinned semantics are unchanged. The frozen performance gate has
 not run.
 
+### Complete Header success/error separation on representable input
+
+Full regeneration/check passed (2113 build jobs): **900 audited theorems**,
+286 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. The full log is `check-header-success-error-separation-full.log`.
+
+`StructOpenDisjoint.lean` proves that complete successful Header/GasPrice prefixes
+cannot fail their opening checks. It accounts for null/undefined precedence,
+exact decoded heads, pair counts and depth.
+
+`SkipDisjoint.lean` normalizes accepted bodies, excludes every failure leaf on a
+successful prefix, and lifts that exclusion through arbitrary enclosing failure
+contexts. Deterministic sibling boundaries identify a valid next child after any
+strict valid prefix. `FeltDisjoint.lean` then excludes all felt errors: outer
+expectations, depth, unsigned-limb failures and failures in recursively skipped
+extras. `SignaturesDisjoint.lean` composes these results through both nullable
+slice levels, including failures after arbitrary successful child prefixes.
+
+The array failure relations use mathematical natural counts converted to 64-bit
+words. Their disjointness theorems therefore require the entire input length to
+be below 2^64; the count preflight then excludes word wrapping. This bound follows
+from physical Go slice ownership on the pinned target. No disjointness claim is
+made for unrepresentable mathematical inputs where those legacy natural-count
+witnesses could wrap. Header inherits this explicit bound through signatures.
+
+`GasPriceDisjoint.lean` proves complete value/pair/record/pointer separation,
+including key failures, duplicates before values, child errors and opening errors.
+`HeaderDisjoint.lean` checks every selected field kind and composes the complete
+Header pairs and records. Successful `HeaderFirstSpec` outcomes exclude all
+failure outcomes on the same representable input and initial Header. Full
+success also excludes trailing-data errors using the already-proved unique First
+suffix, as well as parse errors and destination-guard errors.
+
+Together with the previous success uniqueness proofs, the specification now has
+at most one successful outcome and cannot both succeed and fail on representable
+input. Unique failed values/progress/diagnostics remain to be proved. These new
+results do not add production WP coverage or close the general Header decoder
+milestone. Production UTF8/key completion, broader field lookup, general record
+refinement and final arbitrary-input implementation contracts remain open. The
+trusted generic-index repair remains unapplied, production Go is unchanged, and
+the frozen performance gate has not run.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

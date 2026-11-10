@@ -140,3 +140,5 @@ import ProofCheck.SupportedAPI
 import ProofCheck.SupportedFailureAPI
 
 import ProofCheck.HeaderDeterminism
+
+import ProofCheck.HeaderDisjoint

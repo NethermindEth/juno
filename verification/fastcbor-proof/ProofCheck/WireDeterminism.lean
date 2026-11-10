@@ -82,8 +82,34 @@ theorem scalarValid_not_failure (old value : w64) (item rest : List w8)
   | unsigned enc major =>
     exact expectedFailure_excludes_encoded _ _ _ _ _ _ _ enc major rfl failure.2.2
 
+/-- A strict prefix of deterministically delimited items leaves the next
+    complete item of the enclosing sequence at the remaining input boundary. -/
+theorem wireSequence_after_prefix {Item : Type} (bytes : Item → List w8)
+    (done items : List Item) (tail rest : List w8) (more : done.length < items.length)
+    (unique : ∀ a ∈ done, ∀ b ∈ items, ∀ restA restB,
+      bytes a ++ restA = bytes b ++ restB → restA = restB)
+    (same : done.flatMap bytes ++ tail = items.flatMap bytes ++ rest) :
+    ∃ item suffix, item ∈ items ∧ tail = bytes item ++ suffix := by
+  induction done generalizing items with
+  | nil =>
+    cases items with
+    | nil => simp at more
+    | cons item items =>
+      exact ⟨item, items.flatMap bytes ++ rest, by simp,
+        by simpa only [List.flatMap_nil, List.nil_append, List.flatMap_cons, List.append_assoc] using same⟩
+  | cons item done ih =>
+    cases items with
+    | nil => simp at more
+    | cons other items =>
+      have tails := unique item (by simp) other (by simp) _ _
+        (by simpa only [List.flatMap_cons, List.append_assoc] using same)
+      obtain ⟨next, suffix, member, split⟩ := ih items (by simpa using more)
+        (fun a ha b hb => unique a (by simp [ha]) b (by simp [hb])) tails
+      exact ⟨next, suffix, by simp [member], split⟩
+
 end github_com.NethermindEth.juno.core
 end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.wireSequence_prefix_unique
 #print axioms Perennial.github_com.NethermindEth.juno.core.scalarValid_prefix_unique
 #print axioms Perennial.github_com.NethermindEth.juno.core.scalarValid_not_failure
+#print axioms Perennial.github_com.NethermindEth.juno.core.wireSequence_after_prefix
