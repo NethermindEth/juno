@@ -80,8 +80,8 @@ theorem wp_skip_container_prefix_reject (c : Loc) (v : cursor.Cursor)
     (hmore : (items.length : Int) < uint.Z count * uint.Z perCount)
     (hfit : uint.Z count * uint.Z perCount ≤ (items.flatten ++ rem).length)
     (valid : ∀ item ∈ items, SkipValid (d + 1) item)
-    (shape : ¬ SkipWideShape ((head :: payload) ++ (items.flatten ++ rem)))
-    (badShape : ¬ SkipWideShape rem)
+    (shape : 37 ≤ ((head :: payload) ++ (items.flatten ++ rem)).length → ¬ SkipWideShape ((head :: payload) ++ (items.flatten ++ rem)))
+    (badShape : d + 1 < 32 → 37 ≤ rem.length → ¬ SkipWideShape rem)
     (hbad :
       {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
          R ∗ c ↦ {v with pos' := v.pos' + W64 (1 + payload.length) + W64 items.flatten.length} ∗ v.buf' ↦*{dq} xs }}
@@ -163,8 +163,8 @@ theorem wp_skip_container_fault (c : Loc) (v : cursor.Cursor)
   wp_apply wp_skip_container_prefix_reject c v xs payload (bad :: rem) head count perCount depth pos items dq d
     iprop(headFaultAddr (GF := GF) reason ↦□ kind) (fun err => HeadFaultError err pos bad reason kind)
     enc hm hd hdepth hmore hfit valid
-    (skip_container_fault_not_wide head bad payload rem count perCount items (d + 1) reason enc hm hmore valid fault)
-    badShape (wp_skip_fault c {v with pos' := pos} (depth + W64 1) xs rem bad dq reason kind fault hpos hremaining)
+    (fun _ => skip_container_fault_not_wide head bad payload rem count perCount items (d + 1) reason enc hm hmore valid fault)
+    (fun _ _ => badShape) (wp_skip_fault c {v with pos' := pos} (depth + W64 1) xs rem bad dq reason kind fault hpos hremaining)
     hp hbytes $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
   · iframe Hkind Hc Hs
   wp_end

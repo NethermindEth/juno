@@ -123,7 +123,7 @@ theorem wp_skip_container_count (c : Loc) (v : cursor.Cursor)
   wp_apply wp_skip_container_reject c v xs payload rem head count perCount depth
     (v.pos' + W64 (1 + payload.length)) dq iprop(globalAddr cursor.ErrTruncated ↦□ kind)
     (fun err => iprop(err ↦ cursor.DecodeError.mk kind (v.pos' + W64 (1 + payload.length)) (go!"count exceeds the input") slice.nil))
-    enc hm bodySpec hp hbytes (fun _ => skip_count_not_wide head payload rem count perCount enc hm hshort)
+    enc hm bodySpec hp hbytes (fun _ _ => skip_count_not_wide head payload rem count perCount enc hm hshort)
     $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
   · iframe Hkind Hc Hs
   wp_end

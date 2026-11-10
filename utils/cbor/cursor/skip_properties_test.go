@@ -352,3 +352,74 @@ func TestSkipRecursiveMalformedHeads(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipRecursiveTruncationAndAtomicErrors(t *testing.T) {
+	type rejectedInput struct {
+		name   string
+		wire   []byte
+		kind   error
+		offset int
+	}
+	leaves := []rejectedInput{
+		{name: "eof", kind: cursor.ErrTruncated},
+		{name: "simple", wire: []byte{0xf8, 24}, kind: cursor.ErrSyntax, offset: 2},
+		{name: "bytes", wire: []byte{0x58, 23}, kind: cursor.ErrTruncated, offset: 2},
+		{name: "text", wire: []byte{0x78, 23}, kind: cursor.ErrTruncated, offset: 2},
+		{name: "tag", wire: []byte{0xc0}, kind: cursor.ErrUnsupported, offset: 1},
+	}
+	for major := byte(0); major < 8; major++ {
+		for info := byte(24); info <= 27; info++ {
+			for cut := range 1 << (info - 24) {
+				leaves = append(leaves, rejectedInput{
+					name: fmt.Sprintf("major%d/info%d/cut%d", major, info, cut),
+					wire: append([]byte{major<<5 | info}, bytes.Repeat([]byte{0xff}, cut)...),
+					kind: cursor.ErrTruncated,
+				})
+			}
+		}
+	}
+	for _, depth := range []int{0, 15, 31, 32} {
+		for _, levels := range []int{0, 1, 4, 16, 30, 32} {
+			if depth+levels > 32 {
+				continue
+			}
+			for _, leaf := range leaves {
+				t.Run(fmt.Sprintf("%s/depth%d/levels%d", leaf.name, depth, levels), func(t *testing.T) {
+					wire := bytes.Clone(leaf.wire)
+					offset := leaf.offset
+					for level := range levels {
+						// Valid wide siblings leave enough bytes for the outer
+						// count check even when its final child is absent.
+						front := []byte{0xc4}
+						if level%2 == 0 {
+							front = append(front, 0x84)
+							for i := range 3 {
+								front = appendTestCBORArgument(front, 0, uint64(i+1), 4)
+							}
+						} else {
+							front = appendTestCBORArgument(front, 0xa0, 1, byte(level%5))
+							front = appendTestCBORArgument(front, 0, 7, 4)
+						}
+						offset += len(front)
+						wire = append(front, wire...)
+					}
+					input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+					start := len(input)
+					input = append(input, wire...)
+					before := bytes.Clone(input)
+					r := openSkipCursor(t, input, depth)
+					for range 2 {
+						err := r.Skip()
+						require.ErrorIs(t, err, leaf.kind)
+						var detail *cursor.DecodeError
+						require.ErrorAs(t, err, &detail)
+						require.Equal(t, start+offset, detail.Offset)
+						require.Equal(t, start, r.Pos())
+						require.True(t, bytes.Equal(wire, r.Remaining()))
+					}
+					require.Equal(t, before, input)
+				})
+			}
+		}
+	}
+}

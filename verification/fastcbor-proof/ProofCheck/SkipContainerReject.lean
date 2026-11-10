@@ -31,7 +31,7 @@ theorem wp_skip_container_reject (c : Loc) (v : cursor.Cursor) (xs payload rem :
          c ↦ {v with pos' := out} ∗ v.buf' ↦*{dq} xs ∗ E err }})
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ rem)
-    (shape : sint.Z depth < 32 → ¬ SkipWideShape ((head :: payload) ++ rem)) :
+    (shape : sint.Z depth < 32 → 37 ≤ ((head :: payload) ++ rem).length → ¬ SkipWideShape ((head :: payload) ++ rem)) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
        R ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"skip")) (Val #depth))
@@ -129,7 +129,7 @@ theorem wp_skip_container_reject (c : Loc) (v : cursor.Cursor) (xs payload rem :
   all_goals
     try
       exfalso
-      apply shape hdep
+      apply shape hdep hblen
       exact ⟨by simpa only [heq0] using Hbyte0_lookup,
         by simpa only [heq1] using Hbyte1_lookup, by simpa only [heq10] using Hbyte10_lookup,
         by simpa only [heq19] using Hbyte19_lookup, by simpa only [heq28] using Hbyte28_lookup⟩

@@ -52,8 +52,8 @@ theorem wp_skip_headFailure (c : Loc) (v : cursor.Cursor) (xs wire : List w8)
     wp_apply wp_skip_container_prefix_reject c v xs payload tail head count perCount depth out items dq d
       iprop(headFaultAddr (GF := GF) reason ↦□ kind) (fun err => HeadFaultError err out bad reason kind)
       enc hm hd bound more fit valid
-      (skipHeadFailure_not_wide bad reason d _ _ (SkipHeadFailure.container items enc hm bound more fit valid child))
-      (skipHeadFailure_not_wide bad reason (d + 1) offset tail child)
+      (fun _ => skipHeadFailure_not_wide bad reason d _ _ (SkipHeadFailure.container items enc hm bound more fit valid child))
+      (fun _ _ => skipHeadFailure_not_wide bad reason (d + 1) offset tail child)
       (by simpa only [hfinal] using childSpec) hp hbytes $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
     · iframe Hkind Hc Hs
     wp_end

@@ -25,7 +25,7 @@ theorem wp_skipElements_prefix_reject (c : Loc) (v : cursor.Cursor) (xs rem : Li
     (hcount : (items.length : Int) < uint.Z count * uint.Z perCount)
     (htotal : uint.Z count * uint.Z perCount ≤ sint.Z v.buf'.len) (hlimit : uint.Z count ≤ uint.Z limit)
     (valid : ∀ item ∈ items, SkipValid (d + 1) item)
-    (shape : ¬ SkipWideShape rem)
+    (shape : d + 1 < 32 → 37 ≤ rem.length → ¬ SkipWideShape rem)
     (hbad :
       {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
          R ∗ c ↦ {v with pos' := v.pos' + W64 items.flatten.length} ∗ v.buf' ↦*{dq} xs }}
@@ -159,7 +159,7 @@ theorem wp_skipElements_prefix_reject (c : Loc) (v : cursor.Cursor) (xs rem : Li
     all_goals
       try
         exfalso
-        apply shape
+        apply shape (by word) hblen
         exact ⟨by simpa only [heq0] using Hbyte0_lookup,
           by simpa only [heq1] using Hbyte1_lookup, by simpa only [heq10] using Hbyte10_lookup,
           by simpa only [heq19] using Hbyte19_lookup, by simpa only [heq28] using Hbyte28_lookup⟩
