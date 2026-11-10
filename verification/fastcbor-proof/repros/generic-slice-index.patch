@@ -1,0 +1,5 @@
+--- a/Perennial/Golang/Defn/Slice.lean
++++ b/Perennial/Golang/Defn/Slice.lean
+@@ -161 +161 @@
+-    (GoLoad elem_type ((IndexRef (go.SliceType elem_type)) glv((#i, #s))))
++    (GoLoad elem_type ((IndexRef (go.SliceType elem_type)) glv((#s, #i))))

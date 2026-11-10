@@ -191,7 +191,14 @@
     "wp_limbs_nonfast_extended": 0,
     "wp_limbs_extended": 0,
     "wp_readFelt_extended": 0,
-    "wp_readFelt_valid": 0
+    "wp_readFelt_valid": 0,
+    "input_prefix": 2,
+    "wp_payload_encoded": 0,
+    "wp_payload_truncated": 0,
+    "wp_bytesBorrowed_encoded": 0,
+    "wp_bytesBorrowed_truncated": 0,
+    "wp_string_truncated": 0,
+    "wp_readString_truncated": 0
   },
   "axiom_sets": [
     [
@@ -652,7 +659,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, container count/depth failures, slow-head rejection classification, scalar type/tag and extended-head truncation failures, and null-field contracts are proved separately; their full Header composition, general EOF and remaining error propagation are pending. The typed felt reader is proved against the independent FeltValid success relation: null/undefined produce nil, short arrays zero-fill, and extended arrays retain four unsigned limbs while consuming arbitrarily nested extras satisfying SkipValid. This covers independently chosen head/limb widths and arbitrary limb values, dispatch, pointer conversion, fresh owned allocation for arrays, exact suffix and cursor advancement without signed wraparound. Depth rejection covers all supported array heads. Atomic Skip success, simple/string/tag rejection and EOF are proved through the public wrapper, including exact consumption on success and cursor rollback with retained diagnostic offset on error. General recursive Skip success is proved for the independent SkipValid relation, including arrays/maps/accepted tags, chained-tag depth and both wide-felt shortcuts; all child hypotheses are discharged by well-founded induction on encoded length. This is not yet a converse or complete rejection theorem. Recursive Skip rejection and other head errors remain pending, as do remaining felt errors and rejection/converse completeness. Field-table proofs require exclusive ownership; shared ownership is not yet established. Complete felt rejection behavior, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
+  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, container count/depth failures, slow-head rejection classification, scalar type/tag and extended-head truncation failures, and null-field contracts are proved separately; their full Header composition, general EOF and remaining error propagation are pending. The typed felt reader is proved against the independent FeltValid success relation: null/undefined produce nil, short arrays zero-fill, and extended arrays retain four unsigned limbs while consuming arbitrarily nested extras satisfying SkipValid. This covers independently chosen head/limb widths and arbitrary limb values, dispatch, pointer conversion, fresh owned allocation for arrays, exact suffix and cursor advancement without signed wraparound. Depth rejection covers all supported array heads. Atomic Skip success, simple/string/tag rejection and EOF are proved through the public wrapper, including exact consumption on success and cursor rollback with retained diagnostic offset on error. General recursive Skip success is proved for the independent SkipValid relation, including arrays/maps/accepted tags, chained-tag depth and both wide-felt shortcuts; all child hypotheses are discharged by well-founded induction on encoded length. This is not yet a converse or complete rejection theorem. Recursive Skip rejection and other head errors remain pending, as do remaining felt errors and rejection/converse completeness. Definite payload extraction and oversized-length rollback are proved, including exact borrowed ranges and suffixes. BytesBorrowed composes both contracts; String and its typed field reader propagate truncation while preserving prior field state. General UTF8 validation is pending: a reversed operand tuple in the pinned generic slice-index rule blocks the actual word-helper proof; a separate repair proposal awaits approval, and its expected-failure reproducer is outside the audited target. Field-table proofs require exclusive ownership; shared ownership is not yet established. Complete felt rejection behavior, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -718,6 +725,7 @@
     "verification/fastcbor-proof/ProofCheck/LateError.lean": "9083a7b5e8d8c9b38319f124f778a1e139ebebd17f3df7f56e02a0d9e8077869",
     "verification/fastcbor-proof/ProofCheck/Null.lean": "4e5e1cd46d0e12a52dfe98ce72527ab725cc9c5e4582a31cdb1458e1dfee1473",
     "verification/fastcbor-proof/ProofCheck/Number.lean": "3046965c9e0106917198f9a494f69787b6293ed64728e9c6dae4bf2060cd3a77",
+    "verification/fastcbor-proof/ProofCheck/Payload.lean": "a9bb7339798bec15520a21932ebd676b7ed4463b79d8f1d8bc0640e8bad7aa86",
     "verification/fastcbor-proof/ProofCheck/Reject.lean": "9df1e88c79e9f5ce0b50cb5ca5aef8adc2e4c110d79a0d3c16aa08bed5cfe3bc",
     "verification/fastcbor-proof/ProofCheck/SkipAtom.lean": "852aebf596a923883138f62404e74869ca200575834d052418ded6d5f20bf6d7",
     "verification/fastcbor-proof/ProofCheck/SkipContainer.lean": "d62d433d9b8bde7bb13ca83ebe89bac3d4f86d5a3e059683fd8e20d1b1eafbf2",
@@ -728,8 +736,8 @@
     "verification/fastcbor-proof/ProofCheck/SkipValid.lean": "ea8ffd59ae10bf645bf560f51094d1395c7b54af1a6d978feb24fee43afff5be",
     "verification/fastcbor-proof/ProofCheck/SkipWide.lean": "5cf879bc0cac246624f44b4d8ec79f7d566a27ec59aeeb0b9aa6fe4bbf104d40",
     "verification/fastcbor-proof/ProofCheck/Values.lean": "d1edfe03b5c4834361188829f5da420276ca6116b691735794f0af4dca97b721",
-    "verification/fastcbor-proof/ProofCheck.lean": "3f279e69117c11a3154d2549a54372c9d3b4627048d427290cc5d63ff520f67a",
-    "verification/fastcbor-proof/audit.py": "7a1b9d19b3cf28b979dfa050a28932ee1015cc004b8d1285b3efd428853496c6",
+    "verification/fastcbor-proof/ProofCheck.lean": "07f73362b44cb8b0a0bb85000d1f8deb23aa841c66a0ce181eaf9447159cca97",
+    "verification/fastcbor-proof/audit.py": "6e47576f06ad326191feb07d916143231d1afcc3f073e2f646c0a3e4cabea2f2",
     "verification/fastcbor-proof/bootstrap.sh": "488054f7d2e26b40539a0bc8e5111138502fdd39033647792ef34d192c2115d7",
     "verification/fastcbor-proof/check.sh": "8859059e7b87e286be21b0b597dc1bfe9698b7f5d6c432ec5b31de411b0ed4bf",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core/felt.toml": "473e2922f325412bac8d646beb7004b566fe4d1c241ae98cd6acb7eac4e0090a",

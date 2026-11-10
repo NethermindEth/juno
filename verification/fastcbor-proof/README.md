@@ -80,6 +80,7 @@ container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
 general felt success through an independent nullable/short/extended wire relation,
 felt depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
+definite payload success/truncation and public byte/string propagation contracts,
 and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
@@ -87,7 +88,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; remaining failures, converse and UTF-8 pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved; general recursive Skip success proved, including both wide shortcuts; atomic rejection/EOF and public rollback proved, with recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
@@ -97,7 +98,9 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 This is dependency order, not eight isolated phases: nested GasPrice uses field
 lookup, and successful felt decoding now composes the recursive Skip theorem.
 The next primitive work is the remaining felt/Skip rejection contracts and UTF-8;
-the general Header relation and field lookup still need development alongside
+the latter has a proposed one-line repair to the pinned generic slice-index semantics
+(see the approval proposal below), while independent work remains available.
+The general Header relation and field lookup still need development alongside
 them. BigInt, tagged transaction interfaces and ordinary Go maps do not block
 this Header milestone.
 
@@ -279,6 +282,17 @@ The general Header proof now has reusable primitive contracts:
   output ownership. This remains a success theorem, not a complete rejection
   or converse theorem.
 
+`Payload.lean` proves complete definite payload extraction at arbitrary offsets and
+length-head widths, returning the exact borrowed range while preserving the whole
+input and exact unread suffix. Declared lengths larger than the remaining input
+restore the original cursor and return an owned truncation error at that offset,
+including lengths above the signed 64-bit range. These contracts compose through
+`BytesBorrowed`; truncation also composes through `String` and the typed string
+field reader, preserving its old destination. They do not assume UTF-8 validity or
+prove the validator. The actual UTF-8 word-helper attempt found a reversed operand
+tuple in the pinned generic slice-index rule; the separate proposal below is
+pending approval, and the failed reproducer is excluded from the audited target.
+
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
 ownership, field lookup and Skip (including their errors), plus initialization and
@@ -385,6 +399,18 @@ The cursor suite and targeted Header test passed, as did the new tests/seeds
 with race/checkptr instrumentation. These malformed-input checks do not replace
 the outstanding rejection proofs.
 
+The payload milestone passed full regeneration/check with 196 audited theorems
+and no added transitive axioms. The cursor suite passed; `FuzzBytePayload`
+completed 301,972 executions in ten seconds, exercising all length widths,
+nonzero offsets, depth up to 32, exact suffixes, byte borrowing/copying and
+retryable truncation. The explicit string vectors cover Unicode scalar bounds,
+overlong encodings, surrogates, invalid continuation bytes and values above
+U+10FFFF, placed around the validator's ASCII batching thresholds. Every body
+truncation is checked before UTF-8 validation. These tests and fuzz seeds passed
+with `-race -gcflags=all=-d=checkptr`. The generic slice-index Go witness runs and
+Goose translates it; its actual UTF-8 word-helper Lean reproducer fails at the
+reversed operands as documented below. No semantics patch has been applied.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** connect the proved field factories to global
@@ -417,3 +443,67 @@ and source hashes against the original baseline. All corpus hashes were checked.
 It records the removed EventsBloom projection and historical zero-route controls;
 other cases still require baseline compatibility smoke. **No cases have passed the
 new performance gate and no performance timings have been collected.**
+
+## Proposed fix: generic slice indexing in the pinned semantics
+
+Status: **awaiting explicit approval; no trusted source has been changed**.
+This is a concrete prerequisite for proving the translated Go 1.27
+`unicode/utf8.Valid` implementation, whose generic `word[T string | []byte]`
+helper instantiates `Index T` at `[]byte`.
+
+At pinned Perennial `84d5380639a38f56cd517f1e81246fad7be5b21b`,
+`Perennial/Golang/Defn/Slice.lean:159–161` accepts `Index (slice, index)` but
+expands it into `Load (IndexRef (index, slice))`. The `index_ref_slice` rule
+at lines 152–157 requires `(slice, index)`. The first load in the word-helper
+proof therefore stops at `IndexRef (#(W64 0), #data)`. This is an incomplete
+model path: Go executes the operation, while the intended semantics cannot
+continue using the existing slice-reference rule. It is not evidence of a Go
+runtime bug or a failure of ordinary slice indexing proofs, which generally
+translate directly through `IndexRef`.
+
+Evidence and reproducibility:
+
+- `go run ./verification/fastcbor-proof/repros/genericindex` succeeds for a
+  byte slice, a named byte slice and a string. The generic source is deliberately
+  small: `func First[T ~string | ~[]byte](s T) byte { return s[0] }`.
+- Running the pinned Goose on that package emits `Index T (s, 0)`.
+- From this proof directory, after a normal `lake build ProofCheck`,
+  `lake env lean repros/Utf8Word.lean` is an **expected failure** that exposes
+  the reversed tuple in the actual translated word helper. This reproducer is
+  outside the checked/audited proof target and is not counted as a theorem.
+- `repros/generic-slice-index.patch` is the proposed one-line correction:
+  `glv((#i, #s))` becomes `glv((#s, #i))`. It has not been applied.
+  It is a zero-context patch; applicability was checked using
+  `git apply --unidiff-zero --check` against the untouched pin.
+
+Approval scope and validation plan:
+
+1. Create a separate Perennial repair worktree based on the pinned revision.
+   Apply that exact one-line correction to the existing `index_slice` rule.
+   No new semantics rules, Goose branches, trusted models, axioms or negative
+   translation tests are required. The trusted delta is one changed line.
+2. Add checked regression proofs for generic byte-slice reads, including a
+   named slice, preservation of input ownership and the existing bounds-panic
+   behavior. Retain a string instantiation as a sibling regression. Array,
+   string and map indexing rules were inspected; none has this reversed
+   slice-reference tuple. No other occurrence of this reversed `IndexRef`
+   pattern was found in `Golang/Defn`.
+3. Run the repair's Lean checks (`etc/lean-ci.sh -q`), inspect
+   `etc/trusted-delta.py`, audit the regression axioms, and perform the trusted
+   change review. Prove the actual eight-byte UTF-8 helper against the repaired
+   rule, then continue its caller's proof. No validator-correctness assumption
+   or hand-edited generated code substitutes for those proofs.
+4. Record the approved decision in Perennial's fix-semantics examples. Commit
+   the local repair and explicitly repin this proof harness to that commit;
+   regenerate and audit the Juno proofs. Publishing upstream is outside this
+   approval request. The original and benchmark baseline worktrees remain
+   untouched.
+
+This follows fix-semantics Case 1 (complete the existing slice scheme) and
+Case 9 (inspect sibling indexing rules and keep one logical bug per change).
+It excludes unrelated semantics defects, translator changes, compiler/runtime
+verification and changes to Juno's decoder behavior. The requirement for a
+separately approved plan comes from the active goal and the pinned
+`.agents/skills/fix-semantics/SKILL.md`, step 3: “Never change trusted files
+before the user signs off.” Independent payload, schema and decoder proof work
+can continue while this proposal is pending.
