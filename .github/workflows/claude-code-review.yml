@@ -57,6 +57,15 @@ jobs:
           env-slug: prod
           secret-path: /apps/litellm/juno-ai-reviewer
 
+      - name: Join the tailnet
+        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4.2.0
+        with:
+          oauth-client-id: Tzg4RXC1AA21CNTRL-kEEz9s9VwN11CNTRL
+          audience: api.tailscale.com/Tzg4RXC1AA21CNTRL-kEEz9s9VwN11CNTRL
+          tags: tag:ci-litellm
+          version: 1.104.1
+          sha256sum: 108d1d96ecf410d305571e173516f27038f870919a9b89c914a167c6d33a4528
+
       - name: Claude review
         id: claude
         uses: anthropics/claude-code-action@aa8a7738e48bf30a40ee499ce818bef081c5ab5e # v1.0.257
