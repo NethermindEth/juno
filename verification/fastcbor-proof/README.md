@@ -79,7 +79,8 @@ Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
 general felt success through an independent nullable/short/extended wire relation,
-felt depth rejection, later-limb errors for every array-head width and ignored-tail atomic/EOF errors,
+felt depth rejection, later-limb errors for every array-head width, ignored-tail atomic/EOF errors,
+and malformed-head propagation through unsigned/felt/Skip readers,
 general recursive Skip success and atomic rejection/EOF contracts,
 definite payload success/truncation and public byte/string propagation contracts,
 general ASCII folding and two-pass name matching, field-bit marking and duplicate
@@ -97,7 +98,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; remaining felt head failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; remaining outer type/tag/truncation/EOF errors, incomplete ignored heads, converse and UTF-8 pending (generic slice-index fix proposed below) |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
@@ -317,8 +318,8 @@ The general Header proof now has reusable primitive contracts:
   These replace the earlier non-inline-four-only contracts. Prefix limb widths
   and array counts larger than the prefix remain arbitrary, including large
   unsigned counts. The old typed pointer is preserved; temporary partial words
-  are not published. Array-header failures and remaining malformed limb heads
-  still need composition.
+  are not published. Malformed limb-head composition is now proved as described
+  below; remaining array-header failure cases still need composition.
 - `FeltExtraReject.lean`: the actual slow loop reads four arbitrary-width limbs
   and any valid ignored prefix before propagating a proved Skip error. This is
   composed through public Limbs dispatch and the typed felt reader; arrays with
@@ -328,8 +329,8 @@ The general Header proof now has reusable primitive contracts:
   input and old output pointer. Atomic diagnostics retain the position after the
   offending inner head; EOF retains the end position. The generic composition
   lemmas take explicit leaf-proof arguments, and the closed contracts discharge
-  them with actual proved helpers. Recursive Skip failures and other head errors
-  remain pending.
+  them with actual proved helpers. Malformed-head errors now compose as described
+  below; recursive Skip failures and incomplete argument heads remain pending.
 
 `TestLimbsErrorsAfterPrefix` checks public Limbs errors after zero to seven valid
 items, all array-head widths, mixed limb widths and nested valid ignored values.
@@ -339,12 +340,43 @@ all cuts through extended arguments, EOF, type/tag, reserved/break and atomic Sk
 errors. `TestTypedHeaderFeltErrorsClearPartialResult` checks both public Header
 APIs with a Number field before the failing Hash field: the complete result is
 cleared, First returns a nil suffix and the inner diagnostic offset is retained.
-Inline-four type/tag/truncation/EOF cases now have formal composition as above;
-malformed-head cases remain regression evidence with proof composition pending.
+Inline-four type/tag/truncation/EOF cases have formal composition as above;
+malformed-head cases now have composition as described next.
 `TestLimbsRejectsWideShapePadding` supplies at least 37 bytes and a bad limb after
 zero to three wide unsigned values, with later bytes imitating wide-felt heads.
 It checks each offending limb independently, exact error offsets, repeated-read
 rollback, unchanged sentinel outputs and preservation of input bytes.
+
+
+`HeadFault.lean` records the independent reserved/indefinite head cases and their
+error categories. `HeadFaultError` owns the exact diagnostic, including variadic
+arguments for invalid additional information. The closed slow-head contract
+instantiates the earlier classification proofs; shared composition lemmas carry
+it through expectation for any major type and public Uint64 without consuming
+input. They preserve error precedence over a destination-type mismatch.
+
+`FeltHeadFault.lean` proves the head classification covers every information code
+above 27, connects it to short-limb rejection, and composes malformed limbs after
+any valid prefix through all felt shortcuts and the typed reader. It also proves
+malformed outer-array heads preserve the old pointer/cursor/input at every depth:
+head errors precede the array-depth check, including at depth 32. The shared
+outer-head adapters accept actual expectation proofs, so remaining outer
+wrong-type/tag, truncated-argument and EOF cases still need their closed
+contracts; null/undefined remain valid nullable felt values.
+
+`SkipHeadFault.lean` verifies actual Skip shortcut/peek dispatch and public
+rollback on malformed heads at arbitrary depths and offsets. This composes into
+the typed felt reader after four limbs and any valid ignored prefix, preserving
+the inner error's original offset and rolling back the outer array. Recursive
+Skip rejection and incomplete argument heads remain pending.
+
+`TestMalformedHeadsInFeltAndSkip` exhausts all reserved/indefinite head bytes as
+outer felt/Skip inputs and after zero to seven valid felt items. It covers all
+array-head widths, nested valid ignored prefixes, empty and long suffixes,
+repeated failures, unchanged input/output, exact offsets and observable depth
+restoration. Outer head errors are also checked at depth 32 to verify precedence
+over depth rejection. This is regression evidence alongside the contracts, not
+a complete arbitrary-input rejection theorem.
 
 `Payload.lean` proves complete definite payload extraction at arbitrary offsets and
 length-head widths, returning the exact borrowed range while preserving the whole
@@ -810,6 +842,17 @@ wide-shape rejection cases. Decoder behavior and pinned trusted semantics are
 unchanged. Remaining felt work is array-header and malformed limb-head
 composition, alongside recursive Skip errors and the complete rejection/converse
 contract. The complete Header theorem and frozen performance gate remain pending.
+
+
+The malformed-head propagation milestone passed full regeneration/check (1941
+build jobs) with 348 audited theorems, no added transitive axioms, no admissions
+and no native evaluation axioms. Fresh public malformed-head, scalar-head and
+felt regression tests and typed Header tests passed with `-short -count=1`.
+The pinned trusted checkout and production decoder are unchanged. Remaining
+felt work includes outer wrong-type/tag, incomplete-argument and EOF contracts,
+incomplete ignored heads, recursive Skip errors and a complete rejection/converse
+contract. Nested output ownership, UTF-8, initialization, the general Header
+theorem and the frozen performance gate are still unfinished.
 
 ## Whole-library gates after the Header milestone
 
