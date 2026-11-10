@@ -134,7 +134,10 @@ also compose after arbitrary HeaderEntry prefixes through both APIs, with actual
 cleanup and exact owned diagnostics. All currently specified field-value failures
 also compose through the actual loop and both APIs, including child cursor/depth
 progress, unpublished partial price contents and cleanup of populated Headers.
-The independent UTF-8 byte grammar is now formalized. Illegal leading-byte
+The independent UTF-8 byte grammar now has a complete character classifier and
+an all-input specification-checker equivalence proof. All 256 first-byte cases
+are linked to Go's actual size/continuation-range tables. This does not yet prove
+the production validator loop. Illegal leading-byte
 rejection is proved through the actual validator, cursor.String, typed reader and
 Header value-failure APIs, with arbitrary following payload bytes and suffixes.
 It also composes through the public key reader, cached field lookup, Header and
@@ -1986,6 +1989,44 @@ malformed continuation sequences and wider/non-ASCII successful keys remain open
 This checkpoint changes proofs and documentation only. The pinned trusted
 semantics and production Go are unchanged; the proposed generic-index repair
 remains unapplied. The full Header theorem and frozen performance gate remain open.
+
+### Complete UTF-8 specification classifier and table correspondence
+
+Full regeneration/check passed (2084 build jobs): **740 audited theorems**,
+257 matching project hashes and 28 matching standard-library source hashes.
+There are no admissions, native-evaluation axioms or additions to the complete
+axiom set. The full log is `check-utf8-classification-full.log`.
+
+`Utf8Classify.lean` supplies an exact one-character decomposition of `Utf8Valid`
+for every nonempty byte list. A successful `utf8Next` step consumes one to four
+bytes; rejection covers an illegal or incomplete character. `utf8CheckFuel` uses
+this classifier with a decreasing step budget, and the checked progress bound
+shows that the input length always supplies enough steps. `utf8Check_spec` proves
+`utf8Check xs = true ↔ Utf8Valid xs` for every byte list. This includes valid
+multibyte sequences, invalid continuation bytes, truncated characters, overlong
+forms, surrogates and out-of-range scalars, without selecting a finite corpus.
+
+This evaluator is **specification machinery**, not a replacement Go decoder or a
+proof of Go's validator. Its grammar is independent of the implementation's
+packed classification values and optimized loops.
+
+`Utf8TableSpec.lean` connects that grammar to Go's actual initialized tables.
+`utf8LeadInfo_grammar` proves that the independently derived sequence length and
+second-byte interval accept exactly the two-, three- and four-byte character
+forms. `utf8Tables_classify` checks all 256 starters against the actual first-byte
+class table and accept-range table, including index and size/range bounds. A
+proved byte-pair view of the accept table removes the abstract Go context from
+the finite computation; the equality back to actual struct entries is checked.
+All finite computation uses kernel reduction, not native-evaluation axioms.
+
+The next production obligation is to use these lemmas in the validator's loop
+invariant: a consumed valid-character/ASCII prefix preserves the validity of the
+remaining bytes, and each branch either advances or returns the specified result.
+The ASCII word-helper semantics repair remains unapplied. No general production
+validator, successful string decoder or complete Header theorem is claimed here;
+existing production UTF-8 proofs still cover illegal initial bytes only.
+Production Go, trusted semantics and the frozen performance-gate status are
+unchanged by this proof/specification checkpoint.
 
 ## Whole-library gates after the Header milestone
 
