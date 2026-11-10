@@ -23,3 +23,9 @@ import ProofCheck.GasPriceFailureSlot
 import ProofCheck.KeyFailureSound
 
 import ProofCheck.GasPriceMapKeyFailure
+
+import ProofCheck.HeaderOwnership
+
+import ProofCheck.HeaderFeltFields
+
+import ProofCheck.HeaderFeltComplete
