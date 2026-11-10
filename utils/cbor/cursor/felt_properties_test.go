@@ -54,3 +54,65 @@ func FuzzLimbsWide(f *testing.F) {
 		require.Equal(t, before, input)
 	})
 }
+
+// Exercise short arrays and independently chosen, possibly non-preferred widths
+// for the array head and each limb. The expected words come from the generated
+// values, independently of any CBOR decoder.
+func FuzzLimbsWidths(f *testing.F) {
+	for shape := byte(0); shape < 25; shape++ {
+		f.Add(uint64(23), uint64(255), uint64(65535), ^uint64(0), uint16(0), shape, []byte{0xf6})
+		f.Add(uint64(0), uint64(1), uint64(0x0102030405060708), uint64(1)<<63, uint16(586), shape, []byte{})
+	}
+	f.Fuzz(func(t *testing.T, a, b, c, d uint64, widths uint16, shape byte, suffix []byte) {
+		count, arrayWidth := shape%5, (shape/5)%5
+		input := appendTestCBORArgument([]byte{0, 1, 2}, 0x80, uint64(count), arrayWidth)
+		values := [cursor.Limbs]uint64{a, b, c, d}
+		var want [cursor.Limbs]uint64
+		for i := range count {
+			width := byte(widths % 5)
+			widths /= 5
+			word := values[i]
+			switch width {
+			case 0:
+				word %= 24
+			case 1:
+				word &= 0xff
+			case 2:
+				word &= 0xffff
+			case 3:
+				word &= 0xffffffff
+			}
+			want[i] = word
+			input = appendTestCBORArgument(input, 0, word, width)
+		}
+		end := len(input)
+		input = append(input, suffix...)
+		before := bytes.Clone(input)
+		r := cursor.NewCursor(input)
+		for range 3 {
+			_, err := r.Uint64()
+			require.NoError(t, err)
+		}
+		got := [cursor.Limbs]uint64{9, 8, 7, 6}
+		require.NoError(t, r.Limbs(&got))
+		require.Equal(t, want, got)
+		require.Equal(t, end, r.Pos())
+		require.True(t, bytes.Equal(suffix, r.Remaining()))
+		require.Equal(t, before, input)
+	})
+}
+
+func appendTestCBORArgument(input []byte, major byte, value uint64, width byte) []byte {
+	switch width {
+	case 0:
+		return append(input, major|byte(value))
+	case 1:
+		return append(input, major|24, byte(value))
+	case 2:
+		return binary.BigEndian.AppendUint16(append(input, major|25), uint16(value))
+	case 3:
+		return binary.BigEndian.AppendUint32(append(input, major|26), uint32(value))
+	default:
+		return binary.BigEndian.AppendUint64(append(input, major|27), value)
+	}
+}

@@ -140,7 +140,16 @@
     "wp_limbsSlow_depth": 0,
     "wp_limbs_depth": 0,
     "wp_readFelt_depth": 0,
-    "wp_readFelt_wide_words": 0
+    "wp_readFelt_wide_words": 0,
+    "input_suffix_after": 1,
+    "input_suffix_head": 1,
+    "wp_uint64_wire": 0,
+    "paddedLimbs_next": 1,
+    "paddedLimbs_step": 1,
+    "wp_limbsSlow_small": 0,
+    "wp_shortLimbs_otherHead": 0,
+    "wp_limbs_nonfast_small": 0,
+    "wp_readFelt_nonfast_small": 0
   },
   "axiom_sets": [
     [
@@ -596,7 +605,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, container count/depth failures, slow-head rejection classification, scalar type/tag and extended-head truncation failures, and null-field contracts are proved separately; their full Header composition, general EOF and remaining error propagation are pending. The typed felt reader is proved for the empty array and arbitrary four-limb 37-byte encodings, including its pointer conversion and owned allocation; depth rejection covers all supported array heads. Mixed-width shortcuts, the general slow path and other felt errors remain pending. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
+  "caveat": "Package initialization and relevant global ownership are preconditions. Generated opaque type axioms remain. End-to-end populated Header proofs still cover only a single inline Number field, including cleanup after a subsequent truncation at byte 9. General head/unsigned/container success contracts, container count/depth failures, slow-head rejection classification, scalar type/tag and extended-head truncation failures, and null-field contracts are proved separately; their full Header composition, general EOF and remaining error propagation are pending. The typed felt reader is proved for arbitrary four-limb 37-byte encodings, all shorter arrays and extended-width four-element array heads, including pointer conversion and owned allocation. The actual slow loop is proved for zero through four independently encoded unsigned limbs; depth rejection covers all supported array heads. The inline four-element mixed-width shortcut, excess-element Skip and other felt errors remain pending. Field-table proofs require exclusive ownership; shared ownership is not yet established. General felt decoding, UTF8, byte-to-BigInt packing/carry, complete BigInt decoding, and whole-library correctness remain unproved.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -650,6 +659,7 @@
     "verification/fastcbor-proof/ProofCheck/Containers.lean": "2c0db41911adf6a9e7c5cf8eda20a492fc89199da83b8d36e995e333f418c459",
     "verification/fastcbor-proof/ProofCheck/Errors.lean": "4f029d0c2cc58de62109046f58fe18ef1d2eb10a027c3cad549bb6eee2bd39e3",
     "verification/fastcbor-proof/ProofCheck/Felt.lean": "82d83d486e9ce41c111272b479b86a6594487b2ac5744821b66f516883a39cff",
+    "verification/fastcbor-proof/ProofCheck/FeltSequence.lean": "ccca183bb130515ca9eda70c40987e1f449b4a51768b61f8fd5c2522d4da86e1",
     "verification/fastcbor-proof/ProofCheck/FeltWide.lean": "4e9a452b8f63d9de3f25985a84f5b3a419fe83b9d6b736265e6bb0801d4cf6b5",
     "verification/fastcbor-proof/ProofCheck/Fields.lean": "a3a94394399f0bb109d42c9b19799605c1f28201f342e936d39bc2b281ee69cb",
     "verification/fastcbor-proof/ProofCheck/Head.lean": "d1cd45b23db300f8a740cdb4917baf8d89fa7bc274535f53f656a44e32ee7889",
@@ -659,8 +669,8 @@
     "verification/fastcbor-proof/ProofCheck/Number.lean": "3046965c9e0106917198f9a494f69787b6293ed64728e9c6dae4bf2060cd3a77",
     "verification/fastcbor-proof/ProofCheck/Reject.lean": "9df1e88c79e9f5ce0b50cb5ca5aef8adc2e4c110d79a0d3c16aa08bed5cfe3bc",
     "verification/fastcbor-proof/ProofCheck/Values.lean": "d1edfe03b5c4834361188829f5da420276ca6116b691735794f0af4dca97b721",
-    "verification/fastcbor-proof/ProofCheck.lean": "6c808ecb9f46472d1be57eaff1d3a5ea02456272604975397e1f2ccab5b5d13c",
-    "verification/fastcbor-proof/audit.py": "6b4c363ab07296c20efd287fa8888ee525878978b666d9092d4c9683d6be4090",
+    "verification/fastcbor-proof/ProofCheck.lean": "aba0011eaef7df8c4394dee1dd3b29cdaa93f5ee3f0f0ee68a3533006b8f41d3",
+    "verification/fastcbor-proof/audit.py": "ed1f587f274adef8ae6047f66b206fa9c6fd250a54d47fb1c325f96abce51ef0",
     "verification/fastcbor-proof/bootstrap.sh": "488054f7d2e26b40539a0bc8e5111138502fdd39033647792ef34d192c2115d7",
     "verification/fastcbor-proof/check.sh": "8859059e7b87e286be21b0b597dc1bfe9698b7f5d6c432ec5b31de411b0ed4bf",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core/felt.toml": "473e2922f325412bac8d646beb7004b566fe4d1c241ae98cd6acb7eac4e0090a",

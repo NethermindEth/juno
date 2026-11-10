@@ -1,1 +1,1 @@
-import ProofCheck.FeltWide
+import ProofCheck.FeltSequence

@@ -77,8 +77,9 @@ specified behavior change and performance evaluation. No such change is made her
 
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
-extended-head truncation failures, the arbitrary-limb 37-byte felt fast path and
-felt depth rejection, and bounded public Header examples. The
+extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
+mixed-width slow decoding of zero through four limbs, felt depth rejection, and
+bounded public Header examples. The
 reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
@@ -86,7 +87,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Arbitrary-limb 37-byte fast path and general depth rejection proved through the typed felt reader; mixed widths, short/long arrays, remaining failures and UTF-8 pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Wide fast path, depth rejection and short-array slow path proved through the typed reader; inline four-limb mixed-width shortcut, long arrays, remaining failures and UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
@@ -217,9 +218,17 @@ The general Header proof now has reusable primitive contracts:
   directly in terms of four uint64 words. General depth rejection covers every
   supported array-head width/count through both limb entry points and the typed
   reader, preserving the prior output and cursor. `FuzzLimbsWide` constructs
-  valid encodings from arbitrary words, suffixes and nesting depths. Mixed-width
-  shortcuts, the general slow path, excess-element Skip and other failures are
-  still needed for complete felt correctness.
+  valid encodings from arbitrary words, suffixes and nesting depths.
+- `FeltSequence.lean`: an unsigned wire-item relation separates value from chosen
+  width, with exact suffix consumption. A loop invariant proves the actual slow
+  felt reader for zero through four limbs with independently chosen widths and
+  arbitrary values, zero-filling the remaining words. The public Limbs and typed
+  felt reader compose this for every short array and every extended-width
+  four-element array head, including fresh owned allocation. `FuzzLimbsWidths`
+  generates counts, array-head widths and limb widths independently. The inline
+  four-element mixed-width shortcut, excess-element Skip and remaining failures
+  are still needed for complete felt correctness; the slow-loop theorem alone
+  does not establish those paths.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
