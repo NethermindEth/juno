@@ -148,3 +148,6 @@ import ProofCheck.SkipFailureUnique
 import ProofCheck.HeaderOutcomeUnique
 
 import ProofCheck.FieldKeySpec
+
+import ProofCheck.HeaderStringComplete
+import ProofCheck.FieldTextComplete

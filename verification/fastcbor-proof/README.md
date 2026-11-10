@@ -2532,6 +2532,56 @@ obligation so that the eventual general Key proof can reuse the checked matching
 duplicate and cache composition. The trusted generic-index repair remains
 unapplied and the frozen performance gate has not run. Production Go is unchanged.
 
+### Complete text caller contracts with an explicit validator obligation
+
+Full regeneration/check passed (2133 build jobs): **961 audited theorems**,
+306 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. **15 theorems explicitly require the unproved validator contract**; their
+names are recorded separately in the audit and are not closed correctness claims.
+The full log is `check-text-contract-composition-full.log`.
+
+`Utf8Contract.lean` names the outstanding production `unicode/utf8.Valid` WP as
+`Utf8ValidatorContract`. This is a proposition passed explicitly to callers, not
+an axiom, opaque declaration, typeclass instance or claim that the validator is
+proved. Its range composition borrows a payload and restores the entire fractional
+input. The audit now lists every theorem with this direct unresolved premise
+under `unproved_contract_premises`, separately from transitive axiom dependencies.
+
+`StringText.lean` proves the actual complete text path through payload extraction,
+validation and byte-slice-to-string conversion, and the actual rollback/owned
+error path for arbitrary malformed UTF8. `StringComplete.lean` composes these
+with null/undefined old-value preservation, expectation errors and truncation.
+`wp_readString_complete` covers every input under the independent `StringValid`
+and `StringRejected` relations, with exact suffixes, unchanged input, destination
+ownership and preservation on failure, **conditional on the validator contract**.
+
+`HeaderStringComplete.lean` composes the real ProtocolVersion field call. Success
+updates exactly that field; failure preserves it. Both branches retain every
+other Header field, all nested child ownership and the private shared GasPrice
+allocation/readiness invariant. This removes the old nullish-only restriction
+from the conditional field contract, not from the existing closed Header map/API
+theorems.
+
+`KeyTextSlow.lean` proves text success and arbitrary UTF8 rejection through the
+actual slow key reader at every definite-length head width. `KeyTextDispatch.lean`
+proves that complete short non-ASCII keys and wider heads reach that reader with
+unchanged input/cursor. `KeyText.lean` composes the slow path with these proofs
+and the already-checked ASCII shortcut, normalizes the direct/nested borrowed
+slice representations, and proves public text success and malformed-UTF8
+rejection conditional only on the validator contract.
+
+`FieldTextComplete.lean` supplies those Key contracts to the general lookup
+composition. Arbitrary valid text keys now have an exact field/search/duplicate
+contract, and every independent `KeyRejected` case propagates through public
+NextField with cursor rollback, owned diagnostics and one-pair progress, again
+conditional on the validator. Integer-key success already has a closed contract.
+
+The trusted generic-index repair remains unapplied. The validator premise still
+must be proved; it is not acceptable as an assumption in the final Header milestone.
+General GasPrice/Header map refinement and final public API composition remain
+open. Production Go is unchanged, and the frozen performance gate has not run.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
