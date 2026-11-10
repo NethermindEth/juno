@@ -60,9 +60,9 @@ theorem wp_headerString_null (c dst base : Loc) (h : Header) (old : HeaderValue)
   ihave Hh := Hclose $$ %h.ProtocolVersion' Hfield
   wp_end
 
-/-- Specified errors before UTF-8 validation preserve the complete Header and
+/-- Specified payload and UTF-8 errors preserve the complete Header and
     all child ownership, with the exact owned diagnostic at the original offset.
-    Successful text and invalid UTF-8 still require the validator contract. -/
+    Successful text and other malformed UTF-8 sequences remain outside this contract. -/
 theorem wp_headerString_failure (c dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64)
     (v : cursor.Cursor) (xs wire : List w8) (dq : DFrac) (reason : StringFailureReason) (kind : GoInterface)
     (failure : StringFailure wire reason)

@@ -29,6 +29,7 @@ def stringFailureKind (reason : StringFailureReason) (kinds : FeltErrorKinds) : 
   match reason with
   | .expected reason => expectedFailureKind reason kinds
   | .truncated => kinds.truncatedKind
+  | .invalidUTF8 => kinds.syntaxKind
 
 def headerValueFailureKind (reason : HeaderValueFailureReason) (kinds : FeltErrorKinds) : GoInterface :=
   match reason with
@@ -74,6 +75,10 @@ theorem stringErrorGlobals_lookup (kinds : FeltErrorKinds) (reason : StringFailu
     unfold FeltErrorGlobals SkipErrorGlobals stringFailureAddr stringFailureKind
     iintro ⟨⟨-, #Htruncated, -, -⟩, -⟩
     iexact Htruncated
+  | invalidUTF8 =>
+    unfold FeltErrorGlobals SkipErrorGlobals stringFailureAddr stringFailureKind
+    iintro ⟨⟨#Hsyntax, -, -, -⟩, -⟩
+    iexact Hsyntax
 
 theorem headerValueFailure_bounds (d consumed offset extraDepth : Nat) (choice : Option HeaderField)
     (wire : List w8) (reason : HeaderValueFailureReason) (hdepth : d ≤ 32)

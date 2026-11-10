@@ -1,5 +1,6 @@
 import ProofCheck.NullableFailure
 import ProofCheck.Payload
+import ProofCheck.StringUtf8Reject
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -72,11 +73,12 @@ theorem wp_readString_expected_failure (c dst : Loc) (old : GoString) (v : curso
   · iframe Hkind Hc Hs
   wp_end
 
-/-- Only failures before UTF-8 validation. Invalid UTF-8 and successful strings
-    require the separate validator contract; no exhaustive classification is claimed. -/
+/-- Payload failures and UTF-8 rejection for an illegal first byte. Other malformed
+    sequences and successful strings remain open; this is not exhaustive. -/
 inductive StringFailureReason where
   | expected (reason : ExpectedFailureReason)
   | truncated
+  | invalidUTF8
 
 inductive StringFailure : List w8 → StringFailureReason → Prop where
   | expected {wire : List w8} {reason : ExpectedFailureReason}
@@ -85,18 +87,24 @@ inductive StringFailure : List w8 → StringFailureReason → Prop where
   | truncated {head : w8} {payload tail : List w8} {argument : w64}
       (enc : HeadArgument head payload argument) (major : head &&& W8 224 = W8 96)
       (short : tail.length < uint.Z argument) : StringFailure ((head :: payload) ++ tail) .truncated
+  | badLead {head b : w8} {payload tail rem : List w8}
+      (enc : HeadArgument head payload (W64 (b :: tail).length))
+      (major : head &&& W8 224 = W8 96) (bad : Utf8BadLead b) :
+      StringFailure ((head :: payload) ++ (b :: tail) ++ rem) .invalidUTF8
 
 def stringFailureAddr (reason : StringFailureReason) : Loc :=
   match reason with
   | .expected reason => expectedFailureAddr (GF := GF) reason
   | .truncated => globalAddr cursor.ErrTruncated
+  | .invalidUTF8 => globalAddr cursor.ErrSyntax
 
 def StringFailureError (err : Loc) (pos : w64) (reason : StringFailureReason) (kind : GoInterface) : IProp GF :=
   match reason with
   | .expected reason => ExpectedFailureError err pos (W8 96) reason kind
   | .truncated => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"byte or text string longer than the input") slice.nil)
+  | .invalidUTF8 => iprop(err ↦ cursor.DecodeError.mk kind pos (go!"text string is not valid UTF-8") slice.nil)
 
-/-- Every specified pre-validation string error is realized by the actual
+/-- Every specified string error is realized by the actual
     typed reader with unchanged destination, cursor and input. -/
 theorem wp_readString_failure (c dst : Loc) (old : GoString) (v : cursor.Cursor) (xs wire : List w8)
     (dq : DFrac) (reason : StringFailureReason) (kind : GoInterface) (failure : StringFailure wire reason)
@@ -114,6 +122,9 @@ theorem wp_readString_failure (c dst : Loc) (old : GoString) (v : cursor.Cursor)
   | @truncated head payload tail argument enc major short =>
     simpa only [stringFailureAddr, StringFailureError] using
       wp_readString_truncated (GF := GF) c dst old v xs payload tail head major argument dq kind enc hp hbytes short
+  | @badLead head b payload tail rem enc major bad =>
+    simpa only [stringFailureAddr, StringFailureError] using
+      wp_readString_bad_lead (GF := GF) c dst old v xs payload tail rem head b dq kind enc major bad hp hbytes
 
 end github_com.NethermindEth.juno.core
 end Perennial

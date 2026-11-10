@@ -106,3 +106,8 @@ import ProofCheck.SchemaInitialize
 
 import ProofCheck.EntryErrorsInitialize
 import ProofCheck.HeaderInitializedAPI
+
+import ProofCheck.Utf8Spec
+import ProofCheck.Utf8Tables
+import ProofCheck.Utf8Reject
+import ProofCheck.StringUtf8Reject
