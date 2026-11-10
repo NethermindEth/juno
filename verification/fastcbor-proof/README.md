@@ -91,15 +91,15 @@ for the word cache, production cached-hit and general field-EOF contracts, gener
 table search for arbitrary input lengths with the Header/GasPrice cache shape,
 general public table-hit and ASCII field-reading contracts, exact search-index
 progress, public integer-key classification/range rejection, key type/tag rejection
-and text-body truncation, malformed/incomplete key-head propagation, and bounded public Header examples. The reproducible audit records the current lemma count.
+and text-body truncation, malformed/incomplete key-head propagation, arbitrary-input Skip classification and a complete public Skip outcome contract, and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures, rejection/converse completeness and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; malformed heads compose recursively through supported containers/tags and into ignored felt contents; shared failure contexts also close recursive incomplete-head, atomic and EOF contracts; count/depth and missing-tag-content instances are closed and unified under SkipFailure, including propagation into ignored felt contents; arbitrary-input classification and converse remain pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures now compose through ignored felt contents; complete felt rejection/classification and UTF-8 pending (generic slice-index fix proposed below) |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; malformed heads compose recursively through supported containers/tags and into ignored felt contents; shared failure contexts also close recursive incomplete-head, atomic and EOF contracts; count/depth and missing-tag-content instances are closed and unified under SkipFailure, including propagation into ignored felt contents; every arbitrary input at supported depth now has a SkipValid prefix or SkipFailure derivation, and wp_Skip_complete composes actual production proofs into a public arbitrary-input outcome contract; pure relation disjointness/uniqueness remains pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -107,7 +107,8 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 
 This is dependency order, not eight isolated phases: nested GasPrice uses field
 lookup, and successful felt decoding now composes the recursive Skip theorem.
-The next primitive work is arbitrary-input Skip acceptance/rejection classification and converse, alongside UTF-8;
+The next primitive work is complete felt acceptance/rejection classification, with
+pure Skip relation disjointness/uniqueness available as a supporting obligation, alongside UTF-8;
 the latter has a proposed one-line repair to the pinned generic slice-index semantics
 (see the approval proposal below), while independent work remains available.
 The general Header relation and field lookup still need development alongside
@@ -261,7 +262,7 @@ The general Header proof now has reusable primitive contracts:
 - `SkipReject.lean`: simple values below 32 encoded in two bytes, strings longer
   than the available input, tags 0–3, and EOF. Public `Skip` restores the complete
   cursor state while retaining the worker's diagnostic offset and owned error.
-  Malformed and incomplete heads are now covered below; recursive rejection remains unproved.
+  Malformed/incomplete heads and recursive rejection are covered by the later contracts below.
 - `SkipSpec.lean`: the recursive application acceptance relation for ignored
   values, including arrays, arbitrary map keys/values, supported tags, all
   definite head widths, and the chained-tag depth rule. Pure proofs establish
@@ -275,9 +276,9 @@ The general Header proof now has reusable primitive contracts:
   child hypothesis and proves the actual worker and public `Skip` for every
   encoding in `SkipValid`, at starting depths 0 through 32. It proves exact
   consumption/suffix, no signed cursor wraparound, and unchanged input, depth
-  and scratch. This is success on the specified valid inputs, not yet a converse
-  or complete rejection theorem; recursive malformed-input behavior remains
-  to be proved. It does not assume a correct recursive child scanner.
+  and scratch. This is the success direction; the rejection and arbitrary-input
+  contracts below complete the public outcome characterization. It does not
+  assume a correct recursive child scanner.
 - `FeltLong.lean`: the actual slow loop for four arbitrary-width unsigned limbs
   followed by any number of values satisfying `SkipValid` at the felt's nested
   depth. Its invariant separates retained limbs from skipped values and proves
@@ -535,10 +536,27 @@ shortcut-exclusion assumptions remain in this public theorem.
 
 `FeltSkipFailure.lean` composes the unified rejection theorem through ignored
 felt contents after arbitrary valid prefixes, preserving the exact inner error
-while restoring outer cursor/depth and the prior output pointer. These are
-soundness results for the independent relation. They do not yet establish that
-every arbitrary input has either a `SkipValid` prefix or a `SkipFailure`
-derivation; that classification and the converse remain the next obligations.
+while restoring outer cursor/depth and the prior output pointer.
+
+`HeadClassification.lean` exhausts every possible byte and remaining input: a
+supported head with exact argument/suffix, a malformed/unsupported head, or an
+incomplete argument. `SkipClassificationSupport.lean` extends classified child
+failures through supported containers/tags and classifies requested child sequences.
+`SkipClassify.lean` proves `skip_classify` for every finite input at depths 0 through
+32 by induction on input length. It yields a `SkipValid` prefix with exact suffix
+or a `SkipFailure` derivation, accounting for depth/count precedence and all leaf
+errors. No chosen-outcome or recursive helper hypothesis remains.
+
+`SkipComplete.lean` composes this exhaustive classification with the checked
+production contracts. `wp_Skip_complete` takes arbitrary unread bytes and returns
+`SkipOutcome`: either exactly one valid item is consumed with its exact suffix,
+or the original cursor is restored with an owned specified diagnostic and a
+nonwrapping inner offset. Full input ownership is preserved in both cases. Package
+initialization and immutable ownership of the four error globals remain explicit
+preconditions. This is a partial-correctness/model-safety contract, not termination
+or strict RFC validation of ignored text. Separate pure proofs of relation
+uniqueness/disjointness have not been added. Complete felt classification and the
+general Header composition are still pending.
 
 `TestSkipRecursiveBoundaryErrors` checks mixed-width tagged arrays/maps leading
 to count errors, missing tag contents and depth-limit failures, including wide
@@ -1080,6 +1098,17 @@ cases. Production decoder behavior and pinned trusted semantics are unchanged.
 Next is arbitrary-input acceptance/rejection classification and converse, then
 the remaining felt and Header ownership/UTF-8/initialization/composition work.
 The general Header theorem is still absent and the frozen performance gate has
+not run.
+
+The arbitrary-input Skip milestone passed full regeneration/check (1967 build
+jobs) with 428 audited theorems, no added transitive axioms, admissions or native
+evaluation axioms. Every finite input at a supported depth is classified, and
+`wp_Skip_complete` proves the corresponding outcome of actual public Skip with
+unchanged input, exact success suffix or full cursor rollback and owned inner
+diagnostics. This change adds only proofs and documentation; production Go and
+the pinned trusted semantics are unchanged. Complete felt classification,
+UTF-8, wider/non-ASCII keys, nested output ownership, initialization and the
+general Header composition remain unfinished. The frozen performance gate has
 not run.
 
 ## Whole-library gates after the Header milestone
