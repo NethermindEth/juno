@@ -77,7 +77,8 @@ specified behavior change and performance evaluation. No such change is made her
 
 Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
-extended-head truncation failures, and bounded public Header examples. The
+extended-head truncation failures, the arbitrary-limb 37-byte felt fast path and
+felt depth rejection, and bounded public Header examples. The
 reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
@@ -85,7 +86,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Empty-array felt witness only; UTF-8 pending |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Arbitrary-limb 37-byte fast path and general depth rejection proved through the typed felt reader; mixed widths, short/long arrays, remaining failures and UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
@@ -175,7 +176,8 @@ The follow-up modules extend this pilot:
 - `Felt.lean`: the production felt reader on an empty-array encoding, including
   allocation, conversion from `*felt.Felt` to `*[4]uint64`, limb stores and
   publication of a nonnil, independently owned zero felt. This is a pointer-conversion
-  witness, not a proof of the four-limb fast path or the general felt contract.
+  witness. The arbitrary-limb fast path is now covered separately in `FeltWide.lean`;
+  the complete felt contract remains pending.
 
 The general Header proof now has reusable primitive contracts:
 
@@ -207,9 +209,20 @@ The general Header proof now has reusable primitive contracts:
 - `Null.lean`: null and undefined at arbitrary offsets, composed with every shared
   scalar/string/felt/signature field reader. Scalar fields stay unchanged; pointer
   and slice fields become nil. Non-null nested allocation contracts are pending.
+- `FeltWide.lean`: the real 37-byte fast path for all four arbitrary uint64 limb
+  values, arbitrary valid input offsets and suffixes, and arbitrary prior output.
+  It proves exact consumption, unchanged depth/scratch/input, and owned output
+  words. The typed reader proof includes fresh nonnull allocation and the named
+  felt-to-array pointer conversion; a round-trip corollary states the result
+  directly in terms of four uint64 words. General depth rejection covers every
+  supported array-head width/count through both limb entry points and the typed
+  reader, preserving the prior output and cursor. `FuzzLimbsWide` constructs
+  valid encodings from arbitrary words, suffixes and nesting depths. Mixed-width
+  shortcuts, the general slow path, excess-element Skip and other failures are
+  still needed for complete felt correctness.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
-critical dependencies are general felt contents, UTF-8, nested signature/GasPrice
+critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
 ownership, field lookup and Skip (including their errors), plus initialization and
 shared table ownership. The earlier restricted Header examples still define the
 current end-to-end proof coverage.

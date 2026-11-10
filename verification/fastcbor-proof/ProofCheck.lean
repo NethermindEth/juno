@@ -1,1 +1,1 @@
-import ProofCheck.Reject
+import ProofCheck.FeltWide
