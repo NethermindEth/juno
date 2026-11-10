@@ -121,11 +121,12 @@ func DecodeHeader(data []byte, dst *Header) error {
 	return err
 }
 
-// RegisterTypedCBORReaders installs the currently generated typed entry points.
+// RegisterTypedCBORReaders installs typed entries that do not require a tag profile.
 func RegisterTypedCBORReaders() {
 	fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
 	registerTypedHeaderProjections()
 	registerTypedReceipts()
 	registerTypedReceiptProjections()
+	registerTypedTransactionHashProjection()
 	fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }

@@ -39,7 +39,7 @@ dirty = subprocess.check_output(["git", "-C", str(here / ".tools/perennial"), "s
 if dirty:
     sys.exit("the pinned Perennial checkout has tracked modifications")
 inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", here / "lean-toolchain", here / "lake-manifest.json", here / "lakefile.toml", here / "check.sh", here / "bootstrap.sh", here / "audit.py"]
-for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/cmd/cborgen"]:
+for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "core/internal/cbortransactions", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/registry", "utils/cbor/cmd/cborgen"]:
     inputs += [p for p in (repo / rel).glob("*.go") if not p.name.endswith("_test.go")]
 inputs += list((here / "config").rglob("*.toml"))
 inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.json"]
@@ -108,7 +108,7 @@ report = {
         "proof": "verification/fastcbor-proof/ProofCheck/InterfaceFeasibility.lean",
         "proved": "actual pointer-to-Transaction boxing for all five registered transaction variants; concrete type-switch classification for arbitrary pointers including typed nil; nil-interface and unrecognized dynamic-type branches",
         "theorems": 12,
-        "boundary": "generated Transaction interface representation and concrete pointer type identities; transaction payload layouts remain outside these witnesses and are not accessed or allocated",
+        "boundary": "generated Transaction interface representation and concrete pointer type identities; transaction payload layouts are now concrete, but these witnesses do not access or allocate payloads",
         "excluded": "CBOR tag parsing and numeric tag-to-type mapping, payload decoding/ownership, dynamic method calls, registration/routing/fallback and class interfaces",
         "scope": "language-feature witnesses only; local classification numbers are not wire tags; no new trusted semantics or helper correctness premise",
     },
@@ -139,6 +139,17 @@ report = {
         "entries": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
         "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
         "proof_status": "translated implementations; complete independent projection specifications, NextWanted contract, table initialization and public entry proofs remain open",
+        "performance": "no timing or performance gate result; compatibility evidence only",
+    },
+    "typed_transactions": {
+        "generator": "utils/cbor/cmd/cborgen/transactions.go",
+        "implementation": "core/cbor_transactions_generated.go",
+        "metadata": "core/internal/cbortransactions/fields_generated.go",
+        "entries": ["Transaction", "transactionHashProjection"],
+        "variants": ["DeclareTransaction", "DeployTransaction", "InvokeTransaction", "L1HandlerTransaction", "DeployAccountTransaction"],
+        "behavior": "explicit tag dispatch and typed pointer-to-interface boxing; flattened value embedding; named transaction versions and uint32 modes; ordinary Go resource maps with complete replacement on duplicate keys; value-felt hash projection with first-wins selection; zero guards including typed-nil interface rejection, exact suffix, owned output and cleanup",
+        "tag_boundary": "CBORTransactionTags is an explicit by-value input to the direct API; registry initialization captures actual encoded tags and installs a closure over the validated distinct profile; registry/tag assignment and routing adapter are outside proof scope; independent transaction specification and the connection to the application tag profile remain open",
+        "proof_status": "translated concrete layouts and implementations; complete independent transaction/map/projection specifications, helpers, initialization and API contracts remain open",
         "performance": "no timing or performance gate result; compatibility evidence only",
     },
     "typed_receipts": {
@@ -217,7 +228,7 @@ report = {
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. Header, its five projections, BlockTransactionsIndexes and the receipt family have registered typed readers (11 of 15 manifested destinations); transaction, transaction-hash projection, state and class roots retain the original planner. Projection, integer-key index and receipt implementations are translated and behavior-tested, but their complete decoder contracts remain open. Projection and receipt table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction and transactionHashProjection have registered typed readers (13 of 15 manifested destinations); state and class roots retain the original planner. Projection, integer-key index, receipt and transaction implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction decoding takes an explicit tag profile; its connection to registry initialization is outside the proof boundary. Projection, receipt and transaction table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

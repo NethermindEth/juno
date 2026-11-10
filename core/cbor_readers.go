@@ -221,3 +221,81 @@ func cborReadAddress(c *cursor.Cursor, dst *eth.Address) error {
 	}
 	return c.BytesInto(dst[:])
 }
+
+func cborReadFeltValue(c *cursor.Cursor, dst *felt.Felt) error {
+	if c.Null() {
+		return nil
+	}
+	return c.Limbs((*[4]uint64)(dst))
+}
+
+func cborReadPlainFeltValues(c *cursor.Cursor, dst *[]felt.Felt) error {
+	value, err := cursor.LimbSlice[felt.Felt](c)
+	if err == nil {
+		*dst = value
+	}
+	return err
+}
+
+func cborReadTransactionVersion(c *cursor.Cursor, dst **TransactionVersion) error {
+	if c.Null() {
+		*dst = nil
+		return nil
+	}
+	value := new(TransactionVersion)
+	if err := c.Limbs((*[4]uint64)(value)); err != nil {
+		return err
+	}
+	*dst = value
+	return nil
+}
+
+func cborReadDataAvailabilityMode(c *cursor.Cursor, dst *DataAvailabilityMode) error {
+	if c.Null() {
+		return nil
+	}
+	value, err := c.Uint64()
+	if err != nil {
+		return err
+	}
+	if value > math.MaxUint32 {
+		return cursor.ErrType
+	}
+	*dst = DataAvailabilityMode(value)
+	return nil
+}
+
+// Map entries replace earlier values in full, including when a later value is
+// null or a partial record. A fresh zero temporary preserves the planner's slot
+// clearing without runtime map-assignment hooks or reflection.
+func cborReadResourceBoundsMap(c *cursor.Cursor, dst *map[Resource]ResourceBounds) error {
+	if c.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := c.MapLen()
+	if err != nil {
+		return err
+	}
+	out := make(map[Resource]ResourceBounds, count)
+	for ; count > 0; count-- {
+		if c.Null() {
+			return cursor.ErrUnsupported
+		}
+		key, err := c.Uint64()
+		if err != nil {
+			return err
+		}
+		if key > math.MaxUint32 {
+			return cursor.ErrType
+		}
+		var value ResourceBounds
+		if err := cborReadResourceBounds(c, &value); err != nil {
+			return err
+		}
+		out[Resource(key)] = value
+	}
+	c.Leave()
+	*dst = out
+	return nil
+}

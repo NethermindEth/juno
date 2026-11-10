@@ -39,6 +39,7 @@ func init() {
 			reflect.TypeOf(starknet.WALTimeout{}),
 		}
 
+		var transactionTags core.CBORTransactionTags
 		for _, t := range types {
 			err := cbor.RegisterType(t)
 			if err != nil {
@@ -54,7 +55,20 @@ func init() {
 				panic(err)
 			}
 			fastcbor.RegisterType(t, tag)
+			switch t {
+			case reflect.TypeFor[core.DeclareTransaction]():
+				transactionTags.DeclareTransaction = tag
+			case reflect.TypeFor[core.DeployTransaction]():
+				transactionTags.DeployTransaction = tag
+			case reflect.TypeFor[core.InvokeTransaction]():
+				transactionTags.InvokeTransaction = tag
+			case reflect.TypeFor[core.L1HandlerTransaction]():
+				transactionTags.L1HandlerTransaction = tag
+			case reflect.TypeFor[core.DeployAccountTransaction]():
+				transactionTags.DeployAccountTransaction = tag
+			}
 		}
 		core.RegisterTypedCBORReaders()
+		core.RegisterTypedTransactionReader(transactionTags)
 	})
 }

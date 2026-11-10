@@ -136,12 +136,13 @@ func DecodeHeader(data []byte,dst *Header) error {
  return err
 }
 
-// RegisterTypedCBORReaders installs the currently generated typed entry points.
+// RegisterTypedCBORReaders installs typed entries that do not require a tag profile.
 func RegisterTypedCBORReaders() {
  fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
  registerTypedHeaderProjections()
  registerTypedReceipts()
  registerTypedReceiptProjections()
+ registerTypedTransactionHashProjection()
  fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }
 `)
@@ -161,6 +162,10 @@ func RegisterTypedCBORReaders() {
 	if err != nil {
 		return err
 	}
+	transactions, transactionSchema, err := emitTransactions(p)
+	if err != nil {
+		return err
+	}
 	outputs := []struct {
 		path string
 		buf  *bytes.Buffer
@@ -171,6 +176,8 @@ func RegisterTypedCBORReaders() {
 		{"core/internal/cborprojections/fields_generated.go", projectionSchema},
 		{"core/cbor_indexes_generated.go", indexes},
 		{"core/cbor_receipts_generated.go", receipts},
+		{"core/cbor_transactions_generated.go", transactions},
+		{"core/internal/cbortransactions/fields_generated.go", transactionSchema},
 		{"core/internal/cborreceipts/fields_generated.go", receiptSchema},
 		{"core/cbor_receipt_projections_generated.go", receiptProjections},
 		{"core/internal/cborprojections/receipts_generated.go", receiptProjectionSchema},
