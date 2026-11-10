@@ -29,3 +29,9 @@ import ProofCheck.HeaderOwnership
 import ProofCheck.HeaderFeltFields
 
 import ProofCheck.HeaderFeltComplete
+
+import ProofCheck.HeaderSignatures
+
+import ProofCheck.ScalarComplete
+
+import ProofCheck.HeaderScalars
