@@ -82,7 +82,9 @@ general felt success through an independent nullable/short/extended wire relatio
 felt depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
 definite payload success/truncation and public byte/string propagation contracts,
 general ASCII folding and two-pass name matching, field-bit marking and duplicate
-rejection, and bounded public Header examples. The reproducible audit records the current lemma count.
+rejection, integer-key classification/overflow, key type/tag rejection and text-body
+truncation through public Key and alternate field lookup, and bounded public Header
+examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
@@ -90,7 +92,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; cached lookup and Key decoding remain generalization work. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; cached lookup, successful text keys and remaining head-error propagation are pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -313,6 +315,21 @@ unsupported untyped-rune arithmetic in the pinned Goose. The Go helper now uses
 the intended folding policy nor the trusted tooling. The pending generic
 slice-index repair for the standard-library UTF-8 validator is separate.
 
+`KeyInteger.lean` proves integer-key classification for arbitrary unsigned and
+negative integer heads, all five argument widths, arbitrary cursor offsets and
+suffixes. Arguments below 2^63 are consumed as non-text keys; larger arguments
+return an owned type error and restore the original cursor. It checks the byte
+subtraction in public `Key` so non-text heads cannot enter the text fast path,
+and composes both outcomes through `otherField` (unknown versus error).
+`KeyReject.lean` proves wrong-type/tag diagnostics and short text-body rejection,
+including oversized length arguments. The public truncation proof follows both
+short-text fast-path cases and every wider length header before reaching the
+slow worker. The original cursor and whole input are preserved on each error;
+the alternate-field path propagates the error without accessing struct metadata.
+These are contracts for the actual translated implementations. Successful text
+keys, ASCII/UTF-8 validation, remaining head-error propagation and cached lookup
+still need proofs; they are not assumed by these theorems.
+
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
 ownership, field lookup and Skip (including their errors), plus initialization and
@@ -445,6 +462,20 @@ compiling the isolated old and new `equalFoldASCII` functions produced identical
 `4f407862f2de9ad5d091752914bcb12b270e2be2ed1c9ac3a97cac475d8d9d56`.
 That narrow compiler check is not the frozen whole-library performance gate,
 which has not run.
+
+The key-classification milestone passed full regeneration/check with 221 audited
+theorems and no added transitive axioms. The cursor suite and targeted typed
+Header tests passed. `FuzzIntegerKey` completed 686,996 executions in ten seconds,
+covering both integer major types, all five widths, the int64 boundary, nonzero
+offsets, depth up to 32, exact suffixes and retryable truncated heads. Key rejection
+and fuzz seeds also passed with `-race -gcflags=all=-d=checkptr`. Deterministic
+text-key tests cover every short-body prefix around the inline/one-byte boundary
+and lengths above the signed range, with both ASCII and invalid UTF-8 prefixes.
+Header integration checks repeated unknown integer keys with nested values against
+FX and the original planner, and verifies cleanup/error offsets after oversized
+keys. These runtime checks do not replace the remaining general Header proof.
+No production decoder or trusted semantics changed in this milestone; the frozen
+performance gate still has not run.
 
 ## Whole-library gates after the Header milestone
 

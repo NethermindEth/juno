@@ -344,3 +344,59 @@ func TestTypedHeaderExtendedFelt(t *testing.T) {
 		})
 	}
 }
+
+// Unknown integer keys must consume exactly their values, including repeated
+// keys. An oversized integer key after a populated field must clear that field.
+func TestTypedHeaderIntegerKeys(t *testing.T) {
+	keys := [][]byte{
+		{0}, {0x20}, {0x18, 0}, {0x38, 0}, {0x19, 0, 0}, {0x39, 0, 0},
+		{0x1a, 0, 0, 0, 0}, {0x3a, 0, 0, 0, 0},
+	}
+	for _, major := range []byte{0, 0x20} {
+		for _, argument := range []uint64{0, 1<<63 - 1} {
+			keys = append(keys, binary.BigEndian.AppendUint64([]byte{major | 27}, argument))
+		}
+	}
+	for i, key := range keys {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			record := []byte{0xa3, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 17}
+			record = append(record, key...)
+			record = append(record, 0xa1, 0x61, 'x', 0x82, 0, 0xf6)
+			record = append(record, key...)
+			record = append(record, 0x80)
+			input := append(bytes.Clone(record), 0xff, 0x00)
+			before := bytes.Clone(input)
+			var got, fx core.Header
+			var planned plannerHeader
+			rest, err := core.DecodeHeaderFirst(input, &got)
+			require.NoError(t, err)
+			require.Equal(t, core.Header{Number: 17}, got)
+			require.Equal(t, []byte{0xff, 0x00}, rest)
+			require.NoError(t, cbor.Unmarshal(record, &fx))
+			require.NoError(t, fastcbor.Unmarshal(record, &planned))
+			require.Equal(t, fx, got)
+			require.Equal(t, core.Header(planned), got)
+			require.Equal(t, before, input)
+		})
+	}
+	for _, major := range []byte{0, 0x20} {
+		for _, argument := range []uint64{1 << 63, ^uint64(0)} {
+			record := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 17}
+			keyOffset := len(record)
+			record = binary.BigEndian.AppendUint64(append(record, major|27), argument)
+			record = append(record, 0xf6)
+			before := bytes.Clone(record)
+			var got core.Header
+			rest, err := core.DecodeHeaderFirst(record, &got)
+			require.ErrorIs(t, err, cursor.ErrType)
+			var detail *cursor.DecodeError
+			require.ErrorAs(t, err, &detail)
+			require.Equal(t, keyOffset, detail.Offset)
+			require.Nil(t, rest)
+			require.Equal(t, core.Header{}, got)
+			require.ErrorIs(t, core.DecodeHeader(record, &got), cursor.ErrType)
+			require.Equal(t, core.Header{}, got)
+			require.Equal(t, before, record)
+		}
+	}
+}
