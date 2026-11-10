@@ -82,3 +82,9 @@ import ProofCheck.HeaderMapKeyFailure
 import ProofCheck.HeaderLookupFailure
 
 import ProofCheck.HeaderLookupFailureAPI
+
+import ProofCheck.HeaderValueFailureSpec
+
+import ProofCheck.HeaderMapValueFailure
+
+import ProofCheck.HeaderValueFailureAPI
