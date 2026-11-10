@@ -73,10 +73,68 @@ These choices are to be formalized explicitly; this list is not a completed
 proof. Strict validation of all ignored CBOR content would require a separately
 specified behavior change and performance evaluation. No such change is made here.
 
-The implementation proof order is general head/uint contracts, container and felt
-contracts, strings and nested outputs, field lookup/Skip, then the Header loop and
-public entries. Initialization and immutable shared-table ownership must also be
-closed. General success and error proofs must replace the current bounded examples.
+### Header work queue and exit criteria
+
+Status at `f4f7db81a`: 99 audited lemmas, general head/uint/container success and
+null-field contracts, selected error paths, and bounded public Header examples.
+The count is not a coverage percentage. The complete Header theorem is absent.
+
+| Order | Work | Exit criterion | Current status |
+| --- | --- | --- | --- |
+| 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
+| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | General success paths and selected truncation paths proved |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Empty-array felt witness only; UTF-8 pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
+| 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
+| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
+| 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
+
+This is dependency order, not eight isolated phases: the felt slow path also needs
+Skip, and nested GasPrice uses field lookup. Useful independent work can advance
+while those dependencies are being proved. The next implementation work is to
+close the primitive error contracts and generalize felt decoding, with the Header
+relation developed alongside them. BigInt, tagged transaction interfaces and
+ordinary Go maps do not block this Header milestone.
+
+### Definition of Header complete
+
+The deliverable is the existing generated Go Header/GasPrice readers plus explicit
+specifications and Lean proofs about their translated production implementations.
+For any input bytes and valid owned destination satisfying the API's memory
+preconditions, the public theorems must characterize the specified outcomes:
+
+- **Successful First decoding:** all Header fields and nested values match the
+  application contract; the returned slice is exactly the unread input suffix;
+  input bytes are unchanged. Output data does not borrow the input; permitted
+  sharing between output elements is described by the ownership predicate.
+- **Successful full decoding:** the same result, with no trailing bytes.
+- **Failures:** malformed, type-mismatched, unsupported and depth/count-limited
+  cases follow the specified classification and structured error information.
+  Parse failures and trailing-data rejection leave a zero Header; First returns
+  a nil suffix on failure. A nonzero destination is rejected unchanged.
+- **Coverage:** all fields, arbitrary supported encodings, orders and nested
+  contents, including null/undefined and nil/empty distinctions. A theorem for
+  one fixed serialized Header, or only encoder-produced seeds, does not qualify.
+- **Closed decoder obligations:** helper correctness, field-table initialization
+  and read-only sharing are proved rather than postulated or left as unexplained
+  decoder-specific preconditions. Generated-code drift and relevant source hashes
+  are checked. The final audit documents the actual semantic/dependency boundary.
+
+These remain partial-correctness/model-safety claims on the pinned 64-bit target;
+termination, resource exhaustion, the Go compiler and concrete runtime are outside
+scope. They are not Starknet consensus validation or validation of every ignored
+CBOR value. FX equivalence and the routing/registration/fallback/formatting layer
+are outside the formal claim. The generator itself is not the proof target: the
+emitted readers and their mapping to the independent schema are checked.
+
+Header completion is the first substantial end-to-end result, not completion of
+the decoder-library project or approval to deploy. It will show whether the proof
+contracts compose for this representative type. Further required shapes still need
+feasibility checks. Before expanding to full-library proofs, enumerate the exact
+remaining production roots in a checked manifest, implement their typed readers,
+pass compatibility checks and the frozen performance gate below. The 185-case
+benchmark universe is not itself a manifest of formally verified entry points.
 
 ## What Lean checks
 
@@ -202,7 +260,7 @@ and tests every truncation inside each extended head. That test also passes with
 using an FX-produced expected result. These counts are historical observations, not
 promises about future runs.
 
-## Remaining gates, in order
+## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** connect the proved field factories to global
    initialization; verify witnesses for nested slices/maps, tagged interfaces,
