@@ -1,3 +1,4 @@
+import ProofCheck.HeaderSeen
 import ProofCheck.HeaderOwnership
 import ProofCheck.ScalarComplete
 
@@ -110,34 +111,39 @@ theorem headerGasState_set_scalar (base : Loc) (h : Header) (old : HeaderValue)
     HeaderGasState (GF := GF) base (headerSetScalarWord field h word) (headerSetScalarValue field old word) =
       HeaderGasState base h old := by cases field <;> rfl
 
+theorem headerGasReady_set_scalar (base : Loc) (h : Header) (old : HeaderValue)
+    (field : HeaderScalarField) (word : w64) (seen : w64) :
+    HeaderGasReady (GF := GF) base (headerSetScalarWord field h word) (headerSetScalarValue field old word) seen =
+      HeaderGasReady base h old seen := by cases field <;> rfl
+
 /-- The field relation uses the independent old application value, so null and
     undefined retain that value even for a previously populated Header. -/
-def HeaderScalarOutcome (c dst base : Loc) (h : Header) (old : HeaderValue) (field : HeaderScalarField)
+def HeaderScalarOutcome (c dst base : Loc) (h : Header) (old : HeaderValue) (field : HeaderScalarField) (seen : w64)
     (v : cursor.Cursor) (xs wire : List w8) (kinds : FeltErrorKinds) (result : GoInterface) : IProp GF := iprop(
   (∃ (item rest : List w8) (value : w64), dst ↦ headerSetScalarWord field h value ∗
     HeaderBody (headerSetScalarWord field h value) (headerSetScalarValue field old value) ∗
-    HeaderGasState base (headerSetScalarWord field h value) (headerSetScalarValue field old value) ∗
+    HeaderGasReady base (headerSetScalarWord field h value) (headerSetScalarValue field old value) seen ∗
     c ↦ {v with pos' := v.pos' + W64 item.length} ∗
     ⌜result = interface.nil ∧ wire = item ++ rest ∧ ScalarValid (headerScalarValue field old) item value ∧
       sint.Z (v.pos' + W64 item.length) = sint.Z v.pos' + item.length ∧
       sint.Z (v.pos' + W64 item.length) ≤ sint.Z v.buf'.len ∧
       subslice (sint.nat (v.pos' + W64 item.length)) (sint.nat v.buf'.len) xs = rest⌝) ∨
-  (∃ (reason : ExpectedFailureReason) (err : Loc), dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗ c ↦ v ∗
+  (∃ (reason : ExpectedFailureReason) (err : Loc), dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗
     ExpectedFailureError err v.pos' (W8 0) reason (expectedFailureKind reason kinds) ∗
     ⌜result = interface.mkOk (go.PointerType cursor.DecodeError.ty) #err ∧ ScalarFailure wire reason⌝))
 
 /-- All five actual scalar calls preserve the other fourteen fields, nested
     children and private shared allocation on arbitrary input. -/
-theorem wp_headerScalar_complete (c dst base : Loc) (h : Header) (old : HeaderValue) (field : HeaderScalarField)
+theorem wp_headerScalar_complete (c dst base : Loc) (h : Header) (old : HeaderValue) (field : HeaderScalarField) (seen : w64)
     (v : cursor.Cursor) (xs wire : List w8) (dq : DFrac) (kinds : FeltErrorKinds)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       FeltErrorGlobals kinds ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       FeltErrorGlobals kinds ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (if headerScalarMode field then (@! cborReadMode) else (@! cborReadUint64))) (Val #c))
         (Val #(structFieldRef Header (headerScalarName field) dst)))
     {{ (result : GoInterface), RET #result;
-       v.buf' ↦*{dq} xs ∗ HeaderScalarOutcome c dst base h old field v xs wire kinds result }} := by
+       v.buf' ↦*{dq} xs ∗ HeaderScalarOutcome c dst base h old field seen v xs wire kinds result }} := by
   iintro %Φ ⟨#Hpkg, Hglobals, Hh, Hchildren, Hprices, Hc, Hs⟩ HΦ
   isimp only [HeaderBody] at Hchildren
   icases Hchildren with ⟨%Hscalars, Hchildren⟩
@@ -160,7 +166,7 @@ theorem wp_headerScalar_complete (c dst base : Loc) (h : Header) (old : HeaderVa
     ihave Hbody := headerBody_set_scalar h old field value $$ Hbody
     ileft
     iexists item, rest, value
-    isimp only [headerGasState_set_scalar]
+    isimp only [headerGasReady_set_scalar]
     iframe Hh Hbody Hprices Hc
     ipureintro
     simpa only [hword] using Hnext
@@ -181,3 +187,4 @@ end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.headerBody_set_scalar
 #print axioms Perennial.github_com.NethermindEth.juno.core.headerGasState_set_scalar
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_headerScalar_complete
+#print axioms Perennial.github_com.NethermindEth.juno.core.headerGasReady_set_scalar

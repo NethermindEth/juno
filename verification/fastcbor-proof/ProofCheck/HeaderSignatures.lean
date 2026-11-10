@@ -1,3 +1,4 @@
+import ProofCheck.HeaderSeen
 import ProofCheck.HeaderOwnership
 import ProofCheck.SignaturesComplete
 
@@ -48,20 +49,25 @@ theorem headerGasState_set_signatures (base : Loc) (h : Header) (old : HeaderVal
     HeaderGasState (GF := GF) base {h with Signatures' := p} {old with signatures := value} =
       HeaderGasState base h old := by rfl
 
+theorem headerGasReady_set_signatures (base : Loc) (h : Header) (old : HeaderValue)
+    (p : GoSlice) (value : Option (List SignatureValue)) (seen : w64) :
+    HeaderGasReady (GF := GF) base {h with Signatures' := p} {old with signatures := value} seen =
+      HeaderGasReady base h old seen := by rfl
+
 /-- The Header signature branch preserves the other fields and private shared
     prices. On failure the old signature value remains owned, even when parsing
     failed inside a partially constructed nested signature. -/
-def HeaderSignaturesOutcome (c dst base : Loc) (h : Header) (old : HeaderValue) (v : cursor.Cursor) (xs wire : List w8)
+def HeaderSignaturesOutcome (c dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64) (v : cursor.Cursor) (xs wire : List w8)
     (d : Nat) (kinds : FeltErrorKinds) (result : GoInterface) : IProp GF := iprop(
   (∃ (item rest : List w8) (value : Option (List SignatureValue)) (p : GoSlice),
     dst ↦ {h with Signatures' := p} ∗
     HeaderBody {h with Signatures' := p} {old with signatures := value} ∗
-    HeaderGasState base {h with Signatures' := p} {old with signatures := value} ∗ c ↦ {v with pos' := v.pos' + W64 item.length} ∗
+    HeaderGasReady base {h with Signatures' := p} {old with signatures := value} seen ∗ c ↦ {v with pos' := v.pos' + W64 item.length} ∗
     ⌜result = interface.nil ∧ wire = item ++ rest ∧ SignaturesValid d item value ∧
       sint.Z (v.pos' + W64 item.length) = sint.Z v.pos' + item.length ∧
       sint.Z (v.pos' + W64 item.length) ≤ sint.Z v.buf'.len ∧
       subslice (sint.nat (v.pos' + W64 item.length)) (sint.nat v.buf'.len) xs = rest⌝) ∨
-  (∃ (consumed offset : Nat) (extraDepth : Nat) (reason : FeltFailureReason) (err : Loc), dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗
+  (∃ (consumed offset : Nat) (extraDepth : Nat) (reason : FeltFailureReason) (err : Loc), dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗
     c ↦ {v with pos' := v.pos' + W64 consumed, depth' := v.depth' + W64 extraDepth} ∗
     FeltFailureError err (v.pos' + W64 offset) reason (feltFailureKind reason kinds) ∗
     ⌜result = interface.mkOk (go.PointerType cursor.DecodeError.ty) #err ∧
@@ -73,16 +79,16 @@ def HeaderSignaturesOutcome (c dst base : Loc) (h : Header) (old : HeaderValue) 
 
 /-- Compose the already proved arbitrary-input nested reader at its actual
     Header destination. No child-reader correctness premise is assumed. -/
-theorem wp_headerSignatures_complete (c dst base : Loc) (h : Header) (old : HeaderValue)
+theorem wp_headerSignatures_complete (c dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64)
     (v : cursor.Cursor) (xs wire : List w8) (dq : DFrac) (d : Nat) (kinds : FeltErrorKinds)
     (hd : sint.Z v.depth' = d) (hdepth : d ≤ 32)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       FeltErrorGlobals kinds ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       FeltErrorGlobals kinds ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadSignatures)) (Val #c)) (Val #(structFieldRef Header go!"Signatures" dst)))
     {{ (result : GoInterface), RET #result;
-       v.buf' ↦*{dq} xs ∗ HeaderSignaturesOutcome c dst base h old v xs wire d kinds result }} := by
+       v.buf' ↦*{dq} xs ∗ HeaderSignaturesOutcome c dst base h old seen v xs wire d kinds result }} := by
   wp_start_folded as ⟨Hglobals, Hh, Hchildren, Hprices, Hc, Hs⟩
   icases headerSignatures_acc dst h $$ Hh with ⟨Hfield, Hclose⟩
   wp_apply wp_readSignatures_complete c (structFieldRef Header go!"Signatures" dst) h.Signatures'
@@ -98,7 +104,7 @@ theorem wp_headerSignatures_complete (c dst base : Loc) (h : Header) (old : Head
     · iframe Hchildren Hvalue
     ileft
     iexists item, rest, value, p
-    isimp only [headerGasState_set_signatures]
+    isimp only [headerGasReady_set_signatures]
     iframe Hh Hchildren Hprices Hc
     ipureintro
     exact Hnext
@@ -116,3 +122,4 @@ end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.headerBody_set_signatures
 #print axioms Perennial.github_com.NethermindEth.juno.core.headerGasState_set_signatures
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_headerSignatures_complete
+#print axioms Perennial.github_com.NethermindEth.juno.core.headerGasReady_set_signatures

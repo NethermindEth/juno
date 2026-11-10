@@ -119,9 +119,14 @@ errors still need composition into the Header cleanup contract. Pure relation un
 a supporting obligation. UTF-8 still has the proposed one-line repair to the pinned
 generic slice-index semantics (see the approval proposal below); independent
 composition work remains available.
-The full Header value/ownership shape and six actual felt-field calls now have
-contracts that preserve the private shared-price state. The Header wire relation,
-remaining field kinds, dispatch/loop and public-API composition still need work.
+The full Header value/ownership shape, felt/scalar/signature calls and currently
+specified string paths now preserve the stronger shared-price readiness state.
+Success contracts for felt/scalar/signature fields also mark the selected schema
+identity. Fresh GasPrice calls now derive zero initial contents from unseen-field
+readiness, regardless of which sibling allocated the pair first; their specified
+failures preserve the public Header while retaining private partial ownership.
+The Header wire relation, full dispatch/map loop, remaining string/key cases and
+public-API composition still need work.
 BigInt, tagged transaction interfaces and ordinary Go maps do not block this
 Header milestone.
 
@@ -1514,6 +1519,36 @@ The loop still must compose these transitions with all field contracts, and
 successful/invalid UTF-8 strings, wider/non-ASCII keys, full GasPrice classification,
 initialization and the performance gate remain pending. Production Go and pinned
 trusted semantics are unchanged.
+
+### Uniform Header field-state milestone
+
+The uniform field-state milestone passed full regeneration/check (2039 build
+jobs), with 651 audited theorems, matching source hashes and no added transitive
+axioms or admissions. `HeaderFeltComplete`, `HeaderScalars`, `HeaderSignatures`
+and the currently proved `HeaderString` paths now retain `HeaderGasReady`, rather
+than losing the unseen-slot invariant by returning only `HeaderGasState`.
+
+`HeaderGasFresh` closes actual price-field success and every currently specified
+failure from a common readiness precondition. The unseen key implies a zero,
+unpublished selected slot; owned array contents supply its concrete element.
+The wrapper handles both allocation states without requiring callers to choose
+one or supply layout/zero-value premises. Successful maps publish their specified
+value from zero. Failure preserves every public Header field and abstract value,
+while retaining ownership of private partial contents and the exact diagnostic,
+cursor and depth. It does not claim exhaustive GasPrice classification.
+
+`HeaderFieldSuccess` composes actual felt/scalar/signature calls with their
+independent successful input relations and the updated seen mask. It retains
+other fields, nested ownership, exact suffixes, input bytes and bounded cursor
+advancement. These contracts can be used directly by the map-loop proof without
+assuming child correctness or first proving that an existentially classified
+success equals the intended value.
+
+These are field-call composition proofs. The complete Header wire relation,
+actual dispatch/map loop, successful/invalid UTF-8 paths, wider/non-ASCII keys,
+exhaustive GasPrice classification, initialization and public API composition
+remain unfinished. Production Go, generated translations and pinned trusted
+semantics are unchanged; the frozen performance gate has not run.
 
 ## Whole-library gates after the Header milestone
 

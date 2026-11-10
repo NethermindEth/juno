@@ -65,3 +65,6 @@ import ProofCheck.HeaderKeyDuplicate
 import ProofCheck.HeaderSeen
 
 import ProofCheck.HeaderGasReady
+
+import ProofCheck.HeaderGasFresh
+import ProofCheck.HeaderFieldSuccess

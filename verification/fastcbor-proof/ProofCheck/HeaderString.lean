@@ -1,3 +1,4 @@
+import ProofCheck.HeaderSeen
 import ProofCheck.HeaderOwnership
 import ProofCheck.StringFailure
 
@@ -35,15 +36,15 @@ theorem headerString_acc (dst : Loc) (h : Header) :
 
 /-- Null/undefined preserve the old protocol string and every other field,
     consuming exactly one byte without changing the nesting depth. -/
-theorem wp_headerString_null (c dst base : Loc) (h : Header) (old : HeaderValue)
+theorem wp_headerString_null (c dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64)
     (v : cursor.Cursor) (xs rem : List w8) (head : w8) (dq : DFrac)
     (hn : head = W8 246 ∨ head = W8 247)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = head :: rem) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadString)) (Val #c)) (Val #(structFieldRef Header go!"ProtocolVersion" dst)))
-    {{ RET #interface.nil; dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗
+    {{ RET #interface.nil; dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗
        c ↦ {v with pos' := v.pos' + W64 1} ∗ v.buf' ↦*{dq} xs ∗
        ⌜sint.Z (v.pos' + W64 1) = sint.Z v.pos' + 1 ∧ sint.Z (v.pos' + W64 1) ≤ sint.Z v.buf'.len ∧
          subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs = rem⌝ }} := by
@@ -62,17 +63,17 @@ theorem wp_headerString_null (c dst base : Loc) (h : Header) (old : HeaderValue)
 /-- Specified errors before UTF-8 validation preserve the complete Header and
     all child ownership, with the exact owned diagnostic at the original offset.
     Successful text and invalid UTF-8 still require the validator contract. -/
-theorem wp_headerString_failure (c dst base : Loc) (h : Header) (old : HeaderValue)
+theorem wp_headerString_failure (c dst base : Loc) (h : Header) (old : HeaderValue) (seen : w64)
     (v : cursor.Cursor) (xs wire : List w8) (dq : DFrac) (reason : StringFailureReason) (kind : GoInterface)
     (failure : StringFailure wire reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       stringFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗
+       stringFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadString)) (Val #c)) (Val #(structFieldRef Header go!"ProtocolVersion" dst)))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
-       dst ↦ h ∗ HeaderBody h old ∗ HeaderGasState base h old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗
+       dst ↦ h ∗ HeaderBody h old ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗
        StringFailureError err v.pos' reason kind }} := by
   wp_start_folded as ⟨#Hkind, Hh, Hbody, Hprices, Hc, Hs⟩
   icases headerString_acc dst h $$ Hh with ⟨Hfield, Hclose⟩
