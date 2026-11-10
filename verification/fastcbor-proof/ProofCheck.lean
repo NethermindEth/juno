@@ -1,1 +1,1 @@
-import ProofCheck.FeltExtraReject
+import ProofCheck.FeltLimbReject

@@ -83,3 +83,36 @@ func TestLimbsErrorsAfterPrefix(t *testing.T) {
 		}
 	}
 }
+
+// A long remainder must not turn a bad limb into a successful wide-form read.
+// All earlier limbs use eight-byte arguments, and later bytes imitate valid
+// wide-form heads so each offending limb must be checked in its own right.
+func TestLimbsRejectsWideShapePadding(t *testing.T) {
+	for index := range cursor.Limbs {
+		for _, fault := range []struct {
+			head byte
+			kind error
+		}{{0x20, cursor.ErrType}, {0xc0, cursor.ErrUnsupported}, {0x1c, cursor.ErrSyntax}} {
+			for _, suffix := range []int{0, 1, 20} {
+				input := append([]byte{0, 1, 2, 0x84}, bytes.Repeat([]byte{0x1b}, 36+suffix)...)
+				badOffset := 4 + 9*index
+				input[badOffset] = fault.head
+				before := bytes.Clone(input)
+				r := openSkipCursor(t, input, 0)
+				old := [cursor.Limbs]uint64{9, 8, 7, 6}
+				got := old
+				for range 2 {
+					err := r.Limbs(&got)
+					require.ErrorIs(t, err, fault.kind)
+					var detail *cursor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, badOffset, detail.Offset)
+					require.Equal(t, 3, r.Pos())
+					require.Equal(t, input[3:], r.Remaining())
+					require.Equal(t, old, got)
+				}
+				require.Equal(t, before, input)
+			}
+		}
+	}
+}
