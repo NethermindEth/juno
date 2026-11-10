@@ -2502,6 +2502,36 @@ contracts remain open. The proposed trusted generic-index repair is unapplied.
 Production Go and pinned trusted semantics are unchanged; the frozen performance
 gate has not run.
 
+### General key-to-field proof composition
+
+Full regeneration/check passed (2125 build jobs): **941 audited theorems**,
+298 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. The full log is `check-field-key-composition-full.log`.
+
+`wp_otherField_text` composes a proved text Key contract with the actual borrowed
+name matching, case folding, seen-bit update and owned duplicate diagnostic.
+`wp_nextField_miss_text` and `wp_nextField_text` lift this through the actual
+cache/search paths, preserving exact cursor/suffix/search-index progress and
+fractional input/table ownership. Their statements no longer restrict text keys
+to ASCII or inline/one-byte length encodings. The existing closed ASCII theorems
+now instantiate this composition with `wp_Key_ascii`; their caller contracts and
+proved input families are unchanged.
+
+`FieldKeySpec.lean` proves cached ASCII schema entries satisfy the complete
+independent `KeyValid` relation. Consequently every `KeyRejected` input misses
+every cached entry, including all malformed UTF8 sequences. The production
+`wp_nextField_keyRejected` composition takes a proved Key rejection through
+`otherField` and public cache/search dispatch, retaining exact owned errors,
+cursor state and the one-pair decrement.
+
+The general success and rejection wrappers have **explicit Key WP premises**.
+They do not add closed wider/non-ASCII Key coverage, assume validator correctness,
+or complete the Header implementation theorem. They isolate the remaining parser
+obligation so that the eventual general Key proof can reuse the checked matching,
+duplicate and cache composition. The trusted generic-index repair remains
+unapplied and the frozen performance gate has not run. Production Go is unchanged.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

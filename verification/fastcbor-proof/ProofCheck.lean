@@ -146,3 +146,5 @@ import ProofCheck.HeaderDisjoint
 import ProofCheck.SkipFailureUnique
 
 import ProofCheck.HeaderOutcomeUnique
+
+import ProofCheck.FieldKeySpec

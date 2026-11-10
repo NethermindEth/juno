@@ -91,9 +91,81 @@ theorem fieldSearchAdvance_bounds (order : List cursor.StaticField) (wire : List
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics] [package_sem : Assumptions]
 
-/-- A single application-facing field-reading contract for all cache paths,
-    arbitrary field order and inline/one-byte ASCII keys. -/
-theorem wp_nextField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
+/-- Cache-miss composition for any text key with a proved Key contract.
+    Wider/non-ASCII parsing remains an explicit obligation of the caller. -/
+theorem wp_nextField_miss_text (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
+    (names : List GoString) (xs payload key rem : List w8) (head : w8)
+    (order : List cursor.StaticField) (qf qo qn dq : DFrac) (kind : GoInterface)
+    (hfields : s.fields' = fields) (hleft : 0 < sint.Z s.left')
+    (hstart : 0 ≤ sint.Z s.next' ∧ (sint.Z s.next').toNat ≤ order.length)
+    (hcache : CachedShortTable order)
+    (hnonempty : ∀ entry ∈ order, entry.Encoded' ≠ [])
+    (hsorted : FieldHeadsOrdered order)
+    (hmiss : ∀ j entry, (sint.Z s.next').toNat ≤ j → order[j]? = some entry →
+      ((head :: payload) ++ key ++ rem).take entry.Encoded'.length ≠ entry.Encoded') (hnames : names.length ≤ 64)
+    (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem)
+    (hKey :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       c ↦ v ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"Key")) (Val #()))
+    {{ RET (PairV (PairV #(slice.slice (slice.slice v.buf' w8 v.pos' v.buf'.len) w8
+          (W64 (1 + payload.length)) (W64 (1 + payload.length + key.length))) #true) #interface.nil);
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ }} ) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       c ↦ v ∗ st ↦ s ∗ fields ↦{qf} f ∗ f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"NextField")) (Val #st))
+    {{ (code : w64) (err : GoInterface), RET (PairV #code #err);
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗
+       fields ↦{qf} f ∗ f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ ∗
+       FieldReadOutcome st {s with left' := s.left' - W64 1} names key code err kind (v.pos' + W64 (1 + payload.length + key.length)) }} := by
+  let R : IProp GF := iprop(globalAddr cursor.ErrUnsupported ↦□ kind ∗ f.names' ↦*{qn} names)
+  let Q (code : w64) (err : GoInterface) : IProp GF := iprop(
+    c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗
+    fields ↦{qf} f ∗ f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs ∗
+    ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+      sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+      subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ ∗
+    FieldReadOutcome st {s with left' := s.left' - W64 1} names key code err kind
+      (v.pos' + W64 (1 + payload.length + key.length)))
+  have hother :
+      {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+         R ∗ c ↦ v ∗ st ↦ {s with left' := s.left' - W64 1} ∗ fields ↦{qf} f ∗
+         f.order' ↦*{qo} order ∗ v.buf' ↦*{dq} xs }}
+        (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"otherField")) (Val #st))
+      {{ (code : w64) (err : GoInterface), RET (PairV #code #err); Q code err }} := by
+    wp_start_folded as ⟨HR, Hc, Hst, Hfields, Horder, Hs⟩
+    isimp only [R] at HR
+    icases HR with ⟨#Hkind, Hnames⟩
+    wp_apply wp_otherField_text c st fields v {s with left' := s.left' - W64 1} f names xs payload key rem
+      head qf qn dq kind hfields hnames hp hbytes hKey
+      $$ [Hc Hst Hfields Hnames Hs] as %code %err ⟨Hc, Hfields, Hnames, Hs, %Hnext, Hout⟩
+    · iframe Hkind Hc Hst Hfields Hnames Hs
+    iapply HΦ
+    unfold Q
+    iframe Hc Hfields Horder Hnames Hs Hout
+    ipureintro; exact Hnext
+  iintro %Φ ⟨#Hpkg, #Hkind, Hc, Hst, Hfields, Horder, Hnames, Hs⟩ HΦ
+  wp_apply wp_nextField_other c st fields v s f order xs ((head :: payload) ++ key ++ rem) qf qo dq R Q
+    hfields hleft hstart hnonempty hsorted hcache hmiss hp hbytes hother
+    $$ [Hc Hst Hfields Horder Hnames Hs] as %code %err HQ
+  · unfold R
+    iframe Hkind Hc Hst Hfields Horder Hnames Hs
+  iapply HΦ
+  isimp only [Q] at HQ
+  iexact HQ
+
+/-- All cache paths compose with any proved text Key contract, preserving
+    exact field/search progress and owned duplicate errors. No ASCII or length-
+    encoding restriction remains here; the Key WP is an explicit premise. -/
+theorem wp_nextField_text (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
     (order : List cursor.StaticField) (names : List GoString) (xs payload key rem : List w8) (head : w8)
     (kind : GoInterface) (qf qo qn dq : DFrac)
     (hfields : s.fields' = fields) (hleft : 0 < sint.Z s.left')
@@ -102,9 +174,18 @@ theorem wp_nextField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.S
     (hapart : FieldEncodingsApart order) (hcache : CachedShortTable order)
     (htable : InlineFieldTable order names) (hnames : names.length ≤ 64)
     (enc : HeadArgument head payload (W64 key.length)) (hm : head &&& W8 224 = W8 96)
-    (hshort : uint.Z (head &&& W8 31) < 24 ∨ head &&& W8 31 = W8 24) (hascii : ASCIIBytes key)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
-    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem) :
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem)
+    (hKey :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       c ↦ v ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"Key")) (Val #()))
+    {{ RET (PairV (PairV #(slice.slice (slice.slice v.buf' w8 v.pos' v.buf'.len) w8
+          (W64 (1 + payload.length)) (W64 (1 + payload.length + key.length))) #true) #interface.nil);
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ }} ) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗ c ↦ v ∗ st ↦ s ∗ fields ↦{qf} f ∗
        f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs }}
@@ -165,8 +246,8 @@ theorem wp_nextField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.S
         ((head :: payload) ++ key ++ rem).take entry.Encoded'.length ≠ entry.Encoded' := by
       intro j entry hj he hp
       exact hmatch ⟨j, entry, hj, he, hp⟩
-    wp_apply wp_nextField_miss_ascii c st fields v s f names xs payload key rem head order qf qo qn dq kind
-      hfields hleft hstart hcache hnonempty hsorted hmiss hnames enc hm hshort hascii hp hbytes
+    wp_apply wp_nextField_miss_text c st fields v s f names xs payload key rem head order qf qo qn dq kind
+      hfields hleft hstart hcache hnonempty hsorted hmiss hnames hp hbytes hKey
       $$ [Hc Hst Hfields Horder Hnames Hs] as %code %err ⟨Hc, Hfields, Horder, Hnames, Hs, %Hadvance, Hout⟩
     · iframe Hkind Hc Hst Hfields Horder Hnames Hs
     iapply HΦ
@@ -174,6 +255,37 @@ theorem wp_nextField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.S
     iframe Hc Hfields Horder Hnames Hs Hout
     ipureintro
     exact ⟨Hadvance, Or.inl ⟨rfl, hmiss⟩⟩
+
+/-- A single application-facing field-reading contract for all cache paths,
+    arbitrary field order and inline/one-byte ASCII keys. -/
+theorem wp_nextField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
+    (order : List cursor.StaticField) (names : List GoString) (xs payload key rem : List w8) (head : w8)
+    (kind : GoInterface) (qf qo qn dq : DFrac)
+    (hfields : s.fields' = fields) (hleft : 0 < sint.Z s.left')
+    (hstart : 0 ≤ sint.Z s.next' ∧ (sint.Z s.next').toNat ≤ order.length)
+    (hnonempty : ∀ entry ∈ order, entry.Encoded' ≠ []) (hsorted : FieldHeadsOrdered order)
+    (hapart : FieldEncodingsApart order) (hcache : CachedShortTable order)
+    (htable : InlineFieldTable order names) (hnames : names.length ≤ 64)
+    (enc : HeadArgument head payload (W64 key.length)) (hm : head &&& W8 224 = W8 96)
+    (hshort : uint.Z (head &&& W8 31) < 24 ∨ head &&& W8 31 = W8 24) (hascii : ASCIIBytes key)
+    (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       globalAddr cursor.ErrUnsupported ↦□ kind ∗ c ↦ v ∗ st ↦ s ∗ fields ↦{qf} f ∗
+       f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"NextField")) (Val #st))
+    {{ (code : w64) (err : GoInterface), RET (PairV #code #err); ∃ next : w64,
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗ fields ↦{qf} f ∗
+       f.order' ↦*{qo} order ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ ∗
+       ⌜FieldSearchAdvance order ((head :: payload) ++ key ++ rem) s.next' next⌝ ∗
+       FieldReadOutcome st {s with left' := s.left' - W64 1, next' := next} names key code err kind
+         (v.pos' + W64 (1 + payload.length + key.length)) }} := by
+  exact wp_nextField_text c st fields v s f order names xs payload key rem head kind qf qo qn dq
+    hfields hleft hstart hnonempty hsorted hapart hcache htable hnames enc hm hp hbytes
+    (wp_Key_ascii c v xs payload key rem head dq enc hm hshort hascii hp hbytes)
 
 end github_com.NethermindEth.juno.core
 end Perennial
@@ -185,3 +297,6 @@ end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_nextField_ascii
 
 #print axioms Perennial.github_com.NethermindEth.juno.core.fieldSearchAdvance_bounds
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_nextField_miss_text
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_nextField_text

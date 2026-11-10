@@ -66,18 +66,25 @@ theorem wp_fields_match_nested_range (fields : Loc) (f : cursor.Fields) (names :
   iframe Hfields Hnames Hs
   ipureintro; exact Hmatch
 
-/-- The complete alternate-field path for short ASCII keys, including unknown
-    names, case variants, arbitrary field order and owned duplicate diagnostics. -/
-theorem wp_otherField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
+/-- Compose any proved text-key reader with actual name matching and duplicate
+    handling. The explicit key WP must be discharged before claiming coverage
+    for wider or non-ASCII keys; this theorem does not assume UTF-8 correctness. -/
+theorem wp_otherField_text (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
     (names : List GoString) (xs payload key rem : List w8) (head : w8)
     (qf qn dq : DFrac) (kind : GoInterface)
     (hfields : s.fields' = fields) (hnames : names.length ≤ 64)
-    (enc : HeadArgument head payload (W64 key.length))
-    (hm : head &&& W8 224 = W8 96)
-    (hshort : uint.Z (head &&& W8 31) < 24 ∨ head &&& W8 31 = W8 24)
-    (hascii : ASCIIBytes key)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
-    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem) :
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem)
+    (hKey :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       c ↦ v ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"Key")) (Val #()))
+    {{ RET (PairV (PairV #(slice.slice (slice.slice v.buf' w8 v.pos' v.buf'.len) w8
+          (W64 (1 + payload.length)) (W64 (1 + payload.length + key.length))) #true) #interface.nil);
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ }} ) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
        globalAddr cursor.ErrUnsupported ↦□ kind ∗
        c ↦ v ∗ st ↦ s ∗ fields ↦{qf} f ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs }}
@@ -91,7 +98,7 @@ theorem wp_otherField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.
        FieldReadOutcome st s names key code err kind (v.pos' + W64 (1 + payload.length + key.length)) }} := by
   wp_start as ⟨#Hkind, Hc, Hst, Hfields, Hnames, Hs⟩
   wp_auto
-  wp_apply wp_Key_ascii c v xs payload key rem head dq enc hm hshort hascii hp hbytes
+  wp_apply hKey
     $$ [Hc Hs] with ⟨Hc, Hs, %Hnext⟩
   · iframe Hc Hs
   simp only [hfields]
@@ -163,7 +170,35 @@ theorem wp_otherField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.
       iframe Hst Herr Hargs
       ipureintro; exact ⟨rfl, rfl, hnew⟩
 
+/-- The complete alternate-field path for short ASCII keys, including unknown
+    names, case variants, arbitrary field order and owned duplicate diagnostics. -/
+theorem wp_otherField_ascii (c st fields : Loc) (v : cursor.Cursor) (s : cursor.Struct) (f : cursor.Fields)
+    (names : List GoString) (xs payload key rem : List w8) (head : w8)
+    (qf qn dq : DFrac) (kind : GoInterface)
+    (hfields : s.fields' = fields) (hnames : names.length ≤ 64)
+    (enc : HeadArgument head payload (W64 key.length))
+    (hm : head &&& W8 224 = W8 96)
+    (hshort : uint.Z (head &&& W8 31) < 24 ∨ head &&& W8 31 = W8 24)
+    (hascii : ASCIIBytes key)
+    (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ key ++ rem) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor ∗
+       globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       c ↦ v ∗ st ↦ s ∗ fields ↦{qf} f ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs }}
+      (App (Val (c @!! go.PointerType cursor.Cursor.ty @!! go!"otherField")) (Val #st))
+    {{ (code : w64) (err : GoInterface), RET (PairV #code #err);
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + key.length)} ∗
+       fields ↦{qf} f ∗ f.names' ↦*{qn} names ∗ v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + key.length)) = sint.Z v.pos' + 1 + payload.length + key.length ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + key.length)) ≤ sint.Z v.buf'.len ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + key.length))) (sint.nat v.buf'.len) xs = rem⌝ ∗
+       FieldReadOutcome st s names key code err kind (v.pos' + W64 (1 + payload.length + key.length)) }} := by
+  exact wp_otherField_text c st fields v s f names xs payload key rem head qf qn dq kind
+    hfields hnames hp hbytes (wp_Key_ascii c v xs payload key rem head dq enc hm hshort hascii hp hbytes)
+
 end github_com.NethermindEth.juno.core
 end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_fields_match_nested_range
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_otherField_ascii
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_otherField_text
