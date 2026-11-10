@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -103,6 +104,10 @@ func dialWS(ctx context.Context, rawURL string, opts options) (*wsTransport, err
 		_ = resp.Body.Close()
 	}
 	if err != nil {
+		// url.Error carries the full URL, and providers put API keys in it.
+		if uerr, ok := errors.AsType[*url.Error](err); ok {
+			err = uerr.Err
+		}
 		return nil, fmt.Errorf("dialing ws: %w", err)
 	}
 	conn.SetReadLimit(wsReadLimit)
@@ -323,8 +328,8 @@ func (t *wsTransport) call(
 		// dispatchResponse already removed our entry; deregister is a no-op.
 		if reply.err != nil {
 			// A concurrent shutdown fans an error into ch as the caller cancels; prefer the ctx error.
-			if cerr := ctx.Err(); cerr != nil {
-				return nil, cerr
+			if errors.Is(reply.err, ErrTransportClosed) && ctx.Err() != nil {
+				return nil, ctx.Err()
 			}
 			return nil, reply.err
 		}
