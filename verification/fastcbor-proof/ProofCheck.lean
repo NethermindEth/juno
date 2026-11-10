@@ -178,3 +178,8 @@ import ProofCheck.HeaderZeroComplete
 import ProofCheck.HeaderOwnedZero
 import ProofCheck.HeaderAPIOutcome
 import ProofCheck.HeaderAPIComplete
+
+import ProofCheck.Utf8WordContract
+import ProofCheck.Utf8Batches
+import ProofCheck.Utf8Loop
+import ProofCheck.Utf8FromWord

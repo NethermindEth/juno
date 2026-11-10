@@ -14,8 +14,9 @@ variable [sem : go.Semantics]
 
 /-- The unresolved production-validator obligation, stated as a proposition.
     It is not an axiom or an instance: callers must explicitly supply a proof.
-    The general implementation proof remains outside the checked target until
-    the documented generic-index semantics obstruction is resolved. -/
+    The checked implementation loop reduces this contract to the explicit
+    Utf8WordWindowContract. That actual helper remains unproved because of
+    the documented generic-index semantics obstruction. -/
 def Utf8ValidatorContract : Prop :=
   ∀ (data : GoSlice) (xs : List w8) (dq : DFrac),
     {{ isPkgInit (PROP := IProp GF) pkg_id.unicode.utf8 ∗ data ↦*{dq} xs }}

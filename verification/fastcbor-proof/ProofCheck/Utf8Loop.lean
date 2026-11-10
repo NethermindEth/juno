@@ -1,10 +1,5 @@
--- Work in progress: general production validator proof. This file is outside
--- the audited target and is expected to fail until every branch is discharged.
--- There are no admitted helpers or changes to the pinned semantics.
--- The remaining goal is the generic ASCII word helper's first load, where the
--- pinned Index rule reverses the (slice, index) operands of IndexRef. See the
--- README approval proposal; this file is not a checked whole-function theorem.
-import ProofCheck.Utf8Scan
+import ProofCheck.Utf8WordContract
+import ProofCheck.Utf8Batches
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -20,7 +15,9 @@ variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics] [package_sem : Assumptions]
 
-theorem wp_utf8_valid (data : GoSlice) (xs : List w8) (dq : DFrac) :
+/-- Complete validator composition, conditional on the actual eight-byte generic
+    helper. This does not discharge that helper or the Header milestone. -/
+theorem wp_utf8_valid_from_word (wordContract : Utf8WordWindowContract (GF := GF)) (data : GoSlice) (xs : List w8) (dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.unicode.utf8 ∗ data ↦*{dq} xs }}
       (App (Val (@! unicode.utf8.Valid)) (Val #data))
     {{ (ok : Bool), RET #ok; data ↦*{dq} xs ∗ ⌜ok = true ↔ Utf8Valid xs⌝ }} := by
@@ -80,11 +77,156 @@ theorem wp_utf8_valid (data : GoSlice) (xs : List w8) (dq : DFrac) :
       · have hwide : sint.Z (W64 8) < sint.Z (data.len - W64 ((off + 1 : Nat) : Int)) := by word
         simp only [hwide, _root_.decide_true, ite_true]
         wp_auto
-        wp_func_call
-        wp_call
-        wp_auto
-        -- Expected open goal: IndexRef receives (0, window), not (window, 0).
-        skip
+        wp_apply wordContract data xs (off + 1) dq (by omega) $$ [Hs] with Hs
+        · iframe Hs
+        by_cases mask8 : leToU64 ((xs.drop (off + 1)).take 8) &&& asciiMask = W64 0
+        · simp only [asciiMask] at mask8
+          simp only [mask8, _root_.decide_true]
+          wp_auto
+          have hb8 : 0 ≤ sint.Z (W64 8) ∧ sint.Z (W64 8) ≤ sint.Z (data.len - W64 ((off + 1 : Nat) : Int)) ∧
+              sint.Z (data.len - W64 ((off + 1 : Nat) : Int)) ≤ sint.Z (data.len - W64 ((off + 1 : Nat) : Int)) := by word
+          rw [ite_eq_left_of_eq_true _ _ (eq_true hb8)]
+          rw [utf8Window_advance data (W64 ((off + 1 : Nat) : Int)) (W64 8) (by word)]
+          rw [show W64 ((off + 1 : Nat) : Int) + W64 8 = W64 ((off + 9 : Nat) : Int) by word]
+          wp_auto
+          have state9 : Utf8ScanState xs (off + 9) := by
+            simpa only [Nat.add_assoc] using utf8Scan_word xs (off + 1) nextState (by omega) mask8
+          by_cases wide16 : off + 25 < xs.length
+          · have hwide16 : sint.Z (W64 16) < sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) := by word
+            simp only [hwide16, _root_.decide_true]
+            wp_auto
+            wp_apply wordContract data xs (off + 9) dq (by omega) $$ [Hs] with Hs
+            · iframe Hs
+            have hbSecond : 0 ≤ sint.Z (W64 8) ∧ sint.Z (W64 8) ≤ sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) ∧
+                sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) ≤ sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) := by word
+            rw [ite_eq_left_of_eq_true _ _ (eq_true hbSecond)]
+            rw [utf8Window_advance data (W64 ((off + 9 : Nat) : Int)) (W64 8) (by word)]
+            rw [show W64 ((off + 9 : Nat) : Int) + W64 8 = W64 ((off + 17 : Nat) : Int) by word]
+            wp_auto
+            wp_apply wordContract data xs (off + 17) dq (by omega) $$ [Hs] with Hs
+            · iframe Hs
+            by_cases mask16 : (leToU64 ((xs.drop (off + 9)).take 8) ||| leToU64 ((xs.drop (off + 17)).take 8)) &&& asciiMask = W64 0
+            · simp only [asciiMask] at mask16
+              simp only [mask16, _root_.decide_true]
+              wp_auto
+              have hb16 : 0 ≤ sint.Z (W64 16) ∧ sint.Z (W64 16) ≤ sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) ∧
+                  sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) ≤ sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) := by word
+              rw [ite_eq_left_of_eq_true _ _ (eq_true hb16)]
+              rw [utf8Window_advance data (W64 ((off + 9 : Nat) : Int)) (W64 16) (by word)]
+              rw [show W64 ((off + 9 : Nat) : Int) + W64 16 = W64 ((off + 25 : Nat) : Int) by word]
+              wp_auto
+              have state25 : Utf8ScanState xs (off + 25) := by
+                have hm : (leToU64 ((xs.drop (off + 9)).take 8) |||
+                    leToU64 ((xs.drop ((off + 9) + 8)).take 8)) &&& asciiMask = W64 0 := by
+                  simpa only [Nat.add_assoc, Nat.reduceAdd, asciiMask] using mask16
+                simpa only [Nat.add_assoc] using utf8Scan_twoWords xs (off + 9) state9 (by omega) hm
+              ihave HI32 : (∃ scan : Nat,
+                  "Hp32" ∷ p_ptr ↦ utf8Window data (W64 scan) ∗
+                  "%Hstate32" ∷ ⌜Utf8ScanState xs scan⌝ : IProp GF) $$ [Hp]
+              · iexists (off + 25)
+                iframe Hp
+                ipureintro; exact state25
+              wp_for HI32
+              have Hscan := Hstate32.1
+              by_cases wide32 : scan + 32 < xs.length
+              · have hwide32 : sint.Z (W64 32) < sint.Z (data.len - W64 scan) := by word
+                simp only [hwide32, _root_.decide_true]
+                wp_auto
+                wp_apply wordContract data xs scan dq (by omega) $$ [Hs] with Hs
+                · iframe Hs
+                have hb8 : 0 ≤ sint.Z (W64 8) ∧ sint.Z (W64 8) ≤ sint.Z (data.len - W64 scan) ∧
+                    sint.Z (data.len - W64 scan) ≤ sint.Z (data.len - W64 scan) := by word
+                rw [ite_eq_left_of_eq_true _ _ (eq_true hb8)]
+                rw [utf8Window_advance data (W64 scan) (W64 8) (by word)]
+                rw [show W64 scan + W64 8 = W64 ((scan + 8 : Nat) : Int) by word]
+                wp_auto
+                wp_apply wordContract data xs (scan + 8) dq (by omega) $$ [Hs] with Hs
+                · iframe Hs
+                have hb16 : 0 ≤ sint.Z (W64 16) ∧ sint.Z (W64 16) ≤ sint.Z (data.len - W64 scan) ∧
+                    sint.Z (data.len - W64 scan) ≤ sint.Z (data.len - W64 scan) := by word
+                rw [ite_eq_left_of_eq_true _ _ (eq_true hb16)]
+                rw [utf8Window_advance data (W64 scan) (W64 16) (by word)]
+                rw [show W64 scan + W64 16 = W64 ((scan + 16 : Nat) : Int) by word]
+                wp_auto
+                wp_apply wordContract data xs (scan + 16) dq (by omega) $$ [Hs] with Hs
+                · iframe Hs
+                have hb24 : 0 ≤ sint.Z (W64 24) ∧ sint.Z (W64 24) ≤ sint.Z (data.len - W64 scan) ∧
+                    sint.Z (data.len - W64 scan) ≤ sint.Z (data.len - W64 scan) := by word
+                rw [ite_eq_left_of_eq_true _ _ (eq_true hb24)]
+                rw [utf8Window_advance data (W64 scan) (W64 24) (by word)]
+                rw [show W64 scan + W64 24 = W64 ((scan + 24 : Nat) : Int) by word]
+                wp_auto
+                wp_apply wordContract data xs (scan + 24) dq (by omega) $$ [Hs] with Hs
+                · iframe Hs
+                by_cases mask32 : ((leToU64 ((xs.drop scan).take 8) ||| leToU64 ((xs.drop (scan + 8)).take 8)) |||
+                    (leToU64 ((xs.drop (scan + 16)).take 8) ||| leToU64 ((xs.drop (scan + 24)).take 8))) &&& asciiMask = W64 0
+                · have next32 := utf8Scan_fourWords xs scan Hstate32 (by omega) mask32
+                  simp only [asciiMask] at mask32
+                  simp only [mask32, _root_.decide_true]
+                  try wp_auto
+                  cleanup_bool_decide
+                  try wp_auto
+                  cleanup_bool_decide
+                  try wp_auto
+                  have hb32 : 0 ≤ sint.Z (W64 32) ∧ sint.Z (W64 32) ≤ sint.Z (data.len - W64 scan) ∧
+                      sint.Z (data.len - W64 scan) ≤ sint.Z (data.len - W64 scan) := by word
+                  rw [ite_eq_left_of_eq_true _ _ (eq_true hb32)]
+                  rw [utf8Window_advance data (W64 scan) (W64 32) (by word)]
+                  rw [show W64 scan + W64 32 = W64 ((scan + 32 : Nat) : Int) by word]
+                  wp_auto
+                  wp_for_post
+                  iframe
+                  iexists (scan + 32)
+                  iframe Hp32
+                  ipureintro; exact next32
+                · simp only [asciiMask] at mask32
+                  simp only [mask32, _root_.decide_false]
+                  try wp_auto
+                  cleanup_bool_decide
+                  try wp_auto
+                  cleanup_bool_decide
+                  try wp_auto
+                  wp_for_post
+                  iframe
+                  iexists scan
+                  iframe Hp32
+                  ipureintro; exact Hstate32
+              · have hshort32 : ¬ sint.Z (W64 32) < sint.Z (data.len - W64 scan) := by word
+                simp only [hshort32, _root_.decide_false]
+                try wp_auto
+                cleanup_bool_decide
+                try wp_auto
+                cleanup_bool_decide
+                try wp_auto
+                wp_for_post
+                iframe
+                iexists scan
+                iframe Hp32
+                ipureintro; exact Hstate32
+            · simp only [asciiMask] at mask16
+              simp only [mask16, _root_.decide_false]
+              wp_auto
+              wp_for_post
+              iframe
+              iexists (off + 9)
+              iframe Hp
+              ipureintro; exact state9
+          · have hshort16 : ¬ sint.Z (W64 16) < sint.Z (data.len - W64 ((off + 9 : Nat) : Int)) := by word
+            simp only [hshort16, _root_.decide_false]
+            wp_auto
+            wp_for_post
+            iframe
+            iexists (off + 9)
+            iframe Hp
+            ipureintro; exact state9
+        · simp only [asciiMask] at mask8
+          simp only [mask8, _root_.decide_false]
+          wp_auto
+          wp_for_post
+          iframe
+          iexists (off + 1)
+          iframe Hp
+          ipureintro; exact nextState
       · have hshort : ¬ sint.Z (W64 8) < sint.Z (data.len - W64 ((off + 1 : Nat) : Int)) := by word
         simp only [hshort, _root_.decide_false, ite_false]
         wp_auto
@@ -540,3 +682,5 @@ theorem wp_utf8_valid (data : GoSlice) (xs : List w8) (dq : DFrac) :
 
 end github_com.NethermindEth.juno.core
 end Perennial
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_utf8_valid_from_word

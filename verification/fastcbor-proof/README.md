@@ -76,87 +76,39 @@ specified behavior change and performance evaluation. No such change is made her
 
 ### Header work queue and exit criteria
 
-Latest checkpoint: the complete Header success/failure loops, record reader and
-initialized public APIs pass for **every input from a zero destination**, against
-`HeaderFirstSpec`/`HeaderFullSpec`, **conditional on the unproved
-`Utf8ValidatorContract`**. The nonzero-destination guard still needs to be joined
-to the unified specification, and the validator premise must be discharged.
-See “Complete Header loops and initialized zero-destination APIs” below.
+Latest checkpoint: both public Header APIs have checked contracts for **every byte
+input and every owned initial destination**, against `HeaderFirstSpec` and
+`HeaderFullSpec`, conditional on `Utf8ValidatorContract`. The destination guard is
+fully composed. The complete actual UTF-8 validator loop is now checked conditional
+only on `Utf8WordWindowContract`, and the implication from that smaller helper
+contract to the validator contract is checked. The actual eight-byte generic helper
+remains unproved because of the documented pinned slice-index defect. The proposed
+trusted repair is still unapplied; no unconditional Header proof is claimed.
 
-Current status: general head/uint/container success and null-field contracts,
-container count/depth failures, invalid-head classification, scalar type/tag and
-extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
-general felt success through an independent nullable/short/extended wire relation,
-felt depth rejection, later-limb errors for every array-head width, ignored-tail atomic/EOF errors,
-and malformed-head propagation through unsigned/felt/Skip readers,
-general recursive Skip success and atomic rejection/EOF contracts,
-definite payload success/truncation and public byte/string propagation contracts,
-general ASCII folding and two-pass name matching, field-bit marking and duplicate
-rejection, integer-key classification/overflow, key type/tag rejection and text-body
-truncation through public Key and alternate field lookup, the complete batched ASCII
-scan and short-ASCII-key field matching/duplicate handling, byte-prefix equivalence
-for the word cache, production cached-hit and general field-EOF contracts, general
-table search for arbitrary input lengths with the Header/GasPrice cache shape,
-general public table-hit and ASCII field-reading contracts, exact search-index
-progress, public integer-key classification/range rejection, key type/tag rejection
-and text-body truncation, malformed/incomplete key-head propagation, arbitrary-input Skip, typed felt and in-place Limbs classification with complete production outcome contracts, shared backing-slot preservation, general nullable felt-pointer slice success with actual allocation/iteration/pointer publication, arbitrary-input pointer-slice and nested-signature classification with complete production outcomes including partial-construction failure, GasPrice field/shared-allocation ownership, general GasPrice opening/null contracts, actual map success/value-failure/duplicate/key-rejection loops with closed fresh/reused slot contracts for the proved ASCII/integer key families, the full Header value/ownership shape, shared-price output publication, general owned cleanup, arbitrary-input Header field-call contracts for all six felt fields, all five scalar fields and nested signatures, both Header GasPrice field calls for the proved map/error families with fresh/reused allocation and null handling, ProtocolVersion null, payload-failure and illegal UTF-8 leading-byte failure calls, a complete fifteen-field zero guard and both public APIs' general nonzero-destination rejection, general record-opening classification/outcomes and Header opening-error propagation through both public APIs, schema-specific Header key/duplicate contracts and seen-bit/shared-slot readiness, the actual Header map loop across all fifteen field identities for the currently proved key/nullish-string families, both public APIs with owned results, exact suffixes and general trailing-data cleanup for those maps, duplicate/specified key rejection after arbitrary supported Header prefixes through both public APIs with actual owned cleanup, and all currently specified field-value failures through the actual Header loop and both public APIs, including nested-signature and fresh/reused GasPrice failure progress. The reproducible audit records the current lemma count.
-The count is not a coverage percentage. The complete Header theorem is absent.
+The full check audits **1008 theorems**, with no admissions or native-evaluation
+axioms and no change to the transitive axiom union. The count is not a coverage
+percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
+scope, unresolved premises and reproduction evidence.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
-| 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip, felt, nullable felt-pointer slice and nested-signature value/failure relations exist; GasPrice entries specify successful supported-key maps and a unified failure relation covers opening, value, duplicate and specified key errors; exhaustive general GasPrice specification classification is now proved; production integration remains pending. HeaderValue/HeaderBody/HeaderChildren/HeaderGasState now cover all 15 decoded fields, public output ownership and the private shared allocation; the full Header field/pair/record and First/full API relations now have all-input specification classification; implementation refinement remains pending |
-| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general expectation failures now compose through expectSlow, containerLen, ArrayLen, MapLen and nullable OpenStruct, including EOF; ScalarComplete now classifies arbitrary input and closes both typed Uint64/Mode success and failure contracts, including null/undefined preservation; StringFailure now closes expectation failures through payload/String/the typed string reader and unifies them with payload truncation; StructOpenSpec/Sound/Complete now classify and prove all actual record-opening outcomes on arbitrary input, and HeaderOpen/Contract propagate every opening failure through the generated Header reader and both public APIs after cleanup; UTF-8 rejection and propagation through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures now compose through ignored felt contents; FeltFailure now unifies every error with exact offsets and owned diagnostics, felt_classify exhausts arbitrary input, and wp_readFelt_complete composes the actual success/failure proofs with input/output ownership and cursor rollback; wp_limbs_complete now covers the in-place API on arbitrary input, including null/undefined type rejection and whole-array preservation on failure; UTF-8 remains pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; HeaderKeys/HeaderKeyDuplicate now specialize fresh/unknown/duplicate outcomes to all fifteen Header identities, including legacy wire tags; HeaderSeen relates the seen mask to schema identity and unvisited GasPrice storage. Wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; malformed heads compose recursively through supported containers/tags and into ignored felt contents; shared failure contexts also close recursive incomplete-head, atomic and EOF contracts; count/depth and missing-tag-content instances are closed and unified under SkipFailure, including propagation into ignored felt contents; every arbitrary input at supported depth now has a SkipValid prefix or SkipFailure derivation, and wp_Skip_complete composes actual production proofs into a public arbitrary-input outcome contract; pure relation disjointness and exact success/failure uniqueness are now proved |
-| 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General nullable felt-pointer slice success proves actual allocation/iteration/pointer publication, nil versus allocated empty, mixed nil elements, owned backing storage and exact suffix. FeltPointersFailure specifies outer expectation/count/depth rejection and failures after arbitrary valid prefixes, with retained cursor/depth and exact owned inner diagnostics; feltPointers_classify exhausts arbitrary input, and wp_readFeltPointers_complete composes actual success/failure proofs without helper-WP or chosen-outcome premises. SignaturesValid/SignaturesFailure now specify the outer nested reader, with separate ownership of every child allocation; arbitrary-input classification and wp_readSignatures_complete compose the actual outer allocation/range loop and inner reader contracts, including retained nested cursor/depth, old-destination preservation on error and exact owned diagnostics. GasPriceChildren/GasPricesOwned now track both slots and nested felts; field borrowing and arbitrary-input field outcomes are closed, and actual shared allocation/null handling are proved. The actual map success loop now composes key selection, both felt fields and unknown-value Skip for inline/one-byte ASCII text keys and supported signed integer keys, arbitrary fresh known-field order and unknown nested values. Closed actual fresh/reused slot success contracts restore ownership of both structs and child allocations with no child-reader premise. The actual value-failure loop now preserves all earlier fields and their nested ownership after arbitrary successful prefixes, retains map depth and the post-key cursor, and propagates exact bounded owned diagnostics. Both actual slot wrappers preserve the old destination pointer and the partially populated shared pair on these errors, with no child-reader premise. Outer-map expectation/count/depth failures and null/undefined are now proved and opening is exhaustively classified. Duplicate keys after arbitrary valid prefixes consume only the key and preserve earlier fields. GasPriceFailure unifies opening/value/duplicate failures, bounded cursor/diagnostic/depth and partial abstract values; the actual reader and both slot wrappers have closed contracts for it. KeyFailure now specifies EOF, malformed/incomplete heads, integer range errors, wrong key types/tags and text-body truncation; a closed public NextField theorem composes them through the actual GasPrice map after arbitrary successful supported-key prefixes. These cases are included in the unified reader/slot failure contracts. HeaderGasFields/HeaderGasMap/HeaderGasFailure now compose both Header destinations with the private allocation invariant, including null, fresh/reused successful maps and every specified failure family; actual cleanup from the private state is proved. HeaderGasReady now retains seen-bit/unvisited-slot guarantees through the actual fresh/reused map/error calls, null handling and cleanup. Illegal-leading-byte UTF-8 key rejection now composes through the map and slot contracts. Other UTF-8 rejection, wider/non-ASCII successful keys and exhaustive GasPrice classification remain pending |
-| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories require only the cursor dependency, with no circular core-initialization precondition. FieldsShared freezes both actual allocated tables and backing slices, and publishes already-stored globals as persistent HeaderMetadata. HeaderSharedAPI uses that shared resource across the currently proved success/failure families. Cursor startup now establishes all five immutable error objects after runtime CPU initialization, with no initializer WP premise. Actual math/big startup, its fmt dependency and exact UTF-8 table startup are proved. Arbitrary immutable CPU feature flags are an explicit runtime-state boundary. SchemaInitialize now proves complete startup of core/internal/cborschema, including both factories, actual global stores and immutable publication. The generated readers access its private tables through inlined opening functions. HeaderSharedAPI recovers metadata from initialization instead of requiring it separately. EntryErrorsInitialize proves the complete shared-error package startup. Header contracts require only schema initialization and, where public error values are read, cborerr initialization; no core/planner initialization or helper-correctness premise remains. HeaderInitializedAPI derives all metadata/error globals for the currently proved input families. Hardware/runtime startup remains the explicit boundary |
-| 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved. General Header ownership/publication/cleanup and actual arbitrary-input calls at all six felt fields, all five scalar fields and the nested-signature field are now proved, preserving all other fields and private shared-price state. Both GasPrice fields now compose for the proved map/error families, fresh/reused allocation and null, with private-state cleanup; ProtocolVersion null/payload errors and illegal UTF-8 leading-byte rejection, the complete fifteen-field zero guard and both public APIs' arbitrary nonzero-destination rejection are now proved; general null/undefined Header reads and all opening failures through both public APIs with owned zero output are now proved. Actual Header dispatch/map-loop success now composes all fifteen identities and unknown Skip for HeaderEntry, including arbitrary fresh order, nested values and both price allocation orders; First/full success and general trailing-data cleanup are proved for that family. Duplicate and specified malformed/unsupported-key rejection now compose after arbitrary HeaderEntry prefixes through both public APIs, with exact owned diagnostics and actual owned cleanup. All currently specified field-value failures now compose after arbitrary HeaderEntry prefixes through both public APIs, including nested-signature and fresh/reused GasPrice failures with private partial contents. Successful/invalid UTF-8 strings, wider/non-ASCII keys, general GasPrice production integration and general Header implementation refinement and the final all-encoding/arbitrary-input contract remain pending |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
+| 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Complete independent relations, all-input classification, success/error separation and outcome uniqueness are checked for Header and GasPrice. These specification results do not assume FX behavior. |
+| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Complete primitive/head/count/depth errors and ownership/progress contracts are checked. Text UTF-8 rejection composition still has the validator premise described below. |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success/failure and both fast/slow paths are checked. The complete production UTF-8 loop is now checked conditional only on Utf8WordWindowContract; the actual eight-byte generic helper remains unproved because of the pinned indexing defect. Text conversion/composition uses the resulting validator contract. |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | General recursive Skip is checked, preserving its intentional ignored-text and chained-tag policies. Complete field lookup, key widths/case folding and duplicate handling compose for both schemas conditional on the UTF-8 validator; no other key-helper WP premise remains. |
+| 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
+| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
+| 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 334 project hashes and 28 standard-library hashes. Explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
-This is dependency order, not eight isolated phases: nested GasPrice uses field
-lookup, and successful felt decoding now composes the recursive Skip theorem.
-The arbitrary-input Skip, typed felt and in-place Limbs contracts are now checked.
-The inner nullable felt-pointer slice and outer signature reader now have
-arbitrary-input outcome contracts, including actual allocation, iteration,
-pointer publication, nested ownership and partial-construction failures.
-GasPrice shared ownership and actual map/slot success, opening-failure, value-failure,
-duplicate and specified key-rejection paths now compose for the proved ASCII/integer
-key families. GasPriceSpec now classifies every input for the general independent
-record/pointer specification, with partial values and error progress. Next are
-general UTF-8 validation/rejection, wider/non-ASCII successful key implementation
-proofs and production GasPrice integration. The currently specified partial-construction
-errors already compose into Header cleanup. Pure relation uniqueness/disjointness remains
-a supporting obligation. UTF-8 still has the proposed one-line repair to the pinned
-generic slice-index semantics (see the approval proposal below); independent
-composition work remains available.
-The full Header value/ownership shape, felt/scalar/signature calls and currently
-specified string paths now preserve the stronger shared-price readiness state.
-Success contracts for felt/scalar/signature fields also mark the selected schema
-identity. Fresh GasPrice calls now derive zero initial contents from unseen-field
-readiness, regardless of which sibling allocated the pair first; their specified
-failures preserve the public Header while retaining private partial ownership.
-The successful Header dispatch/map loop and both public APIs now compose for
-HeaderEntry's documented key families and nullish protocol strings. This includes
-arbitrary fresh order, nested values, shared prices and unknown-value skipping,
-plus actual full-input trailing-data cleanup. Duplicate and specified key failures
-also compose after arbitrary HeaderEntry prefixes through both APIs, with actual
-cleanup and exact owned diagnostics. All currently specified field-value failures
-also compose through the actual loop and both APIs, including child cursor/depth
-progress, unpublished partial price contents and cleanup of populated Headers.
-The independent UTF-8 byte grammar now has a complete character classifier and
-an all-input specification-checker equivalence proof. All 256 first-byte cases
-are linked to Go's actual size/continuation-range tables. This does not yet prove
-the production validator loop. Its pure scan invariant and the actual window
-creation, byte-load and suffix-slice ownership contracts are now checked. Illegal leading-byte
-rejection is proved through the actual validator, cursor.String, typed reader and
-Header value-failure APIs, with arbitrary following payload bytes and suffixes.
-It also composes through the public key reader, cached field lookup, Header and
-GasPrice key-failure loops, and the Header APIs, with all supported text-length widths.
-Successful strings, other malformed sequences, remaining key cases, exhaustive
-GasPrice/Header classification and the final unified all-encoding contract still
-need work.
-BigInt, tagged transaction interfaces and ordinary Go maps do not block this
-Header milestone.
+This is dependency order, not eight isolated phases. Nested GasPrice uses field
+lookup, and felt extras use recursive Skip. The independent record specifications
+cover every input and have checked deterministic outcomes. All Header composition
+work is now connected, but the UTF-8 helper premise must be discharged before the
+Header milestone can pass. BigInt, tagged transaction interfaces and ordinary Go
+maps remain later library work. The existing Go differential/property checks
+protect compatibility; neither they nor the conditional Lean proofs satisfy the
+frozen whole-library performance gate.
 
 ### Definition of Header complete
 
@@ -2087,37 +2039,24 @@ including malformed continuations and arbitrary following bytes. A separate
 lemma rejects every descriptor whose required bytes are truncated. These are
 checked supporting theorems, not assumptions about the production validator.
 
-`repros/Utf8Loop.lean` contains the general, all-input `unicode/utf8.Valid` proof
-attempt. It follows the actual translated production loop: capacity clamping,
-original-buffer reads, table lookup, two/three/four-byte bounds and continuation
-checks, exact suffix advancement, rejection after arbitrary valid prefixes, and
-success on exhaustion. It also handles the single ASCII-byte advance when the
-word fast path is skipped. These branches elaborate without additional goals;
-**the whole theorem is unfinished and has not been kernel-checked**.
+At this checkpoint, the general all-input validator proof attempt lived in
+`repros/Utf8Loop.lean`, outside the checked/audited target. Its multibyte and
+single-ASCII paths elaborated, but the whole theorem failed at the generic word
+helper's first byte load: the pinned model supplied `IndexRef (0, window)` instead
+of `IndexRef (window, 0)`. No complete validator theorem was counted here.
 
-The only currently reported proof error is in the remaining ASCII fast-path
-branch, at the first byte load of the actual generic `word[[]byte]` helper.
-After reducing its call, the pinned model presents
-`IndexRef (0, window)` instead of `IndexRef (window, 0)`, reproducing the same
-trusted-semantics defect as `repros/Utf8Word.lean` inside the full validator.
-The existing proposed repair remains unapplied and awaits explicit approval.
-Fixing that rule will still leave the eight-byte helper contract, batched ASCII
-control flow and loop composition to prove; it does not automatically close
-this theorem or the Header milestone.
-
-Reproduction after a normal checked build:
+**Superseded by “Complete UTF-8 loop reduced to the word helper” below.** The old
+loop attempt has now moved into `ProofCheck/Utf8Loop.lean`, with all ASCII batching
+branches completed under an explicit word-helper premise. The remaining concrete
+semantics obstruction is still reproducible with:
 
 ```sh
-lake env lean repros/Utf8Loop.lean
+lake env lean repros/Utf8Word.lean
 ```
 
-This command is **expected to fail**. The file is outside `ProofCheck.lean`,
-the theorem audit and source-hash manifest; it contributes no counted theorem.
-There are no admitted helper contracts or substitutions for the actual Go code.
-The full Header contract, string/key integration, exhaustive outcome
-classification and the frozen performance gate remain open. This checkpoint
-changes proof work and documentation only; production Go and pinned trusted
-semantics are unchanged.
+That helper reproducer is still expected to fail and remains outside the audited
+proof target. The proposed trusted repair remains unapplied. The later checked
+conditional loop proof does not claim to have proved the helper or completed Header.
 
 ### Complete independent string outcome specification
 
@@ -2746,6 +2685,56 @@ pinned semantics requires the separately documented explicit approval below.
 Production Go and the pinned trusted semantics are unchanged in this checkpoint.
 The formal claim remains partial correctness, excluding termination and compiler/
 runtime implementation correctness. No new performance-gate results are claimed.
+
+### Complete UTF-8 loop reduced to the word helper
+
+Full regeneration/check passed (2161 build jobs): **1008 audited theorems**,
+334 matching project hashes and 28 matching standard-library source hashes.
+The transitive axiom union is unchanged, with no admissions or native-evaluation
+axioms. The full log is `check-utf8-loop-from-word-full.log`.
+
+`Utf8Batches.lean` proves the actual eight-, sixteen- and thirty-two-byte OR-mask
+conditions against the independent per-byte ASCII predicate and scan invariant.
+These three pure theorems have no helper correctness premises. A failed ASCII mask
+makes no assertion that the input is invalid UTF-8; it falls back to character checks.
+
+`Utf8Loop.lean` now checks the actual complete translated `unicode/utf8.Valid`
+implementation, including capacity clamping, all two/three/four-byte character
+checks, malformed continuations, illegal leading bytes, truncation, success at
+exhaustion and all ASCII fast-path control flow. The nested loop handles arbitrarily
+many thirty-two-byte batches. Every branch preserves fractional ownership of the
+whole original input and relates the returned boolean to `Utf8Valid`.
+
+The theorem `wp_utf8_valid_from_word` explicitly requires
+`Utf8WordWindowContract`: a WP for the actual resolved generic `word[[]byte]` call,
+reading eight bytes at an arbitrary valid window offset and preserving the whole
+input. This is a proposition supplied by the caller, not an axiom or an instance.
+**That helper remains unproved.** Its generic slice load encounters the documented
+pinned-semantics defect, and the proposed trusted repair remains unapplied.
+
+`Utf8FromWord.lean` checks `Utf8WordWindowContract → Utf8ValidatorContract` through
+the complete implementation loop. Consequently the proof dependency is now:
+
+```text
+actual generic eight-byte helper (unproved)
+    → complete actual UTF-8 validator (checked implication)
+    → complete actual Header APIs (checked implications)
+```
+
+The audit separately lists **51 direct validator-premise theorems** and **2 direct
+word-helper-premise theorems**. Its binder matching distinguishes an assumed
+contract from a contract produced as a theorem's conclusion. The former unaudited
+loop attempt was removed; the current loop and its supporting modules are imported
+by the checked root and included in source hashes and transitive axiom reports.
+`repros/Utf8Word.lean` remains the excluded expected-failure reproducer.
+
+This completes the validator's control-flow composition, **not the unconditional
+Header milestone**. The next Header work is to prove the actual word helper after
+the separately approved semantics repair, supply it to the checked implication,
+and instantiate the public API contracts without unresolved helper premises.
+Production Go, the trusted semantics pin and the formal scope are unchanged.
+Termination, compiler/runtime correctness and performance remain separate; the
+frozen 185-case performance gate has not run.
 
 ## Whole-library gates after the Header milestone
 
