@@ -2110,6 +2110,45 @@ classification and the frozen performance gate remain open. This checkpoint
 changes proof work and documentation only; production Go and pinned trusted
 semantics are unchanged.
 
+### Complete independent string outcome specification
+
+Full regeneration/check passed (2089 build jobs): **766 audited theorems**,
+262 matching project hashes and 28 matching standard-library source hashes.
+No admissions, native-evaluation axioms or new axioms were introduced. The full
+log is `check-string-specification-full.log`.
+
+`StringSpec.lean` now defines the complete string-field wire contract independently
+of fxamacker and of a production-validator correctness assumption. `StringValid`
+preserves the previous Go string for null/undefined; otherwise it accepts a
+complete definite text payload exactly when the independent UTF-8 grammar holds.
+Declared length equals payload length in mathematical integers, preventing word
+wraparound from creating spurious encodings. `StringRejected` covers every
+expectation failure, truncated payload and invalid UTF-8 payload, including errors
+after arbitrarily long valid character prefixes. Truncation takes precedence over
+validation of the available payload bytes.
+
+Checked theorems establish that every byte list has a specified outcome; a
+successful result has exactly one consumed prefix, output value and suffix;
+success consumes at least one byte; and success and rejection are disjoint.
+Nullish preservation deliberately does not require the previous Go string to be
+valid UTF-8. The existing production-proved `StringFailure` cases embed into the
+full rejection specification under the representable-input-length bound already
+implied by actual slice ownership.
+
+`HeadDeterminism.lean` supplies reusable uniqueness facts for head width, argument
+value and exact remaining suffix. `ExpectedDeterminism.lean` proves that a complete
+head of the requested major type cannot also have a specified expectation error,
+including incomplete extended arguments. These support the string disjointness
+proof and later enclosing-record classification.
+
+This is a complete **specification classification**, not a completed string-reader
+implementation proof. The latter must connect the actual UTF-8 validator and
+byte-to-Go-string conversion to these relations, then propagate them through keys,
+GasPrice and Header. Existing production contracts retain their documented
+restrictions. The pending generic-index semantics repair, full Header theorem and
+frozen performance gate remain open. Production Go and pinned trusted semantics
+are unchanged.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization

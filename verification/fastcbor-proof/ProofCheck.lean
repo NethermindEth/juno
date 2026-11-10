@@ -120,3 +120,7 @@ import ProofCheck.Utf8TableSpec
 
 import ProofCheck.Utf8Window
 import ProofCheck.Utf8Scan
+
+import ProofCheck.HeadDeterminism
+import ProofCheck.ExpectedDeterminism
+import ProofCheck.StringSpec
