@@ -92,6 +92,9 @@ scope, unresolved premises and reproduction evidence.
 A checked preparatory inventory now records the remaining production destinations
 and all frozen benchmark cases; it does not advance the Header milestone or claim
 additional typed/proved readers. See “Checked remaining-entry inventory” below.
+The map feasibility witnesses now prove the resource-key operation sequence and
+expose missing array-value equality for felt-key maps; see the map-feasibility
+section below. This is independent of the unresolved Header helper.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -109,7 +112,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 340 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1009 audited theorems, no added axioms (six opaque resource-type declarations removed), 346 project hashes and 28 standard-library hashes. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -2918,6 +2921,92 @@ standard-library hashes. There are no admissions or native-evaluation axioms. Th
 full log is `check-frozen-race-checkptr-full.log`. Decoder Go code, the baseline and
 the pinned semantics remain unchanged. Header's unresolved helper proof, remaining
 typed implementation and the performance gate remain open.
+
+### Typed Go map feasibility: resource keys pass; felt keys need array equality
+
+`feasibility/maps/witness.go` contains isolated Go witnesses for all four map
+shapes in the checked entry manifest. They import the real `core.Resource`,
+`core.ResourceBounds`, `felt.Felt`, `felt.SierraClassHash` and `felt.CasmClassHash`
+types. Goose and proofgen translate all four functions. The translation selection
+now includes Resource/ResourceBounds and the two named felt aliases; none is
+replaced with a handwritten type or trusted implementation. These functions are
+not production decoder entries and do not widen the generated decoder.
+
+`ProofCheck/MapFeasibility.lean` proves the actual translated `ResourceEntries`
+function: it allocates `map[Resource]ResourceBounds`, inserts two arbitrary
+key/value pairs in order, looks up an arbitrary query, and returns exact map
+ownership together with the value and presence flag. The contract covers equal
+keys (second insert replaces the first), different keys, absent queries and nil
+pointer fields in the values. It has no assumed helper or `SafeMapKey` premise.
+It needs the same ambient modeled Go semantics and generated type/function
+interpretation assumptions as the other proofs. It neither dereferences nor
+claims ownership of the felt pointees held inside ResourceBounds.
+
+The other three shapes share an additional **pinned-model incompleteness**:
+
+| Map shape | Evidence and remaining gap |
+|---|---|
+| `map[Resource]ResourceBounds` | Translation and complete map-operation witness proof pass. The CBOR reader, loop, value ownership and error contract remain future work. |
+| `map[felt.Felt]*felt.Felt` | Actual translated witness reaches the first insertion, where `SafeMapKey felt.Felt.ty k1` cannot be discharged. |
+| `map[felt.Felt]map[felt.Felt]*felt.Felt` | Translation and Go execution pass. Outer and inner keys use the same blocked felt equality; nested ownership composition is not yet proved. |
+| `map[felt.SierraClassHash]felt.CasmClassHash` | Translation and Go execution pass. The named key alias has the same missing array-equality rule; by-value map proof remains open. |
+
+Felt and SierraClassHash ultimately have underlying type `[4]uint64`.
+`Perennial/Golang/Defn/Array.lean` has `equals_array`, but that rule only establishes
+`CheckComparable` for an array whose element type is comparable. It does **not**
+evaluate `GoOp GoEquals` on two array values. The map theory deliberately requires
+actual Go key equality, including the self-comparison before insertion. The
+pinned comparison scheme supplies scalar, pointer and struct comparison rules,
+but no corresponding array-value rule. Thus adding ordinary typed readers alone
+does not discharge this obligation. This issue does not affect Header, which
+decodes felt limbs without using felts as Go map keys.
+
+The following diagnostics are deliberately outside the audited proof root:
+
+```sh
+# From verification/fastcbor-proof, after check.sh has generated/built imports.
+# Both commands are EXPECTED TO FAIL on perennial.rev.
+"$ELAN_HOME/bin/lake" env lean repros/FeltMap.lean
+"$ELAN_HOME/bin/lake" env lean repros/MapKeyEquality.lean
+```
+
+The first fails at the actual map insertion's `SafeMapKey` obligation. The second
+isolates three missing comparison instances: bare `[4]uint64`, Felt and
+SierraClassHash. It avoids confusing the gap with an untranslated named alias or
+an absent `GoLocalContext`. No failed proof or admission is imported into
+`ProofCheck`, and no key-equality correctness premise is added to a passing theorem.
+
+The public Go witness test runs 216 key/collision/query combinations for each of
+four map shapes (864 calls). Keys distinguish every limb separately, zero and
+all-one limbs. It checks absent versus present nil values, duplicate replacement,
+named felt values and updates through the nested-map alias. Ordinary and
+`-race -gcflags=all=-d=checkptr=2` runs pass. This is execution evidence for the
+witnesses, not exhaustive decoder testing or a proof of array equality.
+
+No trusted semantics change is made. A future array-equality proposal must follow
+the existing type-directed comparison scheme (including element comparisons and
+short-circuiting), inspect nested arrays/structs and named/generic array types,
+and remain separate from the pending one-line UTF-8 slice-index correction.
+The active goal and `.tools/perennial/.agents/skills/fix-semantics/SKILL.md` require
+separate approval before either trusted change. Merely assuming `SafeMapKey`, or
+changing Juno's key representation to avoid this evidence, is not this result.
+
+The checked manifest still contains 15 roots, 140 shapes, 18 registration entries
+and all 185 benchmark cases; the build-selected non-test package list increases
+from 154 to 155 because it now includes the witness package. The frozen ordinary
+and race/checkptr corpus smoke were rerun for the updated source inventory, with
+177 compatible fast cases, six retained incompatible projections and two no-decode
+controls on each revision. Production decoder Go and the untouched baseline are
+unchanged; no timing gate was run.
+
+Full regeneration/check passes with **1009 audited theorems**, **346 project
+hashes**, **28 standard-library hashes** and 2164 build jobs. No new axioms,
+admissions or native-evaluation axioms are introduced. Translating Resource and
+ResourceBounds removes their six previous opaque type/underlying/zero-value
+declarations from the theorem dependency union; other documented generated opaque
+declarations remain. The 51 direct validator-premise theorems and two direct
+word-helper-premise theorems remain conditional. All recorded hashes match.
+The full log is `check-map-feasibility-full.log`.
 
 ## Whole-library gates after the Header milestone
 

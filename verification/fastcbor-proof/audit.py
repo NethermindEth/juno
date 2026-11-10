@@ -46,6 +46,8 @@ inputs += [here / "smoke/run.py", here / "smoke/frozen_test.go.txt", here / "res
 compatibility_smoke = json.loads((here / "results/compatibility-smoke.json").read_text())
 inputs += [here / "results/compatibility-smoke-race-checkptr.json"]
 race_checkptr_smoke = json.loads((here / "results/compatibility-smoke-race-checkptr.json").read_text())
+inputs += list((here / "feasibility/maps").glob("*.go"))
+inputs += [here / "repros/FeltMap.lean", here / "repros/MapKeyEquality.lean"]
 # Record the build-selected Go sources for standard-library packages translated
 # directly by this harness. Other standard-library models are pinned by Perennial.
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
@@ -89,6 +91,15 @@ report = {
     "perennial": rev,
     "go": subprocess.check_output(["go", "version"], text=True).strip(),
     "go_target": subprocess.check_output(["go", "env", "GOOS", "GOARCH", "GOAMD64"], text=True).splitlines(),
+    "map_feasibility": {
+        "go_witness": "verification/fastcbor-proof/feasibility/maps/witness.go",
+        "checked_theorem": "wp_resourceMap_witness",
+        "proved": "actual ResourceEntries translation: allocation, two inserts with arbitrary collisions, lookup including absence, exact returned map ownership; pointer pointees are not owned by this contract",
+        "blocked_shapes": ["map[felt.Felt]*felt.Felt", "map[felt.Felt]map[felt.Felt]*felt.Felt", "map[felt.SierraClassHash]felt.CasmClassHash"],
+        "blocker": "pinned ArraySemantics checks array comparability but supplies no array-value GoEquals step; felt and SierraClassHash resolve to [4]uint64",
+        "excluded_attempts": ["repros/FeltMap.lean", "repros/MapKeyEquality.lean"],
+        "scope": "language-feature witnesses only; no map decoder, wire specification, generator extension or whole-library proof is claimed; trusted semantics unchanged",
+    },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
     "initialization_boundary": {
         "cursor": "proved after runtime CPU startup; no initializer WP premise",

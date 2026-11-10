@@ -1,2 +1,2 @@
-translate = ["Typed", "*Kind", "Felt", "Slice"]
+translate = ["Typed", "*Kind", "Felt", "SierraClassHash", "CasmClassHash", "Slice"]
 imports = ["!*", "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"]

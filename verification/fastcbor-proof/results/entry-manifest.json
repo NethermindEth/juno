@@ -154,6 +154,7 @@
     "github.com/NethermindEth/juno/utils/throttler",
     "github.com/NethermindEth/juno/utils/tracker",
     "github.com/NethermindEth/juno/verification/fastcbor-proof/cmd/entrymanifest",
+    "github.com/NethermindEth/juno/verification/fastcbor-proof/feasibility/maps",
     "github.com/NethermindEth/juno/verification/fastcbor-proof/repros/genericindex",
     "github.com/NethermindEth/juno/vm"
   ],

@@ -4726,7 +4726,7 @@
       "db/typed/value/cbor.go": "40caf7a9d873b400ccef9e2b95762ebd79b2762977ac8509ba3a9f40e84ac074",
       "utils/cbor/fxamacker/cbor.go": "6ccfd5b3604ed9011152a98702fce23397d115ec8ec02f89d3c180fbc78eda46"
     },
-    "revision": "9cb54e7f39035b45e691e2fc06547c18ac9830e8",
+    "revision": "b9e19400d51b8122c0ca81507e9719972458ff73",
     "tracked_go_source_sha256": {
       "adapters/adaptfeeder/adaptfeedertest/adaptfeedertest.go": "0e69732d57a0332b4c54a49f7eb45aa72fc876cf9d94832cd721dcf943319cc1",
       "adapters/adaptfeeder/feeder.go": "8e664787a751648442e7ea30d4bc6eac1e62ce439c3b238f604befe9d404c6d2",
@@ -5728,6 +5728,8 @@
       "verification/fastcbor-lean/probes/slicedata/probe.go": "7cb1f94545a707fd1053e89c5a3fbf2245b5f48342eec833ae613fb51152738e",
       "verification/fastcbor-lean/probes/uintptrinc/probe.go": "4c858189afdfc947b31ffd88657f5e4c44df3950ecd4bc988b2f183a6453f764",
       "verification/fastcbor-proof/cmd/entrymanifest/main.go": "a6b35342a630fcaec00a68dcfbf8f40603768257651523ed858684a58bd1a7d6",
+      "verification/fastcbor-proof/feasibility/maps/witness.go": "45bd6cc13154c82e477afb8520512547c622b2ccb1e58c9259d945f272f19ed8",
+      "verification/fastcbor-proof/feasibility/maps/witness_test.go": "3fadf68539c183c9ba5e8e2588054b22f24eb64856f96e1014784ae6fbd12599",
       "verification/fastcbor-proof/repros/genericindex/main.go": "32f16a97870785423d54c0ad6d0430ab4240d7617b106e6e6ed910bd3b19c4be",
       "vm/class.go": "4b402b619bf2c3d1344b7fd76aaa15939e0591a29ce7af44fbe1a1a2a313a241",
       "vm/compiler.go": "00c15bef0cc21b35a3893ce047a94f27086f6f7d1430ba7445440179431988e5",

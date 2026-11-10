@@ -183,3 +183,5 @@ import ProofCheck.Utf8WordContract
 import ProofCheck.Utf8Batches
 import ProofCheck.Utf8Loop
 import ProofCheck.Utf8FromWord
+
+import ProofCheck.MapFeasibility
