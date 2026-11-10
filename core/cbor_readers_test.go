@@ -517,3 +517,56 @@ func TestTypedHeaderTaggedErrorsClearPartialResult(t *testing.T) {
 		}
 	}
 }
+
+func TestTypedHeaderRecursiveMalformedHeadsClearPartialResult(t *testing.T) {
+	for _, feltExtra := range []bool{false, true} {
+		for _, levels := range []int{1, 8, 30} {
+			for h := range 256 {
+				bad := byte(h)
+				if bad&31 < 28 {
+					continue
+				}
+				t.Run(fmt.Sprintf("feltExtra%t/levels%d/head%x", feltExtra, levels, bad), func(t *testing.T) {
+					wire := append([]byte{bad}, bytes.Repeat([]byte{0x1b}, 40)...)
+					for level := range levels {
+						front := []byte{0xc4, 0x82, 0} // A tag, an array, a valid sibling.
+						if level%2 == 1 {
+							front[1] = 0xa1 // A map key before the failing value.
+						}
+						wire = append(front, wire...)
+					}
+					data := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7}
+					if feltExtra {
+						data = append(data, 0x64, 'H', 'a', 's', 'h', 0x85, 0, 1, 2, 3)
+					} else {
+						data = append(data, 0x67, 'u', 'n', 'k', 'n', 'o', 'w', 'n')
+					}
+					wantOffset := len(data) + 3*levels
+					data = append(data, wire...)
+					before := bytes.Clone(data)
+					kind := cursor.ErrSyntax
+					if bad&31 == 31 && bad>>5 >= 2 && bad>>5 <= 5 {
+						kind = cursor.ErrUnsupported
+					}
+					for _, first := range []bool{false, true} {
+						var got core.Header
+						var err error
+						if first {
+							var rest []byte
+							rest, err = core.DecodeHeaderFirst(data, &got)
+							require.Nil(t, rest)
+						} else {
+							err = core.DecodeHeader(data, &got)
+						}
+						require.ErrorIs(t, err, kind)
+						var detail *cursor.DecodeError
+						require.ErrorAs(t, err, &detail)
+						require.Equal(t, wantOffset, detail.Offset)
+						require.Equal(t, core.Header{}, got)
+						require.Equal(t, before, data)
+					}
+				})
+			}
+		}
+	}
+}

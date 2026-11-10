@@ -294,3 +294,61 @@ func TestSkipContainerMalformedChildren(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipRecursiveMalformedHeads(t *testing.T) {
+	for _, depth := range []int{0, 15, 31, 32} {
+		for levels := 0; levels <= 32-depth; levels++ {
+			for mode := range 3 {
+				for h := range 256 {
+					bad := byte(h)
+					if bad&31 < 28 {
+						continue
+					}
+					t.Run(fmt.Sprintf("depth%d/levels%d/mode%d/head%x", depth, levels, mode, bad), func(t *testing.T) {
+						wire := append([]byte{bad}, bytes.Repeat([]byte{0x1b}, 40)...)
+						offset := 0
+						for level := range levels {
+							var front []byte
+							width := byte(level % 5)
+							switch {
+							case mode == 2 && level%2 == 0:
+								front = appendTestCBORArgument(nil, 0xc0, 4, width)
+							case mode == 1:
+								// A malformed value after a complete pair and its key.
+								front = appendTestCBORArgument(nil, 0xa0, 2, width)
+								front = append(front, 0, 0xf6, 1)
+							default:
+								// Inline-four arrays must not be mistaken for a wide felt.
+								front = appendTestCBORArgument(nil, 0x80, 4, width)
+								front = appendTestCBORArgument(front, 0, 7, 4)
+								front = append(front, 0)
+								wire = append(wire, 0)
+							}
+							offset += len(front)
+							wire = append(front, wire...)
+						}
+						input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+						start := len(input)
+						input = append(input, wire...)
+						before := bytes.Clone(input)
+						r := openSkipCursor(t, input, depth)
+						kind := cursor.ErrSyntax
+						if bad&31 == 31 && bad>>5 >= 2 && bad>>5 <= 5 {
+							kind = cursor.ErrUnsupported
+						}
+						for range 2 {
+							err := r.Skip()
+							require.ErrorIs(t, err, kind)
+							var detail *cursor.DecodeError
+							require.ErrorAs(t, err, &detail)
+							require.Equal(t, start+offset, detail.Offset)
+							require.Equal(t, start, r.Pos())
+							require.Equal(t, wire, r.Remaining())
+						}
+						require.Equal(t, before, input)
+					})
+				}
+			}
+		}
+	}
+}
