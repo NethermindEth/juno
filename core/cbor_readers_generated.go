@@ -125,4 +125,5 @@ func DecodeHeader(data []byte, dst *Header) error {
 func RegisterTypedCBORReaders() {
 	fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
 	registerTypedHeaderProjections()
+	fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }

@@ -1,9 +1,63 @@
 package core
 
 import (
+	"math"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/cursor"
 )
+
+// Integer-keyed records recognize only unsigned keys. Other supported keys are
+// consumed and treated as unknown; unsigned values outside int64 are rejected.
+func cborReadIntegerKey(c *cursor.Cursor) (uint64, bool, error) {
+	if head, err := c.Peek(); err != nil || head&0xe0 != cursor.MajorUint {
+		_, _, err := c.Key()
+		return 0, false, err
+	}
+	key, err := c.Uint64()
+	if err != nil {
+		return 0, false, err
+	}
+	if key > math.MaxInt64 {
+		return 0, false, cursor.ErrType
+	}
+	return key, true, nil
+}
+
+// Index arrays preserve nil versus empty. Null elements remain zero. The
+// unsigned first attempt matches the planner's common path and diagnostics.
+func cborReadInts(c *cursor.Cursor, dst *[]int) error {
+	if c.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := c.ArrayLen()
+	if err != nil {
+		return err
+	}
+	out := make([]int, count)
+	for i := range out {
+		value, err := c.Uint64()
+		if err != nil {
+			if c.Null() {
+				continue
+			}
+			signed, err := c.Int64()
+			if err != nil {
+				return err
+			}
+			out[i] = int(signed)
+			continue
+		}
+		if value > math.MaxInt64 {
+			return cursor.ErrType
+		}
+		out[i] = int(value)
+	}
+	c.Leave()
+	*dst = out
+	return nil
+}
 
 func cborReadUint64(c *cursor.Cursor, dst *uint64) error {
 	if c.Null() {

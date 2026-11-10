@@ -16,7 +16,7 @@ and no result from the frozen whole-library performance gate yet.
 `utils/cbor/cmd/cborgen` reads the actual Go types and emits the Header and GasPrice
 readers in `core/cbor_readers_generated.go`. Unknown field shapes fail generation.
 The generated entries use typed stores, allocation, and zero checks instead of
-runtime field offsets and runtime allocation hooks. The registry installs Header and its five projections;
+runtime field offsets and runtime allocation hooks. The registry installs Header, its five projections and BlockTransactionsIndexes;
 other types still use the original planner. The routing adapter, registration,
 logging, FX fallback, and diagnostic formatting are outside the proposed proof scope.
 The generator also emits private static field metadata and small allocation
@@ -87,7 +87,7 @@ remains unproved because of the documented pinned slice-index defect. The propos
 trusted repair is still unapplied; no unconditional Header proof is claimed.
 
 The full check audits **1070 theorems**, with no admissions or native-evaluation
-axioms. Concrete projection definitions replace 21 previously opaque type axioms. The count is not a coverage
+axioms. Concrete index definitions replace three more previously opaque type axioms. The count is not a coverage
 percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
 A checked preparatory inventory now records the remaining production destinations
@@ -121,7 +121,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, no added axioms, 365 project hashes and 28 standard-library hashes; concrete projection types remove 21 opaque declarations. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, no added axioms, 367 project hashes and 28 standard-library hashes; concrete index types remove three more opaque declarations. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -2769,7 +2769,7 @@ explicit in the artifact. Package import aliases do not hide concrete roots.
 
 The result has **14 production destination types**, plus **1 benchmark-only
 destination**, **140 structural Go shapes**, **18 ordered registry entries**, and
-all **185 frozen benchmark case IDs**. Header and its five projections have registered typed readers.
+all **185 frozen benchmark case IDs**. Header, its five projections and block indexes have registered typed readers.
 The seven variants reachable from the two production interfaces are five transaction
 variants and two class variants. The other registry entries are recorded, without
 silently expanding the fast production-root scope to trie journals or consensus WAL.
@@ -2782,7 +2782,7 @@ silently expanding the fast production-root scope to trie journals or consensus 
 | `Transaction` and hash projection | 2 | Five registered pointer variants, version/felt representation, resource-bounds map and projection tag behavior |
 | `StateUpdate` | 1 | Felt-key maps, nested storage-diff maps, migrated-class typed felt keys/values, allocations and duplicate/error policy |
 | `ClassDefinition` | 1 | Two registered variants, recursive `SegmentLengths`, raw JSON values and felt slices; public BigInt dependency now proved |
-| `BlockTransactionsIndexes` | 1 | Integer-key struct and signed `[]int` contents, plus exact prefix/suffix behavior |
+| `BlockTransactionsIndexes` | 1 | Typed integer-key record and signed `[]int` implementation generated; independent relations and complete API proofs remain open |
 | `TransactionReceipt` by value | 1 benchmark-only | Preserve the historical destination type instead of conflating it with the production pointer root |
 
 The four map shapes are `map[Resource]ResourceBounds`, `map[felt.Felt]*felt.Felt`,
@@ -3334,6 +3334,69 @@ new source hashes. The generator CLI rejects a nonempty discard marker; the
 probe was reverted byte-for-byte. The pinned trusted checkout and preserved
 original/baseline worktrees remain unchanged. Performance timings remain pending.
 
+### Generated typed block transaction indexes
+
+`core/cbor_indexes_generated.go` now implements and registers
+`DecodeBlockTransactionsIndexesFirst` and supplies the full-input
+`DecodeBlockTransactionsIndexes` API. The generator reads the actual integer
+CBOR tags and `[]int` field types; it rejects duplicate keys, unsupported tags,
+embedded/mixed fields and unmapped types. The emitted loop dispatches directly
+on keys 1 and 2, with a seen-bit mask and typed field stores. It needs no runtime
+field table, reflection, field offsets or allocation hooks.
+
+The implementation retains the planner contract: the first occurrence of a
+known integer key wins, including a null/undefined value; unknown unsigned keys,
+negative integer keys and valid UTF-8 text keys are consumed and their values
+skipped. Out-of-int64 keys and unsupported key types retain the planner's error
+behavior. Unlike projections, an enclosing tag is rejected. Signed integer
+arrays preserve nil versus empty, leave null/undefined elements zero, reject
+out-of-range values on the pinned 64-bit target, and allocate independent storage.
+The unsigned first attempt preserves the planner's common offset path and
+its diagnostic behavior for signed/error cases.
+
+Both public typed APIs enforce the zero-destination guard, preserve nonzero
+destinations, clear partial results on parsing errors and return an exact borrowed
+suffix on success. The full decoder additionally rejects trailing bytes and
+clears the destination. The registered fastcbor route invokes the same typed
+First implementation. Other record roots retain the planner.
+
+Public-API tests compare 128 random valid index records with FX and an unregistered
+named type using the original planner. They cover all 625 combinations of map,
+key, array and value head widths; signed int64 boundaries; nil/empty/null/undefined;
+reordered, duplicate, text, negative and unknown keys; malformed tails, the
+whole-record nesting limit after a decoded array, and every truncated prefix of
+a populated record; unchanged input, independent output,
+original suffix aliasing, nonzero rejection and cleanup. Race/checkptr=2 passes.
+A 15-second differential fuzz run passed 258,162 executions with two workers,
+comparing the typed direct API, registered route and planner values, errors and
+suffixes. A deliberate duplicate-key source drift makes the generator CLI fail;
+the source was restored byte-for-byte afterward.
+
+Goose and proofgen accept the actual integer-key reader, integer-slice and key
+helpers and concrete index-record type. This is implementation and translation
+evidence, **not a complete index decoder proof**. Independent integer-slice and
+index-record relations, complete helper contracts and API composition remain
+open. Header's UTF-8 helper and trusted-repair approval remain unchanged, and no
+performance gate result is claimed.
+
+The checked manifest records **seven registered typed roots** out of the same
+fifteen destinations; its 140 shapes, 18 registry entries and 185 frozen cases
+remain unchanged. Full regeneration/audit passes with **1070 theorems**, **367
+matching project hashes**, **28 matching standard-library hashes** and 2184 build
+jobs. No axioms were added. The concrete BlockTransactionsIndexes representation
+removes its three opaque type/underlying/zero declarations from 662 theorem
+dependency lists; all other dependencies are unchanged. Header's explicit
+validator and word-helper premise counts remain 51 and 2. The log is
+`check-typed-indexes-full.log`.
+
+Targeted typed-decoder, block-serializer and transaction-hash regression tests
+pass with race/checkptr=2 (4.247s); the additional nesting-boundary test also passes.
+Both frozen-corpus sweeps were rerun after the final source change. Ordinary and
+race/checkptr=2 each report 177 compatible fast cases, six removed projections
+and two controls, with no FX fallback. Recorded source and corpus hashes match.
+The trusted model and original/baseline worktrees remain unchanged. No performance
+measurements or new complete record proof are claimed by this checkpoint.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** close the Header UTF-8 helper after the separately
@@ -3342,9 +3405,9 @@ original/baseline worktrees remain unchanged. Performance timings remain pending
    BigInt decoding is proved. Felt-key map equality still exposes a model gap.
    Recursive SegmentLengths, class interfaces, raw JSON and the remaining concrete
    payload shapes need their own contracts and initialization dependencies.
-2. **Complete the generator:** Header and its five projections have typed readers.
+2. **Complete the generator:** Header, its five projections and block indexes have typed readers.
    Cover receipts and their projections, transactions and their hash projection,
-   StateUpdate, class definitions and integer-key BlockTransactionsIndexes,
+   StateUpdate and class definitions,
    including nested types, registry tags, overrides and shared allocations.
    Extend static metadata and maintain the checked entry manifest. Arbitrary
    runtime types remain fallback. Complete projection proofs are still pending.

@@ -140,9 +140,14 @@ func DecodeHeader(data []byte,dst *Header) error {
 func RegisterTypedCBORReaders() {
  fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
  registerTypedHeaderProjections()
+ fastcbor.RegisterTyped[BlockTransactionsIndexes](DecodeBlockTransactionsIndexesFirst)
 }
 `)
 	projections, projectionSchema, err := emitHeaderProjections(p)
+	if err != nil {
+		return err
+	}
+	indexes, err := emitIntegerRecord(p, "BlockTransactionsIndexes")
 	if err != nil {
 		return err
 	}
@@ -154,6 +159,7 @@ func RegisterTypedCBORReaders() {
 		{"core/cbor_readers_generated.go", &b},
 		{"core/cbor_projections_generated.go", projections},
 		{"core/internal/cborprojections/fields_generated.go", projectionSchema},
+		{"core/cbor_indexes_generated.go", indexes},
 	}
 	for _, output := range outputs {
 		out, err := format.Source(output.buf.Bytes())
