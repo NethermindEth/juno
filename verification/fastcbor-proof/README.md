@@ -86,8 +86,9 @@ rejection, integer-key classification/overflow, key type/tag rejection and text-
 truncation through public Key and alternate field lookup, the complete batched ASCII
 scan and short-ASCII-key field matching/duplicate handling, byte-prefix equivalence
 for the word cache, production cached-hit and general field-EOF contracts, general
-short-buffer table search and public field hit/miss contracts, and bounded public
-Header examples. The reproducible audit records the current lemma count.
+table search for arbitrary input lengths with the Header/GasPrice cache shape,
+general slow field hit/miss contracts, public ASCII cache-miss dispatch and bounded
+public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
@@ -95,7 +96,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables, and public short-buffer hits (new/duplicate) and ASCII misses (unknown/new/duplicate) compose through actual field reading; word-based search/cache misses, other text keys and remaining head-error propagation are pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; general slow hits and ASCII misses compose through actual field reading, and public ASCII misses cover arbitrary input lengths; general public word-path hit composition, other text keys and remaining head-error propagation are pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -331,7 +332,7 @@ slow worker. The original cursor and whole input are preserved on each error;
 the alternate-field path propagates the error without accessing struct metadata.
 These are contracts for the actual translated implementations. The successful
 short-ASCII-key path is now proved as described next; other text keys, UTF-8,
-remaining head-error propagation and word-based cache-miss/search paths still need proofs.
+remaining head-error propagation and general public word-path hit composition still need proofs.
 
 `ASCII.lean` proves the complete production ASCII helper for arbitrary byte
 sequences and lengths. Its independent contract is that every byte is below 128.
@@ -364,8 +365,8 @@ key: exact cursor advancement/suffix, one pair consumed, the expected table inde
 advanced once, and precisely that field's seen bit set. It preserves the whole
 input and arbitrary fractional ownership of both table metadata and entries.
 The actual generated Header/GasPrice entries satisfy its cache representation.
-The short-buffer branch of nonempty `find` is now proved as described below;
-the word-based search and corresponding cache-miss branch still need proofs.
+Both branches of nonempty `find` are now proved for the Header/GasPrice table
+shape, as described below; the public word-path hit cases still need composition.
 
 The general model analysis exposed an addition-before-check guard in `NextField`:
 `c.pos + 24 <= len(c.buf)` can pass after signed overflow even when no bytes remain.
@@ -403,8 +404,35 @@ unknown names, case variants, earlier entries and duplicates whenever the encode
 prefix is absent from the remaining table. A miss preserves the search index,
 and every outcome decrements the outstanding pair count exactly once. These are
 contracts for the translated production paths, not assumed search or mark helpers.
-The word-based search (inputs at least 24 bytes), its miss dispatch, remaining key
-encodings/errors and global initialization are still outstanding.
+The subsequent word-based search and public miss-dispatch milestone is described
+next. Remaining public hit composition, key encodings/errors and global
+initialization are still outstanding.
+
+`FindWords.lean` proves the production word-based search loop for arbitrary input
+lengths of at least 24 bytes and tables whose nonempty encoded keys fit in the
+three-word cache. It verifies the first-byte prefilter, every actual word/mask
+load, complete masked comparison, sorted early exit, continued search and
+exhaustion. `CachedShortTable` records that representation; separate checks show
+that the actual complete Header and GasPrice tables satisfy it. The unified
+`wp_find_cached` combines byte-based and word-based search into the independent
+`FieldFindResult` contract for arbitrary input lengths and valid starting indices.
+Keys longer than 24 encoded bytes need a separate word-path tail-comparison proof
+before expanding to any library root that uses them; this restriction does not
+exclude any Header/GasPrice table entry.
+
+`FindDispatch.lean` composes the unified search through the actual slow field
+reader for arbitrary input lengths. Known encoded-prefix hits consume the exact
+key, advance the table index and either mark a new field or return the owned
+duplicate diagnostic at the post-key cursor. ASCII misses follow actual key
+parsing and name matching with unknown/new/duplicate outcomes and exact suffixes.
+`CacheMiss.lean` proves that an expected-key word mismatch cannot be hidden by
+seen bits and leaves state/input intact before this slow path. Its unified public
+`wp_nextField_miss_ascii` handles the word comparison, short-buffer and exhausted-
+table cases, preserving fractional metadata and whole-input ownership. This
+closes public miss dispatch for the already supported inline/one-byte ASCII keys
+when no remaining encoded-table entry matches. General public word-path hit
+composition (later-entry hits and seen expected entries), wider/non-ASCII keys,
+remaining errors and initialization are still pending.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
@@ -585,8 +613,18 @@ theorems and no added transitive axioms. Targeted public cursor field, projectio
 and key tests passed, as did the typed Header tests (cached against unchanged Go
 sources). This milestone changes proofs and documentation only. Existing runtime
 coverage includes the cache-window boundary and post-key data cases added in the
-previous milestone. The word-based search/cache-miss branch, broader key/error
-composition, complete Header theorem and frozen performance gate remain pending.
+previous milestone. The subsequent word-search milestone is recorded below;
+broader key/error composition, the complete Header theorem and frozen performance
+gate remain pending.
+
+The word-search/public-miss milestone passed full regeneration/check with 280
+audited theorems and no added transitive axioms. Targeted public cursor field,
+projection and key tests and typed Header tests passed (cached against unchanged
+Go sources). This milestone changes proofs and documentation only. The checked
+word-search table restriction includes every Header/GasPrice entry; it is not a
+claim about arbitrary longer field names. General public word-path hit composition,
+wider/non-ASCII keys and errors, initialization, the complete Header theorem and
+the frozen performance gate remain outstanding.
 
 ## Whole-library gates after the Header milestone
 
