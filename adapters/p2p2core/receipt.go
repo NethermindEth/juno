@@ -26,7 +26,7 @@ func AdaptReceipt(r *receipt.Receipt, txHash *felt.Felt) *core.TransactionReceip
 	}
 
 	return &core.TransactionReceipt{
-		Fee:                AdaptFelt(common.ActualFee),
+		Fee:                AdaptFelt[felt.Felt](common.ActualFee),
 		FeeUnit:            0,   // todo(kirill) recheck
 		Events:             nil, // todo SPEC , current specification does not maintain the mapping of events to transactions receipts
 		ExecutionResources: adaptExecutionResources(common.ExecutionResources),
@@ -74,7 +74,7 @@ func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.Execu
 
 func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
-		From:    AdaptFelt(m.FromAddress),
+		From:    AdaptFelt[felt.Felt](m.FromAddress),
 		To:      AdaptEthAddress(m.ToAddress),
 		Payload: AdaptFeltSlice(m.Payload),
 	}
@@ -82,7 +82,7 @@ func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 
 func feltToUint64(f *common.Felt252) uint64 {
 	var result uint64
-	if adapted := AdaptFelt(f); adapted != nil {
+	if adapted := AdaptFelt[felt.Felt](f); adapted != nil {
 		result = adapted.Uint64()
 	}
 	return result

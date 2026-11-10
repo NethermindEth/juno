@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 func BenchmarkPoseidonArray(b *testing.B) {
@@ -15,7 +16,7 @@ func BenchmarkPoseidonArray(b *testing.B) {
 			feltsArray := genRandomFelts(b, n)
 
 			for b.Loop() {
-				crypto.PoseidonArray(feltsArray)
+				crypto.PoseidonArray[felt.Felt](feltsArray)
 			}
 		})
 	}
@@ -28,7 +29,7 @@ func BenchmarkPoseidonElems(b *testing.B) {
 		b.Run(fmt.Sprintf("Number of felts: %d", n), func(b *testing.B) {
 			elems := genRandomFeltsPtr(b, n)
 			for b.Loop() {
-				crypto.PoseidonElems(elems...)
+				crypto.PoseidonElems[felt.Felt](elems...)
 			}
 		})
 	}
@@ -38,7 +39,7 @@ func BenchmarkPoseidon(b *testing.B) {
 	in := genRandomFelts(b, 2)
 
 	for b.Loop() {
-		crypto.Poseidon(&in[0], &in[1])
+		crypto.Poseidon[felt.Felt](&in[0], &in[1])
 	}
 }
 
@@ -51,7 +52,9 @@ func BenchmarkPoseidonDigest(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		var digest crypto.PoseidonDigest
-		digest.Update(elems...)
-		digest.Finish()
+		for _, elem := range elems {
+			digest.Update(elem)
+		}
+		digest.Finish[felt.Felt]()
 	}
 }

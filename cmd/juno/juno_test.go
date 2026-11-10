@@ -74,6 +74,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxConcurrentRequests := uint(1024)
 	defaultRPCMaxRequestQueue := uint(2048)
+	defaultRPCMaxWSConnections := uint(0)
+	defaultRPCMaxSubscriptions := uint(0)
 	defaultRPCMaxBatchSize := uint(1000)
 	defaultRPCMaxBatchResponseSize := uint(64)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
@@ -129,6 +131,8 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+		RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+		RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 		RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 		RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -183,6 +187,8 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+		RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+		RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 		RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 		RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -346,6 +352,8 @@ pprof: true
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -406,6 +414,8 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -462,6 +472,8 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -524,6 +536,8 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -610,6 +624,8 @@ db-cache-size: 1024
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -672,6 +688,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -730,6 +748,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -786,6 +806,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -843,6 +865,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -900,6 +924,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -956,6 +982,8 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -1104,6 +1132,39 @@ func TestCustomNetworkURLValidation(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, parseURL(t, tc.feeder), config.Network.FeederURL)
 			assert.Equal(t, parseURL(t, tc.gateway), config.Network.GatewayURL)
+		})
+	}
+}
+
+func TestRPCSyncURLValidation(t *testing.T) {
+	tests := map[string]struct {
+		url       string
+		errSubstr string
+	}{
+		"http":         {url: "http://rpc.host/rpc/v0_10"},
+		"https":        {url: "https://rpc.host/rpc/v0_10"},
+		"ws":           {url: "ws://rpc.host/rpc/v0_10/ws"},
+		"wss":          {url: "wss://rpc.host/rpc/v0_10/ws"},
+		"bad scheme":   {url: "ftp://rpc.host", errSubstr: "invalid --rpc-sync-url"},
+		"no scheme":    {url: "rpc.host", errSubstr: "invalid --rpc-sync-url"},
+		"missing host": {url: "http:///rpc", errSubstr: "invalid --rpc-sync-url"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			cmd.SetArgs([]string{"--rpc-sync-url", tc.url})
+
+			err := cmd.ExecuteContext(t.Context())
+
+			if tc.errSubstr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tc.errSubstr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.url, config.RPCSyncURL)
 		})
 	}
 }

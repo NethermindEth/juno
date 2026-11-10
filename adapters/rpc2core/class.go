@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -57,7 +58,7 @@ func adaptSierraClass(
 		return nil, err
 	}
 
-	programHash := crypto.PoseidonArray(program)
+	programHash := crypto.PoseidonArray[felt.Felt](program)
 	abiHash := crypto.StarknetKeccak([]byte(abi))
 	return &core.SierraClass{
 		Abi:             abi,

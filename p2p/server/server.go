@@ -630,7 +630,13 @@ func (h *Server) newIterator(it *synccommon.Iteration) (*iterator, error) {
 	case *synccommon.Iteration_BlockNumber:
 		return newIteratorByNumber(h.bcReader, v.BlockNumber, it.Limit, it.Step, forward)
 	case *synccommon.Iteration_Header:
-		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
+		return newIteratorByHash(
+			h.bcReader,
+			p2p2core.AdaptHash[felt.Felt](v.Header),
+			it.Limit,
+			it.Step,
+			forward,
+		)
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}

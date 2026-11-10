@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -64,6 +65,7 @@ const (
 	preConfirmedStaleAfterF             = "preconfirmed-stale-after"
 	preConfirmedOnDemandWaitF           = "preconfirmed-on-demand-wait"
 	disableSyncF                        = "disable-sync"
+	rpcSyncURLF                         = "rpc-sync-url"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -113,6 +115,8 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
 	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
+	rpcMaxWSConnectionsF                = "rpc-max-ws-connections"
+	rpcMaxSubscriptionsF                = "rpc-max-subscriptions"
 	rpcMaxBatchSizeF                    = "rpc-max-batch-size"
 	rpcMaxBatchResponseSizeF            = "rpc-max-batch-response-size"
 	rpcBatchConcurrencyF                = "rpc-batch-concurrency"
@@ -142,6 +146,7 @@ const (
 	defaultPreConfirmedStaleAfter             = preconfirmed.DefaultStaleAfter
 	defaultPreConfirmedOnDemandWait           = preconfirmed.DefaultOnDemandWait
 	defaultDisableSync                        = false
+	defaultRPCSyncURL                         = ""
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -187,6 +192,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 1024
 	defaultRPCMaxQueuedRequests               = 2048
+	defaultRPCMaxWSConnections                = 0
+	defaultRPCMaxSubscriptions                = 0
 	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
@@ -232,7 +239,10 @@ const (
 	preConfirmedOnDemandWaitUsage = "Maximum time an RPC request waits for the pre_confirmed " +
 		"poll it triggered before answering with the pre_confirmed block already stored " +
 		"(0s: never waits)."
-	disableSyncUsage   = "Disables L2 synchronization."
+	disableSyncUsage = "Disables L2 synchronization."
+	rpcSyncURLUsage  = "Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) " +
+		"to sync committed blocks from instead of the feeder gateway. " +
+		"Pre-confirmed data still comes from the feeder gateway."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -289,6 +299,12 @@ const (
 		"together; 0 disables the limit."
 	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
+	rpcMaxWSConnectionsUsage = "Maximum concurrent websocket connections, across all " +
+		"RPC versions. 0 disables the limit."
+	rpcMaxSubscriptionsUsage = "Maximum subscriptions one websocket connection may hold. " +
+		"The limit is per connection so that one client cannot take the slots another needs; " +
+		"multiplied by rpc-max-ws-connections it is the most the process will carry. " +
+		"0 disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
@@ -441,6 +457,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		// its numeric value — --prune-mode=0 is still "on, retain 0".
 		config.Prune = v.IsSet(pruneModeF)
 
+		if config.RPCSyncURL != "" {
+			if _, err := parseRPCURL(config.RPCSyncURL); err != nil {
+				return fmt.Errorf("invalid --%s %s: %w", rpcSyncURLF, config.RPCSyncURL, err)
+			}
+		}
+
 		// --prune-min-age layers on top of --prune-mode; without pruning
 		// enabled there is no floor for it to constrain.
 		if v.IsSet(pruneMinAgeF) && !config.Prune {
@@ -539,6 +561,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultRPCMaxQueuedRequests,
 		rpcMaxRequestQueueUsage,
 	)
+	junoCmd.Flags().Uint(rpcMaxWSConnectionsF, defaultRPCMaxWSConnections, rpcMaxWSConnectionsUsage)
+	junoCmd.Flags().Uint(rpcMaxSubscriptionsF, defaultRPCMaxSubscriptions, rpcMaxSubscriptionsUsage)
 	junoCmd.Flags().Uint(rpcMaxBatchSizeF, defaultRPCMaxBatchSize, rpcMaxBatchSizeUsage)
 	junoCmd.Flags().Uint(
 		rpcMaxBatchResponseSizeF,
@@ -564,6 +588,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcRequestTimeoutF,
 		rpcMaxConcurrentRequestsF,
 		rpcMaxRequestQueueF,
+		rpcMaxWSConnectionsF,
+		rpcMaxSubscriptionsF,
 		rpcMaxBatchSizeF,
 		rpcMaxBatchResponseSizeF,
 		rpcBatchConcurrencyF,
@@ -601,6 +627,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
+	junoCmd.Flags().String(rpcSyncURLF, defaultRPCSyncURL, rpcSyncURLUsage)
 	setCategory(junoCmd, catSyncPolling,
 		disableSyncF,
 		preConfirmedPollIntervalF,
@@ -608,6 +635,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		preConfirmedOnDemandWaitF,
 		remoteDBF,
 		readinessBlockToleranceF,
+		rpcSyncURLF,
 	)
 
 	// --- Gateway ---
@@ -782,13 +810,23 @@ func dbMaxHandlesForFDLimit(fdLimit uint64) int {
 }
 
 func parseHTTPURL(rawURL string) (*url.URL, error) {
+	return parseURL(rawURL, "http", "https")
+}
+
+func parseRPCURL(rawURL string) (*url.URL, error) {
+	return parseURL(rawURL, "http", "https", "ws", "wss")
+}
+
+func parseURL(rawURL string, allowedSchemes ...string) (*url.URL, error) {
 	// rejects relative / scheme-less strings
 	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("URL must use http or https scheme, got %s", u.Scheme)
+	if !slices.Contains(allowedSchemes, u.Scheme) {
+		return nil, fmt.Errorf(
+			"URL must use one of the %s schemes, got %s", strings.Join(allowedSchemes, ", "), u.Scheme,
+		)
 	}
 	if u.Host == "" {
 		return nil, errors.New("URL must have a host")

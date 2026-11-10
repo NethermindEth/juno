@@ -34,7 +34,7 @@ func AdaptSierraClass(
 		return utils.Map(utils.NonNilSlice(points), adaptSierra)
 	}
 
-	programHash := crypto.PoseidonArray(program)
+	programHash := crypto.PoseidonArray[felt.Felt](program)
 	entryPoints := cairo1.EntryPoints
 	return core.SierraClass{
 		Abi:     cairo1.Abi,
@@ -90,13 +90,13 @@ func AdaptClass(
 func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	return core.SierraEntryPoint{
 		Index:    e.Index,
-		Selector: AdaptFelt(e.Selector),
+		Selector: AdaptFelt[felt.Felt](e.Selector),
 	}
 }
 
 func adaptEntryPoint(e *class.EntryPoint) core.DeprecatedEntryPoint {
 	return core.DeprecatedEntryPoint{
-		Selector: AdaptFelt(e.Selector),
+		Selector: AdaptFelt[felt.Felt](e.Selector),
 		Offset:   felt.NewFromUint64[felt.Felt](e.Offset),
 	}
 }
@@ -113,7 +113,7 @@ func createCompiledClass(
 	adapt := func(ep *class.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Index:    ep.Index,
-			Selector: AdaptFelt(ep.Selector),
+			Selector: AdaptFelt[felt.Felt](ep.Selector),
 		}
 	}
 	ep := cairo1.EntryPoints

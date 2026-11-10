@@ -101,7 +101,7 @@ func (d *StateDiff) Hash() felt.Felt {
 	deprecatedDeclaredClassesDigest(d.DeclaredV0Classes, digest)
 
 	// Placeholder values
-	digest.Update(new(felt.One[felt.Felt]()), new(felt.Zero[felt.Felt]()))
+	digest.Update(new(felt.One[felt.Felt]())).Update(new(felt.Zero[felt.Felt]()))
 
 	// storage_diffs
 	// Digest: [
@@ -130,7 +130,7 @@ func (d *StateDiff) Hash() felt.Felt {
 		storage_diffs,
 		nonces
 	)*/
-	return digest.Finish()
+	return digest.Finish[felt.Felt]()
 }
 
 func (d *StateDiff) Commitment() felt.Felt {
@@ -177,25 +177,23 @@ func (d *StateDiff) Commitment() felt.Felt {
 			hash_of_old_declared_classes, number_of_DA_modes,
 			DA_mode_0, hash_of_storage_domain_state_diff_0, DA_mode_1, hash_of_storage_domain_state_diff_1, …])
 	*/
-	deployedContractsHash := hashOfDeployedContracts.Finish()
-	declaredClassesHash := hashOfDeclaredClasses.Finish()
-	oldDeclaredClassesHash := hashOfOldDeclaredClasses.Finish()
+	deployedContractsHash := hashOfDeployedContracts.Finish[felt.Felt]()
+	declaredClassesHash := hashOfDeclaredClasses.Finish[felt.Felt]()
+	oldDeclaredClassesHash := hashOfOldDeclaredClasses.Finish[felt.Felt]()
 	commitmentDigest := new(crypto.PoseidonDigest)
-	commitmentDigest.Update(
-		&version,
-		&deployedContractsHash,
-		&declaredClassesHash,
-		&oldDeclaredClassesHash,
-	)
+	commitmentDigest.
+		Update(&version).
+		Update(&deployedContractsHash).
+		Update(&declaredClassesHash).
+		Update(&oldDeclaredClassesHash)
 	commitmentDigest.Update(tmpFelt.SetUint64(uint64(len(hashOfStorageDomains))))
 	for idx := range hashOfStorageDomains {
-		storageDomainHash := hashOfStorageDomains[idx].Finish()
-		commitmentDigest.Update(
-			tmpFelt.SetUint64(uint64(idx)),
-			&storageDomainHash,
-		)
+		storageDomainHash := hashOfStorageDomains[idx].Finish[felt.Felt]()
+		commitmentDigest.
+			Update(tmpFelt.SetUint64(uint64(idx))).
+			Update(&storageDomainHash)
 	}
-	return commitmentDigest.Finish()
+	return commitmentDigest.Finish[felt.Felt]()
 }
 
 func sortedFeltKeys[K, V any](m map[felt.Typed[K]]V) []felt.Typed[K] {
@@ -216,7 +214,7 @@ func updatedContractsDigest(deployedContracts, replacedClasses map[felt.Felt]*fe
 
 	sortedUpdatedContractsHashes := sortedFeltKeys(updatedContracts)
 	for _, hash := range sortedUpdatedContractsHashes {
-		digest.Update(&hash, updatedContracts[hash])
+		digest.Update(&hash).Update(updatedContracts[hash])
 	}
 }
 
@@ -247,10 +245,10 @@ func declaredClassesDigest(
 
 	for _, classHash := range keys {
 		if casmHash, ok := declaredClasses[classHash]; ok {
-			digest.Update(&classHash, casmHash)
+			digest.Update(&classHash).Update(casmHash)
 		} else {
 			casmHash := migratedClasses[felt.SierraClassHash(classHash)]
-			digest.Update(&classHash, (*felt.Felt)(&casmHash))
+			digest.Update(&classHash).Update(&casmHash)
 		}
 	}
 }
@@ -260,7 +258,9 @@ func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *cry
 	digest.Update(felt.NewFromUint64[felt.Felt](numOfDeclaredV0Classes))
 
 	slices.SortFunc(declaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
-	digest.Update(declaredV0Classes...)
+	for _, classHash := range declaredV0Classes {
+		digest.Update(classHash)
+	}
 }
 
 func storageDiffDigest(
@@ -278,7 +278,7 @@ func storageDiffDigest(
 		digest.Update(felt.NewFromUint64[felt.Felt](uint64(len(sortedDiffKeys))))
 
 		for _, k := range sortedDiffKeys {
-			digest.Update(&k, storageDiffs[addr][k])
+			digest.Update(&k).Update(storageDiffs[addr][k])
 		}
 	}
 }
@@ -289,7 +289,7 @@ func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest
 
 	sortedNoncesAddrs := sortedFeltKeys(nonces)
 	for _, addr := range sortedNoncesAddrs {
-		digest.Update(&addr, nonces[addr])
+		digest.Update(&addr).Update(nonces[addr])
 	}
 }
 

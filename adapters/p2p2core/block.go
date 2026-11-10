@@ -17,7 +17,7 @@ func AdaptEvent(e *event.Event) *core.Event {
 	}
 
 	return &core.Event{
-		From: AdaptFelt(e.FromAddress),
+		From: AdaptFelt[felt.Felt](e.FromAddress),
 		Keys: AdaptFeltSlice(e.Keys),
 		Data: AdaptFeltSlice(e.Data),
 	}
@@ -32,32 +32,32 @@ func AdaptBlockHeader(
 	}
 
 	return &core.Header{
-		Hash:             AdaptHash(h.BlockHash),
-		ParentHash:       AdaptHash(h.ParentHash),
+		Hash:             AdaptHash[felt.Felt](h.BlockHash),
+		ParentHash:       AdaptHash[felt.Felt](h.ParentHash),
 		Number:           h.Number,
-		GlobalStateRoot:  AdaptHash(h.StateRoot),
+		GlobalStateRoot:  AdaptHash[felt.Felt](h.StateRoot),
 		SequencerAddress: AdaptAddress(h.SequencerAddress),
 		TransactionCount: h.Transactions.NLeaves,
 		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
-		L1GasPriceETH:    AdaptUint128(h.L1GasPriceWei),
+		L1GasPriceETH:    AdaptUint128[felt.Felt](h.L1GasPriceWei),
 		Signatures:       utils.Map(h.Signatures, adaptSignature),
-		L1GasPriceSTRK:   AdaptUint128(h.L1GasPriceFri),
+		L1GasPriceSTRK:   AdaptUint128[felt.Felt](h.L1GasPriceFri),
 		L1DAMode:         l1DataGasPrice,
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: AdaptUint128(h.L1DataGasPriceWei),
-			PriceInFri: AdaptUint128(h.L1DataGasPriceFri),
+			PriceInWei: AdaptUint128[felt.Felt](h.L1DataGasPriceWei),
+			PriceInFri: AdaptUint128[felt.Felt](h.L1DataGasPriceFri),
 		},
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: AdaptUint128(h.L2GasPriceWei),
-			PriceInFri: AdaptUint128(h.L2GasPriceFri),
+			PriceInWei: AdaptUint128[felt.Felt](h.L2GasPriceWei),
+			PriceInFri: AdaptUint128[felt.Felt](h.L2GasPriceFri),
 		},
 	}, nil
 }
 
 func adaptSignature(cs *common.ConsensusSignature) []*felt.Felt {
-	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
+	return []*felt.Felt{AdaptFelt[felt.Felt](cs.R), AdaptFelt[felt.Felt](cs.S)}
 }
 
 func adaptDA(da common.L1DataAvailabilityMode) (core.L1DAMode, error) {

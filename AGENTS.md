@@ -44,6 +44,9 @@ private fields from tests. If a behavior seems reachable only by poking at inter
 it through the public entry point that triggers it (e.g. an HTTP request that yields a 503
 and a log line — not the private helper that writes the log).
 
+Every test file declares the external package `package <pkg>_test`. There are no exceptions.
+`make lint-diff` and CI reject new test files declared as `package <pkg>`.
+
 ### Testing concurrent code
 
 Use the standard library's `testing/synctest` (stable since Go 1.25) as the default tool for testing concurrent or timing-dependent code — prefer it over `time.Sleep`-based synchronization, which is flaky and slow.

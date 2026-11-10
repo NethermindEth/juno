@@ -17,6 +17,8 @@
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
 | `rpc-max-concurrent-requests` | `1024` | Maximum concurrent RPC requests, over HTTP and websocket together; 0 disables the limit |
 | `rpc-max-request-queue` | `2048` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
+| `rpc-max-subscriptions` | `0` | Maximum subscriptions one websocket connection may hold. The limit is per connection so that one client cannot take the slots another needs; multiplied by rpc-max-ws-connections it is the most the process will carry. 0 disables the limit |
+| `rpc-max-ws-connections` | `0` | Maximum concurrent websocket connections, across all RPC versions. 0 disables the limit |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 
 ### WebSocket RPC
@@ -46,6 +48,7 @@
 | `preconfirmed-stale-after` | `500ms` | How long after a pre_confirmed poll its result is served as is. Once stale, an RPC request reading the pre_confirmed block triggers a new poll first (0s: every request polls) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
+| `rpc-sync-url` |  | Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) to sync committed blocks from instead of the feeder gateway. Pre-confirmed data still comes from the feeder gateway |
 
 ### Gateway
 

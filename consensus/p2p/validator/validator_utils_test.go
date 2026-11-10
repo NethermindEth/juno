@@ -9,8 +9,8 @@ import (
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/transaction"
 )
 
-func ToBytes(felt felt.Felt) []byte {
-	feltBytes := felt.Bytes()
+func ToBytes[K any](value felt.Typed[K]) []byte {
+	feltBytes := value.Bytes()
 	return feltBytes[:]
 }
 

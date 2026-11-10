@@ -10,20 +10,20 @@ import (
 	"github.com/starknet-io/starknet-p2p-specs/p2p/proto/sync/receipt"
 )
 
-func AdaptHash(h *common.Hash) *felt.Felt {
-	return adapt(h)
+func AdaptHash[F felt.FeltLike](h *common.Hash) *F {
+	return adapt[F](h)
 }
 
 func AdaptAddress(h *common.Address) *felt.Felt {
-	return adapt(h)
+	return adapt[felt.Felt](h)
 }
 
 func AdaptEthAddress(h *receipt.EthereumAddress) eth.Address {
 	return eth.AddressFromBytes(h.Elements)
 }
 
-func AdaptFelt(f *common.Felt252) *felt.Felt {
-	return adapt(f)
+func AdaptFelt[F felt.FeltLike](f *common.Felt252) *F {
+	return adapt[F](f)
 }
 
 func AdaptFeltSlice(slice []*common.Felt252) []felt.Felt {
@@ -37,15 +37,15 @@ func AdaptFeltSlice(slice []*common.Felt252) []felt.Felt {
 	return result
 }
 
-func adapt(v interface{ GetElements() []byte }) *felt.Felt {
+func adapt[F felt.FeltLike](v interface{ GetElements() []byte }) *F {
 	if utils.IsNil(v) {
 		return nil
 	}
 
-	return felt.NewFromBytes[felt.Felt](v.GetElements())
+	return felt.NewFromBytes[F](v.GetElements())
 }
 
-func AdaptUint128(u *common.Uint128) *felt.Felt {
+func AdaptUint128[F felt.FeltLike](u *common.Uint128) *F {
 	if u == nil {
 		return nil
 	}
@@ -55,5 +55,5 @@ func AdaptUint128(u *common.Uint128) *felt.Felt {
 	binary.BigEndian.PutUint64(bytes[:8], u.High)
 	binary.BigEndian.PutUint64(bytes[8:], u.Low)
 
-	return felt.NewFromBytes[felt.Felt](bytes)
+	return felt.NewFromBytes[F](bytes)
 }

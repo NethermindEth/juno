@@ -129,54 +129,77 @@ func mulBy256(point *starkcurve.G1Jac) {
 	}
 }
 
-func PedersenElems(elems ...*felt.Felt) felt.Felt {
+// PedersenElems is the pointer-element variant of [PedersenArray].
+func PedersenElems[R, F felt.FeltLike](elems ...*F) R {
+	return R(pedersenElems(felt.CastPointerSlice[fp.Element](elems)))
+}
+
+func pedersenElems(elems []*fp.Element) fp.Element {
 	var digest PedersenDigest
-	return digest.Update(elems...).Finish()
+	for _, elem := range elems {
+		digest.update(elem)
+	}
+	return digest.finish()
 }
 
 // PedersenArray implements [Pedersen array hashing].
 //
 // [Pedersen array hashing]: https://docs.starknet.io/learn/protocol/cryptography#array-hashing
-func PedersenArray(elems []felt.Felt) felt.Felt {
+func PedersenArray[R, F felt.FeltLike](elems []F) R {
+	return R(pedersenArray(felt.CastSlice[fp.Element](elems)))
+}
+
+func pedersenArray(elems []fp.Element) fp.Element {
 	var digest PedersenDigest
-	return digest.UpdateArray(elems).Finish()
+	digest.updateArray(elems)
+	return digest.finish()
 }
 
 // Pedersen implements the [Pedersen hash].
 //
 // [Pedersen hash]: https://docs.starknet.io/learn/protocol/cryptography#pedersen-hash
-func Pedersen(a, b *felt.Felt) felt.Felt {
-	return felt.Felt(pedersen(a.Impl(), b.Impl()))
+func Pedersen[R, A, B felt.FeltLike](a *A, b *B) R {
+	return R(pedersen(felt.ImplOf(a), felt.ImplOf(b)))
 }
-
-var _ Digest = (*PedersenDigest)(nil)
 
 type PedersenDigest struct {
 	digest fp.Element
 	count  uint64
 }
 
-func (d *PedersenDigest) Update(elems ...*felt.Felt) Digest {
-	for idx := range elems {
-		d.digest = pedersen(&d.digest, elems[idx].Impl())
-	}
-	d.count += uint64(len(elems))
+// Update adds one element of any felt type to the digest.
+func (d *PedersenDigest) Update[F felt.FeltLike](elem *F) *PedersenDigest {
+	d.update(felt.ImplOf(elem))
 	return d
 }
 
-func (d *PedersenDigest) UpdateArray(elems []felt.Felt) Digest {
-	for idx := range elems {
-		d.digest = pedersen(&d.digest, elems[idx].Impl())
-	}
-	d.count += uint64(len(elems))
+// UpdateArray adds every element of elems to the digest.
+func (d *PedersenDigest) UpdateArray[F felt.FeltLike](elems []F) *PedersenDigest {
+	d.updateArray(felt.CastSlice[fp.Element](elems))
 	return d
 }
 
-func (d *PedersenDigest) Finish() felt.Felt {
+func (d *PedersenDigest) updateArray(elems []fp.Element) {
+	for idx := range elems {
+		d.update(&elems[idx])
+	}
+}
+
+func (d *PedersenDigest) update(elem *fp.Element) {
+	d.digest = pedersen(&d.digest, elem)
+	d.count++
+}
+
+// Finish completes the digest and returns it as felt type R.
+func (d *PedersenDigest) Finish[R felt.FeltLike]() R {
+	return R(d.finish())
+}
+
+func (d *PedersenDigest) finish() fp.Element {
 	var count fp.Element
 	count.SetUint64(d.count)
 	d.digest = pedersen(&d.digest, &count)
-	return felt.Felt(d.digest)
+	return d.digest
 }
 
 func pedersen(a, b *fp.Element) fp.Element {

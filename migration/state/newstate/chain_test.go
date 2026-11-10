@@ -88,20 +88,19 @@ func storeDeprecatedChain(t *testing.T, database db.KeyValueStore, diffs []*core
 		require.NoError(t, err)
 		header = &core.Header{Number: blockNum, Hash: felt.NewFromUint64[felt.Felt](blockNum + 1)}
 		su := &core.StateUpdate{
-			BlockHash: header.Hash, OldRoot: &oldRoot, NewRoot: &felt.Zero, StateDiff: d,
+			BlockHash: header.Hash, OldRoot: &oldRoot, NewRoot: new(felt.Zero[felt.Felt]()), StateDiff: d,
 		}
 		require.NoError(t, st.Update(header, su, nil, true), "block %d", height)
 
-		require.NoError(t, core.WriteBlockHeaderByNumber(txn, header))
-		require.NoError(t, core.WriteBlockHeaderNumberByHash(txn, header.Hash, blockNum))
-		require.NoError(t, core.WriteBlockCommitment(txn, blockNum, &core.BlockCommitments{}))
-		require.NoError(t, core.WriteStateUpdateByBlockNum(txn, blockNum, su))
+		require.NoError(t, core.WriteBlockHeader(txn, header))
+		require.NoError(t, core.BlockCommitmentsBucket.Put(txn, blockNum, &core.BlockCommitments{}))
+		require.NoError(t, core.StateUpdatesByBlockNumberBucket.Put(txn, blockNum, su))
 		require.NoError(t, core.WriteTransactionsAndReceipts(txn, blockNum, nil, nil))
 		require.NoError(t, txn.Write())
 	}
-	require.NoError(t, core.WriteChainHeight(database, header.Number))
+	require.NoError(t, core.ChainHeightBucket.Put(database, struct{}{}, &header.Number))
 	l1Head := &core.L1Head{BlockNumber: header.Number, BlockHash: header.Hash}
-	require.NoError(t, core.WriteL1Head(database, l1Head))
+	require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, l1Head))
 }
 
 // stateAnswers reads every contract and slot at every height from the given one up to the tip.
@@ -109,7 +108,7 @@ func stateAnswers(
 	t *testing.T, database db.KeyValueStore, from uint64, deprecated bool,
 ) map[string]string {
 	t.Helper()
-	tip, err := core.GetChainHeight(database)
+	tip, err := core.ChainHeightBucket.Get(database, struct{}{})
 	require.NoError(t, err)
 	format := func(v felt.Felt, err error) string {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -126,7 +125,7 @@ func stateAnswers(
 			txn := database.NewIndexedBatch() //nolint:staticcheck // the deprecated state needs it
 			reader = deprecatedstate.NewHistory(deprecatedstate.New(txn), height)
 		} else {
-			history, err := state.NewStateHistory(height, &felt.Zero, stateDB)
+			history, err := state.NewStateHistory(height, new(felt.Zero[felt.Felt]()), stateDB)
 			require.NoError(t, err)
 			reader = &history
 		}
