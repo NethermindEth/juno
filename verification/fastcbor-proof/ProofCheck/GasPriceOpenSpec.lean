@@ -34,7 +34,7 @@ theorem wp_readGasPrice_open_failure (c dst fields : Loc) (old : GasPrice) (v : 
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);

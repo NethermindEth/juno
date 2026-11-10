@@ -57,7 +57,7 @@ theorem wp_headerGas_fresh_map (c dst shared base fields : Loc) (h : Header) (ol
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ rem) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasReady base h old seen ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
        f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames }}
@@ -116,7 +116,7 @@ theorem wp_headerGas_fresh_failure (c dst shared base fields : Loc) (h : Header)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
        dst ↦ h ∗ HeaderBody h old ∗ shared ↦ base ∗ HeaderGasReady base h old seen ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames }}
       (App (App (App (App (Val (@! cborReadGasPriceSlot)) (Val #c))

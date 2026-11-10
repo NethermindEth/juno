@@ -1,0 +1,45 @@
+goos: linux
+goarch: amd64
+pkg: github.com/NethermindEth/juno/core
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkTypedHeader/zero         	 5028378	        71.31 ns/op	2720.69 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTypedHeader/scalars      	 3578252	       101.3 ns/op	2171.82 MB/s	       8 B/op	       1 allocs/op
+BenchmarkTypedHeader/prices       	 1966845	       181.4 ns/op	2127.48 MB/s	     160 B/op	       5 allocs/op
+BenchmarkTypedHeader/full         	  957453	       392.3 ns/op	1799.70 MB/s	     560 B/op	      15 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/NethermindEth/juno/core
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkTypedHeader/zero         	 5036652	        72.59 ns/op	2672.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTypedHeader/scalars      	 3580734	       101.0 ns/op	2178.78 MB/s	       8 B/op	       1 allocs/op
+BenchmarkTypedHeader/prices       	 2019750	       177.7 ns/op	2172.50 MB/s	     160 B/op	       5 allocs/op
+BenchmarkTypedHeader/full         	  956356	       390.8 ns/op	1806.78 MB/s	     560 B/op	      15 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/NethermindEth/juno/core
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkTypedHeader/zero         	 5012118	        71.35 ns/op	2718.99 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTypedHeader/scalars      	 3570928	       101.3 ns/op	2172.59 MB/s	       8 B/op	       1 allocs/op
+BenchmarkTypedHeader/prices       	 1997697	       179.5 ns/op	2150.67 MB/s	     160 B/op	       5 allocs/op
+BenchmarkTypedHeader/full         	  948202	       393.3 ns/op	1794.96 MB/s	     560 B/op	      15 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/NethermindEth/juno/core
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkTypedHeader/zero         	 4996080	        72.13 ns/op	2689.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTypedHeader/scalars      	 3298244	       105.6 ns/op	2082.53 MB/s	       8 B/op	       1 allocs/op
+BenchmarkTypedHeader/prices       	 1997875	       179.3 ns/op	2152.56 MB/s	     160 B/op	       5 allocs/op
+BenchmarkTypedHeader/full         	  937009	       395.1 ns/op	1786.69 MB/s	     560 B/op	      15 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: github.com/NethermindEth/juno/core
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkTypedHeader/zero         	 5017825	        71.12 ns/op	2727.85 MB/s	       0 B/op	       0 allocs/op
+BenchmarkTypedHeader/scalars      	 3567874	       100.5 ns/op	2188.81 MB/s	       8 B/op	       1 allocs/op
+BenchmarkTypedHeader/prices       	 2019495	       177.8 ns/op	2171.49 MB/s	     160 B/op	       5 allocs/op
+BenchmarkTypedHeader/full         	  948038	       390.3 ns/op	1809.04 MB/s	     560 B/op	      15 allocs/op
+PASS

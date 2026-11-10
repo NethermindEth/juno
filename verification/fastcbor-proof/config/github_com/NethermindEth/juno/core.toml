@@ -1,2 +1,2 @@
-translate = ["Header", "GasPrice", "L1DAMode", "cborRead*", "cborZero*", "cborClear*", "DecodeHeader*", "cbor*Fields"]
-imports = ["!*", "github.com/NethermindEth/juno/core/felt", "github.com/NethermindEth/juno/utils/cbor/cursor", "github.com/NethermindEth/juno/utils/cbor/fastcbor"]
+translate = ["Header", "GasPrice", "L1DAMode", "cborRead*", "cborZero*", "cborClear*", "DecodeHeader*"]
+imports = ["!*", "github.com/NethermindEth/juno/core/internal/cborschema", "github.com/NethermindEth/juno/core/felt", "github.com/NethermindEth/juno/utils/cbor/cursor", "github.com/NethermindEth/juno/utils/cbor/fastcbor"]

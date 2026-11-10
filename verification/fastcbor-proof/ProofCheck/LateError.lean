@@ -176,7 +176,7 @@ theorem wp_readHeaderNumber_lateError (c dst fields : Loc) (order names data : G
     (kind : GoInterface) (h : Header) (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ h ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ h ∗
        c ↦ cursor.Cursor.mk data (W64 0) (W64 0) (zero_val (GoArray w64 4)) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 162 :: (go!"fNumber" ++ [b])) }}
@@ -187,6 +187,9 @@ theorem wp_readHeaderNumber_lateError (c dst fields : Loc) (order names data : G
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 162 :: (go!"fNumber" ++ [b])) ∗
        err ↦ cursor.DecodeError.mk kind (W64 9) (go!"input ends before the item") slice.nil }} := by
   wp_start as ⟨#Hglobal, #Hkind, Hdst, Hc, Hfields, Horder, Hdata⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openHeaderNumber_two c fields data b dq hdata $$ [Hc Hdata] with ⟨Hc, Hdata⟩
   · iframe Hc Hdata
@@ -230,7 +233,7 @@ theorem wp_decodeHeaderFirst_lateError (dst fields : Loc) (order names data : Go
     (kind : GoInterface) (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 162 :: (go!"fNumber" ++ [b])) }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #data)) (Val #dst))
@@ -256,7 +259,7 @@ theorem wp_decodeHeader_lateError (dst fields : Loc) (order names data : GoSlice
     (kind : GoInterface) (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr cursor.ErrTruncated ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 162 :: (go!"fNumber" ++ [b])) }}
       (App (App (Val (@! DecodeHeader)) (Val #data)) (Val #dst))

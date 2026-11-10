@@ -113,13 +113,16 @@ theorem wp_nextField_done (c st fields : Loc) :
 theorem wp_readHeader_null (c dst fields : Loc) (h : Header) (s : GoSlice)
     (tail : List w8) (dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ h ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ h ∗
        c ↦ ({ (zero_val github_com.NethermindEth.juno.utils.cbor.cursor.Cursor) with buf' := s }) ∗ s ↦*{dq} (W8 246 :: tail) }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ h ∗
        c ↦ ({ (zero_val github_com.NethermindEth.juno.utils.cbor.cursor.Cursor) with buf' := s, pos' := W64 1 }) ∗
        s ↦*{dq} (W8 246 :: tail) }} := by
   wp_start as ⟨#Hfields, Hdst, Hc, Hs⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_null c fields s tail dq $$ [Hc Hs] with ⟨Hc, Hs⟩
   · iframe Hc Hs
@@ -146,7 +149,7 @@ theorem wp_remaining (c : Loc) (v : github_com.NethermindEth.juno.utils.cbor.cur
 theorem wp_decodeHeaderFirst_null (dst fields : Loc) (s : GoSlice)
     (tail : List w8) (dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
        s ↦*{dq} (W8 246 :: tail) }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #s)) (Val #dst))
     {{ RET (PairV #(slice.slice s w8 (W64 1) s.len) #interface.nil);
@@ -193,7 +196,7 @@ theorem wp_clearHeader (dst : Loc) (h : Header) :
 theorem wp_decodeHeader_trailing (dst fields : Loc) (s : GoSlice)
     (tail : List w8) (dq : DFrac) (kind : GoInterface) (hmore : tail ≠ []) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗
        globalAddr github_com.NethermindEth.juno.utils.cbor.fastcbor.ErrExtraneousData ↦□ kind ∗ dst ↦ (zero_val Header) ∗
        s ↦*{dq} (W8 246 :: tail) }}
       (App (App (Val (@! DecodeHeader)) (Val #s)) (Val #dst))
@@ -310,13 +313,16 @@ theorem wp_openStruct_empty (c fields : Loc) (kind : GoInterface) :
 /-- A parse error before the map reaches the generated reader unchanged. -/
 theorem wp_readHeader_empty (c dst fields : Loc) (h : Header) (kind : GoInterface) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr github_com.NethermindEth.juno.utils.cbor.cursor.ErrTruncated ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr github_com.NethermindEth.juno.utils.cbor.cursor.ErrTruncated ↦□ kind ∗
        dst ↦ h ∗ c ↦ (zero_val github_com.NethermindEth.juno.utils.cbor.cursor.Cursor) }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType github_com.NethermindEth.juno.utils.cbor.cursor.DecodeError.ty) #err);
        dst ↦ h ∗ c ↦ (zero_val github_com.NethermindEth.juno.utils.cbor.cursor.Cursor) ∗
        err ↦ (github_com.NethermindEth.juno.utils.cbor.cursor.DecodeError.mk kind (W64 0) (go!"input ends before the item") slice.nil) }} := by
   wp_start as ⟨#Hfields, #Hkind, Hdst, Hc⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_empty c fields kind $$ [Hc] as %err ⟨Hc, Herr⟩
   · iframe Hc Hkind
@@ -326,7 +332,7 @@ theorem wp_readHeader_empty (c dst fields : Loc) (h : Header) (kind : GoInterfac
 /-- Public entry propagates the parse error and returns a cleared destination. -/
 theorem wp_decodeHeaderFirst_empty (dst fields : Loc) (kind : GoInterface) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr github_com.NethermindEth.juno.utils.cbor.cursor.ErrTruncated ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr github_com.NethermindEth.juno.utils.cbor.cursor.ErrTruncated ↦□ kind ∗
        dst ↦ (zero_val Header) }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #slice.nil)) (Val #dst))
     {{ (err : Loc), RET (PairV #slice.nil #(interface.mkOk (go.PointerType github_com.NethermindEth.juno.utils.cbor.cursor.DecodeError.ty) #err));

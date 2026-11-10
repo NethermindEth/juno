@@ -13,19 +13,6 @@ variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics] [package_sem : Assumptions]
 
-/-- Immutable ownership of a complete field table, including both backing slices.
-    This resource may be reused by independent decoder calls. -/
-def StaticFieldsShared (fields : Loc) (keys : List cursor.StaticField)
-    (names : List GoString) (mask : w64) : IProp GF :=
-  iprop(∃ f : cursor.Fields, fields ↦□ f ∗ f.order' ↦*□ keys ∗
-    f.names' ↦*□ names ∗ ⌜f.all' = mask⌝)
-
-instance staticFieldsShared_persistent (fields : Loc) (keys : List cursor.StaticField)
-    (names : List GoString) (mask : w64) :
-    Persistent (StaticFieldsShared (GF := GF) fields keys names mask) := by
-  unfold StaticFieldsShared
-  infer_instance
-
 /-- Freezing the allocated metadata retains its exact contents and mask. -/
 theorem staticFields_share (fields : Loc) (f : cursor.Fields)
     (keys : List cursor.StaticField) (names : List GoString) (qf qo qn : DFrac) :
@@ -45,7 +32,7 @@ theorem staticFields_share (fields : Loc) (f : cursor.Fields)
     the cursor dependency, so it is usable while core itself is initializing. -/
 theorem wp_makeGasPriceFields_shared :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor }}
-      (App (Val (@! cborMakeGasPriceFields)) (Val #()))
+      (App (Val (@! internal.cborschema.cborMakeGasPriceFields)) (Val #()))
     {{ (fields : Loc), RET #fields;
        StaticFieldsShared fields gasFieldKeys gasFieldNames (W64 3) }} := by
   wp_start_folded
@@ -63,7 +50,7 @@ theorem wp_makeGasPriceFields_shared :
     circular assumption that core initialization has already completed. -/
 theorem wp_makeHeaderFields_shared :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor }}
-      (App (Val (@! cborMakeHeaderFields)) (Val #()))
+      (App (Val (@! internal.cborschema.cborMakeHeaderFields)) (Val #()))
     {{ (fields : Loc), RET #fields;
        StaticFieldsShared fields headerFieldKeys headerFieldNames (W64 32767) }} := by
   wp_start_folded
@@ -77,23 +64,10 @@ theorem wp_makeHeaderFields_shared :
   iapply HΦ
   iframe Hshared
 
-/-- Published decoder metadata. Establishing this requires both actual global
-    stores as well as the two factories; it does not assert that initialization
-    has run merely because the factories have been proved. -/
-def HeaderMetadata : IProp GF :=
-  iprop(∃ (fields gasFields : Loc),
-    globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cborGasPriceFields ↦□ gasFields ∗
-    StaticFieldsShared fields headerFieldKeys headerFieldNames (W64 32767) ∗
-    StaticFieldsShared gasFields gasFieldKeys gasFieldNames (W64 3))
-
-instance headerMetadata_persistent : Persistent (HeaderMetadata (GF := GF)) := by
-  unfold HeaderMetadata
-  infer_instance
-
 /-- After initialization has stored the factory results, the globals and tables
     can be retained as persistent read-only resources for all future calls. -/
 theorem headerMetadata_publish (fields gasFields : Loc) :
-    (globalAddr cborHeaderFields ↦ fields ∗ globalAddr cborGasPriceFields ↦ gasFields ∗
+    (globalAddr internal.cborschema.cborHeaderFields ↦ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦ gasFields ∗
      StaticFieldsShared fields headerFieldKeys headerFieldNames (W64 32767) ∗
      StaticFieldsShared gasFields gasFieldKeys gasFieldNames (W64 3) : IProp GF) ⊢
       |==> HeaderMetadata (GF := GF) := by

@@ -31,7 +31,7 @@ theorem wp_gasPriceSlot_existing_specified_failure (c dst shared old fields : Lo
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
        dst ↦ old ∗ shared ↦ base ∗ GasPricesOwned base prices values ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
        f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames }}
@@ -86,7 +86,7 @@ theorem wp_gasPriceSlot_new_specified_failure (c dst shared old fields : Loc) (s
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ FeltErrorGlobals kinds ∗
        dst ↦ old ∗ shared ↦ null ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
        f.order' ↦*{qo} gasFieldKeys ∗ f.names' ↦*{qn} gasFieldNames }}

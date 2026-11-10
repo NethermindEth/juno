@@ -249,7 +249,7 @@ theorem wp_readHeaderNumber (c dst fields : Loc) (order names data : GoSlice)
     (h : Header) (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ h ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ h ∗
        c ↦ cursor.Cursor.mk data (W64 0) (W64 0) (zero_val (GoArray w64 4)) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
@@ -259,6 +259,9 @@ theorem wp_readHeaderNumber (c dst fields : Loc) (order names data : GoSlice)
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }} := by
   wp_start as ⟨#Hglobal, Hdst, Hc, Hfields, Horder, Hdata⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openHeaderNumber c fields data b dq hdata $$ [Hc Hdata] with ⟨Hc, Hdata⟩
   · iframe Hc Hdata
@@ -298,7 +301,7 @@ theorem wp_decodeHeaderFirst_Number (dst fields : Loc) (order names data : GoSli
     (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
       (App (App (Val (@! DecodeHeaderFirst)) (Val #data)) (Val #dst))
@@ -327,7 +330,7 @@ theorem wp_decodeHeader_Number (dst fields : Loc) (order names data : GoSlice)
     (b : w8) (dq : DFrac) (hb : uint.Z b < 24)
     (horder : order.len = W64 15) (hdata : data.len = W64 9) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ (zero_val Header) ∗
        fields ↦ cursor.Fields.mk order names (W64 32767) ∗
        order ↦* headerFieldKeys ∗ data ↦*{dq} (W8 161 :: (go!"fNumber" ++ [b])) }}
       (App (App (Val (@! DecodeHeader)) (Val #data)) (Val #dst))

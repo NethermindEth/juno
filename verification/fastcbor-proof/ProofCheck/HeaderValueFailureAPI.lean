@@ -22,7 +22,7 @@ theorem wp_decodeHeaderFirst_value_failure (dst fields gasFields : Loc) (input :
     (f gasF : cursor.Fields) (item : HeaderValueFailureWire 0)
     (kinds : FeltErrorKinds) (qf qo qn qgf qgo qgn dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
        gasFields ↦{qgf} gasF ∗ gasF.order' ↦*{qgo} gasFieldKeys ∗ gasF.names' ↦*{qgn} gasFieldNames }}
@@ -77,7 +77,7 @@ theorem wp_decodeHeader_value_failure (dst fields gasFields : Loc) (input : GoSl
     (f gasF : cursor.Fields) (item : HeaderValueFailureWire 0)
     (kinds : FeltErrorKinds) (qf qo qn qgf qgo qgn dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗ FeltErrorGlobals kinds ∗
        dst ↦ (zero_val Header) ∗ input ↦*{dq} item.bytes ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
        gasFields ↦{qgf} gasF ∗ gasF.order' ↦*{qgo} gasFieldKeys ∗ gasF.names' ↦*{qgn} gasFieldNames }}

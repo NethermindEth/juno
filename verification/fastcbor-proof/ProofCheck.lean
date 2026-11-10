@@ -101,3 +101,5 @@ import ProofCheck.InitializationErrors
 
 import ProofCheck.RuntimeInitialize
 import ProofCheck.BigInitialize
+
+import ProofCheck.SchemaInitialize

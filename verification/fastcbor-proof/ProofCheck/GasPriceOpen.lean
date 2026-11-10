@@ -23,12 +23,15 @@ theorem wp_readGasPrice_outer_failure (c dst fields : Loc) (old : GasPrice) (v :
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗
        expectedFailureAddr (GF := GF) reason ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗ ExpectedFailureError err v.pos' (W8 160) reason kind }} := by
   wp_start as ⟨#Hfields, #Hkind, Hdst, Hc, Hs⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_expected_failure c fields v xs wire dq reason kind notNull notUndefined failure hp hbytes
     $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
@@ -44,7 +47,7 @@ theorem wp_readGasPrice_count_failure (c dst fields : Loc) (old : GasPrice) (v :
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ tail) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗
        globalAddr cursor.ErrTruncated ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -66,6 +69,9 @@ theorem wp_readGasPrice_count_failure (c dst fields : Loc) (old : GasPrice) (v :
     rw [hn]
     exact input_suffix_after xs [head] (payload ++ tail) _ _ hbytes
   wp_auto
+  wp_func_call
+  wp_call
+  wp_auto
   wp_apply wp_openStruct_count c fields v xs payload tail head argument dq kind enc major hp.1 hbound
     (by rw [← htail]; omega) hi hafter
     $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
@@ -81,7 +87,7 @@ theorem wp_readGasPrice_depth_failure (c dst fields : Loc) (old : GasPrice) (v :
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ tail) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗
        globalAddr cursor.ErrDepth ↦□ kind ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
@@ -105,6 +111,9 @@ theorem wp_readGasPrice_depth_failure (c dst fields : Loc) (old : GasPrice) (v :
     rw [hn]
     exact input_suffix_after xs [head] (payload ++ tail) _ _ hbytes
   wp_auto
+  wp_func_call
+  wp_call
+  wp_auto
   wp_apply wp_openStruct_depth c fields v xs payload tail head argument dq kind enc major hp.1 depth hbound
     (by rw [← htail]; omega) hi hafter
     $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
@@ -118,10 +127,13 @@ theorem wp_readGasPrice_nullish (c dst fields : Loc) (old : GasPrice) (v : curso
     (xs : List w8) (head : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some head) (hn : head = W8 246 ∨ head = W8 247) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadGasPrice)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗ c ↦ {v with pos' := v.pos' + W64 1} ∗ v.buf' ↦*{dq} xs }} := by
   wp_start as ⟨#Hfields, Hdst, Hc, Hs⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_nullish c fields v xs head dq hp hi hn $$ [Hc Hs] with ⟨Hc, Hs⟩
   · iframe Hc Hs

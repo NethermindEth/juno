@@ -23,12 +23,15 @@ theorem wp_readHeader_open_failure (c dst fields : Loc) (old : Header) (v : curs
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ feltFailureAddr (GF := GF) reason ↦□ kind ∗
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
        dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗ FeltFailureError err v.pos' reason kind }} := by
   wp_start as ⟨#Hfields, #Hkind, Hdst, Hc, Hs⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_failure c fields v xs wire dq d reason kind failure hd hp hbytes
     $$ [Hc Hs] as %err ⟨Hc, Hs, Herr⟩
@@ -42,10 +45,13 @@ theorem wp_readHeader_nullish (c dst fields : Loc) (old : Header) (v : cursor.Cu
     (xs : List w8) (head : w8) (dq : DFrac) (hp : 0 ≤ sint.Z v.pos')
     (hi : xs[(sint.Z v.pos').toNat]? = some head) (hn : head = W8 246 ∨ head = W8 247) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeader)) (Val #c)) (Val #dst))
     {{ RET #interface.nil; dst ↦ old ∗ c ↦ {v with pos' := v.pos' + W64 1} ∗ v.buf' ↦*{dq} xs }} := by
   wp_start as ⟨#Hfields, Hdst, Hc, Hs⟩
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_nullish c fields v xs head dq hp hi hn $$ [Hc Hs] with ⟨Hc, Hs⟩
   · iframe Hc Hs

@@ -27,7 +27,7 @@ theorem wp_readHeader_map_supported (c dst fields gasFields : Loc)
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap HeaderEntry.bytes ++ rem) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborHeaderFields ↦□ fields ∗ globalAddr cborGasPriceFields ↦□ gasFields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       globalAddr internal.cborschema.cborHeaderFields ↦□ fields ∗ globalAddr internal.cborschema.cborGasPriceFields ↦□ gasFields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        dst ↦ (zero_val Header) ∗ c ↦ v ∗ v.buf' ↦*{dq} xs ∗
        fields ↦{qf} f ∗ f.order' ↦*{qo} headerFieldKeys ∗ f.names' ↦*{qn} headerFieldNames ∗
        gasFields ↦{qgf} gasF ∗ gasF.order' ↦*{qgo} gasFieldKeys ∗ gasF.names' ↦*{qgn} gasFieldNames }}
@@ -55,6 +55,9 @@ theorem wp_readHeader_map_supported (c dst fields gasFields : Loc)
       payload ++ (entries.flatMap HeaderEntry.bytes ++ rem) := by
     rw [hp1]
     exact input_suffix_after xs [head] _ _ _ (by simpa only [List.cons_append, List.nil_append, List.append_assoc] using hbytes)
+  wp_auto
+  wp_func_call
+  wp_call
   wp_auto
   wp_apply wp_openStruct_encoded c fields v xs payload (entries.flatMap HeaderEntry.bytes ++ rem) head (W64 entries.length) dq
     enc major hp.1 (by omega) (by omega) (by word) hi hafter $$ [Hc Hs] with ⟨Hc, Hs⟩

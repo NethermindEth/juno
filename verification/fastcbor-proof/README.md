@@ -2,7 +2,7 @@
 
 This directory is an **incomplete first stage** of the typed-decoder verification plan.
 The feasibility gate has not passed. There is no whole-library correctness theorem
-and no candidate performance result yet.
+and no result from the frozen whole-library performance gate yet.
 
 ## Source and scope
 
@@ -19,8 +19,9 @@ The generated entries use typed stores, allocation, and zero checks instead of
 runtime field offsets and runtime allocation hooks. The registry installs Header;
 other types still use the original planner. The routing adapter, registration,
 logging, FX fallback, and diagnostic formatting are outside the proposed proof scope.
-The generator also emits static field metadata and small allocation factories; the
-typed Header and GasPrice readers no longer sort or fold field names at startup.
+The generator also emits private static field metadata and small allocation
+factories in `core/internal/cborschema`; the typed Header and GasPrice readers no
+longer sort or fold field names at startup.
 The cursor was moved to `utils/cbor/cursor` so generated readers in core can use it.
 
 `core.DecodeHeaderFirst` enforces a zero destination, returns the original unread
@@ -101,7 +102,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures now compose through ignored felt contents; FeltFailure now unifies every error with exact offsets and owned diagnostics, felt_classify exhausts arbitrary input, and wp_readFelt_complete composes the actual success/failure proofs with input/output ownership and cursor rollback; wp_limbs_complete now covers the in-place API on arbitrary input, including null/undefined type rejection and whole-array preservation on failure; UTF-8 remains pending (generic slice-index fix proposed below) |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; HeaderKeys/HeaderKeyDuplicate now specialize fresh/unknown/duplicate outcomes to all fifteen Header identities, including legacy wire tags; HeaderSeen relates the seen mask to schema identity and unvisited GasPrice storage. Wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; malformed heads compose recursively through supported containers/tags and into ignored felt contents; shared failure contexts also close recursive incomplete-head, atomic and EOF contracts; count/depth and missing-tag-content instances are closed and unified under SkipFailure, including propagation into ignored felt contents; every arbitrary input at supported depth now has a SkipValid prefix or SkipFailure derivation, and wp_Skip_complete composes actual production proofs into a public arbitrary-input outcome contract; pure relation disjointness/uniqueness remains pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General nullable felt-pointer slice success proves actual allocation/iteration/pointer publication, nil versus allocated empty, mixed nil elements, owned backing storage and exact suffix. FeltPointersFailure specifies outer expectation/count/depth rejection and failures after arbitrary valid prefixes, with retained cursor/depth and exact owned inner diagnostics; feltPointers_classify exhausts arbitrary input, and wp_readFeltPointers_complete composes actual success/failure proofs without helper-WP or chosen-outcome premises. SignaturesValid/SignaturesFailure now specify the outer nested reader, with separate ownership of every child allocation; arbitrary-input classification and wp_readSignatures_complete compose the actual outer allocation/range loop and inner reader contracts, including retained nested cursor/depth, old-destination preservation on error and exact owned diagnostics. GasPriceChildren/GasPricesOwned now track both slots and nested felts; field borrowing and arbitrary-input field outcomes are closed, and actual shared allocation/null handling are proved. The actual map success loop now composes key selection, both felt fields and unknown-value Skip for inline/one-byte ASCII text keys and supported signed integer keys, arbitrary fresh known-field order and unknown nested values. Closed actual fresh/reused slot success contracts restore ownership of both structs and child allocations with no child-reader premise. The actual value-failure loop now preserves all earlier fields and their nested ownership after arbitrary successful prefixes, retains map depth and the post-key cursor, and propagates exact bounded owned diagnostics. Both actual slot wrappers preserve the old destination pointer and the partially populated shared pair on these errors, with no child-reader premise. Outer-map expectation/count/depth failures and null/undefined are now proved and opening is exhaustively classified. Duplicate keys after arbitrary valid prefixes consume only the key and preserve earlier fields. GasPriceFailure unifies opening/value/duplicate failures, bounded cursor/diagnostic/depth and partial abstract values; the actual reader and both slot wrappers have closed contracts for it. KeyFailure now specifies EOF, malformed/incomplete heads, integer range errors, wrong key types/tags and text-body truncation; a closed public NextField theorem composes them through the actual GasPrice map after arbitrary successful supported-key prefixes. These cases are included in the unified reader/slot failure contracts. HeaderGasFields/HeaderGasMap/HeaderGasFailure now compose both Header destinations with the private allocation invariant, including null, fresh/reused successful maps and every specified failure family; actual cleanup from the private state is proved. HeaderGasReady now retains seen-bit/unvisited-slot guarantees through the actual fresh/reused map/error calls, null handling and cleanup. UTF-8 rejection, wider/non-ASCII successful keys and exhaustive GasPrice classification remain pending |
-| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories require only the cursor dependency, with no circular core-initialization precondition. FieldsShared freezes both actual allocated tables and backing slices, and publishes already-stored globals as persistent HeaderMetadata. HeaderSharedAPI uses that shared resource across the currently proved success/failure families. Cursor startup now establishes all five immutable error objects after runtime CPU initialization, with no initializer WP premise. Actual math/big startup, its fmt dependency and exact UTF-8 table startup are proved. Arbitrary immutable CPU feature flags are an explicit runtime-state boundary. Core table/global wiring, fastcbor initialization and the remaining relevant dependency chain are pending |
+| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories require only the cursor dependency, with no circular core-initialization precondition. FieldsShared freezes both actual allocated tables and backing slices, and publishes already-stored globals as persistent HeaderMetadata. HeaderSharedAPI uses that shared resource across the currently proved success/failure families. Cursor startup now establishes all five immutable error objects after runtime CPU initialization, with no initializer WP premise. Actual math/big startup, its fmt dependency and exact UTF-8 table startup are proved. Arbitrary immutable CPU feature flags are an explicit runtime-state boundary. SchemaInitialize now proves complete startup of core/internal/cborschema, including both factories, actual global stores and immutable publication. The generated readers access its private tables through inlined opening functions. HeaderSharedAPI recovers metadata from initialization instead of requiring it separately. Fastcbor error-global initialization and the remaining relevant dependency chain are pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved. General Header ownership/publication/cleanup and actual arbitrary-input calls at all six felt fields, all five scalar fields and the nested-signature field are now proved, preserving all other fields and private shared-price state. Both GasPrice fields now compose for the proved map/error families, fresh/reused allocation and null, with private-state cleanup; ProtocolVersion null/pre-UTF-8 errors, the complete fifteen-field zero guard and both public APIs' arbitrary nonzero-destination rejection are now proved; general null/undefined Header reads and all opening failures through both public APIs with owned zero output are now proved. Actual Header dispatch/map-loop success now composes all fifteen identities and unknown Skip for HeaderEntry, including arbitrary fresh order, nested values and both price allocation orders; First/full success and general trailing-data cleanup are proved for that family. Duplicate and specified malformed/unsupported-key rejection now compose after arbitrary HeaderEntry prefixes through both public APIs, with exact owned diagnostics and actual owned cleanup. All currently specified field-value failures now compose after arbitrary HeaderEntry prefixes through both public APIs, including nested-signature and fresh/reused GasPrice failures with private partial contents. Successful/invalid UTF-8 strings, wider/non-ASCII keys, exhaustive GasPrice/Header classification, initialization and the final all-encoding/arbitrary-input contract remain pending |
 | 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
 
@@ -1806,10 +1807,55 @@ remain open. The UTF-8 validator, wider/non-ASCII keys, exhaustive GasPrice/Head
 classification, the complete Header theorem and the performance gate remain
 unfinished. Production Go is unchanged.
 
+### Decoder-owned schema initialization
+
+Full regeneration/check passed (2074 build jobs), with 700 audited theorems,
+245 matching project hashes and 28 matching standard-library source hashes.
+The axiom dependency set is unchanged; there are no admissions or native-evaluation
+axioms. The local check log is `check-schema-initialization-full.log`.
+
+The generator now emits private Header/GasPrice tables into
+`core/internal/cborschema/fields_generated.go`. The existing core types and typed
+reader bodies remain in core; readers call `cborschema.OpenHeader` or
+`cborschema.OpenGasPrice`. These functions do not return a mutable Fields pointer.
+Both factory bodies and all literals are unchanged by the move, and Go compiler
+inlining diagnostics confirm that both opening functions inline into the readers.
+`cborgen -check` checks both generated outputs.
+
+`SchemaState.lean` contains the independent exact table contents and persistent
+ownership predicate. `SchemaInitialize.lean` proves the complete actual schema
+initializer: both global allocations, cursor dependency startup, both factories,
+both global stores, immutable publication and already-initialized reuse. Its only
+runtime precondition is the existing CPU-startup boundary; it does not assume a
+helper's correctness. The initialized package predicate retains `HeaderMetadata`.
+The existing shared Header API contracts now recover this resource through core's
+declared schema dependency, removing the separate metadata precondition. Those
+contracts retain their explicit input-family restrictions and the core initialized
+precondition; this milestone does not prove unrelated core/planner startup or
+fastcbor error-global initialization.
+
+Go regression, race and checkptr=2 checks pass for `./core ./utils/cbor/...`.
+Two 20-second fuzz runs also pass: 250,792 structure-aware round trips and
+268,127 differential executions against the planner.
+`BenchmarkTypedHeader` measures direct generated decoding with zero, scalar,
+price and populated/nested Header fixtures. Five alternating before/after pairs
+on CPU 2, GOMAXPROCS=1, 300ms per case under the shared benchmark lock showed
+median paired time changes of +0.71%, -1.55%, -0.39% and +0.41%, respectively.
+Bytes and allocations were unchanged in every sample, including the zero-allocation
+case. Raw samples, source/binary hashes and commands are in
+`results/schema-initialization-benchmark.json` and the adjacent before/after files.
+The Lean rebuild ran concurrently: this is an exploratory check against the
+immediately preceding typed implementation, **not** statistical equivalence or the
+frozen 185-case gate against the original planner baseline. That gate remains unrun.
+
+UTF-8 validation, broader keys, exhaustive GasPrice/Header outcome classification,
+remaining relevant initialization and the complete Header theorem are still open.
+No pinned trusted semantics were changed.
+
 ## Whole-library gates after the Header milestone
 
-1. **Complete feasibility:** connect the proved field factories to global
-   initialization; verify witnesses for nested slices/maps, tagged interfaces,
+1. **Complete feasibility:** finish relevant initialization beyond the now-proved
+   schema tables; verify witnesses for nested slices/maps, tagged interfaces,
    UTF8 and the complete BigInt helper. The populated Number path, a late failure
    with cleanup, and an empty-array felt pointer conversion are checked. General
    helper contracts, shared table ownership and the complete semantic dependency

@@ -1,0 +1,97 @@
+{
+  "status": "focused exploratory comparison only; not the frozen 185-case performance gate",
+  "baseline_commit": "2086e8304edc25912f868725309eca84eabee4bc",
+  "baseline_note": "same new benchmark compiled before the production schema refactor; original frozen baseline untouched",
+  "protocol": {
+    "rounds": 5,
+    "ordering": "before/after on even rounds, after/before on odd rounds",
+    "cpu": 2,
+    "GOMAXPROCS": 1,
+    "benchtime": "300ms",
+    "lock": "/mnt/dev/juno-benchmark/cbor-comparison-20261008/measurement.lock",
+    "scope": "direct core.DecodeHeader, no fallback; four synthetic shapes",
+    "interference": "Lean rebuild was running concurrently; this exploratory check does not establish statistical equivalence"
+  },
+  "build_command": "go test -c -o /tmp/juno-header-schema-{before,after}.test ./core (separately before and after the production change)",
+  "run_command": "GOMAXPROCS=1 taskset -c 2 /tmp/juno-header-schema-{before,after}.test -test.run=^$ -test.bench=^BenchmarkTypedHeader$ -test.benchmem -test.benchtime=300ms -test.count=1",
+  "binary_sha256": {
+    "before": "702f9ebc226f89284a633daa56a9f0b87cc2ebfc4423fba0f5b76c376cb9239d",
+    "after": "531e348e33c50532dd36fa1e4c8210ba515e136f7d6e5fbfcd05019599dab2fb"
+  },
+  "source_sha256": {
+    "core/cbor_readers_bench_test.go": "026c2424010394c1cba8a6f39fc4532aee92e49b5f2bcc0062f352bf86852099",
+    "core/cbor_readers_generated.go": "4be6902b77d872f9a6b12f6f48b7b3c7d6b7d7c339872a419790824793bad7b7",
+    "core/internal/cborschema/fields_generated.go": "328a49a486a2ef878706a8889926d0a38ec6ef6debda42c0f85eeb2ce552c5de",
+    "utils/cbor/cmd/cborgen/main.go": "08faa58f9548f0b35328f9a655b44e08e0677425542d5f31af728c090fc66c93"
+  },
+  "cases": {
+    "zero": {
+      "before_median_ns": 70.85,
+      "after_median_ns": 71.35,
+      "median_paired_ns_change_percent": 0.7057163020465884,
+      "before_B_per_op": [
+        0
+      ],
+      "after_B_per_op": [
+        0
+      ],
+      "before_allocs_per_op": [
+        0
+      ],
+      "after_allocs_per_op": [
+        0
+      ]
+    },
+    "scalars": {
+      "before_median_ns": 103.0,
+      "after_median_ns": 101.3,
+      "median_paired_ns_change_percent": -1.554907677356665,
+      "before_B_per_op": [
+        8
+      ],
+      "after_B_per_op": [
+        8
+      ],
+      "before_allocs_per_op": [
+        1
+      ],
+      "after_allocs_per_op": [
+        1
+      ]
+    },
+    "prices": {
+      "before_median_ns": 179.4,
+      "after_median_ns": 179.3,
+      "median_paired_ns_change_percent": -0.39215686274509665,
+      "before_B_per_op": [
+        160
+      ],
+      "after_B_per_op": [
+        160
+      ],
+      "before_allocs_per_op": [
+        5
+      ],
+      "after_allocs_per_op": [
+        5
+      ]
+    },
+    "full": {
+      "before_median_ns": 390.7,
+      "after_median_ns": 392.3,
+      "median_paired_ns_change_percent": 0.4084758743936767,
+      "before_B_per_op": [
+        560
+      ],
+      "after_B_per_op": [
+        560
+      ],
+      "before_allocs_per_op": [
+        15
+      ],
+      "after_allocs_per_op": [
+        15
+      ]
+    }
+  }
+}

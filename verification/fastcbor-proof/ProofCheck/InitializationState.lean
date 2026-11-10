@@ -1,4 +1,4 @@
-import ProofCheck.GeneratedProof.github_com.NethermindEth.juno.core
+import ProofCheck.SchemaState
 
 import Perennial.Proof.encoding.binary.Base
 import ProofCheck.GeneratedProof.math.big
@@ -111,6 +111,11 @@ instance depWf3 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno
 instance depInit4 : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
   define_is_pkg_init iprop(True)
 instance depWf4 : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.fastcbor :=
+  build_get_is_pkg_init_wf
+
+instance schemaIsPkgInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema :=
+  define_is_pkg_init (HeaderMetadata (GF := GF))
+instance schemaGetIsPkgInitWf : GetIsPkgInitWf (IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema :=
   build_get_is_pkg_init_wf
 
 instance coreIsPkgInit : IsPkgInit (IProp GF) pkg_id.github_com.NethermindEth.juno.core :=

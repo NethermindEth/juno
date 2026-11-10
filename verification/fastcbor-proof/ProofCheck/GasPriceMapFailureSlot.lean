@@ -36,7 +36,7 @@ theorem wp_gasPriceSlot_existing_map_value_failure (c dst shared old fields : Lo
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ key.bytes ++ wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        feltFailureAddr (GF := GF) reason ↦□ errorKind ∗
        dst ↦ old ∗ shared ↦ base ∗ GasPricesOwned base prices values ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
@@ -106,7 +106,7 @@ theorem wp_gasPriceSlot_new_map_value_failure (c dst shared old fields : Loc) (s
     (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
       (head :: payload) ++ entries.flatMap GasPriceEntry.bytes ++ key.bytes ++ wire) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core ∗
-       globalAddr cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
+       globalAddr internal.cborschema.cborGasPriceFields ↦□ fields ∗ globalAddr cursor.ErrUnsupported ↦□ kind ∗
        feltFailureAddr (GF := GF) reason ↦□ errorKind ∗
        dst ↦ old ∗ shared ↦ null ∗
        c ↦ v ∗ v.buf' ↦*{dq} xs ∗ fields ↦{qf} f ∗
