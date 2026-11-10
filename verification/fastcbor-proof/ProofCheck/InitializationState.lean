@@ -6,6 +6,7 @@ import Perennial.Proof.strings.Base
 import Perennial.Proof.slices.Base
 import Perennial.Proof.unsafe.Base
 import Perennial.Proof.errors.NewVar
+import Perennial.Proof.fmt.Base
 
 set_option linter.iris.style.nameCheck false
 set_option linter.unusedSectionVars false
@@ -60,6 +61,30 @@ instance depInit2 : IsPkgInit (IProp GF) pkg_id.unicode.utf8 :=
   define_is_pkg_init (Utf8Initialized (GF := GF))
 instance depWf2 : GetIsPkgInitWf (IProp GF) pkg_id.unicode.utf8 :=
   build_get_is_pkg_init_wf
+
+/-- Persistent evidence that a package completed startup in the modeled Go state.
+    Runtime CPU startup is an explicit precondition, not an initializer axiom. -/
+def PackageInitialized (pkg : GoString) : IProp GF :=
+  iprop(∃ σ0 : GMap GoString Bool, ownGoStateLb σ0 ∗ ⌜σ0 !! pkg = some true⌝)
+
+instance packageInitialized_persistent (pkg : GoString) :
+    Persistent (PackageInitialized (GF := GF) pkg) := by
+  unfold PackageInitialized
+  infer_instance
+
+/-- The two immutable runtime-populated feature flags read by math/big startup.
+    Values are arbitrary: the proof does not assume a particular CPU capability. -/
+def RuntimeCPUFlags : IProp GF := iprop(∃ adx bmi2 : Bool,
+  (globalAddr internal.cpu.X86).[internal.cpu.«struct#08e4e4b9», go!"HasADX"] ↦□ adx ∗
+  (globalAddr internal.cpu.X86).[internal.cpu.«struct#08e4e4b9», go!"HasBMI2"] ↦□ bmi2)
+
+instance runtimeCPUFlags_persistent : Persistent (RuntimeCPUFlags (GF := GF)) := by
+  unfold RuntimeCPUFlags
+  infer_instance
+
+instance cpuInit : IsPkgInit (IProp GF) pkg_id.internal.cpu :=
+  define_is_pkg_init (RuntimeCPUFlags (GF := GF))
+instance cpuWf : GetIsPkgInitWf (IProp GF) pkg_id.internal.cpu := build_get_is_pkg_init_wf
 
 instance depInitBig : IsPkgInit (IProp GF) pkg_id.math.big :=
   define_is_pkg_init iprop(True)

@@ -1,4 +1,4 @@
 # Translate the real Go implementations used by the decoder. No assembly models.
-translate = ["Int", "Word", "nat", "Int.SetBits", "Int.SetUint64", "Int.Set", "Int.Neg", "nat.norm", "nat.setUint64", "nat.setWord", "nat.make", "nat.set", "_W", "_S"]
-imports = ["!*"]
+translate = ["Int", "Word", "nat", "Int.SetBits", "Int.SetUint64", "Int.Set", "Int.Neg", "nat.norm", "nat.setUint64", "nat.setWord", "nat.make", "nat.set", "_W", "_S", "hasADX", "pow5tab", "natOne", "intOne", "natTwo", "natFive", "natTen", "errNoDigits", "errInvalSep", "leafSize", "divRecursiveThreshold", "karatsubaThreshold", "basicSqrThreshold", "karatsubaSqrThreshold", "_Accuracy_index", "_RoundingMode_index", "_", "Float", "Rat", "Accuracy", "RoundingMode", "ErrNaN", "form", "floatZero", "ratZero"]
+imports = ["!*", "errors", "fmt", "internal/cpu"]
 trusted = []

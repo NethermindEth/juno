@@ -1,0 +1,5 @@
+# Retain the actual feature-record layout and package globals. Runtime feature
+# detection is outside the decoder proof; clients require CPU startup completed.
+translate = ["X86", "CacheLineSize", "CacheLinePad", "CacheLinePadSize", "option"]
+imports = ["!*"]
+trusted = []

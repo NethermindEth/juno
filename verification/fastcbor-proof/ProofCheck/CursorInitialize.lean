@@ -1,4 +1,4 @@
-import ProofCheck.BinaryInitialize
+import ProofCheck.BigInitialize
 import ProofCheck.Utf8Initialize
 import Perennial.Proof.errors.New
 import Perennial.Proof.errors.initialize
@@ -28,15 +28,16 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
     the returned objects, and retains them immutably. Already-initialized calls
     obtain the same resources through package.init's idempotence contract.
 
-    Only the translated math/big initializer remains a dependency premise. Every
-    other initializer is supplied by a checked proof, including the exact UTF-8
-    tables. No assumption is made about the five error factories or any cursor
-    initializer instruction. -/
-theorem wp_cursor_initialize
-    (wp_big_initialize : DecoderDependencyInit (GF := GF) pkg_id.math.big math.big.initialize') :
-    DecoderDependencyInit (GF := GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor cursor.initialize' := by
-  intro get_is_pkg_init Hinit
-  wp_start as Hown
+    Every dependency initializer is supplied by a checked proof. Runtime CPU
+    startup is an explicit precondition, including arbitrary read-only feature
+    flags in the initialization state. No initializer WP is assumed. -/
+theorem wp_cursor_initialize (get_is_pkg_init : GoString → IProp GF)
+    (Hinit : GetIsPkgInitProp pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor get_is_pkg_init) :
+    {{ ownInitializing get_is_pkg_init ∗ PackageInitialized pkg_id.internal.cpu }}
+      (App (Val cursor.initialize') (Val #()))
+    {{ RET #(); ownInitializing get_is_pkg_init ∗
+       isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.utils.cbor.cursor }} := by
+  wp_start as ⟨Hown, #Hready⟩
   iapply wp_package_init (heq := Hinit.1) $$ [Hown] HΦ
   iframe Hown
   iintro Hown
@@ -46,7 +47,8 @@ theorem wp_cursor_initialize
   wp_apply wp_GlobalAlloc (V := GoInterface) cursor.ErrType go.error as Htype
   wp_apply wp_GlobalAlloc (V := GoInterface) cursor.ErrSyntax go.error as Hsyntax
   wp_apply wp_GlobalAlloc (V := GoInterface) cursor.ErrTruncated go.error as Htruncated
-  wp_apply wp_big_initialize _ Hinit.2.2.2.2.2.2.2.2.1 $$ Hown as ⟨Hown, #Hbig⟩
+  wp_apply wp_big_initialize_ready _ Hinit.2.2.2.2.2.2.2.2.1 $$ [Hown] as ⟨Hown, #Hbig⟩
+  · iframe Hown Hready
   wp_apply wp_utf8_initialize _ Hinit.2.2.2.2.2.2.2.1 $$ Hown as ⟨Hown, #Hutf8⟩
   wp_apply strings.initialize'.wp_proof _ Hinit.2.2.2.2.2.2.1 $$ Hown as ⟨Hown, #Hstrings⟩
   wp_apply (slices.initialize'.wp_proof
