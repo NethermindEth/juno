@@ -27,6 +27,9 @@ type Client struct {
 	closed bool
 
 	dials singleflight.Group
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 const BlockFinalized = "finalized"
@@ -52,10 +55,13 @@ func New(ctx context.Context, rawURL string, opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	cctx, cancel := context.WithCancel(context.Background())
 	return &Client{
-		url:  rawURL,
-		opts: o,
-		tr:   ws,
+		url:    rawURL,
+		opts:   o,
+		tr:     ws,
+		ctx:    cctx,
+		cancel: cancel,
 	}, nil
 }
 
@@ -69,6 +75,7 @@ func (c *Client) Close() {
 	c.closed = true
 	tr := c.tr
 	c.mu.Unlock()
+	c.cancel()
 	tr.close()
 }
 
@@ -96,10 +103,12 @@ func (c *Client) redial(ctx context.Context, stale *wsTransport) (*wsTransport, 
 		}
 		c.mu.Unlock()
 
-		// A redialed transport serves all future callers, so no caller's ctx
-		// may own it; Close retires it. dialWS bounds the dial attempt itself.
-		tr, err := dialWS(context.Background(), c.url, c.opts)
+		// A redialed transport serves all future callers, so no caller's ctx may own it.
+		tr, err := dialWS(c.ctx, c.url, c.opts)
 		if err != nil {
+			if c.ctx.Err() != nil {
+				return nil, ErrClosed
+			}
 			c.opts.logger.Warn("redial failed", zap.Error(err))
 			return nil, fmt.Errorf("redialing: %w", err)
 		}
