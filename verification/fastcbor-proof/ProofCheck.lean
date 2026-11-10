@@ -1,1 +1,1 @@
-import ProofCheck.CacheEOF
+import ProofCheck.FindHit
