@@ -79,7 +79,8 @@ Current status: general head/uint/container success and null-field contracts,
 container count/depth failures, invalid-head classification, scalar type/tag and
 extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
 general felt success through an independent nullable/short/extended wire relation,
-felt depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
+felt depth rejection, later-limb errors for non-inline-four heads and ignored-tail atomic/EOF errors,
+general recursive Skip success and atomic rejection/EOF contracts,
 definite payload success/truncation and public byte/string propagation contracts,
 general ASCII folding and two-pass name matching, field-bit marking and duplicate
 rejection, integer-key classification/overflow, key type/tag rejection and text-body
@@ -96,7 +97,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for non-inline-four headers; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; inline-four shortcut rejection, other felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
@@ -289,6 +290,42 @@ The general Header proof now has reusable primitive contracts:
   exact suffix, unchanged input/depth/scratch, no signed cursor wraparound and
   output ownership. This remains a success theorem, not a complete rejection
   or converse theorem.
+
+
+- `FeltReject.lean`: the actual slow loop consumes any valid prefix of zero to
+  three unsigned limbs, then propagates a proved Uint64 error. It restores the
+  original cursor/depth, preserves the destination and input, and retains the
+  diagnostic's inner offset. The non-inline-four public dispatch and typed field
+  reader compose this contract. Closed theorems instantiate actual type/tag,
+  incomplete-argument and EOF proofs, with arbitrary prefix limb widths and array
+  counts larger than the prefix (including large unsigned counts). The typed
+  reader preserves its prior pointer; partial temporary words are not published.
+  These closed limb-error contracts still exclude the inline `0x84` array header:
+  its mixed-width shortcut needs a rejection proof before the same loop contract
+  can apply. Array-header failures and remaining malformed limb heads also need
+  composition. The general Uint64 EOF theorem performs no input loads.
+- `FeltExtraReject.lean`: the actual slow loop reads four arbitrary-width limbs
+  and any valid ignored prefix before propagating a proved Skip error. This is
+  composed through public Limbs dispatch and the typed felt reader; arrays with
+  an extra element necessarily bypass both four-limb shortcuts. Closed contracts
+  cover EOF and all `SkipReject` atomic cases (invalid two-byte simple values,
+  short byte/text bodies and tags 0–3), preserving the original cursor, depth,
+  input and old output pointer. Atomic diagnostics retain the position after the
+  offending inner head; EOF retains the end position. The generic composition
+  lemmas take explicit leaf-proof arguments, and the closed contracts discharge
+  them with actual proved helpers. Recursive Skip failures and other head errors
+  remain pending.
+
+`TestLimbsErrorsAfterPrefix` checks public Limbs errors after zero to seven valid
+items, all array-head widths, mixed limb widths and nested valid ignored values.
+Repeated failures at nesting depth 31 check restoration through observable error
+behavior; sentinel outputs and the original bytes must stay unchanged. It checks
+all cuts through extended arguments, EOF, type/tag, reserved/break and atomic Skip
+errors. `TestTypedHeaderFeltErrorsClearPartialResult` checks both public Header
+APIs with a Number field before the failing Hash field: the complete result is
+cleared, First returns a nil suffix and the inner diagnostic offset is retained.
+Tests include inline-four and malformed-head cases whose formal composition is
+still pending; passing them does not close those proof obligations.
 
 `Payload.lean` proves complete definite payload extraction at arbitrary offsets and
 length-head widths, returning the exact borrowed range while preserving the whole
@@ -720,7 +757,6 @@ milestone is described above; wider/non-ASCII text handling, UTF-8, nested outpu
 initialization, the complete Header theorem and frozen performance gate remain
 outstanding.
 
-
 The head-error milestone passed full regeneration/check (1932 build jobs) with
 314 audited theorems, no added transitive axioms, and no admissions or native
 evaluation axioms. The pinned Perennial checkout remains unchanged. Fresh public
@@ -732,6 +768,17 @@ and nested output ownership, alongside the complete Header relation and loop.
 Wider/non-ASCII text and UTF-8 still need proofs; the proposed generic slice-index
 semantics repair remains awaiting approval. The complete Header theorem and the
 frozen performance gate have not passed.
+
+
+The felt-error milestone passed full regeneration/check (1934 build jobs) with
+326 audited theorems and no added transitive axioms, admissions or native
+evaluation axioms. Fresh cursor felt tests, all felt fuzz seeds and typed Header
+tests passed with `-short -count=1`, including the new prefix-error and public
+Header cleanup tests. Production decoder behavior and pinned trusted semantics
+are unchanged. The next felt task is the actual inline-four shortcut rejection
+proof, followed by remaining head-error composition; recursive Skip errors,
+nested output ownership, UTF-8, initialization, the general Header theorem and
+the frozen performance gate remain unfinished.
 
 ## Whole-library gates after the Header milestone
 

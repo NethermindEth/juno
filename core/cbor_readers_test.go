@@ -400,3 +400,65 @@ func TestTypedHeaderIntegerKeys(t *testing.T) {
 		}
 	}
 }
+
+// A later felt failure must retain the inner offset while clearing every field,
+// including the Number value decoded before entering the felt reader.
+func TestTypedHeaderFeltErrorsClearPartialResult(t *testing.T) {
+	for prefix := range 8 {
+		for _, wideHead := range []bool{false, true} {
+			for _, tail := range [][]byte{nil, {0xc0}, {0x1b, 1, 2}, {0x1c}, {0xf8, 24}} {
+				data := []byte{0xa2, 0x66, 'N', 'u', 'm', 'b', 'e', 'r', 7, 0x64, 'H', 'a', 's', 'h'}
+				if wideHead {
+					data = binary.BigEndian.AppendUint64(append(data, 0x9b), uint64(prefix+1))
+				} else {
+					data = append(data, 0x80|byte(prefix+1))
+				}
+				for i := range prefix {
+					if i < 4 {
+						data = binary.BigEndian.AppendUint64(append(data, 0x1b), uint64(i+1))
+					} else {
+						data = append(data, 0x81, 0xf6)
+					}
+				}
+				badOffset := len(data)
+				data = append(data, tail...)
+				before := bytes.Clone(data)
+				kind := cursor.ErrTruncated
+				delta := 0
+				if len(tail) > 0 {
+					switch tail[0] {
+					case 0xc0:
+						kind = cursor.ErrUnsupported
+						if prefix >= 4 {
+							delta = 1
+						}
+					case 0x1c:
+						kind = cursor.ErrSyntax
+					case 0xf8:
+						kind = cursor.ErrType
+						if prefix >= 4 {
+							kind, delta = cursor.ErrSyntax, 2
+						}
+					}
+				}
+				for _, first := range []bool{true, false} {
+					var got core.Header
+					var err error
+					if first {
+						var rest []byte
+						rest, err = core.DecodeHeaderFirst(data, &got)
+						require.Nil(t, rest)
+					} else {
+						err = core.DecodeHeader(data, &got)
+					}
+					require.ErrorIs(t, err, kind)
+					var detail *cursor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, badOffset+delta, detail.Offset)
+					require.Equal(t, core.Header{}, got)
+					require.Equal(t, before, data)
+				}
+			}
+		}
+	}
+}
