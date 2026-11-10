@@ -3668,7 +3668,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/allHashes",
@@ -3677,7 +3677,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/allPairs",
@@ -3687,7 +3687,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/allReceipts",
@@ -3696,7 +3696,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/allTransactions",
@@ -3705,7 +3705,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/fullSerialized",
@@ -3713,7 +3713,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/lazyAllReceipts",
@@ -3721,7 +3721,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p0/lazyAllTransactions",
@@ -3729,7 +3729,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/allEvents",
@@ -3738,7 +3738,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/allHashes",
@@ -3747,7 +3747,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/allPairs",
@@ -3757,7 +3757,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/allReceipts",
@@ -3766,7 +3766,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/allTransactions",
@@ -3775,7 +3775,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/fullSerialized",
@@ -3783,7 +3783,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/lazyAllReceipts",
@@ -3791,7 +3791,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/lazyAllTransactions",
@@ -3799,7 +3799,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/lazyReceipt",
@@ -3807,7 +3807,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/lazyTransaction",
@@ -3815,7 +3815,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/onePair",
@@ -3825,7 +3825,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/oneReceipt",
@@ -3834,7 +3834,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/oneStatus",
@@ -3843,7 +3843,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p100/oneTransaction",
@@ -3852,7 +3852,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/allEvents",
@@ -3861,7 +3861,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/allHashes",
@@ -3870,7 +3870,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/allPairs",
@@ -3880,7 +3880,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/allReceipts",
@@ -3889,7 +3889,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/allTransactions",
@@ -3898,7 +3898,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/fullSerialized",
@@ -3906,7 +3906,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/lazyAllReceipts",
@@ -3914,7 +3914,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/lazyAllTransactions",
@@ -3922,7 +3922,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/lazyReceipt",
@@ -3930,7 +3930,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/lazyTransaction",
@@ -3938,7 +3938,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/onePair",
@@ -3948,7 +3948,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/oneReceipt",
@@ -3957,7 +3957,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/oneStatus",
@@ -3966,7 +3966,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p50/oneTransaction",
@@ -3975,7 +3975,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/allEvents",
@@ -3984,7 +3984,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/allHashes",
@@ -3993,7 +3993,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/allPairs",
@@ -4003,7 +4003,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/allReceipts",
@@ -4012,7 +4012,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/allTransactions",
@@ -4021,7 +4021,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/fullSerialized",
@@ -4029,7 +4029,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/lazyAllReceipts",
@@ -4037,7 +4037,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/lazyAllTransactions",
@@ -4045,7 +4045,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/lazyReceipt",
@@ -4053,7 +4053,7 @@
       "decoder_roots": [
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/lazyTransaction",
@@ -4061,7 +4061,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/onePair",
@@ -4071,7 +4071,7 @@
         "github.com/NethermindEth/juno/core.Transaction",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/oneReceipt",
@@ -4080,7 +4080,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "*github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/oneStatus",
@@ -4089,7 +4089,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "block/block-p95/oneTransaction",
@@ -4098,7 +4098,7 @@
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "indexes/block-p0",
@@ -4106,7 +4106,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "indexes/block-p100",
@@ -4114,7 +4114,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "indexes/block-p50",
@@ -4122,7 +4122,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "indexes/block-p95",
@@ -4130,7 +4130,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.BlockTransactionsIndexes"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerBloom/header-p0",
@@ -4174,7 +4174,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerCount/header-p100",
@@ -4182,7 +4182,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerCount/header-p25",
@@ -4190,7 +4190,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerCount/header-p50",
@@ -4198,7 +4198,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerCount/header-p75",
@@ -4206,7 +4206,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerCount/header-p95",
@@ -4214,7 +4214,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTransactionCountProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p0",
@@ -4222,7 +4222,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p100",
@@ -4230,7 +4230,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p25",
@@ -4238,7 +4238,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p50",
@@ -4246,7 +4246,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p75",
@@ -4254,7 +4254,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHash/header-p95",
@@ -4262,7 +4262,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p0",
@@ -4270,7 +4270,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p100",
@@ -4278,7 +4278,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p25",
@@ -4286,7 +4286,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p50",
@@ -4294,7 +4294,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p75",
@@ -4302,7 +4302,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerHashRoot/header-p95",
@@ -4310,7 +4310,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p0",
@@ -4318,7 +4318,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p100",
@@ -4326,7 +4326,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p25",
@@ -4334,7 +4334,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p50",
@@ -4342,7 +4342,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p75",
@@ -4350,7 +4350,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerRoot/header-p95",
@@ -4358,7 +4358,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p0",
@@ -4366,7 +4366,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p100",
@@ -4374,7 +4374,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p25",
@@ -4382,7 +4382,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p50",
@@ -4390,7 +4390,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p75",
@@ -4398,7 +4398,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/headerTimestamp/header-p95",
@@ -4406,7 +4406,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.headerTimestampProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p0",
@@ -4414,7 +4414,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p100",
@@ -4422,7 +4422,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p25",
@@ -4430,7 +4430,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p50",
@@ -4438,7 +4438,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p75",
@@ -4446,7 +4446,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptEvents/receipt-p95",
@@ -4454,7 +4454,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptEventsProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p0",
@@ -4462,7 +4462,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p100",
@@ -4470,7 +4470,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p25",
@@ -4478,7 +4478,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p50",
@@ -4486,7 +4486,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p75",
@@ -4494,7 +4494,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/receiptStatus/receipt-p95",
@@ -4502,7 +4502,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeclare-p100",
@@ -4510,7 +4510,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeclare-p50",
@@ -4518,7 +4518,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeclare-v2",
@@ -4526,7 +4526,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeploy-p0",
@@ -4534,7 +4534,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeploy-p100",
@@ -4542,7 +4542,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeploy-p50",
@@ -4550,7 +4550,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p0",
@@ -4558,7 +4558,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p100",
@@ -4566,7 +4566,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p25",
@@ -4574,7 +4574,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p50",
@@ -4582,7 +4582,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p75",
@@ -4590,7 +4590,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-p95",
@@ -4598,7 +4598,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-v1",
@@ -4606,7 +4606,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionDeployAccount-v3",
@@ -4614,7 +4614,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p0",
@@ -4622,7 +4622,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p100",
@@ -4630,7 +4630,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p25",
@@ -4638,7 +4638,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p50",
@@ -4646,7 +4646,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p75",
@@ -4654,7 +4654,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-p95",
@@ -4662,7 +4662,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-v0",
@@ -4670,7 +4670,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-v1",
@@ -4678,7 +4678,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionInvoke-v3",
@@ -4686,7 +4686,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p0",
@@ -4694,7 +4694,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p100",
@@ -4702,7 +4702,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p25",
@@ -4710,7 +4710,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p50",
@@ -4718,7 +4718,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p75",
@@ -4726,7 +4726,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "projection/transactionHash/transactionL1Handler-p95",
@@ -4734,7 +4734,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.transactionHashProjection"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-cairo0-control",
@@ -4742,7 +4742,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p0",
@@ -4750,7 +4750,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p100",
@@ -4758,7 +4758,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p25",
@@ -4766,7 +4766,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p50",
@@ -4774,7 +4774,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p75",
@@ -4782,7 +4782,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/class-p95",
@@ -4790,7 +4790,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.ClassDefinition"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p0",
@@ -4798,7 +4798,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p100",
@@ -4806,7 +4806,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p25",
@@ -4814,7 +4814,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p50",
@@ -4822,7 +4822,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p75",
@@ -4830,7 +4830,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/header-p95",
@@ -4838,7 +4838,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Header"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p0",
@@ -4846,7 +4846,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p100",
@@ -4854,7 +4854,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p25",
@@ -4862,7 +4862,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p50",
@@ -4870,7 +4870,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p75",
@@ -4878,7 +4878,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/receipt-p95",
@@ -4886,7 +4886,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.TransactionReceipt"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p0",
@@ -4894,7 +4894,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p100",
@@ -4902,7 +4902,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p25",
@@ -4910,7 +4910,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p50",
@@ -4918,7 +4918,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p75",
@@ -4926,7 +4926,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/state-p95",
@@ -4934,7 +4934,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.StateUpdate"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeclare-p100",
@@ -4942,7 +4942,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeclare-p50",
@@ -4950,7 +4950,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeclare-v2",
@@ -4958,7 +4958,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeploy-p0",
@@ -4966,7 +4966,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeploy-p100",
@@ -4974,7 +4974,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeploy-p50",
@@ -4982,7 +4982,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p0",
@@ -4990,7 +4990,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p100",
@@ -4998,7 +4998,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p25",
@@ -5006,7 +5006,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p50",
@@ -5014,7 +5014,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p75",
@@ -5022,7 +5022,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-p95",
@@ -5030,7 +5030,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-v1",
@@ -5038,7 +5038,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionDeployAccount-v3",
@@ -5046,7 +5046,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p0",
@@ -5054,7 +5054,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p100",
@@ -5062,7 +5062,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p25",
@@ -5070,7 +5070,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p50",
@@ -5078,7 +5078,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p75",
@@ -5086,7 +5086,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-p95",
@@ -5094,7 +5094,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-v0",
@@ -5102,7 +5102,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-v1",
@@ -5110,7 +5110,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionInvoke-v3",
@@ -5118,7 +5118,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p0",
@@ -5126,7 +5126,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p100",
@@ -5134,7 +5134,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p25",
@@ -5142,7 +5142,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p50",
@@ -5150,7 +5150,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p75",
@@ -5158,7 +5158,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     },
     {
       "id": "record/transactionL1Handler-p95",
@@ -5166,7 +5166,7 @@
       "decoder_roots": [
         "github.com/NethermindEth/juno/core.Transaction"
       ],
-      "status": "pending baseline/candidate compatibility smoke and no-fallback timing"
+      "status": "compatibility evidence is recorded separately; timing and allocation gate pending"
     }
   ],
   "source_sha256": {
@@ -5197,7 +5197,7 @@
     "utils/cbor/fastcbor/state_update.go": "58e2126f6800567888250e3e365113e0408c48af47f54653965ba5383caf0be2",
     "utils/cbor/fxamacker/cbor.go": "90f1576d452a78a34c23ee148e41052d4c10d060a1367fbb05d6381e55278ad1",
     "utils/cbor/registry/registry.go": "706690ce8747412451a5cbcd514c151939943ab4c3f8930a4ceb171395894c95",
-    "verification/fastcbor-proof/cmd/entrymanifest/main.go": "2fa6a1d2d48148236129e480e8e73d75fcb3243dd59dd11ab337e808c4c5f910",
+    "verification/fastcbor-proof/cmd/entrymanifest/main.go": "a6b35342a630fcaec00a68dcfbf8f40603768257651523ed858684a58bd1a7d6",
     "verification/fastcbor-proof/results/benchmark-universe.json": "b9ebce9f80408ecc62780c9d0c03fe987a21d9885c09bf3c90cc9c530f8cc624"
   },
   "limitations": [

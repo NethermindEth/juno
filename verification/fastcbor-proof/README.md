@@ -92,6 +92,10 @@ scope, unresolved premises and reproduction evidence.
 A checked preparatory inventory now records the remaining production destinations
 and all frozen benchmark cases; it does not advance the Header milestone or claim
 additional typed/proved readers. See “Checked remaining-entry inventory” below.
+The frozen-corpus smoke now classifies every case on the baseline and current
+candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
+with no decoder calls on each. This is saved, source-specific test evidence; the
+performance gate and remaining typed-reader implementation are still open.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
@@ -102,7 +106,7 @@ additional typed/proved readers. See “Checked remaining-entry inventory” bel
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 336 project hashes and 28 standard-library hashes. The checked entry manifest is included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 339 project hashes and 28 standard-library hashes. The checked entry manifest and saved compatibility evidence are included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -2804,6 +2808,77 @@ are unchanged; there are no admissions or native-evaluation axioms. The full log
 are unchanged. This is preparatory work while the separately required trusted
 repair approval remains outstanding; Header is still the first proof milestone.
 
+### Frozen-corpus compatibility smoke on both revisions
+
+`smoke/run.py` now ports the frozen historical case universe to the actual APIs
+available on untouched baseline `a4a67242cc67f3855915a97bf4e79a97d217fae4` and the
+current candidate. It uses Go overlays held in temporary directories: neither
+worktree's production files are edited. Historical sources and all corpus files
+are hash-checked before running; each case retains its frozen ID, input length and
+class framing/prefix behavior. `results/compatibility-smoke.json` records both
+revisions, all tracked Go source hashes, overlay/harness hashes and every result.
+
+| Classification | Baseline | Candidate |
+| --- | ---: | ---: |
+| Compatible fast decode, equal to FX | 177 | 177 |
+| Removed `headerEventsBloomProjection` | 6 | 6 |
+| Empty lazy operations with zero decoder calls | 2 | 2 |
+| Decoder/reference errors, value/input/ownership mismatches, or FX calls inside fast scope | 0 | 0 |
+| Total frozen cases retained | 185 | 185 |
+
+For records/projections/indexes, the test calls the actual exported fast decoder.
+For compound block operations it calls the actual public serializer or lazy API,
+with a test-only overlay of `fastCborSerializer` that returns fast errors directly
+instead of falling back. The independent reference run uses FX at those same
+wrapper points. Another overlay rejects and counts `Unmarshal`, `UnmarshalFirst`
+and `UnmarshalStrict` calls into the FX adapter while the fast decode is active.
+All successful fast rows report zero such calls. FX-only block framing setup is
+outside this guarded scope, matching the historical lazy-container setup.
+
+Every successful row matches FX and preserves input. Materialized outputs are
+compared again after overwriting input; index-prefix results instead check owned
+indexes and the exact intentionally borrowed suffix, including nonempty pointer
+aliasing and slice capacity. Full serialized block containers retain the historical
+framing/caller-contract classification rather than an extra ownership assertion.
+The two empty lazy controls remain explicit and are not evidence of decoder speed.
+The six removed-projection cases remain explicit incompatibilities; the driver
+refuses that classification if the projection type reappears in either source tree.
+
+The instrumentation has a negative check on both revisions: malformed input must
+return its fast error without an FX call, and each guarded FX API must reject and
+count an intentional attempt. This prevents an ordinary fallback success from
+being reported as a compatible fast decode.
+
+From the repository root:
+
+```sh
+python3 verification/fastcbor-proof/smoke/run.py
+python3 verification/fastcbor-proof/smoke/run.py --check
+```
+
+The first command reruns both targets and writes evidence. The second verifies the
+saved evidence against both Go source trees, the harness, frozen historical sources
+and corpus hashes without rerunning the decoders. It requires the baseline to
+remain clean at its frozen commit. This check is separate from `check.sh` so Lean
+checking does not require access to the external corpus or baseline worktree.
+The proof audit hashes the harness and saved result and reports both case counts.
+The frozen universe itself remains unchanged; its original pending-status labels
+are historical, while the source-specific smoke evidence lives in the new artifact.
+
+**No timings were collected and no performance gate passed.** The overlays contain
+instrumentation and are unsuitable for measurements. This smoke covers the current
+planner plus the typed Header reader; it does not validate typed readers that have
+not yet been implemented. Rerun it after decoder changes, then use an uninstrumented
+paired/interleaved benchmark harness under the frozen protocol for the performance
+gate. The 6 incompatibilities and 2 controls must remain visible in that report.
+
+Full regeneration/check passed (2161 build jobs): **1008 audited theorems**,
+**339 project hashes** and 28 standard-library hashes. The transitive proof
+dependencies are unchanged, with no admissions or native-evaluation axioms. The
+full log is `check-frozen-smoke-full.log`. The baseline, original worktree and pinned
+trusted semantics are unchanged. The Header proof still requires the separately
+approved indexing repair and actual eight-byte helper proof.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
@@ -2834,8 +2909,9 @@ repair approval remains outstanding; Header is still the first proof milestone.
 `results/benchmark-universe.json` freezes all 185 historical cases, corpus records
 and source hashes against the original baseline. All corpus hashes were checked.
 It records the removed EventsBloom projection and historical zero-route controls;
-other cases still require baseline compatibility smoke. **No cases have passed the
-new performance gate and no performance timings have been collected.**
+all cases now have source-specific compatibility classifications in
+`results/compatibility-smoke.json`. **No cases have passed the new performance
+gate and no performance timings have been collected.**
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

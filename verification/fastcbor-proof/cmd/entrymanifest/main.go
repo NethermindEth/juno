@@ -469,7 +469,7 @@ func (v *Inventory) walk(t types.Type) {
 	slices.Sort(n.Variants)
 }
 func benchmarkRoots(kind string) ([]string, string, error) {
-	status := "pending baseline/candidate compatibility smoke and no-fallback timing"
+	status := "compatibility evidence is recorded separately; timing and allocation gate pending"
 	simple := map[string]string{"record.header": "Header", "record.state": "StateUpdate", "record.receipt": "TransactionReceipt", "record.class": "ClassDefinition", "indexes": "BlockTransactionsIndexes", "projection.headerHash": "headerHashProjection", "projection.headerRoot": "headerGlobalStateRootProjection", "projection.headerCount": "headerTransactionCountProjection", "projection.headerTimestamp": "headerTimestampProjection", "projection.headerHashRoot": "headerHashAndStateRootProjection", "projection.receiptStatus": "receiptExecutionStatusProjection", "projection.receiptEvents": "receiptEventsProjection", "projection.transactionHash": "transactionHashProjection"}
 	if name, ok := simple[kind]; ok {
 		return []string{name}, status, nil

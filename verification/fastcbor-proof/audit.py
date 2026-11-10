@@ -42,6 +42,8 @@ for rel in ["core", "core/internal/cborschema", "core/felt", "utils/cbor/cursor"
 inputs += list((here / "config").rglob("*.toml"))
 inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.json"]
 entry_manifest = json.loads((here / "results/entry-manifest.json").read_text())
+inputs += [here / "smoke/run.py", here / "smoke/frozen_test.go.txt", here / "results/compatibility-smoke.json"]
+compatibility_smoke = json.loads((here / "results/compatibility-smoke.json").read_text())
 # Record the build-selected Go sources for standard-library packages translated
 # directly by this harness. Other standard-library models are pinned by Perennial.
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
@@ -123,6 +125,13 @@ report = {
         "structural_shapes": len(entry_manifest["shapes"]),
         "frozen_benchmark_cases": len(entry_manifest["benchmarks"]),
         "status": "checked preparatory inventory only; no additional typed reader, wire specification, compatibility result, performance result or formal proof is claimed",
+    },
+    "compatibility_smoke": {
+        "path": "verification/fastcbor-proof/results/compatibility-smoke.json",
+        "checker": "python3 verification/fastcbor-proof/smoke/run.py --check (separate source/corpus evidence check)",
+        "baseline_counts": compatibility_smoke["baseline"]["counts"],
+        "candidate_counts": compatibility_smoke["candidate"]["counts"],
+        "status": "saved no-fallback corpus compatibility evidence for the recorded Go source hashes; not a formal equivalence proof or performance-gate result",
     },
     "theorem_axiom_set": theorem_sets,
     "axiom_sets": axiom_sets,

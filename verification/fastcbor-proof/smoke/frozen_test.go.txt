@@ -1,0 +1,327 @@
+package core
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/NethermindEth/juno/core/felt"
+	typedvalue "github.com/NethermindEth/juno/db/typed/value"
+	"github.com/NethermindEth/juno/utils/cbor/fastcbor"
+	"github.com/NethermindEth/juno/utils/cbor/fxamacker"
+)
+
+type frozenCase struct {
+	ID, Kind, Source string
+	Bytes            int
+	Prefix           bool
+	Items            int
+}
+type frozenRecord struct{ File, SHA256 string }
+type frozenUniverse struct {
+	Cases   []frozenCase
+	Records []frozenRecord
+}
+type frozenResult struct {
+	ID              string `json:"id"`
+	Kind            string `json:"kind"`
+	Status          string `json:"status"`
+	Error           string `json:"error,omitempty"`
+	ReferenceError  string `json:"reference_error,omitempty"`
+	FastCalls       int    `json:"fast_decoder_calls"`
+	FXCallsFromFast int    `json:"fx_calls_from_fast"`
+	EqualFX         bool   `json:"equal_fx"`
+	InputUnchanged  bool   `json:"input_unchanged"`
+	Ownership       string `json:"ownership"`
+}
+type frozenPrefix struct {
+	Indexes BlockTransactionsIndexes
+	Rest    []byte
+}
+
+func frozenDecode[T any](data []byte, fast bool) (any, error) {
+	var dst T
+	if fast {
+		return &dst, fastcbor.Unmarshal(data, &dst)
+	}
+	return &dst, fxamacker.Unmarshal(data, &dst)
+}
+func frozenCall(kind string, data []byte, fast bool) (any, int, error) {
+	fxamacker.CBORProofSmokeForbid = false
+	fxamacker.CBORProofSmokeCalls = 0
+	defer func() { fxamacker.CBORProofSmokeForbid = false }()
+	if kind == "indexes" {
+		fxamacker.CBORProofSmokeForbid = fast
+		var dst BlockTransactionsIndexes
+		var rest []byte
+		var err error
+		if fast {
+			rest, err = fastcbor.UnmarshalFirst(data, &dst)
+		} else {
+			rest, err = fxamacker.UnmarshalFirst(data, &dst)
+		}
+		return frozenPrefix{dst, rest}, 1, err
+	}
+	if strings.HasPrefix(kind, "block.") {
+		typedvalue.CBORProofSmokeMode(fast)
+		dst, err := frozenBlock(strings.TrimPrefix(kind, "block."), data, fast)
+		return dst, typedvalue.CBORProofSmokeCalls(), err
+	}
+	var call func([]byte, bool) (any, error)
+	switch kind {
+	case "record.header":
+		call = frozenDecode[Header]
+	case "record.state":
+		call = frozenDecode[StateUpdate]
+	case "record.receipt":
+		call = frozenDecode[TransactionReceipt]
+	case "record.class":
+		call = frozenDecode[ClassDefinition]
+	case "record.transactionDeclare", "record.transactionDeploy", "record.transactionDeployAccount", "record.transactionInvoke", "record.transactionL1Handler":
+		call = frozenDecode[Transaction]
+	case "projection.headerHash":
+		call = frozenDecode[headerHashProjection]
+	case "projection.headerRoot":
+		call = frozenDecode[headerGlobalStateRootProjection]
+	case "projection.headerCount":
+		call = frozenDecode[headerTransactionCountProjection]
+	case "projection.headerTimestamp":
+		call = frozenDecode[headerTimestampProjection]
+	case "projection.headerHashRoot":
+		call = frozenDecode[headerHashAndStateRootProjection]
+	case "projection.receiptStatus":
+		call = frozenDecode[receiptExecutionStatusProjection]
+	case "projection.receiptEvents":
+		call = frozenDecode[receiptEventsProjection]
+	case "projection.transactionHash":
+		call = frozenDecode[transactionHashProjection]
+	default:
+		return nil, 0, fmt.Errorf("unclassified kind %q", kind)
+	}
+	fxamacker.CBORProofSmokeForbid = fast
+	dst, err := call(data, fast)
+	return dst, 1, err
+}
+func frozenBlock(kind string, data []byte, fast bool) (any, error) {
+	// Lazy operations historically construct the framing container outside the
+	// measured call. Keep this FX-only setup outside the fast-wrapper call count.
+	var indexes BlockTransactionsIndexes
+	rest, err := fxamacker.UnmarshalFirst(data, &indexes)
+	if err != nil {
+		return nil, err
+	}
+	block := BlockTransactions{Indexes: indexes, Data: rest}
+	txIndex, receiptIndex := len(indexes.Transactions)/2, len(indexes.Receipts)/2
+	fxamacker.CBORProofSmokeForbid = fast
+	switch kind {
+	case "fullSerialized":
+		var dst BlockTransactions
+		err := (BlockTransactionsSerializer{}).Unmarshal(data, &dst)
+		return &dst, err
+	case "allTransactions":
+		var dst []Transaction
+		err := BlockTransactionsAllTransactionsPartialSerializer.UnmarshalPartial(struct{}{}, data, &dst)
+		return dst, err
+	case "allReceipts":
+		var dst []*TransactionReceipt
+		err := BlockTransactionsAllReceiptsPartialSerializer.UnmarshalPartial(struct{}{}, data, &dst)
+		return dst, err
+	case "allPairs":
+		var dst TransactionsAndReceipts
+		err := BlockTransactionsAllTransactionsAndReceiptsPartialSerializer.UnmarshalPartial(struct{}{}, data, &dst)
+		return &dst, err
+	case "allEvents":
+		var dst []TransactionEvents
+		err := BlockTransactionsAllTransactionEventsPartialSerializer.UnmarshalPartial(struct{}{}, data, &dst)
+		return dst, err
+	case "allHashes":
+		var dst []felt.Felt
+		err := BlockTransactionsAllTransactionHashesPartialSerializer.UnmarshalPartial(struct{}{}, data, &dst)
+		return dst, err
+	case "lazyAllReceipts":
+		return block.Receipts().All()
+	case "lazyAllTransactions":
+		return block.Transactions().All()
+	case "oneTransaction":
+		var dst Transaction
+		err := BlockTransactionsTransactionPartialSerializer.UnmarshalPartial(txIndex, data, &dst)
+		return dst, err
+	case "lazyTransaction":
+		return block.Transactions().Get(txIndex)
+	case "oneReceipt":
+		var dst *TransactionReceipt
+		err := BlockTransactionsReceiptPartialSerializer.UnmarshalPartial(receiptIndex, data, &dst)
+		return dst, err
+	case "lazyReceipt":
+		return block.Receipts().Get(receiptIndex)
+	case "oneStatus":
+		var dst TransactionExecutionStatus
+		err := BlockTransactionsExecutionStatusPartialSerializer.UnmarshalPartial(receiptIndex, data, &dst)
+		return &dst, err
+	case "onePair":
+		var dst TransactionAndReceipt
+		err := BlockTransactionsTransactionAndReceiptPartialSerializer.UnmarshalPartial(txIndex, data, &dst)
+		return &dst, err
+	default:
+		return nil, fmt.Errorf("unclassified block kind %q", kind)
+	}
+}
+
+func TestFrozenCBORSmoke(t *testing.T) {
+	raw, err := os.ReadFile(os.Getenv("JUNO_PROOF_SMOKE_UNIVERSE"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var universe frozenUniverse
+	if err = json.Unmarshal(raw, &universe); err != nil {
+		t.Fatal(err)
+	}
+	if len(universe.Cases) != 185 {
+		t.Fatalf("frozen universe has %d cases", len(universe.Cases))
+	}
+	hashes := map[string]string{}
+	for _, r := range universe.Records {
+		hashes[r.File] = r.SHA256
+	}
+	rows := make([]frozenResult, 0, len(universe.Cases))
+	seen := map[string]bool{}
+	for _, c := range universe.Cases {
+		if seen[c.ID] {
+			t.Fatalf("duplicate case %s", c.ID)
+		}
+		seen[c.ID] = true
+		row := frozenResult{ID: c.ID, Kind: c.Kind, Status: "pending", Ownership: "not checked"}
+		if c.Kind == "projection.headerBloom" {
+			row.Status = "incompatible_removed_projection"
+			row.Error = "historical headerEventsBloomProjection is absent from both selected revisions"
+			rows = append(rows, row)
+			continue
+		}
+		data, err := os.ReadFile(c.Source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(data)
+		if hashes[c.Source] == "" || hex.EncodeToString(sum[:]) != hashes[c.Source] {
+			t.Fatalf("corpus hash mismatch: %s", c.Source)
+		}
+		if c.Kind == "record.class" {
+			if len(data) < 8 {
+				t.Fatalf("truncated class frame: %s", c.ID)
+			}
+			data = data[8:]
+		}
+		if len(data) != c.Bytes {
+			t.Fatalf("case byte count changed: %s: %d != %d", c.ID, len(data), c.Bytes)
+		}
+		saved := bytes.Clone(data)
+		reference, _, refErr := frozenCall(c.Kind, data, false)
+		if refErr != nil {
+			row.Status = "reference_error"
+			row.ReferenceError = refErr.Error()
+			rows = append(rows, row)
+			continue
+		}
+		if !bytes.Equal(data, saved) {
+			t.Fatalf("FX reference changed input: %s", c.ID)
+		}
+		got, calls, decodeErr := frozenCall(c.Kind, data, true)
+		row.FastCalls = calls
+		row.FXCallsFromFast = fxamacker.CBORProofSmokeCalls
+		row.InputUnchanged = bytes.Equal(data, saved)
+		row.EqualFX = decodeErr == nil && reflect.DeepEqual(reference, got)
+		switch {
+		case row.FXCallsFromFast != 0:
+			row.Status = "fx_call_from_fast"
+			if decodeErr != nil {
+				row.Error = decodeErr.Error()
+			}
+		case decodeErr != nil:
+			row.Status = "fast_decoder_error"
+			row.Error = decodeErr.Error()
+		case !row.InputUnchanged:
+			row.Status = "input_mutated"
+		case !row.EqualFX:
+			row.Status = "value_mismatch"
+		default:
+			row.Status = "compatible_fast"
+			if calls == 0 {
+				row.Status = "zero_decoder_control"
+			}
+			switch {
+			case c.Prefix:
+				result := got.(frozenPrefix)
+				ref := reference.(frozenPrefix)
+				offset := len(data) - len(result.Rest)
+				alias := offset >= 0 && offset <= len(data) && cap(result.Rest) == cap(data)-offset && bytes.Equal(result.Rest, data[offset:])
+				if len(result.Rest) > 0 {
+					alias = alias && &result.Rest[0] == &data[offset]
+				}
+				for i := range data {
+					data[i] = 0
+				}
+				if !alias || !reflect.DeepEqual(result.Indexes, ref.Indexes) {
+					row.Status = "ownership_mismatch"
+				}
+				row.Ownership = "owned indexes and exact intentionally borrowed suffix"
+			case c.Kind == "block.fullSerialized":
+				row.Ownership = "framing container; historical caller contract, not an owned-decoder-output assertion"
+			default:
+				for i := range data {
+					data[i] = 0
+				}
+				if !reflect.DeepEqual(reference, got) {
+					row.Status = "ownership_mismatch"
+				}
+				row.Ownership = "materialized output compared with independent FX result after input overwrite"
+			}
+		}
+		rows = append(rows, row)
+	}
+	raw, err = json.MarshalIndent(rows, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(os.Getenv("JUNO_PROOF_SMOKE_OUTPUT"), append(raw, '\n'), 0644); err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	for _, row := range rows {
+		counts[row.Status]++
+	}
+	t.Logf("classified all %d frozen cases: %v; no timings and no FX fallback in fast calls", len(rows), counts)
+}
+
+// Check that a successful smoke result cannot be supplied by fallback and that
+// the FX-call guard itself detects an attempted decode, including the strict API.
+func TestFrozenCBORSmokeInstrumentation(t *testing.T) {
+	defer func() { fxamacker.CBORProofSmokeForbid = false; typedvalue.CBORProofSmokeMode(false) }()
+	typedvalue.CBORProofSmokeMode(true)
+	fxamacker.CBORProofSmokeForbid = true
+	fxamacker.CBORProofSmokeCalls = 0
+	var header Header
+	if err := typedvalue.FastCbor[Header]().Unmarshal([]byte{0x1c}, &header); err == nil {
+		t.Fatal("malformed fast decode unexpectedly succeeded")
+	}
+	if typedvalue.CBORProofSmokeCalls() != 1 || fxamacker.CBORProofSmokeCalls != 0 {
+		t.Fatal("wrapper did not return the fast error directly")
+	}
+	if err := fxamacker.Unmarshal([]byte{0xf6}, &header); err == nil {
+		t.Fatal("FX guard did not reject Unmarshal")
+	}
+	if _, err := fxamacker.UnmarshalFirst([]byte{0xf6}, &header); err == nil {
+		t.Fatal("FX guard did not reject UnmarshalFirst")
+	}
+	if err := fxamacker.UnmarshalStrict([]byte{0xf6}, &header); err == nil {
+		t.Fatal("FX guard did not reject UnmarshalStrict")
+	}
+	if fxamacker.CBORProofSmokeCalls != 3 {
+		t.Fatal("FX guard did not count all attempts")
+	}
+}
