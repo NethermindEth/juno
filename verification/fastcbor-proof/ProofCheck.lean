@@ -127,3 +127,5 @@ import ProofCheck.StringSpec
 
 import ProofCheck.StringConversion
 import ProofCheck.KeySpec
+
+import ProofCheck.SchemaKeySpec

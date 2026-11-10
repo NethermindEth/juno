@@ -2186,6 +2186,39 @@ the final Header contract. The general validator remains at the documented
 unapproved generic-index repair. Production Go and pinned trusted semantics
 are unchanged, and the frozen performance gate remains open.
 
+### Complete Header/GasPrice key interpretation
+
+Full regeneration/check passed (2092 build jobs): **793 audited theorems**,
+265 matching project hashes and 28 matching standard-library source hashes.
+No admissions, native-evaluation axioms or new axioms were introduced. The full
+log is `check-schema-key-specification-full.log`.
+
+`SchemaKeySpec.lean` connects the complete key wire specification to the actual
+Header and GasPrice application schemas. Integer keys are unknown fields; text
+keys match the ASCII-folded wire names or are unknown. Header's fifteen schema
+identities and both legacy gas-price names are checked against the actual field
+metadata. Each schema's text interpretation is total and unique.
+
+The generic schema-key relation now has all-input classification, exact
+successful prefix/field-choice/suffix uniqueness, nonempty consumption and
+success/rejection disjointness. Both schemas instantiate that relation without
+restricting text to ASCII or short head encodings. The existing production-proved
+`HeaderKeySupported` and `GasKeySupported` families embed into the new contracts
+under representable input-length bounds, preserving their previous meanings.
+
+Checked ASCII-folding facts additionally show that a non-ASCII key cannot match
+any name in these ASCII-only schemas. A valid non-ASCII text key is therefore an
+unknown key whose value must be skipped; it is not an alternative spelling of a
+known field. UTF-8 validity is still required by `KeyValid`, so this does not turn
+malformed text into an accepted unknown key. Duplicate handling for known fields
+remains a separate seen-set obligation of the enclosing record specification.
+
+These facts establish complete schema interpretation, not the missing production
+Key/NextField contracts. The production UTF-8 proof still requires the documented
+unapproved generic-index repair; general field lookup, exhaustive GasPrice/Header
+outcome composition, the complete Header theorem and the frozen performance gate
+remain open. Production Go and pinned trusted semantics are unchanged.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** extend the now-proved Header dependency initialization
