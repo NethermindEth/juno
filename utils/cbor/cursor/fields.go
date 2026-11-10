@@ -130,7 +130,7 @@ func (c *Cursor) OpenStruct(fields *Fields) (Struct, error) {
 func (c *Cursor) NextField(s *Struct) (int, error) {
 	// The common case comes first, when the key is the one expected next and its field is not yet
 	// read.
-	if s.left > 0 && s.next < len(s.fields.order) && c.pos+keyWords*8 <= len(c.buf) {
+	if s.left > 0 && s.next < len(s.fields.order) && len(c.buf)-c.pos >= keyWords*8 {
 		key := &s.fields.order[s.next]
 		buf := c.buf[c.pos : c.pos+keyWords*8]
 		if (binary.LittleEndian.Uint64(buf)^key.Words[0])&key.Masks[0]|

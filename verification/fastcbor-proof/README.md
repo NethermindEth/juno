@@ -84,8 +84,9 @@ definite payload success/truncation and public byte/string propagation contracts
 general ASCII folding and two-pass name matching, field-bit marking and duplicate
 rejection, integer-key classification/overflow, key type/tag rejection and text-body
 truncation through public Key and alternate field lookup, the complete batched ASCII
-scan and short-ASCII-key field matching/duplicate handling, and bounded public Header
-examples. The reproducible audit records the current lemma count.
+scan and short-ASCII-key field matching/duplicate handling, byte-prefix equivalence
+for the word cache, production cached-hit and general field-EOF contracts, and bounded
+public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
@@ -93,7 +94,7 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached lookup, other text keys and remaining head-error propagation are pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; cache misses/search, other text keys and remaining head-error propagation are pending. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
@@ -329,7 +330,7 @@ slow worker. The original cursor and whole input are preserved on each error;
 the alternate-field path propagates the error without accessing struct metadata.
 These are contracts for the actual translated implementations. The successful
 short-ASCII-key path is now proved as described next; other text keys, UTF-8,
-remaining head-error propagation and cached lookup still need proofs.
+remaining head-error propagation and cache-miss/search paths still need proofs.
 
 `ASCII.lean` proves the complete production ASCII helper for arbitrary byte
 sequences and lengths. Its independent contract is that every byte is below 128.
@@ -349,8 +350,34 @@ after consuming the key, so the cursor and diagnostic offset point to the value.
 All outcomes preserve fractional read-only metadata and the whole input. This
 handles arbitrary ASCII key bytes and up to 64 names; the existing folded-name
 uniqueness proof identifies the matching field for Header/GasPrice tables.
-Successful wider text heads, non-ASCII keys, the cached lookup path and actual
-initialization remain separate obligations.
+Successful wider text heads, non-ASCII keys and actual initialization remain
+separate obligations. Cache coverage is described next.
+
+`CacheWords.lean` proves that the three masked little-endian comparisons are zero
+exactly when the input has the encoded key as a prefix, for keys of at most 24
+bytes and inputs with at least 24 bytes. Every byte inside the key contributes;
+bytes after its end cannot affect the result. Separate checks connect the actual
+Header/GasPrice word and mask arrays to this byte-level contract. `CacheFast.lean`
+proves the production `NextField` cached-hit branch for a matching, unseen short
+key: exact cursor advancement/suffix, one pair consumed, the expected table index
+advanced once, and precisely that field's seen bit set. It preserves the whole
+input and arbitrary fractional ownership of both table metadata and entries.
+The actual generated Header/GasPrice entries satisfy its cache representation.
+The cache-miss branch and the general nonempty `find` search still need proofs.
+
+The general model analysis exposed an addition-before-check guard in `NextField`:
+`c.pos + 24 <= len(c.buf)` can pass after signed overflow even when no bytes remain.
+The production guard now checks `len(c.buf) - c.pos >= 24` first. Checked arithmetic
+lemmas establish that this is the exact remaining-length condition for a valid
+cursor and that it makes the subsequent end-index addition safe. An explicit
+signed-limit counterexample records why the old check was insufficient. This is
+a model-level boundary finding; it does not claim a reproduced crash with an
+allocated Go buffer near 2^63 bytes. `CacheEOF.lean` proves the actual public EOF
+path at every nonnegative offset, including the signed limit, for arbitrary
+search indices and fractional metadata. It returns the owned truncation error,
+preserves cursor/map state except for decrementing the outstanding pair count,
+and performs no input byte load. The performance effect of the one-line guard
+change remains subject to the frozen gate.
 
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
@@ -511,6 +538,19 @@ input borrowing, exact suffixes and retryable errors. The key tests and text-key
 fuzz seeds passed with `-race -gcflags=all=-d=checkptr`. Wider-head and Unicode
 runtime coverage does not imply a completed Lean validator proof. The complete
 Header theorem and frozen performance gate remain outstanding.
+
+The cached-hit/EOF milestone passed full regeneration/check with 253 audited
+theorems and no added transitive axioms. The complete `utils/cbor/...` suite,
+including compatibility checks, and targeted typed Header tests passed.
+`TestFieldsCachedComparisons` exercises matching names, later table entries,
+case variants and a changed byte at each name position around all three word
+boundaries. It varies following byte-payload contents and lengths, including
+inputs immediately below/at/above the 24-byte window. Field tests passed with
+`-race -gcflags=all=-d=checkptr`. `FuzzTypedHeaderMatchesPlanner` completed 214,939
+executions with a ten-second fuzz budget, comparing typed Header decoding with
+both FX and the original planner. The new guard, cached-hit proof and arbitrary-
+offset EOF proof are in the audited source set. Cache-miss/nonempty-search proofs,
+the complete Header theorem and the frozen performance gate remain outstanding.
 
 ## Whole-library gates after the Header milestone
 
