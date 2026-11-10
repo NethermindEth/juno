@@ -91,27 +91,28 @@ for the word cache, production cached-hit and general field-EOF contracts, gener
 table search for arbitrary input lengths with the Header/GasPrice cache shape,
 general public table-hit and ASCII field-reading contracts, exact search-index
 progress, public integer-key classification/range rejection, key type/tag rejection
-and text-body truncation, malformed/incomplete key-head propagation, arbitrary-input Skip and felt classification with complete production outcome contracts, and bounded public Header examples. The reproducible audit records the current lemma count.
+and text-body truncation, malformed/incomplete key-head propagation, arbitrary-input Skip, typed felt and in-place Limbs classification with complete production outcome contracts, shared backing-slot preservation, and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures now compose through ignored felt contents; FeltFailure now unifies every error with exact offsets and owned diagnostics, felt_classify exhausts arbitrary input, and wp_readFelt_complete composes the actual success/failure proofs with input/output ownership and cursor rollback; UTF-8 remains pending (generic slice-index fix proposed below) |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; later-limb type/tag/truncation/EOF errors proved for all array-header widths, including both inline-four shortcut rejection paths; ignored-tail atomic/EOF errors proved after arbitrary valid skipped contents; malformed outer/limb/ignored heads also proved; outer type/tag/truncation/EOF and incomplete ignored heads now proved; recursive Skip failures now compose through ignored felt contents; FeltFailure now unifies every error with exact offsets and owned diagnostics, felt_classify exhausts arbitrary input, and wp_readFelt_complete composes the actual success/failure proofs with input/output ownership and cursor rollback; wp_limbs_complete now covers the in-place API on arbitrary input, including null/undefined type rejection and whole-array preservation on failure; UTF-8 remains pending (generic slice-index fix proposed below) |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; integer keys, range/type/tag errors and text-body truncation compose through Key and alternate field lookup; short ASCII keys compose through public Key, matching and marking with all three field outcomes; cached comparisons, the production cached-hit branch and general EOF are proved; short-buffer search is proved for arbitrary ordered tables; word-based search is proved for the Header/GasPrice cached short-key shape; all public encoded-table hits and ASCII misses compose through actual field reading for arbitrary input lengths; a unified public ASCII contract covers field identity, new/duplicate/unknown results, exact suffix and search-index progress, with actual Header/GasPrice field-name checks; public integer keys, integer range/type/tag errors and text-body truncation now compose through the cache/search wrapper; all malformed/incomplete key-head errors now compose through public Key and NextField, with original offsets and owned diagnostics; wider/non-ASCII keys remain pending. General recursive Skip success, atomic rejection/EOF and malformed/incomplete heads proved; arbitrary supported tag prefixes propagate malformed/incomplete/atomic failures, tagged EOF and chained-tag depth errors through public Skip; array/map count/depth failures and malformed children after arbitrary valid nested prefixes now proved, including both wide shortcuts; malformed heads compose recursively through supported containers/tags and into ignored felt contents; shared failure contexts also close recursive incomplete-head, atomic and EOF contracts; count/depth and missing-tag-content instances are closed and unified under SkipFailure, including propagation into ignored felt contents; every arbitrary input at supported depth now has a SkipValid prefix or SkipFailure derivation, and wp_Skip_complete composes actual production proofs into a public arbitrary-input outcome contract; pure relation disjointness/uniqueness remains pending |
-| 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
+| 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior and general in-place Limbs contracts proved; borrowing/restoring a backing-array slot preserves all other elements on success and the entire array on failure; actual slice allocation/loops and shared GasPrice ownership remain pending |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
 | 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
 
 This is dependency order, not eight isolated phases: nested GasPrice uses field
 lookup, and successful felt decoding now composes the recursive Skip theorem.
-The arbitrary-input Skip and typed felt contracts are now checked. Next is nested
-output ownership for signatures and GasPrice, including shared backing allocations
-and partial-construction failures. The signature helper calls Limbs directly into
-its backing array, so it needs the corresponding general in-place contract as
-well as the typed pointer contract. Pure relation uniqueness/disjointness remains
+The arbitrary-input Skip, typed felt and in-place Limbs contracts are now checked.
+Next is nested output ownership for signatures and GasPrice, including shared
+backing allocations and partial-construction failures. The signature helper calls
+Limbs directly into its backing array; the general in-place contract and
+single-slot borrow/restore contracts now cover this step. The actual nullable
+slice allocation/iteration and pointer-table ownership still need proof. Pure relation uniqueness/disjointness remains
 a supporting obligation. UTF-8 still has the proposed one-line repair to the pinned
 generic slice-index semantics (see the approval proposal below); independent
 composition work remains available.
@@ -584,9 +585,32 @@ suffix on success or the unchanged prior pointer/cursor and owned inner error on
 failure. No chosen-outcome or helper-WP premise remains. Package initialization
 and immutable ownership of the five error globals remain explicit preconditions.
 These are partial-correctness/model-safety claims; termination and pure relation
-uniqueness/disjointness are not established here. The general in-place Limbs
-contract, shared slice/GasPrice allocations and full Header composition are still
-separate work.
+uniqueness/disjointness are not established here. Shared slice/GasPrice allocations
+and full Header composition are still separate work.
+
+`ExpectedFailure.lean` closes the actual major-type expectation and public Uint64
+failure contracts for the independent expectation relation. Pure lemmas exclude
+both an inline-four array on array-head failure and a successful unsigned shortcut
+on a retained-limb failure. `LimbsReject.lean` supplies in-place composition
+adapters for failures in retained limbs or ignored extras. `LimbsFailure.lean`
+discharges their helper premises using the actual expectation, Uint64 and recursive
+Skip contracts, preserving the caller's four-word array and original cursor/input.
+
+`LimbsComplete.lean` reuses the typed felt array/value and error specifications.
+The in-place API requires an array: null/undefined are type failures rather than
+nil results. `limbs_classify` exhausts arbitrary input, and `wp_limbs_complete`
+composes the actual success/failure proofs into `LimbsOutcome`. Success updates
+the owned four-word array and leaves the exact suffix; failure preserves the old
+array/cursor with an owned specified diagnostic and bounded nonwrapping offset.
+Whole-input ownership is preserved. Package initialization and immutable ownership
+of the five error globals remain explicit preconditions.
+
+`LimbsSlice.lean` applies the production Limbs contract to one borrowed slot of an
+arbitrary owned backing slice. Success restores the whole slice with exactly that
+slot updated. Failure restores the original whole slice, including earlier decoded
+elements. These contracts provide the element-level ownership step for signature
+decoding; they do not yet prove allocation, null handling, pointer publication or
+the actual `cborReadFeltPointers`/`cborReadSignatures` loops.
 
 `TestSkipRecursiveBoundaryErrors` checks mixed-width tagged arrays/maps leading
 to count errors, missing tag contents and depth-limit failures, including wide
@@ -1150,6 +1174,15 @@ files changed; production Go and pinned trusted semantics are unchanged. Next is
 the in-place Limbs contract and nested signature/GasPrice ownership. UTF-8, wider/
 non-ASCII keys, initialization and the complete Header theorem remain unfinished;
 the frozen performance gate has not run.
+
+The arbitrary-input in-place Limbs milestone passed full regeneration/check
+(1976 build jobs) with 456 audited theorems, no added transitive axioms, admissions
+or native evaluation axioms. Both arbitrary-input outcome classification and
+single-slot backing-array ownership compose through actual Limbs calls. Only
+proof/documentation/audit files changed; production Go and pinned trusted semantics
+are unchanged. The actual signature allocation/loops and GasPrice shared ownership,
+UTF-8, wider/non-ASCII keys, initialization and general Header theorem remain
+unfinished. The frozen performance gate has not run.
 
 ## Whole-library gates after the Header milestone
 
