@@ -81,7 +81,8 @@ extended-head truncation failures, the arbitrary-limb 37-byte felt fast path,
 general felt success through an independent nullable/short/extended wire relation,
 felt depth rejection, general recursive Skip success and atomic rejection/EOF contracts,
 definite payload success/truncation and public byte/string propagation contracts,
-and bounded public Header examples. The reproducible audit records the current lemma count.
+general ASCII folding and two-pass name matching, field-bit marking and duplicate
+rejection, and bounded public Header examples. The reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
@@ -89,9 +90,9 @@ The count is not a coverage percentage. The complete Header theorem is absent.
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument, recursive Skip and felt value relations exist; full Header relation pending |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success (null/undefined, short arrays and arbitrary valid extras) and depth rejection proved through the typed reader; payload extraction and truncation propagation proved; remaining felt failures, converse and UTF-8 pending (generic slice-index fix proposed below) |
-| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved; general recursive Skip success proved, including both wide shortcuts; atomic rejection/EOF and public rollback proved, with recursive rejection and other head errors pending |
+| 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories, general two-pass name matching, folded-name uniqueness and duplicate marking proved; cached lookup and Key decoding remain generalization work. General recursive Skip success and atomic rejection/EOF proved; recursive rejection and other head errors pending |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
-| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; wiring and shared ownership pending |
+| 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Factories proved; matcher and duplicate marking accept fractional metadata; initialization wiring and shared ownership establishment pending |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Restricted null/empty/Number examples and one late-error family proved |
 | 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Harness works; final complete-Header run pending |
 
@@ -293,6 +294,25 @@ prove the validator. The actual UTF-8 word-helper attempt found a reversed opera
 tuple in the pinned generic slice-index rule; the separate proposal below is
 pending approval, and the failed reproducer is excluded from the audited target.
 
+`FieldFold.lean` proves the actual case-folding loop for arbitrary equal-length
+byte sequences: its result is exactly equality after folding ASCII uppercase
+letters. Non-ASCII bytes remain unchanged. `FieldMatch.lean` composes this with
+both actual lookup passes: success returns a nonnegative index of a matching
+name, and failure excludes every name in the table. It also proves that distinct
+folded names give a unique successful index, and kernel-checks that property for
+the complete Header and GasPrice name lists. `FieldMark.lean` proves that a new
+field sets exactly its bit and that duplicate rejection preserves cursor/struct
+state while returning an owned error and diagnostic name. Both name matching and
+duplicate rejection preserve arbitrary fractional ownership of their read-only
+metadata; actual initialization still has to establish that ownership.
+
+The original `a += 'a' - 'A'` and corresponding `b` expression translate into
+unsupported untyped-rune arithmetic in the pinned Goose. The Go helper now uses
+`const lowerDelta byte = 'a' - 'A'` in both assignments. Regeneration emits
+`W8 32`; the proofs check the translated production helper. This changes neither
+the intended folding policy nor the trusted tooling. The pending generic
+slice-index repair for the standard-library UTF-8 validator is separate.
+
 These contracts are not yet composed into a general Header theorem. Its remaining
 critical dependencies are the remaining felt paths, UTF-8, nested signature/GasPrice
 ownership, field lookup and Skip (including their errors), plus initialization and
@@ -304,8 +324,10 @@ on the 64-bit target. They require package initialization and, where used, owner
 of the relevant initialized globals. The field factories are proved, but the global
 package initializer and its connection to those factories are **not** yet proved.
 The populated examples do not cover arbitrary Header fields, widths or suffixes.
-The field-table proofs currently require exclusive ownership and return it unchanged;
-shared read-only table ownership for concurrent decoder calls is not yet established.
+The older field-table examples require exclusive ownership and return it unchanged.
+The general name matcher and duplicate-marking contracts accept fractional metadata
+ownership, but initialization has not yet established shared read-only ownership
+for concurrent decoder calls.
 
 The BigInt decoder now packs bytes into owned Go words, uses `SetBits` to normalize,
 and uses in-place `Neg`. Negative CBOR bignums add one with a Go carry loop. This
@@ -410,6 +432,19 @@ truncation is checked before UTF-8 validation. These tests and fuzz seeds passed
 with `-race -gcflags=all=-d=checkptr`. The generic slice-index Go witness runs and
 Goose translates it; its actual UTF-8 word-helper Lean reproducer fails at the
 reversed operands as documented below. No semantics patch has been applied.
+
+The field-name milestone passed full regeneration/check with 204 audited theorems
+and no added transitive axioms, plus public-API checks for all 16,384 ASCII key/name
+byte pairs. Duplicate tests exercise all 64 bits,
+reverse field order, case variants, all five key-length widths and error offsets.
+The cursor suite and targeted typed Header tests passed. The new field tests and
+existing NextWanted tests also passed with `-race -gcflags=all=-d=checkptr`.
+On Go 1.27 linux/amd64,
+compiling the isolated old and new `equalFoldASCII` functions produced identical
+39-line instruction listings (source locations removed), SHA-256
+`4f407862f2de9ad5d091752914bcb12b270e2be2ed1c9ac3a97cac475d8d9d56`.
+That narrow compiler check is not the frozen whole-library performance gate,
+which has not run.
 
 ## Whole-library gates after the Header milestone
 

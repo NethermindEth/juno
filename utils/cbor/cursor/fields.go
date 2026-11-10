@@ -279,13 +279,14 @@ func (f *Fields) match(key []byte) (int, bool) {
 
 // equalFoldASCII compares a key with an ASCII name of the same length, ignoring case.
 func equalFoldASCII(key []byte, name string) bool {
+	const lowerDelta byte = 'a' - 'A'
 	for i := range len(name) {
 		a, b := key[i], name[i]
 		if 'A' <= a && a <= 'Z' {
-			a += 'a' - 'A'
+			a += lowerDelta
 		}
 		if 'A' <= b && b <= 'Z' {
-			b += 'a' - 'A'
+			b += lowerDelta
 		}
 		if a != b {
 			return false

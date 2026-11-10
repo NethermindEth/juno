@@ -1,7 +1,9 @@
 package cursor_test
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/utils/cbor/cursor"
@@ -82,4 +84,79 @@ func TestNextWanted(t *testing.T) {
 	field, err := c.NextWanted(&s)
 	require.NoError(t, err)
 	require.Equal(t, cursor.Done, field)
+}
+
+// Use a non-preferred key width so lookup must reach the name matcher rather
+// than matching the cached canonical encoding. Check every ASCII byte pair.
+func TestFieldMatchASCII(t *testing.T) {
+	for nameByte := byte(0); nameByte < 128; nameByte++ {
+		fields := cursor.NewFields(string([]byte{nameByte}))
+		for keyByte := byte(0); keyByte < 128; keyByte++ {
+			input := []byte{0xa1, 0x79, 0, 1, keyByte, 0}
+			c := cursor.NewCursor(input)
+			s, err := c.OpenStruct(fields)
+			require.NoError(t, err)
+			field, err := c.NextField(&s)
+			require.NoError(t, err)
+			want := cursor.Unknown
+			if strings.EqualFold(string([]byte{keyByte}), string([]byte{nameByte})) {
+				want = 0
+			}
+			require.Equal(t, want, field, "key %x, name %x", keyByte, nameByte)
+			require.Equal(t, 5, c.Pos())
+			require.Equal(t, []byte{0}, c.Remaining())
+			require.NoError(t, c.Skip())
+			field, err = c.NextField(&s)
+			require.NoError(t, err)
+			require.Equal(t, cursor.Done, field)
+		}
+	}
+}
+
+func TestNextFieldTracksAllBits(t *testing.T) {
+	names := make([]string, 64)
+	for i := range names {
+		names[i] = fmt.Sprintf("Field%02d", i)
+	}
+	fields := cursor.NewFields(names...)
+	for width := byte(0); width < 5; width++ {
+		for _, duplicate := range []int{0, 31, 32, 63} {
+			t.Run(fmt.Sprintf("width%d/duplicate%d", width, duplicate), func(t *testing.T) {
+				input := appendTestCBORArgument(nil, 0xa0, 65, 1)
+				// A reverse order also exercises misses in the canonical lookup.
+				for i := len(names) - 1; i >= 0; i-- {
+					key := strings.ToUpper(names[i])
+					input = appendTestCBORArgument(input, 0x60, uint64(len(key)), width)
+					input = append(input, key...)
+					input = appendTestCBORArgument(input, 0, uint64(i), 1)
+				}
+				key := strings.ToLower(names[duplicate])
+				input = appendTestCBORArgument(input, 0x60, uint64(len(key)), width)
+				input = append(input, key...)
+				errorOffset := len(input)
+				input = append(input, 0xf6, 0xff)
+				before := slices.Clone(input)
+				c := cursor.NewCursor(input)
+				s, err := c.OpenStruct(fields)
+				require.NoError(t, err)
+				for i := len(names) - 1; i >= 0; i-- {
+					field, err := c.NextField(&s)
+					require.NoError(t, err)
+					require.Equal(t, i, field)
+					value, err := c.Uint64()
+					require.NoError(t, err)
+					require.Equal(t, uint64(i), value)
+				}
+				field, err := c.NextField(&s)
+				require.Equal(t, cursor.Done, field)
+				require.ErrorIs(t, err, cursor.ErrUnsupported)
+				var detail *cursor.DecodeError
+				require.ErrorAs(t, err, &detail)
+				require.Equal(t, errorOffset, detail.Offset)
+				require.Equal(t, errorOffset, c.Pos())
+				require.Equal(t, []byte{0xf6, 0xff}, c.Remaining())
+				require.Equal(t, before, input)
+			})
+		}
+	}
 }
