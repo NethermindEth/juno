@@ -74,3 +74,11 @@ import ProofCheck.HeaderMapSpec
 import ProofCheck.HeaderMap
 
 import ProofCheck.HeaderMapAPI
+
+import ProofCheck.HeaderMapDuplicate
+
+import ProofCheck.HeaderMapKeyFailure
+
+import ProofCheck.HeaderLookupFailure
+
+import ProofCheck.HeaderLookupFailureAPI
