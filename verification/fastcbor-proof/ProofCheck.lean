@@ -144,3 +144,5 @@ import ProofCheck.HeaderDeterminism
 import ProofCheck.HeaderDisjoint
 
 import ProofCheck.SkipFailureUnique
+
+import ProofCheck.HeaderOutcomeUnique
