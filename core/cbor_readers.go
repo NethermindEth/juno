@@ -16,6 +16,33 @@ func cborReadUint64(c *cursor.Cursor, dst *uint64) error {
 	return err
 }
 
+func cborReadUint64Pointer(c *cursor.Cursor, dst **uint64) error {
+	if c.Null() {
+		*dst = nil
+		return nil
+	}
+	v, err := c.Uint64()
+	if err == nil {
+		*dst = &v
+	}
+	return err
+}
+
+// Projections accept one enclosing tag, except the time and bignum tags. This
+// matches the planner's projection contract, including rejection of tag chains.
+func cborReadProjectionTag(c *cursor.Cursor) error {
+	if head, err := c.Peek(); err == nil && head&0xe0 == cursor.MajorTag {
+		tag, err := c.Tag()
+		if err != nil {
+			return err
+		}
+		if next, err := c.Peek(); tag <= 3 || (err == nil && next&0xe0 == cursor.MajorTag) {
+			return cursor.ErrUnsupported
+		}
+	}
+	return nil
+}
+
 func cborReadMode(c *cursor.Cursor, dst *L1DAMode) error {
 	if c.Null() {
 		return nil

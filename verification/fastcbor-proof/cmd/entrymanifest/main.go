@@ -197,7 +197,7 @@ func run(check bool) error {
 		return fmt.Errorf("run from repository root: %w", err)
 	}
 	v := &Inventory{root: root, fset: token.NewFileSet(), roots: map[string]*Root{}, nodes: map[string]*Shape{}, types: map[string]types.Type{}}
-	v.report = Report{Scope: "Build-selected production fast-CBOR destinations, registered interface variants, structural Go dependencies and all frozen benchmark cases. Preparatory inventory; Header remains conditional and no additional decoder is proved.", Target: "linux/amd64/v1, Go 1.27.0, tests excluded", Sources: map[string]string{}, GenericSites: []Site{}, Limitations: []string{
+	v.report = Report{Scope: "Build-selected production fast-CBOR destinations, registered interface variants, structural Go dependencies and all frozen benchmark cases. Checked inventory; Header remains conditional, its five projections have typed implementations, and remaining record proofs are open.", Target: "linux/amd64/v1, Go 1.27.0, tests excluded", Sources: map[string]string{}, GenericSites: []Site{}, Limitations: []string{
 		"Go shape dependencies are not a wire schema. Embedding precedence, custom hooks, integer keys, projections, overrides and special allocation require independent contracts.",
 		"Concrete FastCbor, fastcbor.Unmarshal/UnmarshalFirst, and indexed.LazySlice/NewLazySlice instantiations are inventoried. Generic forwarding sites are explicit; arbitrary runtime types are outside the agreed decoder scope.",
 		"Tag registry order is extracted from the actual registration list. Numeric tag allocation and initialization still need a checked contract; registry membership is not a proof of interface decoding.",
@@ -241,7 +241,7 @@ func run(check bool) error {
 			r := v.addRoot(t)
 			if typed {
 				r.Typed = true
-				r.Status = "registered typed reader; general proof status requires review"
+				r.Status = "registered typed reader; general decoder proof pending"
 				if r.Type == core+"Header" {
 					r.Status = "Header API composition checked conditional on UTF-8 word helper; unconditional milestone open"
 				}

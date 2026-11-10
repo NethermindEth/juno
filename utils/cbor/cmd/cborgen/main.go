@@ -137,14 +137,23 @@ func DecodeHeader(data []byte,dst *Header) error {
 }
 
 // RegisterTypedCBORReaders installs the currently generated typed entry points.
-func RegisterTypedCBORReaders() { fastcbor.RegisterTyped[Header](DecodeHeaderFirst) }
+func RegisterTypedCBORReaders() {
+ fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
+ registerTypedHeaderProjections()
+}
 `)
+	projections, projectionSchema, err := emitHeaderProjections(p)
+	if err != nil {
+		return err
+	}
 	outputs := []struct {
 		path string
 		buf  *bytes.Buffer
 	}{
 		{"core/internal/cborschema/fields_generated.go", &schema},
 		{"core/cbor_readers_generated.go", &b},
+		{"core/cbor_projections_generated.go", projections},
+		{"core/internal/cborprojections/fields_generated.go", projectionSchema},
 	}
 	for _, output := range outputs {
 		out, err := format.Source(output.buf.Bytes())

@@ -122,4 +122,7 @@ func DecodeHeader(data []byte, dst *Header) error {
 }
 
 // RegisterTypedCBORReaders installs the currently generated typed entry points.
-func RegisterTypedCBORReaders() { fastcbor.RegisterTyped[Header](DecodeHeaderFirst) }
+func RegisterTypedCBORReaders() {
+	fastcbor.RegisterTyped[Header](DecodeHeaderFirst)
+	registerTypedHeaderProjections()
+}

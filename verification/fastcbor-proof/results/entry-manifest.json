@@ -1,5 +1,5 @@
 {
-  "scope": "Build-selected production fast-CBOR destinations, registered interface variants, structural Go dependencies and all frozen benchmark cases. Preparatory inventory; Header remains conditional and no additional decoder is proved.",
+  "scope": "Build-selected production fast-CBOR destinations, registered interface variants, structural Go dependencies and all frozen benchmark cases. Checked inventory; Header remains conditional, its five projections have typed implementations, and remaining record proofs are open.",
   "target": "linux/amd64/v1, Go 1.27.0, tests excluded",
   "packages": [
     "github.com/NethermindEth/juno/adapters/adaptfeeder",
@@ -61,6 +61,7 @@
     "github.com/NethermindEth/juno/core/deprecatedstate",
     "github.com/NethermindEth/juno/core/felt",
     "github.com/NethermindEth/juno/core/indexed",
+    "github.com/NethermindEth/juno/core/internal/cborprojections",
     "github.com/NethermindEth/juno/core/internal/cborschema",
     "github.com/NethermindEth/juno/core/pending",
     "github.com/NethermindEth/juno/core/state",
@@ -424,8 +425,8 @@
         "projection/headerRoot/header-p75",
         "projection/headerRoot/header-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection",
@@ -445,8 +446,8 @@
         "projection/headerHashRoot/header-p75",
         "projection/headerHashRoot/header-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerHashProjection",
@@ -466,8 +467,8 @@
         "projection/headerHash/header-p75",
         "projection/headerHash/header-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerTimestampProjection",
@@ -487,8 +488,8 @@
         "projection/headerTimestamp/header-p75",
         "projection/headerTimestamp/header-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerTransactionCountProjection",
@@ -508,8 +509,8 @@
         "projection/headerCount/header-p75",
         "projection/headerCount/header-p95"
       ],
-      "typed_registered": false,
-      "proof_status": "typed reader and general proof pending"
+      "typed_registered": true,
+      "proof_status": "registered typed reader; general decoder proof pending"
     },
     {
       "type": "github.com/NethermindEth/juno/core.receiptEventsProjection",
@@ -5176,7 +5177,8 @@
     "core/block.go": "d070ca90933d790f4dee4e265f31954c7aec4356b5976c925baa39b17045c9ff",
     "core/block_transaction.go": "97ce766a52f19c33a90f9a72245957e0f3d7fcbd1b28baa9f2545133321147c8",
     "core/block_transaction_serializer.go": "2e5b96248b9fdf4d7a5df2fd4971c6aa1380f424dc6a474a2cc62d9958b7062f",
-    "core/cbor_readers_generated.go": "c3daeacd31198d02e5117bc7a6005102d870dba81f1b4acd829dbf4de672cb05",
+    "core/cbor_projections_generated.go": "14f347880d15178a0e64471e382c79a755fc9881d5d2d3a13515e99c83a236d3",
+    "core/cbor_readers_generated.go": "6c0fe429f82bb5ffde32a71a4465bb4a0147830fca61074957cda743930015ea",
     "core/class.go": "1eadd1d130098240085dd24d68fdc10cd8cf261737fb16278f118d04a10a8c8d",
     "core/felt/felt.go": "3f5ff701b588989fddec4562b6b2af7e4dfc6b3aa15ec99502195a7aa6a479c1",
     "core/felt/slice.go": "0745d0657895383c9e3785ac7729e4e23852bf6cee058cdb0cef70294fd6106d",
@@ -5191,7 +5193,7 @@
     "go.mod": "1d65ced05fb232688eb817bcbc788560db533a42f30b974200a74fccba18ac24",
     "go.sum": "a730dbbe54e53e42bf4283f6e7163ed4ce2495081c662224697345a37e5c22f6",
     "l1/eth/address.go": "4061def57efb343110c936d1e021f04cf46687c731f4828debf7e2b9cdb91d3b",
-    "utils/cbor/cmd/cborgen/main.go": "324d86472cede3f96cc3e07752d4d821327f83364696fb5e011d781435521455",
+    "utils/cbor/cmd/cborgen/main.go": "b9316d241cdc999956903759a20a706e7327b95767b5c9f183301888323cc337",
     "utils/cbor/fastcbor/fastcbor.go": "cec7a29d6f26bbbc9834ca9d1aba6303354cf309548517fac132871d55c4ca25",
     "utils/cbor/fastcbor/generic.go": "5b3bf3c30f5f462633b3c1a97e9224a6f84e7ffa5c52685d456f70a64b200aaf",
     "utils/cbor/fastcbor/plan.go": "b2b7d9ad141061394833b524205a92b8f9070c0ed4fd4c7a02cce5f504bafa7c",
@@ -5199,7 +5201,7 @@
     "utils/cbor/fastcbor/state_update.go": "58e2126f6800567888250e3e365113e0408c48af47f54653965ba5383caf0be2",
     "utils/cbor/fxamacker/cbor.go": "90f1576d452a78a34c23ee148e41052d4c10d060a1367fbb05d6381e55278ad1",
     "utils/cbor/registry/registry.go": "706690ce8747412451a5cbcd514c151939943ab4c3f8930a4ceb171395894c95",
-    "verification/fastcbor-proof/cmd/entrymanifest/main.go": "a6b35342a630fcaec00a68dcfbf8f40603768257651523ed858684a58bd1a7d6",
+    "verification/fastcbor-proof/cmd/entrymanifest/main.go": "24db9f3dd8437730765e73d56c267eeece0f90800d2d262204aba0f5ce733165",
     "verification/fastcbor-proof/results/benchmark-universe.json": "b9ebce9f80408ecc62780c9d0c03fe987a21d9885c09bf3c90cc9c530f8cc624"
   },
   "limitations": [
