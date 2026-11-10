@@ -40,6 +40,8 @@ inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", h
 for rel in ["core", "core/internal/cborschema", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/cmd/cborgen"]:
     inputs += [p for p in (repo / rel).glob("*.go") if not p.name.endswith("_test.go")]
 inputs += list((here / "config").rglob("*.toml"))
+inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.json"]
+entry_manifest = json.loads((here / "results/entry-manifest.json").read_text())
 # Record the build-selected Go sources for standard-library packages translated
 # directly by this harness. Other standard-library models are pinned by Perennial.
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
@@ -111,6 +113,16 @@ report = {
             "direct_theorems": utf8_word_conditional_theorems,
             "claim": "the complete production validator loop and its reduction to this helper are checked; the helper itself is not proved and no trusted semantics has been changed",
         },
+    },
+    "production_entry_manifest": {
+        "path": "verification/fastcbor-proof/results/entry-manifest.json",
+        "checker": "go run ./verification/fastcbor-proof/cmd/entrymanifest -check (run by check.sh)",
+        "destinations": len(entry_manifest["roots"]),
+        "production_destinations": sum(bool(root["production_sites"]) for root in entry_manifest["roots"]),
+        "typed_registered": [root["type"] for root in entry_manifest["roots"] if root["typed_registered"]],
+        "structural_shapes": len(entry_manifest["shapes"]),
+        "frozen_benchmark_cases": len(entry_manifest["benchmarks"]),
+        "status": "checked preparatory inventory only; no additional typed reader, wire specification, compatibility result, performance result or formal proof is claimed",
     },
     "theorem_axiom_set": theorem_sets,
     "axiom_sets": axiom_sets,

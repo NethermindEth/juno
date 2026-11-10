@@ -89,6 +89,9 @@ The full check audits **1008 theorems**, with no admissions or native-evaluation
 axioms and no change to the transitive axiom union. The count is not a coverage
 percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
+A checked preparatory inventory now records the remaining production destinations
+and all frozen benchmark cases; it does not advance the Header milestone or claim
+additional typed/proved readers. See “Checked remaining-entry inventory” below.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
@@ -99,7 +102,7 @@ scope, unresolved premises and reproduction evidence.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 334 project hashes and 28 standard-library hashes. Explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1008 audited theorems, unchanged axiom union, 336 project hashes and 28 standard-library hashes. The checked entry manifest is included; explicit unresolved premises are reported separately. Production Go is unchanged in the recent proof checkpoints; final unconditional Header check and the frozen whole-library performance gate remain pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -2735,6 +2738,71 @@ and instantiate the public API contracts without unresolved helper premises.
 Production Go, the trusted semantics pin and the formal scope are unchanged.
 Termination, compiler/runtime correctness and performance remain separate; the
 frozen 185-case performance gate has not run.
+
+### Checked remaining-entry inventory (preparatory)
+
+`results/entry-manifest.json` is now generated and checked by
+`cmd/entrymanifest`. It scans all **154 build-selected repository packages** with
+Go types and syntax on Go 1.27.0, linux/amd64/v1, excluding tests. It finds concrete
+instantiations of `FastCbor`, direct fast `Unmarshal`/`UnmarshalFirst`, typed-reader
+registration and `indexed.LazySlice`/`NewLazySlice`. Generic forwarding sites remain
+explicit in the artifact. Package import aliases do not hide concrete roots.
+
+The result has **14 production destination types**, plus **1 benchmark-only
+destination**, **140 structural Go shapes**, **18 ordered registry entries**, and
+all **185 frozen benchmark case IDs**. Only Header has a registered typed reader.
+The seven variants reachable from the two production interfaces are five transaction
+variants and two class variants. The other registry entries are recorded, without
+silently expanding the fast production-root scope to trie journals or consensus WAL.
+
+| Destination group | Entries | Remaining decoder work |
+| --- | ---: | --- |
+| `Header` | 1 | Discharge the actual UTF-8 word-helper premise; the full API composition is checked conditionally |
+| Header projections | 5 | Typed projection/NextWanted behavior, embedded discard skeletons and selected output ownership |
+| Receipt pointer and receipt projections | 3 | `*TransactionReceipt`, events and execution-status projections; nested records/slices, bool/string handling and cleanup |
+| `Transaction` and hash projection | 2 | Five registered pointer variants, version/felt representation, resource-bounds map and projection tag behavior |
+| `StateUpdate` | 1 | Felt-key maps, nested storage-diff maps, migrated-class typed felt keys/values, allocations and duplicate/error policy |
+| `ClassDefinition` | 1 | Two registered variants, recursive `SegmentLengths`, raw JSON values, felt slices and complete BigInt |
+| `BlockTransactionsIndexes` | 1 | Integer-key struct and signed `[]int` contents, plus exact prefix/suffix behavior |
+| `TransactionReceipt` by value | 1 benchmark-only | Preserve the historical destination type instead of conflating it with the production pointer root |
+
+The four map shapes are `map[Resource]ResourceBounds`, `map[felt.Felt]*felt.Felt`,
+`map[felt.Felt]map[felt.Felt]*felt.Felt`, and
+`map[felt.SierraClassHash]felt.CasmClassHash`. The graph records raw struct fields,
+embedding, CBOR/JSON tags, custom decoder hooks, pointers/slices/arrays, recursive
+references and registered interface variants. **This graph is not an independent
+wire specification or a feasibility proof.** External named representations,
+custom felt/slice encodings and projection discard markers are explicit boundaries;
+field precedence, hooks, overrides and shared allocation still need contracts.
+
+Every historical benchmark case maps to its constituent decoder roots or an
+explicit incompatibility candidate. The six removed Header bloom-projection cases
+remain present; they are not silently dropped or marked passed. Compound block
+operations map to the index reader and the element/projection readers they call.
+The benchmark-only receipt value root remains separate from the production pointer.
+No compatibility smoke, timing, allocation or no-fallback gate is claimed here.
+
+From the repository root:
+
+```sh
+go run ./verification/fastcbor-proof/cmd/entrymanifest
+go run ./verification/fastcbor-proof/cmd/entrymanifest -check
+```
+
+`check.sh` now runs the drift check before regeneration and Lean. The proof audit
+hashes the command and emitted manifest, and the manifest records **29 source
+hashes**, including the frozen benchmark universe and relevant planner/registry/
+wrapper sources. A behavioral drift probe confirmed that an unrelated declaration
+leaves the manifest current, while adding a concrete `FastCbor[uint64]` site through
+an aliased import makes `-check` fail. The temporary probe was removed, and the
+restored-source drift check passed.
+
+Full regeneration/check passed (2161 build jobs): **1008 audited theorems**,
+**336 project hashes** and 28 standard-library hashes. The theorem dependency sets
+are unchanged; there are no admissions or native-evaluation axioms. The full log is
+`check-entry-manifest-full.log`. Production Go decoder code and pinned semantics
+are unchanged. This is preparatory work while the separately required trusted
+repair approval remains outstanding; Header is still the first proof milestone.
 
 ## Whole-library gates after the Header milestone
 

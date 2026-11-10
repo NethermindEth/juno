@@ -123,6 +123,18 @@
       "claim": "the complete production validator loop and its reduction to this helper are checked; the helper itself is not proved and no trusted semantics has been changed"
     }
   },
+  "production_entry_manifest": {
+    "path": "verification/fastcbor-proof/results/entry-manifest.json",
+    "checker": "go run ./verification/fastcbor-proof/cmd/entrymanifest -check (run by check.sh)",
+    "destinations": 15,
+    "production_destinations": 14,
+    "typed_registered": [
+      "github.com/NethermindEth/juno/core.Header"
+    ],
+    "structural_shapes": 140,
+    "frozen_benchmark_cases": 185,
+    "status": "checked preparatory inventory only; no additional typed reader, wire specification, compatibility result, performance result or formal proof is claimed"
+  },
   "theorem_axiom_set": {
     "cursor_initialized_errors": 0,
     "wp_zeroHeader": 0,
@@ -1852,9 +1864,10 @@
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
     "verification/fastcbor-proof/ProofCheck.lean": "48aea7accb390d7af0333f0f894eaa776a07d69f95e089763867fe558cdfad38",
-    "verification/fastcbor-proof/audit.py": "ed4900b14fa06bbbd78afb2bcd617874a6c7d104160d5e91364e110ae9725ec0",
+    "verification/fastcbor-proof/audit.py": "3d10ea5739f6648d2e60c65548d6aeb4b821595527af40103adb6d9356d706c2",
     "verification/fastcbor-proof/bootstrap.sh": "488054f7d2e26b40539a0bc8e5111138502fdd39033647792ef34d192c2115d7",
-    "verification/fastcbor-proof/check.sh": "76ec64becef6cdda8899fcf34bdd2d422e1d83811327322e887922cd3eb425ea",
+    "verification/fastcbor-proof/check.sh": "8b74cbf87d58cd4eb5716be8103fa50095483422bb77e242d2ca5cf4cc8398ba",
+    "verification/fastcbor-proof/cmd/entrymanifest/main.go": "2fa6a1d2d48148236129e480e8e73d75fcb3243dd59dd11ab337e808c4c5f910",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core/felt.toml": "473e2922f325412bac8d646beb7004b566fe4d1c241ae98cd6acb7eac4e0090a",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core/internal/cborschema.toml": "523ce62735c3b27ca646d78171b33a34112d59fe2f44718649e71435bb7cbd7a",
     "verification/fastcbor-proof/config/github_com/NethermindEth/juno/core.toml": "59a9700820868e11850f045f33f8099c69f19ea6be2a2f88fe053b52062a6016",
@@ -1867,6 +1880,7 @@
     "verification/fastcbor-proof/config/unicode/utf8.toml": "1ecaa13139a5fb194b17c94c66667575dc100c5f4bf9e6c1fb48deaa84188d38",
     "verification/fastcbor-proof/lake-manifest.json": "6142956a7e93dec350ed5a92732d15a269046f69ec90ff6928762085865740c5",
     "verification/fastcbor-proof/lakefile.toml": "e7d34bd1077cdab8b2124873f66c38d9b05deb315aa88c70d2338cb18c9a0272",
-    "verification/fastcbor-proof/lean-toolchain": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    "verification/fastcbor-proof/lean-toolchain": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b",
+    "verification/fastcbor-proof/results/entry-manifest.json": "6400795b78e6614ca85b5f646590bfa1944607692eaa11c5fa090733a161942b"
   }
 }
