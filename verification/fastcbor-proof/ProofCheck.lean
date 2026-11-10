@@ -1,1 +1,1 @@
-import ProofCheck.Errors
+import ProofCheck.Reject

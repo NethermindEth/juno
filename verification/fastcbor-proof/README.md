@@ -76,14 +76,15 @@ specified behavior change and performance evaluation. No such change is made her
 ### Header work queue and exit criteria
 
 Current status: general head/uint/container success and null-field contracts,
-container count/depth failures, selected other error paths, and bounded public
-Header examples. The reproducible audit records the current lemma count.
+container count/depth failures, invalid-head classification, scalar type/tag and
+extended-head truncation failures, and bounded public Header examples. The
+reproducible audit records the current lemma count.
 The count is not a coverage percentage. The complete Header theorem is absent.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Head-argument relation exists; full Header relation pending |
-| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | General success, container count/depth failures and selected truncation paths proved; invalid heads and wrong types pending |
+| 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Head classification, scalar type/tag and extended-head truncation failures, and container count/depth failures proved; general EOF and propagation of all head errors through remaining callers pending |
 | 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | Empty-array felt witness only; UTF-8 pending |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | Static table factories and restricted Number lookup proved |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | Null-field behavior proved; general non-null outputs pending |
@@ -183,7 +184,7 @@ The general Header proof now has reusable primitive contracts:
   Uint64 and the typed uint/mode readers at arbitrary offsets with arbitrary
   remaining input. Non-preferred widths are included. A separate theorem proves
   cursor/input preservation and the error offset for truncation inside an extended
-  head. This is not yet a complete classification of invalid heads or type errors.
+  head. Rejection and propagation contracts are extended in `Reject.lean`.
 - `Containers.lean`: all supported widths through both ArrayLen and MapLen paths,
   OpenStruct, and restoration of the enclosing depth when a struct finishes. The
   success contracts require a mathematical bound on the remaining bytes and room
@@ -194,6 +195,15 @@ The general Header proof now has reusable primitive contracts:
   and input and report the original offset. The depth diagnostic's argument slice
   is allocated and owned in the proof. Public API regression tests cover all five
   widths, maximum uint64 counts, repeated failures and depth restoration.
+- `Reject.lean`: every reserved/invalid additional-information head, stray break,
+  and indefinite-length head is classified by the actual slow head parser. The
+  diagnostic helper is proved for all 256 head bytes, including its byte-slice
+  allocation and string conversion. Type/tag mismatch and extended-argument
+  truncation contracts reach both expectation paths, Uint64 and the typed
+  uint/mode field readers, preserving the cursor, input and prior field value.
+  Public API tests check all 256 head bytes and every cut through an extended
+  argument, including truncation before type/tag rejection. General EOF and
+  propagation of invalid-head failures through callers remain to be composed.
 - `Null.lean`: null and undefined at arbitrary offsets, composed with every shared
   scalar/string/felt/signature field reader. Scalar fields stay unchanged; pointer
   and slice fields become nil. Non-null nested allocation contracts are pending.
