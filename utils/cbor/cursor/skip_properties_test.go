@@ -423,3 +423,64 @@ func TestSkipRecursiveTruncationAndAtomicErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipRecursiveBoundaryErrors(t *testing.T) {
+	wide := []byte{0x84}
+	for limb := range 4 {
+		wide = appendTestCBORArgument(wide, 0, uint64(limb+1), 4)
+	}
+	arrayCount := appendTestCBORArgument(nil, 0x80, ^uint64(0), 4)
+	mapCount := appendTestCBORArgument(nil, 0xa0, ^uint64(0), 4)
+	missingTag := appendTestCBORArgument(nil, 0xc0, 4, 4)
+	for _, tc := range []struct {
+		name      string
+		wire      []byte
+		kind      error
+		offset    int
+		leafDepth int
+	}{
+		{name: "arrayCount", wire: arrayCount, kind: cursor.ErrTruncated, offset: 9, leafDepth: 31},
+		{name: "mapCount", wire: mapCount, kind: cursor.ErrTruncated, offset: 9, leafDepth: 31},
+		{name: "missingTag", wire: missingTag, kind: cursor.ErrTruncated, offset: 9, leafDepth: 32},
+		{name: "wideAtDepth", wire: wide, kind: cursor.ErrDepth, offset: 1, leafDepth: 32},
+		{name: "emptyArrayAtDepth", wire: []byte{0x80}, kind: cursor.ErrDepth, offset: 1, leafDepth: 32},
+		{name: "emptyMapAtDepth", wire: []byte{0xa0}, kind: cursor.ErrDepth, offset: 1, leafDepth: 32},
+		{name: "depthBeforeCount", wire: arrayCount, kind: cursor.ErrDepth, offset: 9, leafDepth: 32},
+		{name: "depthBeforeShortTag", wire: []byte{0xc4, 0xdb}, kind: cursor.ErrDepth, offset: 1, leafDepth: 32},
+	} {
+		for _, depth := range []int{0, 15, 31} {
+			t.Run(fmt.Sprintf("%s/depth%d", tc.name, depth), func(t *testing.T) {
+				wire := bytes.Clone(tc.wire)
+				offset := tc.offset
+				for level := range tc.leafDepth - depth {
+					// Each tagged container charges exactly one level. Its
+					// wide unsigned sibling keeps count checks satisfied.
+					front := []byte{0xc4}
+					if level%2 == 0 {
+						front = appendTestCBORArgument(front, 0x80, 2, byte(level%5))
+					} else {
+						front = appendTestCBORArgument(front, 0xa0, 1, byte(level%5))
+					}
+					front = appendTestCBORArgument(front, 0, 7, 4)
+					offset += len(front)
+					wire = append(front, wire...)
+				}
+				input := append(bytes.Repeat([]byte{0x81}, depth), 0, 1, 2)
+				start := len(input)
+				input = append(input, wire...)
+				before := bytes.Clone(input)
+				r := openSkipCursor(t, input, depth)
+				for range 2 {
+					err := r.Skip()
+					require.ErrorIs(t, err, tc.kind)
+					var detail *cursor.DecodeError
+					require.ErrorAs(t, err, &detail)
+					require.Equal(t, start+offset, detail.Offset)
+					require.Equal(t, start, r.Pos())
+					require.Equal(t, wire, r.Remaining())
+				}
+				require.Equal(t, before, input)
+			})
+		}
+	}
+}

@@ -1,1 +1,1 @@
-import ProofCheck.SkipContextErrors
+import ProofCheck.FeltSkipFailure
