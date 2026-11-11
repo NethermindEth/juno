@@ -279,3 +279,8 @@ import ProofCheck.ProjectionTagUnique
 import ProofCheck.Uint64PointerSpec
 import ProofCheck.Uint64PointerRead
 import ProofCheck.Uint64PointerComplete
+
+import ProofCheck.HeaderProjectionValues
+import ProofCheck.HeaderProjectionPairs
+import ProofCheck.HeaderProjectionRecord
+import ProofCheck.HeaderProjectionCanonical

@@ -241,8 +241,16 @@ report = {
         "metadata": "core/internal/cborprojections/fields_generated.go",
         "entries": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
         "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
-        "proof_status": "actual table initialization and all-input opening wrappers checked; initialized NextWanted contract checked conditional on UTF-8; complete independent projection record specifications and public entry proofs remain open",
+        "proof_status": "actual table initialization and all-input opening wrappers checked; initialized NextWanted contract checked conditional on UTF-8; complete independent Header projection record classification and canonical-value preservation checked; record uniqueness, concrete ownership/loop and public entry composition remain open",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
+    },
+    "header_projection_record_specification": {
+        "proofs": ["verification/fastcbor-proof/ProofCheck/HeaderProjectionValues.lean", "verification/fastcbor-proof/ProofCheck/HeaderProjectionPairs.lean", "verification/fastcbor-proof/ProofCheck/HeaderProjectionRecord.lean", "verification/fastcbor-proof/ProofCheck/HeaderProjectionCanonical.lean"],
+        "shapes": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
+        "proved": "metadata index-to-field-name agreement; complete selected-field classification and unique successful boundaries; independent wire-order pairs with first-key-wins and unknown/duplicate Skip semantics; all-input map/body and optional-tag record classification at supported depth; exact retained value, consumed position, diagnostic offset and entered-map state specified; absent abstract slots remain canonical through success and rejection",
+        "theorems": ["headerProjectionRecord_classify", "headerProjectionRecord_canonical"],
+        "boundary": "pure independent specification results, no production-decoder or UTF-8 correctness premise; bare tagUnsupported offset denotes rejection position rather than an allocated diagnostic; representation constraints for unused slots are explicit",
+        "pending": "complete record success/error separation and outcome uniqueness; concrete Go ownership and field-call proofs; connect batched NextWanted scans to independent pair interpretation; actual record loops, zero guards, cleanup and public APIs; receipt projections have separate payload contracts",
     },
     "typed_classes": {
         "generator": "utils/cbor/cmd/cborgen/classes.go",

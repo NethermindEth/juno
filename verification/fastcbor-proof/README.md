@@ -4455,3 +4455,51 @@ axiom union, exact theorem additions and every project hash. Direct UTF-8 premis
 counts remain 75 validator results and 2 word-helper results. Saved compatibility,
 race/checkptr and archived performance evidence was revalidated against the
 unchanged Go sources.
+
+
+### Complete independent Header projection record specification
+
+`HeaderProjectionValues.lean` gives independent identities and value slots for
+all five manifested Header projections: hash, state root, transaction count,
+nullable timestamp and combined hash/root. The metadata index order is checked
+against the corresponding wire field names. Every selected-field input has a
+specified outcome; successful field values and boundaries are unique. Felt,
+plain scalar and nullable scalar behavior reuse their independent relations,
+including their different null policies.
+
+`HeaderProjectionPairs.lean` interprets pairs in wire order, independently of the
+implementation's batched scan loop. Unknown and already-seen keys use Skip; a
+first selected occurrence publishes its value only on success. A later error
+retains previously published fields. Classification covers every byte sequence
+and every pair count at supported depth, and successful pairs require at least
+two bytes each. Failures specify cursor consumption separately from the deeper
+diagnostic offset.
+
+`HeaderProjectionRecord.lean` composes opening and pairs with the independent tag
+policy. `headerProjectionRecord_classify` covers **every input for all five shapes**,
+including null/undefined records, all supported map heads and field orders,
+optional allowed tags, reserved/chained/malformed tags, and opening/key/value
+errors. Map rejection retains the entered container state; successful completion
+closes it. For the bare unsupported-tag sentinel, the specification's offset is
+the rejection position, not a stored diagnostic field.
+
+`HeaderProjectionCanonical.lean` constrains slots absent from a particular Go
+projection layout to zero/nil and proves preservation for fields, pairs, bodies
+and complete records, including retained partial values on failure. This makes
+the shared abstract value suitable for the five distinct concrete layouts.
+
+These are **independent specification results**, not proofs of the production
+projection record loops or public APIs. Complete record uniqueness/separation,
+concrete ownership/field-call proofs, the connection from batched NextWanted
+scans to the pair relation, actual loops and public guards/cleanup/suffix proofs
+remain. The existing scan UTF-8 premise, Header trusted-indexing correction and
+felt-key map gap are unchanged. No Go or trusted semantics changed.
+
+Full regeneration and audit pass in `check-header-projection-spec-full.log`:
+2266 build jobs, 1310 audited theorems, 470 project/artifact hashes and 46 directly
+translated standard-library hashes. All 21 added results depend only on the
+standard logical axioms (`propext`, `Classical.choice`, `Quot.sound`, or subsets).
+Every prior dependency set, the overall axiom union and the explicit helper-premise
+inventory remain unchanged. Independent checks verified the exact additions and
+all project hashes. Saved compatibility, race/checkptr and archived performance
+evidence was revalidated against the unchanged Go sources.
