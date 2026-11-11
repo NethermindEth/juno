@@ -305,3 +305,12 @@ import ProofCheck.HeaderProjectionRootMap
 import ProofCheck.HeaderProjectionCountMap
 import ProofCheck.HeaderProjectionTimestampMap
 import ProofCheck.HeaderProjectionPairMap
+
+import ProofCheck.HeaderProjectionRejectDecompose
+import ProofCheck.ProjectionScanRejected
+import ProofCheck.HeaderProjectionPairError
+import ProofCheck.HeaderProjectionHashMapRejected
+import ProofCheck.HeaderProjectionRootMapRejected
+import ProofCheck.HeaderProjectionCountMapRejected
+import ProofCheck.HeaderProjectionTimestampMapRejected
+import ProofCheck.HeaderProjectionPairMapRejected

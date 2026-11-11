@@ -4703,3 +4703,48 @@ results (81 total); its two word-helper results and all premise definitions are
 unchanged. Saved compatibility, race/checkptr and archived performance evidence
 was revalidated against unchanged Go sources. Original and baseline worktrees
 remain separate; pinned trusted semantics were not modified.
+
+### Rejected generated Header projection map loops
+
+`HeaderProjectionRejectDecompose.lean` connects every independent per-pair
+rejection to the next batched scanner step: a scanner failure, a selected-field
+failure, or a successful selected field followed by later rejection. Ignored
+prefixes preserve published fields and shift both the consumed position and the
+independent diagnostic offset. The converse is also proved, so the decomposition
+does not weaken the independent record relation.
+
+`ProjectionScanRejected.lean` specializes the actual rejected NextWanted loop to
+any initialized projection table. `HeaderProjectionPairError.lean` connects scan
+and field diagnostics to the record error relation and derives selected-field
+error categories from the existing initialization globals.
+
+The five `HeaderProjection*MapRejected.lean` modules now prove the **actual
+rejected generated map loops for all five Header projections**, including both
+field branches of the combined hash/state-root projection. Contracts accept any
+owned initial projection value and any independently rejected pair sequence after
+a successful definite-map opening. They retain earlier successful field updates,
+preserve input, keep failed field replacements unpublished, retain the entered
+map depth, and return owned diagnostics with exact nonwrapping cursor and error
+positions. The invariant distinguishes running state from a pending field error;
+it does not assume each loop iteration succeeds. Map-opening rejection remains
+covered separately by the existing boundary theorem.
+
+All five maps now have general success and rejection contracts. Allowed and
+unsupported tags around complete records, all-input record composition, and the
+public First API guard/cleanup/suffix composition remain. Receipt projections
+remain separate work. The six new implementation results retain the existing
+`Utf8ValidatorContract`; no additional helper correctness premise was introduced.
+The Header UTF-8 word-helper repair and felt-key map equality gap remain unresolved.
+
+Full regeneration passes in `check-header-projection-map-rejected-full.log`:
+2295 build jobs and 1383 audited theorems. After updating the audit's coverage
+metadata, `python3 audit.py lean-build.log` also passes with 499 project/artifact
+hashes and 46 directly translated standard-library hashes. Independent checks
+verified the exact eleven theorem additions, every prior theorem dependency set,
+the unchanged overall axiom union, and all current project and standard-library
+hashes. The explicit helper inventory has 87 direct validator results and the
+same two word-helper results; premise definitions and other metadata are unchanged.
+No theorem depends on admissions or native evaluation axioms. Saved compatibility,
+race/checkptr and archived performance evidence was revalidated against unchanged
+Go sources. Original and baseline worktrees remain separate; trusted semantics
+were not changed.
