@@ -112,12 +112,12 @@ outcomes. Its enclosing pointer-slice specification is classified and uniquely
 determined. The actual pointer-slice reader now has a complete conditional
 all-input contract for arbitrary prior slice headers, including bounded shared
 storage, fallback allocations, private partial failures, initialized diagnostics
-and exact cursor/depth behavior. The receipt-events projection now has an
-independently classified and unique complete record specification, bounded
-errors/depth, and checked ownership, zero guard, cleanup and conditional
-selected-field contracts. Its generated record loop and First API, and the full
-receipt, remain to be composed. See the latest Event checkpoint below and “Checked
-remaining-entry inventory”.
+and exact cursor/depth behavior. The receipt-events projection now also has
+complete conditional internal-record and First API contracts, with independent
+all-input classification and unique outcomes. Its nested Event failures retain
+exact consumption/depth internally; the public API clears partial results and
+preserves input ownership. Full receipt composition remains. See the latest
+receipt-events checkpoint below and “Checked remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -5607,4 +5607,62 @@ recorded source hash. Direct helper-premise counts are 132 validator results
 theorem depends on admission or native-evaluation axioms. The full check
 revalidated saved compatibility/race/checkptr evidence and the archived passing
 performance gate against unchanged Go sources. The original, baseline and
+pinned trusted checkouts remain clean at their recorded revisions.
+
+
+## Complete conditional receipt-events record and First API
+
+`ReceiptEventsScanSpec`, `ReceiptEventsScanDecompose` and
+`ReceiptEventsRejectDecompose` connect the independent per-pair specification to
+batched `NextWanted` scanning in both directions. The connection preserves
+first-key-wins selection through arbitrary ignored or duplicate prefixes,
+contextual nested-value guards, published fields, consumed bytes, diagnostic
+offsets and remaining nesting depth. Neither the scanner's result nor its
+correctness is assumed.
+
+`ReceiptEventsMap` and `ReceiptEventsMapRejected` prove the actual generated
+successful and rejected map loops. The successful loop restores the enclosing
+depth and produces the exact owned value and suffix. On a nested Event-array
+failure, the rejected loop retains the specified entered array/map levels and
+consumed input while preserving all previously published projection fields.
+Scanner failures, selected-field failures and later-pair failures all compose,
+with initialized metadata/category ownership and bounded nonwrapping positions.
+
+`ReceiptEventsBoundary`, `ReceiptEventsTagBoundary`, `ReceiptEventsRecordValid`,
+`ReceiptEventsRecordRejected` and `ReceiptEventsRecordComplete` compose malformed
+or unsupported tags, accepted optional tags, null/undefined bodies, opening
+errors and map outcomes into **all-input/all-owned-initial-value internal record
+contracts** at supported depths. The complete contract includes the independently
+unique result. `ReceiptEventsRecordError` distinguishes owned allocated
+diagnostics from the non-nil unsupported-tag sentinel, and proves every specified
+error is non-nil. Nested pair diagnostics retain their initialized categories.
+
+`ReceiptEventsAPISpec` independently classifies every initial destination/input
+and proves outcome uniqueness, cleanup behavior, successful record refinement and
+bounded diagnostic offsets. `ReceiptEventsAPIOutcome`, `ReceiptEventsAPIGuard`,
+`ReceiptEventsAPIZero` and `ReceiptEventsAPIComplete` prove the **actual registered
+First entry**. Nonzero destinations are rejected unchanged. Zero destinations
+run the real cursor constructor and record reader. Success returns the exact
+original-input suffix, including pointer and capacity; every parser error runs
+the whole-destination clear function and returns a nil suffix. Input ownership
+is preserved throughout, including errors after partial construction.
+
+These are complete **conditional** record and First contracts: ten new
+composition results explicitly require the existing `Utf8ValidatorContract`.
+No new helper premise or trusted-model change was introduced. The Header
+word-helper/model correction remains unapplied, and the separate felt-key map
+equality gap is unchanged. This does not close the unconditional Header or
+whole-library goal. Next receipt work is the remaining FeeUnit/address helpers,
+resource and message child records with their pointer/slice allocation wrappers,
+then the full receipt's value/pointer entries and cleanup contracts.
+
+Full regeneration and audit passed in
+`check-receipt-events-complete-full.log`: **2424 build jobs, 1772 audited theorems,
+625 project/artifact hashes and 46 directly translated standard-library hashes**.
+Independent verification checked exactly 32 new results, unchanged dependency
+sets for all 1740 previous theorems, unchanged axiom union and every recorded
+hash. Direct helper-premise counts are 142 validator results and 2 word-helper
+results. No theorem depends on admission or native-evaluation axioms. The full
+check revalidated saved compatibility/race/checkptr evidence and the archived
+passing performance gate against unchanged Go sources. Original, baseline and
 pinned trusted checkouts remain clean at their recorded revisions.
