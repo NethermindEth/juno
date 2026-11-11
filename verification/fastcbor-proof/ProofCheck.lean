@@ -1309,3 +1309,19 @@ import ProofCheck.StorageDiffsInnerFailureSpec
 import ProofCheck.StorageDiffsInnerKeyFailure
 
 import ProofCheck.StorageDiffsInnerValueFailure
+
+import ProofCheck.FeltMapOpening
+
+import ProofCheck.FeltMapOpeningOwned
+
+import ProofCheck.MigratedClassesOpening
+
+import ProofCheck.StateDiffMapOpeningFields
+
+import ProofCheck.StateMapOpeningSpec
+
+import ProofCheck.StorageDiffsInnerOpening
+
+import ProofCheck.StorageDiffsInnerOpeningSpec
+
+import ProofCheck.StorageDiffsOpening

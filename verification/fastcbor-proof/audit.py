@@ -738,6 +738,47 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_map_opening_failures": {
+        "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom, cborReadFeltMap, cborReadStorageDiffs and cborReadMigratedClasses opening failures; storage first-inner opening failure; six map-field calls selected in core/cbor_state_generated.go",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/FeltMapOpening.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapOpeningOwned.lean",
+            "verification/fastcbor-proof/ProofCheck/MigratedClassesOpening.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffMapOpeningFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateMapOpeningSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsInnerOpening.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsInnerOpeningSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsOpening.lean"
+        ],
+        "theorems": [
+            "wp_readFeltMapFrom_open_failure",
+            "wp_readFeltMapFrom_open_rejected",
+            "wp_readFeltMap_open_rejected",
+            "wp_readMigratedClasses_open_failure",
+            "wp_readMigratedClasses_open_rejected",
+            "wp_stateDiff_storage_open_rejected",
+            "wp_stateDiff_nonces_open_rejected",
+            "wp_stateDiff_deployed_open_rejected",
+            "wp_stateDiff_declaredV1_open_rejected",
+            "wp_stateDiff_replaced_open_rejected",
+            "wp_stateDiff_migrated_open_rejected",
+            "feltMap_zero_depth_failure_open",
+            "storageDiffs_zero_depth_failure_open",
+            "migratedClasses_zero_depth_failure_open",
+            "wp_readStorageDiffs_first_inner_open_rejected",
+            "storageDiffs_first_inner_open_rejected_spec",
+            "wp_readStorageDiffs_open_failure",
+            "wp_readStorageDiffs_open_rejected"
+        ],
+        "specification": "for each independent map schema, a failure with zero entered depth consumes zero bytes, reports zero offset and satisfies the shared StructOpenFailure relation; the impossible entry-failure case is excluded arithmetically; no substitute map specification or helper-correctness assumption is introduced",
+        "opening_errors": "all invalid/incomplete/missing/wrong-type map heads, impossible count guards and depth rejection under supported initial depth; count-before-depth precedence, nonnull guards, all encoded head widths and contextual full-tail count checks are inherited from the independent relations and actual boundary proofs",
+        "implementation_proved": "uniform actual opening contracts for all three map readers and ordinary wrapper; category globals supplied by checked initialization; no destination publication or map/reserve allocation on opening failure; arbitrary shared reserve header and extra hint preserved by the ordinary From reader",
+        "nested_storage": "actual outer MapLen, map allocation, successful key, local nil reserve and inner destination, real child call with count-1, and outer error return; outer header/key remain consumed, inner header remains unread, only outer depth stays entered, old destination/input preserved and initialized diagnostic at exact nonwrapping position",
+        "state_diff_fields": "StorageDiffs, Nonces, DeployedContracts, DeclaredV1Classes, ReplacedClasses and MigratedClasses actual reader calls at their concrete struct-field references; every map-opening failure preserves the whole StateDiff and selected/sibling child allocations, with owned field diagnostic and pure StateDiffFieldRejected correspondence",
+        "unproved_contract_premises": [],
+        "remaining": "successful map insertion and arbitrary later iterations/shared-reserve reuse; remaining map-field success and entry-failure composition, complete StateDiff/StateUpdate loops and public APIs; Header UTF-8/slice-index and felt-key equality trusted repairs remain separately approval-dependent",
+        "scope": "complete opening rejection family for each map and first-inner storage opening propagation; no complete populated-map or StateDiff/StateUpdate implementation claim; unchanged Go/trusted sources and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "storage_map_inner_failures": {
         "implementation_target": "core/cbor_state.go: cborReadStorageDiffs, first outer key followed by first inner key/value rejection in cborReadFeltMapFrom",
         "modules": [

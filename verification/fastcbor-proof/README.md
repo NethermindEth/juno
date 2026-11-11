@@ -8637,3 +8637,61 @@ array-equality model gap. Header retains the independent slice-index/UTF-8
 obligation and pending trusted-repair approval. This checkpoint closes neither a
 complete storage-map decoder nor an unconditional Header or whole-library proof;
 the pinned 64-bit partial-correctness/model-safety boundary is unchanged.
+
+## Uniform state-map opening errors and StateDiff field integration
+
+`StateMapOpeningSpec` now derives the shared `StructOpenFailure` relation from
+each independent map specification whenever a failed read enters no map depth.
+The derivation proves zero consumption and zero error offset and excludes entry
+failures arithmetically. It covers ordinary felt maps, nested storage maps and
+migrated-class maps, without replacing their independent application relations.
+The supported-depth premise permits depth rejection at 32; impossible counts
+still take precedence over that rejection, and null/undefined remain successes.
+
+`FeltMapOpening`, `FeltMapOpeningOwned`, `StorageDiffsOpening` and
+`MigratedClassesOpening` compose the actual existing head/count/depth branches
+into uniform contracts for all three readers and the ordinary map wrapper.
+Initialized error categories and owned diagnostics are provided by the checked
+initialization chain. Old destinations, input and cursor stay unchanged. The
+ordinary From reader additionally preserves an arbitrary shared reserve header
+for every extra hint; no reserve-content or positive-hint assumption is needed
+because no map or reserve allocation is reached. Error-object allocation remains
+part of the actual error path and its ownership contract.
+
+`StorageDiffsInnerOpening` composes that contract through the actual first outer
+storage-map iteration: MapLen, outer map allocation, successful outer-key Limbs,
+local nil reserve and inner destination, the real child call with `count-1`, and
+the outer error return. The outer header/key remain consumed, the inner input
+stays unread, and exactly one outer depth level remains entered. The diagnostic
+position is exact and nonwrapping; the old destination and input are preserved.
+`StorageDiffsInnerOpeningSpec` connects this result to the existing independent
+storage-map relation. Alongside the preceding inner key/value checkpoint, this
+covers first-inner opening errors without assuming any child helper correctness.
+
+`StateDiffMapOpeningFields` integrates opening rejection at all six concrete map
+fields: StorageDiffs, Nonces, DeployedContracts, DeclaredV1Classes, ReplacedClasses
+and MigratedClasses. Each theorem checks the actual reader call at the concrete
+struct-field reference, restores complete old `StateDiffOwned` ownership including
+selected and sibling child allocations, and supplies both the initialized field
+diagnostic and the matching independent `StateDiffFieldRejected` fact. This is
+field-call composition, not a proof of the enclosing StateDiff dispatch loop.
+
+Validation: `check-map-opening-full.log` records full regeneration, **3,124** build
+jobs, five audit-parser tests and **4,409** audited results. The checkpoint adds
+**18** theorems in **eight** modules. Independent comparison against `a1f387fa7`
+checks all **4,391** prior theorem dependency sets and the transitive axiom union
+unchanged, together with all **1,327** project/artifact and **46** standard-library
+hashes. Shared premise counts remain **447** direct validator and **two** word-
+helper uses. No new helper premise, `sorryAx` or native-evaluation dependency is
+introduced. The audit checks the independent zero-depth classification, actual
+head/count/depth targets, initialized diagnostics, wrapper/nested call ordering
+and all six production field mappings. Go and trusted sources remain unchanged;
+the original/baseline worktrees remain clean at their pins, and the full check
+revalidates the archived passing performance and saved compatibility evidence.
+
+Successful map insertion and arbitrary later iterations/shared-reserve reuse
+remain open, as do remaining map-field success/entry-failure composition and
+complete StateDiff/StateUpdate loops/public APIs. The felt-key equality model gap
+and Header's UTF-8/slice-index obligation still require their separately approved
+trusted repairs. No complete populated-map, unconditional Header or whole-library
+claim is made; the pinned 64-bit partial-correctness/model-safety scope is unchanged.
