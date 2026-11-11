@@ -139,9 +139,9 @@ outcomes. L1ToL2Message and its pointer wrapper now also have complete condition
 all-input contracts and independently unique outcomes. The direct DataAvailability,
 GasConsumed and BuiltinInstanceCounter records now also have complete conditional
 contracts. Both supplied-storage slot wrappers now also have complete conditional
-contracts. ExecutionResources now has checked all-input field contracts, shared-block
-ownership and key lookup; its record loop and pointer wrapper remain open, followed
-by full receipt composition.
+contracts. ExecutionResources now also has complete conditional record and
+shared-block pointer-wrapper contracts with independently unique outcomes. Full
+receipt composition and its public API contracts remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6064,3 +6064,49 @@ their recorded revisions. Header's unapproved UTF-8 model correction and the
 felt-key map equality gap remain unresolved. The scope remains pinned 64-bit
 partial correctness/model safety, excluding compiler/runtime correctness, OOM
 and termination; unconditional Header and whole-library gates remain open.
+
+
+### Complete ExecutionResources record and shared-block pointer wrapper
+
+`ExecutionPairs/ValueUnique/PairsUnique/RecordSpec/RecordUnique.lean` extend the
+independent field relations to all ordered pairs and complete records. Every
+input has a unique accepted value/suffix or rejected partial value, consumption,
+diagnostic offset and retained depth at supported nesting. The relations include
+unknown fields, known duplicates, null/undefined and failures after arbitrary
+successful prefixes. Unlike the scalar-only resource records, a failed nested
+field can retain both partial storage updates and additional entered map levels;
+those are preserved explicitly, with consumption and depth bounds proved.
+
+`ExecutionMapValid/MapRejected/Boundary/RecordComplete.lean` connect those
+relations to the actual generated reader, initialization and metadata, every
+field call, ignored-value Skip and map closing. The complete direct-record
+contract owns the exact final or partial record and supplied slots, preserves
+input, and gives the exact cursor, successful suffix and owned diagnostic.
+The supplied-slot ownership invariant is unchanged from the previous checkpoint.
+
+`ExecutionPointerSpec/Read/Complete.lean` separately specify and prove the actual
+shared-block wrapper. Null/undefined clears the destination pointer. Every other
+input starts from the actual new zero `cborExecutionResourcesBlock`; success
+publishes its Value address and owns both child slots, while failure leaves the
+old destination pointer unchanged and retains the exact private partial block.
+The independent pointer outcome is unique for every input at supported depth.
+No allocation, disjointness or helper correctness premise was added. Eight new
+composition theorems retain the existing `Utf8ValidatorContract`.
+
+The resource dependency for TransactionReceipt is now conditionally composed.
+Next is its complete nine-field record, then value/pointer public entry guards,
+trailing-input behavior and partial-result cleanup. The shared Header UTF-8
+obligation and independent felt-key map equality gap remain unresolved.
+
+Full regeneration/check passed in `check-execution-record-full.log`: **2560 build
+jobs, 2303 audited theorems, 761 project/artifact hashes and 46 directly translated
+stdlib hashes**. Independent comparison with `ef1ad5411` confirmed exactly 43 new
+results, unchanged dependencies for all 2260 prior theorems, unchanged axiom union,
+exact new-source coverage and every recorded hash. No admission or native-evaluation
+axiom occurs. Direct helper premise counts are 210 for `Utf8ValidatorContract` and
+two for `Utf8WordWindowContract`. Saved source-specific compatibility/performance
+evidence was revalidated. Production Go is unchanged; original/baseline worktrees
+and pinned Perennial remain clean at their recorded revisions. The claim remains
+pinned 64-bit partial correctness/model safety, excluding compiler/runtime
+correctness, OOM and termination, without FX equivalence or strict validity of
+ignored CBOR content. Unconditional Header and whole-library gates remain open.

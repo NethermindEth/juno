@@ -569,3 +569,15 @@ import ProofCheck.ExecutionOwnership
 import ProofCheck.ExecutionSeen
 import ProofCheck.ExecutionTable
 import ProofCheck.ExecutionValues
+import ProofCheck.ExecutionBoundary
+import ProofCheck.ExecutionMapRejected
+import ProofCheck.ExecutionMapValid
+import ProofCheck.ExecutionPairs
+import ProofCheck.ExecutionPairsUnique
+import ProofCheck.ExecutionPointerComplete
+import ProofCheck.ExecutionPointerRead
+import ProofCheck.ExecutionPointerSpec
+import ProofCheck.ExecutionRecordComplete
+import ProofCheck.ExecutionRecordSpec
+import ProofCheck.ExecutionRecordUnique
+import ProofCheck.ExecutionValueUnique

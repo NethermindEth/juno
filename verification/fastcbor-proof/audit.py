@@ -335,6 +335,16 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "execution_resources": {
+        "implementation": "core/cbor_receipts_generated.go: cborReadExecutionResources and cborReadExecutionResourcesPointer",
+        "theorems": ["executionPairs_classify", "executionPairsRejected_depth", "executionRecordSpec_total_unique", "executionRecordRejected_depth", "wp_readExecution_map_valid", "wp_readExecution_map_rejected", "wp_readExecution_record_complete", "executionPointerSpec_total_unique", "wp_readExecutionPointer_complete"],
+        "specification_proved": "independent selected/ignored values, arbitrary ordered pair sequences, full records and pointer outcomes; every input classified and uniquely determined at supported depth; known duplicate rejection and ignored unknown fields; partial record/slot values, separate consumed and diagnostic offsets, all retained nested cursor levels, null/undefined and nil/non-nil empty-record distinctions",
+        "implementation_proved": "actual successful and rejected generated map loops, initialized table lookup and seen masks, real field calls, ignored-value Skip and map closing; nullish preservation and opening failure compose into complete direct-record contracts; actual pointer wrapper clears nullish destinations or allocates the zero shared block, publishes its Value address only on success, and retains the old destination pointer and private partial block on failure; exact unchanged input, owned results/diagnostics, cursor/depth and success suffix",
+        "ownership_scope": "direct record uses the documented supplied-slot layout invariant; the actual pointer wrapper establishes that invariant from the fresh block and supports every owned old destination pointer, without assuming child allocation/disjointness or helper correctness beyond the shared UTF-8 premise",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "full TransactionReceipt composition, cleanup and public entries; shared Header UTF-8 helper remains unproved",
+        "scope": "complete conditional record and pointer-wrapper contracts under pinned 64-bit partial correctness/model safety; no production Go or trusted-semantics change; excludes compiler/runtime correctness, OOM and termination, FX equivalence and strict ignored-CBOR validity"
+    },
     "execution_resources_fields": {
         "implementation": "core/cbor_receipts_generated.go: all five calls in cborReadExecutionResources and the cborExecutionResourcesBlock layout",
         "fields": ["BuiltinInstanceCounter", "MemoryHoles", "Steps", "DataAvailability", "TotalGasConsumed"],
@@ -343,7 +353,7 @@ report = {
         "implementation_proved": "actual struct access and reconstruction; shared block separates into record and supplied slots without extra allocation/disjointness assumptions; all five actual field calls realize independent success/rejection and unique complete outcomes, with exact storage ownership, unchanged input and cursor/diagnostic state; initialized metadata, encoded names/order/caches, seen bits and actual NextField valid/duplicate/rejected cases agree with independent schema",
         "ownership_scope": "record pointers are nil or refer to their respective supplied slots; each slot is owned exactly once even when published or cleared; this includes every intermediate state reachable from the public pointer wrapper's fresh zero block, and arbitrary counters/presence within that layout; arbitrary external child-pointer layouts are not claimed",
         "unproved_helper_premises": ["Utf8ValidatorContract"],
-        "remaining": "complete pair/record specifications and generated map loop composition, opening/nullish branches, shared-block pointer publication/failure wrapper, full receipt and public entries",
+        "remaining": "full receipt and public entries; complete ExecutionResources record and shared-block pointer wrapper proved separately",
         "scope": "field-call and key-lookup foundation only, not a complete ExecutionResources reader proof; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination; production Go and trusted semantics unchanged"
     },
     "scalar_receipt_resources": {
@@ -358,7 +368,7 @@ report = {
         "implementation_proved": "concrete struct ownership and exact field access/update, preserving every other counter; all scalar calls use checked unsigned contracts and initialized errors without UTF-8 premises; each initialized receipt-package table agrees with independent names, cached words, indexes and seen masks; actual NextField valid/duplicate/rejected cases and generated valid/rejected map loops; nullish/opening branches compose into complete direct-record contracts for every input and owned initial counters, with unchanged input, exact owned output/partial state, diagnostic and cursor/depth",
         "unproved_helper_premises": ["Utf8ValidatorContract"],
         "slot_wrappers": "complete all-input contracts for arbitrary initial supplied storage and old destination pointer; null/undefined clears the pointer and leaves storage unchanged; nonnull success publishes the supplied address and exact decoded storage; failures leave the old pointer cell unchanged and retain exact partial supplied storage, cursor/depth and owned diagnostic; old pointer may alias supplied storage, so pointee preservation is not claimed; independent outcomes are total and unique at supported depth",
-        "remaining": "enclosing ExecutionResources record and shared allocation wrapper; full receipt/public entries",
+        "remaining": "full receipt/public entries; enclosing ExecutionResources record and shared allocation wrapper proved separately",
         "scope": "complete conditional direct-record contracts under pinned 64-bit partial-correctness/model-safety semantics; existing UTF-8 premise appears in key/record and slot-wrapper composition; no production Go change, new helper assumption or trusted-model repair; compiler/runtime correctness, OOM and termination excluded"
     },
     "l1_to_l2_message": {
