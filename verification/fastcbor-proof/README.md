@@ -8584,3 +8584,56 @@ obligation and its pending trusted-repair approval remain unchanged. These failu
 paths do not close a complete map, StateUpdate, unconditional Header or whole-library
 implementation theorem; the pinned 64-bit partial-correctness/model-safety scope
 remains unchanged.
+
+## Storage-map inner key/value failure composition checkpoint
+
+`StorageDiffsInnerKeyFailure` and `StorageDiffsInnerValueFailure` now prove the
+actual `cborReadStorageDiffs` path through the first outer key and into the first
+inner-map key/value failure. The outer MapLen, allocation, key Limbs call, local
+nil reserve and inner destination, `cborReadFeltMapFrom` call with the real
+`count-1` hint, and outer loop error return are all composed. Both private maps
+remain unpublished; every old destination pointer and the fractional input are
+preserved. The postconditions retain two entered map-depth levels and give exact,
+nonwrapping consumed positions and diagnostic offsets, including both map headers
+and the successfully parsed keys. The initialized owned child diagnostic is
+transported through the outer storage-map value-error reason.
+
+The first-inner-value path also composes actual reserve allocation and the failed
+zero slot from `FeltMapReserveFailure`. Its positive signed allocation request is
+derived using `feltReserveWant_bounds`: both map counts are bounded by their
+contextual byte guards, both guards fit within the original owned input, and that
+input has a representable signed length. The production machine subtraction for
+`count-1` is related explicitly to natural subtraction using the positive outer
+count. No caller-provided allocation bound, allocator-correctness premise or map
+key-equality assumption replaces this derivation. Private slot/reserve ownership
+is disjoint in the child contract and can be dropped on the outer return under
+the existing garbage-collected model; no private map is stored in the caller.
+
+`StorageDiffsInnerFailureSpec` supplies a general pure composition result for any
+independently specified first-inner-map failure and two specializations matching
+these implementation paths. The general result is a theorem about the independent
+relations, not an assumed implementation contract. Inner key failures use direct
+`LimbsFailure`, including null/undefined rejection; inner pointer-value failures
+use `FeltFailure`, since null/undefined values succeed and do not take this path.
+
+Validation: `check-storage-inner-full.log` records successful full regeneration,
+**3,116** build jobs, the five audit-parser tests and **4,391** audited results.
+This checkpoint adds **five** theorems in **three** modules. An independent exact-
+delta audit against `eeacecbcb` checked that all **4,386** previous theorem
+dependency sets and the complete axiom union remain unchanged. All **1,319**
+project/artifact and **46** standard-library hashes match disk. Direct shared
+premise counts remain **447** validator and **two** word-helper uses; no new
+helper assumption, `sorryAx` or native-evaluation dependency was introduced.
+The audit checked actual call ordering, explicit allocation-bound derivation,
+independent nested failure relations, cursor/depth/error ownership and destination
+preservation. Go and pinned trusted sources remain unchanged; the original and
+benchmark baseline worktrees remain clean at their pins. The full check also
+revalidates the frozen passing performance and saved compatibility evidence.
+
+Inner-map opening-error composition, successful insertion and arbitrary later
+iterations remain open, as do complete StateDiff/StateUpdate record and public
+API composition. Successful felt-key insertion still encounters the separate
+array-equality model gap. Header retains the independent slice-index/UTF-8
+obligation and pending trusted-repair approval. This checkpoint closes neither a
+complete storage-map decoder nor an unconditional Header or whole-library proof;
+the pinned 64-bit partial-correctness/model-safety boundary is unchanged.

@@ -738,6 +738,28 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "storage_map_inner_failures": {
+        "implementation_target": "core/cbor_state.go: cborReadStorageDiffs, first outer key followed by first inner key/value rejection in cborReadFeltMapFrom",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsInnerFailureSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsInnerKeyFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsInnerValueFailure.lean"
+        ],
+        "theorems": [
+            "storageDiffs_first_inner_failure_spec",
+            "storageDiffs_first_inner_key_failure_spec",
+            "storageDiffs_first_inner_value_failure_spec",
+            "wp_readStorageDiffs_first_inner_key_failure",
+            "wp_readStorageDiffs_first_inner_value_failure"
+        ],
+        "specification": "a general pure composition lemma lifts any independently specified first-inner-map failure through the enclosing storage map; two specializations match the actual nested key/value error paths, exact cursor/diagnostic offsets and two retained map-depth levels",
+        "implementation_proved": "actual outer MapLen, map allocation, successful outer-key Limbs, local nil reserve and inner map destination, real cborReadFeltMapFrom call with count-1 hint, and outer loop error return before insertion; arbitrary old destination preserved and input read-only; both private maps are unpublished",
+        "allocation_bounds": "inner value failure composes the proved reserve growth/slot failure path starting from nil; both map count guards and owned input size establish the positive signed 64-bit allocation request with the real count-1 hint; no assumed overflow or allocator contract",
+        "ownership_and_diagnostics": "existing initialized category/error ownership transported through the nested call; consumed position and error offset are exact and nonwrapping; private failed slot and reserve remain disjoint inside the child theorem and are dropped on the outer error return under the GC model",
+        "unproved_contract_premises": [],
+        "remaining": "inner opening-error composition; successful map insertion, arbitrary later iterations and their shared-reserve reuse; complete StateDiff/StateUpdate record/public API composition; felt-key equality and Header UTF-8/slice-index trusted repairs remain separately approval-dependent",
+        "scope": "first outer entry and first inner entry errors, for arbitrary stated keys/counts/encodings/suffixes; not complete storage-map implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_map_first_key_failures": {
         "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom, cborReadFeltMap, cborReadStorageDiffs and cborReadMigratedClasses first-key failures; cborReadMigratedClasses first-value failure",
         "modules": [

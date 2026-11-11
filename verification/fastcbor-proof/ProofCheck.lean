@@ -1303,3 +1303,9 @@ import ProofCheck.MigratedClassesFirstValueFailureSpec
 import ProofCheck.StateMapFirstKeyFailureSpec
 
 import ProofCheck.StorageDiffsFirstKeyFailure
+
+import ProofCheck.StorageDiffsInnerFailureSpec
+
+import ProofCheck.StorageDiffsInnerKeyFailure
+
+import ProofCheck.StorageDiffsInnerValueFailure
