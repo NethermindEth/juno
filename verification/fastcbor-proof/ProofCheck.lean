@@ -1061,3 +1061,39 @@ import ProofCheck.CasmClassValueUnique
 import ProofCheck.CasmClassValues
 
 import ProofCheck.SegmentGeneral
+
+import ProofCheck.SierraClassBoundary
+
+import ProofCheck.SierraClassFieldComplete
+
+import ProofCheck.SierraClassFieldRead
+
+import ProofCheck.SierraClassKeyRead
+
+import ProofCheck.SierraClassKeys
+
+import ProofCheck.SierraClassMapRejected
+
+import ProofCheck.SierraClassMapValid
+
+import ProofCheck.SierraClassOwnership
+
+import ProofCheck.SierraClassPairs
+
+import ProofCheck.SierraClassPairsUnique
+
+import ProofCheck.SierraClassRecordComplete
+
+import ProofCheck.SierraClassRecordSpec
+
+import ProofCheck.SierraClassRecordUnique
+
+import ProofCheck.SierraClassSeen
+
+import ProofCheck.SierraClassTable
+
+import ProofCheck.SierraClassValueUnique
+
+import ProofCheck.SierraClassValues
+
+import ProofCheck.SierraEntriesAllocated

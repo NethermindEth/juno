@@ -7869,3 +7869,63 @@ unconditional Header nor whole-library completion is claimed; the pinned
 64-bit partial-correctness/model-safety boundary still excludes compiler/runtime
 implementation correctness, OOM and termination, FX equivalence and blanket
 validity of ignored CBOR content.
+
+## Complete Sierra class record checkpoint
+
+The generated `cborReadSierraClass` now has a complete direct-record contract for
+all byte inputs at supported depth and arbitrary owned initial contents. It
+retains the existing explicit `Utf8ValidatorContract` premise. This completes
+the Sierra payload composition, before class-interface tag dispatch and the
+public First/full API guards and cleanup.
+
+The independent seven-field schema contains ABI text, nullable ABI hash,
+embedded SierraEntryPointsByType, program felt values, nullable program hash,
+semantic-version text and nullable compiled CASM class. The field and record
+relations cover null/undefined, definite maps, ASCII-folded names, arbitrary
+field order, unknown-field skipping, duplicate known-key rejection and failures
+after any successful prefix. All-input classification, prefix/value/suffix
+uniqueness, success/rejection separation, exact partial failure uniqueness,
+position bounds and retained-depth bounds are checked.
+
+The class owns separate field cells and the embedded entry groups, strings,
+felt children, program slice and compiled CASM tree. Seven accessors preserve
+all unrelated fields, and the actual zero-class allocation establishes the
+complete ownership predicate. The embedded EntryPoints reader can retain
+partial updates on failure; the specification and implementation proof preserve
+that exact partial value. Compiled decoding instead allocates privately and
+publishes only on success: failure retains the caller's old pointer and owns
+the private partial CASM class, including recursive segment descendants.
+`SierraClassFieldFailureOwned` carries this private allocation alongside the
+actual diagnostic. Old pointee ownership remains available throughout.
+
+`SierraEntriesAllocated.lean` derives the actual DecodeError interface shape
+from the previously checked child diagnostic ownership. This is a proved
+refinement, with no new assumption or change to that child's specification.
+The seven field implementations and complete map loop compose through it and
+the CASM pointer contract. Successful decoding owns exact resulting values and
+suffix, preserves the input and restores depth. Rejection retains prior
+successful fields, the specified partial child state, exact cursor/depth and
+initialized error categories, diagnostic positions, details and arguments.
+
+Validation: `check-sierra-class-full.log` records a successful **3,010-job** full
+regeneration/build and **4,050** audited results. This checkpoint adds **76**
+results in **18** modules. A separate comparison against `1fcac1140` checked all
+3,974 prior theorem dependency sets and the axiom union unchanged; all **1,213**
+project/artifact hashes and **46** standard-library source hashes match disk.
+Eleven additional direct uses of the existing UTF-8 premise bring the counts
+to **432** validator premises and **two** word-helper premises. No result depends
+on `sorryAx` or native evaluation axioms. The independent audit also checked all
+seven names, indices and actual Go calls, embedded partial updates and private
+failed Compiled ownership. No production Go or trusted semantics changed;
+original and baseline worktrees retain their clean pins, and the frozen
+177-case performance pass and archived compatibility checks remain applicable.
+
+Next: class-interface tag dispatch and public First/full APIs. State-update
+payloads and their separate felt-key equality modeling gap remain open. Header
+still needs the separately approved slice-index model correction and actual
+UTF-8 word-helper proof. The Sierra contract does not assert hash consistency,
+ABI or semantic-version syntax, or executable validity. Neither unconditional
+Header nor whole-library completion is claimed; the pinned 64-bit partial-
+correctness/model-safety boundary still excludes compiler/runtime implementation
+correctness, OOM and termination, FX equivalence and blanket validity of ignored
+CBOR content.
