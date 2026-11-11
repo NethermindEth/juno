@@ -8305,3 +8305,52 @@ UTF-8 word-helper/model obligation. StateDiff specification completeness is not
 StateDiff implementation completeness. No StateUpdate, Header or whole-library
 implementation gate is closed by this checkpoint, and the pinned 64-bit
 partial-correctness/model-safety scope remains unchanged.
+
+## StateDiff pointer specification and boundary checkpoint
+
+`StateDiffPointerSpec` defines the independent nullable pointer contract over the
+complete StateDiff record relation. Null and undefined produce nil. Every other
+input decodes a fresh zero record; an empty map therefore produces a nonnil zero
+record. A failed child retains its private partial value, consumed position,
+diagnostic offset and depth. That failed allocation is not published through the
+caller's pointer.
+
+Classification covers every input at supported depth. Successful prefixes,
+values and suffixes are unique, failures satisfy consumption/diagnostic/depth
+bounds, and complete outcomes are unique for `wire.length < 2^64`. The explicit
+length bound is inherited from the StateDiff nullable felt-pointer slice and
+covers every representable Go input. These pure results introduce no production
+helper correctness premise.
+
+`StateDiffEmpty` proves the actual direct reader's zero-count map path for every
+supported map-head width and arbitrary previous owned contents: the old record
+is preserved, the head is consumed exactly, input remains read-only, and enclosing
+depth is restored. `StateDiffPointerBoundary` defines nullable pointer ownership,
+derives ownership of a fresh zero allocation and proves three actual wrapper paths:
+null/undefined clearing, empty-map allocation/publication, and all opening errors.
+An opening error preserves the caller's old pointer and cursor/depth, returns the
+exact initialized diagnostic, and leaves the fresh zero record private and owned.
+Existing pointed-to record ownership can be framed across these wrapper calls.
+No populated child-reader contract is assumed to obtain these implementation results.
+
+Validation: `check-state-pointer-full.log` records a successful **3,082-job** full
+regeneration/build and **4,285** audited results. This checkpoint adds **14** results
+in **three** modules. Independent comparison against `420fb5ff1` checked all
+**4,271** prior dependency sets and the full axiom union unchanged; **1,285**
+project/artifact and **46** standard-library hashes match disk. No helper premises
+were added: direct shared counts remain **444** validator and **two** word-helper
+premises. No result depends on `sorryAx` or native evaluation axioms. The independent
+audit checked the source wrapper's null/allocation/read/publication ordering,
+explicit uniqueness bound, owned private failure allocation, and actual empty-map
+open/close targets. Production Go, trusted semantics and the clean original/baseline
+pins remain unchanged; frozen performance and compatibility evidence still apply.
+
+The independent pointer specification is complete, but populated StateDiff record
+and pointer implementation proofs remain open. Next are StateUpdate specification,
+ownership and public entry composition, alongside the outstanding populated state-map
+loops. Felt-key map insertion retains the separate array-equality model gap; Header
+and text-dependent records retain the UTF-8 word-helper/model obligation. Those trusted
+repairs still require separate approval. This checkpoint does not close Header,
+StateUpdate or whole-library implementation verification; the pinned 64-bit partial-
+correctness/model-safety boundary still excludes compiler/runtime implementation
+correctness, OOM and termination.

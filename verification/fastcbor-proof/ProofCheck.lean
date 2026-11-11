@@ -1235,3 +1235,9 @@ import ProofCheck.StateDiffTable
 import ProofCheck.StateDiffValueUnique
 
 import ProofCheck.StateDiffValues
+
+import ProofCheck.StateDiffPointerSpec
+
+import ProofCheck.StateDiffEmpty
+
+import ProofCheck.StateDiffPointerBoundary

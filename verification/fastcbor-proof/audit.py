@@ -738,6 +738,37 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_diff_pointer": {
+        "implementation_target": "core/cbor_state_generated.go: cborReadStateDiffPointer and cborReadStateDiff empty-map path",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateDiffPointerSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffEmpty.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffPointerBoundary.lean"
+        ],
+        "theorems": [
+            "stateDiffPointer_classify",
+            "stateDiffPointer_nonempty",
+            "stateDiffPointerRejected_bounds",
+            "stateDiffPointer_prefix_unique",
+            "stateDiffPointer_not_rejected",
+            "stateDiffPointerRejected_unique",
+            "stateDiffPointerRejected_depth",
+            "stateDiffPointerSpec_unique",
+            "stateDiffPointerSpec_total_unique",
+            "wp_readStateDiff_empty",
+            "stateDiffPointerOwned_zero",
+            "wp_readStateDiffPointer_nullish",
+            "wp_readStateDiffPointer_empty",
+            "wp_readStateDiffPointer_open_rejected"
+        ],
+        "specification": "independent StateDiff pointer success/rejection and complete outcome relations: null/undefined is nil; every other input reads a fresh zero record; failures retain the private child partial value, exact consumption/diagnostic/depth and never publish the failed allocation",
+        "determinism": "all-input classification at supported depth, nonempty consumed success, diagnostic and retained-depth bounds, successful prefix uniqueness, success/failure separation and exactly one outcome for wire.length < 2^64; the explicit size bound is inherited from StateDiff pointer-slice children and covers all representable Go inputs",
+        "ownership": "nil versus owned StateDiff pointer relation and zero-allocation initialization; caller old child ownership can be framed across wrapper paths; failed fresh record remains private and owned",
+        "implementation_proved": "actual direct StateDiff empty maps preserve arbitrary old owned contents, consume all supported zero-count map-head widths and restore enclosing depth; actual pointer null/undefined clears; pointer empty maps allocate and publish a fresh zero record; every opening failure preserves caller pointer/cursor/input/depth and returns exact initialized diagnostics with private fresh zero-record ownership",
+        "unproved_contract_premises": [],
+        "remaining": "populated map insertion/loops; StateDiff field/record implementation composition and populated pointer wrapper; StateUpdate record/public APIs; separate array-equality and UTF-8 word-helper model repairs remain approval-dependent",
+        "scope": "complete independent pointer specification plus actual empty/null/opening implementation paths, not full StateDiff pointer implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime implementation, OOM and termination"
+    },
     "state_diff_foundations": {
         "implementation_target": "core/cbor_state_generated.go: cborReadStateDiff; actual internal/cborstate StateDiff metadata and NextField scanner",
         "modules": [
