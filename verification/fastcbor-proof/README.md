@@ -8840,3 +8840,42 @@ helper premises and all other audit metadata are unchanged. The original,
 benchmark baseline and pinned framework worktrees remain clean at their recorded
 revisions. The saved performance/compatibility evidence was revalidated; no
 timing rerun was needed because the measured Go sources are unchanged.
+
+## Four-limb map representation invariants
+
+`FeltKeyWellFormed.lean`, `FeltMapWellFormed.lean`,
+`StorageDiffsWellFormed.lean` and `MigratedClassesWellFormed.lean` prove the
+representation facts needed for the pending array-equality integration. They
+derive length four from accepted felt encodings, including short-array zero fill
+and ignored extra limbs, and from the actual four-word array points-to. A Lean
+`GoArray w64 4` wrapper alone is not treated as evidence of a valid length.
+
+The shared map predicate requires valid keys and valid values at every present
+lookup. Insertion and ordered folds preserve it for both fresh and duplicate
+keys; no distinct-key premise is introduced. The three map-specific proofs cover
+nullable felt values, nested nullable storage maps, and nonnullable migrated
+class values. Every successful map specification produces well-formed values.
+Every rejected entry sequence has well-formed completed private entries and a
+well-formed retained key if one was parsed. This includes arbitrary successful
+prefixes before failure, not just the first entry. Nested-map replacement
+preserves the new inner map's validity without merging it with the old map.
+
+These are representation invariants and an ownership consequence, not proofs of
+the missing Go array-equality operation or populated decoder loops. No `MapKeys`
+instance, `SafeMapKey` assumption, helper-correctness premise, trusted-model edit
+or Go change was added. The existing wire contracts and prior theorem statements
+are unchanged. The new facts are available for deriving the restricted map-key
+instance and its safety proof once the model repair is approved.
+
+Validation: `check-map-wellformed-full.log` passes the complete check (3137 jobs,
+4473 audited results). The 28 new results have no new helper premises or axiom
+kinds. An independent audit checked all 4445 prior dependency sets unchanged,
+all 1340 project/artifact hashes, all 46 standard-library source hashes and the
+unchanged validator/word-helper premise inventory. The frozen performance and
+compatibility evidence was revalidated. The original, baseline and pinned
+framework worktrees remain clean at their recorded revisions.
+
+Actual felt-key insertion, arbitrary entry iterations, complete StateDiff and
+StateUpdate implementation composition, and unconditional Header remain open.
+The array-equality and Header slice-index repairs still await their separate
+explicit approvals; this checkpoint changes neither trusted boundary.

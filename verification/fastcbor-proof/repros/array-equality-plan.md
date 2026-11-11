@@ -100,6 +100,15 @@ Lean arrays may have the wrong length. Those examples must become multi-step WP
 proofs for well-formed arrays after the repair. Passing them unchanged is not an
 acceptance criterion. `FeltMap.lean` likewise needs explicit four-limb input facts.
 
+The subsequent `FeltKeyWellFormed`, `FeltMapWellFormed`,
+`StorageDiffsWellFormed` and `MigratedClassesWellFormed` modules now derive these
+length facts from the wire relations and actual array ownership. They also prove
+preservation through duplicate replacements and all completed entries before a
+later failure, including nested inner maps and any retained key. They install no
+`MapKeys` instance and do not discharge `SafeMapKey`; those integration steps
+still belong to the repair work below. Their 28 results are included in the
+production dependency audit, unlike the standalone RHS preparation checks.
+
 ## Work authorized by approval of this proposal
 
 1. Create a separate Perennial worktree from the pinned revision. Apply exactly

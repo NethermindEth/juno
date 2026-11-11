@@ -1343,3 +1343,11 @@ import ProofCheck.StateDiffMapFirstValueFields
 import ProofCheck.StateDiffStorageInnerFields
 
 import ProofCheck.StateUpdateDiffFields
+
+import ProofCheck.FeltKeyWellFormed
+
+import ProofCheck.FeltMapWellFormed
+
+import ProofCheck.StorageDiffsWellFormed
+
+import ProofCheck.MigratedClassesWellFormed

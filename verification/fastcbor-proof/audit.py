@@ -738,6 +738,50 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_map_representation": {
+        "proofs": [
+            "verification/fastcbor-proof/ProofCheck/FeltKeyWellFormed.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapWellFormed.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsWellFormed.lean",
+            "verification/fastcbor-proof/ProofCheck/MigratedClassesWellFormed.lean"
+        ],
+        "theorems": [
+            "paddedLimbs_wellFormed",
+            "feltValid_wellFormed",
+            "feltMapKeyValid_wellFormed",
+            "feltKeyedMapWellFormed_empty",
+            "feltKeyedMapWellFormed_insert",
+            "feltKeyedMapWellFormed_fold",
+            "feltKeyOwned_wellFormed",
+            "feltMapEntryValid_wellFormed",
+            "feltMapEntriesValid_wellFormed",
+            "feltMapApply_wellFormed",
+            "feltMapSpec_wellFormed",
+            "feltMapEntryRejected_wellFormed",
+            "feltMapEntriesRejected_wellFormed",
+            "feltMapRejected_private_map_wellFormed",
+            "storageDiffsEntryValid_wellFormed",
+            "storageDiffsEntriesValid_wellFormed",
+            "storageDiffsApply_wellFormed",
+            "storageDiffsSpec_wellFormed",
+            "storageDiffsEntryRejected_wellFormed",
+            "storageDiffsEntriesRejected_wellFormed",
+            "storageDiffsRejected_private_map_wellFormed",
+            "migratedClassesEntryValid_wellFormed",
+            "migratedClassesEntriesValid_wellFormed",
+            "migratedClassesApply_wellFormed",
+            "migratedClassesSpec_wellFormed",
+            "migratedClassesEntryRejected_wellFormed",
+            "migratedClassesEntriesRejected_wellFormed",
+            "migratedClassesRejected_private_map_wellFormed"
+        ],
+        "proved": "four-word representation validity derived from accepted felt encodings and actual array ownership; generic keyed-map insertion and ordered folds preserve key/value validity including duplicates; all successful felt, nested storage and migrated-class map specifications produce valid representations; failed entry sequences preserve validity of every completed private entry and any retained key",
+        "value_scope": "nullable felt values, nullable whole maps, nested nullable storage maps and nonnullable migrated by-value felts; accepted short arrays zero-fill and long arrays retain four limbs",
+        "integration": "supplies length facts needed by future restricted MapKeys instances and derived SafeMapKey proofs; no MapKeys instance or trusted equality rule is installed by these modules",
+        "unproved_contract_premises": [],
+        "pending": "actual Go array equality, populated-map insertion/iteration and complete StateDiff/StateUpdate implementation composition; the separate Header UTF-8 obligation remains open",
+        "scope": "pure representation invariants plus an existing array-ownership consequence; no proof of Go map-key comparison or new decoder implementation correctness is claimed; frozen Go and trusted pins unchanged"
+    },
     "state_entry_field_integration": {
         "implementation_target": "core/cbor_state_generated.go: six StateDiff map-field reader calls and StateUpdate.StateDiff pointer reader call, using the actual core/cbor_state.go entry/nested-map error contracts",
         "modules": [
