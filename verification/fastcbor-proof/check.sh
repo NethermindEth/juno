@@ -11,6 +11,7 @@ roots=(-lean-root github.com/NethermindEth/juno=ProofCheck -lean-root github.com
 (cd "$repo_dir" && go run ./verification/fastcbor-proof/cmd/entrymanifest -check)
 (cd "$repo_dir" && go run ./utils/cbor/cmd/cborgen -check)
 (cd "$repo_dir" && go test -short ./verification/fastcbor-proof/feasibility/...)
+"$proof_dir/.tools/bench-venv/bin/python" "$proof_dir/bench/check.py" --archive "$proof_dir/results/performance-66d35a944.zip"
 "$proof_dir/.tools/bin/goose" -dir "$repo_dir" -out "$proof_dir/ProofCheck/Code" -configdir "$proof_dir/config" "${roots[@]}" "${packages[@]}"
 "$proof_dir/.tools/bin/proofgen" -dir "$repo_dir" -out "$proof_dir/ProofCheck/GeneratedProof" -configdir "$proof_dir/config" "${roots[@]}" "${packages[@]}"
 "$ELAN_HOME/bin/lake" build ProofCheck 2>&1 | tee "$proof_dir/lean-build.log"

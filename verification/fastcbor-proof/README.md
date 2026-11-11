@@ -1,8 +1,9 @@
 # Typed fastcbor proof pilot
 
 This directory is an **incomplete first stage** of the typed-decoder verification plan.
-The feasibility gate has not passed. There is no whole-library correctness theorem
-and no result from the frozen whole-library performance gate yet.
+The feasibility gate has not passed. There is no whole-library correctness theorem.
+The frozen whole-library performance gate passes for the recorded candidate sources;
+formal verification remains incomplete.
 
 ## Source and scope
 
@@ -3716,10 +3717,9 @@ and pinned trusted checkouts remain unchanged.
 and source hashes against the original baseline. All corpus hashes were checked.
 It records the removed EventsBloom projection and historical zero-route controls;
 all cases now have source-specific compatibility classifications in
-`results/compatibility-smoke.json`. **No cases have passed the new performance
-gate.** The first paired run is underway as described below.
+`results/compatibility-smoke.json`. **All 177 compatible decoder cases pass the performance gate**, as described below.
 
-## Frozen performance measurement in progress
+## Frozen performance gate passed
 
 `bench/run.py` and `bench/frozen_bench_test.go.txt` now implement the timing port
 for all 185 frozen IDs. The six removed projections remain explicitly excluded;
@@ -3732,14 +3732,14 @@ comparisons for records/projections/indexes, and the fallback-rejection check.
 Six runner tests check pass/fail/inconclusive decisions, paired drift, preservation
 of zero allocations, missing cases and rejection of unplanned looks.
 
-The first run uses candidate Go sources from `66d35a944` and the frozen baseline.
+The completed first run used candidate Go sources from `66d35a944` and the frozen baseline.
 Artifacts are in `/tmp/juno-cbor-gate-66d35a944-v2`; the runner log is
 `/tmp/cbor-gate-measure-v2.log`. Baseline and candidate binaries, overlays and raw
 samples are hashed in `report.json`. The prior directory without the `-v2` suffix
 was a preparation-only build, before moving block operation selection outside the
 closure; it supplied no timing samples or acceptance decision.
 
-The live run uses the shared historical lock, CPU 2, GOMAXPROCS=1 and 300 ms
+The completed run used the shared historical lock, CPU 2, GOMAXPROCS=1 and 300 ms
 samples, alternating baseline/candidate order per case and round. All comparable
 cases must meet the 3% bound for all three metrics at the prespecified 5/10/20
 looks. Student-t bounds are applied to paired log ratios with one-sided alpha/3;
@@ -3768,6 +3768,50 @@ ratios for that case are exactly 1; all 177 decoder cases still pass allocation
 metrics. Both saved look decisions were recomputed from their paired samples.
 The same unchanged run continues to the final planned twenty-round look; no
 case has been dropped and no additional acceptance look has been introduced.
+
+### Final twenty-round result
+
+The final scheduled look **passes all 177 compatible decoder cases**, with zero
+failed or inconclusive decoder cases. Both zero-decoder controls are retained in
+the report, and the six removed bloom projections remain explicitly excluded.
+The run collected **3580 baseline/candidate pairs and 7160 raw logs**. Every
+comparable case passes all three agreed metrics. The largest ns/op upper ratio
+bound is **1.0265001** (`record/transactionInvoke-p100`), below 1.03. Neither
+allocation metric increases: their largest upper ratio is 1. The previously
+unresolved single-receipt case finishes at ratio 0.9988720 with upper bound
+1.0160566. These are empirical results under the recorded protocol, not universal
+performance guarantees or a decoder correctness proof.
+
+[The summary](results/performance-gate.json) includes each final case result.
+[The evidence archive](results/performance-66d35a944.zip) preserves the complete
+report, all raw logs, both source-derived overlays and both preflight logs. The
+local original executable hashes were checked against the report; executable
+binaries are excluded from the archive. Archive verification rechecks source,
+corpus, overlay and raw-log hashes and recomputes all three scheduled decisions;
+it explicitly reports that the executable hashes are recorded rather than
+revalidated from archived binaries. `check.sh` runs this check before the proof
+regeneration/audit, and `bootstrap.sh` installs the pinned statistics dependencies.
+
+```sh
+verification/fastcbor-proof/.tools/bench-venv/bin/python \
+  verification/fastcbor-proof/bench/check.py --archive \
+  verification/fastcbor-proof/results/performance-66d35a944.zip
+```
+
+This clears the frozen performance gate for the recorded candidate Go sources.
+Changes to those sources or to the benchmark inputs invalidate the check and need
+reviewed evidence before carrying the result forward. General Header is still
+conditional on the unresolved UTF-8 word helper; the trusted indexing repair is
+unapproved and unapplied. Felt-key map equality remains a separate model gap.
+Independent specifications, allocation/recursive ownership, metadata initialization
+and complete public API proofs for the remaining typed roots are still required.
+
+The full check (`check-performance-gate-full.log`) passes with 2201 build jobs,
+1076 audited theorems, 405 matching project/artifact hashes and 46 standard-library
+source hashes. All theorem dependency sets are unchanged from the class checkpoint;
+no admissions, native-evaluation dependencies or trusted semantics changes were
+introduced by the performance tooling. The explicit UTF-8 premise counts remain
+51 validator-dependent and two word-helper-dependent results.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

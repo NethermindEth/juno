@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import zipfile
 
 import run
 
@@ -35,7 +37,7 @@ def canonical_look(look):
     return {**look, 'cases': sorted(look['cases'], key=lambda case: case['id'])}
 
 
-def check_report(directory, report):
+def check_report(directory, report, verify_binaries=True):
     identity = report['identity']
     looks = check_schedule(report, identity['classifications'])
     universe = json.loads(run.UNIVERSE.read_text())
@@ -67,7 +69,8 @@ def check_report(directory, report):
     for label, repo in [('baseline', run.BASELINE), ('candidate', run.REPO)]:
         saved = report[label]
         require(saved['sources'] == run.sources(repo), f'{label} sources changed')
-        require(saved['binary'] == run.sha(directory / label / 'core.test'), f'{label} binary changed')
+        if verify_binaries:
+            require(saved['binary'] == run.sha(directory / label / 'core.test'), f'{label} binary changed')
         require(saved['wrapper'] == run.sha(directory / label / 'wrapper.go'), f'{label} wrapper changed')
         require(saved['harness'] == run.sha(directory / label / 'frozen_bench_test.go'), f'{label} copied harness changed')
         require(saved['harness'] == identity['harness'], f'{label} harness identity mismatch')
@@ -107,17 +110,34 @@ def check_report(directory, report):
     require(report['status'] == looks[-1]['status'], 'terminal status disagrees with last look')
     if report['status'] == 'inconclusive':
         require(looks[-1]['rounds'] == 20, 'inconclusive run stopped before final planned look')
-    return {'status': report['status'], 'rounds': looks[-1]['rounds'], 'pairs': len(report['samples']), 'raw_files': len(raw_names), 'decoder_cases': looks[-1]['decoder_cases']}
+    return {'status': report['status'], 'rounds': looks[-1]['rounds'], 'pairs': len(report['samples']), 'raw_files': len(raw_names), 'decoder_cases': looks[-1]['decoder_cases'], 'binary_check': 'verified files' if verify_binaries else 'hashes recorded; binaries excluded from archive'}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('directory', type=Path)
+    parser.add_argument('directory', type=Path, help='run directory, or evidence ZIP with --archive')
+    parser.add_argument('--archive', action='store_true', help='verify saved logs/sources/decisions; executable hashes are recorded but binaries are not archived')
     args = parser.parse_args()
     for flags in ([], ['--race', '--checkptr']):
         subprocess.run([sys.executable, str(run.PROOF / 'smoke/run.py'), *flags, '--check'], check=True)
-    report = json.loads((args.directory / 'report.json').read_text())
-    print(json.dumps(check_report(args.directory, report), indent=2))
+    if args.archive:
+        with tempfile.TemporaryDirectory(prefix='juno-cbor-evidence-') as temporary:
+            directory = Path(temporary)
+            with zipfile.ZipFile(args.directory) as archive:
+                require(len(archive.namelist()) == len(set(archive.namelist())), 'duplicate archive paths')
+                require(sum(info.file_size for info in archive.infolist()) < 100_000_000, 'unexpected archive size')
+                for info in archive.infolist():
+                    relative = Path(info.filename)
+                    require(not relative.is_absolute() and '..' not in relative.parts, 'invalid archive path')
+                    require(info.filename == 'report.json' or len(relative.parts) == 2 and relative.parts[0] in ('raw', 'baseline', 'candidate'), 'unexpected archive member')
+                    target = directory / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(archive.read(info))
+            report = json.loads((directory / 'report.json').read_text())
+            print(json.dumps(check_report(directory, report, verify_binaries=False), indent=2))
+    else:
+        report = json.loads((args.directory / 'report.json').read_text())
+        print(json.dumps(check_report(args.directory, report), indent=2))
 
 
 if __name__ == '__main__':

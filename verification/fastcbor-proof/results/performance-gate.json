@@ -1,0 +1,4549 @@
+{
+  "status": "pass",
+  "candidate_go_revision": "66d35a94467109015c5ed1a9a8655268252b0db4",
+  "baseline": "a4a67242cc67f3855915a97bf4e79a97d217fae4",
+  "rounds": 20,
+  "pairs": 3580,
+  "raw_logs": 7160,
+  "compatible_decoder_cases": 177,
+  "removed_projection_cases": 6,
+  "zero_decoder_controls": 2,
+  "looks": [
+    {
+      "rounds": 5,
+      "status": "inconclusive",
+      "counts": {
+        "fail": 0,
+        "inconclusive": 14,
+        "pass": 163
+      }
+    },
+    {
+      "rounds": 10,
+      "status": "inconclusive",
+      "counts": {
+        "fail": 0,
+        "inconclusive": 1,
+        "pass": 176
+      }
+    },
+    {
+      "rounds": 20,
+      "status": "pass",
+      "counts": {
+        "fail": 0,
+        "inconclusive": 0,
+        "pass": 177
+      }
+    }
+  ],
+  "archive": "performance-66d35a944.zip",
+  "archive_sha256": "74d7e8eb13a6e242730729ebd9749f5c1b1934a133189ccbe35cda2e6ddf50a9",
+  "original_binary_check": "both local executable hashes verified against the terminal report; executables excluded from archive",
+  "source_boundary": "candidate Go sources from 66d35a944; later commits during measurement changed only benchmark tooling/docs",
+  "scope": "empirical frozen-corpus performance under the recorded protocol; not universal performance or formal decoder correctness",
+  "maximum_timing_upper_ratio": 1.0265001464393695,
+  "maximum_bytes_upper_ratio": 1.0,
+  "maximum_allocs_upper_ratio": 1.0,
+  "cases": [
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9108624736474575,
+          "ratio": 0.9212928493889005,
+          "status": "pass",
+          "upper": 0.9318426643884701
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8237768835795306,
+          "ratio": 0.832768053011702,
+          "status": "pass",
+          "upper": 0.8418573571808019
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.829601399014069,
+          "ratio": 0.8365938626172805,
+          "status": "pass",
+          "upper": 0.8436452636177773
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.926756440695349,
+          "ratio": 0.9356024985397741,
+          "status": "pass",
+          "upper": 0.9445329936062683
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8845719825328459,
+          "ratio": 0.8884388832107452,
+          "status": "pass",
+          "upper": 0.892322688019849
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9182493079012134,
+          "ratio": 0.9209660417505132,
+          "status": "pass",
+          "upper": 0.9236908133328605
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9367581846089622,
+          "ratio": 0.9468640975292579,
+          "status": "pass",
+          "upper": 0.9570790348249266
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9222400152876283,
+          "ratio": 0.9261534610371357,
+          "status": "pass",
+          "upper": 0.9300835131552461
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9149853568523294,
+          "ratio": 0.9240478460075864,
+          "status": "pass",
+          "upper": 0.9332000947519713
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9607750973210931,
+          "ratio": 0.9659949675033853,
+          "status": "pass",
+          "upper": 0.971243197126712
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9905476777769685,
+          "ratio": 0.9993222355960932,
+          "status": "pass",
+          "upper": 1.0081745209861854
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9566608065340172,
+          "ratio": 0.9628735475246947,
+          "status": "pass",
+          "upper": 0.9691266352614223
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9630703999411876,
+          "ratio": 0.9718035826241918,
+          "status": "pass",
+          "upper": 0.9806159583545364
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8794369332880266,
+          "ratio": 0.887357654668954,
+          "status": "pass",
+          "upper": 0.8953497146812481
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9736154291828327,
+          "ratio": 0.9802589780792985,
+          "status": "pass",
+          "upper": 0.9869478598049459
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/receipt-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999540687437801,
+          "ratio": 0.9999540687437801,
+          "status": "pass",
+          "upper": 0.9999540687437801
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9768884574827682,
+          "ratio": 0.9890483121736116,
+          "status": "pass",
+          "upper": 1.0013595270990547
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptStatus/receipt-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9027854300949196,
+          "ratio": 0.9089351565750348,
+          "status": "pass",
+          "upper": 0.9151267746658468
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/receiptEvents/receipt-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999538653174835,
+          "ratio": 0.9999538653174835,
+          "status": "pass",
+          "upper": 0.9999538653174835
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.989577203009611,
+          "ratio": 0.9981278393767,
+          "status": "pass",
+          "upper": 1.0067523591983187
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9649122807017544,
+          "ratio": 0.9649122807017544,
+          "status": "pass",
+          "upper": 0.9649122807017544
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9428072768683722,
+          "ratio": 0.9554303326966285,
+          "status": "pass",
+          "upper": 0.9682223960647636
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9994070510105545,
+          "ratio": 0.9994070510105545,
+          "status": "pass",
+          "upper": 0.9994070510105545
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9859588607234494,
+          "ratio": 0.9942765438014203,
+          "status": "pass",
+          "upper": 1.0026643959853665
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9997232092371235,
+          "ratio": 0.9997248395565095,
+          "status": "pass",
+          "upper": 0.9997264698785542
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9843092907096445,
+          "ratio": 0.9952521248905736,
+          "status": "pass",
+          "upper": 1.0063166135362542
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9998407285350732,
+          "ratio": 0.9998415865849106,
+          "status": "pass",
+          "upper": 0.9998424446354843
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.99922126049263,
+          "ratio": 1.0111002897966352,
+          "status": "pass",
+          "upper": 1.0231205404124606
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999608757495346,
+          "ratio": 0.9999612080753535,
+          "status": "pass",
+          "upper": 0.9999615404012827
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9623433079981426,
+          "ratio": 0.9841269998471793,
+          "status": "pass",
+          "upper": 1.006403789353393
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999902845417796,
+          "ratio": 0.9999903873896588,
+          "status": "pass",
+          "upper": 0.9999904902375486
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9751899600867368,
+          "ratio": 0.9964216111856256,
+          "status": "pass",
+          "upper": 1.018115513770722
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.918892125841579,
+          "ratio": 0.9237636541429406,
+          "status": "pass",
+          "upper": 0.928661008966615
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7867252356165172,
+          "ratio": 0.7986415103279212,
+          "status": "pass",
+          "upper": 0.8107382770288649
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.925531808450145,
+          "ratio": 0.932600768983779,
+          "status": "pass",
+          "upper": 0.9397237203176965
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9378266602052605,
+          "ratio": 0.943987683070308,
+          "status": "pass",
+          "upper": 0.9501891805820618
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7060744462159205,
+          "ratio": 0.7200940993010472,
+          "status": "pass",
+          "upper": 0.7343921234186912
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p0",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9435663443666161,
+          "ratio": 0.9550287128679296,
+          "status": "pass",
+          "upper": 0.9666303253052357
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9023540760307018,
+          "ratio": 0.9152077825289805,
+          "status": "pass",
+          "upper": 0.9282445854138467
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9238829479473171,
+          "ratio": 0.9300990344911227,
+          "status": "pass",
+          "upper": 0.9363569442247663
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9168771844356034,
+          "ratio": 0.9264135761215331,
+          "status": "pass",
+          "upper": 0.9360491553190852
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9330356380246777,
+          "ratio": 0.941216215195381,
+          "status": "pass",
+          "upper": 0.9494685172178675
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9147749348989003,
+          "ratio": 0.9214436103610658,
+          "status": "pass",
+          "upper": 0.9281609002208532
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p50",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9387341021659887,
+          "ratio": 0.9455500927135935,
+          "status": "pass",
+          "upper": 0.9524155730230358
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9106067657217556,
+          "ratio": 0.9186232243624312,
+          "status": "pass",
+          "upper": 0.926710255297929
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9293843327027085,
+          "ratio": 0.9367483464059285,
+          "status": "pass",
+          "upper": 0.9441707091644457
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9135169560005694,
+          "ratio": 0.9248992590080325,
+          "status": "pass",
+          "upper": 0.9364233840374107
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9249410121365806,
+          "ratio": 0.9393229042794782,
+          "status": "pass",
+          "upper": 0.9539284202198892
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9168841578579257,
+          "ratio": 0.9210082673911202,
+          "status": "pass",
+          "upper": 0.9251509270097272
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p95",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9343209359324137,
+          "ratio": 0.9436843501341599,
+          "status": "pass",
+          "upper": 0.9531416009632807
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9130712794513014,
+          "ratio": 0.9188948984603877,
+          "status": "pass",
+          "upper": 0.9247556608328963
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9127398432499957,
+          "ratio": 0.9263437066920868,
+          "status": "pass",
+          "upper": 0.9401503279100321
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9193063632604641,
+          "ratio": 0.9257929273967095,
+          "status": "pass",
+          "upper": 0.9323252602951165
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9070313657162543,
+          "ratio": 0.932780227970929,
+          "status": "pass",
+          "upper": 0.9592600505126126
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9080018459825205,
+          "ratio": 0.9197161025730457,
+          "status": "pass",
+          "upper": 0.9315814863975911
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p100",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.943124995166921,
+          "ratio": 0.9495069823983912,
+          "status": "pass",
+          "upper": 0.9559321555927307
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9516193580818897,
+          "ratio": 0.96052134127649,
+          "status": "pass",
+          "upper": 0.9695065986333108
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9910404261586027,
+          "ratio": 0.9968153731320961,
+          "status": "pass",
+          "upper": 1.0026239716213767
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999413186636475,
+          "ratio": 0.9999424286149127,
+          "status": "pass",
+          "upper": 0.9999435385674098
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9906055074566814,
+          "ratio": 0.9985800709675843,
+          "status": "pass",
+          "upper": 1.0066188312376518
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999368900567416,
+          "ratio": 0.9999368900567416,
+          "status": "pass",
+          "upper": 0.9999368900567416
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9927108005012407,
+          "ratio": 0.9995566156010275,
+          "status": "pass",
+          "upper": 1.0064496400032181
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeclare-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.90190524787284,
+          "ratio": 0.9085088442275072,
+          "status": "pass",
+          "upper": 0.9151607909880715
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeclare-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8505663575622416,
+          "ratio": 0.8605599768131305,
+          "status": "pass",
+          "upper": 0.8706710147990112
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeploy-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.927534115761202,
+          "ratio": 0.9368293942909282,
+          "status": "pass",
+          "upper": 0.9462178254082271
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeploy-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7695546255610516,
+          "ratio": 0.7755288408928105,
+          "status": "pass",
+          "upper": 0.7815494353218351
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9171123327973492,
+          "ratio": 0.9258836872743705,
+          "status": "pass",
+          "upper": 0.9347389318667139
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7932180094496311,
+          "ratio": 0.799979667060301,
+          "status": "pass",
+          "upper": 0.8067989633189834
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9565344504480484,
+          "ratio": 0.9646938234291462,
+          "status": "pass",
+          "upper": 0.9729227970058247
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8616007395790479,
+          "ratio": 0.8743907879604901,
+          "status": "pass",
+          "upper": 0.8873706984556528
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 0.999944791034064,
+          "ratio": 0.999944791034064,
+          "status": "pass",
+          "upper": 0.999944791034064
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9895650919462465,
+          "ratio": 1.0078634390601289,
+          "status": "pass",
+          "upper": 1.0265001464393695
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.849101158622408,
+          "ratio": 0.8609753681647263,
+          "status": "pass",
+          "upper": 0.8730156319525525
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9026250401873687,
+          "ratio": 0.907628519430977,
+          "status": "pass",
+          "upper": 0.9126597342274746
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7605243978842784,
+          "ratio": 0.7684082753445548,
+          "status": "pass",
+          "upper": 0.7763738799972546
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9130207032067129,
+          "ratio": 0.9195246064719251,
+          "status": "pass",
+          "upper": 0.9260748402940838
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9221905116476785,
+          "ratio": 0.9288344878890176,
+          "status": "pass",
+          "upper": 0.935526331051278
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9156830520013025,
+          "ratio": 0.9240728280884818,
+          "status": "pass",
+          "upper": 0.9325394739425953
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9221129803952663,
+          "ratio": 0.9353416532024699,
+          "status": "pass",
+          "upper": 0.9487601051234703
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9065282305412307,
+          "ratio": 0.9143565678890935,
+          "status": "pass",
+          "upper": 0.9222525069547708
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p25",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9332092004568961,
+          "ratio": 0.9432625382020715,
+          "status": "pass",
+          "upper": 0.953424179208476
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9123599599055559,
+          "ratio": 0.9173024028978625,
+          "status": "pass",
+          "upper": 0.9222716201281954
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHash/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9214365515886607,
+          "ratio": 0.9304679230975405,
+          "status": "pass",
+          "upper": 0.9395878147233949
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerRoot/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9183532340552114,
+          "ratio": 0.9255611760094973,
+          "status": "pass",
+          "upper": 0.9328256914316926
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerCount/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9239037769883747,
+          "ratio": 0.9304110422447417,
+          "status": "pass",
+          "upper": 0.9369641396561137
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerTimestamp/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9149174985543116,
+          "ratio": 0.9234957391830716,
+          "status": "pass",
+          "upper": 0.9321544091537135
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "id": "projection/headerBloom/header-p75",
+      "status": "incompatible_removed_projection"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/headerHashRoot/header-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9397506787667185,
+          "ratio": 0.952790279467708,
+          "status": "pass",
+          "upper": 0.9660108123992167
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9881346429334235,
+          "ratio": 0.9968721975403,
+          "status": "pass",
+          "upper": 1.0056870137441198
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/state-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999707747610836,
+          "ratio": 0.9999707747610836,
+          "status": "pass",
+          "upper": 0.9999707747610836
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9828928663287355,
+          "ratio": 1.0027306174776758,
+          "status": "pass",
+          "upper": 1.0229687544510826
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeclare-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9018143424222552,
+          "ratio": 0.9100543231095438,
+          "status": "pass",
+          "upper": 0.9183695934418656
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeclare-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8492059164542864,
+          "ratio": 0.8557888103506852,
+          "status": "pass",
+          "upper": 0.862422733674943
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeploy-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9041540821630801,
+          "ratio": 0.9219563235630639,
+          "status": "pass",
+          "upper": 0.940109080218263
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeploy-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7668267972437613,
+          "ratio": 0.7732219212914255,
+          "status": "pass",
+          "upper": 0.7796703789102847
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeploy-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.923062061638264,
+          "ratio": 0.932122078669208,
+          "status": "pass",
+          "upper": 0.9412710213661635
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeploy-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7713311197039271,
+          "ratio": 0.7805567336753738,
+          "status": "pass",
+          "upper": 0.7898926918958413
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9058408893239969,
+          "ratio": 0.9131431998866707,
+          "status": "pass",
+          "upper": 0.9205043770120955
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8322369557423945,
+          "ratio": 0.8426520562739616,
+          "status": "pass",
+          "upper": 0.8531974974715302
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9136180231060006,
+          "ratio": 0.923095794980596,
+          "status": "pass",
+          "upper": 0.9326718882076989
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8015850744870917,
+          "ratio": 0.8082083573443903,
+          "status": "pass",
+          "upper": 0.8148863666146476
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9306100524898915,
+          "ratio": 0.9366506745927877,
+          "status": "pass",
+          "upper": 0.942730506583104
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8431140240457038,
+          "ratio": 0.8522994255244551,
+          "status": "pass",
+          "upper": 0.8615848984027084
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9236729447872803,
+          "ratio": 0.9316956998229099,
+          "status": "pass",
+          "upper": 0.9397881381795947
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8532149990206968,
+          "ratio": 0.8604786999708689,
+          "status": "pass",
+          "upper": 0.8678042392051244
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9293082580723497,
+          "ratio": 0.9368923448818643,
+          "status": "pass",
+          "upper": 0.9445383254410951
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7750683959588947,
+          "ratio": 0.7786707088320185,
+          "status": "pass",
+          "upper": 0.7822897643024453
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9196515452048147,
+          "ratio": 0.9245752217142277,
+          "status": "pass",
+          "upper": 0.9295252588495708
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8637991666708369,
+          "ratio": 0.8709088678192489,
+          "status": "pass",
+          "upper": 0.8780770870264529
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9346452245463305,
+          "ratio": 0.9408853393010483,
+          "status": "pass",
+          "upper": 0.9471671158875816
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.807779897146388,
+          "ratio": 0.8137131124282979,
+          "status": "pass",
+          "upper": 0.81968990770484
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9694488076014133,
+          "ratio": 0.9786658481171823,
+          "status": "pass",
+          "upper": 0.9879705197024858
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9201959494110123,
+          "ratio": 0.9241940152955069,
+          "status": "pass",
+          "upper": 0.9282094519702414
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9807132056740812,
+          "ratio": 0.9898948680249064,
+          "status": "pass",
+          "upper": 0.9991624912081513
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9365832061716772,
+          "ratio": 0.9414567418951628,
+          "status": "pass",
+          "upper": 0.9463556371919265
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8975579193365375,
+          "ratio": 0.9035189206667111,
+          "status": "pass",
+          "upper": 0.9095195111265586
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7669465862664129,
+          "ratio": 0.7751818570408265,
+          "status": "pass",
+          "upper": 0.7835055559873481
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.897838294004478,
+          "ratio": 0.9084942033924881,
+          "status": "pass",
+          "upper": 0.9192765814393241
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p25",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7628191281534276,
+          "ratio": 0.7687001114538415,
+          "status": "pass",
+          "upper": 0.7746264344203747
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8808663978889896,
+          "ratio": 0.9004397888519549,
+          "status": "pass",
+          "upper": 0.9204481125524013
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p75",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7666763477425721,
+          "ratio": 0.7712057941750652,
+          "status": "pass",
+          "upper": 0.775762000119633
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9017631558190045,
+          "ratio": 0.9142306963309951,
+          "status": "pass",
+          "upper": 0.9268706097830589
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7571777786735712,
+          "ratio": 0.7664700471186074,
+          "status": "pass",
+          "upper": 0.7758763525246938
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionL1Handler-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8951042327990927,
+          "ratio": 0.910693045977302,
+          "status": "pass",
+          "upper": 0.9265533483155448
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionL1Handler-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7361128922384633,
+          "ratio": 0.7451669486849097,
+          "status": "pass",
+          "upper": 0.7543323684004956
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-v1",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9139299297711215,
+          "ratio": 0.9223650661488848,
+          "status": "pass",
+          "upper": 0.9308780548032763
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-v1",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7984473357659573,
+          "ratio": 0.8071298838703064,
+          "status": "pass",
+          "upper": 0.8159068485231332
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeployAccount-v3",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9368487543855913,
+          "ratio": 0.9426487139457439,
+          "status": "pass",
+          "upper": 0.9484845806154933
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeployAccount-v3",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7946969927781199,
+          "ratio": 0.8007074809100624,
+          "status": "pass",
+          "upper": 0.8067634278368822
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-v0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9207927619879983,
+          "ratio": 0.9278151228342222,
+          "status": "pass",
+          "upper": 0.9348910392185544
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-v0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7409921938068309,
+          "ratio": 0.7474067620527179,
+          "status": "pass",
+          "upper": 0.7538768594743845
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-v1",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9161770710757396,
+          "ratio": 0.9226725863157249,
+          "status": "pass",
+          "upper": 0.929214153481222
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-v1",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8622436274914045,
+          "ratio": 0.8719867757776734,
+          "status": "pass",
+          "upper": 0.8818400193264662
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionInvoke-v3",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9241485339487772,
+          "ratio": 0.9463184813854935,
+          "status": "pass",
+          "upper": 0.9690202768437032
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionInvoke-v3",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8213801810682582,
+          "ratio": 0.826516943138293,
+          "status": "pass",
+          "upper": 0.8316858295828531
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "indexes/block-p0",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7176238990659526,
+          "ratio": 0.727845405686008,
+          "status": "pass",
+          "upper": 0.7382125027716537
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/fullSerialized",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7790538317531617,
+          "ratio": 0.7857641259872246,
+          "status": "pass",
+          "upper": 0.7925322186003884
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/allTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7128930608379956,
+          "ratio": 0.7177548297418387,
+          "status": "pass",
+          "upper": 0.722649754806364
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/allReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7175323387105091,
+          "ratio": 0.7299023809093288,
+          "status": "pass",
+          "upper": 0.7424856789235945
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/allPairs",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.746301230442042,
+          "ratio": 0.7530976948486215,
+          "status": "pass",
+          "upper": 0.7599560537376777
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/allEvents",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7596064957798574,
+          "ratio": 0.7651277906754332,
+          "status": "pass",
+          "upper": 0.7706892177940657
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p0/allHashes",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7745564633279659,
+          "ratio": 0.7846374189688938,
+          "status": "pass",
+          "upper": 0.7948495795915707
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "zero_decoder_control",
+      "id": "block/block-p0/lazyAllReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9933910988261043,
+          "ratio": 1.003706775736056,
+          "status": "pass",
+          "upper": 1.014129573789167
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "zero_decoder_control",
+      "id": "block/block-p0/lazyAllTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9971055224512454,
+          "ratio": 1.0058938264852468,
+          "status": "pass",
+          "upper": 1.0147595890089018
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "indexes/block-p50",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8836443986222305,
+          "ratio": 0.893347672431982,
+          "status": "pass",
+          "upper": 0.9031574976132736
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/fullSerialized",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999518513168665,
+          "ratio": 0.9999518513168665,
+          "status": "pass",
+          "upper": 0.9999518513168665
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 1.0021192764431273,
+          "ratio": 1.0082798467106577,
+          "status": "pass",
+          "upper": 1.0144782893422004
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/allTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9419261128967561,
+          "ratio": 0.9511298192618027,
+          "status": "pass",
+          "upper": 0.960423456471418
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/allReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9401401343993049,
+          "ratio": 0.9474429917978235,
+          "status": "pass",
+          "upper": 0.9548025766183847
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/allPairs",
+      "metrics": {
+        "B/op": {
+          "lower": 0.999953722985793,
+          "ratio": 0.999953722985793,
+          "status": "pass",
+          "upper": 0.999953722985793
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9382565949076909,
+          "ratio": 0.9456168343400427,
+          "status": "pass",
+          "upper": 0.9530348118419115
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/allEvents",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9292512076303031,
+          "ratio": 0.9360838459564605,
+          "status": "pass",
+          "upper": 0.9429667236001597
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/allHashes",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8733629209786408,
+          "ratio": 0.8795464461244785,
+          "status": "pass",
+          "upper": 0.8857737514472744
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/lazyAllReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9467840019651493,
+          "ratio": 0.9513818432771337,
+          "status": "pass",
+          "upper": 0.9560020129604112
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/lazyAllTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9478266036043191,
+          "ratio": 0.9536902544176986,
+          "status": "pass",
+          "upper": 0.959590180221388
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/oneTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9407959420282939,
+          "ratio": 0.946417062091341,
+          "status": "pass",
+          "upper": 0.9520717675360332
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/lazyTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9485249842544357,
+          "ratio": 0.9621446782888903,
+          "status": "pass",
+          "upper": 0.9759599349797551
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/oneReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9375845507453195,
+          "ratio": 0.9520687286040322,
+          "status": "pass",
+          "upper": 0.9667766637847658
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/oneStatus",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9107178257452021,
+          "ratio": 0.9168405071662029,
+          "status": "pass",
+          "upper": 0.9230043508733954
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/onePair",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9359677414372608,
+          "ratio": 0.9436063770083315,
+          "status": "pass",
+          "upper": 0.9513073531396635
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p50/lazyReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9512497122270314,
+          "ratio": 0.95545635548929,
+          "status": "pass",
+          "upper": 0.9596816014878317
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "indexes/block-p95",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9869672784512675,
+          "ratio": 0.9981885541645948,
+          "status": "pass",
+          "upper": 1.0095374096177814
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/fullSerialized",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999524342836387,
+          "ratio": 0.9999524342836387,
+          "status": "pass",
+          "upper": 0.9999524342836387
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 1.0016287142080382,
+          "ratio": 1.0067940677445126,
+          "status": "pass",
+          "upper": 1.0119860587732814
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/allTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 0.999946571365814,
+          "ratio": 0.999946571365814,
+          "status": "pass",
+          "upper": 0.999946571365814
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9165452507408428,
+          "ratio": 0.926005283695487,
+          "status": "pass",
+          "upper": 0.9355629574632067
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/allReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999497459842325,
+          "ratio": 0.9999504190769753,
+          "status": "pass",
+          "upper": 0.9999510921701713
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9429080115262823,
+          "ratio": 0.9515617515005195,
+          "status": "pass",
+          "upper": 0.960294913024501
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/allPairs",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999545130023594,
+          "ratio": 0.9999545130023594,
+          "status": "pass",
+          "upper": 0.9999545130023594
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9316829320860243,
+          "ratio": 0.9429066764241382,
+          "status": "pass",
+          "upper": 0.9542656303197409
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/allEvents",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999471448272376,
+          "ratio": 0.9999480536137826,
+          "status": "pass",
+          "upper": 0.9999489624011536
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9386388704258425,
+          "ratio": 0.9454204095660149,
+          "status": "pass",
+          "upper": 0.9522509444110944
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/allHashes",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.7626406207777927,
+          "ratio": 0.7822780134003977,
+          "status": "pass",
+          "upper": 0.8024210533469298
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/lazyAllReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 0.999949391842644,
+          "ratio": 0.9999497320453183,
+          "status": "pass",
+          "upper": 0.9999500722481084
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9552597566175132,
+          "ratio": 0.9625530512536379,
+          "status": "pass",
+          "upper": 0.9699020293269437
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/lazyAllTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999453833783415,
+          "ratio": 0.9999453833783415,
+          "status": "pass",
+          "upper": 0.9999453833783415
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9197990344066035,
+          "ratio": 0.9463857423448274,
+          "status": "pass",
+          "upper": 0.9737409366725249
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/oneTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9699546336497036,
+          "ratio": 0.9790522376290293,
+          "status": "pass",
+          "upper": 0.9882351717828737
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/lazyTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.909236240036692,
+          "ratio": 0.9168089314876328,
+          "status": "pass",
+          "upper": 0.9244446930773186
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/oneReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9714296536228045,
+          "ratio": 0.9816989007477442,
+          "status": "pass",
+          "upper": 0.992076706877569
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/oneStatus",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9794235258470587,
+          "ratio": 0.9849716410134575,
+          "status": "pass",
+          "upper": 0.9905511844446336
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/onePair",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9558330177765348,
+          "ratio": 0.9611265451038775,
+          "status": "pass",
+          "upper": 0.9664493886727019
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p95/lazyReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9219351315123631,
+          "ratio": 0.940189838621745,
+          "status": "pass",
+          "upper": 0.9588059966838665
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "indexes/block-p100",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9832972435061105,
+          "ratio": 0.9990390765451596,
+          "status": "pass",
+          "upper": 1.0150329242309148
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/fullSerialized",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999933029975879,
+          "ratio": 0.9999933479209357,
+          "status": "pass",
+          "upper": 0.9999933928442857
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9634065273052507,
+          "ratio": 0.9829489929809341,
+          "status": "pass",
+          "upper": 1.002887872791109
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/allTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999914679699771,
+          "ratio": 0.9999915395525533,
+          "status": "pass",
+          "upper": 0.9999916111351346
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9354729728110146,
+          "ratio": 0.9555885437414426,
+          "status": "pass",
+          "upper": 0.9761366618491999
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/allReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999874247054237,
+          "ratio": 0.9999874247054237,
+          "status": "pass",
+          "upper": 0.9999874247054237
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9288500775276981,
+          "ratio": 0.9480264338493641,
+          "status": "pass",
+          "upper": 0.9675986911357523
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/allPairs",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999925068841249,
+          "ratio": 0.999992574757776,
+          "status": "pass",
+          "upper": 0.9999926426314317
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9417328471250831,
+          "ratio": 0.948261994354264,
+          "status": "pass",
+          "upper": 0.954836408947401
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/allEvents",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999860414284372,
+          "ratio": 0.999986390859392,
+          "status": "pass",
+          "upper": 0.9999867402904689
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9113376795493217,
+          "ratio": 0.9209032045202278,
+          "status": "pass",
+          "upper": 0.9305691305499537
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/allHashes",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999833491516392,
+          "ratio": 0.9999833491516392,
+          "status": "pass",
+          "upper": 0.9999833491516392
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.8869646694127103,
+          "ratio": 0.9005349263670546,
+          "status": "pass",
+          "upper": 0.914312803624842
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/lazyAllReceipts",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999873885245153,
+          "ratio": 0.9999875739329488,
+          "status": "pass",
+          "upper": 0.9999877593414166
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9380677796899679,
+          "ratio": 0.9431496573131612,
+          "status": "pass",
+          "upper": 0.9482590654418642
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/lazyAllTransactions",
+      "metrics": {
+        "B/op": {
+          "lower": 0.999991533409087,
+          "ratio": 0.9999916189784381,
+          "status": "pass",
+          "upper": 0.9999917045477966
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9347255926901284,
+          "ratio": 0.9644614100091221,
+          "status": "pass",
+          "upper": 0.9951431935438088
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/oneTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9820500930630538,
+          "ratio": 0.9920128208057422,
+          "status": "pass",
+          "upper": 1.00207661869218
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/lazyTransaction",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9522871833827923,
+          "ratio": 0.9763711657877102,
+          "status": "pass",
+          "upper": 1.0010642482819732
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/oneReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9819779263544717,
+          "ratio": 0.9988719624871578,
+          "status": "pass",
+          "upper": 1.0160566451294983
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/oneStatus",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9706609796312099,
+          "ratio": 0.9907616022148998,
+          "status": "pass",
+          "upper": 1.0112784721153465
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/onePair",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.972544406701565,
+          "ratio": 0.9865445961171798,
+          "status": "pass",
+          "upper": 1.0007463242001526
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "block/block-p100/lazyReceipt",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9402673449578576,
+          "ratio": 0.9453430373509756,
+          "status": "pass",
+          "upper": 0.950446129029422
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/class-cairo0-control",
+      "metrics": {
+        "B/op": {
+          "lower": 0.9999587747866595,
+          "ratio": 0.9999587747866595,
+          "status": "pass",
+          "upper": 0.9999587747866595
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.9872860821080413,
+          "ratio": 0.9910256634901133,
+          "status": "pass",
+          "upper": 0.9947794094280995
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "record/transactionDeclare-v2",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.900355422001445,
+          "ratio": 0.9093634210564667,
+          "status": "pass",
+          "upper": 0.9184615445723318
+        }
+      },
+      "status": "pass"
+    },
+    {
+      "classification": "compatible_fast",
+      "id": "projection/transactionHash/transactionDeclare-v2",
+      "metrics": {
+        "B/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "allocs/op": {
+          "lower": 1.0,
+          "ratio": 1.0,
+          "status": "pass",
+          "upper": 1.0
+        },
+        "ns/op": {
+          "lower": 0.863692022949266,
+          "ratio": 0.8669686349349203,
+          "status": "pass",
+          "upper": 0.870257677492838
+        }
+      },
+      "status": "pass"
+    }
+  ]
+}

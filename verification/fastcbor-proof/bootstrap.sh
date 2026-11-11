@@ -14,6 +14,8 @@ if [[ $(git -C "$poc_tools/perennial" rev-parse HEAD) != "$revision" ]]; then
 fi
 (cd "$poc_tools/perennial" && etc/setup-hooks.sh)
 mkdir -p "$poc_tools/bin"
+python3 -m venv "$poc_tools/bench-venv"
+"$poc_tools/bench-venv/bin/pip" install numpy==2.2.6 scipy==1.15.3
 (cd "$poc_tools/perennial" && go build -o "$poc_tools/bin/goose" ./goose/cmd/goose)
 (cd "$poc_tools/perennial" && go build -o "$poc_tools/bin/proofgen" ./goose/cmd/proofgen)
 export ELAN_HOME="${ELAN_HOME:-$poc_tools/elan}"

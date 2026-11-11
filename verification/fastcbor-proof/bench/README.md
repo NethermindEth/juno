@@ -80,3 +80,17 @@ the original source revision and smoke evidence are available, before making fix
 later source changes deliberately invalidate verification against the current tree.
 The checker establishes artifact consistency, not independent proof of CPU isolation
 or the benchmark process's actual environment.
+
+The completed first run is saved in `../results/performance-66d35a944.zip`.
+It passes at the planned twenty-round look. To recompute archived evidence:
+
+```sh
+verification/fastcbor-proof/.tools/bench-venv/bin/python \
+  verification/fastcbor-proof/bench/check.py --archive \
+  verification/fastcbor-proof/results/performance-66d35a944.zip
+```
+
+Archive mode verifies the same source, overlay, raw sample and decision evidence,
+but explicitly does not recheck executable files: only their recorded hashes are
+saved. The original run directory passed the full executable hash check before
+archiving. The summary JSON and archive hash are included in the proof audit.

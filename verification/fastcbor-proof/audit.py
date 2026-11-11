@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 here = Path(__file__).resolve().parent
@@ -48,6 +49,21 @@ inputs += [here / "smoke/run.py", here / "smoke/frozen_test.go.txt", here / "res
 compatibility_smoke = json.loads((here / "results/compatibility-smoke.json").read_text())
 inputs += [here / "results/compatibility-smoke-race-checkptr.json"]
 race_checkptr_smoke = json.loads((here / "results/compatibility-smoke-race-checkptr.json").read_text())
+inputs += list((here / "bench").glob("*.py"))
+inputs += [here / "bench/frozen_bench_test.go.txt", here / "results/performance-gate.json", here / "results/performance-66d35a944.zip"]
+performance_gate = json.loads((here / "results/performance-gate.json").read_text())
+if performance_gate["archive_sha256"] != hashlib.sha256((here / "results" / performance_gate["archive"]).read_bytes()).hexdigest():
+    sys.exit("performance archive hash differs from its summary")
+with zipfile.ZipFile(here / "results" / performance_gate["archive"]) as archive:
+    measured = json.loads(archive.read("report.json"))
+if (performance_gate["status"] != measured["status"]
+    or performance_gate["rounds"] != measured["looks"][-1]["rounds"]
+    or performance_gate["pairs"] != len(measured["samples"])
+    or performance_gate["raw_logs"] != 2 * len(measured["samples"])
+    or performance_gate["cases"] != measured["looks"][-1]["cases"]
+    or performance_gate["candidate_go_revision"] != measured["candidate"]["revision"]
+    or performance_gate["baseline"] != measured["baseline"]["revision"]):
+    sys.exit("performance summary differs from its measured report")
 inputs += list((here / "feasibility/maps").glob("*.go"))
 inputs += list((here / "feasibility/interfaces").glob("*.go"))
 inputs += [here / "repros/FeltMap.lean", here / "repros/MapKeyEquality.lean"]
@@ -90,7 +106,7 @@ for name, axioms in found.items():
         axiom_sets.append(axioms)
     theorem_sets[name] = axiom_sets.index(axioms)
 report = {
-    "status": "pilot only; full decoder correctness and performance gates pending",
+    "status": "full decoder correctness remains pending; frozen performance gate passes for the recorded sources",
     "perennial": rev,
     "go": subprocess.check_output(["go", "version"], text=True).strip(),
     "go_target": subprocess.check_output(["go", "env", "GOOS", "GOARCH", "GOAMD64"], text=True).splitlines(),
@@ -148,7 +164,7 @@ report = {
         "entries": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
         "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
         "proof_status": "translated implementations; complete independent projection specifications, NextWanted contract, table initialization and public entry proofs remain open",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_classes": {
         "generator": "utils/cbor/cmd/cborgen/classes.go",
@@ -163,7 +179,7 @@ report = {
         "json_opaque_type_dependencies": sorted({ax for xs in found.values() for ax in xs if ax.startswith("Perennial.encoding.json.")}),
         "json_opaque_boundary": "Goose package Assumptions also mention unrelated JSON package types, so their generated opaque type/underlying/zero declarations occur in theorem dependencies; they are reported explicitly, not treated as proved layouts. The RawMessage alias and Value slice used by the decoder are concrete. No JSON method implementation or correctness contract is assumed",
         "proof_status": "translated concrete layouts and implementations; complete independent class specifications, recursive and slice ownership contracts, metadata initialization and public API proofs remain open",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_state_update": {
         "generator": "utils/cbor/cmd/cborgen/state.go",
@@ -174,7 +190,7 @@ report = {
         "behavior": "typed StateUpdate/StateDiff field dispatch; ordinary Go felt-keyed maps; last duplicate map key replaces the complete prior value; nil/empty/nested map and pointer distinctions; shared value arrays across inner storage maps with a typed append/make specialization of the planner's slices.Grow(nil, n) capacity policy; fixed-array pointer conversions for migrated class hashes; zero guard, exact suffix, owned output and cleanup",
         "growth_boundary": "pinned slices library has no translated Grow body; the production helper instead uses its equivalent positive-count nil-slice append/make path, directly translated with the decoder; no trusted library body or assumed Grow contract was added",
         "proof_status": "translated implementations and concrete layouts; complete independent state/map specifications, buffer ownership/growth, metadata initialization and public APIs remain open; the pinned array-value equality gap still blocks felt-key map proofs",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_transactions": {
         "generator": "utils/cbor/cmd/cborgen/transactions.go",
@@ -185,7 +201,7 @@ report = {
         "behavior": "explicit tag dispatch and typed pointer-to-interface boxing; flattened value embedding; named transaction versions and uint32 modes; ordinary Go resource maps with complete replacement on duplicate keys; value-felt hash projection with first-wins selection; zero guards including typed-nil interface rejection, exact suffix, owned output and cleanup",
         "tag_boundary": "CBORTransactionTags is an explicit by-value input to the direct API; registry initialization captures actual encoded tags and installs a closure over the validated distinct profile; registry/tag assignment and routing adapter are outside proof scope; independent transaction specification and the connection to the application tag profile remain open",
         "proof_status": "translated concrete layouts and implementations; complete independent transaction/map/projection specifications, helpers, initialization and API contracts remain open",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_receipts": {
         "generator": "utils/cbor/cmd/cborgen/receipts.go",
@@ -195,7 +211,7 @@ report = {
         "entries": ["TransactionReceipt", "*TransactionReceipt", "receiptExecutionStatusProjection", "receiptEventsProjection"],
         "behavior": "typed nested records, felt-value slices, bool/string/byte-backed FeeUnit and fixed byte-array addresses; bounded shared event/message slice storage; execution resource children allocated with their parent; original full-record duplicate rejection and projection first-wins policy; zero guards, exact suffix, owned output and failure cleanup",
         "proof_status": "translated implementations and concrete layouts; complete independent receipt specifications, nested slice/record contracts, table initialization and public API proofs remain open",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_block_indexes": {
         "generator": "utils/cbor/cmd/cborgen/integer_records.go",
@@ -204,7 +220,7 @@ report = {
         "behavior": "source-derived integer keys and direct typed field dispatch; first occurrence wins; unknown unsigned, negative and UTF-8 text keys skipped; signed []int with null/undefined elements zeroed; nil versus empty slices; exact suffix, owned output, zero guard and parse/trailing-byte cleanup",
         "target": "64-bit int, matching pinned linux/amd64",
         "proof_status": "translated concrete type, readers and helpers; independent index-record/integer-slice relations and complete API proofs remain open",
-        "performance": "no timing or performance gate result; compatibility evidence only",
+        "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
     "initialization_boundary": {
@@ -259,11 +275,21 @@ report = {
         },
         "status": "saved no-fallback corpus compatibility evidence for the recorded Go source hashes; not a formal equivalence proof or performance-gate result",
     },
+    "performance_gate": {
+        "path": "verification/fastcbor-proof/results/performance-gate.json",
+        "archive": "verification/fastcbor-proof/results/" + performance_gate["archive"],
+        "status": performance_gate["status"],
+        "rounds": performance_gate["rounds"],
+        "compatible_decoder_cases": performance_gate["compatible_decoder_cases"],
+        "pairs": performance_gate["pairs"],
+        "checker": "bench/check.py --archive results/performance-66d35a944.zip (run by check.sh)",
+        "scope": "source-specific empirical performance; 177 comparable decoder cases pass all three metrics at the prespecified twenty-round look; six removed projections excluded and two zero-decoder controls reported separately; raw logs and decisions are rechecked; binary hashes were checked locally and are recorded, but executables are not archived",
+    },
     "theorem_axiom_set": theorem_sets,
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. Projection, integer-key index, receipt, transaction, state-update and class implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction, state and class table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. Projection, integer-key index, receipt, transaction, state-update and class implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction, state and class table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)
