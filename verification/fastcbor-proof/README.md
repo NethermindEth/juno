@@ -154,9 +154,9 @@ complete conditional all-input contracts. Its enclosing ResourceBounds map now h
 an independent total/unique specification and a complete conditional all-input
 implementation contract, including every key/record failure, exact cursor/depth,
 private partial ownership and old-destination preservation. The direct L1-handler
-transaction record now also has complete conditional all-input/all-owned-prior-value
-contracts; the other four transaction variants and enclosing tagged interface/public
-API composition remain open.
+transaction and Deploy transaction records now also have complete conditional
+all-input/all-owned-prior-value contracts; Declare, Invoke and DeployAccount records
+and enclosing tagged interface/public API composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6616,3 +6616,58 @@ The scope remains pinned 64-bit partial correctness/model safety, excluding
 compiler/runtime correctness, OOM and termination. This is a conditional direct
 record contract, not the enclosing Transaction interface API or a complete library
 proof. No formal FX-equivalence or strict ignored-CBOR-validity claim is made.
+
+
+## Complete conditional Deploy transaction record
+
+`DeployValues.lean` independently specifies TransactionHash, ContractAddressSalt,
+ContractAddress, ClassHash, ConstructorCallData and Version in the actual Go
+field order. Five fields have nullable four-limb values; ConstructorCallData is a
+nullable felt-value slice with its real contextual count guard. Nil, allocated zero
+and allocated empty remain distinct. The named version uses the previously proved
+storage contract; no version restriction, hash recomputation or contract-address
+derivation is added to decoding.
+
+`DeployOwnership.lean` and the field-complete/refinement modules connect every
+abstract field to its actual concrete cell and child ownership. Field failures
+retain the old destination and restore the cursor; successful replacement preserves
+all unrelated cells and children. All value-helper proofs are free of unproved
+helper-correctness premises. The key/table/seen proofs connect the independent six
+names to the initialized Deploy transaction metadata, its actual encoded ordering,
+caches, case folding and duplicate mask.
+
+The pair/record specifications classify every input and prove unique successful
+value/suffix or failed partial-record/consumption/offset/depth outcomes.
+`DeployMapValid.lean`, `DeployMapRejected.lean`, `DeployBoundary.lean` and
+`DeployRecordComplete.lean` compose the actual generated reader for **every byte
+input and owned prior record**, including arbitrary field order, unknown-value
+Skip, duplicate known-key rejection, all field failures and opening/nullish cases.
+Success owns the exact decoded record, unchanged input and suffix with restored
+depth. Errors retain earlier successful updates, roll back the failed helper and
+own the actual diagnostic with the specified consumed position and retained map
+depth. Direct-record null/undefined preserves all prior contents.
+
+This completes the second of five conditional transaction variant records, after
+L1HandlerTransaction. DeclareTransaction, InvokeTransaction and DeployAccountTransaction
+remain, including their resource maps, DA modes and embedded-record access, followed
+by tagged interface dispatch, transaction-hash projection and public APIs. The
+existing `Utf8ValidatorContract` remains in eight new key/record composition results.
+Header's unapplied trusted-model correction, the independent felt-key map equality
+gap, state updates and class decoding remain open. No new helper premise, production
+Go edit or trusted-semantics change was introduced.
+
+Validation: full `./check.sh` passed **2,672 build jobs** and audited **2,752 pilot
+theorems**, with **873 project/artifact hashes** and **46 stdlib source hashes**.
+An independent comparison against `7aad33d80` confirmed exactly **79 new results in
+17 modules**, unchanged dependency sets for all 2,673 prior results, unchanged total
+axiom union and every recorded hash. No result depends on sorryAx or native evaluation
+axioms. Direct UTF-8 premises now number 259 validator results and 2 word-helper
+results. Regeneration, manifest/feasibility and archived performance checks passed.
+Unchanged Go sources retain the frozen ordinary/race/checkptr and performance
+evidence; original, baseline and pinned Perennial worktrees remain unchanged.
+
+The scope remains pinned 64-bit partial correctness/model safety, excluding
+compiler/runtime correctness, OOM and termination. This does not yet prove
+DeployAccountTransaction or the enclosing Transaction interface API. Unconditional
+Header and whole-library gates remain open; no FX-equivalence or strict validity of
+ignored CBOR content is claimed.

@@ -335,6 +335,27 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "deploy_transaction": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadDeployTransaction; core/transaction.go: DeployTransaction",
+        "theorems": [
+            "deployField_classify",
+            "deployChildren_zero",
+            "wp_deploy_field_complete",
+            "deployTable_names",
+            "wp_nextDeployKey_valid",
+            "deployRecordSpec_total_unique",
+            "wp_readDeploy_map_valid",
+            "wp_readDeploy_map_rejected",
+            "wp_readDeploy_record_complete"
+        ],
+        "specification_proved": "independent identities and values for TransactionHash, ContractAddressSalt, ContractAddress, ClassHash, ConstructorCallData and Version in actual declaration order; five nullable four-limb fields and nullable felt-value slice with contextual count guard; version storage is decoded without protocol-version validation; all-input field/pair/record classification, unique success/value/suffix and rejection/partial-record/offset/depth outcomes and disjointness; arbitrary field order, ASCII case folding, unknown-value Skip, known duplicate rejection and direct nullish preservation",
+        "implementation_proved": "actual six-field ownership, borrowed field cells and reconstruction preserving every unrelated child; actual felt, named-version and felt-value-slice calls; initialized transaction schema matches independent field names, encoded order/cache and seen mask; complete successful and rejected generated loops and direct record composition on every input and owned prior record; unchanged input, exact suffix/restored depth on success and exact partial state/owned diagnostic/retained map depth on failure",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
+        ],
+        "remaining": "DeclareTransaction, InvokeTransaction and DeployAccountTransaction records; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
+        "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
+    },
     "l1_handler_transaction": {
         "implementation": "core/cbor_transactions_generated.go: cborReadL1HandlerTransaction; core/transaction.go: L1HandlerTransaction",
         "theorems": [
@@ -354,7 +375,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "DeclareTransaction, DeployTransaction, InvokeTransaction and DeployAccountTransaction records; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
+        "remaining": "DeclareTransaction, InvokeTransaction and DeployAccountTransaction records; DeployTransaction now separately has a complete conditional record contract; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
         "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "resource_bounds_map": {
