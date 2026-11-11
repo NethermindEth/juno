@@ -135,8 +135,9 @@ helper premise. The direct L2ToL1Message record now also has a complete conditio
 all-input/all-owned-initial-value contract and an independently unique outcome.
 Its enclosing pointer slice now also has a complete conditional all-input contract,
 including shared allocations, private partial failures and independently unique
-outcomes. L1ToL2Message, resource child records and full receipt composition
-remain open.
+outcomes. L1ToL2Message and its pointer wrapper now also have complete conditional
+all-input contracts and independently unique outcomes. Resource child records
+and full receipt composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5885,3 +5886,58 @@ worktrees and pinned Perennial remain clean at their recorded revisions. This
 is still partial correctness/model safety on the pinned 64-bit target, excluding
 compiler/runtime implementation correctness, OOM and termination, and it does
 not close the unconditional Header or whole-library gates.
+
+
+### Complete L1ToL2Message record and pointer wrapper
+
+The independent `L1MessageValues/Keys/Pairs/RecordSpec` relations cover all five
+actual fields: inline address `From`, nullable felt pointers `Nonce`, `Selector`
+and `To`, and nullable felt-value `Payload`. They retain the exact null/undefined
+semantics of each helper, contextual nested count guards, nil/empty distinctions,
+ASCII-folded field identities, arbitrary ordering, ignored fields and duplicate
+known-field rejection. The uniqueness modules classify every input at supported
+depth and prove independent success/rejection separation and unique outcomes,
+including partial values, consumption, diagnostic offset and entered-map state.
+
+`L1MessageOwnership.lean` checks actual field access and reconstruction of the
+complete struct with its child allocations. All five field-reader contracts are
+proved without a UTF-8 helper premise. The table and seen/key modules connect the
+actual initialized five-field receipt metadata to the independent names, exact
+indexes, cached words and seen bits. Successful/rejected generated loops and
+opening/nullish branches compose into a complete direct-record contract for
+every byte input and arbitrary owned initial values, preserving the input and
+owning exact output or retained partial state and diagnostics.
+
+`L1MessagePointerSpec.lean` separately specifies the actual pointer wrapper:
+null/undefined clears the destination; every nonnil parse starts from a newly
+allocated zero record. This differs from direct-record nullish preservation.
+`L1MessagePointerRead.lean` proves the real allocation, record call and final
+publication. On error the old destination pointer remains unchanged and the
+failed partial record remains privately owned. `L1MessagePointerComplete.lean`
+combines these into an all-input contract returning the independently unique
+outcome, exact cursor/depth and suffix, unchanged input, and owned output or
+private partial allocation and diagnostic.
+
+**Eleven new key/record/pointer composition theorems explicitly retain the
+existing `Utf8ValidatorContract`.** No additional helper premise, allocation
+assumption or trusted-model change was introduced. Both message dependencies
+needed by TransactionReceipt are now conditionally composed, including the
+L2ToL1Message pointer slice from the previous checkpoint. Next are the resource
+records (`BuiltinInstanceCounter`, `DataAvailability`, `GasConsumed` and
+`ExecutionResources`) and their required wrappers, followed by the full receipt
+and public entry contracts. Header's unapproved shared UTF-8 model correction
+and the independent felt-key map equality gap remain unresolved.
+
+Full regeneration/check passed in `check-l1message-full.log`: **2483 build jobs,
+2008 audited theorems, 684 project/artifact hashes and 46 directly translated
+stdlib source hashes**. An independent comparison with checkpoint `5bbc029e9`
+confirmed exactly 88 new results, unchanged dependency sets for all 1920 prior
+theorems and an unchanged axiom union. All recorded hashes were recomputed;
+there are no admission or native-evaluation axioms. Direct helper premise counts
+are 166 for `Utf8ValidatorContract` and two for `Utf8WordWindowContract`.
+Saved source-specific performance/compatibility evidence was revalidated by the
+full check. No production Go changed, so no new timing run was needed. Original
+and baseline worktrees and pinned Perennial remain clean at their recorded
+revisions. The claim remains pinned 64-bit partial correctness/model safety,
+excluding compiler/runtime implementation correctness, OOM and termination;
+unconditional Header and whole-library gates remain open.

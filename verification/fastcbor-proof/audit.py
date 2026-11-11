@@ -332,8 +332,25 @@ report = {
         "specification_proved": "every destination length and byte input classified with unique outcome; exactly one complete definite byte-string payload matching the destination length; all wire widths and arbitrary byte contents; nullish inputs rejected by this public primitive; expected-head, truncated-payload and complete-length-mismatch precedence; success prefix/value/suffix uniqueness, rejection reason uniqueness including exact actual length, and disjoint success/rejection",
         "implementation_proved": "actual payload read and length check followed by modeled copy for separately owned destination/input; successful copy replaces exactly destination bytes and restores full input ownership, exact nonwrapping consumption/suffix and cursor depth; every failure preserves destination bytes and restores cursor; length mismatch owns actual length diagnostic arguments; real initialized error categories; complete public primitive contract returns independently unique outcome",
         "unproved_helper_premises": [],
-        "remaining": "containing message/receipt records; typed address wrapper now separately proved",
+        "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
+    },
+    "l1_to_l2_message": {
+        "implementation": "core/cbor_receipts_generated.go: cborReadL1ToL2Message and cborReadL1ToL2MessagePointer; core/transaction.go: L1ToL2Message",
+        "specification": [
+            "verification/fastcbor-proof/ProofCheck/L1MessageValues.lean",
+            "verification/fastcbor-proof/ProofCheck/L1MessageKeys.lean",
+            "verification/fastcbor-proof/ProofCheck/L1MessagePairs.lean",
+            "verification/fastcbor-proof/ProofCheck/L1MessageRecordSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/L1MessageRecordUnique.lean",
+            "verification/fastcbor-proof/ProofCheck/L1MessagePointerSpec.lean"
+        ],
+        "theorems": ["l1MessageField_classify", "l1MessageRecordSpec_total_unique", "l1MessageChildren_zero", "wp_l1Message_field_complete", "l1MessageTable_names", "l1MessageInlineFieldTable", "wp_nextL1MessageKey_valid", "wp_readL1Message_map_valid", "wp_readL1Message_map_rejected", "wp_readL1Message_record_complete", "l1MessagePointerSpec_total_unique", "wp_readL1MessagePointer_valid", "wp_readL1MessagePointer_rejected", "wp_readL1MessagePointer_complete"],
+        "specification_proved": "independent inline sender address, nonce/selector/recipient felt pointers and nullable felt-value payload; contextual nested slice guards; ASCII folded key identities; arbitrary field order and prior values; unknown values skipped and repeated known fields rejected; independently classified unique record and pointer outcomes, exact suffixes, partial values, consumed/diagnostic offsets and entered-map state; pointer nullish clears while direct-record nullish preserves contents, nonnil pointer decoding starts from zero",
+        "implementation_proved": "actual access/update and whole struct/child ownership for all five fields; all five field calls complete without UTF-8 premises; actual initialized five-field metadata and exact seen bits; NextField valid/duplicate/rejected cases; generated valid/rejected record loops, nullish/opening branches and complete all-input direct contract for arbitrary owned initial values; actual pointer wrapper clears on nullish, otherwise allocates a zero concrete record and publishes only after success; failed allocation remains privately owned and prior destination pointer unchanged, with exact initialized diagnostic and cursor/depth; complete pointer contract returns independently unique outcome",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "enclosing full TransactionReceipt composition",
+        "scope": "complete conditional direct-record and pointer-wrapper contracts under pinned 64-bit partial-correctness/model-safety semantics; shared UTF-8 premise inherited only through key/record composition; no new helper assumption, production Go change or trusted semantics repair; compiler/runtime correctness, OOM and termination excluded"
     },
     "l2_to_l1_message_pointers": {
         "implementation": "core/cbor_receipts_generated.go: cborReadL2ToL1MessagePointers",
@@ -378,7 +395,7 @@ report = {
         "specification_proved": "every byte input and prior array has an independently classified unique result; null/undefined preserve old value; otherwise exactly twenty bytes in a definite byte string, with all supported head widths and arbitrary contents; success prefix/value/suffix uniqueness and disjoint rejection; failure reasons inherit precise BytesInto precedence",
         "implementation_proved": "actual Null branch and named-array full slicing followed by checked BytesInto; array/slice ownership equivalence for the same cells, actual owned-array length supplies twenty-byte destination size; all successes return exact owned output, nonwrapping consumption/suffix and unchanged input/depth; all errors preserve entire old array and cursor with initialized category and owned diagnostic; complete all-input contract returns independently unique outcome",
         "unproved_helper_premises": [],
-        "remaining": "L1ToL2Message and full receipt; direct L2ToL1Message and its pointer slice are now conditionally proved",
+        "remaining": "full receipt; both message records and their pointer/pointer-slice wrappers are now conditionally proved",
         "scope": "pinned 64-bit partial correctness/model safety; named-array slice dispatch is derived from existing array and underlying-type rules with a proof-local tagged adapter, not a new semantic assumption or trusted-model change; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded"
     },
     "typed_boolean": {
