@@ -4582,7 +4582,7 @@ assumed helper contracts. They introduce no UTF-8 premise.
 
 Concrete field access/update and field-call contracts, generated record-loop
 proofs, and composition through the public First APIs remain. The existing shared
-UTF-8 premise and separately approved trusted-model repair remain unresolved, as
+UTF-8 premise and unapproved trusted-model repair remain unresolved, as
 does the felt-key map equality gap. No Go or pinned semantics changed.
 
 Full regeneration and audit pass in `check-header-projection-ownership-full.log`:
