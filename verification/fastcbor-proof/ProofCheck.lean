@@ -452,3 +452,7 @@ import ProofCheck.BytesIntoSpec
 import ProofCheck.BytesIntoRead
 import ProofCheck.BytesIntoMismatch
 import ProofCheck.BytesIntoComplete
+import ProofCheck.AddressSpec
+import ProofCheck.AddressOwnership
+import ProofCheck.AddressRead
+import ProofCheck.AddressComplete

@@ -332,8 +332,23 @@ report = {
         "specification_proved": "every destination length and byte input classified with unique outcome; exactly one complete definite byte-string payload matching the destination length; all wire widths and arbitrary byte contents; nullish inputs rejected by this public primitive; expected-head, truncated-payload and complete-length-mismatch precedence; success prefix/value/suffix uniqueness, rejection reason uniqueness including exact actual length, and disjoint success/rejection",
         "implementation_proved": "actual payload read and length check followed by modeled copy for separately owned destination/input; successful copy replaces exactly destination bytes and restores full input ownership, exact nonwrapping consumption/suffix and cursor depth; every failure preserves destination bytes and restores cursor; length mismatch owns actual length diagnostic arguments; real initialized error categories; complete public primitive contract returns independently unique outcome",
         "unproved_helper_premises": [],
-        "remaining": "typed 20-byte eth.Address array-to-slice ownership bridge, null/undefined-preserving wrapper and containing message/receipt records",
-        "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; this checkpoint does not prove the typed address wrapper"
+        "remaining": "containing message/receipt records; typed address wrapper now separately proved",
+        "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
+    },
+    "typed_address": {
+        "implementation": "core/cbor_readers.go: cborReadAddress; l1/eth/address.go: Address [20]byte",
+        "specification": "verification/fastcbor-proof/ProofCheck/AddressSpec.lean",
+        "implementation_proofs": [
+            "verification/fastcbor-proof/ProofCheck/AddressOwnership.lean",
+            "verification/fastcbor-proof/ProofCheck/AddressRead.lean",
+            "verification/fastcbor-proof/ProofCheck/AddressComplete.lean"
+        ],
+        "theorems": ["addressSpec_total_unique", "address_slice_owned", "address_slice_step", "wp_readAddress_valid", "wp_readAddress_rejected", "wp_readAddress_complete"],
+        "specification_proved": "every byte input and prior array has an independently classified unique result; null/undefined preserve old value; otherwise exactly twenty bytes in a definite byte string, with all supported head widths and arbitrary contents; success prefix/value/suffix uniqueness and disjoint rejection; failure reasons inherit precise BytesInto precedence",
+        "implementation_proved": "actual Null branch and named-array full slicing followed by checked BytesInto; array/slice ownership equivalence for the same cells, actual owned-array length supplies twenty-byte destination size; all successes return exact owned output, nonwrapping consumption/suffix and unchanged input/depth; all errors preserve entire old array and cursor with initialized category and owned diagnostic; complete all-input contract returns independently unique outcome",
+        "unproved_helper_premises": [],
+        "remaining": "containing L1ToL2Message, L2ToL1Message and full receipt records",
+        "scope": "pinned 64-bit partial correctness/model safety; named-array slice dispatch is derived from existing array and underlying-type rules with a proof-local tagged adapter, not a new semantic assumption or trusted-model change; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded"
     },
     "typed_boolean": {
         "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",

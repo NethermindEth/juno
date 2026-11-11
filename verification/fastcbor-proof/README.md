@@ -129,9 +129,10 @@ for every byte input at any valid cursor position, including all integer forms,
 owned output, exact consumption and every specified rejection/rollback. Its
 head, payload, magnitude, category identity and `errors.Is` dependencies are
 proved under the documented pinned model. See “Complete public BigInt decoder”.
-The typed FeeUnit reader and public `Cursor.BytesInto` now also have complete
-all-input contracts with independently unique outcomes and no UTF-8 helper
-premise. The typed address wrapper and remaining receipt child records are open.
+The typed FeeUnit and address readers and public `Cursor.BytesInto` now also have
+complete all-input contracts with independently unique outcomes and no UTF-8
+helper premise. The remaining message/resource child records and full receipt
+composition are open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5726,3 +5727,54 @@ admission or native-evaluation axioms. The full check revalidated saved
 compatibility/race/checkptr evidence and the archived passing performance gate
 against unchanged Go sources. Original, baseline and pinned trusted checkouts
 remain clean at their recorded revisions.
+
+
+### Complete typed address decoder on arbitrary inputs
+
+`AddressSpec.lean` defines the independent contract for the existing
+`cborReadAddress` helper. Null and undefined consume one byte while preserving
+its prior array. Every other successful input is a complete definite byte string
+of exactly twenty bytes, accepting all supported head widths and arbitrary byte
+contents. The specification classifies every input, proves unique successful
+prefixes/values/suffixes, separates success from rejection, and yields a unique
+complete result. Failures retain the byte-string primitive's diagnostic precedence:
+head/type/tag rejection, truncated payload, then complete payload size mismatch.
+
+`AddressOwnership.lean` proves that an owned `eth.Address` array and its full
+slice own the same twenty byte cells. Its second theorem derives named-array
+slicing from the existing pinned array and underlying-type rules. A proof-local
+tagged adapter makes the existing rule available to named-type dispatch; it
+introduces no axiom and changes no trusted source. This is separate from the
+unresolved generic slice-index defect affecting Header's UTF-8 helper. The
+implementation obtains the actual array length from ownership rather than
+assuming every arbitrary model array has a valid length.
+
+`AddressRead.lean` checks the actual translated nullish branch and array slicing
+followed by `BytesInto`, for every independent success and rejection.
+`AddressComplete.lean` composes these into `wp_readAddress_complete`: every byte
+input at a valid cursor position and every owned old array returns the uniquely
+specified result. Success owns the exact decoded array, preserves the input and
+cursor depth, and has nonwrapping consumption with the exact suffix. Rejections
+preserve the entire old array and cursor and retain the initialized error category
+and owned diagnostic arguments. There is **no UTF-8 or additional helper-correctness
+premise** in this address contract.
+
+Full regeneration/check passed in `check-address-full.log`: **2435 build jobs,
+1812 audited theorems, 636 project/artifact hashes and 46 directly translated
+stdlib source hashes**. An independent comparison with checkpoint `265cd39f7`
+confirmed exactly 11 new results, unchanged dependency sets for all 1801 prior
+theorems and an unchanged axiom union. No admission or native-evaluation axiom was
+introduced. Direct shared-helper premise counts remain 142 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`. All recorded hashes
+were independently recomputed. The source-specific saved performance/compatibility
+evidence was revalidated by the full check; no new Go or timing run was needed
+because production Go is unchanged. Original/baseline worktrees and pinned
+Perennial remain clean at their recorded revisions.
+
+Next: compose the remaining receipt child records, including the two message
+records that use addresses, resource counters and execution resources, then the
+full receipt. Header's unapproved trusted-model correction and the separate
+felt-key map equality gap remain unresolved. This checkpoint does not close the
+unconditional Header or whole-library gates. The claim remains partial correctness
+and model safety on the pinned 64-bit target, excluding compiler/runtime
+implementation correctness, OOM and termination.
