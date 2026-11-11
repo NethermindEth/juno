@@ -276,8 +276,35 @@
       "feltValuesSpec_total_unique"
     ],
     "unproved_helper_premises": [],
-    "pending": "Event record and event-pointer slice specification, ownership, initialization and implementation composition; containing receipt/projection contracts",
+    "pending": "Event generated record loop and event-pointer slice specification/ownership/implementation composition; containing receipt/projection contracts",
     "scope": "complete felt-value slice helper and both typed field readers against the independent Juno application relation, including initialization and outcome uniqueness; not a complete Event or receipt decoder contract; unchanged production Go and trusted semantics; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination"
+  },
+  "receipt_initialization": {
+    "proofs": [
+      "verification/fastcbor-proof/ProofCheck/ReceiptState.lean",
+      "verification/fastcbor-proof/ProofCheck/ReceiptFields.lean",
+      "verification/fastcbor-proof/ProofCheck/ReceiptInitialize.lean",
+      "verification/fastcbor-proof/ProofCheck/ReceiptOpen.lean"
+    ],
+    "tables": [
+      "builtinInstanceCounter",
+      "dataAvailability",
+      "gasConsumed",
+      "executionResources",
+      "event",
+      "l1ToL2Message",
+      "l2ToL1Message",
+      "transactionReceipt"
+    ],
+    "proved": "all eight actual factories establish exact names/order/masks and immutable backing storage; bounded distinct folded names and valid entries; actual global allocations, cursor dependency startup, stores and immutable publication compose the complete receipt-package initializer; every actual opening wrapper borrows its initialized table and canonical error globals, realizing complete null/undefined/map/rejection behavior with exact cursor/depth/input ownership",
+    "theorems": [
+      "wp_receipt_initialize",
+      "receipt_initialized_metadata",
+      "receipt_initialized_table",
+      "wp_openReceipt_complete"
+    ],
+    "boundary": "explicit modeled runtime CPU startup as for Header; no assumed initializer, allocation or opening-helper WP; no UTF-8 premise for initialization or opening; subsequent record loops and public API composition remain separate",
+    "unproved_helper_premises": []
   },
   "typed_event": {
     "implementation": "core/cbor_receipts_generated.go: cborReadEvent and cborReadEventPointers; core/internal/cborreceipts/fields_generated.go: OpenEvent and immutable field table",
@@ -289,18 +316,25 @@
     ],
     "implementation_proofs": [
       "verification/fastcbor-proof/ProofCheck/EventOwnership.lean",
-      "verification/fastcbor-proof/ProofCheck/EventFieldComplete.lean"
+      "verification/fastcbor-proof/ProofCheck/EventFieldComplete.lean",
+      "verification/fastcbor-proof/ProofCheck/EventTable.lean",
+      "verification/fastcbor-proof/ProofCheck/EventKeyRead.lean"
     ],
     "specification_proved": "independent From/Keys/Data field identities and values; total/unique ASCII-folded name interpretation; all-input field classification with unique successful value/boundary, success/rejection separation, unique error and bounded offsets; selected and ignored values, arbitrary-order pairs with known-field duplicate rejection, unknown repeats, and complete direct Event record all-input classification; pair count and failure position bounds; direct record null/undefined preserves prior Event; later map errors retain partial Event and entered depth; actual unread suffix is explicit in successful field/pair/record relations because felt-value slice acceptance uses a contextual count guard",
-    "proved": "concrete Event struct and child ownership, zero-child state, separate From and Keys/Data field access/update reconstruction; actual cborReadFelt call on From and cborReadFeltValues calls on either slice field have all-input contracts with complete resulting Event ownership, exact values/suffixes, original input, cursor rollback on failure and owned bounded diagnostics; unchanged fields and child allocations remain owned; actual schema/cursor initialization supplies error categories",
+    "proved": "concrete Event struct and child ownership, zero-child state, separate From and Keys/Data field access/update reconstruction; actual cborReadFelt call on From and cborReadFeltValues calls on either slice field have all-input contracts with complete resulting Event ownership, exact values/suffixes, original input, cursor rollback on failure and owned bounded diagnostics; unchanged fields and child allocations remain owned; actual schema/cursor initialization supplies error categories; actual receipt-package initialization/opening proved separately; exact Event metadata agrees with independent field identities, with ordered/disjoint encoded keys, correct cached words and inline indexes; actual NextField handles every supported fresh/unknown key, known duplicate and independently rejected key with exact cursor/search/seen/count state, preserved input/table ownership and owned diagnostics, conditional on the existing UTF-8 validator",
     "theorems": [
       "wp_event_sender_complete",
       "wp_event_values_complete",
-      "eventRecord_classify"
+      "eventRecord_classify",
+      "wp_nextEventKey_valid",
+      "wp_nextEventKey_duplicate_valid",
+      "wp_nextEventKey_rejected"
     ],
-    "unproved_helper_premises": [],
-    "pending": "receipt-package immutable metadata and initialization; actual OpenEvent/NextField dispatch and generated Event success/failure loop composition; pair/record outcome uniqueness; Event pointer-slice specification, shared allocation and loop; containing receipt/projection contracts",
-    "scope": "complete independent record classification and actual three field-branch contracts, not a complete Event record or pointer-slice implementation proof; eventual key-loop composition retains the separately reported UTF-8 validator dependency; no production Go or trusted semantics change; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination"
+    "unproved_helper_premises": [
+      "Utf8ValidatorContract"
+    ],
+    "pending": "generated Event success/failure loop composition using the checked initialized opening and key dispatch; pair/record outcome uniqueness; Event pointer-slice specification, shared allocation and loop; containing receipt/projection contracts",
+    "scope": "complete independent record classification and actual three field-branch contracts and conditional key-dispatch contracts, not a complete Event record or pointer-slice implementation proof; key dispatch retains the separately reported UTF-8 validator dependency; no production Go or trusted semantics change; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination"
   },
   "typed_boolean": {
     "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
@@ -569,7 +603,7 @@
       "receiptEventsProjection"
     ],
     "behavior": "typed nested records, felt-value slices, bool/string/byte-backed FeeUnit and fixed byte-array addresses; bounded shared event/message slice storage; execution resource children allocated with their parent; original full-record duplicate rejection and projection first-wins policy; zero guards, exact suffix, owned output and failure cleanup",
-    "proof_status": "translated implementations and concrete layouts; execution-status projection has complete independent record/First specifications with unique outcomes and all-input/all-owned-destination implementation contracts conditional on UTF-8, including initialized projection metadata, guards, cleanup and exact suffix; other receipt specifications, nested slice/record contracts, receipt-record table initialization and public API proofs remain open",
+    "proof_status": "translated implementations and concrete layouts; execution-status projection has complete independent record/First specifications with unique outcomes and all-input/all-owned-destination implementation contracts conditional on UTF-8, including initialized projection metadata, guards, cleanup and exact suffix; other receipt specifications, nested slice/record contracts, public API proofs remain open; all eight receipt-record table initializers and opening wrappers are checked",
     "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim"
   },
   "typed_block_indexes": {
@@ -709,6 +743,9 @@
         "wp_keySlow_invalid_utf8",
         "wp_keySlow_text",
         "wp_keySlow_text_nested",
+        "wp_nextEventKey_duplicate_valid",
+        "wp_nextEventKey_rejected",
+        "wp_nextEventKey_valid",
         "wp_nextField_rejected_utf8",
         "wp_nextField_text_valid",
         "wp_nextGasKey_duplicate_valid",
@@ -2454,6 +2491,43 @@
     "eventRecord_classify": 2,
     "eventRecord_nonempty": 1,
     "eventRecordRejected_bounds": 2,
+    "receiptKeys_valid": 1,
+    "receiptNames_small": 1,
+    "receiptNames_distinct": 1,
+    "wp_makeBuiltinInstanceCounterFields": 0,
+    "wp_makeBuiltinInstanceCounterFields_shared": 0,
+    "wp_makeDataAvailabilityFields": 0,
+    "wp_makeDataAvailabilityFields_shared": 0,
+    "wp_makeGasConsumedFields": 0,
+    "wp_makeGasConsumedFields_shared": 0,
+    "wp_makeExecutionResourcesFields": 0,
+    "wp_makeExecutionResourcesFields_shared": 0,
+    "wp_makeEventFields": 0,
+    "wp_makeEventFields_shared": 0,
+    "wp_makeL1ToL2MessageFields": 0,
+    "wp_makeL1ToL2MessageFields_shared": 0,
+    "wp_makeL2ToL1MessageFields": 0,
+    "wp_makeL2ToL1MessageFields_shared": 0,
+    "wp_makeTransactionReceiptFields": 0,
+    "wp_makeTransactionReceiptFields_shared": 0,
+    "receiptTable_publish": 0,
+    "wp_receipt_initialize": 0,
+    "receipt_initialized_metadata": 0,
+    "receipt_initialized_table": 0,
+    "wp_openReceipt_complete": 0,
+    "eventTable_names": 1,
+    "eventKey_lookup": 1,
+    "eventFoldedNames_distinct": 1,
+    "eventFieldNames_ascii": 1,
+    "eventKeyMeaning_unknown": 1,
+    "eventFieldHeads_ordered": 1,
+    "eventFieldEncodings_nonempty": 1,
+    "eventFieldEncodings_apart": 1,
+    "eventCachedShortTable": 1,
+    "eventInlineFieldTable": 1,
+    "wp_nextEventKey_valid": 0,
+    "wp_nextEventKey_duplicate_valid": 0,
+    "wp_nextEventKey_rejected": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -2835,7 +2909,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. Receipt projections, receipts, transactions, state updates and classes are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables; receipt, transaction, state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
+  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. Receipt projections, receipts, transactions, state updates and classes are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables, and receipt payload-table initialization and opening wrappers for all eight tables; transaction, state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -2945,10 +3019,12 @@
     "verification/fastcbor-proof/ProofCheck/EntryErrorsInitialize.lean": "b94d28a8e609633c5659a850fb0883aa06a449f53d5a0bb881f99ff44e712a14",
     "verification/fastcbor-proof/ProofCheck/Errors.lean": "4f029d0c2cc58de62109046f58fe18ef1d2eb10a027c3cad549bb6eee2bd39e3",
     "verification/fastcbor-proof/ProofCheck/EventFieldComplete.lean": "7acb5571fc553bc0cd50dc4601427dc3bdbbe3335748aaf329a26685d8393bca",
+    "verification/fastcbor-proof/ProofCheck/EventKeyRead.lean": "0cf2051a3a742d32b66095804412e0784791565228826041500a16841b084573",
     "verification/fastcbor-proof/ProofCheck/EventKeys.lean": "82d355d1992bfc0ff90de7e61e086ff131f1ba8711e364ed59a7ef6ac962c766",
     "verification/fastcbor-proof/ProofCheck/EventOwnership.lean": "068970335ab3c833fe3b7e0418660f2a26c1ee0c6c008b508bf790dbae4f4915",
     "verification/fastcbor-proof/ProofCheck/EventPairs.lean": "99e00bdc2a38eb4d416b6e43506cf144ac7e0f13a314f8b0c50b01551a29e048",
     "verification/fastcbor-proof/ProofCheck/EventRecordSpec.lean": "71a227ff293aec79ed28d8bf17305c25ecdcc3a2d3a54048fc78199c220a7b3e",
+    "verification/fastcbor-proof/ProofCheck/EventTable.lean": "b4dbecbbe8893f335bd7d21022ff62a384a115403a8a86547b968889851bb036",
     "verification/fastcbor-proof/ProofCheck/EventValues.lean": "b4cb90125a6b8165362ddae05ee55940532bf4ccda33a595cf430e1bb7abffbf",
     "verification/fastcbor-proof/ProofCheck/ExpectedDeterminism.lean": "4c84d9d25108a41ba33e470ff8a5c06964336803815223843f784c3c8cfaf41b",
     "verification/fastcbor-proof/ProofCheck/ExpectedFailure.lean": "178e00c3c6af2d6a3aa27def3f7f1976719356cf6714e3b67dbc75999aca9292",
@@ -3236,6 +3312,10 @@
     "verification/fastcbor-proof/ProofCheck/ReadLimbsFailure.lean": "24ca57cf69f5789ecc84cc36b8ccffa810d164a728f19204494288754cc3514d",
     "verification/fastcbor-proof/ProofCheck/ReadLimbsRejected.lean": "71cfca9a2ea1d9d885fccb45cbe299bc06cdcf7d45ce14b1406aedf40da9b431",
     "verification/fastcbor-proof/ProofCheck/ReadLimbsValid.lean": "f60e24b2ad78e1963506fe41a9d6013dc181f3b960730c80a6219018de8221c4",
+    "verification/fastcbor-proof/ProofCheck/ReceiptFields.lean": "36ea67632bbbcbabebbf4fdfa69d2943cbe9969f49610bf66d196fd6106147e6",
+    "verification/fastcbor-proof/ProofCheck/ReceiptInitialize.lean": "2f4d0c97e120c57243466480a4651a5bd84c5ed74de4f5dfa12e01f848bd78a7",
+    "verification/fastcbor-proof/ProofCheck/ReceiptOpen.lean": "996001d60c497abe27a92a84010d08a5d266c81a583acfb7ba37bf16fc9afde8",
+    "verification/fastcbor-proof/ProofCheck/ReceiptState.lean": "7bc47be5cde72b17f7e16957772c13c2476ba7fc44830b66598a050c9d351c57",
     "verification/fastcbor-proof/ProofCheck/ReceiptStatusAPIComplete.lean": "37f9ed2b90f64283fa778705155cc0851c1f10d18089df6da1a87c95a9cd8323",
     "verification/fastcbor-proof/ProofCheck/ReceiptStatusAPIGuard.lean": "504e12ca2880eb4792b68d295237d0f285d837fffd84baa864d70b82c3b0d499",
     "verification/fastcbor-proof/ProofCheck/ReceiptStatusAPIOutcome.lean": "da7470270d668438c7909b401ab24dbd013a8df4e2a349f9496104fb6c308cff",
@@ -3362,8 +3442,8 @@
     "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "acd4ee01ad03563ef3c8097419c30ad73ad631603488304f7eabe4703ae814b5",
-    "verification/fastcbor-proof/audit.py": "0867278beb78f6da1369691d84f654690a6f68ba9ad0cb7669f4d70870921b58",
+    "verification/fastcbor-proof/ProofCheck.lean": "a05c4bc9675f248cdc7580685aaad50a9a3e2d4f1a8c95e91fbd96910cc2de94",
+    "verification/fastcbor-proof/audit.py": "7a9654ee84558d9982fd133b46fbbb2bc80b5e8eaebda9d098e5aa8b51249a7b",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",

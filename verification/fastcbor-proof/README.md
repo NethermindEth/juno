@@ -5263,3 +5263,53 @@ native-evaluation axioms. Saved compatibility/race/checkptr and archived
 performance evidence was revalidated against unchanged Go sources. Original and
 baseline worktrees and the pinned trusted checkout remain clean at their recorded
 revisions.
+
+## Receipt initialization, opening wrappers and Event key dispatch
+
+`ReceiptState` records all eight actual receipt-package tables with independent
+schema-name order: BuiltinInstanceCounter, DataAvailability, GasConsumed,
+ExecutionResources, Event, L1ToL2Message, L2ToL1Message and TransactionReceipt.
+Their entry validity, bounded field counts and distinct ASCII-folded names are
+checked. `ReceiptFields` proves each actual allocation factory, including exact
+names, sorted entries and masks, and publishes immutable backing ownership.
+
+`ReceiptInitialize` composes the actual package initializer: global allocations,
+checked cursor dependency startup, every factory, global stores and immutable
+publication. The explicit modeled runtime CPU startup boundary is the same as
+Header's. The resulting initialized package yields each exact table without an
+assumed initializer WP. `ReceiptOpen` proves all eight actual opening wrappers,
+including `OpenEvent`, using those initialized globals and canonical error
+categories. It covers null/undefined, every supported definite-map opening and
+all opening failures, with exact cursor/depth behavior and unchanged input.
+Initialization and opening require no UTF-8 helper premise.
+
+`EventTable` connects the actual Event metadata to the independent `From`, `Keys`
+and `Data` identities. It proves the field indexes, distinct folded names, ASCII
+names, ordered nonempty encoded heads, disjoint encoded prefixes, correct cached
+words and canonical inline encodings. `EventKeyRead` then checks the actual
+`NextField` call for every supported fresh/unknown key, duplicate known key and
+independently rejected key. These contracts retain fractional input and table
+ownership, exact nonwrapping consumed positions and suffixes, search-index bounds,
+seen-bit updates and remaining pair count. Duplicate errors consume the key and
+own the canonical field-name argument; parser errors retain the original cursor
+and own the specified diagnostic.
+
+The three key-dispatch theorems explicitly require `Utf8ValidatorContract`, just
+as the existing Header/GasPrice key proofs. This does not prove the shared UTF-8
+helper or close the Header milestone. No production Go or pinned trusted source
+changed. Event's generated success/failure loops, pair/record outcome uniqueness,
+and pointer-slice specification/allocation/loop still remain, followed by the
+containing receipt and projection contracts. The receipt-table initialization
+work is complete for all eight tables, not only Event; transaction, state and
+class payload-table initialization remain separate work.
+
+Full regeneration and audit passed in `check-receipt-init-event-keys-full.log`:
+2376 build jobs, 1623 audited theorems, 577 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent verification checked the exact
+37 additions, all 1586 prior theorem dependency sets unchanged, unchanged axiom
+union, and every recorded source hash. The explicit premise inventory has exactly
+three additional validator-dependent key theorems: 119 validator and 2 word-helper
+premises. No theorem depends on admission or native-evaluation axioms. Saved
+compatibility/race/checkptr and archived performance evidence was revalidated
+against unchanged Go sources. Original and baseline worktrees and the pinned
+trusted checkout remain clean at their recorded revisions.

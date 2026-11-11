@@ -391,3 +391,9 @@ import ProofCheck.EventFieldComplete
 import ProofCheck.EventKeys
 import ProofCheck.EventPairs
 import ProofCheck.EventRecordSpec
+import ProofCheck.ReceiptState
+import ProofCheck.ReceiptFields
+import ProofCheck.ReceiptInitialize
+import ProofCheck.ReceiptOpen
+import ProofCheck.EventTable
+import ProofCheck.EventKeyRead
