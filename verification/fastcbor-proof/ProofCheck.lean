@@ -1273,3 +1273,13 @@ import ProofCheck.StateUpdateTable
 import ProofCheck.StateUpdateValueUnique
 
 import ProofCheck.StateUpdateValues
+
+import ProofCheck.StateDiffDeclaredFields
+
+import ProofCheck.StateDiffErrors
+
+import ProofCheck.StateMapDiagnostics
+
+import ProofCheck.StateUpdateErrors
+
+import ProofCheck.StateUpdateFeltFields

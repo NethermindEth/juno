@@ -738,6 +738,35 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_field_integration": {
+        "implementation_target": "core/cbor_state_generated.go StateUpdate BlockHash/NewRoot/OldRoot field calls and StateDiff DeclaredV0Classes field call; existing StateDiff/StateDiffPointer/StateUpdate opening rejection paths",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateDiffDeclaredFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffErrors.lean",
+            "verification/fastcbor-proof/ProofCheck/StateMapDiagnostics.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateErrors.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateFeltFields.lean"
+        ],
+        "theorems": [
+            "wp_stateDiff_declaredV0_valid",
+            "wp_stateDiff_declaredV0_rejected",
+            "wp_readStateDiff_open_rejected_owned",
+            "wp_readStateDiffPointer_open_rejected_owned",
+            "wp_readStateUpdate_open_rejected_owned",
+            "wp_stateUpdate_blockHash_valid",
+            "wp_stateUpdate_blockHash_rejected",
+            "wp_stateUpdate_newRoot_valid",
+            "wp_stateUpdate_newRoot_rejected",
+            "wp_stateUpdate_oldRoot_valid",
+            "wp_stateUpdate_oldRoot_rejected"
+        ],
+        "implementation_proved": "all independent successful and failed felt encodings at each of the three StateUpdate felt-pointer destinations; all independent successful and failed nullable felt-pointer slices at StateDiff.DeclaredV0Classes; every call preserves all sibling fields and children; success publishes exactly the specified child and suffix, failure preserves every old field and reports exact diagnostic/consumption/retained depth with initialized error globals",
+        "diagnostics": "explicit map-to-cursor diagnostic definitions for outer expected/count/depth and key/value failures, including nested storage-map failures; StateDiff field/record and StateUpdate field/record error ownership; StateUpdate failed StateDiff includes private partial child ownership; duplicate field names, initialized categories, argument storage and exact positions retained",
+        "opening_composition": "three actual opening rejection contracts repackaged into uniform record error ownership; pointer failure retains its private owned zero StateDiff",
+        "unproved_contract_premises": [],
+        "remaining": "map diagnostic definitions are not map implementation theorems; populated state-map insertion/loops, StateDiff/StateUpdate field-loop composition and successful/rejected public decoding remain; shared UTF-8 word-helper and felt-key array-equality model gaps still need separately authorized repairs",
+        "scope": "actual populated field integration for three felt fields and one felt-pointer slice plus uniform error ownership; not complete record/public implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime implementation, OOM and termination"
+    },
     "state_update_foundations": {
         "implementation_target": "core/cbor_state_generated.go: cborReadStateUpdate, cborZeroStateUpdate, cborClearStateUpdate, DecodeStateUpdateFirst and DecodeStateUpdate; actual internal/cborstate StateUpdate metadata and NextField scanner",
         "modules": [

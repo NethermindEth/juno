@@ -8425,3 +8425,59 @@ obligation. This checkpoint does not close StateUpdate, unconditional Header or
 whole-library implementation correctness. The pinned 64-bit partial-correctness
 and model-safety boundary still excludes compiler/runtime implementation
 correctness, OOM and termination.
+
+## State felt-field integration and error ownership checkpoint
+
+`StateUpdateFeltFields` proves the actual `cborReadFelt` calls at `BlockHash`,
+`NewRoot` and `OldRoot` for every independent supported success and failure
+encoding, arbitrary owned prior records and supported starting depths. Success
+publishes the exact nullable child value, advances to the exact suffix and
+preserves every sibling field and allocation. Failure preserves the entire old
+record and cursor, owns the initialized diagnostic at its exact offset, and
+keeps input read-only. These are whole-record field integration contracts, not
+just standalone felt helper theorems.
+
+`StateDiffDeclaredFields` gives the analogous successful and failed actual call
+contracts for `DeclaredV0Classes`, including arbitrary nullable felt-pointer slice
+lengths and contents, nil/empty distinctions, all specified failures and prior
+record contents. Failed slices preserve the old field and all siblings, retain
+the specified consumed position and entered array depth, and expose the exact
+owned diagnostic. Its Boolean child-depth result is reconciled with the outer
+record specification's natural-number depth increment.
+
+`StateMapDiagnostics` defines the error-ownership mapping for ordinary,
+nested-storage and migrated-class maps. Outer expected/count/depth errors map to
+the existing cursor diagnostics. Key and value failures preserve their independent
+reason distinctions; nested-storage value errors carry the inner map diagnostic.
+These definitions retain actual diagnostic positions, initialized category objects
+and argument storage. They are specifications for composition, not proofs of the
+populated map implementations.
+
+`StateDiffErrors` and `StateUpdateErrors` define uniform field/record error
+ownership, including folded-key failures, exact duplicate-field names, ignored-value
+errors and child errors. A failed StateDiff pointer retains ownership of its
+private partial child in the StateUpdate field error. Three existing actual
+record/pointer opening rejection paths are composed into these uniform contracts;
+the pointer path explicitly retains its private fresh zero record.
+
+Validation: `check-state-field-integration-full.log` records a successful
+**3,103-job** full regeneration/build and **4,374** audited results. This adds
+**11** theorems in **five** modules, one of which contains diagnostic definitions.
+Independent comparison against `995345022` checked all **4,363** prior dependency
+sets and the complete axiom union unchanged; **1,306** project/artifact and **46**
+standard-library hashes match disk. No helper premises were added; direct shared
+counts remain **447** validator and **two** word-helper premises. No result depends
+on `sorryAx` or native evaluation axioms. The independent audit checked actual
+source field targets, whole-record update/preservation, exact input/cursor/depth,
+initialized errors, nested diagnostic mappings and private child ownership.
+Go/trusted sources and the clean original/baseline pins remain unchanged; the
+frozen performance and compatibility evidence still apply.
+
+Populated map insertion/loops, the remaining field integration, record loops and
+successful/rejected public decoding remain open. The one-line Header generic
+slice-index repair has been presented again for explicit approval, with its exact
+existing scope and separate worktree/validation/repin plan; it remains unapplied.
+The unrelated felt-key equality repair is not included in that request. This
+checkpoint does not close StateUpdate, unconditional Header or whole-library
+implementation correctness; the pinned 64-bit partial-correctness/model-safety
+boundary remains unchanged.
