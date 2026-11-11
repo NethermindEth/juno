@@ -3956,6 +3956,51 @@ Six new results explicitly carry the existing validator premise, bringing its
 direct count to 57; the two direct word-helper-premise results are unchanged.
 Both ordinary and race/checkptr saved corpus reports were rechecked.
 
+## Index-record specification, ownership and guard foundation
+
+`IndexesRecordSpec.lean` now defines the independent complete wire relation for
+BlockTransactionsIndexes: nullable records, integer keys 1 and 2, signed nullable
+arrays, unknown supported keys, duplicate-value skipping and the depth/count
+limits. Every byte input is classified as a successful prefix with an exact
+suffix or a specified failure with the last published record, consumed bytes,
+diagnostic offset and retained depth. The specification covers all supported
+widths and unknown UTF-8 text keys; it is not restricted to canonical encodings.
+Consumption and diagnostic offset are bounded independently: unsigned overflow
+can consume past its diagnostic start, while Skip can report beyond its restored
+cursor. Pair-count and nesting bounds are checked.
+
+`IndexesSeen.lean` connects the production two-bit mask to the independent visited
+field set. It proves first-key-wins preservation across arbitrary successful
+suffixes, including duplicates whose values need only satisfy Skip. These are
+specification and mask-correspondence results; the generated record loop still
+needs its own refinement proof.
+
+`IndexesOwnership.lean` relates both concrete Go slices to signed mathematical
+values, distinguishing nil from allocated empty slices. It proves field borrowing
+and publication, then composes the actual signed-array helper at either generated
+field for every specified success and failure. Failed replacements preserve both
+previously published arrays even after consuming an element prefix. These helper
+compositions require no UTF-8 premise.
+
+`IndexesZero.lean` proves the actual zero guard, standalone cleanup function and
+both public APIs' nonzero-destination rejection paths. The guard agrees with the
+independent owned value and rejects allocated empty slices. These results do not
+yet prove successful public decoding or parse/trailing-data cleanup composition.
+The remaining record work is success/failure loop refinement, outcome
+uniqueness/separation and the complete zero-destination API contracts. Those
+contracts will retain the existing UTF-8 premise until the shared helper is proved.
+Header's pending trusted repair and the felt-map model gap are unchanged.
+
+Full regeneration and audit are recorded in
+`check-indexes-record-foundation-full.log`: 2219 build jobs, 1151 audited theorems,
+423 project/artifact hashes and 46 standard-library source hashes. The 27 new
+results introduce no decoder-helper premises. All 1124 previous theorem dependency
+sets and the transitive axiom union are unchanged; there are no admissions or
+native-evaluation dependencies. Direct UTF-8 premise counts remain 57 validator
+and two word-helper results. Production Go and trusted semantics are unchanged.
+The full check revalidates both saved compatibility reports and all archived
+performance decisions against the unchanged sources.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.

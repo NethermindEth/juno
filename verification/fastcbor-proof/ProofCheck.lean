@@ -216,3 +216,8 @@ import ProofCheck.KeyRejected
 import ProofCheck.IntegerKey
 import ProofCheck.IntegerKeySpec
 import ProofCheck.IntegerKeyComplete
+
+import ProofCheck.IndexesRecordSpec
+import ProofCheck.IndexesOwnership
+import ProofCheck.IndexesZero
+import ProofCheck.IndexesSeen
