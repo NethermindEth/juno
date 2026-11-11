@@ -32,6 +32,12 @@ const (
 	OpStore  = "store"
 	OpFetch  = "fetch"
 
+	// Wait ops time how long a finished block waits before the next stage takes it.
+	// Blocks leave each stage in order, so a block waits for all blocks before it,
+	// and for free space in the queue of the next stage.
+	OpFetchWait  = "fetchWait"
+	OpVerifyWait = "verifyWait"
+
 	// Reorg-check ops, one per exit level of isReverting: resolved from the
 	// local height alone, after fetching the remote head, or only after also
 	// reading the local header for a hash comparison.
@@ -207,13 +213,14 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 	return nil
 }
 
+// fetcherTask also returns false when it stops without a block: on cancel or on a reorg.
 func (s *Synchronizer) fetcherTask(
 	ctx context.Context, height uint64, verifiers *stream.Stream, resetStreams context.CancelFunc,
-) stream.Callback {
+) (stream.Callback, bool) {
 	for {
 		select {
 		case <-ctx.Done():
-			return func() {}
+			return func() {}, false
 		default:
 		}
 
@@ -226,7 +233,7 @@ func (s *Synchronizer) fetcherTask(
 							s.revertTask(ctx, lastPossiblyValidHeight, resetStreams)
 						}
 					})
-				}
+				}, false
 			}
 			continue
 		}
@@ -235,7 +242,7 @@ func (s *Synchronizer) fetcherTask(
 			verifiers.Go(func() stream.Callback {
 				return s.verifierTask(ctx, &committedBlock, resetStreams)
 			})
-		}
+		}, true
 	}
 }
 
@@ -367,8 +374,10 @@ func (s *Synchronizer) verifierTask(
 		}
 	}
 
-	s.listener.OnSyncStepDone(OpVerify, committedBlock.Block.Number, time.Since(verifyTimer))
+	verified := time.Now()
+	s.listener.OnSyncStepDone(OpVerify, committedBlock.Block.Number, verified.Sub(verifyTimer))
 	return func() {
+		s.listener.OnSyncStepDone(OpVerifyWait, committedBlock.Block.Number, time.Since(verified))
 		s.storeTask(ctx, committedBlock, resetStreams, commitments)
 	}
 }
@@ -420,6 +429,7 @@ func (s *Synchronizer) storeTask(
 	}
 
 	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+	s.listener.OnBlockStored(block.Number, len(block.Transactions))
 
 	highestBlockHeader := s.highestBlockHeader.Load()
 	if highestBlockHeader != nil {
@@ -549,10 +559,19 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 		curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 		fetchers.Go(func() stream.Callback {
+			s.listener.OnFetchStarted()
 			fetchTimer := time.Now()
-			cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
-			s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
-			return cb
+			cb, fetched := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
+			fetchDone := time.Now()
+			s.listener.OnFetchDone()
+			if !fetched {
+				return cb
+			}
+			s.listener.OnSyncStepDone(OpFetch, curHeight, fetchDone.Sub(fetchTimer))
+			return func() {
+				s.listener.OnSyncStepDone(OpFetchWait, curHeight, time.Since(fetchDone))
+				cb()
+			}
 		})
 		nextHeight++
 	}
