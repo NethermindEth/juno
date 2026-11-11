@@ -112,8 +112,11 @@ outcomes. Its enclosing pointer-slice specification is classified and uniquely
 determined. The actual pointer-slice reader now has a complete conditional
 all-input contract for arbitrary prior slice headers, including bounded shared
 storage, fallback allocations, private partial failures, initialized diagnostics
-and exact cursor/depth behavior. The receipt-events projection and full receipt
-remain to be composed. See the latest Event checkpoint below and “Checked
+and exact cursor/depth behavior. The receipt-events projection now has an
+independently classified and unique complete record specification, bounded
+errors/depth, and checked ownership, zero guard, cleanup and conditional
+selected-field contracts. Its generated record loop and First API, and the full
+receipt, remain to be composed. See the latest Event checkpoint below and “Checked
 remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
@@ -5548,3 +5551,60 @@ admission or native-evaluation axioms. The full check revalidated saved
 compatibility/race/checkptr evidence and the archived passing performance gate
 against unchanged Go sources. The original, baseline and pinned trusted
 checkouts remain clean at their recorded revisions.
+
+
+## Receipt-events projection specification and selected-field contracts
+
+`ReceiptEventsValues`, `ReceiptEventsPairs` and `ReceiptEventsRecord` define an
+independent Events/TransactionHash projection contract, including nullable
+children, wire-order first-key-wins selection, ignored duplicate/unknown values,
+null/undefined bodies and the optional projection tag. Successful field and pair
+relations carry the actual unread suffix: nested Event slice count guards can
+inspect bytes belonging to later fields or the caller's suffix. Every input at
+supported depth is classified without assuming an implementation contract.
+
+`ReceiptEventsItemUnique`, `ReceiptEventsPairsUnique`, `ReceiptEventsBodyUnique`
+and `ReceiptEventsRecordUnique` prove unique successful prefixes, decoded values
+and suffixes, success/rejection separation, and exactly one complete specified
+record result. Failure results uniquely fix retained published fields, consumed
+bytes, diagnostic offsets, remaining nesting depth and reasons.
+`ReceiptEventsBounds` bounds consumption by the diagnostic position and input
+length, and bounds retained depth by 32. An Event-array error can retain entered
+array/map levels and consumption; ignored-value and hash errors restore their
+own cursor/depth. The specification preserves this difference.
+
+`ReceiptEventsOwnership` relates the actual projection to its owned Event slice
+and transaction hash, proves field access/reconstruction, and checks the actual
+zero guard and whole-struct clear function. Nil differs from allocated-empty
+Event slices, and absent hashes differ from allocated zero felts. The embedded
+discarded skeleton remains owned in the concrete struct. The guard and cleanup
+proofs require no UTF-8 helper premise.
+
+`ReceiptEventsFieldRead` and `ReceiptEventsFieldComplete` check both actual
+selected-field calls on arbitrary prior owned projections and arbitrary input.
+Success updates only the selected field and preserves the other field's owned
+children. Failure preserves both previously published fields, retains the exact
+specified cursor/depth and initialized owned diagnostic, and publishes no failed
+private Event construction. Both outcomes preserve the input and have bounded,
+nonwrapping positions. These three composition results retain the existing
+`Utf8ValidatorContract` premise through Event decoding; no new helper premise
+was introduced.
+
+This checkpoint does **not** prove the projection's generated record loop or
+registered First API. Next: connect the independent per-pair relation to the
+existing `NextWanted` scan contracts, prove successful/rejected generated map
+loops, then compose tag/opening branches and the public guard/cleanup/suffix
+contract. The shared Header UTF-8 word-helper/model correction and separate
+felt-key map equality gap remain unresolved and unchanged.
+
+Full regeneration and audit passed in
+`check-receipt-events-foundation-full.log`: **2407 build jobs, 1740 audited
+theorems, 608 project/artifact hashes and 46 directly translated standard-library
+hashes**. Independent verification checked the exact 52 additions, unchanged
+dependency sets for all 1688 previous theorems, unchanged axiom union and every
+recorded source hash. Direct helper-premise counts are 132 validator results
+(the three selected-field compositions added) and 2 word-helper results. No
+theorem depends on admission or native-evaluation axioms. The full check
+revalidated saved compatibility/race/checkptr evidence and the archived passing
+performance gate against unchanged Go sources. The original, baseline and
+pinned trusted checkouts remain clean at their recorded revisions.

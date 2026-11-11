@@ -417,3 +417,14 @@ import ProofCheck.EventPointersReadValid
 import ProofCheck.EventPointersRejected
 import ProofCheck.EventPointersReadRejected
 import ProofCheck.EventPointersComplete
+import ProofCheck.ReceiptEventsValues
+import ProofCheck.ReceiptEventsOwnership
+import ProofCheck.ReceiptEventsFieldRead
+import ProofCheck.ReceiptEventsFieldComplete
+import ProofCheck.ReceiptEventsPairs
+import ProofCheck.ReceiptEventsRecord
+import ProofCheck.ReceiptEventsBounds
+import ProofCheck.ReceiptEventsItemUnique
+import ProofCheck.ReceiptEventsPairsUnique
+import ProofCheck.ReceiptEventsBodyUnique
+import ProofCheck.ReceiptEventsRecordUnique
