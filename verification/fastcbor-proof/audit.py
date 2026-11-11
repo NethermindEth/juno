@@ -335,6 +335,28 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "l1_handler_transaction": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadL1HandlerTransaction; core/transaction.go: L1HandlerTransaction",
+        "theorems": [
+            "l1HandlerField_classify",
+            "wp_readTransactionVersion_felt_outcome",
+            "l1HandlerChildren_zero",
+            "wp_l1Handler_field_complete",
+            "l1HandlerTable_names",
+            "wp_nextL1HandlerKey_valid",
+            "l1HandlerRecordSpec_total_unique",
+            "wp_readL1Handler_map_valid",
+            "wp_readL1Handler_map_rejected",
+            "wp_readL1Handler_record_complete"
+        ],
+        "specification_proved": "independent identities and values for TransactionHash, ContractAddress, EntryPointSelector, Nonce, CallData and Version; five nullable four-limb fields and one nullable value slice; named version has the stored felt contract without added protocol-version validation; field/pair/record classification, unique success/value/suffix and rejection/partial-record/offset/depth outcomes, disjoint success/failure, arbitrary field order, ASCII case folding, ignored values and known duplicate rejection; direct nullish record preserves prior contents",
+        "implementation_proved": "actual six-field ownership/access/reconstruction and every field call with rollback and old-child preservation on failure; actual transaction-version reader satisfies the common felt outcome through its previously checked allocation/cast/limb calls; initialized six-field transaction table matches independent names, encoded order/cache and seen bits; complete actual generated success/rejection loops and direct record boundary/composition on all inputs and all owned prior records; unchanged input, exact suffix/restored depth on success, partial prior updates plus owned diagnostic and retained map depth on failure",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
+        ],
+        "remaining": "DeclareTransaction, DeployTransaction, InvokeTransaction and DeployAccountTransaction records; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
+        "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
+    },
     "resource_bounds_map": {
         "implementation": "core/cbor_readers.go: cborReadResourceBoundsMap",
         "theorems": [

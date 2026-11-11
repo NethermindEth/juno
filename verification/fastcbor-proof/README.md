@@ -153,8 +153,10 @@ and opening wrappers are checked. The two-field ResourceBounds record now also h
 complete conditional all-input contracts. Its enclosing ResourceBounds map now has
 an independent total/unique specification and a complete conditional all-input
 implementation contract, including every key/record failure, exact cursor/depth,
-private partial ownership and old-destination preservation. Transaction payload
-composition remains open.
+private partial ownership and old-destination preservation. The direct L1-handler
+transaction record now also has complete conditional all-input/all-owned-prior-value
+contracts; the other four transaction variants and enclosing tagged interface/public
+API composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6554,3 +6556,63 @@ The claim remains partial correctness and model safety on the pinned 64-bit targ
 excluding compiler/runtime implementation correctness, OOM and termination. The
 unconditional Header and whole-library gates remain open; no FX-equivalence or strict
 ignored-CBOR-validity claim is made.
+
+
+## Complete conditional L1-handler transaction record
+
+`L1HandlerValues.lean` independently specifies all six fields of
+`L1HandlerTransaction`: TransactionHash, ContractAddress, EntryPointSelector, Nonce,
+CallData and Version. Five fields have nullable four-limb values; CallData has a
+nullable felt-value slice with a contextual count guard. Nil, allocated zero and
+allocated empty remain distinct. Version follows the stored felt format without
+imposing named protocol-version validation absent from the decoder. Each failed
+field call preserves its old value and restores its cursor; direct-record
+null/undefined preserves every prior field.
+
+`TransactionVersionFeltOutcome.lean` adapts the already-proved actual version
+allocation/cast/limb reader to the common felt outcome, without a new assumption or
+Go change. `L1HandlerOwnership.lean` owns all six concrete fields and disjoint child
+allocations, with access/reconstruction rules preserving every unrelated field.
+`L1HandlerFieldComplete.lean` and `L1HandlerFieldRefine.lean` compose every actual
+field call on all inputs and owned prior contents. These value-helper contracts
+have no UTF-8 or other unproved helper premise.
+
+The key/table/seen modules connect independent field identities to the actual
+initialized transaction metadata, encoded ordering/cache, ASCII folding and mask.
+Pairs, record specifications and uniqueness proofs cover arbitrary input, field
+order and prior values, unknown-value Skip and duplicate known-key rejection.
+Success/value/suffix and failure/partial-value/consumption/offset/depth outcomes are
+independently determined; no FX-equivalence premise is used.
+
+`L1HandlerMapValid.lean`, `L1HandlerMapRejected.lean`, `L1HandlerBoundary.lean` and
+`L1HandlerRecordComplete.lean` prove the **actual generated direct record decoder on
+every input and every owned initial record**, conditional on the shared UTF-8
+validator contract. Success preserves input, owns the exact resulting children and
+returns the exact unread suffix with restored depth. Failure retains earlier
+successful field updates, rolls back the failed field/ignored-value call, owns the
+actual diagnostic and retains the entered record depth. Opening failures preserve
+the original record and cursor. The proof concerns decoded storage values; it does
+not assert transaction validity or recompute the transaction hash.
+
+This closes the first of the five transaction variant records. DeclareTransaction,
+DeployTransaction, InvokeTransaction and DeployAccountTransaction remain, followed
+by tagged interface dispatch, transaction-hash projection and public APIs. Header's
+unapproved UTF-8 word-helper/model correction, felt-key map equality, and the
+state-update/class families remain open. Eight new key/record results carry the
+existing `Utf8ValidatorContract`; no additional helper premise or trusted-model
+change was introduced.
+
+Validation: full `./check.sh` passed **2,655 build jobs** and audited **2,673 pilot
+theorems**, with **856 project/artifact hashes** and **46 stdlib source hashes**.
+An independent comparison against `2c0fa4f48` confirmed exactly **80 new results in
+18 modules**, unchanged dependency sets for all 2,593 prior results, unchanged total
+axiom union and every recorded hash. No result depends on sorryAx or native evaluation
+axioms. Direct UTF-8 premises now number 251 validator results and 2 word-helper
+results. Regeneration, manifest/feasibility and archived performance checks passed.
+Production Go, pinned trusted semantics and the original/baseline worktrees remain
+unchanged; frozen ordinary/race/checkptr and performance evidence still applies.
+
+The scope remains pinned 64-bit partial correctness/model safety, excluding
+compiler/runtime correctness, OOM and termination. This is a conditional direct
+record contract, not the enclosing Transaction interface API or a complete library
+proof. No formal FX-equivalence or strict ignored-CBOR-validity claim is made.
