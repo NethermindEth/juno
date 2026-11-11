@@ -738,6 +738,36 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_map_first_key_failures": {
+        "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom, cborReadFeltMap, cborReadStorageDiffs and cborReadMigratedClasses first-key failures; cborReadMigratedClasses first-value failure",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/FeltMapFirstKeyFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapFromFirstKeyFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/MigratedClassesFirstKeyFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/MigratedClassesFirstValueFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/MigratedClassesFirstValueFailureSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StateMapFirstKeyFailureSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StorageDiffsFirstKeyFailure.lean"
+        ],
+        "theorems": [
+            "wp_readFeltMap_first_key_failure",
+            "wp_readFeltMapFrom_first_key_failure",
+            "wp_readMigratedClasses_first_key_failure",
+            "wp_readMigratedClasses_first_value_failure",
+            "migratedClasses_first_value_failure_spec",
+            "feltMap_first_key_failure_spec",
+            "storageDiffs_first_key_failure_spec",
+            "migratedClasses_first_key_failure_spec",
+            "wp_readStorageDiffs_first_key_failure"
+        ],
+        "specification": "first-key errors for all three map schemas and first-value errors for migrated classes are instances of the existing independent map relations; contextual count guard, positive representable count, exact consumed/diagnostic positions and one retained outer depth level; direct Limbs failures include null and undefined keys and migrated-class values",
+        "implementation_proved": "actual map allocation, first key direct Limbs call and failure return for ordinary felt maps, nested storage maps and named migrated-class maps; ordinary wrapper delegation; migrated-class successful first key followed by failed named by-value felt read; every old destination is preserved and input is read-only",
+        "reserve": "ordinary shared-reserve first-key rejection preserves the arbitrary reserve header for every extra machine word; no positive-extra or zeroed-reserve-content premise is needed because the value/allocator path is not reached; caller-owned reserve contents can be framed unchanged",
+        "ownership_and_diagnostics": "initialized category and argument ownership, exact error offsets, nonwrapping consumption and retained map depth; named felt pointer conversions checked through actual translated calls; private allocations are not published",
+        "unproved_contract_premises": [],
+        "remaining": "successful map insertion and subsequent iterations; inner-map failure/success composition through storage maps, remaining field/record/public API composition; felt-key array-equality and Header UTF-8/slice-index repairs remain separately approval-dependent",
+        "scope": "specified failures before first insertion for all stated encodings/counts; not complete map implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_map_reserve_failure": {
         "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom first nonnull value failure after successful first key; cborReadFeltMap wrapper with local initially empty reserve",
         "modules": [

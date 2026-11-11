@@ -8531,3 +8531,56 @@ still needs its separate trusted-model repair; the Header slice-index repair and
 UTF-8 word-helper proof remain pending. This checkpoint does not close a complete
 map, StateUpdate, unconditional Header or whole-library implementation theorem;
 the pinned 64-bit partial-correctness/model-safety boundary remains unchanged.
+
+## State-map first-key and migrated-value failure checkpoint
+
+`FeltMapFromFirstKeyFailure`, `StorageDiffsFirstKeyFailure` and
+`MigratedClassesFirstKeyFailure` prove the actual map allocation, first direct
+`Limbs` key read and failed-loop return for all three map schemas. They cover
+arbitrary old destinations, supported map heads and starting depths, positive
+representable counts passing the contextual count guard, and every independent
+key rejection. The key relation is `LimbsFailure`, so null and undefined keys are
+explicitly rejected rather than accepted as nullable values.
+
+Each failure preserves the caller's destination and input, consumes exactly the
+map head, retains the entered outer map depth and returns the initialized owned
+diagnostic at the key-relative offset. The shared-reserve ordinary-map contract
+preserves its arbitrary reserve header for **every** extra machine word. No
+positive extra hint or zeroed-reserve-content premise is needed on this path,
+because the allocator is never reached; caller-owned reserve contents remain
+frameable. `FeltMapFirstKeyFailure` composes the same behavior into the ordinary
+map wrapper with its initially nil local reserve.
+
+`MigratedClassesFirstValueFailure` proves successful first-key decoding followed
+by every direct by-value felt rejection, including null/undefined values. It
+checks the actual conversions from named `SierraClassHash`/`CasmClassHash` pointers
+to limb-array pointers. The map remains unpublished; the map head and key stay
+consumed, one outer depth level remains entered, and the diagnostic offset and
+nonwrapping arithmetic are exact. No extra model gap is encountered on these
+named-type failure paths before insertion.
+
+`StateMapFirstKeyFailureSpec` and `MigratedClassesFirstValueFailureSpec` show that
+all four failure shapes instantiate the corresponding complete independent map
+relations, including their count guards, consumed positions, retained depth and
+key/value reason distinctions. No helper-correctness premise, assumed key equality
+or synthetic decoder replaces the actual implementation targets.
+
+Validation: `check-map-first-key-failures-full.log` records a successful
+**3,113-job** full regeneration/build and **4,386** audited results. This adds
+**nine** theorems in **seven** modules. Independent comparison against `da1f7a9a7`
+checked all **4,377** prior dependency sets and the full axiom union unchanged;
+**1,316** project/artifact and **46** standard-library hashes match disk. No helper
+premises were added; shared direct counts remain **447** validator and **two**
+word-helper premises. No result depends on `sorryAx` or native evaluation axioms.
+The independent audit checked all actual map/key-error targets, ordinary wrapper,
+named migrated-value failure, independent map relations, exact cursor/depth and
+reserve/destination preservation. Go/trusted sources and the clean original/baseline
+pins remain unchanged; frozen performance and compatibility evidence still apply.
+
+Successful insertion and subsequent entries remain open, as do inner-map composition
+through storage maps and complete StateDiff/StateUpdate record/public APIs. The
+felt-key equality model gap is still present. Header's separate slice-index/UTF-8
+obligation and its pending trusted-repair approval remain unchanged. These failure
+paths do not close a complete map, StateUpdate, unconditional Header or whole-library
+implementation theorem; the pinned 64-bit partial-correctness/model-safety scope
+remains unchanged.

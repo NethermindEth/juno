@@ -1289,3 +1289,17 @@ import ProofCheck.FeltMapFirstFailureSpec
 import ProofCheck.FeltMapReserveFailure
 
 import ProofCheck.FeltMapFirstFailure
+
+import ProofCheck.FeltMapFirstKeyFailure
+
+import ProofCheck.FeltMapFromFirstKeyFailure
+
+import ProofCheck.MigratedClassesFirstKeyFailure
+
+import ProofCheck.MigratedClassesFirstValueFailure
+
+import ProofCheck.MigratedClassesFirstValueFailureSpec
+
+import ProofCheck.StateMapFirstKeyFailureSpec
+
+import ProofCheck.StorageDiffsFirstKeyFailure
