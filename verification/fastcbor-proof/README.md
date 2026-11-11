@@ -8066,3 +8066,58 @@ UTF-8 word-helper/slice-index issue remains open for Header and text-dependent
 records. This checkpoint does not close any full state-map implementation,
 Header or whole-library gate; the existing pinned 64-bit partial-correctness and
 model-safety scope remains unchanged.
+
+## Migrated-class map specification and empty-map implementation checkpoint
+
+`MigratedClassesValues`, `MigratedClassesEntrySpec`,
+`MigratedClassesEntryUnique`, `MigratedClassesEntriesSpec`,
+`MigratedClassesEntriesUnique`, `MigratedClassesSpec`, `MigratedClassesUnique`,
+`MigratedClassesDepth` and `MigratedClassesEdges` give an independent specification
+for `cborReadMigratedClasses`. The target is the actual
+`map[felt.SierraClassHash]felt.CasmClassHash` reader in `core/cbor_state.go`.
+Both keys and values call `Cursor.Limbs` directly and require arrays; unlike the
+ordinary state maps, entry values reject null and undefined. Four-word arrays
+represent the values in the mathematical specification, including the existing
+short-array zero filling and extra-element skipping rules. No field arithmetic,
+class existence, or Starknet validity is asserted.
+
+The specification has exactly one outcome for every input at supported depth.
+It covers all accepted count widths, contextual count rejection before depth,
+null/undefined maps versus allocated-empty maps, and last-duplicate replacement.
+Entry and sequence proofs establish unique values/suffixes, separation of
+success from rejection, private completed entries and failed parsed keys, and
+consumption/diagnostic/count bounds. Failed felt reads restore their own depth;
+only the outer map remains entered after an entry failure. Explicit edge lemmas
+check null/undefined rejection for both entry positions and acceptance of every
+supported encoding of an empty map.
+
+`MigratedClassesOwnership` uses inline key/value map ownership without child
+pointers and proves that allocated maps are nonnil. `MigratedClassesEmpty`
+proves the actual reader's empty-map path for arbitrary suffixes, old destinations
+and supported zero-count encodings. It establishes fresh owned empty output,
+exact consumption and suffix, unchanged input, and restored depth. This is a
+production-code proof, but only for the empty path; the earlier null/opening
+error contracts are unchanged. It does not need Go key equality because it
+performs no insertion. Mathematical finite-map equality is not a replacement
+for the unresolved trusted Go array-equality rule.
+
+Validation: `check-migrated-map-full.log` records a successful **3,050-job** full
+regeneration/build and **4,163** audited results. This checkpoint adds **31**
+results in **11** modules. An independent comparison against `2d17adce2` checked
+all **4,132** prior dependency sets and the complete axiom union unchanged;
+**1,253** project/artifact and **46** standard-library hashes match disk. There
+are no additional helper premises; the shared counts remain **441** direct
+validator premises and **two** word-helper premises. No result depends on
+`sorryAx` or native evaluation axioms. The independent audit also checked the
+two direct Limbs calls, by-value map representation, duplicate replacement,
+entry-null rejection and the actual empty-map implementation target. Production
+Go and trusted semantics are unchanged; original and baseline worktrees retain
+their clean pins. The frozen performance and compatibility evidence still apply.
+
+Remaining StateUpdate work includes shared spare allocation, nested storage-map
+specifications/ownership, actual populated map loops, and StateDiff/StateUpdate
+payload and public API composition. Populated map insertion still needs the
+separately approved array-equality model repair. Header and text-dependent
+records retain the separate UTF-8 word-helper/model obligation. This checkpoint
+closes neither a complete state-map implementation nor the Header or whole-library
+gates; the pinned 64-bit partial-correctness/model-safety boundary is unchanged.

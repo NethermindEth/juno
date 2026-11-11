@@ -1155,3 +1155,25 @@ import ProofCheck.FeltMapValues
 import ProofCheck.MigratedClassesBoundary
 
 import ProofCheck.StorageDiffsBoundary
+
+import ProofCheck.MigratedClassesDepth
+
+import ProofCheck.MigratedClassesEdges
+
+import ProofCheck.MigratedClassesEmpty
+
+import ProofCheck.MigratedClassesEntriesSpec
+
+import ProofCheck.MigratedClassesEntriesUnique
+
+import ProofCheck.MigratedClassesEntrySpec
+
+import ProofCheck.MigratedClassesEntryUnique
+
+import ProofCheck.MigratedClassesOwnership
+
+import ProofCheck.MigratedClassesSpec
+
+import ProofCheck.MigratedClassesUnique
+
+import ProofCheck.MigratedClassesValues
