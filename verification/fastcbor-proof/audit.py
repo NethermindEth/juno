@@ -335,6 +335,17 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_receipt_fields": {
+        "implementation": "core/cbor_receipts_generated.go: all nine calls in cborReadTransactionReceipt; core/receipt.go: TransactionReceipt",
+        "fields": ["Fee", "FeeUnit", "Events", "ExecutionResources", "L1ToL2Message", "L2ToL1Message", "TransactionHash", "Reverted", "RevertReason"],
+        "theorems": ["receiptFieldSpec_total_unique", "receiptField_rejected_bounds", "receiptField_rejected_depth", "receiptOwned_zero", "receiptFieldError_nonNil", "feeUnitError_boundary", "wp_receipt_field_valid", "wp_receipt_field_rejected", "wp_receipt_field_complete", "receiptTable_names", "wp_nextReceiptKey_valid", "wp_nextReceiptKey_duplicate_valid", "wp_nextReceiptKey_rejected"],
+        "specification_proved": "independent complete nine-field receipt values and per-field accepted/rejected encodings; classification and unique outcomes for every input at supported depth; contextual nested count guards; nil/empty distinctions; retained private resource/message values, consumed bytes and nested depth on failure; all failed fields preserve the caller-visible receipt",
+        "implementation_proved": "actual struct access/reconstruction and child ownership, including shared resource slots and pointer slices; arbitrary owned prior receipt values; all nine generated field calls realize independently unique complete outcomes with unchanged input, exact suffixes/cursor/depth, full old receipt ownership on failure and owned error/private pointer-record state; initialized nine-field metadata, folded names, encoded order/caches, seen masks and actual NextField valid/duplicate/rejected cases",
+        "error_boundary": "ReceiptFieldError preserves the actual GoInterface, not an assumed DecodeError representation; FeeUnit overflow consumes the unsigned value and returns the initialized bare ErrType sentinel with no allocated diagnostic; its numeric offset denotes only the consumed-value boundary, while other failures retain their structured diagnostic position; all represented failures are proved non-nil",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "full receipt pair/record specification and map loop, direct/pointer reader wrappers and public value/pointer guards, trailing-input handling and partial-result cleanup",
+        "scope": "complete field-call and key-lookup foundation, not a complete TransactionReceipt record or public API proof; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination; production Go and trusted semantics unchanged"
+    },
     "execution_resources": {
         "implementation": "core/cbor_receipts_generated.go: cborReadExecutionResources and cborReadExecutionResourcesPointer",
         "theorems": ["executionPairs_classify", "executionPairsRejected_depth", "executionRecordSpec_total_unique", "executionRecordRejected_depth", "wp_readExecution_map_valid", "wp_readExecution_map_rejected", "wp_readExecution_record_complete", "executionPointerSpec_total_unique", "wp_readExecutionPointer_complete"],

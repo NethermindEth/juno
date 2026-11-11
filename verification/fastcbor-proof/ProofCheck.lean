@@ -581,3 +581,12 @@ import ProofCheck.ExecutionRecordComplete
 import ProofCheck.ExecutionRecordSpec
 import ProofCheck.ExecutionRecordUnique
 import ProofCheck.ExecutionValueUnique
+import ProofCheck.ReceiptFieldComplete
+import ProofCheck.ReceiptFieldRejected
+import ProofCheck.ReceiptFieldValid
+import ProofCheck.ReceiptKeyRead
+import ProofCheck.ReceiptKeys
+import ProofCheck.ReceiptOwnership
+import ProofCheck.ReceiptSeen
+import ProofCheck.ReceiptTable
+import ProofCheck.ReceiptValues

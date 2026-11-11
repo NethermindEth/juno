@@ -141,7 +141,8 @@ GasConsumed and BuiltinInstanceCounter records now also have complete conditiona
 contracts. Both supplied-storage slot wrappers now also have complete conditional
 contracts. ExecutionResources now also has complete conditional record and
 shared-block pointer-wrapper contracts with independently unique outcomes. Full
-receipt composition and its public API contracts remain open.
+receipt field contracts, child ownership and key lookup now also check for every
+input; its record-loop composition and public API contracts remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6110,3 +6111,61 @@ and pinned Perennial remain clean at their recorded revisions. The claim remains
 pinned 64-bit partial correctness/model safety, excluding compiler/runtime
 correctness, OOM and termination, without FX equivalence or strict validity of
 ignored CBOR content. Unconditional Header and whole-library gates remain open.
+
+
+### Complete TransactionReceipt field contracts and metadata
+
+`ReceiptValues.lean` specifies all nine application fields independently of the
+concrete struct: Fee, FeeUnit, Events, ExecutionResources, L1ToL2Message,
+L2ToL1Message, TransactionHash, Reverted and RevertReason. Each field is classified
+on every input at supported depth, with unique success/failure, exact accepted
+prefix/suffix and bounded consumed/error positions and retained depth. Nested
+count guards keep the actual later input, and null/undefined and nil/empty
+policies come from the independently specified child readers.
+
+`ReceiptOwnership.lean` proves actual typed field access and reconstruction,
+scalar agreement, child ownership and the zero state. The ownership includes
+resource shared slots and allocated pointer-slice records. `ReceiptFieldValid`,
+`ReceiptFieldRejected` and `ReceiptFieldComplete` connect all nine generated
+calls to independently unique outcomes for arbitrary owned prior receipts. Input
+is preserved; success owns the exact replacement and suffix; failures preserve
+all caller-visible receipt fields and children, with exact cursor/depth, actual
+owned errors and the private partial resource/message pointer records.
+
+The error contract intentionally uses the actual GoInterface. **FeeUnit overflow
+is a bare initialized ErrType sentinel, not a DecodeError:** the encoded unsigned
+number is consumed, the previous field is preserved, and no diagnostic offset is
+allocated. For that case only, the specification's numeric boundary records the
+consumed value end and is not presented as an error offset. Other failures retain
+their structured diagnostics. `receiptFieldError_nonNil` proves every represented
+failure is nonnil, which the enclosing loop will need to propagate both error
+representations correctly. Private failed slice allocations may be forgotten
+under the already documented garbage-collected model; their allocation and
+partial ownership were proved in the child reader loops.
+
+The `ReceiptKeys/Table/Seen/KeyRead` modules prove agreement between the nine
+independent field names and actual initialized receipt metadata, including folded
+names, encoded ordering, cache words, indexes, seen masks, and actual NextField
+success/duplicate/rejection. Six new composition results explicitly retain the
+existing `Utf8ValidatorContract`; no new helper premise or semantics change was
+introduced.
+
+**The full TransactionReceipt record and public APIs are not yet proved.** Next
+are selected/ignored pair and record specifications, complete loop composition
+with generic error propagation, opening/nullish branches and the receipt pointer
+wrapper, followed by value/pointer public guards, trailing-input rejection and
+partial-result cleanup. The shared Header UTF-8 obligation and felt-key map
+equality gap remain unresolved.
+
+Full regeneration/check passed in `check-receipt-fields-full.log`: **2569 build
+jobs, 2360 audited theorems, 770 project/artifact hashes and 46 directly translated
+stdlib source hashes**. Independent comparison with `ba3df2487` confirmed exactly
+57 new results, unchanged dependencies for all 2303 prior theorems, unchanged
+axiom union, exact new-source coverage and every recorded hash. No admission or
+native-evaluation axiom occurs. Direct helper premise counts are 216 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`. The full check
+revalidated saved source-specific compatibility and performance evidence.
+Production Go remains unchanged; original/baseline worktrees and pinned Perennial
+remain clean at their recorded revisions. The claim remains pinned 64-bit partial
+correctness/model safety, excluding compiler/runtime correctness, OOM and
+termination; unconditional Header and whole-library gates remain open.
