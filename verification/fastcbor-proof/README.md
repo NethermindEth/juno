@@ -5147,3 +5147,58 @@ native-evaluation axioms. Saved compatibility/race/checkptr and archived
 performance evidence was revalidated against unchanged Go sources. Original and
 baseline worktrees and the pinned trusted checkout remain clean at their recorded
 revisions.
+
+## Complete felt-value slice and typed field contracts
+
+`FeltValuesComplete.wp_limbSlice_spec` now connects every independent
+`FeltValuesSpec` outcome to the actual generic `LimbSlice[felt.Felt]` implementation.
+`wp_limbSlice_complete` classifies every byte input at a supported depth and valid
+owned input cursor, obtains error categories from the actual schema/cursor
+initialization proof, and returns the corresponding concrete ownership contract.
+No parser, allocation, unsafe-view or UTF-8 helper correctness is assumed.
+
+The successful contract owns the full slice backing and capacity, distinguishes
+nil from allocated empty and nonempty results, preserves the original input and
+caller depth, and identifies the exact nonempty consumed prefix and unread
+suffix with nonwrapping positions. The failure contract returns nil, restores the
+complete original cursor and owns the exact diagnostic at its bounded inner
+offset. It covers every outer-head, count, outer-depth, element-depth and element
+failure. The five-byte budget still counts the entire remaining input, including
+any suffix, and precedes the depth checks. `FeltValuesOwnership` defines these
+contracts and proves that the concrete nil guard is equivalent to abstract
+absence; `FeltValuesValid` and `FeltValuesFailure` compose all implementation paths.
+
+`FeltValuesTyped.wp_readFeltValues_complete` and
+`wp_readPlainFeltValues_complete` prove both actual typed field wrappers for every
+byte input and arbitrary previous slice field value. They publish a replacement
+only after successful decoding; every failure preserves the previous field and
+returns the original owned diagnostic. Ownership of any old backing allocation
+can be framed across all outcomes because neither reader accesses it. Each
+complete theorem derives its error globals from initialization rather than
+requiring independently supplied error-category values.
+
+The independent specification is now also deterministic. `LimbItemsUnique`
+proves that in-place felt errors have a unique offset/reason, successful element
+sequences cannot also reject, and rejected sequences have unique decoded prefix
+values, consumed position, diagnostic offset and reason. `FeltValuesUnique`
+composes head uniqueness, guard precedence and these sequence results to prove
+one complete outcome for every supported-depth slice input. This includes exact
+successful values and suffix, not merely accepted-versus-rejected classification.
+
+The felt-value slice helper and both typed field readers are complete within the
+pinned 64-bit partial-correctness/model-safety scope. Next are the Event record
+and event-pointer slice specifications, ownership, receipt-table initialization
+and production-loop composition, followed by the containing receipt/projection
+contracts. This checkpoint does not prove an Event or receipt decoder. Header's
+UTF-8 word-helper/model correction and the separate felt-key map equality gap
+remain unresolved. Production Go and trusted semantics are unchanged.
+
+Full regeneration and audit passed in `check-felt-values-complete-full.log`:
+2364 build jobs, 1558 audited theorems, 565 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent verification checked the exact
+13 additions, all 1545 previous dependency sets unchanged, unchanged axiom union
+and explicit helper-premise inventory (116 validator and 2 word-helper premises),
+and every recorded source hash. No theorem depends on admission or native-
+evaluation axioms. Saved compatibility/race/checkptr and archived performance
+evidence was revalidated against unchanged Go sources. Original and baseline
+worktrees and the pinned trusted checkout remain clean at their recorded revisions.

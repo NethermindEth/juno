@@ -378,3 +378,10 @@ import ProofCheck.ReadLimbsComplete
 import ProofCheck.FeltValuesView
 import ProofCheck.FeltValuesNonempty
 import ProofCheck.FeltValuesRejected
+import ProofCheck.FeltValuesOwnership
+import ProofCheck.FeltValuesValid
+import ProofCheck.FeltValuesFailure
+import ProofCheck.FeltValuesComplete
+import ProofCheck.FeltValuesTyped
+import ProofCheck.LimbItemsUnique
+import ProofCheck.FeltValuesUnique
