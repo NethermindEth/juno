@@ -4326,3 +4326,49 @@ set and the overall axiom union are unchanged, with no admission or native
 execution axioms. Independent checks verified all recorded project hashes and
 the exact premise additions. Saved compatibility, race/checkptr and archived
 performance evidence was revalidated against the unchanged Go sources.
+
+
+### Projection metadata initialization and caller contracts
+
+`ProjectionState.lean` lists the five Header and two receipt projection schemas
+independently of the generated factory expressions. Checked finite facts establish
+that each schema has at most 64 distinct folded field names and that every cached
+wire key, word, mask, field index and selection bit agrees with those names.
+`ProjectionFields.lean` checks all seven actual generated allocation factories
+and derives persistent ownership of their exact backing slices and masks.
+
+`ProjectionInitialize.lean` checks the **complete actual cborprojections package
+initializer**: all seven globals, all seven factory calls, their stores and the
+existing proved cursor initialization dependency. It publishes immutable table
+ownership and exposes it through the package initialization predicate. The runtime
+CPU-startup precondition is the same explicit boundary as Header initialization;
+no projection initializer correctness premise is supplied by callers.
+
+`ProjectionOpen.lean` checks all seven actual opening wrappers on arbitrary bytes,
+deriving the appropriate published table and canonical errors from initialization.
+The returned `StructOpenOutcome` covers null/undefined, bounded maps and every
+specified opening error, with exact cursor/depth and diagnostic ownership. This
+opening step has no UTF-8 premise and excludes the preceding projection tag helper.
+
+`ProjectionScan.lean` specializes the all-input `NextWanted` contract to any of
+those initialized tables. Agreement of immutable global pointers ties the current
+`Struct` to the correct table. Its names, mask, size and folded-name uniqueness
+come from the checked metadata rather than caller assumptions. It retains the
+existing explicit UTF-8 validator premise and input/state ownership contract.
+
+This closes projection table initialization and the opening/scanning connection,
+not complete projection record/API correctness. Remaining work includes the tag
+policy, nullable timestamp scalar helper, independent record specifications,
+field-value loops and public API composition. The Header UTF-8 word helper and
+felt-key map model gap remain unchanged. No production Go or trusted semantics
+was modified.
+
+Full regeneration and audit pass in `check-projection-initialize-full.log`: 2254
+build jobs, 1268 audited theorems, 458 project/artifact hashes and 46 directly
+translated standard-library hashes. The 23 new results preserve every previous
+theorem's dependency set and the overall axiom union, with no admissions or native
+evaluation axioms. Only `wp_nextWanted_projection` adds a direct occurrence of the
+existing validator premise (75 direct validator results; 2 word-helper results
+unchanged). Independent checks verified the exact additions and all recorded
+project hashes. Saved compatibility, race/checkptr and archived performance
+evidence was revalidated against the unchanged Go sources.

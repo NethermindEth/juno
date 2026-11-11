@@ -263,3 +263,9 @@ import ProofCheck.WantedValidImpl
 
 import ProofCheck.WantedRejectedImpl
 import ProofCheck.WantedComplete
+
+import ProofCheck.ProjectionState
+import ProofCheck.ProjectionFields
+import ProofCheck.ProjectionInitialize
+import ProofCheck.ProjectionOpen
+import ProofCheck.ProjectionScan
