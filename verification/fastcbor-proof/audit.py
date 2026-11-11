@@ -738,6 +738,35 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_felt_reserve": {
+        "implementation_target": "core/cbor_state.go: cborNextFelt",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/FeltReserveComplete.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltReserveGrow.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltReserveReuse.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltReserveWant.lean",
+            "verification/fastcbor-proof/ProofCheck/SliceAppendZero.lean",
+            "verification/fastcbor-proof/ProofCheck/SliceFullZero.lean"
+        ],
+        "theorems": [
+            "feltReserve_nil",
+            "wp_nextFelt_complete",
+            "wp_nextFelt_grow",
+            "feltReserve_take_front",
+            "wp_nextFelt_reuse",
+            "feltReserveWant_bounds",
+            "feltReserveWant_add",
+            "wp_slice_append_nil_zero",
+            "wp_slice_make3_full_zero"
+        ],
+        "allocation": "stronger actual make3 and append(nil, zero slice) contracts preserve zero contents throughout newly allocated capacity, including capacity beyond initial length; rounding is unspecified and only the actual new_cap lower bound is used; no trusted model change",
+        "ownership": "FeltReserve owns unused zeroed felt slots with length equal to capacity; head extraction gives disjoint slot/tail ownership; nil reserve initialization checked",
+        "implementation_proved": "complete actual cborNextFelt contract for every owned zeroed reserve and positive signed request: nonempty reuse consumes exactly one slot; empty refill creates at least want slots then consumes one; returned felt is zeroed and separately owned; full remaining reserve stays zeroed and exposes its capacity; reuse branch separately covers any want value",
+        "request_arithmetic": "natural and machine-addition bounds derived from two map pair counts fitting within the same representable input size: 0 < left <= inner, extra <= outer, 2*inner and 2*outer <= bytes < 2^63 imply positive nonoverflowing left+extra; caller-loop invariants still need to supply these facts",
+        "unproved_contract_premises": [],
+        "remaining": "composition of allocator ownership/count bounds into populated ordinary and nested map loops; migrated-map loops and Go felt-key insertion; StateDiff/StateUpdate payload and public API composition; missing array-equality model rule and independent UTF-8 helper/model defect require separately approved work",
+        "scope": "complete allocator implementation under explicit positive-request/zeroed-reserve preconditions, not populated state-map or StateUpdate decoder correctness; unchanged Go and trusted semantics; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "storage_diffs_map": {
         "implementation_target": "core/cbor_state.go: cborReadStorageDiffs, calling cborReadFeltMapFrom for each inner map",
         "modules": [

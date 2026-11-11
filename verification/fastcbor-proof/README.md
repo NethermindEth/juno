@@ -8180,3 +8180,65 @@ repair remains separately approval-dependent; Header and text-dependent records
 retain the independent UTF-8 word-helper/model obligation. No complete storage-map,
 StateUpdate, Header or whole-library implementation milestone is closed here.
 The pinned 64-bit partial-correctness/model-safety boundary is unchanged.
+
+## Complete shared felt-reserve allocator checkpoint
+
+`SliceFullZero`, `SliceAppendZero`, `FeltReserveReuse`, `FeltReserveGrow`,
+`FeltReserveComplete` and `FeltReserveWant` establish the actual `cborNextFelt`
+helper's general contract. This closes the allocator itself, with explicit
+positive-request and owned-zeroed-reserve preconditions; composition into the
+ordinary and nested map loops remains separate.
+
+The standard slice allocation/append contracts retain ownership of unused
+capacity but intentionally forget its values. That is too weak for this helper,
+which exposes `grown[:cap(grown)]` as future felt slots. `SliceFullZero` proves a
+stronger contract directly from the existing make3 implementation: the entire
+new capacity is zeroed. `SliceAppendZero` follows the actual
+`append(nil, zeroSlice)` growth path, both copies and the modeled capacity
+selection, preserving that zero contents fact throughout the allocation. It
+requires only the existing lower bound on selected capacity, not a Go runtime
+rounding formula. No trusted semantics is changed or postulated.
+
+`FeltReserveReuse` transfers the first owned felt and keeps disjoint ownership of
+the tail. Its actual helper theorem covers arbitrary nonempty contents and any
+request value, because reuse does not allocate. `FeltReserveGrow` proves the
+actual exhausted-reserve path for every positive signed request: make, append,
+capacity reslice, first-slot address and reserve advancement. The resulting
+allocation contains at least the requested number of zeroed slots before one is
+transferred to the caller.
+
+`FeltReserveComplete` composes both paths for every owned zeroed reserve. The
+returned felt and remaining slots are separately owned, all unused slots remain
+zero, and reserve length remains equal to capacity. Reuse decreases the reserve
+count by exactly one; refill leaves at least `want - 1` slots. Nil reserve
+initialization is also checked. The proof uses the concrete slice reference
+operation and does not encounter the separate generic-index model defect.
+
+`FeltReserveWant` proves the required request arithmetic: two validated map pair
+counts each bounded by half the same representable input size bound their sum.
+A positive remaining inner count plus a nonnegative bounded outer hint is
+positive and below `2^63`, and machine addition agrees with mathematical
+addition. These facts are proved, not assumed machine-overflow behavior; the
+future caller-loop proofs still need to establish and supply their count bounds.
+
+Validation: `check-felt-reserve-full.log` records a successful **3,067-job** full
+regeneration/build and **4,207** audited results. This checkpoint adds **nine**
+results in **six** modules. Independent comparison against `2529d27e4` checked
+all **4,198** prior dependency sets and the complete axiom union unchanged;
+**1,270** project/artifact and **46** standard-library hashes match disk. No
+helper premises were added; shared counts remain **441** direct validator
+premises and **two** word-helper premises. No result depends on `sorryAx` or
+native evaluation axioms. The independent audit checked the full-capacity
+ownership, actual make/append/helper targets, disjoint slot transfer and request
+arithmetic. Production Go and trusted semantics remain unchanged, original and
+baseline worktrees retain clean pins, and frozen performance/compatibility
+results remain applicable.
+
+Next are populated state-map loop composition, including reserve sharing across
+inner maps, and StateDiff/StateUpdate payload and public API proofs. The allocator
+adds no new modeling blocker. Actual felt-key insertion still needs the separately
+approved array-equality repair; Header and text-dependent decoders retain the
+UTF-8 word-helper/model obligation. This checkpoint does not close a complete
+state-map decoder, Header or whole-library gate. The pinned 64-bit
+partial-correctness/model-safety boundary still excludes compiler/runtime
+implementation correctness, OOM and termination.

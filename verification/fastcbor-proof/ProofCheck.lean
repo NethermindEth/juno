@@ -1199,3 +1199,15 @@ import ProofCheck.StorageDiffsSpec
 import ProofCheck.StorageDiffsUnique
 
 import ProofCheck.StorageDiffsValues
+
+import ProofCheck.FeltReserveComplete
+
+import ProofCheck.FeltReserveGrow
+
+import ProofCheck.FeltReserveReuse
+
+import ProofCheck.FeltReserveWant
+
+import ProofCheck.SliceAppendZero
+
+import ProofCheck.SliceFullZero
