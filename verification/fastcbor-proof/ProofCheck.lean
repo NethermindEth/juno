@@ -410,3 +410,7 @@ import ProofCheck.EventPointerItemsSpec
 import ProofCheck.EventPointersSpec
 import ProofCheck.EventPointerItemsUnique
 import ProofCheck.EventPointersUnique
+import ProofCheck.EventPointersOwnership
+import ProofCheck.EventPointersBoundary
+import ProofCheck.EventPointersValid
+import ProofCheck.EventPointersReadValid

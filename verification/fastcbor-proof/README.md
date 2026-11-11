@@ -109,8 +109,11 @@ projection now also has complete conditional internal-record and First API
 contracts, with independently unique outcomes. The direct Event record now also
 has conditional all-input/all-owned-initial-value contracts with independently unique
 outcomes. Its enclosing pointer-slice specification is classified and uniquely
-determined, while the pointer-slice implementation proof remains open. See the
-latest Event checkpoint below and “Checked remaining-entry inventory”.
+determined. The actual pointer-slice reader now realizes every independent
+successful outcome, including bounded shared storage and fallback allocations;
+null/undefined and outer rejection branches are checked too. Inner-error loop
+propagation and all-input composition remain open. See the latest Event checkpoint
+below and “Checked remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -5435,3 +5438,59 @@ premises. No theorem depends on admission or native-evaluation axioms. Saved
 compatibility/race/checkptr and archived performance evidence was revalidated
 against unchanged Go sources. Original and baseline worktrees and the pinned
 trusted checkout remain clean at their recorded revisions.
+
+
+## Event pointer-slice ownership and successful implementation
+
+`EventPointersOwnership` gives concrete nullable pointer and slice ownership.
+A present element owns its actual Event struct and all children; nil elements own
+no record. The pointer table and its element ownership retain matching lengths,
+and an allocated empty slice remains distinct from nil. Shared storage owns only
+its unused zero slots. `eventStorage_take` transfers exactly the next slot into
+an owned zero Event, retaining the later slots, so published pointers never
+claim overlapping copies of the same struct ownership.
+
+`EventPointersBoundary` proves the actual generated reader's null/undefined,
+outer malformed/type/truncation, count and depth branches. Null/undefined
+publishes nil and consumes one byte. Outer failures preserve the original
+destination, cursor and depth and return the exact owned diagnostics. These
+results and the ownership lemmas require no UTF-8 helper premise.
+
+`EventPointersValid` proves the **full successful generated array loop**, not a
+replacement implementation or sample encoding. The proof follows the actual
+`min(count, c.Len()/32)` signed minimum, pointer-table and bounded Event backing
+allocations, nil-element bypass, shared-slot consumption and fallback individual
+allocations. Each nonnil record is decoded from zero against its independent
+contract with the actual later input retained in slice count guards. The loop
+owns completed entries separately from unused storage, publishes each pointer
+only after its record succeeds, calls `Leave`, and publishes the final slice.
+It handles arbitrary supported counts/widths, field contents/orders, nil elements
+and suffixes, including zero-length arrays and exhausted shared storage.
+
+`EventPointersReadValid.wp_readEventPointers_valid` composes null/undefined and
+arrays into refinement of **every independently successful nullable-array
+outcome**. It returns the exact owned values, consumed length and unread suffix,
+preserves input and restores the caller's depth. The two successful composition
+theorems explicitly retain `Utf8ValidatorContract` through Event record decoding;
+this is the existing unresolved dependency, not a newly assumed allocation or
+loop contract.
+
+The remaining pointer-slice implementation work is the inner-failure loop after
+arbitrary successful prefixes: retain the private partially decoded Event and
+specified cursor/depth while leaving the caller's destination unchanged. That
+must then compose with initialized error ownership and the independent classified
+outcome into an all-input theorem. Containing receipt/projection APIs remain.
+Header's unapproved trusted UTF-8 correction and the independent felt-key map
+model gap are unchanged; this checkpoint does not close either milestone.
+
+Full regeneration and audit passed in
+`check-event-pointer-success-full.log`: **2393 build jobs, 1685 audited theorems,
+594 project/artifact hashes and 46 directly translated standard-library hashes**.
+Independent verification checked the exact 15 new theorems, unchanged dependency
+sets for all 1670 prior theorems, unchanged axiom union and every recorded hash.
+Direct helper-premise counts are now 126 validator results (the two successful
+pointer-slice compositions added) and 2 word-helper results. No theorem depends on
+admission or native-evaluation axioms. The full check revalidated saved
+compatibility/race/checkptr evidence and the archived passing performance gate
+against unchanged Go sources. Original, baseline and trusted checkouts remain
+clean at their recorded pins. No production Go or trusted semantics changed.
