@@ -275,3 +275,7 @@ import ProofCheck.ProjectionTagRead
 import ProofCheck.ProjectionTagChecked
 import ProofCheck.ProjectionTagComplete
 import ProofCheck.ProjectionTagUnique
+
+import ProofCheck.Uint64PointerSpec
+import ProofCheck.Uint64PointerRead
+import ProofCheck.Uint64PointerComplete

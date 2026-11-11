@@ -4414,3 +4414,44 @@ overall axiom union, exact theorem additions and all project hashes. The direct
 UTF-8 premise counts remain 75 validator results and 2 word-helper results. Saved
 compatibility, race/checkptr and archived passing performance evidence was
 revalidated against the unchanged Go sources.
+
+
+### Complete nullable unsigned scalar helper
+
+`Uint64PointerSpec.lean` independently specifies nullable unsigned decoding.
+Null and undefined clear the pointer; unsigned values, including zero, produce a
+present value. This differs from the already-proved plain scalar's preserve-on-null
+policy. Classification covers every input; checked prefix uniqueness, success/error
+separation and full-outcome uniqueness fix both the value and the unread suffix,
+including the exact diagnostic on rejection.
+
+`Uint64PointerRead.lean` proves the actual `cborReadUint64Pointer` branches.
+Every supported unsigned width, including nonpreferred encodings, publishes owned
+nonnull word storage. Null/undefined publish nil. On every scalar parse failure,
+the old destination pointer and cursor remain unchanged and the proof returns the
+actual owned diagnostic; temporary storage is not published. The precondition does
+not consume ownership of an old pointee, so caller ownership of that storage can
+be framed across clearing, replacement and failure.
+
+`Uint64PointerComplete.lean` composes an **all-input, arbitrary-old-pointer**
+implementation contract with the independent specification, exact nonwrapping
+successful consumption/suffix, unchanged depth and preserved fractional input.
+Actual cursor initialization supplies canonical error categories. The concrete nil
+guard is proved equivalent to absence in the abstract value, preserving the
+difference between nil and an allocated zero. No UTF-8 or other unproved helper
+correctness premise is used.
+
+This closes the nullable timestamp helper, not its containing projection record.
+The next work is independent projection record specifications, field-value loop
+composition, destination guards and public API cleanup/suffix contracts. The scan
+still has the existing UTF-8 premise; Header's pending trusted indexing correction
+and the felt-key map model gap are unchanged. No Go or trusted semantics changed.
+
+Full regeneration and audit pass in `check-uint64-pointer-full.log`: 2262 build
+jobs, 1289 audited theorems, 466 project/artifact hashes and 46 directly translated
+standard-library hashes. The 10 new results add no helper premises or axioms.
+Independent checks verified all previous dependency sets, the unchanged overall
+axiom union, exact theorem additions and every project hash. Direct UTF-8 premise
+counts remain 75 validator results and 2 word-helper results. Saved compatibility,
+race/checkptr and archived performance evidence was revalidated against the
+unchanged Go sources.
