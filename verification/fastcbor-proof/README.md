@@ -7581,3 +7581,60 @@ actual UTF-8 word-helper proof to discharge its shared premise. No unconditional
 Header or whole-library completion is claimed; the pinned 64-bit partial-
 correctness/model-safety scope and compiler/runtime, OOM, termination and
 compatibility boundaries are unchanged.
+
+## Complete DeprecatedCairoClass record checkpoint
+
+The actual generated `cborReadDeprecatedCairoClass` reader now has a complete
+contract for every byte input at supported depth and arbitrary owned prior
+record contents. `wp_readDeprecatedClass_record_complete` composes all five
+fields: opaque ABI bytes, external/L1-handler/constructor entry-point arrays,
+and program text. It retains the existing shared `Utf8ValidatorContract`
+premise for text and keys; there is no new field, loop, allocation or initializer
+correctness premise. This is the direct class-record reader; class tag dispatch,
+public destination guards and API cleanup remain separate work.
+
+`DeprecatedClassValues` specifies the five fields independently. Direct record
+null/undefined preserves every old field. Nullish ABI and entry arrays clear
+the corresponding field; a nullish program retains its old string. Byte/array
+nil and allocated empty remain distinct. Entry records reuse the checked
+selector/offset limb relation and value-slice specification. Program decoding
+checks text UTF-8, but does not validate base64, compression or executable
+contents. ABI decoding does not parse JSON.
+
+Independent field/key/pair/record classification, successful prefix uniqueness,
+success/rejection separation and rejected-outcome uniqueness cover arbitrary
+supported encodings and field order, ASCII key folding, duplicate known keys,
+unknown keys/values and all nested errors. The specification preserves actual
+suffixes for contextual child count guards and separately describes partial
+record contents, cursor consumption, diagnostic offset and retained depth.
+
+Ownership separates four slice headers and their byte/entry/felt children from
+the program string. Five field accessors retain every unrelated field while
+calling the actual helpers. Successful fields publish only complete results.
+Failed fields preserve their prior value; failed entry arrays retain their
+actual consumption and entered array/record levels. Enclosing failures retain
+earlier successful fields and exact initialized owned diagnostics. Successful
+records restore depth and return exact owned values, unchanged input and the
+original unread suffix. Concrete five-entry class metadata, field indices,
+lookup certificates, seen bits and actual initialization are connected to the
+independent schema. Zero-record ownership is available for enclosing publication.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,934 Lean
+build jobs, auditing 3,758 results, 1,135 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 74 new
+results in 18 modules, unchanged dependencies for all 3,684 prior results,
+an unchanged axiom union, every hash and all five field mappings/child calls.
+Eleven new direct uses of the existing UTF-8 validator premise bring that count
+to 389; the two word-helper premises remain unchanged. No result depends on
+`sorryAx` or native evaluation axioms. Saved compatibility and frozen performance
+evidence was revalidated. Production Go and trusted semantics are unchanged;
+original/baseline worktrees remain clean at their recorded pins.
+
+Next: recursive SegmentLengths and the enclosing CasmClass/SierraClass records,
+then class tag dispatch and public APIs. State payload/map ownership and public
+APIs remain open, including the separate felt-key equality model gap. Header
+still requires the separately approved slice-index repair and actual UTF-8
+word-helper proof to discharge the shared premise. Neither unconditional Header
+nor whole-library completion is claimed; pinned 64-bit partial correctness/model
+safety and the existing compiler/runtime, OOM, termination and compatibility
+boundaries remain unchanged.
