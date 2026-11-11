@@ -376,6 +376,15 @@ func (t *wsTransport) shutdown(cause error) {
 
 func (t *wsTransport) close() { t.shutdown(ErrTransportClosed) }
 
+func (t *wsTransport) isClosed() bool {
+	select {
+	case <-t.closed:
+		return true
+	default:
+		return false
+	}
+}
+
 // writeJSON bounds writes by wsWriteTimeout, not the caller's ctx (see the
 // const); caller cancellation applies only while awaiting the reply.
 func (t *wsTransport) writeJSON(v any) error {
