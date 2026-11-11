@@ -7800,3 +7800,72 @@ sum of child lengths, bytecode segmentation or executable validity. Neither
 unconditional Header nor whole-library completion is claimed; the pinned 64-bit
 partial-correctness/model-safety and documented compiler/runtime, OOM, termination
 and compatibility boundaries remain unchanged.
+
+## Complete CASM class record and pointer checkpoint
+
+The generated `cborReadCasmClass` now has a complete direct-record contract for
+all byte inputs at supported depth and arbitrary owned initial contents. Its
+nullable `cborReadCasmClassPointer` wrapper also has a complete contract with an
+independently unique outcome for every byte input and old destination pointer.
+Both retain the existing explicit `Utf8ValidatorContract` premise. These are
+class payload contracts, before class-interface dispatch and public API cleanup.
+
+The independent `CasmClassValue` describes all nine stored fields: bytecode felt
+values, PythonicHints bytes, compiler-version text, Hints bytes, nullable Prime,
+External/L1Handler/Constructor entry-point arrays, and the embedded recursive
+BytecodeSegmentLengths record. Field relations compose the previously checked
+child specifications. Record relations independently specify null/undefined,
+definite maps, ASCII-folded keys, arbitrary field order, unknown-field skipping,
+duplicate known-key rejection and all failures after successful prefixes.
+Classification, prefix/value/suffix uniqueness, success/rejection separation,
+exact failure uniqueness, position bounds and retained-depth bounds are checked.
+`SegmentGeneral.lean` extends pure segment determinism and position bounds above
+the supported depth, where no container can open; production contracts retain
+their supported-depth restriction.
+
+Ownership separates the nine class field cells and their children. This permits
+ownership of the embedded recursive segment without overlapping it with whole
+class ownership. All nine field accessors preserve unrelated fields. The actual
+fresh zero-class allocation establishes this ownership, including the embedded
+zero segment, nil slices, nil Prime and empty compiler version.
+
+The actual field calls and complete map loop now compose. Successful decoding
+owns the exact resulting contents and unread suffix, preserves the input and
+restores cursor depth. A failed embedded segment can retain partial changes to
+its Children or Length; the enclosing class contract records those changes.
+Failed slice and pointer reads retain their old fields. Earlier successful class
+fields remain after a later failure. Diagnostic ownership preserves the actual
+allocated error, initialized category, detail and arguments. BigInt tag-payload
+errors use their actual diagnostic offset while the failed cursor rolls back.
+
+The pointer contract distinguishes null/undefined, which clear the destination,
+from an empty map, which publishes a nonnil zero class. Other inputs allocate a
+fresh zero class and publish it only after complete success. Failure preserves
+the caller's old pointer and retains ownership of the private partial class,
+including nested allocation and the exact cursor/depth/diagnostic outcome.
+Existing pointee ownership can be framed throughout because the wrapper never
+mutates the object referenced by the old pointer.
+
+Validation: `check-casm-class-full.log` records a successful **2,992-job** full
+regeneration/build and **3,974** audited results. This checkpoint adds **91**
+results in **21** modules. A separate comparison against `d8564f0fe` checked every
+prior theorem's actual dependency set and the complete axiom union unchanged;
+all **1,195** project/artifact hashes and **46** standard-library source hashes
+match disk. Fourteen additional direct uses of the existing UTF-8 premise bring
+the counts to **421** validator premises and **two** word-helper premises. No
+result depends on `sorryAx` or native evaluation axioms, and no new correctness
+premise or trusted-model change was introduced. The independent audit also
+compared all nine field names, indices and actual Go calls, embedded partial
+updates and pointer failure publication. Original and baseline worktrees retain
+their clean pins; production Go remains frozen at `66d35a944`, so the existing
+177-case performance pass and archived compatibility checks remain applicable.
+
+Next: compose SierraClass, then class tag dispatch and public APIs. State-update
+payloads and their separate felt-key equality model gap remain open. Header
+still needs the separately approved slice-index model correction and actual
+UTF-8 word-helper proof. This class contract does not assert JSON validity,
+prime choice, bytecode/segment consistency or executable validity. Neither
+unconditional Header nor whole-library completion is claimed; the pinned
+64-bit partial-correctness/model-safety boundary still excludes compiler/runtime
+implementation correctness, OOM and termination, FX equivalence and blanket
+validity of ignored CBOR content.

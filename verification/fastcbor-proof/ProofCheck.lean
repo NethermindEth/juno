@@ -1019,3 +1019,45 @@ import ProofCheck.SegmentRejectedContracts
 import ProofCheck.SegmentValid
 
 import ProofCheck.SegmentValidContracts
+
+import ProofCheck.CasmClassBoundary
+
+import ProofCheck.CasmClassFieldComplete
+
+import ProofCheck.CasmClassFieldRead
+
+import ProofCheck.CasmClassKeyRead
+
+import ProofCheck.CasmClassKeys
+
+import ProofCheck.CasmClassMapRejected
+
+import ProofCheck.CasmClassMapValid
+
+import ProofCheck.CasmClassOwnership
+
+import ProofCheck.CasmClassPairs
+
+import ProofCheck.CasmClassPairsUnique
+
+import ProofCheck.CasmClassPointerComplete
+
+import ProofCheck.CasmClassPointerRead
+
+import ProofCheck.CasmClassPointerSpec
+
+import ProofCheck.CasmClassRecordComplete
+
+import ProofCheck.CasmClassRecordSpec
+
+import ProofCheck.CasmClassRecordUnique
+
+import ProofCheck.CasmClassSeen
+
+import ProofCheck.CasmClassTable
+
+import ProofCheck.CasmClassValueUnique
+
+import ProofCheck.CasmClassValues
+
+import ProofCheck.SegmentGeneral
