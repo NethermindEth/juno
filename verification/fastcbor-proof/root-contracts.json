@@ -141,6 +141,20 @@
             "wp_readStateDiffPointer_first_key_rejected",
             "wp_stateUpdate_diff_first_key_rejected"
           ]
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateAPIGuardSpec.lean",
+          "theorems": [
+            "wp_decodeStateUpdateFirst_nonzero_spec",
+            "wp_decodeStateUpdate_nonzero_spec"
+          ]
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateAPIOpenFailure.lean",
+          "theorems": [
+            "wp_decodeStateUpdateFirst_open_rejected_spec",
+            "wp_decodeStateUpdate_open_rejected_spec"
+          ]
         }
       ],
       "remaining": [

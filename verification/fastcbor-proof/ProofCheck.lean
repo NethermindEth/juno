@@ -1243,6 +1243,9 @@ import ProofCheck.StateDiffEmpty
 import ProofCheck.StateDiffPointerBoundary
 
 import ProofCheck.StateUpdateAPIGuard
+import ProofCheck.StateUpdateAPIOutcome
+import ProofCheck.StateUpdateAPIGuardSpec
+import ProofCheck.StateUpdateAPIOpenFailure
 
 import ProofCheck.StateUpdateAPISpec
 

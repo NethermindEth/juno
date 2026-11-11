@@ -1075,6 +1075,26 @@ report = {
         "remaining": "map diagnostic definitions are not map implementation theorems; populated state-map insertion/loops, StateDiff/StateUpdate field-loop composition and successful/rejected public decoding remain; shared UTF-8 word-helper and felt-key array-equality model gaps still need separately authorized repairs",
         "scope": "actual populated field integration for three felt fields and one felt-pointer slice plus uniform error ownership; not complete record/public implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime implementation, OOM and termination"
     },
+    "state_update_api_outcomes": {
+        "implementation_target": "core/cbor_state_generated.go: DecodeStateUpdateFirst and DecodeStateUpdate, through actual cursor construction, record opening and cleanup; all nonzero destination guards",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateUpdateAPIOutcome.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateAPIGuardSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateAPIOpenFailure.lean"
+        ],
+        "theorems": [
+            "stateUpdateAPIErrorOwned_nonNil",
+            "wp_decodeStateUpdateFirst_nonzero_spec",
+            "wp_decodeStateUpdate_nonzero_spec",
+            "wp_decodeStateUpdateFirst_open_rejected_spec",
+            "wp_decodeStateUpdate_open_rejected_spec"
+        ],
+        "representation": "independent First/full result ownership, exact successful suffix aliasing, nil failure suffix, canonical guard/trailing categories, nonwrapping diagnostic offset/count and private partial StateDiff error ownership; result definitions alone do not establish implementation correctness",
+        "implementation_proved": "both public guards satisfy StateUpdateFirstSpec/StateUpdateFullSpec for arbitrary nonzero owned destinations and arbitrary inputs; both actual public wrappers satisfy those specs for every StructOpenFailure at depth zero from a zero destination, with unchanged input, cleanup and exact offset-zero diagnostics",
+        "unproved_contract_premises": [],
+        "remaining": "successful populated maps, general StateDiff/StateUpdate loops, remaining public decode branches and shared UTF-8 discharge remain unproved; array-equality and generic slice-index trusted repairs still require separate approval",
+        "scope": "four partial production API contracts and one error-representation lemma, not complete StateUpdate correctness; no decoder/helper correctness premise, SafeMapKey assumption, trusted change or production Go change; pinned 64-bit partial correctness/model safety"
+    },
     "state_update_foundations": {
         "implementation_target": "core/cbor_state_generated.go: cborReadStateUpdate, cborZeroStateUpdate, cborClearStateUpdate, DecodeStateUpdateFirst and DecodeStateUpdate; actual internal/cborstate StateUpdate metadata and NextField scanner",
         "modules": [

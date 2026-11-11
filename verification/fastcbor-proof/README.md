@@ -8980,3 +8980,37 @@ felt-key map insertion requires the proposed array-equality rule and derived
 key-safety proofs. Populated maps must then be composed through StateDiff,
 StateUpdate and its public entries. Both trusted repairs still await separate
 explicit approval. The proof goal remains incomplete.
+
+### StateUpdate public result ownership and opening-error composition
+
+`StateUpdateAPIOutcome.lean` defines the concrete ownership interpretation of
+independent First/full outcomes: successful suffixes alias the original input;
+failures return nil suffixes and retain exact initialized error categories,
+nonwrapping offsets/counts and any private partial StateDiff error ownership.
+The checked error lemma establishes that each represented error is nonnil.
+These definitions provide the common postconditions for subsequent API proofs;
+they do not establish all decoder branches by themselves.
+
+`StateUpdateAPIGuardSpec.lean` connects both actual public nonzero-destination
+guards to `StateUpdateFirstSpec`/`StateUpdateFullSpec`, preserving the original
+owned destination and every input byte. Canonical error objects are recovered
+from package initialization, not supplied as additional caller hypotheses.
+
+`StateUpdateAPIOpenFailure.lean` proves both actual public entries for every
+independently specified `StructOpenFailure 0 wire reason`, from a zero
+destination. The First proof executes the zero guard, cursor construction,
+record opening and actual cleanup; it returns a nil suffix and the precise
+opening diagnostic at offset zero. The full wrapper forwards that error and
+preserves the same cleared output and input ownership. These results use no
+UTF-8, map-key or decoder-helper correctness premise. General successful and
+later-failure decoding remains open.
+
+`check-state-api-outcomes-full.log` records a passing full check: 3142 jobs and
+4482 audited results. Relative to `1517e8252`, the four production WP contracts
+and one error-representation lemma add no transitive axiom or explicit helper
+premise. All 4477 prior theorem dependency sets and both existing premise
+inventories are unchanged. The independent audit verified 1346 project hashes,
+46 standard-library hashes and the unchanged frozen Go/preserved worktree pins.
+The root index adds these partial references while retaining StateUpdate's
+incomplete status. No trusted source or production Go changed; Header's UTF-8
+repair, populated felt-key maps and full StateUpdate composition remain open.
