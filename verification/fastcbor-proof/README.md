@@ -153,10 +153,11 @@ and opening wrappers are checked. The two-field ResourceBounds record now also h
 complete conditional all-input contracts. Its enclosing ResourceBounds map now has
 an independent total/unique specification and a complete conditional all-input
 implementation contract, including every key/record failure, exact cursor/depth,
-private partial ownership and old-destination preservation. The direct L1-handler
-transaction, Deploy, Declare and Invoke transaction records now also have complete conditional
-all-input/all-owned-prior-value contracts; the DeployAccount record
-and enclosing tagged interface/public API composition remain open.
+private partial ownership and old-destination preservation. All five direct transaction variants
+(L1-handler, Deploy, Declare, Invoke and DeployAccount) now also have complete
+conditional all-input/all-owned-prior-value contracts, including embedded
+DeployAccount field access. Enclosing tagged interface/public API composition
+and transaction hash projection remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6790,3 +6791,68 @@ Original, baseline and Perennial worktrees retain their clean pinned revisions.
 This remains pinned 64-bit partial correctness/model safety, excluding
 compiler/runtime correctness, OOM and termination. No unconditional Header,
 whole-library, FX-equivalence or strict ignored-CBOR-validity claim is made.
+
+## Complete conditional DeployAccount transaction record
+
+The actual `cborReadDeployAccountTransaction` now has a complete conditional
+contract for every byte input and every owned prior record. This closes the
+last of the five direct transaction variant record compositions. The enclosing
+Transaction interface decoder, public APIs and transaction hash projection
+remain separate open work.
+
+`DeployAccountValue` independently describes the fourteen flat wire fields:
+seven nullable felt/version values, three nullable felt-value slices,
+ResourceBounds, uint64 Tip and two uint32 DA modes. `DeployAccountValues`,
+`DeployAccountPairs`, `DeployAccountValueUnique`, `DeployAccountPairsUnique`,
+`DeployAccountRecordSpec` and `DeployAccountRecordUnique` prove total
+classification, unique values/suffixes or partial-state/error/consumption/depth
+outcomes, and success/rejection separation. They retain actual suffixes for
+nested count guards, arbitrary key order, ASCII folding, known duplicate
+rejection and the actual ignored-value Skip policy. Direct null/undefined
+preserves prior contents; missing fields are left unchanged.
+
+The concrete ownership proof follows the actual embedded Go layout. The outer
+struct has nine fields, one of which is the embedded six-field DeployTransaction.
+`deployAccount_embedded_acc` borrows that embedded cell while framing the other
+eight outer fields. Each of the six nested access proofs then uses the existing
+Deploy field accessor to borrow the precise inner cell and reconstruct both
+records after the call. `deployAccountFieldRef` selects those actual nested
+addresses for the first six wire fields and ordinary outer field addresses for
+the remaining eight. No Go flattening, allocation rewrite or new model rule was
+needed. All child pointers, slices and resource-map records remain explicitly owned.
+
+`DeployAccountFieldValid`, `DeployAccountFieldRejected` and
+`DeployAccountFieldComplete` compose all fourteen actual helper calls against
+those addresses. Resource-map failures preserve the old field and retain their
+actual nested cursor depth/consumption; DA-mode overflow consumes the integer
+and returns its bare initialized sentinel. Felt/version and felt-slice failures
+roll back their cursor changes. The record loop retains earlier successful field
+updates on later failure. `DeployAccountTable`, `DeployAccountSeen` and
+`DeployAccountKeyRead` connect the flat schema with actual initialized metadata,
+cache order and seen masks. `DeployAccountMapValid`, `DeployAccountMapRejected`,
+`DeployAccountBoundary` and `DeployAccountRecordComplete` compose the actual
+loop, exact suffix/restored depth on success, partial-state and error ownership
+on failure, and unchanged input ownership.
+
+**All five direct transaction records remain conditional on the shared
+`Utf8ValidatorContract`.** DeployAccount uses it for field keys and its nested
+ResourceBounds map keys. Tagged dispatch, per-variant allocation/interface
+publication, public zero guards, parse-failure cleanup and trailing-input handling
+still require transaction-level composition. Header's unapplied trusted-model
+correction, the separate felt-key map equality gap and state-update/class work
+remain open. Stored decoding does not prove protocol-version validity, signature
+verification, hash/address derivation, DA enum membership or cross-field validity.
+
+Validation: the full `check.sh` regenerated from unchanged production Go, passed
+2,728 Lean build jobs and audited 3,061 theorems, 929 project/artifact hashes and
+46 standard-library source hashes. The independent audit checked exactly 101 new
+results in 18 modules, unchanged axiom dependencies for all 2,960 previous results,
+an unchanged axiom union and every recorded hash. No result depends on `sorryAx`
+or native evaluation axioms. Direct unresolved premises total 292 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`; eleven new validator
+premises cover DeployAccount field/key/record composition. Saved compatibility and
+frozen performance evidence was revalidated. Original, baseline and Perennial
+worktrees retain their clean pinned revisions. This remains pinned 64-bit partial
+correctness/model safety, excluding compiler/runtime correctness, OOM and
+termination. No unconditional Header, whole-library, FX-equivalence or strict
+ignored-CBOR-validity claim is made.
