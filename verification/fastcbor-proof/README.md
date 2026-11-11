@@ -3759,6 +3759,16 @@ JSON key sorting changes classification iteration order, so the artifact checker
 now compares decision cases by ID and rejects duplicate IDs. The runner and all
 statistical decisions are unchanged. All 13 harness/checker tests pass.
 
+The ten-round look (1790 pairs) is **inconclusive: 176 decoder cases pass, zero
+fail, and one remains inconclusive**, `block/block-p100/oneReceipt`. Its paired
+geometric mean time ratio is 1.0034716, with bounds 0.9730536–1.0348405 under the
+prespecified one-sided alpha/3 procedure. The upper bound exceeds 1.03, so the
+estimated +0.35% change cannot yet establish the required limit. Both allocation
+ratios for that case are exactly 1; all 177 decoder cases still pass allocation
+metrics. Both saved look decisions were recomputed from their paired samples.
+The same unchanged run continues to the final planned twenty-round look; no
+case has been dropped and no additional acceptance look has been introduced.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.
