@@ -212,3 +212,7 @@ import ProofCheck.IntElementFailure
 import ProofCheck.IntsFailure
 import ProofCheck.IntsFailureSpec
 import ProofCheck.IntsComplete
+import ProofCheck.KeyRejected
+import ProofCheck.IntegerKey
+import ProofCheck.IntegerKeySpec
+import ProofCheck.IntegerKeyComplete

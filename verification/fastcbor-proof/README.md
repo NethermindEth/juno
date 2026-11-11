@@ -3836,7 +3836,8 @@ proof executes Int64 directly and does not use BigInt decoding as an oracle.
 
 These fourteen results are a dependency for block-index decoding. Signed-array
 proofs follow below, culminating in the complete helper contract. Integer-key
-dispatch and the complete BlockTransactionsIndexes record/API proof still remain. Header's UTF-8 helper and felt-key map model gaps are unchanged.
+dispatch is now composed conditionally below; the complete BlockTransactionsIndexes
+record/API proof still remains. Header's UTF-8 helper and felt-key map model gaps are unchanged.
 The existing frozen performance evidence remains applicable to the unchanged Go
 sources. The full regeneration and audit (`check-int64-full.log`) pass with
 2204 build jobs, 1090 audited theorems, 408 project/artifact hashes and 46
@@ -3905,8 +3906,8 @@ unresolved helper correctness or initializer WP premise.
 
 This completes the signed-array helper under the documented partial-correctness
 model. It does not yet prove the containing BlockTransactionsIndexes record:
-integer-key handling, the first-duplicate-wins record loop, zero guards, cleanup
-and public API composition remain. Header's UTF-8 helper and felt-map equality
+the first-duplicate-wins record loop, zero guards, cleanup and public API
+composition remain. Integer-key handling is now composed conditionally below. Header's UTF-8 helper and felt-map equality
 model gaps are unchanged. No production Go or trusted semantics changed, so the
 saved compatibility and performance evidence remains source-applicable.
 Full regeneration and audit (`check-ints-complete-full.log`) pass with 2211 build
@@ -3916,6 +3917,44 @@ are unchanged. No admissions or native-evaluation dependencies are present. The
 saved ordinary/race/checkptr corpus checks and archived performance decisions
 were revalidated against the unchanged sources. The explicit UTF-8 premise counts
 remain 51 validator-dependent and two word-helper-dependent results.
+
+## Integer-key dispatch composed conditionally
+
+`IntegerKeySpec.lean` independently classifies every byte input for the actual
+`cborReadIntegerKey` helper. Bounded unsigned keys return their numeric value and
+select fields; valid negative integer and text keys are consumed as unknown.
+Null/undefined are invalid keys. Unsigned overflow consumes the encoded head and
+returns the bare ErrType sentinel. Other failures preserve the original cursor
+and return an owned DecodeError; the unsigned parser and general key parser have
+distinct diagnostic contracts. EOF includes the discarded Peek allocation and the
+subsequent returned Key error.
+
+`IntegerKey.lean` proves each actual dispatch branch. `KeyRejected.lean` composes
+the existing public Key error proofs for all independently specified failures,
+including arbitrary invalid UTF-8. `IntegerKeyComplete.lean` provides
+`wp_readIntegerKey_complete` for every input at any valid cursor offset, with
+exact values, unknown-key indication, successful suffixes, nonwrapping error
+consumption, error ownership and unchanged fractional input. Actual package
+initialization supplies the error categories.
+
+**This complete composition remains conditional on Utf8ValidatorContract.** The
+helper validates unknown text keys before the record skips their values, so it
+inherits the same unresolved word-helper dependency as Header. The direct bounded
+unsigned, unsigned-overflow, bounded-negative, malformed-unsigned-head and EOF
+branches have no validator premise. No missing proof is replaced by a new axiom
+or a new trusted-model change. The index record loop, duplicate policy, ownership,
+zero guards, cleanup and public API composition still remain to be proved.
+
+The Go sources, benchmark inputs and pinned trusted semantics are unchanged.
+Full regeneration/audit is recorded in `check-integer-key-full.log`, including
+revalidation of the archived performance decision. The saved compatibility
+reports remain applicable to the unchanged sources. The full check passes with
+2215 build jobs, 1124 audited theorems, 419 project/artifact hashes and 46
+standard-library hashes. All 1109 prior theorem dependency sets and the transitive
+axiom union are unchanged, with no admissions or native-evaluation dependencies.
+Six new results explicitly carry the existing validator premise, bringing its
+direct count to 57; the two direct word-helper-premise results are unchanged.
+Both ordinary and race/checkptr saved corpus reports were rechecked.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 
