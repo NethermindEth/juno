@@ -8695,3 +8695,52 @@ complete StateDiff/StateUpdate loops/public APIs. The felt-key equality model ga
 and Header's UTF-8/slice-index obligation still require their separately approved
 trusted repairs. No complete populated-map, unconditional Header or whole-library
 claim is made; the pinned 64-bit partial-correctness/model-safety scope is unchanged.
+
+## State-map null/empty success and StateDiff field integration
+
+`FeltMapEmpty` proves the actual `cborReadFeltMapFrom` zero-count path through
+MapLen, map allocation, the zero-iteration loop, Leave and destination publication.
+It owns the allocated empty map with no felt children and preserves an arbitrary
+shared reserve header for every extra hint. The ordinary wrapper composes that
+result from its local nil reserve and zero hint; `FeltMapNull` also checks its
+actual null/undefined delegation. Every encoded zero-count map-head width is
+covered, with exact consumption/suffix and restored enclosing depth. No key
+insertion/equality or shared felt allocation is reached on this path.
+
+`StateMapEmptySpec` proves the corresponding allocated-empty outcome in each
+existing independent ordinary/storage/migrated map relation. These are direct
+applications of the zero-entry map schema, not replacement specifications or
+assumed implementation contracts. Null/undefined remains `none`; an allocated
+empty map remains `some ∅`, whose existing ownership predicate entails a non-nil
+map pointer. The distinction is preserved at every field boundary.
+
+`StateDiffMapNullFields` and `StateDiffMapEmptyFields` integrate both success
+families at all six concrete fields: StorageDiffs, Nonces, DeployedContracts,
+DeclaredV1Classes, ReplacedClasses and MigratedClasses. The twelve actual field-
+call contracts permit arbitrary owned prior records, replace only the selected
+field, preserve all sibling values/allocations and the fractional input, and
+establish exact nonwrapping progress, an in-bounds final position, the unread
+suffix and independent `StateDiffFieldValid` correspondence. Null/undefined
+consumes one byte without entering a map; empty maps enter and leave, restoring
+depth. Ownership of the replaced old map may be dropped under the existing GC
+model. These are field-call proofs; the enclosing record loop is still open.
+
+Validation: `check-map-base-full.log` records successful regeneration, **3,129**
+build jobs, five audit-parser tests and **4,428** audited results. This adds
+**19** theorems in **five** modules. Independent comparison against `84bae99c6`
+checks all **4,409** prior theorem dependency sets and the full axiom union
+unchanged, with all **1,332** project/artifact and **46** standard-library hashes
+matching disk. Shared direct premise counts remain **447** validator and **two**
+word-helper uses; no new helper premise, `sorryAx` or native-evaluation dependency
+was introduced. The audit checks actual null/empty wrapper calls, reserve
+preservation, empty-map schema correspondence and all twelve field mappings and
+ownership/suffix contracts. Go/trusted sources and the original/baseline pins
+remain unchanged and clean; the full check revalidates the frozen passing
+performance gate and saved compatibility evidence.
+
+Populated-map insertion and arbitrary later iterations/shared-reserve reuse,
+remaining entry-failure field composition and complete StateDiff/StateUpdate
+loops/public APIs remain open. The felt-key equality repair and Header's separate
+UTF-8/slice-index repair still require explicit approval. This checkpoint does
+not close complete populated-map, unconditional Header or whole-library gates;
+the pinned 64-bit partial-correctness/model-safety boundary is unchanged.

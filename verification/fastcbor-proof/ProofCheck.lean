@@ -1325,3 +1325,13 @@ import ProofCheck.StorageDiffsInnerOpening
 import ProofCheck.StorageDiffsInnerOpeningSpec
 
 import ProofCheck.StorageDiffsOpening
+
+import ProofCheck.FeltMapEmpty
+
+import ProofCheck.FeltMapNull
+
+import ProofCheck.StateDiffMapEmptyFields
+
+import ProofCheck.StateDiffMapNullFields
+
+import ProofCheck.StateMapEmptySpec

@@ -738,6 +738,44 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_map_base_success": {
+        "implementation_target": "core/cbor_state.go: ordinary FeltMapFrom/Map empty and Map null wrappers; core/cbor_state_generated.go: all six concrete StateDiff map fields, null/undefined and empty-map success",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/FeltMapEmpty.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapNull.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffMapEmptyFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffMapNullFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateMapEmptySpec.lean"
+        ],
+        "theorems": [
+            "feltMapOwned_empty",
+            "wp_readFeltMapFrom_empty",
+            "wp_readFeltMap_empty",
+            "wp_readFeltMap_null",
+            "wp_stateDiff_storage_empty",
+            "wp_stateDiff_nonces_empty",
+            "wp_stateDiff_deployed_empty",
+            "wp_stateDiff_declaredV1_empty",
+            "wp_stateDiff_replaced_empty",
+            "wp_stateDiff_migrated_empty",
+            "wp_stateDiff_storage_null",
+            "wp_stateDiff_nonces_null",
+            "wp_stateDiff_deployed_null",
+            "wp_stateDiff_declaredV1_null",
+            "wp_stateDiff_replaced_null",
+            "wp_stateDiff_migrated_null",
+            "feltMap_empty_spec",
+            "storageDiffs_empty_spec",
+            "migratedClasses_empty_spec"
+        ],
+        "specification": "each independent map relation accepts every encoded zero-count map head with allocated-empty value and arbitrary suffix; field contracts carry the corresponding independent StateDiffFieldValid fact; null/undefined maps are none and allocated empty maps are some empty, never conflated",
+        "ordinary_map": "actual MapLen/make/zero-iteration loop/Leave/publication for FeltMapFrom, preserving arbitrary shared reserve and extra hint; ordinary wrapper starts with nil reserve and zero hint; actual null wrapper delegation; allocated empty map owns no felt children",
+        "state_diff_fields": "StorageDiffs, Nonces, DeployedContracts, DeclaredV1Classes, ReplacedClasses and MigratedClasses actual reader calls at concrete struct-field references; arbitrary old selected map is replaced by nil or owned allocated-empty map while sibling fields/child allocations are preserved",
+        "cursor_and_ownership": "exact nonwrapping consumption, in-bounds final position, exact unread suffix and fractional input preservation; null uses no map depth and zero-count map restores depth after entering/leaving; replaced old map ownership may be dropped under the existing GC model; no child insertion/equality required",
+        "unproved_contract_premises": [],
+        "remaining": "populated-map insertion and arbitrary later iterations/shared-reserve reuse, remaining entry-failure field composition, complete StateDiff/StateUpdate loops/public APIs; felt-key equality and Header UTF-8/slice-index trusted repairs remain separately approval-dependent",
+        "scope": "base success cases and their exact field integration, not complete populated-map or StateDiff/StateUpdate correctness; unchanged Go/trusted sources and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_map_opening_failures": {
         "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom, cborReadFeltMap, cborReadStorageDiffs and cborReadMigratedClasses opening failures; storage first-inner opening failure; six map-field calls selected in core/cbor_state_generated.go",
         "modules": [
