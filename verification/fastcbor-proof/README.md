@@ -7349,3 +7349,72 @@ to discharge the shared premise. Neither unconditional Header nor whole-library
 completion is claimed; the pinned 64-bit partial-correctness/model-safety scope
 and existing compiler/runtime, OOM, termination and compatibility boundaries
 remain unchanged.
+
+## Complete CASM entry-point record and value-slice checkpoint
+
+The actual generated `cborReadCasmEntryPoint` and `cborReadCasmEntryPointValues`
+readers now have complete conditional contracts. The direct record contract
+covers every byte input at supported depth and every owned prior record; the
+slice contract covers every byte input at supported depth and arbitrary prior
+slice headers. Both retain the existing explicit `Utf8ValidatorContract` premise
+for text keys and builtin strings. This is decoding correctness for the stored
+schema, not validity of executable CASM or of the builtin names themselves.
+
+`CasmEntryPointValues` independently specifies the three production fields:
+unsigned `Offset`, nullable `Builtins` string slice, and nullable selector limbs.
+Null/undefined records preserve old contents; nullish Offset preserves its old
+value, while nullish Builtins and Selector clear their respective nullable
+fields. Null/undefined builtin elements become empty strings. The complete
+later input remains available to nested array count guards. Field, key, pair
+and record classification, successful prefix uniqueness, success/rejection
+separation and rejected-outcome uniqueness cover arbitrary supported encodings,
+field orders, ASCII-folded names, duplicate known keys and skipped unknown keys.
+The concrete three-entry class table, cached key metadata, indices and seen bits
+are tied to the independent names and the already checked class initializer.
+
+Ownership separates the offset cell, builtin backing slice and selector child.
+Actual successful field calls publish their replacement and retain unrelated
+fields. Actual rejected calls retain every old field. Scalar and felt failures
+roll back their own cursor; a builtin-array failure retains successful-string
+consumption and the entered array depth. The successful/rejected record loops
+therefore carry separate consumed and diagnostic offsets and a numeric depth
+increment, including a failed child array. They preserve prior successful fields
+and the old value of the failing field. `CasmEntryPointDiagnostic` proves that
+all actual record errors have allocated diagnostics and refines the general
+error-interface contract to that form for the enclosing slice loop.
+
+The independent slice specification decodes each embedded record from zero.
+Nullish outer input produces nil, a definite empty array remains nonnil, and
+nullish record elements produce zero records. Actual allocation and range loops
+account for the modeled zero-slot load and checked index reference before each
+record call. Successful publication owns all records and children, restores
+depth and retains the exact suffix and unchanged input. A failed element leaves
+the old caller slice unchanged and owns the completed private records, failed
+partial record and every unused zero slot. Its cursor can retain the outer
+array, failed record map and builtin array levels; the exact increment is
+specified and bounded by the production depth limit. Caller composition may
+forget private failed storage under the garbage-collected model, and old slice
+backing ownership remains frameable.
+
+The composed contracts are `wp_readCasmEntryPoint_record_complete` and
+`wp_readCasmEntryValues_complete`; `wp_casmEntryPoint_field_complete` also exposes
+the independently unique field outcome. Full `check.sh` regenerated from
+unchanged Go and passed 2,887 Lean build jobs, auditing 3,568 results, 1,088
+project/artifact hashes and 46 standard-library source hashes. An independent
+audit checked exactly 109 additions in 30 modules, unchanged dependencies for
+all 3,459 prior results, an unchanged axiom union and every recorded hash. It
+also checked the three field mappings, zero-record element relation and nested
+depth propagation. Seventeen new direct UTF-8-premise uses bring that count to
+367; the two word-helper premises remain unchanged. No result depends on
+`sorryAx` or native evaluation axioms. Saved compatibility and frozen performance
+evidence was revalidated, and no Go or trusted-semantics source changed. The
+original and baseline worktrees remain clean at their existing pins.
+
+Next: enclosing entry-point/class records, recursive SegmentLengths,
+JSON-byte/BigInt field helpers, class tag dispatch and public APIs. State
+payload/map ownership and public APIs remain open, including the separate
+felt-key equality model gap. Header still needs the separately approved
+slice-index repair and actual UTF-8 word-helper proof to discharge the shared
+premise. Neither unconditional Header nor whole-library completion is claimed;
+the pinned 64-bit partial-correctness/model-safety scope and existing
+compiler/runtime, OOM, termination and compatibility boundaries remain unchanged.
