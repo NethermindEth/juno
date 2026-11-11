@@ -4503,3 +4503,22 @@ Every prior dependency set, the overall axiom union and the explicit helper-prem
 inventory remain unchanged. Independent checks verified the exact additions and
 all project hashes. Saved compatibility, race/checkptr and archived performance
 evidence was revalidated against the unchanged Go sources.
+
+### Header projection rejection position bounds
+
+`HeaderProjectionBounds.lean` proves that selected-field and ignored-value
+diagnostics remain within their input or at EOF. It lifts these bounds through
+arbitrary preceding pairs, map opening and the optional tag prelude to the
+complete record failure relation. Both retained parser position and diagnostic
+offset are bounded independently; pair rejection also requires a positive
+remaining pair count. These five specification results support the later
+machine-integer cursor and error-ownership composition. They do not prove the
+production projection loops or discharge Header's UTF-8 premise.
+
+Full regeneration and audit pass in `check-header-projection-bounds-full.log`:
+2267 build jobs, 1315 audited theorems, 471 project/artifact hashes and 46 directly
+translated standard-library hashes. The five additions use only standard logical
+axioms; every previous dependency set, the axiom union and explicit helper-premise
+inventory are unchanged. Independent checks verified all project hashes and the
+exact additions. Saved compatibility, race/checkptr and archived performance
+evidence was revalidated. No Go source or pinned trusted semantics changed.

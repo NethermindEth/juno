@@ -284,3 +284,4 @@ import ProofCheck.HeaderProjectionValues
 import ProofCheck.HeaderProjectionPairs
 import ProofCheck.HeaderProjectionRecord
 import ProofCheck.HeaderProjectionCanonical
+import ProofCheck.HeaderProjectionBounds
