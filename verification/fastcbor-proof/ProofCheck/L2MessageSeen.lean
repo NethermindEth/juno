@@ -1,0 +1,56 @@
+import ProofCheck.L2MessageTable
+import ProofCheck.L2MessagePairs
+
+set_option linter.iris.style.nameCheck false
+set_option linter.unusedSectionVars false
+set_option maxHeartbeats 6400000
+
+noncomputable section
+namespace Perennial
+open Iris Iris.BI Iris.ProgramLogic Iris.Std OFE Iris.ProofMode
+open github_com.NethermindEth.juno.utils.cbor
+namespace github_com.NethermindEth.juno.core
+
+variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
+variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
+variable [sem : go.Semantics] [package_sem : Assumptions]
+
+/-- Distinct schema identities use disjoint nonzero bits in the actual mask. -/
+theorem l2MessageKeyMasks_disjoint (a b : L2MessageField) :
+    ((W64 1 <<< l2MessageKeyIndex a) &&& (W64 1 <<< l2MessageKeyIndex b) = W64 0) ↔ a ≠ b := by
+  cases a <;> cases b <;> decide
+
+/-- Marking a key removes exactly that field from the fresh set. Unknown keys
+    leave the set unchanged; no unrelated field becomes seen. -/
+theorem l2MessageKeyFresh_mark_iff (seen : w64) (choice : Option L2MessageField) (field : L2MessageField) :
+    L2MessageKeyFresh (l2MessageKeySeen seen choice) (some field) ↔
+      L2MessageKeyFresh seen (some field) ∧ choice ≠ some field := by
+  cases choice with
+  | none => simp [l2MessageKeySeen, L2MessageKeyFresh]
+  | some found =>
+    have hor (a b : w64) : a ||| b = W64 0 ↔ a = W64 0 ∧ b = W64 0 := BitVec.or_eq_zero_iff
+    simp only [l2MessageKeySeen, L2MessageKeyFresh, BitVec.and_or_distrib_right, hor,
+      l2MessageKeyMasks_disjoint, ne_eq, Option.some.injEq]
+
+/-- Seen bits correspond to schema identities, independently of key spelling,
+    cached lookup order, or which entries were unknown keys. -/
+def L2MessageSeen (seen : w64) (fields : List L2MessageField) : Prop :=
+  ∀ field, L2MessageKeyFresh seen (some field) ↔ field ∉ fields
+
+theorem l2MessageSeen_zero : L2MessageSeen (W64 0) [] := by
+  intro field
+  simp [L2MessageKeyFresh, BitVec.zero_and]
+
+theorem l2MessageSeen_mark (seen : w64) (fields : List L2MessageField) (choice : Option L2MessageField)
+    (hs : L2MessageSeen seen fields) :
+    L2MessageSeen (l2MessageKeySeen seen choice) (match choice with | none => fields | some field => field :: fields) := by
+  intro field
+  rw [l2MessageKeyFresh_mark_iff, hs field]
+  cases choice <;> simp [List.mem_cons, and_comm, eq_comm]
+
+end github_com.NethermindEth.juno.core
+end Perennial
+#print axioms Perennial.github_com.NethermindEth.juno.core.l2MessageKeyMasks_disjoint
+#print axioms Perennial.github_com.NethermindEth.juno.core.l2MessageKeyFresh_mark_iff
+#print axioms Perennial.github_com.NethermindEth.juno.core.l2MessageSeen_zero
+#print axioms Perennial.github_com.NethermindEth.juno.core.l2MessageSeen_mark

@@ -131,8 +131,10 @@ head, payload, magnitude, category identity and `errors.Is` dependencies are
 proved under the documented pinned model. See “Complete public BigInt decoder”.
 The typed FeeUnit and address readers and public `Cursor.BytesInto` now also have
 complete all-input contracts with independently unique outcomes and no UTF-8
-helper premise. The remaining message/resource child records and full receipt
-composition are open.
+helper premise. The direct L2ToL1Message record now also has a complete conditional
+all-input/all-owned-initial-value contract and an independently unique outcome.
+Its enclosing pointer slice, L1ToL2Message, resource child records and full receipt
+composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5778,3 +5780,55 @@ felt-key map equality gap remain unresolved. This checkpoint does not close the
 unconditional Header or whole-library gates. The claim remains partial correctness
 and model safety on the pinned 64-bit target, excluding compiler/runtime
 implementation correctness, OOM and termination.
+
+
+### Complete direct L2ToL1Message record
+
+`L2MessageValues.lean`, `L2MessageKeys.lean`, `L2MessagePairs.lean` and
+`L2MessageRecordSpec.lean` specify the actual three-field application schema:
+nullable felt `From`, nullable felt-value `Payload`, and inline twenty-byte `To`.
+The specification retains contextual payload count guards, nil/empty distinctions,
+address preservation on null/undefined, case-folded names, arbitrary field order,
+unknown-value skipping and rejection of repeated known fields. Direct-record
+null/undefined preserves the old record. Rejection records the exact partial
+value, consumed position, diagnostic offset and whether the map remains entered.
+The value/pair/record uniqueness modules prove independent classification,
+success/rejection separation and unique outcomes on every input at supported depth.
+
+`L2MessageOwnership.lean` and `L2MessageFieldComplete.lean` prove access to each
+actual struct field and restoration of the full record and its children. The
+inline address is owned by the struct, while the sender and payload own their
+separate child allocations. All three actual field calls have complete contracts
+without a UTF-8 helper premise; `L2MessageFieldRefine.lean` connects each outcome
+to the independent success/rejection relations.
+
+`L2MessageTable.lean`, `L2MessageSeen.lean` and `L2MessageKeyRead.lean` connect the
+actual initialized receipt-package metadata to independent field identities,
+encoded-key ordering, cached words and exact seen bits. The map, boundary and
+record-complete modules prove the actual generated `cborReadL2ToL1Message` for
+every byte input and every owned initial value at supported depth. Success
+preserves input, owns the exact result and returns the precise cursor/suffix with
+restored depth. Failed field helpers roll back themselves; the enclosing record
+retains earlier successful fields and its entered map level, with separately
+bounded consumption and owned diagnostics. This is the internal record contract;
+it does not claim the enclosing receipt's public cleanup behavior is proved.
+
+**Key and record composition retain `Utf8ValidatorContract`.** Eight new theorems
+carry that existing premise; no new helper premise or trusted semantics was added.
+Header's unapproved word-helper/model correction and the separate felt-key map
+equality gap remain unresolved. The next message work is the enclosing
+`cborReadL2ToL1MessagePointers` allocation/publication loop and the separate
+L1ToL2Message record, followed by remaining resource records and the full receipt.
+
+Full regeneration/check passed in `check-l2message-full.log`: **2452 build jobs,
+1882 audited theorems, 653 project/artifact hashes and 46 directly translated
+stdlib source hashes**. An independent comparison with checkpoint `6010ab581`
+confirmed exactly 70 new results, unchanged dependency sets for all 1812 prior
+theorems and an unchanged axiom union; all hashes were recomputed. There are no
+admission or native-evaluation axioms. Direct shared-helper premise counts are now
+150 for `Utf8ValidatorContract` and two for `Utf8WordWindowContract`. Saved,
+source-specific performance/compatibility evidence was revalidated by the full
+check; production Go is unchanged, so no new timing run was needed. Original and
+baseline worktrees and pinned trusted semantics remain untouched. The claimed
+scope remains pinned 64-bit partial correctness/model safety, excluding
+compiler/runtime implementation correctness, OOM and termination.
