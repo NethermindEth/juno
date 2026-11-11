@@ -61,3 +61,48 @@ func TestTransactionInterfaceWitnesses(t *testing.T) {
 		}
 	}
 }
+
+type otherClass struct{}
+
+func (*otherClass) SierraVersion() string { panic("classification must not call SierraVersion") }
+func (*otherClass) Hash() (felt.Felt, error) {
+	panic("classification must not call Hash")
+}
+
+func TestClassInterfaceWitnesses(t *testing.T) {
+	cairo := new(core.DeprecatedCairoClass)
+	sierra := new(core.SierraClass)
+	for _, test := range []struct {
+		name     string
+		boxed    core.ClassDefinition
+		original core.ClassDefinition
+		variant  uint8
+		typedNil core.ClassDefinition
+	}{
+		{"cairo", witness.BoxCairo(cairo), cairo, 1, witness.BoxCairo(nil)},
+		{"sierra", witness.BoxSierra(sierra), sierra, 2, witness.BoxSierra(nil)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.boxed != test.original {
+				t.Fatal("boxing changed the concrete pointer")
+			}
+			if variant, isNil := witness.ClassifyClass(test.boxed); variant != test.variant || isNil {
+				t.Fatalf("non-nil pointer: variant=%d nil=%v", variant, isNil)
+			}
+			if test.typedNil == nil {
+				t.Fatal("typed nil was collapsed to a nil interface")
+			}
+			if variant, isNil := witness.ClassifyClass(test.typedNil); variant != test.variant || !isNil {
+				t.Fatalf("typed nil: variant=%d nil=%v", variant, isNil)
+			}
+		})
+	}
+	if variant, isNil := witness.ClassifyClass(nil); variant != 0 || isNil {
+		t.Fatalf("nil interface: variant=%d nil=%v", variant, isNil)
+	}
+	for _, class := range []core.ClassDefinition{new(otherClass), (*otherClass)(nil)} {
+		if variant, isNil := witness.ClassifyClass(class); variant != 3 || isNil {
+			t.Fatalf("unrecognized dynamic type: variant=%d nil=%v", variant, isNil)
+		}
+	}
+}

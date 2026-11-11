@@ -39,7 +39,7 @@ dirty = subprocess.check_output(["git", "-C", str(here / ".tools/perennial"), "s
 if dirty:
     sys.exit("the pinned Perennial checkout has tracked modifications")
 inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", here / "lean-toolchain", here / "lake-manifest.json", here / "lakefile.toml", here / "check.sh", here / "bootstrap.sh", here / "audit.py"]
-for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "core/internal/cbortransactions", "core/internal/cborstate", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/registry", "utils/cbor/cmd/cborgen"]:
+for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "core/internal/cbortransactions", "core/internal/cborstate", "core/internal/cborclasses", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/registry", "utils/cbor/cmd/cborgen"]:
     inputs += [p for p in (repo / rel).glob("*.go") if not p.name.endswith("_test.go")]
 inputs += list((here / "config").rglob("*.toml"))
 inputs += [here / "cmd/entrymanifest/main.go", here / "results/entry-manifest.json"]
@@ -55,7 +55,7 @@ inputs += [here / "repros/FeltMap.lean", here / "repros/MapKeyEquality.lean"]
 # directly by this harness. Other standard-library models are pinned by Perennial.
 goroot = Path(subprocess.check_output(["go", "env", "GOROOT"], text=True).strip())
 stdlib_sources = {}
-for package in ["unicode/utf8", "math/big", "internal/cpu"]:
+for package in ["unicode/utf8", "math/big", "internal/cpu", "encoding/json", "encoding/json/jsontext"]:
     metadata = json.loads(subprocess.check_output(["go", "list", "-json", package], text=True))
     for filename in metadata["GoFiles"]:
         source = Path(metadata["Dir"]) / filename
@@ -112,6 +112,15 @@ report = {
         "excluded": "CBOR tag parsing and numeric tag-to-type mapping, payload decoding/ownership, dynamic method calls, registration/routing/fallback and class interfaces",
         "scope": "language-feature witnesses only; local classification numbers are not wire tags; no new trusted semantics or helper correctness premise",
     },
+    "class_interface_feasibility": {
+        "go_witness": "verification/fastcbor-proof/feasibility/interfaces/witness.go",
+        "proof": "verification/fastcbor-proof/ProofCheck/ClassInterfaceFeasibility.lean",
+        "proved": "actual pointer-to-ClassDefinition boxing for both registered variants; concrete type-switch classification for arbitrary pointers including typed nil; nil-interface and unrecognized dynamic-type branches",
+        "theorems": 6,
+        "boundary": "generated ClassDefinition interface representation and concrete pointer type identities; concrete class layouts are translated, but these witnesses do not access or allocate payloads",
+        "excluded": "CBOR tag parsing and numeric tag-to-type mapping, payload decoding/ownership, recursive segments, dynamic method calls and registration/routing/fallback",
+        "scope": "language-feature witnesses only; local classification numbers are not wire tags; no new trusted semantics or helper correctness premise",
+    },
     "bigint_magnitude_foundation": {
         "specification": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeSpec.lean",
         "word_dependency": "verification/fastcbor-proof/ProofCheck/BigIntMagnitudeWord.lean",
@@ -139,6 +148,21 @@ report = {
         "entries": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
         "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
         "proof_status": "translated implementations; complete independent projection specifications, NextWanted contract, table initialization and public entry proofs remain open",
+        "performance": "no timing or performance gate result; compatibility evidence only",
+    },
+    "typed_classes": {
+        "generator": "utils/cbor/cmd/cborgen/classes.go",
+        "implementation": "core/cbor_classes_generated.go",
+        "helpers": "core/cbor_classes.go",
+        "metadata": "core/internal/cborclasses/fields_generated.go",
+        "entries": ["ClassDefinition"],
+        "variants": ["DeprecatedCairoClass", "SierraClass"],
+        "behavior": "explicit tag dispatch; typed class, CASM and entry-point records; recursive SegmentLengths; value-record and string slices; felt pointers and values; opaque owned JSON byte strings; nullable arbitrary-precision integers; zero-interface guard including typed nil, exact suffix, owned output and cleanup",
+        "tag_boundary": "CBORClassTags is an explicit by-value input to direct decoding; registry initialization captures actual encoded tags and installs a closure over a distinct profile; numeric tag assignment and routing adapter remain outside the proof boundary",
+        "json_boundary": "the active Go 1.27 encoding/json.RawMessage alias and encoding/json/jsontext.Value byte-slice type are translated from build-selected sources; CBOR decoding treats these as bytes and does not call JSON parsing or validation methods",
+        "json_opaque_type_dependencies": sorted({ax for xs in found.values() for ax in xs if ax.startswith("Perennial.encoding.json.")}),
+        "json_opaque_boundary": "Goose package Assumptions also mention unrelated JSON package types, so their generated opaque type/underlying/zero declarations occur in theorem dependencies; they are reported explicitly, not treated as proved layouts. The RawMessage alias and Value slice used by the decoder are concrete. No JSON method implementation or correctness contract is assumed",
+        "proof_status": "translated concrete layouts and implementations; complete independent class specifications, recursive and slice ownership contracts, metadata initialization and public API proofs remain open",
         "performance": "no timing or performance gate result; compatibility evidence only",
     },
     "typed_state_update": {
@@ -239,7 +263,7 @@ report = {
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection and StateUpdate have registered typed readers (14 of 15 manifested destinations); ClassDefinition retains the original planner. Projection, integer-key index, receipt, transaction and state-update implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction decoding takes an explicit tag profile; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction and state table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. Projection, integer-key index, receipt, transaction, state-update and class implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction, state and class table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. No whole-library correctness or frozen performance-gate result is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

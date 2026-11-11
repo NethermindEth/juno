@@ -171,6 +171,10 @@ func RegisterTypedCBORReaders() {
 	if err != nil {
 		return err
 	}
+	classes, classSchema, err := emitClasses(p)
+	if err != nil {
+		return err
+	}
 	outputs := []struct {
 		path string
 		buf  *bytes.Buffer
@@ -183,6 +187,8 @@ func RegisterTypedCBORReaders() {
 		{"core/cbor_receipts_generated.go", receipts},
 		{"core/cbor_transactions_generated.go", transactions},
 		{"core/cbor_state_generated.go", state},
+		{"core/cbor_classes_generated.go", classes},
+		{"core/internal/cborclasses/fields_generated.go", classSchema},
 		{"core/internal/cborstate/fields_generated.go", stateSchema},
 		{"core/internal/cbortransactions/fields_generated.go", transactionSchema},
 		{"core/internal/cborreceipts/fields_generated.go", receiptSchema},

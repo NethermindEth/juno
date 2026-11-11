@@ -188,6 +188,8 @@ import ProofCheck.MapFeasibility
 
 import ProofCheck.InterfaceFeasibility
 
+import ProofCheck.ClassInterfaceFeasibility
+
 import ProofCheck.BigIntMagnitudeSpec
 import ProofCheck.BigIntMagnitudeWord
 import ProofCheck.BigIntMagnitude

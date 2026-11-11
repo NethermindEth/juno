@@ -14,13 +14,13 @@ and no result from the frozen whole-library performance gate yet.
   Go: 1.27.0, linux/amd64. Upstream semantics are unchanged.
 
 `utils/cbor/cmd/cborgen` reads the actual Go types and emits typed Header/GasPrice,
-index, receipt, transaction, state-update and projection readers in core. Unknown field shapes fail generation.
+index, receipt, transaction, state-update, class and projection readers in core. Unknown field shapes fail generation.
 The generated entries use typed stores, allocation, and zero checks instead of
 runtime field offsets and runtime allocation hooks. The registry installs Header, its five projections, BlockTransactionsIndexes,
 TransactionReceipt (value and pointer), both receipt projections, Transaction and
-transactionHashProjection and StateUpdate. ClassDefinition still uses the planner.
-The Transaction adapter captures the actual registry tags in an immutable value
-profile; the direct decoder takes that profile explicitly. The routing adapter, registration,
+transactionHashProjection, StateUpdate and ClassDefinition.
+The transaction and class adapters capture the actual registry tags in immutable
+value profiles; the direct decoders take those profiles explicitly. The routing adapter, registration,
 logging, FX fallback, and diagnostic formatting are outside the proposed proof scope.
 The generator also emits private static field metadata and small allocation
 factories in `core/internal/cborschema`; the typed Header and GasPrice readers no
@@ -41,7 +41,8 @@ GasPrice children, arbitrary supported field order/widths and suffixes, and
 failure cleanup. It is not a proof about one populated sample. Header needs
 unsigned integers, UTF-8 strings, felts, nested signature slices, and GasPrice;
 BigInt, tagged transaction interfaces, and typed Go maps are later library work.
-This prioritizes a complete Header proof before widening the generator. The
+Header remains the first complete-record proof milestone. Typed implementation
+work has progressed while its trusted-model repair awaits approval. The
 whole-library performance gate remains mandatory before full-library proofs.
 
 The specification is to be independent of fxamacker. RFC 8949 supplies the wire
@@ -3608,18 +3609,93 @@ match. The original worktree, baseline and pinned trusted semantics remain
 unchanged. These results do not establish performance or complete state decoding
 proofs.
 
+### Generated typed class definitions
+
+The class generator emits both `ClassDefinition` variants, `DeprecatedCairoClass`
+and `SierraClass`, with their eight concrete record layouts, CASM children,
+entry-point arrays and recursive `SegmentLengths`. The implementation uses
+ordinary typed slices and pointers, shared cursor primitives, static field tables
+in `core/internal/cborclasses`, and an explicit `CBORClassTags` value. Registry
+initialization captures the actual encoded tags in the existing registration
+order, checks that the profile is distinct, and installs the typed closure.
+Numeric tag assignment and the routing adapter remain outside decoder proof
+scope. Arbitrary runtime destinations retain the planner.
+
+All **15 of 15 manifested destinations** now have registered typed readers. The
+inventory still records 140 shapes, 18 registry entries and the frozen 185-case
+benchmark universe. This completes the planned root conversion, not its complete
+specifications, proof obligations or performance gate.
+
+Raw JSON fields are CBOR byte strings: the readers preserve arbitrary bytes,
+including invalid JSON and UTF-8, rather than invoking JSON methods. The active
+Go 1.27 `encoding/json.RawMessage` alias points to `encoding/json/jsontext.Value`.
+Both declarations are translated from the build-selected standard-library sources,
+and those sources are included in the audit. Nullable primes use the actual
+`Cursor.BigInt` implementation, whose public primitive contract was proved in the
+earlier checkpoint. Containing class contracts still need to compose that result.
+
+Importing those JSON packages also exposes their unrelated opaque type declarations
+through Goose's package-wide `Assumptions`. They appear in theorem dependencies
+even though the CBOR readers do not call the JSON encoder, decoder or parser.
+The audit lists them under `typed_classes.json_opaque_type_dependencies`; this
+checkpoint does not claim that dependency sets are unchanged or that all JSON
+layouts are proved. The actual `RawMessage` alias and `Value` slice are concrete,
+and no JSON method-correctness premise or trusted model has been introduced.
+
+Public-API tests compare 256 generated class values with the planner and FX,
+including nil/empty arrays and pointers, opaque byte ownership, Unicode strings,
+positive/negative/zero big integers and recursive segments. Additional cases
+cover every truncation of populated classes, whole-record nesting boundaries,
+null value-record elements, case-folded and duplicate fields, alternate tag
+widths, unknown/chained tags, custom tag profiles, typed-nil rejection and cleanup
+after late nested failures. A generator drift probe rejected an unsupported
+`keyasint` tag on `SegmentLengths.Length`; the source was restored byte-for-byte.
+The full short core/CBOR tests and targeted race/checkptr=2 tests pass. A two-worker
+20-second differential fuzz run completed 212,397 executions without a mismatch.
+
+The class layouts and readers pass Goose/proofgen translation and their Lean
+module build. These are implementation and translation results, **not complete
+class decoder proofs**. Independent class relations, recursive and slice ownership
+contracts, metadata initialization and public API composition remain open. Header's
+UTF-8 premise, the unapplied trusted indexing repair and the felt-key map model gap
+are unchanged. No performance timings are claimed.
+
+Both frozen-corpus smoke modes pass on baseline and candidate: 177 compatible
+fast cases, six removed-projection cases and two zero-decoder controls each.
+The ordinary and race/checkptr=2 reports retain all 185 IDs, input/output ownership
+checks and negative checks for the FX-fallback instrumentation. These are
+source-specific compatibility results; the instrumentation is not used for timing.
+
+`ClassInterfaceFeasibility.lean` adds six checked language-feature contracts for
+the actual class witness functions: boxing either concrete pointer, recognizing
+either dynamic type including typed nil, and the nil/unknown interface branches.
+Go and race/checkptr witness tests agree. These contracts neither access payloads
+nor call `Hash`/`SierraVersion`, and do not establish CBOR tag correspondence or
+complete class decoding.
+
+Full regeneration, Lean checking and auditing pass with **1076 theorems**, **398
+matching project source hashes**, **46 build-selected standard-library source
+hashes**, and 2201 build jobs. The log is `check-typed-classes-full.log`. Compared
+with the state-update checkpoint, 662 existing theorem dependency lists replace
+27 opaque class declarations with the concrete layouts and add 105 opaque JSON
+type/underlying/zero declarations from the package-wide assumptions. No added
+dependency lies outside those JSON type declarations; the concrete `RawMessage`
+and `Value` types are not among them. The six new interface results pass the same
+audit. There are no admission or native-evaluation dependencies. Header's explicit
+validator and word-helper premise counts remain 51 and 2. The original, baseline
+and pinned trusted checkouts remain unchanged.
+
 ## Whole-library gates after the Header milestone
 
 1. **Complete feasibility:** close the Header UTF-8 helper after the separately
-   approved trusted indexing repair. Resource-map operations and transaction
+   approved trusted indexing repair. Resource-map operations and transaction/class
    interface representation/type switches have checked witnesses; complete public
    BigInt decoding is proved. Felt-key map equality still exposes a model gap.
-   Recursive SegmentLengths, class interfaces, raw JSON and the remaining concrete
+   Recursive SegmentLengths, class payloads, raw JSON and the remaining concrete
    payload shapes need their own contracts and initialization dependencies.
-2. **Complete the generator:** Header, its five projections, block indexes, receipts,
-   transactions, state updates and their projections have typed readers. Cover class definitions,
-   including nested types, registry tags, overrides and shared allocations.
-   Extend static metadata and maintain the checked entry manifest. Arbitrary
+2. **Maintain the generator:** all 15 manifested roots now have typed readers,
+   including class definitions, nested types and explicit registry tag profiles.
+   Keep static metadata and the checked entry manifest synchronized. Arbitrary
    runtime types remain fallback. Complete projection proofs are still pending.
 3. **Correctness gate:** differential properties, original golden/corpus parity,
    malformed-input and destination-cleanup tests across every generated entry,

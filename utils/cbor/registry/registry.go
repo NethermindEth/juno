@@ -40,6 +40,7 @@ func init() {
 		}
 
 		var transactionTags core.CBORTransactionTags
+		var classTags core.CBORClassTags
 		for _, t := range types {
 			err := cbor.RegisterType(t)
 			if err != nil {
@@ -66,9 +67,14 @@ func init() {
 				transactionTags.L1HandlerTransaction = tag
 			case reflect.TypeFor[core.DeployAccountTransaction]():
 				transactionTags.DeployAccountTransaction = tag
+			case reflect.TypeFor[core.DeprecatedCairoClass]():
+				classTags.DeprecatedCairoClass = tag
+			case reflect.TypeFor[core.SierraClass]():
+				classTags.SierraClass = tag
 			}
 		}
 		core.RegisterTypedCBORReaders()
 		core.RegisterTypedTransactionReader(transactionTags)
+		core.RegisterTypedClassReader(classTags)
 	})
 }

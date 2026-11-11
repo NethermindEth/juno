@@ -1,5 +1,5 @@
-// Package interfaces contains language-feature witnesses for the transaction
-// interface. Its variant numbers are local test labels, not CBOR wire tags.
+// Package interfaces contains language-feature witnesses for transaction and
+// class interfaces. Its variant numbers are local test labels, not CBOR wire tags.
 package interfaces
 
 import "github.com/NethermindEth/juno/core"
@@ -33,5 +33,23 @@ func ClassifyTransaction(tx core.Transaction) (uint8, bool) {
 		return 5, value == nil
 	default:
 		return 6, false
+	}
+}
+
+func BoxCairo(class *core.DeprecatedCairoClass) core.ClassDefinition { return class }
+
+func BoxSierra(class *core.SierraClass) core.ClassDefinition { return class }
+
+// ClassifyClass checks dynamic types and typed nil without invoking class methods.
+func ClassifyClass(class core.ClassDefinition) (uint8, bool) {
+	switch value := class.(type) {
+	case nil:
+		return 0, false
+	case *core.DeprecatedCairoClass:
+		return 1, value == nil
+	case *core.SierraClass:
+		return 2, value == nil
+	default:
+		return 3, false
 	}
 }
