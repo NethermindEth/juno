@@ -759,3 +759,12 @@ import ProofCheck.TransactionDeployDispatch
 import ProofCheck.TransactionInvokeDispatch
 import ProofCheck.TransactionL1HandlerDispatch
 import ProofCheck.TransactionDeployAccountDispatch
+import ProofCheck.TransactionAPIComplete
+import ProofCheck.TransactionAPIFull
+import ProofCheck.TransactionAPIGuard
+import ProofCheck.TransactionAPIOutcome
+import ProofCheck.TransactionAPISpec
+import ProofCheck.TransactionAPIZero
+import ProofCheck.TransactionComplete
+import ProofCheck.TransactionOwnership
+import ProofCheck.TransactionResultSpec

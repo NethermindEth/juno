@@ -364,8 +364,40 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (the ten recognized payload success/rejection branch contracts through record decoding)"
         ],
-        "remaining": "combine the exhaustive specification and checked branches into one caller-facing all-input cborReadTransaction contract; DecodeTransactionFirst/DecodeTransaction guards, cleanup, exact suffix/trailing input and public result specification; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
-        "scope": "exhaustive independent specification plus actual dispatch branch contracts, not yet a combined complete decoder WP or transaction public API proof; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
+        "remaining": "unified internal and public First/full contracts now checked in transaction_public_decoder; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "scope": "exhaustive independent specification plus actual dispatch branch contracts; the combined internal/public decoder proofs are recorded in transaction_public_decoder; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
+    },
+    "transaction_public_decoder": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadTransaction, cborClearTransaction, DecodeTransactionFirst and DecodeTransaction",
+        "theorems": [
+            "wp_decodeTransactionFirst_complete",
+            "wp_decodeTransaction_complete",
+            "wp_decodeTransactionFirst_nonzero",
+            "wp_clearTransaction",
+            "transactionAPIErrorOwned_nonNil",
+            "transactionFirst_classify",
+            "transactionFirst_unique",
+            "transactionFirst_cleanup",
+            "transactionFirst_success",
+            "transactionFull_classify",
+            "transactionFull_cleanup",
+            "transactionFull_success",
+            "transactionFull_unique",
+            "wp_decodeTransactionFirst_zero",
+            "wp_readTransaction_spec",
+            "wp_readTransaction_complete",
+            "transactionErrorOwned_nonNil",
+            "transactionSpec_unique",
+            "transactionSpec_total_unique"
+        ],
+        "specification_proved": "independent normalized transaction values and complete failure details, all-input classification and unique results under distinct tags; public First and full specifications for arbitrary initial interfaces; successful decoding requires initially nil interface and exact independent transaction value/suffix; nonnil guard preserves initial interface, parser failures clear to nil, full decoding rejects nonempty suffix and clears result; success/error separation and unique public outcomes",
+        "implementation_proved": "unified complete cborReadTransaction WP composes every dispatch branch and returns independently unique outcome, exact consumption/diagnostic offsets, actual cursor depth and preserved input ownership; success owns correctly typed concrete record; failures preserve old interface and own private partial records and actual errors; public First/full APIs checked for every input and owned initial interface, including typed-nil guard rejection, initialized guard/trailing diagnostics, actual cleanup, exact original-input suffix backing/capacity and nonwrapping lengths/offsets",
+        "caller_requirement": "TransactionTagsDistinct is the documented pairwise-distinct tag-profile requirement; package initialization and separately owned destination/input are memory preconditions; arbitrary nonnil interfaces are rejected without dereferencing payload; tag registry/routing/fallback remain outside proof scope",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (unified internal/public decoder composition through transaction record keys)"
+        ],
+        "remaining": "transaction hash projection; shared UTF-8 word-helper and separately approved trusted model repair; felt-key map equality and state-update/class contracts; no unconditional Header or whole-library completion",
+        "scope": "partial correctness/model safety for actual translated production functions on pinned 64-bit target; generator is not trusted; no Go or trusted semantics changes; compiler/runtime correctness, OOM and termination excluded; no protocol-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_account_transaction": {
         "implementation": "core/cbor_transactions_generated.go: cborReadDeployAccountTransaction; core/transaction.go: DeployAccountTransaction and embedded DeployTransaction",

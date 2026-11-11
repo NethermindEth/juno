@@ -6925,3 +6925,62 @@ Perennial worktrees remain clean at their pins. The claim remains pinned 64-bit
 partial correctness/model safety, excluding compiler/runtime correctness, OOM and
 termination. Neither unconditional Header nor whole-library completion is claimed,
 and no protocol-validity, FX-equivalence or strict ignored-CBOR-validity claim is made.
+
+## Complete Transaction decoder and public API composition
+
+The actual `cborReadTransaction`, `DecodeTransactionFirst` and
+`DecodeTransaction` now have checked all-input contracts. The public contracts
+cover every owned initial interface, with the documented pairwise-distinct tag
+profile. **These contracts remain conditional on `Utf8ValidatorContract`** through
+record key decoding. They do not close the Header UTF-8 dependency or the
+whole-library goal.
+
+`TransactionResultSpec` converts the independent dispatch result into an exact
+application value or complete failure state and proves totality and uniqueness.
+Values distinguish a nil interface from each of the five concrete record types.
+A recognized tag followed by null/undefined produces an allocated zero record;
+untagged null/undefined produces a nil interface. Failures retain the independent
+partial record, actual tag/payload consumption, diagnostic position and depth.
+`TransactionOwnership` records concrete dynamic pointer types and payload
+ownership, preserves private failed allocations and proves that every owned
+error is nonnil. `TransactionComplete` composes all dispatch branches into one
+implementation contract, preserving the input and exact cursor state.
+
+`TransactionAPISpec` independently characterizes both public APIs and proves
+classification, unique outcomes, successful decoding and failure cleanup.
+`TransactionAPIOutcome` connects those results with actual output/error ownership.
+`TransactionAPIGuard` proves the production nonzero-destination guard and cleanup:
+all nonnil interfaces, including typed nil pointers, are rejected unchanged
+without dereferencing their payload or accessing input bytes. Guard and cleanup
+proofs do not need a UTF-8 premise.
+
+`TransactionAPIZero` and `TransactionAPIComplete` prove that First returns the
+exact original-input suffix, including its backing pointer and capacity, and
+owns the selected concrete decoded record. Parser failures run actual cleanup,
+return nil remaining bytes and retain exact error ownership. The full API proof
+in `TransactionAPIFull` preserves guard/parser failures, accepts exactly empty
+suffixes, and clears otherwise successful output before returning the initialized
+extraneous-data diagnostic with the exact remaining length. Output payload
+ownership that is no longer reachable after cleanup may be forgotten under the
+existing garbage-collected model. Tag registration, routing, fallback and
+formatting remain outside these decoder contracts.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,747 Lean
+build jobs, auditing 3,101 results, 948 project/artifact hashes and 46
+standard-library source hashes. The independent audit checked exactly 19 new
+results in nine modules, unchanged dependency sets for all 3,082 previous results,
+an unchanged axiom union and every recorded hash. No result depends on `sorryAx`
+or native evaluation axioms. Direct unresolved premises total 307 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`; the five new validator
+premises are the combined internal/public decoder proofs. Saved compatibility
+and frozen performance evidence was revalidated. Original, baseline and Perennial
+worktrees remain clean at their pins; production Go and trusted semantics are
+unchanged.
+
+Next: the transaction hash projection, then remaining state-update/class
+contracts and their dependencies. Header still needs the separately approved
+slice-index model correction, the actual UTF-8 word-helper proof and removal of
+that premise. Felt-key maps retain their separate array-equality modeling gap.
+The formal claim remains partial correctness/model safety on the pinned 64-bit
+target, excluding compiler/runtime correctness, OOM and termination. No protocol
+validity, FX equivalence or strict validity of ignored CBOR content is claimed.
