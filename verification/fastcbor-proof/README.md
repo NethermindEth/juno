@@ -97,7 +97,8 @@ checkpoints below. The theorem count is not a coverage percentage. See
 scope, unresolved premises and reproduction evidence.
 The checked inventory records all 15 manifested destinations as registered typed
 readers and retains all 185 frozen benchmark IDs. BlockTransactionsIndexes now also has conditional all-input public API contracts;
-its independent outcome uniqueness/separation audit remains open. Other records
+its independent specification now has unique outcomes and success/rejection separation
+on representable input lengths. Other records
 do not yet have complete formal decoder contracts. See “Checked remaining-entry inventory” below.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
@@ -4085,6 +4086,47 @@ six compositions explicitly retain the validator premise, bringing its direct
 count to 68, with two direct word-helper results unchanged. The audit contains no
 admissions or native-evaluation dependencies. Both saved compatibility reports
 and the archived passing performance decision were revalidated by the full check.
+
+## Index specification has exactly one outcome
+
+`IntegerKeyDeterminism.lean` checks unique keys and byte boundaries, success/error
+separation and exact rejected consumption/diagnostics. `Int64Determinism.lean`
+and `IntElementDeterminism.lean` do the same for signed integers and nullable
+array elements, including the consumed unsigned-overflow versus rolled-back
+signed-fallback distinction.
+
+`IntsDeterminism.lean`, `IntsDisjoint.lean` and `IntsFailureUnique.lean` lift these
+results through arbitrary valid array prefixes. Successful arrays determine
+exactly one value and suffix. Rejections determine retained consumption,
+diagnostic offset, entered depth and reason. Success cannot also reject on
+representable input. The input-length bound excludes natural counts wrapping
+when the rejection relation encodes them as 64-bit words; it is already implied
+by the production slice ownership preconditions.
+
+`IndexesDeterminism.lean`, `IndexesDisjoint.lean` and
+`IndexesFailureUnique.lean` compose the results through key dispatch, first-wins
+duplicates, ignored values, record opening and arbitrary partial records.
+`IndexesOutcomeUnique.lean` proves that the independent First and full API
+specifications each assign **exactly one outcome to every representable input
+and initial destination**. That outcome includes values and exact suffixes on
+success, or the preserved/cleared destination and complete diagnostic on failure,
+including trailing-data rejection.
+
+These are independent specification proofs with no UTF-8 implementation premise.
+They validate the relations used by the previously checked production API proofs;
+they do not discharge those proofs' explicit validator premise or establish
+execution termination. The Header word-helper repair, felt-map model gap and
+remaining record implementation proofs are unchanged. Production Go and the
+trusted semantics are unchanged.
+
+Full regeneration and audit pass in `check-indexes-outcome-unique-full.log`:
+2239 build jobs, **1217 audited theorems**, 443 project/artifact hashes and 46
+standard-library source hashes. The 36 new results introduce no implementation
+helper premises. All 1181 previous theorem dependency sets, the transitive axiom
+union, standard-library hashes and unresolved-premise inventory are unchanged
+(68 direct validator-premise results and two word-helper results). Every recorded
+project/artifact hash was independently rechecked. The full check also revalidated
+both saved compatibility reports and the archived passing performance decision.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

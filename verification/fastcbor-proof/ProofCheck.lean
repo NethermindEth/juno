@@ -239,3 +239,14 @@ import ProofCheck.IndexesRejectedAPI
 import ProofCheck.IndexesAPISpec
 
 import ProofCheck.IndexesAPIComplete
+
+import ProofCheck.Int64Determinism
+import ProofCheck.IntElementDeterminism
+import ProofCheck.IntsDeterminism
+import ProofCheck.IntsDisjoint
+import ProofCheck.IntsFailureUnique
+import ProofCheck.IntegerKeyDeterminism
+import ProofCheck.IndexesDeterminism
+import ProofCheck.IndexesDisjoint
+import ProofCheck.IndexesFailureUnique
+import ProofCheck.IndexesOutcomeUnique
