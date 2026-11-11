@@ -269,3 +269,9 @@ import ProofCheck.ProjectionFields
 import ProofCheck.ProjectionInitialize
 import ProofCheck.ProjectionOpen
 import ProofCheck.ProjectionScan
+
+import ProofCheck.ProjectionTagSpec
+import ProofCheck.ProjectionTagRead
+import ProofCheck.ProjectionTagChecked
+import ProofCheck.ProjectionTagComplete
+import ProofCheck.ProjectionTagUnique

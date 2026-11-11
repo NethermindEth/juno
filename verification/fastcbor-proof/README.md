@@ -4372,3 +4372,45 @@ existing validator premise (75 direct validator results; 2 word-helper results
 unchanged). Independent checks verified the exact additions and all recorded
 project hashes. Saved compatibility, race/checkptr and archived performance
 evidence was revalidated against the unchanged Go sources.
+
+
+### Complete projection tag policy
+
+`ProjectionTagSpec.lean` defines the independent prelude relation for every byte
+input: leave untagged input alone; consume one allowed tag; reject a malformed tag
+head without consumption; or consume the first head and reject a reserved tag
+number (0–3) or a tag chain. This prelude deliberately defers EOF and validation
+of the content item to the record reader. In particular, an allowed tag followed
+by EOF succeeds here, while a reserved tag followed by EOF is unsupported.
+`ProjectionTagUnique.lean` proves that consumption, unread suffix and status are
+unique, including the exact malformed-head reason; success and rejection cannot
+overlap. These are specification results, not an execution-termination claim.
+
+`ProjectionTagRead.lean` proves actual Tag decoding through its shared expectation
+implementation for every supported width and all specified failures. It also
+checks the actual untagged/EOF and malformed-tag prelude branches.
+`ProjectionTagChecked.lean` handles both post-tag Peek outcomes, reserved-number
+checks and tag-chain rejection. Failed Peek allocations are discarded just as in
+the production helper; the returned unsupported error is the bare canonical
+sentinel, while malformed heads return owned structured diagnostics.
+
+`ProjectionTagComplete.lean` composes the actual `cborReadProjectionTag` contract
+for **every byte input at a valid cursor**. It derives canonical error categories
+from actual cursor initialization and returns the independent relation with exact
+nonwrapping consumption, exact suffix, unchanged depth, preserved fractional input
+ownership and concrete error ownership. There is **no UTF-8 or other unproved
+helper-correctness premise** in this tag-prelude theorem.
+
+Complete projection record/API proofs and the nullable timestamp scalar helper
+remain open. The existing conditional scan contract still depends on UTF-8;
+Header's unapproved trusted-indexing repair and the felt-map equality gap are
+unchanged. No production Go or trusted semantics changed in this checkpoint.
+
+Full regeneration and audit pass in `check-projection-tag-full.log`: 2259 build
+jobs, 1279 audited theorems, 463 project/artifact hashes and 46 directly translated
+standard-library hashes. The 11 new results add no helper premises or axioms.
+Independent checks verified every previous theorem's dependency set, the unchanged
+overall axiom union, exact theorem additions and all project hashes. The direct
+UTF-8 premise counts remain 75 validator results and 2 word-helper results. Saved
+compatibility, race/checkptr and archived passing performance evidence was
+revalidated against the unchanged Go sources.

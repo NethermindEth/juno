@@ -204,7 +204,7 @@ report = {
         "rejected_loop": "wp_nextWanted_rejected realizes every WantedRejected scan through arbitrary ignored prefixes; preserves current pair/open state, input and metadata, with exact nonwrapping cursor consumption and independent diagnostic offset",
         "all_input_contract": "wp_nextWanted_complete classifies every byte input, derives actual error-category globals from cursor initialization, and produces WantedSpec with matching concrete cursor/struct/error ownership; no assumed well-formedness or selected outcome; explicit schema names/mask and seen-state correspondence",
         "initialized_specialization": "wp_nextWanted_projection derives actual immutable names/mask for any of the seven initialized projection tables; pointer agreement ties the Struct to its published table; only the existing validator premise remains",
-        "pending": "projection-tag and pointer-scalar helpers; complete projection records and public APIs; discharge shared UTF-8 word-helper premise after separately approved trusted repair",
+        "pending": "pointer-scalar helper; complete projection records and public APIs; discharge shared UTF-8 word-helper premise after separately approved trusted repair",
         "scope": "complete independent scan specification and conditional all-input production NextWanted contract; complete projection decoder theorems remain open; partial correctness and model safety under pinned 64-bit semantics; production Go and trusted model unchanged",
     },
     "projection_initialization": {
@@ -212,7 +212,18 @@ report = {
         "tables": ["headerHash", "headerGlobalStateRoot", "headerTransactionCount", "headerTimestamp", "headerHashAndStateRoot", "receiptExecutionStatus", "receiptEvents"],
         "proved": "all seven actual allocation factories, exact immutable names/order/masks, cached-key consistency, bounded distinct folded names, actual global stores and complete package initializer through the checked cursor dependency; initialized table access; all seven actual Open wrappers against the complete null/map/rejection contract; initialized-table NextWanted specialization",
         "boundary": "explicit modeled runtime CPU startup as for Header; actual immutable table publication, no initializer WP premise; opening wrappers require no UTF-8 premise, scan retains existing Utf8ValidatorContract; opening proof excludes preceding projection-tag policy",
-        "pending": "projection tag and nullable scalar contracts, complete record specifications and public API composition",
+        "pending": "nullable scalar contract, complete record specifications and public API composition",
+    },
+    "projection_tag_policy": {
+        "implementation": "core/cbor_readers.go: cborReadProjectionTag",
+        "specification": "verification/fastcbor-proof/ProofCheck/ProjectionTagSpec.lean",
+        "implementation_proofs": ["verification/fastcbor-proof/ProofCheck/ProjectionTagRead.lean", "verification/fastcbor-proof/ProofCheck/ProjectionTagChecked.lean", "verification/fastcbor-proof/ProofCheck/ProjectionTagComplete.lean"],
+        "uniqueness": "verification/fastcbor-proof/ProofCheck/ProjectionTagUnique.lean",
+        "theorem": "wp_projectionTag_complete",
+        "proved": "every byte input at a valid cursor; exact consumed prefix and suffix; unchanged depth and input; untagged/EOF deferred to record reader; every supported tag width including nonpreferred encodings; malformed tag head rolls back with owned expectation diagnostic; reserved numbers 0-3 or a following tag consume first head and return canonical bare ErrUnsupported; allowed tag with absent content defers EOF to record reader; actual initialization supplies category globals",
+        "specification_proved": "all-input classification, exact suffix decomposition and unique consumption/suffix/status including malformed reason; success and rejection disjoint",
+        "unproved_helper_premises": [],
+        "scope": "complete projection tag-prelude contract under pinned 64-bit partial-correctness model, not the following record/API decoder; trusted semantics and production Go unchanged",
     },
     "typed_header_projections": {
         "generator": "utils/cbor/cmd/cborgen/projections.go",
@@ -220,7 +231,7 @@ report = {
         "metadata": "core/internal/cborprojections/fields_generated.go",
         "entries": ["headerHashProjection", "headerGlobalStateRootProjection", "headerTransactionCountProjection", "headerTimestampProjection", "headerHashAndStateRootProjection"],
         "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
-        "proof_status": "actual table initialization and all-input opening wrappers checked; initialized NextWanted contract checked conditional on UTF-8; complete independent projection record specifications, tag/pointer-scalar helpers and public entry proofs remain open",
+        "proof_status": "actual table initialization and all-input opening wrappers checked; initialized NextWanted contract checked conditional on UTF-8; complete independent projection record specifications, pointer-scalar helper and public entry proofs remain open",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_classes": {
