@@ -4175,6 +4175,55 @@ recorded project/artifact hash and the unchanged standard-library hashes were
 independently checked. Both saved compatibility reports and the archived passing
 performance decision were revalidated by the full check.
 
+## Complete successful projection scans
+
+`WantedSeen.lean` connects the independent seen-field list to the production
+64-bit mask. Kernel-checked finite bit calculations cover all 64 possible field
+positions and every schema size through 64, including the shift-by-64 all-mask
+case. The results prove initialization, exact membership after marking, exclusion
+of the all-seen shortcut for a fresh field, and rejection of the fresh-bit test
+for unknown/duplicate keys. The actual name matcher determines the independent
+schema index under distinct folded names. No native-evaluation axiom is used.
+
+`WantedSkipRejected.lean` proves immediate Skip failure after every supported
+integer key and every ignored text-key path: unknown names, duplicates and the
+all-fields-seen shortcut. The cursor retains exactly the consumed key bytes;
+the current pair count, seen bits, search hint and container depth are unchanged.
+The original Skip diagnostic retains its independently bounded absolute offset,
+which can be beyond the cursor restored by Skip. Input and metadata ownership
+are preserved. The integer branch has no validator premise; the text branch
+explicitly retains the existing validator contract.
+
+`WantedValidImpl.lean` proves `wp_nextWanted_valid` through the **complete actual
+successful NextWanted loop** for every independent `WantedValid` scan, arbitrary
+supported field names, every valid key width/spelling, and any number of skipped
+unknown/duplicate pairs. Its invariant tracks remaining pairs, exact remaining
+bytes and cursor progress against the original successful prefix. Selection
+marks one bit and leaves its value unread; full exhaustion closes an open
+container once. The theorem preserves the complete fractional input and metadata
+and establishes the exact unread suffix. The original pair count must fit the
+pinned signed 64-bit representation, matching the production Struct invariant.
+Only the existing UTF-8 validator premise remains for key decoding; no assumed
+Key, match or Skip correctness contract was introduced.
+
+The remaining scan obligation is failure propagation after arbitrary successful
+skipped prefixes, followed by the unified all-input contract. Actual projection
+metadata initialization, projection-tag and pointer-scalar helpers, and complete
+record/public API composition remain. No unconditional Header or projection
+milestone is claimed. Production Go, benchmark inputs and pinned semantics are
+unchanged.
+
+Full regeneration and audit pass in `check-wanted-valid-full.log`: 2247 build
+jobs, **1243 audited theorems**, 451 project/artifact hashes and 46 standard-library
+source hashes. All 1232 previous theorem dependency sets, the transitive axiom
+union and standard-library hashes are unchanged. The 11 new results add two
+explicit validator-dependent compositions, bringing the direct validator count
+to 72; the two word-helper-premise results are unchanged. No new premise kind,
+admission or native-evaluation dependency was introduced. Independent checks
+verified every recorded project/artifact hash and the exact premise additions.
+The full check revalidated both saved compatibility reports and the archived
+passing performance decision.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.

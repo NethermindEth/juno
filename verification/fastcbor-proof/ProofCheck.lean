@@ -256,3 +256,7 @@ import ProofCheck.WantedDeterminism
 import ProofCheck.WantedFailureUnique
 import ProofCheck.WantedBoundary
 import ProofCheck.WantedSelected
+
+import ProofCheck.WantedSeen
+import ProofCheck.WantedSkipRejected
+import ProofCheck.WantedValidImpl

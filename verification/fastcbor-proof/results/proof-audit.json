@@ -111,7 +111,9 @@
     "specification_proved": "all-input classification and exactly one scan outcome at supported depth with distinct folded names; selected values remain unread; unknown/duplicate pairs skipped with first occurrence winning; exact suffix and selected remaining-pair count; exact failure consumption, independent diagnostic offset and retained pair count; success/rejection disjoint; no UTF-8 implementation premise for pure specification results",
     "implementation_proofs": [
       "verification/fastcbor-proof/ProofCheck/WantedBoundary.lean",
-      "verification/fastcbor-proof/ProofCheck/WantedSelected.lean"
+      "verification/fastcbor-proof/ProofCheck/WantedSelected.lean",
+      "verification/fastcbor-proof/ProofCheck/WantedSkipRejected.lean",
+      "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean"
     ],
     "proved_branches": "actual NextWanted with exhausted closed state; open-container closure restores enclosing depth; every immediate Key rejection preserves current pair count, cursor and open state; every supported width/spelling of a fresh selected text key marks only its bit, decrements exactly one pair and leaves value unread; fractional metadata/input ownership preserved",
     "unproved_contract_premises": [
@@ -119,10 +121,14 @@
     ],
     "conditional_theorems": [
       "wp_nextWanted_key_rejected",
-      "wp_nextWanted_selected"
+      "wp_nextWanted_selected",
+      "wp_nextWanted_text_skip_rejected",
+      "wp_nextWanted_valid"
     ],
-    "pending": "compose unknown/duplicate/all-seen Skip branches and arbitrary scan prefixes; prove schema-specific mask correspondence and actual projection metadata initialization; projection-tag and pointer-scalar helpers; complete projection records and public APIs",
-    "scope": "complete independent scan specification and partial production branch proofs; not a complete NextWanted or projection decoder theorem; production Go and trusted model unchanged"
+    "mask_correspondence": "WantedSeen.lean checks all 64 field bits, the all-fields mask including count 64, initial/updated membership, fresh-field exclusion of the all-seen shortcut and unknown/duplicate lookup exclusion",
+    "successful_loop": "wp_nextWanted_valid realizes every WantedValid scan through the actual loop with arbitrary unknown/duplicate/all-seen prefixes, exact consumed suffix, selected bit/remaining count, preserved metadata/input and container closure on exhaustion; complete key and immediate Skip failures checked separately",
+    "pending": "compose failures after arbitrary skipped prefixes and the all-input scan outcome; prove actual projection metadata initialization against the generic names/mask contracts; projection-tag and pointer-scalar helpers; complete projection records and public APIs",
+    "scope": "complete independent scan specification and complete successful production scans; immediate key/Skip rejection branches checked; arbitrary-prefix rejection and the unified all-input NextWanted theorem remain open, as do complete projection decoder theorems; production Go and trusted model unchanged"
   },
   "typed_header_projections": {
     "generator": "utils/cbor/cmd/cborgen/projections.go",
@@ -457,6 +463,8 @@
         "wp_nextHeaderKey_valid",
         "wp_nextWanted_key_rejected",
         "wp_nextWanted_selected",
+        "wp_nextWanted_text_skip_rejected",
+        "wp_nextWanted_valid",
         "wp_readGasPrice_complete",
         "wp_readGasPrice_map_rejected",
         "wp_readGasPrice_map_valid",
@@ -1798,6 +1806,17 @@
     "wp_nextWanted_close": 0,
     "wp_nextWanted_key_rejected": 0,
     "wp_nextWanted_selected": 0,
+    "wantedBits_disjoint": 1,
+    "wantedAll_has_bit": 1,
+    "wantedSeen_zero": 1,
+    "wantedSeen_mark": 1,
+    "wantedSeen_fresh_not_all": 1,
+    "wantedMatch_known": 2,
+    "wantedSelect_all": 2,
+    "wantedIgnored_mask": 2,
+    "wp_nextWanted_integer_skip_rejected": 0,
+    "wp_nextWanted_text_skip_rejected": 0,
+    "wp_nextWanted_valid": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -2579,12 +2598,15 @@
     "verification/fastcbor-proof/ProofCheck/WantedBoundary.lean": "0a0fd4065c702497f7bd97dd2b00864d183847980367ead795ae38852bc3e4cb",
     "verification/fastcbor-proof/ProofCheck/WantedDeterminism.lean": "574707c9c307a031c6bc3b4065c525717f3b8094376049cf38e441c721edbb9c",
     "verification/fastcbor-proof/ProofCheck/WantedFailureUnique.lean": "a25bdb1efd2073d21d276d94af0bcafba29081d8c3f285ce43db64670e3362d7",
+    "verification/fastcbor-proof/ProofCheck/WantedSeen.lean": "983ff0c8ec117c7dc6af86857068234759f03634354ca2d39a68b77165520788",
     "verification/fastcbor-proof/ProofCheck/WantedSelected.lean": "b994ae29eb035f3417497f32012368e5c4e6a5bc078cfd7985b06e4b969c880e",
+    "verification/fastcbor-proof/ProofCheck/WantedSkipRejected.lean": "43bf61219ea219def29bfa5bd79c81785c1e973da2566ab52c661d284e5365a5",
     "verification/fastcbor-proof/ProofCheck/WantedSpec.lean": "773e55a927ddd8f09074cf147f7e42ce5c398a24cb4959cd14cea4f997877850",
+    "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "6a56a499bd3242362c3321e820b7bee2a64fee8a9928b029e3d508ecb7d5ab69",
-    "verification/fastcbor-proof/audit.py": "bc2bf1bc26fa213bf7dda2c7450adb57fcf4a6f11e870805ab84641f8f2e5be7",
+    "verification/fastcbor-proof/ProofCheck.lean": "4d2bbb8e4b8edc6909022809983d94daa6aee4fe5150209d06a53da9ebd7a159",
+    "verification/fastcbor-proof/audit.py": "98855c1bb9e383f893a71e1f28db7f749885753a6c2451bc90427f022d73b7a8",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",
