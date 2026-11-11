@@ -298,3 +298,10 @@ import ProofCheck.HeaderProjectionFieldRead
 import ProofCheck.HeaderProjectionFieldRejected
 import ProofCheck.HeaderProjectionFieldComplete
 import ProofCheck.HeaderProjectionBoundary
+import ProofCheck.HeaderProjectionScanDecompose
+import ProofCheck.ProjectionScanValid
+import ProofCheck.HeaderProjectionHashMap
+import ProofCheck.HeaderProjectionRootMap
+import ProofCheck.HeaderProjectionCountMap
+import ProofCheck.HeaderProjectionTimestampMap
+import ProofCheck.HeaderProjectionPairMap

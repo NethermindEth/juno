@@ -4662,3 +4662,44 @@ translated standard-library hashes. Independent checks verified the exact six
 additions, every project hash, unchanged prior dependencies, unchanged axiom union
 and unchanged explicit helper-premise inventory. Saved compatibility, race/checkptr
 and archived performance evidence was revalidated against the unchanged sources.
+
+### Successful generated Header projection map loops
+
+`HeaderProjectionScanDecompose.lean` proves that any independently valid pair
+sequence either exhausts through a valid batched scan or exposes a selected
+field/value followed by a smaller valid remainder. This is the converse direction
+needed to drive the implementation loop from the independent specification; it
+covers arbitrary ignored prefixes and preserves the first-occurrence policy.
+`ProjectionScanValid.lean` specializes the checked successful NextWanted contract
+to the actual initialized projection tables, retaining exact cursor/state updates.
+
+`HeaderProjectionHashMap.lean`, `HeaderProjectionRootMap.lean`,
+`HeaderProjectionCountMap.lean`, `HeaderProjectionTimestampMap.lean` and
+`HeaderProjectionPairMap.lean` now prove the **actual successful generated map
+loops for all five Header projections**. Each accepts arbitrary supported valid
+pair sequences and owned initial values, all supported definite map heads and
+field orders, unknown/repeated fields and arbitrary unread suffixes. The paired
+projection checks both real switch branches. The invariant tracks remaining
+pairs, seen-field mask, owned application value, unread bytes and absolute cursor
+position. Exhaustion restores the caller's depth; successful completion owns the
+specified final value and preserves input with the exact nonwrapping suffix.
+
+These are general successful-map contracts, not fixed-record examples. They
+compose real tag/open/scan/field helpers and derive table/error globals from
+proved initialization. The actual tag prelude is checked on these untagged map
+heads. Map-loop failure paths, allowed/unsupported tags around complete records,
+and public First API composition remain. Receipt projections are separate work.
+The six new implementation results (initialized scan plus five maps) explicitly
+carry the existing UTF-8 validator premise; no additional helper premise or
+trusted change was introduced. Header's UTF-8 helper and the separate felt-key
+map equality gap remain unresolved pending their documented treatment.
+
+Full regeneration and audit pass in `check-header-projection-map-valid-full.log`:
+2287 build jobs, 1372 audited theorems, 491 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact seven
+additions and all project hashes. Every prior dependency set and the overall axiom
+union are unchanged. The premise audit has exactly six added direct validator
+results (81 total); its two word-helper results and all premise definitions are
+unchanged. Saved compatibility, race/checkptr and archived performance evidence
+was revalidated against unchanged Go sources. Original and baseline worktrees
+remain separate; pinned trusted semantics were not modified.
