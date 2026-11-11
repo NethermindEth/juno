@@ -335,6 +335,20 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "scalar_receipt_resources": {
+        "implementation": "core/cbor_receipts_generated.go: cborReadDataAvailability, cborReadGasConsumed and cborReadBuiltinInstanceCounter",
+        "schemas": {
+            "DataAvailability": {"module_prefix": "Availability", "fields": ["L1Gas", "L1DataGas"]},
+            "GasConsumed": {"module_prefix": "GasUsed", "fields": ["L1Gas", "L1DataGas", "L2Gas"]},
+            "BuiltinInstanceCounter": {"module_prefix": "Builtins", "fields": ["Pedersen", "RangeCheck", "Bitwise", "Output", "Ecsda", "EcOp", "Keccak", "Poseidon", "SegmentArena", "AddMod", "MulMod", "RangeCheck96"]}
+        },
+        "theorems": ["availabilityRecordSpec_total_unique", "gasUsedRecordSpec_total_unique", "builtinsRecordSpec_total_unique", "wp_availability_field_complete", "wp_gasUsed_field_complete", "wp_builtins_field_complete", "availabilityTable_names", "gasUsedTable_names", "builtinsTable_names", "wp_readAvailability_record_complete", "wp_readGasUsed_record_complete", "wp_readBuiltins_record_complete"],
+        "specification_proved": "independent two-, three- and twelve-counter values; every unsigned width accepted, nullish fields preserve their prior value; actual legacy Ecsda spelling retained; classified unique field/pair/record outcomes at supported depth; arbitrary old counters, field order and suffix; ASCII-folded keys, known duplicate rejection and skipped unknown values; exact retained partial counters, consumed/diagnostic offsets and entered-map flag",
+        "implementation_proved": "concrete struct ownership and exact field access/update, preserving every other counter; all scalar calls use checked unsigned contracts and initialized errors without UTF-8 premises; each initialized receipt-package table agrees with independent names, cached words, indexes and seen masks; actual NextField valid/duplicate/rejected cases and generated valid/rejected map loops; nullish/opening branches compose into complete direct-record contracts for every input and owned initial counters, with unchanged input, exact owned output/partial state, diagnostic and cursor/depth",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "DataAvailability/GasConsumed slot wrappers; enclosing ExecutionResources record and shared allocation wrapper; full receipt/public entries",
+        "scope": "complete conditional direct-record contracts under pinned 64-bit partial-correctness/model-safety semantics; existing UTF-8 premise appears only in key/record composition; no production Go change, new helper assumption or trusted-model repair; compiler/runtime correctness, OOM and termination excluded"
+    },
     "l1_to_l2_message": {
         "implementation": "core/cbor_receipts_generated.go: cborReadL1ToL2Message and cborReadL1ToL2MessagePointer; core/transaction.go: L1ToL2Message",
         "specification": [

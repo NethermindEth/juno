@@ -136,8 +136,10 @@ all-input/all-owned-initial-value contract and an independently unique outcome.
 Its enclosing pointer slice now also has a complete conditional all-input contract,
 including shared allocations, private partial failures and independently unique
 outcomes. L1ToL2Message and its pointer wrapper now also have complete conditional
-all-input contracts and independently unique outcomes. Resource child records
-and full receipt composition remain open.
+all-input contracts and independently unique outcomes. The direct DataAvailability,
+GasConsumed and BuiltinInstanceCounter records now also have complete conditional
+contracts. Their slot wrappers, ExecutionResources composition and full receipt
+composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5941,3 +5943,36 @@ and baseline worktrees and pinned Perennial remain clean at their recorded
 revisions. The claim remains pinned 64-bit partial correctness/model safety,
 excluding compiler/runtime implementation correctness, OOM and termination;
 unconditional Header and whole-library gates remain open.
+
+
+### Complete scalar receipt resource records
+
+The direct `DataAvailability`, `GasConsumed` and `BuiltinInstanceCounter` readers
+now have independent, all-input record specifications and checked contracts for
+their translated production implementations. Their 2, 3 and 12 fields use the
+actual field names, including the legacy `Ecsda` spelling. Each field supports
+all unsigned widths and null/undefined preservation. The specifications cover
+arbitrary field order, ASCII-folded keys, ignored fields, duplicate known-field
+rejection, exact suffixes, retained partial values and diagnostic offsets.
+
+The 51 new modules establish owned struct access/reconstruction, field contracts,
+initialized metadata, seen bits, lookup, successful/rejected record loops and
+complete deterministic outcomes. These are direct-record contracts: the supplied
+storage slot wrappers, ExecutionResources composition and the complete receipt
+remain outstanding. Twenty-four new composition theorems retain the existing
+`Utf8ValidatorContract`; no new helper assumption or trusted-model change was
+introduced. Header's shared UTF-8 helper and the felt-key map equality gap remain
+unresolved.
+
+Full regeneration/check passed in `check-scalar-resources-full.log`: **2534 build
+jobs, 2197 audited theorems, 735 project/artifact hashes and 46 directly translated
+stdlib source hashes**. Independent comparison with `589715dda` confirmed exactly
+189 new theorems, unchanged dependency sets for all 2008 prior results, unchanged
+axiom union, exact new-file coverage and all recorded source hashes. No admission
+or native-evaluation axioms occur. Direct helper premise counts are 190 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`. The check revalidated
+the saved source-specific compatibility and performance evidence; production Go
+is unchanged. Original/baseline worktrees and pinned Perennial remain clean at
+their recorded revisions. The scope remains partial correctness/model safety on
+the pinned 64-bit target, excluding compiler/runtime implementation correctness,
+OOM and termination; unconditional Header and whole-library gates remain open.
