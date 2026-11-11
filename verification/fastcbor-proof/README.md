@@ -154,8 +154,8 @@ complete conditional all-input contracts. Its enclosing ResourceBounds map now h
 an independent total/unique specification and a complete conditional all-input
 implementation contract, including every key/record failure, exact cursor/depth,
 private partial ownership and old-destination preservation. The direct L1-handler
-transaction and Deploy transaction records now also have complete conditional
-all-input/all-owned-prior-value contracts; Declare, Invoke and DeployAccount records
+transaction, Deploy and Declare transaction records now also have complete conditional
+all-input/all-owned-prior-value contracts; Invoke and DeployAccount records
 and enclosing tagged interface/public API composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
@@ -6671,3 +6671,65 @@ compiler/runtime correctness, OOM and termination. This does not yet prove
 DeployAccountTransaction or the enclosing Transaction interface API. Unconditional
 Header and whole-library gates remain open; no FX-equivalence or strict validity of
 ignored CBOR content is claimed.
+
+## Complete conditional Declare transaction record
+
+The actual `cborReadDeclareTransaction` now has an all-input contract for every
+owned prior record. Its independent `DeclareValue` contains all fourteen stored
+fields in declaration order: seven nullable felt/version values, three nullable
+felt-value slices, the ResourceBounds map, uint64 Tip and two uint32 DA modes.
+The model describes stored limb values and representable modes; it does not add
+protocol-version, signature, hash, address or cross-field validation.
+
+`DeclareValues`, `DeclarePairs`, `DeclareValueUnique`, `DeclarePairsUnique`,
+`DeclareRecordSpec` and `DeclareRecordUnique` establish independent total
+classification, unique successful values/suffixes, unique failures and
+success/rejection separation. The relations retain actual suffixes for nested
+count guards, exact consumed bytes and diagnostic positions, partial record
+updates and accumulated cursor depth. Direct null/undefined preserves the old
+record. Known keys match with ASCII folding and reject duplicates; unknown
+values use the actual Skip policy.
+
+The failure contract is deliberately richer than the Deploy/L1-handler contract.
+A resource-map failure preserves the old map field while retaining its actual
+consumption and nested map depth. Earlier successful record fields stay updated.
+A DA-mode overflow consumes the entire unsigned integer and returns the bare
+initialized type sentinel; its recorded boundary is not an invented allocated
+error offset. Felt, version, scalar-parse and felt-slice failures roll back their
+own cursor changes and preserve the prior field. Successful map decoding retains
+last-entry replacement of the whole ResourceBounds value, including null-to-zero
+entry values and the nil/allocated-empty map distinction.
+
+`DeclareOwnership` proves exact child ownership and reconstruction around each
+borrowed field cell. `DeclareFieldValid`, `DeclareFieldRejected` and
+`DeclareFieldComplete` compose the actual fourteen helper calls. Two reusable
+`FeltValuesTypedRefine` results select independently specified success/rejection
+outcomes of the already proved typed slice reader; they introduce no helper
+premise. `DeclareTable`, `DeclareSeen` and `DeclareKeyRead` connect the independent
+schema to actual initialized metadata and key lookup. `DeclareMapValid`,
+`DeclareMapRejected`, `DeclareBoundary` and `DeclareRecordComplete` compose the
+actual generated loop, exact suffix/restored depth on success, retained partial
+state on failure and unchanged fractional input ownership.
+
+This is the third complete conditional direct transaction variant, after
+L1-handler and Deploy. **It remains conditional on `Utf8ValidatorContract`,**
+including the ResourceBounds map's record keys. Invoke and DeployAccount records,
+transaction hash projection, tagged interface dispatch and transaction public APIs
+remain to be composed. Header's unapplied trusted-model correction, the separate
+felt-key map equality gap and state-update/class work remain open.
+
+Validation: the full `check.sh` regenerated from the unchanged production Go,
+checked 2,691 Lean build jobs and audited 2,854 theorems, 892 project/artifact
+hashes and 46 standard-library source hashes. The independent audit checked exactly
+102 new results across 19 modules, unchanged axiom dependencies for all 2,752
+previous results and an unchanged axiom union. There are no `sorryAx` or native
+evaluation axioms. Direct unresolved premises total 270 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`; eleven new direct
+validator premises are the field/key/record composition results. The full check
+revalidated saved source-specific compatibility and performance evidence. No
+production Go changed, so the frozen passing performance gate remains applicable.
+Original, baseline and Perennial worktrees retain their clean pinned revisions.
+The claim remains pinned 64-bit partial correctness/model safety, excluding
+compiler/runtime correctness, OOM and termination. Neither the unconditional
+Header milestone nor whole-library completion is claimed; this is not FX
+equivalence or strict validity of ignored CBOR content.

@@ -335,6 +335,29 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "declare_transaction": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadDeclareTransaction; core/transaction.go: DeclareTransaction",
+        "theorems": [
+            "declareField_classify",
+            "declareChildren_zero",
+            "wp_readFeltValues_valid",
+            "wp_readFeltValues_rejected",
+            "wp_declare_field_complete",
+            "declareTable_names",
+            "wp_nextDeclareKey_valid",
+            "declareRecordSpec_total_unique",
+            "wp_readDeclare_map_valid",
+            "wp_readDeclare_map_rejected",
+            "wp_readDeclare_record_complete"
+        ],
+        "specification_proved": "independent identities and values for all fourteen declared fields: seven nullable four-limb/version fields, three nullable felt-value slices, ResourceBounds map, uint64 Tip and two uint32 DA modes; field/pair/record total classification, unique values/suffixes and rejection/partial-record/consumed/diagnostic/depth outcomes; contextual nested count guards, null versus empty, arbitrary order, ASCII-folded keys, known duplicate rejection, ignored-value Skip and direct nullish old-record preservation",
+        "implementation_proved": "actual fourteen-field ownership and cell borrowing/reconstruction; all successful/rejected field calls including resource-map composition, exact nested consumption/depth and bare DA-mode overflow; map duplicate keys replace the whole bounds value, and failures keep the old map/record field; actual initialized transaction metadata, ordered/cache lookup and seen masks; actual generated successful and rejected loops and all-input/all-owned-prior direct record composition; exact success suffix/restored depth, retained partial record on failure and unchanged input; two reusable typed felt-slice refinement adapters derived from the prior complete reader",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (record-key lookup and the ResourceBounds map field; no additional helper-correctness premise)"
+        ],
+        "remaining": "InvokeTransaction and DeployAccountTransaction records; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "scope": "complete conditional direct DeclareTransaction record, not enclosing Transaction interface/public API; stored field decoding only, no protocol-version, hash, address, signature, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
+    },
     "deploy_transaction": {
         "implementation": "core/cbor_transactions_generated.go: cborReadDeployTransaction; core/transaction.go: DeployTransaction",
         "theorems": [
@@ -353,7 +376,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "DeclareTransaction, InvokeTransaction and DeployAccountTransaction records; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
+        "remaining": "InvokeTransaction and DeployAccountTransaction records; DeclareTransaction now separately has a complete conditional record contract; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
         "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "l1_handler_transaction": {
@@ -375,7 +398,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "DeclareTransaction, InvokeTransaction and DeployAccountTransaction records; DeployTransaction now separately has a complete conditional record contract; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
+        "remaining": "InvokeTransaction and DeployAccountTransaction records; DeclareTransaction now separately has a complete conditional record contract; DeployTransaction now separately has a complete conditional record contract; enclosing tagged Transaction dispatch and public APIs; hash projection; shared UTF-8 word-helper/model repair",
         "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "resource_bounds_map": {
