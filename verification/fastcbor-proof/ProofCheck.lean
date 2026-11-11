@@ -555,3 +555,9 @@ import ProofCheck.GasUsedSeen
 import ProofCheck.GasUsedTable
 import ProofCheck.GasUsedValueUnique
 import ProofCheck.GasUsedValues
+import ProofCheck.AvailabilitySlotSpec
+import ProofCheck.AvailabilitySlotRead
+import ProofCheck.AvailabilitySlotComplete
+import ProofCheck.GasUsedSlotSpec
+import ProofCheck.GasUsedSlotRead
+import ProofCheck.GasUsedSlotComplete

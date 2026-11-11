@@ -138,8 +138,8 @@ including shared allocations, private partial failures and independently unique
 outcomes. L1ToL2Message and its pointer wrapper now also have complete conditional
 all-input contracts and independently unique outcomes. The direct DataAvailability,
 GasConsumed and BuiltinInstanceCounter records now also have complete conditional
-contracts. Their slot wrappers, ExecutionResources composition and full receipt
-composition remain open.
+contracts. Both supplied-storage slot wrappers now also have complete conditional
+contracts. ExecutionResources composition and full receipt composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5976,3 +5976,40 @@ is unchanged. Original/baseline worktrees and pinned Perennial remain clean at
 their recorded revisions. The scope remains partial correctness/model safety on
 the pinned 64-bit target, excluding compiler/runtime implementation correctness,
 OOM and termination; unconditional Header and whole-library gates remain open.
+
+
+### Complete supplied-storage resource slot wrappers
+
+`AvailabilitySlotSpec/Read/Complete.lean` and `GasUsedSlotSpec/Read/Complete.lean`
+now specify and prove the actual `cborReadDataAvailabilitySlot` and
+`cborReadGasConsumedSlot` wrappers for every input at supported depth, arbitrary
+owned initial storage and arbitrary old destination pointer. Independent success
+and rejection relations have unique outcomes. Null/undefined clears the pointer
+and preserves storage; a successful record publishes exactly the supplied slot
+address and updates its counters; rejection preserves the old pointer cell and
+retains the exact partially updated slot, diagnostic and cursor/depth. Input is
+unchanged, and successful cursor movement has the exact unread suffix.
+
+These wrappers allocate no new record. Their contracts deliberately distinguish
+pointer-cell preservation from pointee preservation: the old pointer may already
+alias the supplied slot and therefore observe partial updates on failure. Nullish
+preservation and nonzero initial storage are covered, not only fresh zero slots.
+Six new implementation theorems retain the shared `Utf8ValidatorContract` through
+record-key decoding; there are no new helper assumptions or trusted-model edits.
+
+Full regeneration/check passed in `check-resource-slots-full.log`: **2540 build
+jobs, 2219 audited theorems, 741 project/artifact hashes and 46 directly translated
+stdlib hashes**. Independent comparison with `6d0f89b36` confirmed exactly 22 new
+results, unchanged dependencies for all 2197 prior theorems, an unchanged axiom
+union and all source hashes. No admission or native-evaluation axiom occurs.
+Direct helper premise counts are 196 for `Utf8ValidatorContract` and two for
+`Utf8WordWindowContract`. The full check revalidated saved compatibility and
+performance evidence; production Go remains unchanged. Original/baseline
+worktrees and pinned Perennial remain clean at their recorded revisions.
+
+Next is the enclosing `ExecutionResources` record and its shared-block pointer
+wrapper, followed by the full receipt and public entries. Header's unapproved
+UTF-8 model correction and the independent felt-key map equality gap remain open.
+The claim remains pinned 64-bit partial correctness/model safety, excluding
+compiler/runtime implementation correctness, OOM and termination; unconditional
+Header and whole-library gates are not closed.
