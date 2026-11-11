@@ -955,3 +955,13 @@ import ProofCheck.DeprecatedClassSeen
 import ProofCheck.DeprecatedClassTable
 import ProofCheck.DeprecatedClassValueUnique
 import ProofCheck.DeprecatedClassValues
+import ProofCheck.SegmentClassify
+import ProofCheck.SegmentKeyRead
+import ProofCheck.SegmentKeys
+import ProofCheck.SegmentOwnership
+import ProofCheck.SegmentProgress
+import ProofCheck.SegmentSeen
+import ProofCheck.SegmentSpec
+import ProofCheck.SegmentStorage
+import ProofCheck.SegmentTable
+import ProofCheck.SegmentValues

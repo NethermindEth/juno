@@ -7638,3 +7638,47 @@ word-helper proof to discharge the shared premise. Neither unconditional Header
 nor whole-library completion is claimed; pinned 64-bit partial correctness/model
 safety and the existing compiler/runtime, OOM, termination and compatibility
 boundaries remain unchanged.
+
+## Recursive SegmentLengths foundations checkpoint
+
+`SegmentLengths` now has independent mutually recursive record, field, map-pair
+and child-array success/rejection relations. They distinguish absent and allocated
+empty children, preserve old record fields on null/undefined, clear nullish child
+arrays, retain Length on nullish scalar input, and track consumed bytes, diagnostic
+offsets and entered depth separately. Record and array openings each consume one
+level of the actual depth budget. This specification does not require Length to
+sum child lengths or assert executable validity.
+
+The final record, array and field classification theorems cover every byte input
+at every supported depth. An induction on remaining depth discharges both sides
+of the recursive dependency; the final classification theorems do not assume
+child coverage or helper correctness. Successful record/value nonemptiness and
+map/array count bounds are also checked.
+
+Recursive ownership uses structural recursion over the finite value tree, with
+list membership proving each child is smaller. It supports arbitrary owned prior
+contents without imposing the decoder's depth limit on those existing values.
+Field accessors preserve the unrelated field, and array storage lemmas support
+zero initialization, element access and publication. The concrete two-entry
+class table, field indices, seen bits and general key-reader contracts connect
+the independent schema to actual metadata. The three key-reader contracts retain
+the existing UTF-8 validator premise.
+
+Validation: full `check.sh` passed 2,944 Lean build jobs and audited 3,812 results,
+1,145 project/artifact hashes and 46 standard-library hashes. An independent
+comparison verified exactly 54 new results in ten modules, unchanged dependencies
+for all 3,758 prior results and an unchanged axiom union. Direct UTF-8 validator
+premises total 392; the two word-helper premises are unchanged. No result depends
+on `sorryAx` or native evaluation axioms. Production Go and pinned trusted
+semantics are unchanged; original and baseline worktrees remain clean at their
+recorded pins. Saved compatibility and frozen performance evidence was revalidated.
+
+This is a foundations checkpoint, not a complete recursive decoder proof. Next:
+success/failure outcome uniqueness, failure bounds and owned diagnostics, then
+mutually recursive field/map/record/array implementation proofs. CasmClass,
+SierraClass, class dispatch and public APIs follow. State-map ownership and the
+felt-key equality model gap remain open. Header still requires the separately
+approved generic slice-index model repair and the actual UTF-8 word-helper proof.
+Neither unconditional Header nor whole-library completion is claimed; the pinned
+64-bit partial-correctness/model-safety scope and other documented boundaries
+remain unchanged.
