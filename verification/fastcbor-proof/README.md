@@ -5043,3 +5043,50 @@ There are no admission or native-evaluation dependencies. Saved compatibility,
 race/checkptr and archived performance evidence was revalidated against unchanged
 Go sources. Original and baseline worktrees remain clean at their recorded pins;
 the trusted Perennial checkout remains clean and unchanged.
+
+## General successful felt-value loop
+
+`ReadLimbsValid.wp_readLimbs_valid` now proves the actual `Cursor.readLimbs` loop
+against `LimbItemsValid` for every successful sequence at a permitted felt depth,
+with arbitrary old owned output storage of the requested length and any valid
+starting offset. It covers arbitrary mixtures of the 37-byte shortcut and the
+complete `Limbs` decoder, including mixed limb widths, short arrays and extended
+felt arrays with ignored contents. The output contains exactly the specified
+four-word values; input bytes and depth are unchanged; the final position and
+unread suffix are exact and nonwrapping. This is a general sequence proof, not a
+fixed felt example or an assumed element-decoder contract.
+
+The loop invariant tracks the local input window separately from the stored
+cursor, which may lag after consecutive fast iterations. It also owns the decoded
+prefix and still-unwritten output slots. `LimbItemsWire` establishes that its
+witness representation covers every independent valid sequence and supplies the
+output-prefix update and nested-slice advancement facts.
+
+`LimbWideGuard` checks the full short-circuit guard on arbitrary input bytes;
+`LimbWideSpec` shows that passing all fixed offsets identifies a complete 37-byte
+felt satisfying the independent relation, and separates that success from every
+in-place failure. `LimbWideStep` checks all four big-endian reads/stores and the
+local window advance, framing the other output slots. The guard and fast-branch
+expression abbreviations are matched into the actual translated production loop
+in its checked proofs; they do not replace production code with an assumed model.
+`ReadLimbsFailure` additionally proves every rejected **first** element at a
+permitted depth: every output slot, cursor and depth are preserved, and the exact
+owned inner diagnostic is returned.
+
+The nonempty slice wrapper is still incomplete. Next is rejection after an
+arbitrary decoded prefix, including retained partial writes and diagnostic
+positions. Then prove nonempty allocation and the unsafe slice view, compose all
+`LimbSlice` outcomes and typed wrappers, establish full slice outcome uniqueness,
+and continue Event record/slice composition. Header's shared UTF-8 helper/model
+repair and felt-key map equality remain unresolved. No trusted semantics or
+production Go changed, and these results add no unproved helper premise.
+
+Full regeneration and audit passed in `check-read-limbs-valid-full.log`: 2348 build
+jobs, 1534 audited theorems, 552 project/artifact hashes and 46 directly translated
+standard-library hashes. Independent verification checked the exact 13 additions,
+all 1521 previous theorem dependency sets unchanged, the unchanged axiom union and
+explicit helper-premise inventory, and every recorded source hash. There are no
+admission or native-evaluation dependencies. Saved compatibility, race/checkptr
+and archived performance evidence was revalidated against unchanged Go sources.
+Original and baseline worktrees and the pinned trusted checkout remain clean at
+their recorded revisions.

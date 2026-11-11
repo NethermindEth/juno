@@ -366,3 +366,9 @@ import ProofCheck.FeltValuesSpec
 import ProofCheck.FeltValuesBoundary
 import ProofCheck.FeltValuesEmpty
 import ProofCheck.FeltValuesReaders
+import ProofCheck.LimbWideGuard
+import ProofCheck.LimbWideSpec
+import ProofCheck.LimbWideStep
+import ProofCheck.LimbItemsWire
+import ProofCheck.ReadLimbsFailure
+import ProofCheck.ReadLimbsValid
