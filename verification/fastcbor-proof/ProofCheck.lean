@@ -1129,3 +1129,29 @@ import ProofCheck.ClassResultSpec
 import ProofCheck.ClassSierraDispatch
 
 import ProofCheck.ClassTagProfile
+
+import ProofCheck.FeltMapDepth
+
+import ProofCheck.FeltMapEntriesSpec
+
+import ProofCheck.FeltMapEntriesUnique
+
+import ProofCheck.FeltMapEntrySpec
+
+import ProofCheck.FeltMapEntryUnique
+
+import ProofCheck.FeltMapFromBoundary
+
+import ProofCheck.FeltMapKeySpec
+
+import ProofCheck.FeltMapOwnership
+
+import ProofCheck.FeltMapSpec
+
+import ProofCheck.FeltMapUnique
+
+import ProofCheck.FeltMapValues
+
+import ProofCheck.MigratedClassesBoundary
+
+import ProofCheck.StorageDiffsBoundary

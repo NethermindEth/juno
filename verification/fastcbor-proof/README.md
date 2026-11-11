@@ -7994,3 +7994,75 @@ bytecode/segment consistency or executable validity. The pinned 64-bit claim
 remains partial correctness and model safety, excluding compiler/runtime
 implementation correctness, OOM and termination, FX equivalence and blanket
 validity of ignored CBOR content.
+
+## State felt-map specification, ownership and early-exit checkpoint
+
+The ordinary `map[felt.Felt]*felt.Felt` decoder now has an independent all-input
+specification with unique outcomes, together with logical ownership rules.
+Actual null and opening-error paths are checked for `cborReadFeltMapFrom`,
+`cborReadStorageDiffs` and `cborReadMigratedClasses`. This is foundational progress:
+**successful Go map insertion/loops and complete StateUpdate decoding are not
+proved.** No map-equality correctness premise has been introduced.
+
+Keys call `Cursor.Limbs` directly, so they require nonnullable limb arrays.
+Null/undefined keys are rejected as array type mismatches at the entry start;
+`feltMapKey_nullish_rejected` records this explicitly. Empty, short and extended
+array keys follow the existing independent limb relation, including zero filling,
+truncation and validated skipping of extra elements. Nullable pointer values
+follow the separate felt relation: null/undefined produces nil, whereas a zero
+array produces a nonnil zero felt. The independent schema was checked against
+the actual direct Limbs call rather than using the nullable by-value wrapper.
+
+Map entries are applied in wire order. A later duplicate replaces the complete
+previous pointer; a later null value leaves a present nil entry, distinct from an
+absent key. Null maps and allocated empty maps remain distinct. Outer parsing
+checks twice the pair count against the complete remaining input before depth
+entry. Key errors roll back to entry start. Value errors retain consumed key
+bytes and the private parsed key while the failed felt read rolls back. Successful
+prefix entries remain private until the entire map is published. Felt failures
+restore their own depth, so the independent map failure retains exactly zero or
+one additional level. Classification, successful prefix/value/suffix uniqueness,
+success/rejection separation, private completed-entry/failed-key uniqueness,
+count bounds, diagnostic bounds and retained-depth bounds are checked.
+
+`FeltMapOwnership.lean` relates actual map cells and pointer values to logical
+keys and nullable felt contents. It proves empty child ownership, replacement
+for fresh or duplicate logical keys, and nonnull allocated-map ownership. Its
+insertion lemma rearranges separation-logic ownership; it does **not** prove the
+Go insertion operation or discharge `SafeMapKey`.
+
+The twelve implementation contracts cover null/undefined, malformed outer map
+heads, contextual count rejection and depth rejection in all three actual state
+map readers. They preserve input ownership and the old destination/cursor on
+opening failure, with the exact allocated diagnostic and arguments. The
+FeltMapFrom contracts additionally preserve the arbitrary spare slice header;
+these early exits do not need an extra-count bound because they never allocate
+or consume spare storage.
+
+The existing `repros/MapKeyEquality.lean` was rerun against the unchanged pin.
+`check-state-equality-reprobe.log` records exactly its three expected missing
+comparison instances, for `[4]uint64`, Felt and SierraClassHash. Mathematical
+finite-map equality in the specification is separate from Go array equality in
+the trusted model. No failed reproducer is imported into the audited root, and
+no trusted file or production Go file changed.
+
+Validation: `check-state-map-foundations-full.log` records a successful
+**3,039-job** full regeneration/build and **4,132** audited results. This checkpoint
+adds **47** results in **13** modules. A separate comparison against `81b6561f2`
+checked all 4,085 prior dependency sets and the complete axiom union unchanged;
+all **1,242** project/artifact hashes and **46** standard-library source hashes
+match disk. There are no additional helper premises: the shared totals remain
+**441** direct validator premises and **two** word-helper premises. No result
+depends on `sorryAx` or native evaluation axioms. The independent audit also
+checked nonnullable key parsing, nullable pointer values, duplicate replacement,
+all twelve actual early-exit targets and the three expected equality failures.
+Original and baseline worktrees retain their clean pins. The frozen performance
+and archived compatibility evidence remain applicable to unchanged Go sources.
+
+Next: shared spare allocation and ownership, nested storage-map and migrated-map
+specifications, and StateDiff/StateUpdate composition. Actual felt-key insertion
+still needs the separately approved array-equality model work. The independent
+UTF-8 word-helper/slice-index issue remains open for Header and text-dependent
+records. This checkpoint does not close any full state-map implementation,
+Header or whole-library gate; the existing pinned 64-bit partial-correctness and
+model-safety scope remains unchanged.
