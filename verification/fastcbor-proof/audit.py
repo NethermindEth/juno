@@ -335,6 +335,38 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_dispatch": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadTransaction and CBORTransactionTags",
+        "theorems": [
+            "transactionVariantTag_injective",
+            "transactionTagMeaning_total",
+            "transactionTagMeaning_unique",
+            "transactionPayload_classify",
+            "transactionPayloadSpec_unique",
+            "transactionDispatchSpec_total_unique",
+            "wp_transaction_nullish",
+            "wp_transaction_tag_rejected",
+            "wp_transaction_unknown_tag",
+            "wp_transaction_declare_valid",
+            "wp_transaction_declare_rejected",
+            "wp_transaction_deploy_valid",
+            "wp_transaction_deploy_rejected",
+            "wp_transaction_invoke_valid",
+            "wp_transaction_invoke_rejected",
+            "wp_transaction_l1Handler_valid",
+            "wp_transaction_l1Handler_rejected",
+            "wp_transaction_deployAccount_valid",
+            "wp_transaction_deployAccount_rejected"
+        ],
+        "specification_proved": "independent five-variant tag profile and tag-match relation; all-input dispatch classification at supported depth, unique complete outcome under the API-documented distinct-tag caller requirement; untagged null/undefined, malformed/absent tag, unknown tag with exact tag consumption/rest, or recognized native payload outcome from its zero record; recognized payload outcomes retain complete success or partial failure values, positions and depth; tags do not independently enter cursor depth",
+        "implementation_proved": "actual five tag-switch success branches allocate the appropriate zero struct, run the proved record reader and publish the correctly typed interface with exact suffix and depth; actual five rejection branches preserve old interface and retain owned private partial record/error with exact tag-plus-payload consumption and diagnostic boundary; nullish clears interface before tag lookup, malformed tags roll back without allocation, unknown tags consume only tag bytes and return the initialized nonnil bare unsupported sentinel; input ownership preserved",
+        "caller_requirement": "TransactionTagsDistinct is the documented profile requirement, not an assumed decoder-helper contract; tag registration/validation remains outside proof scope; nullish/tag-rejection/unknown branch proofs do not require distinctness",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (the ten recognized payload success/rejection branch contracts through record decoding)"
+        ],
+        "remaining": "combine the exhaustive specification and checked branches into one caller-facing all-input cborReadTransaction contract; DecodeTransactionFirst/DecodeTransaction guards, cleanup, exact suffix/trailing input and public result specification; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "scope": "exhaustive independent specification plus actual dispatch branch contracts, not yet a combined complete decoder WP or transaction public API proof; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
+    },
     "deploy_account_transaction": {
         "implementation": "core/cbor_transactions_generated.go: cborReadDeployAccountTransaction; core/transaction.go: DeployAccountTransaction and embedded DeployTransaction",
         "theorems": [
@@ -355,7 +387,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
         "scope": "all five direct transaction variants now have complete conditional record contracts, but the enclosing interface/public APIs remain unproved; actual embedded layout is proved without changing Go or trusted semantics; storage decoding only, no protocol-version, hash/address derivation, signature, DA-enum-membership or cross-field validity claim; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "invoke_transaction": {
@@ -378,7 +410,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
         "scope": "complete conditional direct InvokeTransaction record, not enclosing Transaction interface/public API; stored values only, no proof verification, signature verification, protocol-version, hash/address derivation, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "declare_transaction": {
@@ -401,7 +433,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and the ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
         "scope": "complete conditional direct DeclareTransaction record, not enclosing Transaction interface/public API; stored field decoding only, no protocol-version, hash, address, signature, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_transaction": {
@@ -422,7 +454,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
         "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "l1_handler_transaction": {
@@ -444,7 +476,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
         "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "resource_bounds_map": {

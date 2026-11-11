@@ -156,8 +156,11 @@ implementation contract, including every key/record failure, exact cursor/depth,
 private partial ownership and old-destination preservation. All five direct transaction variants
 (L1-handler, Deploy, Declare, Invoke and DeployAccount) now also have complete
 conditional all-input/all-owned-prior-value contracts, including embedded
-DeployAccount field access. Enclosing tagged interface/public API composition
-and transaction hash projection remain open.
+DeployAccount field access. The enclosing tagged interface now has an independent
+all-input/unique specification and checked actual success/rejection branches for
+all five variants, plus nullish, malformed-tag and unknown-tag branches. A unified
+all-input interface WP, public API composition and transaction hash projection
+remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6856,3 +6859,69 @@ worktrees retain their clean pinned revisions. This remains pinned 64-bit partia
 correctness/model safety, excluding compiler/runtime correctness, OOM and
 termination. No unconditional Header, whole-library, FX-equivalence or strict
 ignored-CBOR-validity claim is made.
+
+## Tagged Transaction dispatch specification and branch proofs
+
+The enclosing `cborReadTransaction` now has checked contracts for its actual five
+successful and five rejected payload branches, plus null/undefined, malformed-tag
+and unknown-tag paths. An independent all-input specification classifies those
+paths and proves unique outcomes. **A unified all-input implementation WP and the
+public transaction APIs still require composition.** This checkpoint does not
+claim that those final contracts are complete.
+
+`TransactionTagProfile` defines the five application alternatives, their supplied
+tag values and an independent tag-match relation. `TransactionTagsDistinct`
+expresses the direct API's documented caller requirement. It gives an injective
+variant-to-tag mapping and unique tag matching. It is not an assumed parser
+contract or a new axiom. Runtime registry validation remains outside the decoder
+proof scope. The nullish, malformed-tag and unknown-tag implementation contracts
+do not require distinctness.
+
+`TransactionPayloadSpec` packages each native record result from its initially
+zero value, preserving complete success or retained partial-record/error/depth
+information. `TransactionDispatchSpec` independently classifies every byte input
+at supported depth as untagged nullish, tag failure, unknown tag or recognized
+payload. `TransactionDispatchUnique` proves the complete dispatch result is unique
+for distinct profiles, including tag width, unknown-tag suffix, payload variant
+and native record outcome. A recognized tag followed by null/undefined allocates
+and publishes a nonnil zero record; this differs from an untagged nullish input,
+which clears the interface. Reading the outer tag itself does not enter a cursor
+container depth.
+
+The five `Transaction*Dispatch` implementation modules step through the actual
+Go tag switch and allocation sites. Successful branches initialize the precise
+record type, run its existing conditional record proof and publish an interface
+with that dynamic pointer type. They return the exact suffix with restored depth.
+Rejected branches never publish the new pointer: they retain ownership of its
+private partial record, preserve the caller's old interface and report exact
+combined tag/payload consumption and the actual error position or bare-sentinel
+boundary. They preserve the record decoder's actual remaining cursor depth.
+
+`TransactionDispatchBoundary` proves the three non-payload paths. Null/undefined
+clears the interface before tag lookup and consumes one byte. Required-tag parse
+errors preserve the entire cursor and old interface and return initialized owned
+diagnostics. Unknown tags consume their complete head, leave the remaining bytes
+unparsed and return the actual initialized nonnil unsupported sentinel, without
+allocating a record. All paths preserve input ownership. These boundary proofs
+have no UTF-8 helper premise; the ten recognized payload branch contracts remain
+conditional on the shared `Utf8ValidatorContract` through record decoding.
+
+Next: combine the classified outcomes and branch contracts into one implementation
+contract for `cborReadTransaction`, then compose the public zero-destination guard,
+parse-failure cleanup, exact suffix and trailing-input behavior. Transaction hash
+projection, the unapplied Header UTF-8 model correction, felt-key map equality and
+remaining state-update/class proofs are still open.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,738 Lean
+build jobs, auditing 3,082 results, 939 project/artifact hashes and 46 standard-library
+source hashes. The independent audit checked exactly 21 new results in ten modules,
+unchanged dependency sets for all 3,061 previous results, unchanged axiom union and
+every recorded hash. No result depends on `sorryAx` or native evaluation axioms.
+Direct unresolved premises total 302 for `Utf8ValidatorContract` and two for
+`Utf8WordWindowContract`; the ten new validator premises are the payload branch
+contracts. Saved compatibility and frozen performance evidence was revalidated;
+production Go and trusted semantics did not change. Original, baseline and
+Perennial worktrees remain clean at their pins. The claim remains pinned 64-bit
+partial correctness/model safety, excluding compiler/runtime correctness, OOM and
+termination. Neither unconditional Header nor whole-library completion is claimed,
+and no protocol-validity, FX-equivalence or strict ignored-CBOR-validity claim is made.

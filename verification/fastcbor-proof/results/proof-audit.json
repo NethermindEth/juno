@@ -442,6 +442,38 @@
     "remaining": "full receipt; typed address and containing message readers are separately proved",
     "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
   },
+  "transaction_dispatch": {
+    "implementation": "core/cbor_transactions_generated.go: cborReadTransaction and CBORTransactionTags",
+    "theorems": [
+      "transactionVariantTag_injective",
+      "transactionTagMeaning_total",
+      "transactionTagMeaning_unique",
+      "transactionPayload_classify",
+      "transactionPayloadSpec_unique",
+      "transactionDispatchSpec_total_unique",
+      "wp_transaction_nullish",
+      "wp_transaction_tag_rejected",
+      "wp_transaction_unknown_tag",
+      "wp_transaction_declare_valid",
+      "wp_transaction_declare_rejected",
+      "wp_transaction_deploy_valid",
+      "wp_transaction_deploy_rejected",
+      "wp_transaction_invoke_valid",
+      "wp_transaction_invoke_rejected",
+      "wp_transaction_l1Handler_valid",
+      "wp_transaction_l1Handler_rejected",
+      "wp_transaction_deployAccount_valid",
+      "wp_transaction_deployAccount_rejected"
+    ],
+    "specification_proved": "independent five-variant tag profile and tag-match relation; all-input dispatch classification at supported depth, unique complete outcome under the API-documented distinct-tag caller requirement; untagged null/undefined, malformed/absent tag, unknown tag with exact tag consumption/rest, or recognized native payload outcome from its zero record; recognized payload outcomes retain complete success or partial failure values, positions and depth; tags do not independently enter cursor depth",
+    "implementation_proved": "actual five tag-switch success branches allocate the appropriate zero struct, run the proved record reader and publish the correctly typed interface with exact suffix and depth; actual five rejection branches preserve old interface and retain owned private partial record/error with exact tag-plus-payload consumption and diagnostic boundary; nullish clears interface before tag lookup, malformed tags roll back without allocation, unknown tags consume only tag bytes and return the initialized nonnil bare unsupported sentinel; input ownership preserved",
+    "caller_requirement": "TransactionTagsDistinct is the documented profile requirement, not an assumed decoder-helper contract; tag registration/validation remains outside proof scope; nullish/tag-rejection/unknown branch proofs do not require distinctness",
+    "unproved_helper_premises": [
+      "Utf8ValidatorContract (the ten recognized payload success/rejection branch contracts through record decoding)"
+    ],
+    "remaining": "combine the exhaustive specification and checked branches into one caller-facing all-input cborReadTransaction contract; DecodeTransactionFirst/DecodeTransaction guards, cleanup, exact suffix/trailing input and public result specification; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "scope": "exhaustive independent specification plus actual dispatch branch contracts, not yet a combined complete decoder WP or transaction public API proof; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
+  },
   "deploy_account_transaction": {
     "implementation": "core/cbor_transactions_generated.go: cborReadDeployAccountTransaction; core/transaction.go: DeployAccountTransaction and embedded DeployTransaction",
     "theorems": [
@@ -462,7 +494,7 @@
     "unproved_helper_premises": [
       "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
     ],
-    "remaining": "enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
     "scope": "all five direct transaction variants now have complete conditional record contracts, but the enclosing interface/public APIs remain unproved; actual embedded layout is proved without changing Go or trusted semantics; storage decoding only, no protocol-version, hash/address derivation, signature, DA-enum-membership or cross-field validity claim; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
   },
   "invoke_transaction": {
@@ -485,7 +517,7 @@
     "unproved_helper_premises": [
       "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
     ],
-    "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
     "scope": "complete conditional direct InvokeTransaction record, not enclosing Transaction interface/public API; stored values only, no proof verification, signature verification, protocol-version, hash/address derivation, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
   },
   "declare_transaction": {
@@ -508,7 +540,7 @@
     "unproved_helper_premises": [
       "Utf8ValidatorContract (record-key lookup and the ResourceBounds map field; no additional helper-correctness premise)"
     ],
-    "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
     "scope": "complete conditional direct DeclareTransaction record, not enclosing Transaction interface/public API; stored field decoding only, no protocol-version, hash, address, signature, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
   },
   "deploy_transaction": {
@@ -529,7 +561,7 @@
     "unproved_helper_premises": [
       "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
     ],
-    "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
     "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
   },
   "l1_handler_transaction": {
@@ -551,7 +583,7 @@
     "unproved_helper_premises": [
       "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
     ],
-    "remaining": "all five variant records now separately have complete conditional contracts; enclosing tagged Transaction dispatch and public APIs; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+    "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
     "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
   },
   "resource_bounds_map": {
@@ -1698,6 +1730,16 @@
         "wp_receipt_field_valid",
         "wp_string_invalid_utf8",
         "wp_string_text",
+        "wp_transaction_declare_rejected",
+        "wp_transaction_declare_valid",
+        "wp_transaction_deployAccount_rejected",
+        "wp_transaction_deployAccount_valid",
+        "wp_transaction_deploy_rejected",
+        "wp_transaction_deploy_valid",
+        "wp_transaction_invoke_rejected",
+        "wp_transaction_invoke_valid",
+        "wp_transaction_l1Handler_rejected",
+        "wp_transaction_l1Handler_valid",
         "wp_utf8_contract_range"
       ],
       "claim": "conditional composition only; no closed general UTF8, Key, string, GasPrice or Header correctness claim"
@@ -2145,6 +2187,17 @@
     "wp_limbsSlow_eof": 0,
     "wp_limbs_eof": 0,
     "wp_readFelt_eof": 0,
+    "wp_skip_head_truncated": 0,
+    "wp_Skip_head_truncated": 0,
+    "wp_readFelt_extras_head_truncated": 0,
+    "wp_skip_tag_reject": 0,
+    "wp_skip_tag_prefix_reject": 0,
+    "wp_skip_tagged_fault": 0,
+    "wp_Skip_tagged_fault": 0,
+    "wp_skip_tagged_truncated": 0,
+    "wp_Skip_tagged_truncated": 0,
+    "wp_skip_tagged_atomic": 0,
+    "wp_Skip_tagged_atomic": 0,
     "utf8Valid_append": 3,
     "utf8Valid_bad_lead": 1,
     "utf8Valid_ascii_cons": 2,
@@ -2281,17 +2334,6 @@
     "wp_projection_initialize": 0,
     "projection_initialized_metadata": 0,
     "projection_initialized_table": 0,
-    "wp_skip_head_truncated": 0,
-    "wp_Skip_head_truncated": 0,
-    "wp_readFelt_extras_head_truncated": 0,
-    "wp_skip_tag_reject": 0,
-    "wp_skip_tag_prefix_reject": 0,
-    "wp_skip_tagged_fault": 0,
-    "wp_Skip_tagged_fault": 0,
-    "wp_skip_tagged_truncated": 0,
-    "wp_Skip_tagged_truncated": 0,
-    "wp_skip_tagged_atomic": 0,
-    "wp_Skip_tagged_atomic": 0,
     "wp_skip_tag_depth": 0,
     "wp_peek_eof": 0,
     "wp_skip_tag_eof": 0,
@@ -4844,6 +4886,27 @@
     "wp_readDeployAccount_record_valid": 0,
     "wp_readDeployAccount_record_rejected": 0,
     "wp_readDeployAccount_record_complete": 0,
+    "transactionVariantTag_injective": 1,
+    "transactionTagMeaning_total": 2,
+    "transactionTagMeaning_unique": 1,
+    "transactionPayload_classify": 2,
+    "transactionPayloadSpec_unique": 2,
+    "transactionDispatch_classify": 2,
+    "transactionDispatchSpec_unique": 2,
+    "transactionDispatchSpec_total_unique": 2,
+    "wp_transaction_nullish": 0,
+    "wp_transaction_tag_rejected": 0,
+    "wp_transaction_unknown_tag": 0,
+    "wp_transaction_declare_valid": 0,
+    "wp_transaction_declare_rejected": 0,
+    "wp_transaction_deploy_valid": 0,
+    "wp_transaction_deploy_rejected": 0,
+    "wp_transaction_invoke_valid": 0,
+    "wp_transaction_invoke_rejected": 0,
+    "wp_transaction_l1Handler_valid": 0,
+    "wp_transaction_l1Handler_rejected": 0,
+    "wp_transaction_deployAccount_valid": 0,
+    "wp_transaction_deployAccount_rejected": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -6074,10 +6137,20 @@
     "verification/fastcbor-proof/ProofCheck/SupportedFailureSpec.lean": "38ed91b033a8f0de1138c98febd51deb0eae66c75247a8f049537aed647f7a56",
     "verification/fastcbor-proof/ProofCheck/SupportedHeaderFailureSpec.lean": "9ba8641a4bbad001bfb2188347928d691fb758a931dae091cfd356eb908a8cdb",
     "verification/fastcbor-proof/ProofCheck/SupportedSpec.lean": "f15b978c52cb2f96eebed28df29d2753d66c8a8b1eaee2bd77f420a3cd262871",
+    "verification/fastcbor-proof/ProofCheck/TransactionDeclareDispatch.lean": "cae467d8276c9d433454a9093d8a5ecd8ffdc404791ac0c455702c4a093eb02e",
+    "verification/fastcbor-proof/ProofCheck/TransactionDeployAccountDispatch.lean": "f48d4b5aca85946cc76442b684d88972b959ed21b58dc6b2fe6f4c7a21e768ee",
+    "verification/fastcbor-proof/ProofCheck/TransactionDeployDispatch.lean": "a05b94f32167e586b5f23c3fc997dc59b322a048a939d158334d40575b497c03",
+    "verification/fastcbor-proof/ProofCheck/TransactionDispatchBoundary.lean": "f197a8ba434a0b06c77bb2b2a76758927b3e85dd85be3817956946245b717395",
+    "verification/fastcbor-proof/ProofCheck/TransactionDispatchSpec.lean": "ff0878fcb0093a2a64d9c35e724e6f6e71b5a46d209b77666fb21c83dec75bdd",
+    "verification/fastcbor-proof/ProofCheck/TransactionDispatchUnique.lean": "1f600f09438d39455da32421c9d01ad01682e72e420832d8ad9708d333a4aa6b",
     "verification/fastcbor-proof/ProofCheck/TransactionFields.lean": "5376de8d035855f3ea7302426f5713ea6e63d115b4d2b44ea7ba72f372a255c5",
     "verification/fastcbor-proof/ProofCheck/TransactionInitialize.lean": "7da65bda9e48ff4d4f1c2770b7a1c0a291e24ec7541d706a4c7613b5770d3c41",
+    "verification/fastcbor-proof/ProofCheck/TransactionInvokeDispatch.lean": "844a305412cdf15aa88d91d26ec3cfaa6cd40c0ee5eeaac0ca72750b65b1e889",
+    "verification/fastcbor-proof/ProofCheck/TransactionL1HandlerDispatch.lean": "ca976f425c3f3acb9dfdba3f352cc699c42d2e5c0d5253adbe487a8639c049be",
     "verification/fastcbor-proof/ProofCheck/TransactionOpen.lean": "a775ebe23b6f7ce9ad6d62fa70e9196ba9db9b0917c46e08266fd5e88e718038",
+    "verification/fastcbor-proof/ProofCheck/TransactionPayloadSpec.lean": "49e81bb626defc4cdf94b4dbaa64603794b3c4e65e58699bfb1c729f7a26afda",
     "verification/fastcbor-proof/ProofCheck/TransactionState.lean": "5a69ec3a57d77425662d6a7a7a2f7f1894ed3c6e9f929c9fe422f3132f0369e0",
+    "verification/fastcbor-proof/ProofCheck/TransactionTagProfile.lean": "b5c603b6b6d1d3a003f50b4cc65d85f925f0d045d7427c44c18fff023ab94289",
     "verification/fastcbor-proof/ProofCheck/TransactionVersionComplete.lean": "2520546642e8a6e28267ae8213d1351261901ae637eed4cad864f741f2f8ac77",
     "verification/fastcbor-proof/ProofCheck/TransactionVersionFeltOutcome.lean": "70ecd38322a0c14728250d89fd3192180575aac82879f9acd79e7f2f8c9c348d",
     "verification/fastcbor-proof/ProofCheck/TransactionVersionRead.lean": "4c86aff17707e76d3cf9659711702359eaf4ed2b76d39aacfa598fac02fade36",
@@ -6110,8 +6183,8 @@
     "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "adc45278cf470b2507bbd0a49a02e71e24286d9a16bdc830304c9ae5f61ae817",
-    "verification/fastcbor-proof/audit.py": "a7b0b7b1334619710481200219dd0c3fd9ce5f33a8cf2a5a96a1f66b79866808",
+    "verification/fastcbor-proof/ProofCheck.lean": "5a1c2570cc88e6139445880122cd24c5b62d7614cad41439d9bad485c10364e3",
+    "verification/fastcbor-proof/audit.py": "d1f9e4608809b3051153c4e7c75aae5f862c1a1117ececba5d30ff6c2b488c89",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",

@@ -749,3 +749,13 @@ import ProofCheck.DeployAccountSeen
 import ProofCheck.DeployAccountTable
 import ProofCheck.DeployAccountValueUnique
 import ProofCheck.DeployAccountValues
+import ProofCheck.TransactionTagProfile
+import ProofCheck.TransactionPayloadSpec
+import ProofCheck.TransactionDispatchSpec
+import ProofCheck.TransactionDispatchUnique
+import ProofCheck.TransactionDispatchBoundary
+import ProofCheck.TransactionDeclareDispatch
+import ProofCheck.TransactionDeployDispatch
+import ProofCheck.TransactionInvokeDispatch
+import ProofCheck.TransactionL1HandlerDispatch
+import ProofCheck.TransactionDeployAccountDispatch
