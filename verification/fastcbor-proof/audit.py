@@ -191,6 +191,17 @@ report = {
         "pending": "discharge the shared UTF-8 word-helper dependency after separately approved trusted repair; both all-input index APIs compose conditionally and their independent outcomes are unique",
         "scope": "conditional partial correctness and model safety under pinned 64-bit semantics; not an unconditional helper or complete record milestone; production Go and trusted semantics unchanged",
     },
+    "projection_scanner": {
+        "implementation": "utils/cbor/cursor/fields.go: Cursor.NextWanted",
+        "specification": ["verification/fastcbor-proof/ProofCheck/WantedSpec.lean", "verification/fastcbor-proof/ProofCheck/WantedDeterminism.lean", "verification/fastcbor-proof/ProofCheck/WantedFailureUnique.lean"],
+        "specification_proved": "all-input classification and exactly one scan outcome at supported depth with distinct folded names; selected values remain unread; unknown/duplicate pairs skipped with first occurrence winning; exact suffix and selected remaining-pair count; exact failure consumption, independent diagnostic offset and retained pair count; success/rejection disjoint; no UTF-8 implementation premise for pure specification results",
+        "implementation_proofs": ["verification/fastcbor-proof/ProofCheck/WantedBoundary.lean", "verification/fastcbor-proof/ProofCheck/WantedSelected.lean"],
+        "proved_branches": "actual NextWanted with exhausted closed state; open-container closure restores enclosing depth; every immediate Key rejection preserves current pair count, cursor and open state; every supported width/spelling of a fresh selected text key marks only its bit, decrements exactly one pair and leaves value unread; fractional metadata/input ownership preserved",
+        "unproved_contract_premises": ["Utf8ValidatorContract"],
+        "conditional_theorems": ["wp_nextWanted_key_rejected", "wp_nextWanted_selected"],
+        "pending": "compose unknown/duplicate/all-seen Skip branches and arbitrary scan prefixes; prove schema-specific mask correspondence and actual projection metadata initialization; projection-tag and pointer-scalar helpers; complete projection records and public APIs",
+        "scope": "complete independent scan specification and partial production branch proofs; not a complete NextWanted or projection decoder theorem; production Go and trusted model unchanged",
+    },
     "typed_header_projections": {
         "generator": "utils/cbor/cmd/cborgen/projections.go",
         "implementation": "core/cbor_projections_generated.go",

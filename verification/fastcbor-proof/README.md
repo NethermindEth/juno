@@ -4128,6 +4128,53 @@ union, standard-library hashes and unresolved-premise inventory are unchanged
 project/artifact hash was independently rechecked. The full check also revalidated
 both saved compatibility reports and the archived passing performance decision.
 
+## Projection scan specification and production branches
+
+`WantedSpec.lean` specifies the shared `Cursor.NextWanted` scan independently of
+its machine masks and lookup implementation. Folded schema names identify natural
+field indices; the seen-field list makes first occurrence win. A selected key
+leaves its value unread. Unknown and duplicate keys require a complete valid Skip
+before the remaining-pair count decrements. A rejected key consumes nothing; a
+rejected Skip retains the cursor at the value start and may diagnose a deeper
+byte. Both failures retain the current pair count and leave the container open.
+Successful exhaustion closes the container in the production state transition.
+
+`WantedDeterminism.lean` and `WantedFailureUnique.lean` prove unique values,
+selected pair counts, suffixes, rejected consumption/offsets/remaining counts and
+reasons, plus success/rejection separation. Classification and uniqueness give
+**exactly one independent scan outcome for every byte input**, for distinct folded
+schema names and supported depth. The specification imposes no assumption about
+UTF-8 implementation correctness and does not prove execution termination.
+
+`WantedBoundary.lean` proves the actual translated `NextWanted` for exhausted
+closed state, open-container closure, and every immediate Key rejection. Closure
+restores one enclosing depth; key failure preserves the cursor, current pair
+count and open state without accessing metadata. `WantedSelected.lean` proves
+the actual fresh-field branch for every supported text-head width and folded
+spelling. It consumes exactly the key, sets one seen bit, decrements one pair,
+preserves the search hint/depth and leaves the value unread. Metadata and the
+whole input retain fractional ownership. Key rejection and text selection retain
+the explicit UTF-8 validator premise; the two exhaustion branches do not.
+
+This is not yet a complete production scan or projection proof. Remaining work
+is to compose unknown/duplicate/all-seen Skip paths and arbitrary scan prefixes,
+connect masks to independent seen-field lists, establish actual projection
+metadata initialization, prove projection-tag/pointer-scalar helpers, and compose
+the generated records and APIs. Header's pending trusted repair and the felt-map
+model gap are unchanged. Production Go, benchmark inputs and pinned semantics
+are unchanged.
+
+Full regeneration and audit pass in `check-wanted-spec-selected-full.log`:
+2244 build jobs, **1232 audited theorems**, 448 project/artifact hashes and 46
+standard-library source hashes. The 15 new results preserve all 1217 previous
+theorem dependency sets and the transitive axiom union. The two new production
+text-related contracts explicitly retain `Utf8ValidatorContract`, bringing its
+direct count to 70; the two word-helper-premise results are unchanged. No new
+premise kind, admission or native-evaluation dependency was introduced. Every
+recorded project/artifact hash and the unchanged standard-library hashes were
+independently checked. Both saved compatibility reports and the archived passing
+performance decision were revalidated by the full check.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.

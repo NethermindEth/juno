@@ -250,3 +250,9 @@ import ProofCheck.IndexesDeterminism
 import ProofCheck.IndexesDisjoint
 import ProofCheck.IndexesFailureUnique
 import ProofCheck.IndexesOutcomeUnique
+
+import ProofCheck.WantedSpec
+import ProofCheck.WantedDeterminism
+import ProofCheck.WantedFailureUnique
+import ProofCheck.WantedBoundary
+import ProofCheck.WantedSelected
