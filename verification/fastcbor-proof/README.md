@@ -7291,3 +7291,61 @@ necessary to discharge the shared premise. Neither Header nor whole-library
 completion is claimed. The scope remains pinned 64-bit partial correctness/model
 safety, excluding compiler/runtime correctness, OOM and termination, without FX
 equivalence or strict validity of ignored CBOR content.
+
+## Complete string-slice helper checkpoint
+
+The actual `core/cbor_classes.go:cborReadStrings` helper now has a complete
+contract for every byte input at supported cursor depth and arbitrary old slice
+headers. `wp_readStrings_complete` relates the translated production function to
+an independently classified, unique `StringsSpec` outcome. The contract retains
+the explicit `Utf8ValidatorContract` dependency of the child string reader; it
+does not assume array-loop or allocation correctness.
+
+`StringsItemsSpec` defines successful fixed-count string sequences and rejected
+sequences with the completed private prefix and exact failure offset. Each slot
+starts empty, so null and undefined elements become empty strings. Other elements
+must be supported CBOR text with valid UTF-8. `StringsItemsUnique` proves prefix
+uniqueness, success/rejection separation and uniqueness of the private completed
+prefix, offset and reason. `StringsSpec` and `StringsUnique` cover outer nullish,
+head/count/depth failures and successful/rejected element sequences, including
+all supported head widths and count checks before depth entry. Outer nullish
+input produces nil; a definite empty array produces a nonnil empty slice.
+
+`StringsBoundary`, `StringsValid` and `StringsRejected` prove the actual nullish
+and outer-error branches, allocation and successful/rejected range loops. The
+proofs account for the translated range operation's load of each empty slot,
+borrow and restore writable element ownership around `cborReadString`, and retain
+whole-slice ownership. Success publishes only after the final element and
+restores depth, preserving exact values, the input and remaining suffix. An
+element failure rolls back that string to its starting position while retaining
+the successful prefix's consumption and the entered array depth. The old
+caller destination is unchanged, and the loop owns all private successful
+strings and remaining empty slots. Caller-level contracts can forget this
+private allocation under the garbage-collected model; old backing ownership
+can be framed across every outcome.
+
+`StringsReadValid`, `StringsReadRejected` and `StringsComplete` compose these
+branches with exact initialized owned diagnostics. They require the existing
+shared schema initialization, whose cursor/error dependencies are already
+proved; no class metadata is accessed by this helper.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,857 Lean
+build jobs, auditing 3,459 results, 1,058 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 21 new
+results in ten modules, unchanged dependencies for all 3,438 prior results,
+an unchanged axiom union, every source hash and the empty-slot/string-rollback
+relations. Five new results directly retain the existing UTF-8 validator
+premise, bringing that count to 350; the two word-helper premises are unchanged.
+No result depends on `sorryAx` or native evaluation axioms. Saved compatibility
+and frozen performance evidence was revalidated. Production Go, trusted
+semantics, and the original and baseline worktrees remain unchanged.
+
+Next: compose the three-field CASM entry-point record and its value-slice reader,
+then enclosing class records, recursive SegmentLengths, JSON-byte/BigInt fields,
+class dispatch and public APIs. State payload/map ownership and public APIs
+remain open, including the separate felt-key equality model gap. Header's
+unapproved slice-index repair and actual UTF-8 word-helper proof remain necessary
+to discharge the shared premise. Neither unconditional Header nor whole-library
+completion is claimed; the pinned 64-bit partial-correctness/model-safety scope
+and existing compiler/runtime, OOM, termination and compatibility boundaries
+remain unchanged.

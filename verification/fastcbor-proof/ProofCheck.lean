@@ -868,3 +868,13 @@ import ProofCheck.SierraEntryValuesRejected
 import ProofCheck.SierraEntryValuesSpec
 import ProofCheck.SierraEntryValuesUnique
 import ProofCheck.SierraEntryValuesValid
+import ProofCheck.StringsBoundary
+import ProofCheck.StringsComplete
+import ProofCheck.StringsItemsSpec
+import ProofCheck.StringsItemsUnique
+import ProofCheck.StringsReadRejected
+import ProofCheck.StringsReadValid
+import ProofCheck.StringsRejected
+import ProofCheck.StringsSpec
+import ProofCheck.StringsUnique
+import ProofCheck.StringsValid

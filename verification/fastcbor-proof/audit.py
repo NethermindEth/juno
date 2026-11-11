@@ -743,6 +743,53 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "string_slices": {
+        "implementation": "core/cbor_classes.go: cborReadStrings",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StringsBoundary.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsComplete.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsItemsSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsItemsUnique.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsReadRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsReadValid.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsUnique.lean",
+            "verification/fastcbor-proof/ProofCheck/StringsValid.lean"
+        ],
+        "theorems": [
+            "wp_readStrings_null",
+            "wp_readStrings_outer_failure",
+            "wp_readStrings_count",
+            "wp_readStrings_depth",
+            "wp_readStrings_complete",
+            "stringsItems_classify",
+            "stringsItems_count",
+            "stringsItemsRejected_bounds",
+            "stringsItems_prefix_unique",
+            "stringsItems_not_rejected",
+            "stringsItemsRejected_unique",
+            "wp_readStrings_rejected",
+            "wp_readStrings_valid",
+            "wp_readStrings_array_rejected",
+            "strings_classify",
+            "strings_success_suffix",
+            "strings_failure_bounds",
+            "strings_failure_depth",
+            "stringsSpec_unique",
+            "stringsSpec_total_unique",
+            "wp_readStrings_array"
+        ],
+        "specification_proved": "independent fixed-count sequences of strings decoded from empty slots; null/undefined elements become empty strings; UTF-8 text supports all CBOR text-head widths; outer nullish input yields nil, definite empty arrays yield nonnil empty slices; outer count checks precede depth; all-input classification, prefix uniqueness, success/rejection separation, exact rejected-prefix/offset/reason uniqueness and unique outer outcomes",
+        "implementation_proved": "actual make([]string, count), translated range loads and index bounds, writable element ownership through the child string reader, restoration of whole-slice ownership; successful publication only after all strings succeed, exact values/suffix, restored depth and unchanged input; errors preserve the caller destination and retain all private completed strings and empty slots; failed strings roll back to their own start, keeping earlier input consumption and entered array depth; exact initialized owned diagnostics",
+        "ownership_boundary": "successful nonnull results own the complete string slice and are nonnil; old backing ownership can be framed across every outcome; private failed storage may be discarded by callers under the garbage-collected model",
+        "contract": "wp_readStrings_complete",
+        "unproved_contract_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "remaining": "compose CASM entry-point fields/records/slices, enclosing class records, recursive SegmentLengths, JSON-byte/BigInt fields, class dispatch and public APIs; discharge shared UTF-8 word-helper/model premise",
+        "scope": "complete conditional contract for every byte input at supported depth and arbitrary old slice header; no Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "entry_point_value_slices": {
         "implementations": [
             "core/cbor_classes_generated.go: cborReadSierraEntryPointValues",
@@ -856,7 +903,7 @@ report = {
         "unproved_contract_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "CASM entry-point/string slices, enclosing class fields/records, recursive SegmentLengths, class tag dispatch and public APIs; discharge shared UTF-8 word-helper/model premise",
+        "remaining": "string-slice helper now checked conditional on UTF-8; CASM entry-point records/slices, enclosing class fields/records, recursive SegmentLengths, class tag dispatch and public APIs; discharge shared UTF-8 word-helper/model premise",
         "scope": "complete conditional contracts for the two actual value-record slice helpers for every input at supported depth and arbitrary old slice header; no assumed loop/allocation/record correctness beyond the explicit shared UTF-8 premise; no Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
     "sierra_entry_point": {
@@ -1114,7 +1161,7 @@ report = {
         "implementation_proved": "actual factory allocation and shared immutable storage; actual package initialization constructs and publishes all 8 tables with a checked cursor dependency; opening wrappers obtain their own actual global table and initialized error objects and satisfy the complete null/map/rejection contract for every byte input at supported cursor depth",
         "initialization_boundary": "modeled runtime CPU startup remains a precondition; unrelated core/router/registry startup excluded; no initialization or helper-correctness premise",
         "unproved_helper_premises": [],
-        "remaining": "Sierra and deprecated entry-point direct-record and value-slice helper contracts are checked conditional on UTF-8; remaining CASM entry-point/string slices, enclosing and recursive records, JSON-byte/BigInt field composition, class tag dispatch and public APIs",
+        "remaining": "Sierra and deprecated entry-point direct-record and value-slice helper contracts are checked conditional on UTF-8; string-slice helper also checked conditional on UTF-8; remaining CASM entry-point records/slices, enclosing and recursive records, JSON-byte/BigInt field composition, class tag dispatch and public APIs",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
     "transaction_metadata": {
