@@ -4522,3 +4522,41 @@ axioms; every previous dependency set, the axiom union and explicit helper-premi
 inventory are unchanged. Independent checks verified all project hashes and the
 exact additions. Saved compatibility, race/checkptr and archived performance
 evidence was revalidated. No Go source or pinned trusted semantics changed.
+
+### Header projection uniqueness and scan composition
+
+`HeaderProjectionItemUnique.lean` proves that selected-field and ignored-value
+successes have unique boundaries and values, cannot overlap rejection, and have
+unique rejection reasons and offsets. `HeaderProjectionPairsUnique.lean` lifts
+these properties through arbitrary wire-order pairs using the independently
+defined first-occurrence policy. Rejection determines the exact retained fields,
+parser consumption, diagnostic position and reason.
+
+`HeaderProjectionBodyUnique.lean` composes pair determinism with null/undefined
+records and map opening, including opening/count/depth failures and whether the
+map was entered. `HeaderProjectionRecordUnique.lean` adds the optional tag policy.
+Its `headerProjectionRecord_total_unique` theorem establishes exactly one
+specified result for every byte input at supported nesting depth, for all five
+Header projections. It assumes no implementation correctness premise and does
+not claim execution termination.
+
+`HeaderProjectionScanSpec.lean` connects the batched `NextWanted` interpretation
+to the independent pair relation. Exhausted scans preserve existing fields;
+selected scans compose with field decoding and the remaining pairs. Scan errors,
+selected-field errors and later pair errors preserve exactly the specified
+partial values and absolute cursor/diagnostic offsets. This closes the abstract
+scan-to-pair composition step, without assuming that the record loops are correct.
+
+The next projection work is concrete ownership for the five layouts, actual
+field-call contracts, generated record-loop proofs, and public guard/cleanup and
+suffix composition. The shared UTF-8 premise, unapproved trusted indexing repair
+and separate felt-key map equality gap remain unresolved. No production Go or
+pinned semantics changed.
+
+Full regeneration and audit pass in `check-header-projection-unique-full.log`:
+2272 build jobs, 1335 audited theorems, 476 project/artifact hashes and 46 directly
+translated standard-library hashes. All 20 added results depend only on standard
+logical axioms; every prior theorem dependency set, the overall axiom union and
+the explicit helper-premise inventory are unchanged. Independent checks verified
+the exact additions and all project hashes. Saved compatibility, race/checkptr
+and archived performance evidence was revalidated against the unchanged sources.

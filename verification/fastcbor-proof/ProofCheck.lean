@@ -285,3 +285,8 @@ import ProofCheck.HeaderProjectionPairs
 import ProofCheck.HeaderProjectionRecord
 import ProofCheck.HeaderProjectionCanonical
 import ProofCheck.HeaderProjectionBounds
+import ProofCheck.HeaderProjectionItemUnique
+import ProofCheck.HeaderProjectionPairsUnique
+import ProofCheck.HeaderProjectionBodyUnique
+import ProofCheck.HeaderProjectionRecordUnique
+import ProofCheck.HeaderProjectionScanSpec
