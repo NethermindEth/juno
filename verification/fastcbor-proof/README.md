@@ -5090,3 +5090,60 @@ admission or native-evaluation dependencies. Saved compatibility, race/checkptr
 and archived performance evidence was revalidated against unchanged Go sources.
 Original and baseline worktrees and the pinned trusted checkout remain clean at
 their recorded revisions.
+
+## Complete felt-value loop and nonempty slice paths
+
+`ReadLimbsRejected.wp_readLimbs_prefix_failure` now proves rejection after an
+arbitrary successfully decoded prefix, including arbitrary mixtures of the fast
+37-byte path and slow felt decoding. Earlier output slots contain exactly the
+specified values and every later slot retains its previous value. The stored
+cursor is reset from the local input window before the failed element, and the
+owned error retains its exact inner diagnostic offset. `LimbItemsFailureSpec`
+decomposes every independent sequence rejection into that valid prefix and
+failed element. `ReadLimbsComplete` composes success and rejection into a contract
+for every byte input, arbitrary old owned output storage and permitted felt depth,
+with bounded nonwrapping consumed and diagnostic positions and exact successful
+suffix. Error-category ownership is an ordinary precondition established by the
+existing initialization proofs, not an assumed helper correctness contract.
+
+`FeltValuesView` derives positive pointers and 32-byte bounds from ownership of
+four-word arrays. First/last element ownership then proves the full nonempty
+slice's address range. Its recapping lemma preserves the owned backing storage
+when the capacity is set to length, and its checked `unsafe.Slice` contract proves
+all length, nil-pointer and overflow checks from ownership. The local plain-layout
+and pointer-positivity instances are proved using the existing model; no trusted
+rule, arbitrary array-byte encoding or pointer-validity assumption was introduced.
+
+`FeltValuesNonempty.wp_limbSlice_nonempty_valid` now composes the actual generic
+`LimbSlice[felt.Felt]` success path, including its five-byte contextual budget,
+depth checks, typed allocation, first-element address, both unsafe pointer
+conversions, the `unsafe.Slice` call and the complete element loop. It returns a
+nonnil owned slice with exactly the specified values, retains capacity ownership,
+restores the caller's depth and has an exact nonwrapping suffix. Arbitrary valid
+felt encodings are covered, not only fixed-width elements. The budget includes
+all remaining input, so the success premise includes any suffix bytes.
+
+`FeltValuesRejected.wp_limbSlice_nonempty_rejected` composes the same production
+allocation/view path with every independent element-sequence failure. The wrapper
+returns nil and restores the complete original cursor, including depth, while
+returning the owned diagnostic at its inner offset. The partially written
+allocation is not published; retained-prefix behavior is proved at the internal
+loop boundary.
+
+Next work is a unified full-slice outcome/ownership contract and independent
+outcome uniqueness, complete propagation through both typed field wrappers, and
+Event record/slice composition. These checked paths do not yet constitute a
+complete Event decoder theorem. Header's shared UTF-8 helper/model repair and the
+felt-key map equality gap remain unresolved. Production Go and trusted semantics
+are unchanged; no new unproved helper premise is introduced.
+
+Full regeneration and audit passed in `check-felt-values-nonempty-full.log`:
+2357 build jobs, 1545 audited theorems, 558 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent verification checked the exact
+11 additions, all 1534 previous theorem dependency sets unchanged, unchanged axiom
+union and explicit helper-premise inventory (116 validator and 2 word-helper
+premises), and every recorded source hash. No theorem depends on admission or
+native-evaluation axioms. Saved compatibility/race/checkptr and archived
+performance evidence was revalidated against unchanged Go sources. Original and
+baseline worktrees and the pinned trusted checkout remain clean at their recorded
+revisions.

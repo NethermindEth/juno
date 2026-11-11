@@ -372,3 +372,9 @@ import ProofCheck.LimbWideStep
 import ProofCheck.LimbItemsWire
 import ProofCheck.ReadLimbsFailure
 import ProofCheck.ReadLimbsValid
+import ProofCheck.ReadLimbsRejected
+import ProofCheck.LimbItemsFailureSpec
+import ProofCheck.ReadLimbsComplete
+import ProofCheck.FeltValuesView
+import ProofCheck.FeltValuesNonempty
+import ProofCheck.FeltValuesRejected
