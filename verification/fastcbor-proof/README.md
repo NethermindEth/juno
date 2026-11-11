@@ -7729,3 +7729,74 @@ Header's shared UTF-8 premise still requires the separately approved slice-index
 model correction and actual word-helper proof. Whole-library completion and
 unconditional Header remain unclaimed; the documented pinned 64-bit partial-
 correctness/model-safety boundaries are unchanged.
+
+## Complete recursive SegmentLengths decoder checkpoint
+
+The actual mutually recursive `cborReadSegmentLengths` and
+`cborReadSegmentLengthsValues` readers now have complete contracts:
+`wp_readSegment_record_complete` and `wp_readSegmentArray_complete`. They cover
+every input at supported depth and arbitrary owned prior record trees or old
+slice headers, producing the unique outcome of the independent recursive
+specification. The existing `Utf8ValidatorContract` premise remains explicit for
+record keys. No recursive reader, loop, allocation or initializer correctness
+premise remains in either final theorem.
+
+The successful record and array calls are proved together by induction on the
+shared remaining depth budget. Rejected calls are then proved together by the
+same induction, using the already closed success proof for prefixes. Each record
+and array opening consumes its own depth level. Nullish values remain admissible
+without opening a container. Intermediate step contracts describe actual calls;
+the two simultaneous inductions discharge those obligations before the public
+proof lemmas compose the all-input contracts. No Go rewrite or trusted semantics
+change was needed for this recursive shape.
+
+Successful fields preserve every unrelated field. Records retain old contents on
+null/undefined; a nullish Children array clears that field, while a nullish Length
+preserves the old scalar. Arrays allocate zero records, account for the actual
+range-loop load, decode into owned element slots and publish only after all
+children succeed. Nil and allocated empty remain distinct. Exact recursive
+contents, consumed prefixes, unread suffixes, unchanged input and restored depth
+are retained in the successful postconditions. Ownership supports arbitrary
+finite old trees independently of the decoder's permitted input nesting.
+
+Failed records retain their precisely specified partial fields. Failed arrays
+preserve the caller's old slice header; their loop proof owns completed private
+records, the failed partial element and remaining zero slots. These private
+allocations can be forgotten in the garbage-collected model after propagation.
+Recursive diagnostic ownership preserves the same allocated error object, its
+initialized category, position, detail string and argument slice throughout
+nested record/array propagation. The final contracts retain separately bounded
+cursor consumption and diagnostic position, exact entered depth and the limit
+of 32. Opening/count/depth failures roll back; failures after container entry keep
+the specified progress. Class-level destination guards and cleanup remain work
+for the enclosing APIs.
+
+Validation: full `check.sh` regenerated the translation from unchanged Go and
+passed 2,971 Lean build jobs, auditing 3,883 results, 1,174 project/artifact hashes
+and 46 standard-library hashes. An independent comparison checked exactly 30 new
+results in 19 proof modules, unchanged dependency sets for all 3,853 prior results
+and an unchanged axiom union. No result depends on `sorryAx` or native evaluation
+axioms. Fifteen additional direct uses of the existing validator premise bring
+the reported count to 407; the two word-helper premises are unchanged. Saved
+compatibility and frozen performance evidence was revalidated. Original and
+baseline worktrees remain clean at their recorded pins.
+
+The independent audit also exposed and fixed a premise-reporting gap: the former
+signature matcher only recognized tactic/reflexivity proof bodies and missed
+four new direct-term wrapper proofs. `audit_signatures.py` now reads through the
+top-level proof assignment while accounting for nested delimiters, named
+arguments, escaped strings and nested comments. It fails closed on malformed
+signatures and checks complete theorem coverage. Five regression tests run in
+`check.sh`, and both parser and tests are included in the source-hash audit. The
+fix changes reporting only; all four wrappers always had the explicit validator
+premise and their Lean proof dependencies were already audited.
+
+Next: compose CasmClass and SierraClass from these recursive and previously proved
+primitive/entry-point helpers, then class tag dispatch and public APIs. State
+payload/map ownership and the separate felt-key equality model gap remain open.
+Header still requires the separately approved slice-index model correction and
+actual UTF-8 word-helper proof. This checkpoint does not assert Length equals the
+sum of child lengths, bytecode segmentation or executable validity. Neither
+unconditional Header nor whole-library completion is claimed; the pinned 64-bit
+partial-correctness/model-safety and documented compiler/runtime, OOM, termination
+and compatibility boundaries remain unchanged.

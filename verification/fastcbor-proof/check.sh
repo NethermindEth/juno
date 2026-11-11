@@ -15,4 +15,5 @@ roots=(-lean-root github.com/NethermindEth/juno=ProofCheck -lean-root github.com
 "$proof_dir/.tools/bin/goose" -dir "$repo_dir" -out "$proof_dir/ProofCheck/Code" -configdir "$proof_dir/config" "${roots[@]}" "${packages[@]}"
 "$proof_dir/.tools/bin/proofgen" -dir "$repo_dir" -out "$proof_dir/ProofCheck/GeneratedProof" -configdir "$proof_dir/config" "${roots[@]}" "${packages[@]}"
 "$ELAN_HOME/bin/lake" build ProofCheck 2>&1 | tee "$proof_dir/lean-build.log"
+python3 -m unittest -q test_audit_signatures
 python3 "$proof_dir/audit.py" "$proof_dir/lean-build.log"

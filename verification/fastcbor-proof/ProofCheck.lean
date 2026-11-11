@@ -981,3 +981,41 @@ import ProofCheck.SegmentArrayUniqueStep
 import ProofCheck.SegmentUnique
 
 import ProofCheck.SegmentBounds
+
+import ProofCheck.SegmentArrayBoundary
+
+import ProofCheck.SegmentArrayComplete
+
+import ProofCheck.SegmentArrayRejected
+
+import ProofCheck.SegmentArrayRejectedStep
+
+import ProofCheck.SegmentArrayValid
+
+import ProofCheck.SegmentArrayValidStep
+
+import ProofCheck.SegmentBoundary
+
+import ProofCheck.SegmentDiagnostic
+
+import ProofCheck.SegmentFieldRejected
+
+import ProofCheck.SegmentFieldValid
+
+import ProofCheck.SegmentMapRejected
+
+import ProofCheck.SegmentMapValid
+
+import ProofCheck.SegmentRecordComplete
+
+import ProofCheck.SegmentRecordRejectedStep
+
+import ProofCheck.SegmentRecordValidStep
+
+import ProofCheck.SegmentRejected
+
+import ProofCheck.SegmentRejectedContracts
+
+import ProofCheck.SegmentValid
+
+import ProofCheck.SegmentValidContracts

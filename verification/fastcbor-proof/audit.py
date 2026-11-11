@@ -14,6 +14,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+from audit_signatures import theorem_signatures
+
 here = Path(__file__).resolve().parent
 repo = here.parent.parent
 log = Path(sys.argv[1]).read_text()
@@ -39,7 +41,7 @@ if rev != (here / "perennial.rev").read_text().strip():
 dirty = subprocess.check_output(["git", "-C", str(here / ".tools/perennial"), "status", "--porcelain", "--untracked-files=no"], text=True)
 if dirty:
     sys.exit("the pinned Perennial checkout has tracked modifications")
-inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", here / "lean-toolchain", here / "lake-manifest.json", here / "lakefile.toml", here / "check.sh", here / "bootstrap.sh", here / "audit.py"]
+inputs = [repo / "go.mod", repo / "go.sum", *proofs, here / "ProofCheck.lean", here / "lean-toolchain", here / "lake-manifest.json", here / "lakefile.toml", here / "check.sh", here / "bootstrap.sh", here / "audit.py", here / "audit_signatures.py", here / "test_audit_signatures.py"]
 for rel in ["core", "core/internal/cborschema", "core/internal/cborprojections", "core/internal/cborreceipts", "core/internal/cbortransactions", "core/internal/cborstate", "core/internal/cborclasses", "l1/eth", "core/felt", "utils/cbor/cursor", "utils/cbor/cborerr", "utils/cbor/fastcbor", "utils/cbor/registry", "utils/cbor/cmd/cborgen"]:
     inputs += [p for p in (repo / rel).glob("*.go") if not p.name.endswith("_test.go")]
 inputs += list((here / "config").rglob("*.toml"))
@@ -77,25 +79,18 @@ for package in ["unicode/utf8", "math/big", "internal/cpu", "encoding/json", "en
         source = Path(metadata["Dir"]) / filename
         stdlib_sources[str(source.relative_to(goroot))] = hashlib.sha256(source.read_bytes()).hexdigest()
 
-# These composition theorems have a checked proof body but explicitly require
-# the still-unproved production validator contract. A clean axiom audit does
-# not discharge a theorem's hypotheses, so report this boundary separately.
-# Match typed argument binders, not contract names in the theorem's result: the
-# word-to-validator implication produces the latter without assuming it.
+# A clean axiom audit does not discharge explicit hypotheses. Report them for
+# tactic proofs, reflexivity proofs and direct proof terms alike. Match typed
+# binders rather than a contract in the result of a proved implication.
+signatures = {name: signature for proof in proofs for name, signature in theorem_signatures(proof.read_text())}
+if set(signatures) != expected:
+    sys.exit(f"missing/unexpected theorem signatures: {set(signatures) ^ expected}")
 utf8_conditional_theorems = sorted(
-    name
-    for proof in proofs
-    for name, signature in re.findall(r"^theorem (\w+)((?:(?!^theorem |^def |^end ).)*?) := (?:by|rfl)\b", proof.read_text(), re.M | re.S)
+    name for name, signature in signatures.items()
     if re.search(r"\(\s*\w+\s*:\s*Utf8ValidatorContract\b", signature)
 )
-
-# The actual validator loop is now checked conditional on the smaller generic
-# eight-byte word helper. Keep this unresolved premise separate from the whole
-# validator premise used by the existing decoder composition chain.
 utf8_word_conditional_theorems = sorted(
-    name
-    for proof in proofs
-    for name, signature in re.findall(r"^theorem (\w+)((?:(?!^theorem |^def |^end ).)*?) := (?:by|rfl)\b", proof.read_text(), re.M | re.S)
+    name for name, signature in signatures.items()
     if re.search(r"\(\s*\w+\s*:\s*Utf8WordWindowContract\b", signature)
 )
 
@@ -742,6 +737,82 @@ report = {
         "unproved_helper_premises": [],
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
+    "segment_lengths_decoder": {
+        "implementation_target": [
+            "core/cbor_classes_generated.go: cborReadSegmentLengths",
+            "core/cbor_classes_generated.go: cborReadSegmentLengthsValues"
+        ],
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayBoundary.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayComplete.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayRejectedStep.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayValid.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentArrayValidStep.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentBoundary.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentDiagnostic.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentFieldRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentFieldValid.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentMapRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentMapValid.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentRecordComplete.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentRecordRejectedStep.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentRecordValidStep.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentRejected.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentRejectedContracts.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentValid.lean",
+            "verification/fastcbor-proof/ProofCheck/SegmentValidContracts.lean"
+        ],
+        "theorems": [
+            "wp_readSegmentArray_null",
+            "wp_readSegmentArray_outer_failure",
+            "wp_readSegmentArray_count",
+            "wp_readSegmentArray_depth",
+            "wp_readSegmentArray_complete",
+            "wp_readSegmentArray_array_rejected_of_record",
+            "wp_readSegmentArray_rejected_of_record",
+            "wp_readSegmentArray_array_of_record",
+            "wp_readSegmentArray_valid_of_record",
+            "wp_readSegment_nullish",
+            "wp_readSegment_open_rejected",
+            "segmentArrayFailureOwned_element",
+            "segmentFieldError_allocated",
+            "segmentFieldError_nonNil",
+            "segmentFailureOwned_allocated",
+            "segmentFailureOwned_nonNil",
+            "wp_segment_field_rejected_of_array",
+            "wp_segment_field_valid_of_array",
+            "wp_readSegment_map_rejected_of_array",
+            "wp_readSegment_map_valid_of_array",
+            "wp_readSegment_record_complete",
+            "wp_readSegment_record_rejected_of_array",
+            "wp_readSegment_record_rejected_allocated_of_array",
+            "wp_readSegment_record_valid_of_array",
+            "segment_rejected_contracts_depth",
+            "wp_readSegment_record_rejected_allocated",
+            "wp_readSegmentArray_rejected",
+            "segment_valid_contracts_depth",
+            "wp_readSegment_record_valid",
+            "wp_readSegmentArray_valid"
+        ],
+        "implementation_proved": "actual mutually recursive record and nullable value-slice readers for every input at supported depth, arbitrary owned initial record trees or old slice headers, and unique independent outcomes; successful reads own exact recursive values and suffixes, preserve input and restore depth; record rejection retains exact partial fields and entered depth; array rejection preserves old destination and propagates the actual allocated diagnostic",
+        "recursive_proof": "successful record/array calls proved jointly by induction on 32 minus depth; rejected calls proved jointly by the same induction, using the already closed success proof for prefixes; field/map/array step contracts are discharged in final theorems, with no recursive helper or allocation correctness premise",
+        "ownership_proved": "recursive Children ownership with retained unrelated Length; actual fresh zero-record allocation, unused range load, completed slots, nested descendants and private failed partial element; publication only after complete array success; nil differs from allocated empty; finite recursive diagnostic ownership preserves actual object, initialized error categories, detail strings and argument slices through nested record/array propagation",
+        "contracts": [
+            "wp_readSegment_record_complete",
+            "wp_readSegmentArray_complete",
+            "wp_readSegment_record_valid",
+            "wp_readSegmentArray_valid",
+            "wp_readSegment_record_rejected_allocated",
+            "wp_readSegmentArray_rejected"
+        ],
+        "initialization": "actual class and schema package initialization supplies shared metadata and error-category globals through the previously checked dependency chain; core-wide router startup remains outside scope",
+        "unproved_contract_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "remaining": "CasmClass/SierraClass composition, class tag dispatch and public APIs; state payload/map ownership and felt-key equality model gap; shared UTF-8 model/helper premise still needs separately approved slice-index correction and actual word-helper proof",
+        "scope": "complete direct recursive record/array contracts conditional on existing UTF-8 premise; not class dispatch/public API completion or blanket RFC/FX equivalence; no Length=sum(children), segmentation or executable validity condition; unchanged Go and trusted semantics; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
     "segment_lengths_determinism": {
         "implementation_target": [
