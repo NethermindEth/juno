@@ -292,3 +292,5 @@ import ProofCheck.HeaderProjectionRecordUnique
 import ProofCheck.HeaderProjectionScanSpec
 import ProofCheck.HeaderProjectionOwnership
 import ProofCheck.HeaderProjectionGuard
+import ProofCheck.HeaderProjectionFelts
+import ProofCheck.HeaderProjectionScalars

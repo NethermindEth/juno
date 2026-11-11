@@ -4592,3 +4592,36 @@ unchanged prior theorem dependencies and unchanged overall axiom union were
 checked independently. The explicit helper-premise inventory is unchanged. Saved
 compatibility, race/checkptr and archived performance evidence was revalidated
 against the unchanged Go sources.
+
+### Header projection field access and helper calls
+
+`HeaderProjectionFelts.lean` covers the hash and root single-field projections
+and both felt slots in the paired projection. Its access rule borrows exactly
+the selected concrete pointer cell and reconstructs the entire layout after a
+write, preserving the embedded skeleton and other field. The update predicate
+preserves canonical abstract slots and unrelated child ownership. Successful
+actual felt calls publish owned results and establish exact cursor advancement
+and suffixes; failures preserve the destination and cursor while returning the
+exact owned diagnostic and bounded offset. A separate pure result connects the
+concrete slot mapping to the independent field relation.
+
+`HeaderProjectionScalars.lean` provides the corresponding concrete access,
+ownership update and actual helper-call proofs for transaction count and nullable
+timestamp. Null/undefined preserves the old count but clears the timestamp;
+unsigned timestamp values own allocated storage, including allocated zero.
+Success preserves input and establishes the exact suffix, while failure preserves
+the old destination, cursor and child ownership with the specified diagnostic.
+
+All six concrete projection slots now have successful and rejected helper-call
+contracts. Remaining work is their composition with the scan/open/tag contracts
+through the actual generated record loops, followed by the public First APIs.
+The shared UTF-8 dependency and unapproved trusted-model repair remain unresolved;
+no new helper-correctness premise was introduced. No Go or pinned semantics changed.
+
+Full regeneration and audit pass in `check-header-projection-fields-full.log`:
+2276 build jobs, 1359 audited theorems, 480 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact 14
+additions and every project hash. All previous theorem dependency sets, the axiom
+union and explicit helper-premise inventory are unchanged. Saved compatibility,
+race/checkptr and archived performance evidence was revalidated against the
+unchanged Go sources.
