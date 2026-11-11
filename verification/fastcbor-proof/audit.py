@@ -335,6 +335,41 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_hash_foundation": {
+        "implementation": "core/cbor_readers.go: cborReadFeltValue; core/cbor_transactions_generated.go: hash field access, cborZeroTransactionHashProjection, cborClearTransactionHashProjection and nonzero guard of decodeTransactionHashProjectionFirst; cursor.NextWanted with initialized transaction-package metadata",
+        "theorems": [
+            "wp_readFeltValue_complete",
+            "wp_readFeltValue_valid",
+            "wp_readFeltValue_rejected",
+            "feltValue_classify",
+            "feltValueValid_nonempty",
+            "feltValueValid_prefix_unique",
+            "feltValueValid_not_failure",
+            "feltValueSpec_unique",
+            "feltValueSpec_total_unique",
+            "wp_decodeTransactionHashFirst_nonzero",
+            "wp_transactionHashField_complete",
+            "wp_transactionHashField_valid",
+            "wp_transactionHashField_rejected",
+            "transactionHashLayout_covers",
+            "transactionHashLayout_zero",
+            "transactionHashField_acc",
+            "transactionHashOwned_length",
+            "feltValue_four_words",
+            "wp_transactionHashWord",
+            "wp_zeroTransactionHash_owned",
+            "wp_clearTransactionHash_owned",
+            "wp_nextWanted_transaction_rejected",
+            "wp_nextWanted_transaction_valid"
+        ],
+        "specification_proved": "independent by-value four-limb acceptance, null/undefined preservation of prior value, array replacement with zero-fill and supported skipped extras; all-input classification, unique value and exact suffix or rejection offset/reason, success/rejection separation; no protocol arithmetic or hash validity condition",
+        "implementation_proved": "complete actual cborReadFeltValue and selected transaction-hash field contracts for every byte input and arbitrary owned initial value, exact nonwrapping consumption/suffix or complete cursor/destination rollback and initialized owned diagnostic; actual typed pointer cast and existing Limbs implementation; entire projection layout covers every concrete initial struct including nineteen empty discarded fields; checked field borrow/reconstruction, ownership-derived four-word length, actual individual guard loads, zero guard, whole-struct cleanup, and public nonzero rejection with nil suffix and exact entry diagnostic; successful/rejected NextWanted wrappers use actual initialized transaction-package tables and preserve exact scanner state/input/errors",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (only the two NextWanted transaction-package wrappers; by-value felt, selected field, zero guard, cleanup and nonzero public guard proofs have no helper-correctness premise)"
+        ],
+        "remaining": "complete independent transactionHashProjection pair/record specification and uniqueness; actual optional-tag/open-map/NextWanted loop composition and all-input First API; shared UTF-8 word helper/model repair; felt-key map equality and state-update/class contracts",
+        "scope": "complete by-value felt helper and projection dependencies, not yet a complete transaction hash projection decoder proof; unchanged production Go and trusted semantics; no workaround for pinned slice-index or array-equality gaps; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no FX-equivalence, protocol-validity or strict ignored-CBOR-validity claim"
+    },
     "transaction_dispatch": {
         "implementation": "core/cbor_transactions_generated.go: cborReadTransaction and CBORTransactionTags",
         "theorems": [

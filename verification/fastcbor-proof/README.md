@@ -6984,3 +6984,65 @@ that premise. Felt-key maps retain their separate array-equality modeling gap.
 The formal claim remains partial correctness/model safety on the pinned 64-bit
 target, excluding compiler/runtime correctness, OOM and termination. No protocol
 validity, FX equivalence or strict validity of ignored CBOR content is claimed.
+
+## By-value felt and transaction hash projection dependencies
+
+The transaction hash projection stores `TransactionHash` by value, unlike the
+pointer-valued hash fields in the other record proofs. Its actual
+`cborReadFeltValue` helper now has an independent all-input contract, checked
+without a UTF-8 or other helper-correctness premise. **The complete projection
+record loop and successful/all-input First entry remain to be composed.**
+
+`FeltValueSpec` defines the by-value policy from the independent felt wire
+relation: null/undefined preserves all prior words; an array replaces the four
+words, including short-array zero fill and supported skipped extras. It proves
+all-input classification, nonempty success consumption, unique value/prefix/suffix,
+success/rejection separation and unique complete outcomes. `FeltValueRead` steps
+through the actual null check, typed pointer conversion and proved `Limbs` call.
+Success owns the exact four words and unread suffix; every failure preserves the
+entire old value, cursor and input and returns the specified owned diagnostic.
+`FeltValueComplete` composes all inputs and initialized error categories.
+
+`TransactionHashOwnership` represents the actual projection struct and proves
+that every concrete initial destination is covered. The other nineteen fields
+have the unique empty `discardedCBOR` representation. The selected array can be
+borrowed and the whole struct reconstructed after an update. Actual ownership
+establishes that the array has exactly four words; that length is not assumed
+for arbitrary model arrays. A checked word-load wrapper borrows one element and
+restores the complete destination. It proves the production zero guard through
+its four individual comparisons, without Go array equality or generic slice
+indexing. Whole-struct cleanup is also checked.
+
+`TransactionHashFieldRead` and `TransactionHashFieldComplete` connect the actual
+field reference to the by-value helper, covering every byte input and arbitrary
+owned initial hash. `TransactionHashAPIGuard` proves public rejection of nonzero
+hashes, preserving the destination, returning nil remaining bytes, and allocating
+the exact entry diagnostic without accessing the input. All these results have
+no helper-correctness premise.
+
+`TransactionHashScanValid` and `TransactionHashScanRejected` specialize the checked
+`NextWanted` implementation to actual transaction-package metadata, including the
+hash projection table. They recover immutable names, cached-key metadata and
+initialized globals from the package state, preserving exact successful or
+rejected scanner state and input/error ownership. These two wrappers retain the
+existing `Utf8ValidatorContract` because selected and unknown text keys are
+validated. They are scanner contracts, not a proof of the enclosing hash record.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,756 Lean
+build jobs, auditing 3,124 results, 957 project/artifact hashes and 46
+standard-library source hashes. The independent audit checked exactly 23 new
+results in nine modules, unchanged dependency sets for all 3,101 previous results,
+an unchanged axiom union and every recorded hash. No result depends on `sorryAx`
+or native evaluation axioms. Direct unresolved premises total 309 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`; only the two scanner
+wrappers add validator premises. Saved compatibility and frozen performance
+results were revalidated. Original, baseline and Perennial worktrees remain clean
+at their pins; production Go and trusted semantics are unchanged.
+
+Next: specify and prove the hash projection's complete pair/record behavior,
+including optional tags, first-key-wins, ignored values, exact retained state on
+failure and the public First suffix/cleanup contract. The Header UTF-8 model
+repair, actual word-helper proof, felt-key map equality, and remaining
+state-update/class contracts remain open. This checkpoint retains the pinned
+64-bit partial-correctness/model-safety boundary and does not claim protocol
+validity, FX equivalence or strict validity of ignored CBOR content.

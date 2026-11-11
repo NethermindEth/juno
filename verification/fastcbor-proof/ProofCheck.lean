@@ -768,3 +768,12 @@ import ProofCheck.TransactionAPIZero
 import ProofCheck.TransactionComplete
 import ProofCheck.TransactionOwnership
 import ProofCheck.TransactionResultSpec
+import ProofCheck.FeltValueComplete
+import ProofCheck.FeltValueRead
+import ProofCheck.FeltValueSpec
+import ProofCheck.TransactionHashAPIGuard
+import ProofCheck.TransactionHashFieldComplete
+import ProofCheck.TransactionHashFieldRead
+import ProofCheck.TransactionHashOwnership
+import ProofCheck.TransactionHashScanRejected
+import ProofCheck.TransactionHashScanValid
