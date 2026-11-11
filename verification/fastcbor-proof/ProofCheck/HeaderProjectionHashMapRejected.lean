@@ -1,3 +1,4 @@
+import ProofCheck.ProjectionTagSuccess
 import ProofCheck.HeaderProjectionBounds
 import ProofCheck.HeaderProjectionBoundary
 import ProofCheck.HeaderProjectionFieldComplete
@@ -23,10 +24,11 @@ local instance (kinds : FeltErrorKinds) : Persistent (FeltErrorGlobals (GF := GF
   unfold FeltErrorGlobals SkipErrorGlobals
   infer_instance
 
-/-- The actual hash-projection map loop on every rejected pair sequence.
+/-- After any independently accepted optional tag prelude, the actual
+    hash-projection map loop on every rejected pair sequence.
     Earlier successful fields remain owned; the retained cursor and diagnostic
     positions are exact, including failures after ignored or duplicate fields. -/
-theorem wp_readHeaderHashProjection_map_rejected (validator : Utf8ValidatorContract (GF := GF))
+theorem wp_readHeaderHashProjection_map_rejected_after_tag (validator : Utf8ValidatorContract (GF := GF))
     (c dst : Loc) (old final : HeaderProjectionValue) (v : cursor.Cursor)
     (xs payload body : List w8) (head : w8) (dq : DFrac) (d count consumed offset : Nat)
     (reason : HeaderProjectionFailure) (kinds : FeltErrorKinds)
@@ -35,10 +37,15 @@ theorem wp_readHeaderHashProjection_map_rejected (validator : Utf8ValidatorContr
     (fit : 2 * count ≤ body.length)
     (failure : HeaderProjectionPairsRejected (d + 1) .hash count [] old body final consumed offset reason)
     (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
-    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ body) :
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ body)
+    (initial : cursor.Cursor) (wire : List w8) (tagConsumed : Nat)
+    (tag : ProjectionTagSpec wire tagConsumed ((head :: payload) ++ body) .success)
+    (initialPos : 0 ≤ sint.Z initial.pos' ∧ sint.Z initial.pos' ≤ sint.Z initial.buf'.len)
+    (initialBytes : subslice (sint.nat initial.pos') (sint.nat initial.buf'.len) xs = wire)
+    (advance : {initial with pos' := initial.pos' + W64 tagConsumed} = v) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborprojections ∗
        isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
-       FeltErrorGlobals kinds ∗ HeaderProjectionOwned .hash dst old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+       FeltErrorGlobals kinds ∗ HeaderProjectionOwned .hash dst old ∗ c ↦ initial ∗ v.buf' ↦*{dq} xs }}
       (App (App (Val (@! cborReadHeaderHashProjection)) (Val #c)) (Val #dst))
     {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
        HeaderProjectionOwned .hash dst final ∗
@@ -58,25 +65,19 @@ theorem wp_readHeaderHashProjection_map_rejected (validator : Utf8ValidatorContr
     have castCount : uint.Z (W64 count) = (count : Int) := by word
     rw [castCount]
     omega
-  have plain : ¬ projectionHasTag ((head :: payload) ++ body) := by
-    rintro ⟨other, tail, same, tagged⟩
-    simp only [List.cons_append, List.cons.injEq] at same
-    obtain ⟨rfl, _⟩ := same
-    rw [major] at tagged
-    contradiction
-  ihave #Htruncated : (globalAddr cursor.ErrTruncated ↦□ kinds.truncatedKind : IProp GF) $$ []
-  · isimp only [FeltErrorGlobals, SkipErrorGlobals] at Hglobals
-    icases Hglobals with ⟨⟨_, #Htruncated, _, _⟩, _⟩
-    iexact Htruncated
   ihave #Htable := projection_initialized_table (GF := GF) .headerHash $$ Hpkg
   isimp only [ProjectionTable, projectionGlobal] at Htable
   icases Htable with ⟨%fields, #Hfields, _⟩
   wp_func_call
   wp_call
   wp_auto
-  wp_apply wp_projectionTag_untagged c v xs ((head :: payload) ++ body) dq kinds.truncatedKind plain hp hbytes
-    $$ [Hc Hs] with ⟨Hc, Hs⟩
-  · iframe Htruncated Hc Hs
+  have sameBuf : initial.buf' = v.buf' := by rw [← advance]
+  wp_apply wp_projectionTag_success c initial xs wire ((head :: payload) ++ body) dq tagConsumed kinds tag initialPos initialBytes
+    $$ [Hc Hs] with ⟨Hc, Hs, %Htag⟩
+  · isimp only [sameBuf]
+    iframe Hglobals Hc Hs
+  isimp only [advance] at Hc
+  isimp only [sameBuf] at Hs
   wp_func_call
   wp_call
   wp_auto
@@ -230,6 +231,47 @@ theorem wp_readHeaderHashProjection_map_rejected (validator : Utf8ValidatorContr
     ipureintro
     simpa using Hprogress
 
+/-- The actual hash-projection map loop on every rejected pair sequence.
+    Earlier successful fields remain owned; the retained cursor and diagnostic
+    positions are exact, including failures after ignored or duplicate fields. -/
+theorem wp_readHeaderHashProjection_map_rejected (validator : Utf8ValidatorContract (GF := GF))
+    (c dst : Loc) (old final : HeaderProjectionValue) (v : cursor.Cursor)
+    (xs payload body : List w8) (head : w8) (dq : DFrac) (d count consumed offset : Nat)
+    (reason : HeaderProjectionFailure) (kinds : FeltErrorKinds)
+    (enc : HeadArgument head payload (W64 count)) (major : head &&& W8 224 = W8 160)
+    (hd : sint.Z v.depth' = d) (depth : d < 32)
+    (fit : 2 * count ≤ body.length)
+    (failure : HeaderProjectionPairsRejected (d + 1) .hash count [] old body final consumed offset reason)
+    (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs = (head :: payload) ++ body) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborprojections ∗
+       isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
+       FeltErrorGlobals kinds ∗ HeaderProjectionOwned .hash dst old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+      (App (App (Val (@! cborReadHeaderHashProjection)) (Val #c)) (Val #dst))
+    {{ (err : Loc), RET #(interface.mkOk (go.PointerType cursor.DecodeError.ty) #err);
+       HeaderProjectionOwned .hash dst final ∗
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + consumed), depth' := v.depth' + W64 1} ∗ v.buf' ↦*{dq} xs ∗
+       HeaderProjectionPairError err (v.pos' + W64 (1 + payload.length + offset)) reason (headerProjectionPairFailureKind reason kinds) ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + consumed)) = sint.Z v.pos' + 1 + payload.length + consumed ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + consumed)) ≤ sint.Z v.buf'.len ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + offset)) = sint.Z v.pos' + 1 + payload.length + offset ∧
+         sint.Z (v.pos' + W64 (1 + payload.length + offset)) ≤ sint.Z v.buf'.len⌝ }} := by
+  have plain : ¬ projectionHasTag ((head :: payload) ++ body) := by
+    rintro ⟨other, tail, same, tagged⟩
+    simp only [List.cons_append, List.cons.injEq] at same
+    obtain ⟨rfl, _⟩ := same
+    rw [major] at tagged
+    contradiction
+  wp_start_folded as ⟨Hglobals, Howned, Hc, Hs⟩
+  wp_apply wp_readHeaderHashProjection_map_rejected_after_tag validator c dst old final v xs payload body head dq d count consumed offset reason kinds enc major hd depth fit failure hp hbytes
+    v ((head :: payload) ++ body) 0 (.untagged plain) hp hbytes
+    (by have hz : v.pos' + W64 0 = v.pos' := by word
+        simp only [Int.natCast_zero, hz])
+    $$ [Hglobals Howned Hc Hs] as %err ⟨Howned, Hc, Hs, Herr, %Hnext⟩
+  · iframe
+  wp_end
+
 end github_com.NethermindEth.juno.core
 end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.wp_readHeaderHashProjection_map_rejected
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_readHeaderHashProjection_map_rejected_after_tag

@@ -314,3 +314,10 @@ import ProofCheck.HeaderProjectionRootMapRejected
 import ProofCheck.HeaderProjectionCountMapRejected
 import ProofCheck.HeaderProjectionTimestampMapRejected
 import ProofCheck.HeaderProjectionPairMapRejected
+
+import ProofCheck.ProjectionTagSuccess
+import ProofCheck.HeaderProjectionTagBoundary
+import ProofCheck.HeaderProjectionRecordError
+import ProofCheck.HeaderProjectionRecordValid
+import ProofCheck.HeaderProjectionRecordRejected
+import ProofCheck.HeaderProjectionRecordComplete
