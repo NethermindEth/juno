@@ -1,0 +1,185 @@
+import ProofCheck.DeprecatedEntryValuesBoundary
+import ProofCheck.DeprecatedEntryPointRecordComplete
+import ProofCheck.DeprecatedEntryItemsSpec
+import ProofCheck.SliceAllocation
+
+set_option linter.iris.style.nameCheck false
+set_option linter.unusedSectionVars false
+set_option maxHeartbeats 6400000
+set_option maxRecDepth 4096
+
+noncomputable section
+namespace Perennial
+open Iris Iris.BI Iris.ProgramLogic Iris.Std OFE Iris.ProofMode
+open github_com.NethermindEth.juno.utils.cbor
+namespace github_com.NethermindEth.juno.core
+
+variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
+variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
+variable [sem : go.Semantics] [package_sem : Assumptions]
+
+/-- The actual value-slice reader allocates zero records, decodes each directly
+    into its own array slot, and publishes only after every record succeeds. -/
+theorem wp_readDeprecatedEntryValues_array (validator : Utf8ValidatorContract (GF := GF)) (c dst : Loc) (old : GoSlice) (v : cursor.Cursor)
+    (xs payload rem : List w8) (head : w8) (dq : DFrac) (d : Nat) (count : Nat) (body : List w8) (values : List DeprecatedEntryPointValue)
+    (valid : DeprecatedEntryItemsValid (d + 1) count body rem values)
+    (enc : HeadArgument head payload (W64 count)) (hm : head &&& W8 224 = W8 128)
+    (hd : sint.Z v.depth' = d) (hdepth : d < 32)
+    (hp : 0 ≤ sint.Z v.pos' ∧ sint.Z v.pos' ≤ sint.Z v.buf'.len)
+    (hbytes : subslice (sint.nat v.pos') (sint.nat v.buf'.len) xs =
+      (head :: payload) ++ body ++ rem) :
+    {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborclasses ∗
+       isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
+       dst ↦ old ∗ c ↦ v ∗ v.buf' ↦*{dq} xs }}
+      (App (App (Val (@! cborReadDeprecatedEntryPointValues)) (Val #c)) (Val #dst))
+    {{ (out : GoSlice), RET #interface.nil; dst ↦ out ∗ DeprecatedEntryValuesOwned out values ∗
+       c ↦ {v with pos' := v.pos' + W64 (1 + payload.length + (body).length)} ∗
+       v.buf' ↦*{dq} xs ∗
+       ⌜sint.Z (v.pos' + W64 (1 + payload.length + (body).length)) =
+           sint.Z v.pos' + 1 + payload.length + (body).length ∧
+         subslice (sint.nat (v.pos' + W64 (1 + payload.length + (body).length)))
+           (sint.nat v.buf'.len) xs = rem⌝ }} := by
+  wp_start as ⟨Hdst, Hc, Hs⟩
+  ihave %Hlen := ownSlice_len _ _ _ $$ Hs
+  have Hnext := input_consumption xs ((head :: payload) ++ body) rem v.pos' v.buf'.len hp Hlen.1 hbytes
+  have htotal : sint.Z v.pos' + 1 + payload.length + (body).length ≤ sint.Z v.buf'.len := by
+    simp only [List.length_append, List.length_cons, Int.natCast_add, Int.natCast_one] at Hnext; omega
+  have hitems := deprecatedEntryItems_count (d + 1) count body rem values valid
+  have hfit : (count : Int) < 2 ^ 63 := by word
+  have hcount : 0 ≤ sint.Z (W64 count) := by word
+  have hi := input_suffix_head xs (payload ++ body ++ rem)
+    (sint.nat v.pos') (sint.nat v.buf'.len) head hbytes
+  have hn : head ≠ W8 246 := by
+    intro h
+    have hc := hm
+    rw [h] at hc
+    exact (by decide : W8 246 &&& W8 224 ≠ W8 128) hc
+  have hu : head ≠ W8 247 := by
+    intro h
+    have hc := hm
+    rw [h] at hc
+    exact (by decide : W8 247 &&& W8 224 ≠ W8 128) hc
+  have hp1 : sint.nat (v.pos' + W64 1) = sint.nat v.pos' + 1 := by word
+  have hafter : subslice (sint.nat (v.pos' + W64 1)) (sint.nat v.buf'.len) xs =
+      payload ++ (body ++ rem) := by
+    rw [hp1]
+    exact input_suffix_after xs [head] _ _ _ (by simpa only [List.cons_append, List.nil_append, List.append_assoc] using hbytes)
+  wp_auto
+  wp_apply wp_null_other c v xs head dq hp.1 hi hn hu $$ [Hc Hs] with ⟨Hc, Hs⟩
+  · iframe Hc Hs
+  wp_apply wp_ArrayLen_encoded c v xs payload (body ++ rem) head (W64 count) dq
+    enc hm hp.1 (by omega) (by omega) (by word) hi hafter $$ [Hc Hs] with ⟨Hc, Hs⟩
+  · iframe Hc Hs
+  wp_apply wp_slice_make2_nonnil (V := DeprecatedEntryPoint) (W64 count) as %out ⟨Hout, -, %Houtnn⟩
+  · ipureintro; exact hcount
+  rename_i itemIndex
+  irename i => Hrange
+  irename i => Hi
+  have hnat : sint.nat (W64 count) = count := by word
+  isimp only [hnat] at Hout
+  ihave %Houtsize := ownSlice_len _ _ _ $$ Hout
+  have houtlen : sint.Z out.len = count := by
+    simp only [List.length_replicate, sint.nat, sint.Z] at Houtsize ⊢; omega
+  ihave Hstorage := deprecatedEntryStorage_init out count $$ Hout
+  have Hhead := input_consumption xs (head :: payload) (body ++ rem)
+    v.pos' v.buf'.len hp Hlen.1 (by simpa only [List.append_assoc] using hbytes)
+  have hstart : sint.Z (v.pos' + W64 (1 + payload.length)) = sint.Z v.pos' + 1 + payload.length := by
+    simp only [List.length_cons, Int.natCast_add, Int.natCast_one] at Hhead
+    word
+  have hremaining : subslice (sint.nat (v.pos' + W64 (1 + payload.length))) (sint.nat v.buf'.len) xs = body ++ rem := by
+    simpa only [List.length_cons, Int.natCast_add, Int.natCast_one, Int.add_comm] using Hhead.2.2
+  ihave Hslots : (DeprecatedEntrySlots out [] : IProp GF) $$ []
+  · iapply deprecatedEntrySlots_nil
+  ihave HI : (∃ (done todo : List DeprecatedEntryPointValue) (front tail : List w8) (pos oldi : w64),
+      "Hrange" ∷ i_ptr ↦ W64 done.length ∗ "Hi" ∷ itemIndex ↦ oldi ∗
+      "Hslots" ∷ DeprecatedEntrySlots out done ∗
+      "Hstorage" ∷ DeprecatedEntryStorage out done.length count ∗
+      "Hc" ∷ c ↦ {v with pos' := pos, depth' := v.depth' + W64 1} ∗
+      "%Hsplit" ∷ ⌜values = done ++ todo⌝ ∗
+      "%Hwire" ∷ ⌜body = front ++ tail⌝ ∗
+      "%Hvalid" ∷ ⌜DeprecatedEntryItemsValid (d + 1) todo.length tail rem todo⌝ ∗
+      "%Hpos" ∷ ⌜0 ≤ sint.Z pos ∧ sint.Z pos ≤ sint.Z v.buf'.len⌝ ∗
+      "%Hposition" ∷ ⌜sint.Z pos = sint.Z v.pos' + 1 + payload.length + front.length⌝ ∗
+      "%Hremaining" ∷ ⌜subslice (sint.nat pos) (sint.nat v.buf'.len) xs = tail ++ rem⌝ : IProp GF)
+      $$ [Hrange Hi Hslots Hstorage Hc]
+  · iexists [], values, [], body, (v.pos' + W64 (1 + payload.length)), (W64 0)
+    isimp only [List.length_nil, List.nil_append, hitems.1]
+    iframe
+    ipureintro
+    exact ⟨trivial, trivial, valid, ⟨by word, by word⟩, by simpa using hstart, hremaining⟩
+  wp_for HI
+  have hlength : count = done.length + todo.length := by rw [← hitems.1, Hsplit, List.length_append]
+  by_cases more : done.length < count
+  · have hcond : sint.Z (W64 done.length) < sint.Z out.len := by word
+    simp only [hcond, _root_.decide_true, ite_true]
+    wp_auto
+    generalize htodoCount : todo.length = todoCount at Hvalid
+    cases Hvalid with
+    | nil => simp only [List.length_nil] at hlength; omega
+    | @step n item tail suffix value todo first rest =>
+      have hindex : 0 ≤ sint.Z (W64 done.length) ∧ sint.Z (W64 done.length) < sint.Z out.len := by word
+      rw [ite_eq_left_of_eq_true _ _ (eq_true hindex)]
+      have hidx : sint.Z (W64 done.length) = done.length := by word
+      simp only [hidx]
+      icases deprecatedEntryStorage_take_cell out done.length count more $$ Hstorage with ⟨Hcell, Hstorage⟩
+      wp_apply IntoValTyped.wp_load (t := DeprecatedEntryPoint.ty) _ _ _ $$ Hcell as Hcell
+      rw [ite_eq_left_of_eq_true _ _ (eq_true hindex)]
+      simp only [hidx]
+      ihave Howned := deprecatedEntryPointOwned_zero (sliceIndexRef DeprecatedEntryPoint (done.length : Int) out) $$ Hcell
+      have hrestcount := (deprecatedEntryItems_count (d + 1) n tail rem todo rest).1
+      have hitem : subslice (sint.nat pos) (sint.nat v.buf'.len) xs = item ++ (tail ++ rem) := by
+        simpa only [List.append_assoc] using Hremaining
+      wp_apply wp_readDeprecatedEntryPoint_record_valid validator c (sliceIndexRef DeprecatedEntryPoint (done.length : Int) out)
+        deprecatedEntryPointZero value {v with pos' := pos, depth' := v.depth' + W64 1}
+        xs item (tail ++ rem) dq (d + 1) first (by word) Hpos hitem
+        $$ [Howned Hc Hs] with ⟨Howned, Hc, Hs, %Hstep⟩
+      · iframe Howned Hc Hs
+      simp only at Hstep
+      ihave Hslots := deprecatedEntrySlots_snoc out done value $$ [Hslots Howned]
+      · iframe Hslots Howned
+      have hinc : W64 done.length + W64 1 = W64 (done ++ [value]).length := by
+        simp only [List.length_append, List.length_singleton]; word
+      wp_for_post
+      isimp only [hinc, List.length_append, List.length_singleton] at Hrange
+      iframe
+      iexists (done ++ [value]), todo, (front ++ item), tail, (pos + W64 item.length), (W64 done.length)
+      isimp only [List.length_append, List.length_singleton]
+      iframe
+      ipureintro
+      refine ⟨?_, ?_, ?_, ⟨?_, Hstep.2.1⟩, ?_, Hstep.2.2⟩
+      · simpa only [List.append_assoc, List.singleton_append] using Hsplit
+      · simpa only [List.append_assoc] using Hwire
+      · simpa only [hrestcount] using rest
+      · rw [Hstep.1]; omega
+      · simp only [List.length_append, Int.natCast_add]
+        rw [Hstep.1]; omega
+  · have hcond : ¬ sint.Z (W64 done.length) < sint.Z out.len := by word
+    simp only [hcond, _root_.decide_false, Bool.false_eq_true, ite_false]
+    wp_auto
+    have htodo : todo = [] := List.eq_nil_of_length_eq_zero (by omega)
+    have hdoneall : done = values := by simpa [htodo] using Hsplit.symm
+    have htail : tail = [] := by
+      rw [htodo] at Hvalid
+      cases Hvalid
+      rfl
+    have hfront : front = body := by simpa [htail] using Hwire.symm
+    have hposfinal : pos = v.pos' + W64 (1 + payload.length + body.length) := by
+      rw [hfront] at Hposition; word
+    wp_apply wp_leave c {v with pos' := pos} $$ [Hc] with Hc
+    · iframe Hc
+    have hrestoredepth : v.depth' + W64 1 - W64 1 = v.depth' := by word
+    isimp only [hposfinal, hrestoredepth] at Hc
+    isimp only [hdoneall] at Hslots
+    iapply HΦ
+    iframe Hdst Hc Hs
+    isplitl [Hslots]
+    · unfold DeprecatedEntryValuesOwned
+      iframe Hslots
+      ipureintro; exact ⟨Houtnn, by omega⟩
+    · ipureintro
+      simpa only [List.length_append, List.length_cons, Int.natCast_add, Int.natCast_one,
+        Int.add_comm (payload.length : Int) 1, Int.add_assoc] using And.intro Hnext.1 Hnext.2.2
+
+end github_com.NethermindEth.juno.core
+end Perennial
+#print axioms Perennial.github_com.NethermindEth.juno.core.wp_readDeprecatedEntryValues_array

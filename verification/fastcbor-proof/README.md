@@ -7229,3 +7229,65 @@ to remove the shared validator premise. This checkpoint does not close Header or
 the whole-library gate. The claim remains pinned 64-bit partial correctness/model
 safety, excluding compiler/runtime correctness, OOM and termination; it does not
 assert FX equivalence or strict validity of ignored CBOR content.
+
+## Complete entry-point value-slice helper checkpoint
+
+The actual generated `cborReadSierraEntryPointValues` and
+`cborReadDeprecatedEntryPointValues` functions now have complete contracts for
+every byte input at supported cursor depth and arbitrary old slice headers.
+The contracts remain **conditional on `Utf8ValidatorContract`** inherited from
+the child records' map-key decoding. These results compose the previous direct
+entry-point record proofs into the actual enclosing array loops; class field,
+record, dispatch and public API composition still remain.
+
+`SierraEntryItemsSpec` and `DeprecatedEntryItemsSpec` independently define sequences
+of records decoded directly from zero. Unlike pointer-element arrays, null and
+undefined elements produce zero records. Nullish outer input produces a nil slice;
+a definite empty array produces a nonnil empty slice. The outer specifications
+retain the real ArrayLen order: head parsing, count against all remaining input,
+then depth, followed by child decoding. Pure classification, successful prefix
+uniqueness, success/rejection separation, rejected-sequence uniqueness and outer
+outcome uniqueness cover arbitrary successful prefixes and failures. Failure
+positions distinguish consumed bytes from diagnostic offsets and retain the
+entered outer-array and optional failed-record map depth.
+
+The two `ValuesOwnership` modules track completed embedded records and their
+children separately from unused zero slots in the same backing array. They prove
+initial storage conversion, transfer of exactly one next slot, accumulation of
+completed slots, output length and nil-versus-present distinction. The successful
+and rejected loops use actual `make([]Record, count)` and the translated range
+operation, including its modeled load of each zero record and the bounded index
+reference used by the child call. Each child contract writes directly into that
+slot. Success publishes the entire slice only after all records succeed, restores
+depth and retains exact values, remaining bytes and unchanged input ownership.
+Failure preserves the original destination and owns the completed private records,
+failed partial slot and every unused zero slot; caller-level contracts may forget
+this private storage under the garbage-collected model. Old backing ownership can
+be framed across every outcome.
+
+The checked entry contracts are `wp_readSierraEntryValues_complete` and
+`wp_readDeprecatedEntryValues_complete`. Actual class metadata and the existing
+shared scalar/felt helper schema startup are required initialized and proved
+separately. No loop, allocation, record or initializer correctness premise is
+introduced beyond the explicitly inherited UTF-8 dependency.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,847 Lean
+build jobs, auditing 3,438 results, 1,048 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 72 additions
+in 22 modules, unchanged dependency sets for all 3,366 previous results, an
+unchanged axiom union, every recorded hash and the direct zero-record element
+relations. Ten new direct uses of the existing UTF-8 validator premise cover the
+array loops and caller composition; totals are 345 for `Utf8ValidatorContract`
+and two for `Utf8WordWindowContract`. No result depends on `sorryAx` or native
+evaluation axioms. Saved compatibility and frozen performance evidence was
+revalidated; production Go and trusted semantics are unchanged.
+
+Next: string slices and CASM entry points, then enclosing entry-point/class
+records, recursive SegmentLengths, remaining JSON-byte/BigInt field contracts,
+class tag dispatch and public APIs. State payload/map ownership and public APIs
+remain open, including the separate felt-key array-equality modeling gap.
+Header's unapproved slice-index repair and actual UTF-8 word-helper proof remain
+necessary to discharge the shared premise. Neither Header nor whole-library
+completion is claimed. The scope remains pinned 64-bit partial correctness/model
+safety, excluding compiler/runtime correctness, OOM and termination, without FX
+equivalence or strict validity of ignored CBOR content.
