@@ -1241,3 +1241,35 @@ import ProofCheck.StateDiffPointerSpec
 import ProofCheck.StateDiffEmpty
 
 import ProofCheck.StateDiffPointerBoundary
+
+import ProofCheck.StateUpdateAPIGuard
+
+import ProofCheck.StateUpdateAPISpec
+
+import ProofCheck.StateUpdateBoundary
+
+import ProofCheck.StateUpdateEmpty
+
+import ProofCheck.StateUpdateGuard
+
+import ProofCheck.StateUpdateKeyRead
+
+import ProofCheck.StateUpdateKeys
+
+import ProofCheck.StateUpdateOwnership
+
+import ProofCheck.StateUpdatePairs
+
+import ProofCheck.StateUpdatePairsUnique
+
+import ProofCheck.StateUpdateRecordSpec
+
+import ProofCheck.StateUpdateRecordUnique
+
+import ProofCheck.StateUpdateSeen
+
+import ProofCheck.StateUpdateTable
+
+import ProofCheck.StateUpdateValueUnique
+
+import ProofCheck.StateUpdateValues

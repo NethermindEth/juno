@@ -8354,3 +8354,74 @@ repairs still require separate approval. This checkpoint does not close Header,
 StateUpdate or whole-library implementation verification; the pinned 64-bit partial-
 correctness/model-safety boundary still excludes compiler/runtime implementation
 correctness, OOM and termination.
+
+## StateUpdate specification, ownership and guard checkpoint
+
+`StateUpdateValues`, `StateUpdatePairs`, their uniqueness modules and the record
+specification compose the independent four-field StateUpdate contract. `BlockHash`,
+`NewRoot` and `OldRoot` use nullable felt-pointer relations. `StateDiff` uses the
+nullable StateDiff pointer relation, retaining its private partial child in failure
+reasons. Every field, spelling and index was checked against the generated Go
+reader. This is a decoding contract; state-transition validity and root/hash
+consistency are outside its scope.
+
+The complete record relation covers arbitrary prior values, field order, folded
+known names, supported ignored keys/values, known-field duplicates, direct-record
+null/undefined preservation and nested count/depth guards. Every failed field
+preserves its old pointer. Earlier successful fields remain in the partial record;
+a failed newly allocated StateDiff is never published. Consumption, diagnostic
+offsets and retained depth remain explicit. Nil StateDiff differs from a nonnil
+zero StateDiff. All-input classification is checked at supported depth, as are
+successful prefix uniqueness and failure bounds. Success/failure separation and
+complete outcome uniqueness carry the explicit `wire.length < 2^64` bound inherited
+through StateDiff; this includes every representable Go input.
+
+`StateUpdateAPISpec` defines First and full public outcomes for every initial value
+and byte input. Nonzero destinations are rejected unchanged. Parsing starts from
+zero; First exposes the exact unread suffix, parser failures clear the destination,
+and full decoding clears successful partial output when trailing bytes remain.
+Classification, bounded uniqueness, successful-record correspondence, cleanup and
+diagnostic bounds are checked independently of production helper correctness.
+These public specifications are not yet general implementation theorems.
+
+`StateUpdateTable`, `StateUpdateSeen` and `StateUpdateKeyRead` connect the schema
+to the actual immutable table, folded-name lookup, cache/search conditions and
+seen mask. Fresh/unknown, duplicate and malformed-key scanner contracts use the
+existing UTF-8 validator premise. `StateUpdateOwnership` owns all four fields and
+children, supplies access/restore rules and derives zero-allocation ownership.
+`StateUpdateGuard` proves exact nil-versus-owned StateDiff pointer discrimination,
+logical/concrete zero agreement, the actual four-field short-circuit guard and
+whole-record cleanup for arbitrary owned partial values. The allocated zero
+StateDiff case is therefore correctly nonzero at the outer pointer guard.
+
+`StateUpdateBoundary` and `StateUpdateEmpty` prove actual null/undefined, every
+zero-count map-head width and all opening failures, preserving old record contents
+with exact cursor/input/depth behavior and initialized diagnostics.
+`StateUpdateAPIGuard` proves actual First and full nonzero-destination rejection:
+all owned fields are preserved, input is not read, and the precise unsupported
+entry diagnostic is returned. These guard/opening paths introduce no helper
+correctness premise.
+
+Validation: `check-state-update-foundations-full.log` records a successful
+**3,098-job** full regeneration/build and **4,363** audited results. This adds
+**78** results in **16** modules. Independent comparison against `d1418585e`
+checked all **4,285** prior dependency sets and the full axiom union unchanged;
+**1,301** project/artifact and **46** standard-library hashes match disk. Three
+new direct scanner uses of the existing UTF-8 validator bring that count to
+**447**, with **two** word-helper premises unchanged. No new helper assumption
+was introduced, and no result depends on `sorryAx` or native evaluation axioms.
+The independent audit checked all four child mappings, private StateDiff failure
+retention, explicit size bounds, ownership, actual metadata/opening/guard/cleanup
+targets and public API specification semantics. Production Go and trusted sources
+are unchanged, original/baseline worktrees retain clean pins, and frozen performance
+and compatibility evidence remain applicable.
+
+The StateUpdate specifications and ownership are now available for implementation
+composition. Populated state-map insertion/loops, StateDiff fields/record/pointer,
+StateUpdate fields/record and successful/rejected public parsing still remain.
+Actual felt-key insertion retains the separately approval-dependent array-equality
+model gap; Header and text-dependent readers retain the UTF-8 word-helper/model
+obligation. This checkpoint does not close StateUpdate, unconditional Header or
+whole-library implementation correctness. The pinned 64-bit partial-correctness
+and model-safety boundary still excludes compiler/runtime implementation
+correctness, OOM and termination.
