@@ -8879,3 +8879,42 @@ Actual felt-key insertion, arbitrary entry iterations, complete StateDiff and
 StateUpdate implementation composition, and unconditional Header remain open.
 The array-equality and Header slice-index repairs still await their separate
 explicit approvals; this checkpoint changes neither trusted boundary.
+
+## State record and pointer propagation of first-key errors
+
+`StateRecordKeyFailure.lean` proves actual `cborReadStateDiff` and
+`cborReadStateUpdate` execution when the first field key is rejected. The
+contracts cover every supported positive map-head width, every independently
+rejected key, arbitrary owned old records and fractional input ownership. They
+retain the exact unread suffix, return the owned diagnostic at the key start,
+and preserve all old fields and child allocations. The opened record depth is
+retained on failure. Count representability is derived from the count-fit guard
+and owned input length, not added as a caller assumption. Initialization supplies
+the real immutable field tables and diagnostic categories.
+
+`StatePointerKeyFailure.lean` composes this through the actual StateDiff pointer
+wrapper and its actual selected StateUpdate field. A failed fresh zero StateDiff
+remains private and owned. The prior pointer and every sibling field remain
+unchanged. The error ownership includes that private child, and all four results
+include the corresponding independent record, pointer or field rejection
+relation with exact consumption, diagnostic offset and entered depth.
+
+These four production-code proofs retain the existing explicit
+`Utf8ValidatorContract` condition because field-key rejection includes UTF-8
+validation. No array-equality or other helper-correctness premise is introduced.
+They cover rejection at the first key; they do not assert that arbitrary earlier
+successful fields or the complete record/public API have been composed.
+
+Validation: `check-state-record-key-full.log` passes the complete check (3139
+jobs, 4477 audited results). Independent comparison checked all 4473 prior
+dependency sets unchanged, all 1342 project/artifact hashes and all 46
+standard-library source hashes. Exactly four direct validator-dependent results
+were added (451 total); the two word-helper-premise results and transitive axiom
+union are unchanged. No result uses `sorryAx` or a native-evaluation axiom. The
+frozen performance/compatibility evidence was revalidated, tracked Go is unchanged
+and the preserved original, baseline and trusted framework worktrees are clean.
+
+General record loops, populated felt-key map implementation, later-prefix error
+composition and complete StateUpdate public APIs remain open. Header still needs
+its independent UTF-8 helper/model repair. Neither pending trusted-model repair
+has been approved or applied, and no whole-library completion is claimed.

@@ -1351,3 +1351,7 @@ import ProofCheck.FeltMapWellFormed
 import ProofCheck.StorageDiffsWellFormed
 
 import ProofCheck.MigratedClassesWellFormed
+
+import ProofCheck.StateRecordKeyFailure
+
+import ProofCheck.StatePointerKeyFailure

@@ -738,6 +738,27 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_record_key_failures": {
+        "proofs": [
+            "verification/fastcbor-proof/ProofCheck/StateRecordKeyFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/StatePointerKeyFailure.lean"
+        ],
+        "theorems": [
+            "wp_readStateDiff_first_key_rejected",
+            "wp_readStateUpdate_first_key_rejected",
+            "wp_readStateDiffPointer_first_key_rejected",
+            "wp_stateUpdate_diff_first_key_rejected"
+        ],
+        "proved": "actual StateDiff and StateUpdate record readers return first-key rejection after any supported positive map head; arbitrary owned old records and all children preserved, fractional input unchanged, exact unread suffix/diagnostic position and one retained map level; StateDiff pointer wrapper preserves old pointer and retains private fresh zero child; enclosing StateUpdate.StateDiff field restores old field and sibling ownership",
+        "specification": "postconditions include StateDiffRecordRejected, StateUpdateRecordRejected, StateDiffPointerRejected or StateUpdateFieldRejected with exact consumed/diagnostic offsets and entered depth",
+        "count_bound": "positive count and original count-fit guard; machine count representability derived from actual owned input length rather than assumed",
+        "unproved_contract_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "initialization": "actual state package initialization supplies immutable field tables and cursor diagnostic categories; no extra table or error-global premise",
+        "pending": "successful field prefixes, duplicate/value/ignored-value error composition through general record loops, populated felt-key map implementation and complete StateUpdate public APIs; Header UTF-8 helper and array-equality repairs remain unapproved",
+        "scope": "four conditional production-code partial-correctness contracts for first-key errors; not complete record/public-API verification; no new premise kind or trusted-model/Go change"
+    },
     "state_map_representation": {
         "proofs": [
             "verification/fastcbor-proof/ProofCheck/FeltKeyWellFormed.lean",
