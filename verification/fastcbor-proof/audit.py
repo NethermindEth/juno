@@ -289,6 +289,52 @@ report = {
         "pending": "enclosing full receipt contracts; receipt-events projection now has a conditional First API contract",
         "scope": "complete conditional all-input implementation contract at supported depths for arbitrary prior slice headers against independent classified unique outcomes; rejected-loop theorem retains exact private partial allocations, while caller-facing composition may forget unreachable temporary allocations in the garbage-collected model; retains the direct Event UTF-8 dependency; no whole-receipt/library or unconditional Header proof; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination; no production Go or trusted semantics change",
     },
+    "typed_fee_unit": {
+        "implementation": "core/cbor_readers.go: cborReadFeeUnit",
+        "specification": "verification/fastcbor-proof/ProofCheck/FeeUnitSpec.lean",
+        "implementation_proofs": [
+            "verification/fastcbor-proof/ProofCheck/FeeUnitRead.lean",
+            "verification/fastcbor-proof/ProofCheck/FeeUnitComplete.lean"
+        ],
+        "theorems": [
+            "feeUnitSpec_total_unique",
+            "feeUnitRejected_bound",
+            "wp_readFeeUnit_valid",
+            "wp_readFeeUnit_expected",
+            "wp_readFeeUnit_overflow",
+            "cursor_type_nonNil",
+            "wp_readFeeUnit_rejected",
+            "wp_readFeeUnit_complete"
+        ],
+        "specification_proved": "every input and prior byte classified with unique outcome; null/undefined preserve the old byte; all unsigned wire widths and values 0 through 255 accepted, including unnamed enum values; above-255 values rejected after consuming the complete integer; malformed/type/tag errors roll back; unique success prefix/value/suffix and failure reason/consumption; success/rejection disjoint and failure consumption bounded",
+        "implementation_proved": "actual byte conversion/store after width check, nullish preservation, unsigned parser failure propagation, bare ErrType return after overflow without assignment; exact nonwrapping consumption/suffix and unchanged input/depth; cursor startup establishes canonical non-nil type sentinel and owned initialized diagnostics; all-input contract returns independent unique outcome and owned destination",
+        "unproved_helper_premises": [],
+        "scope": "complete typed helper under pinned 64-bit partial correctness/model safety; no UTF-8 or other helper-correctness premise, new trusted semantics or Go change; containing receipt remains separate; compiler/runtime correctness, OOM and termination excluded"
+    },
+    "bytes_into": {
+        "implementation": "utils/cbor/cursor/values.go: Cursor.BytesInto",
+        "specification": "verification/fastcbor-proof/ProofCheck/BytesIntoSpec.lean",
+        "implementation_proofs": [
+            "verification/fastcbor-proof/ProofCheck/BytesIntoRead.lean",
+            "verification/fastcbor-proof/ProofCheck/BytesIntoMismatch.lean",
+            "verification/fastcbor-proof/ProofCheck/BytesIntoComplete.lean"
+        ],
+        "theorems": [
+            "bytesIntoSpec_total_unique",
+            "wp_bytesInto_encoded",
+            "wp_bytesInto_expected",
+            "wp_bytesInto_truncated",
+            "wp_bytesInto_size",
+            "wp_bytesInto_valid",
+            "wp_bytesInto_rejected",
+            "wp_bytesInto_complete"
+        ],
+        "specification_proved": "every destination length and byte input classified with unique outcome; exactly one complete definite byte-string payload matching the destination length; all wire widths and arbitrary byte contents; nullish inputs rejected by this public primitive; expected-head, truncated-payload and complete-length-mismatch precedence; success prefix/value/suffix uniqueness, rejection reason uniqueness including exact actual length, and disjoint success/rejection",
+        "implementation_proved": "actual payload read and length check followed by modeled copy for separately owned destination/input; successful copy replaces exactly destination bytes and restores full input ownership, exact nonwrapping consumption/suffix and cursor depth; every failure preserves destination bytes and restores cursor; length mismatch owns actual length diagnostic arguments; real initialized error categories; complete public primitive contract returns independently unique outcome",
+        "unproved_helper_premises": [],
+        "remaining": "typed 20-byte eth.Address array-to-slice ownership bridge, null/undefined-preserving wrapper and containing message/receipt records",
+        "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; this checkpoint does not prove the typed address wrapper"
+    },
     "typed_boolean": {
         "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
         "specification": "verification/fastcbor-proof/ProofCheck/BoolSpec.lean",

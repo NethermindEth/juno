@@ -129,6 +129,9 @@ for every byte input at any valid cursor position, including all integer forms,
 owned output, exact consumption and every specified rejection/rollback. Its
 head, payload, magnitude, category identity and `errors.Is` dependencies are
 proved under the documented pinned model. See “Complete public BigInt decoder”.
+The typed FeeUnit reader and public `Cursor.BytesInto` now also have complete
+all-input contracts with independently unique outcomes and no UTF-8 helper
+premise. The typed address wrapper and remaining receipt child records are open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5666,3 +5669,60 @@ results. No theorem depends on admission or native-evaluation axioms. The full
 check revalidated saved compatibility/race/checkptr evidence and the archived
 passing performance gate against unchanged Go sources. Original, baseline and
 pinned trusted checkouts remain clean at their recorded revisions.
+
+
+## Complete FeeUnit and public BytesInto contracts
+
+`FeeUnitSpec` independently specifies every prior byte and input, with unique
+outcomes, successful prefix/value/suffix uniqueness, success/rejection separation
+and bounded rejection consumption. FeeUnit accepts all unsigned values through
+255, including unnamed enum values and non-preferred CBOR widths. Null and
+undefined preserve the old field. A value above 255 is consumed before the
+width check returns a bare type-error sentinel; unsigned parse errors restore
+the original cursor. The two failure paths are deliberately distinguished.
+
+`FeeUnitRead` checks the actual nullish branch, byte conversion/store, parser
+error propagation and overflow return. `FeeUnitComplete` composes every input,
+preserving the old destination on failure, unchanged input and cursor depth,
+and exact nonwrapping consumption/suffix. The error contract distinguishes
+allocated parse diagnostics from the bare overflow sentinel. Its non-nil identity
+is derived from the actual cursor initializer and immutable error globals.
+`wp_readFeeUnit_complete` returns the independently specified unique outcome.
+
+`BytesIntoSpec` independently specifies complete definite byte strings matching
+the destination length. It classifies every input and destination length and
+proves unique outcomes, successful prefix/value/suffix uniqueness, unique
+rejection reasons and success/rejection separation. Payload truncation takes
+precedence over destination-length mismatch. This public primitive rejects
+nullish inputs; the typed address wrapper's null-preserving policy is separate.
+
+`BytesIntoRead` and `BytesIntoMismatch` check payload extraction, exact-length
+copying, and all rejection branches. The successful proof borrows only the
+payload subrange, uses the existing checked Go copy contract for separately
+owned source and destination storage, and restores the entire input ownership.
+Malformed/wrong-type heads, truncated payloads and complete wrong-length payloads
+preserve the old destination and restore the cursor. Length-mismatch diagnostics
+own both actual length arguments. `BytesIntoComplete` composes these into the
+actual public `Cursor.BytesInto` contract for every input and separately owned
+destination, including zero-length destinations, with initialized error objects,
+unique independent outcomes and exact successful consumption/suffix.
+
+Neither primitive has a UTF-8 or other helper-correctness premise. No copy,
+parser, allocation or initializer contract was introduced as an assumption;
+existing checked contracts under the pinned model are composed. No production
+Go or trusted semantics changed. The next dependency is the typed 20-byte
+`eth.Address` array-to-slice ownership bridge and null/undefined-preserving
+wrapper, then message/resource records and their allocation wrappers before the
+full receipt. Header's UTF-8 word-helper/model correction and the separate
+felt-key map equality gap remain unresolved.
+
+Full regeneration and audit passed in `check-receipt-primitives-full.log`:
+**2431 build jobs, 1801 audited theorems, 632 project/artifact hashes and 46
+directly translated standard-library hashes**. Independent verification checked
+exactly 29 new results, unchanged dependencies for all 1772 prior theorems,
+unchanged axiom union and every recorded hash. Direct helper-premise counts
+remain 142 validator results and 2 word-helper results. No theorem depends on
+admission or native-evaluation axioms. The full check revalidated saved
+compatibility/race/checkptr evidence and the archived passing performance gate
+against unchanged Go sources. Original, baseline and pinned trusted checkouts
+remain clean at their recorded revisions.
