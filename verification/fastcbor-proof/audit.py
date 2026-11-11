@@ -335,6 +335,33 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "resource_bounds_map": {
+        "implementation": "core/cbor_readers.go: cborReadResourceBoundsMap",
+        "theorems": [
+            "resourceMapKey_classify",
+            "resourceMapEntry_classify",
+            "resourceMapEntries_classify",
+            "resourceMapSpec_total_unique",
+            "resourceMap_failure_bounds",
+            "resourceMap_failure_depth",
+            "resourceMapOfEntries_last",
+            "resourceMapChildren_insert",
+            "resourceMapOwned_nonnull",
+            "wp_readResourceMap_null",
+            "wp_readResourceMap_outer_failure",
+            "wp_readResourceMap_count",
+            "wp_readResourceMap_depth",
+            "wp_readResourceMap_map"
+        ],
+        "specification_proved": "independent total unique outcome for every input at supported depth; nil versus allocated empty map; unsigned uint32 keys including unnamed enum values and non-preferred widths; null/undefined keys consume one byte and reject; overwide unsigned keys consume their complete encoding and reject; parser failures restore key position; each value starts from zero; arbitrary duplicate keys replace whole records in wire order; all outer count/depth and nested record errors have exact consumed/offset/depth bounds; completed private entries and failed private record are uniquely determined",
+        "ownership_proved": "concrete and abstract maps have matching key domains and separately owned nullable felt children; insertion handles fresh or duplicate keys without a distinctness premise, dropping replaced child ownership under the existing affine model; allocated map ownership excludes nil, including for an empty map; temporary record cell and price child transfer are separated for the Go load and insertion",
+        "implementation_proved": "actual null/undefined branch and outer malformed-head/count/depth rejection with destination/input preservation; complete successful allocation/insertion loop for arbitrary supported key/value sequences, initialized child records, whole-entry replacement, unchanged input, restored depth, exact unread suffix and success-only publication on accepted inputs",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (successful map loop through nested ResourceBounds record decoding)"
+        ],
+        "remaining": "actual in-loop key and nested-record rejection, including arbitrary successful prefixes; compose those with boundary/success proofs into the all-input map contract and preserve old destination on every failure; enclosing transaction variants and APIs",
+        "scope": "complete independent map specification and successful production map loop, not an all-input implementation contract; no new helper-correctness premise beyond existing UTF-8 dependency; no production Go or trusted semantics edits; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or blanket RFC-validity claim"
+    },
     "resource_bounds_record": {
         "implementation": "core/cbor_transactions_generated.go: cborReadResourceBounds; core/transaction.go: ResourceBounds",
         "theorems": [
@@ -355,7 +382,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "enclosing ResourceBounds map allocation, integer keys, duplicate map-entry replacement, nested record calls and success-only publication; transaction variant and public API composition",
+        "remaining": "enclosing ResourceBounds map in-loop rejection and all-input composition (independent map specification and successful allocation/insertion loop now checked separately); transaction variant and public API composition",
         "scope": "complete conditional direct ResourceBounds record; price contract reflects stored felt limbs without imposing an extra uint128 validation absent from this decoder; field calls have no helper-correctness premise; pinned 64-bit partial correctness/model safety, compiler/runtime correctness/OOM/termination excluded; no production Go or trusted-model changes; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_primitives": {

@@ -150,8 +150,11 @@ zero guards, parse-failure cleanup and trailing-input rejection. Transaction-spe
 DA-mode and version-pointer helpers now also have complete contracts without an
 assumed helper premise, and all seven transaction metadata factories, initialization
 and opening wrappers are checked. The two-field ResourceBounds record now also has
-complete conditional all-input contracts; its enclosing map and transaction payload
-composition remain open.
+complete conditional all-input contracts. Its enclosing ResourceBounds map now has
+an independent total/unique specification, checked ownership and outer boundaries,
+and a conditional proof of the actual successful allocation/insertion loop. In-loop
+rejection and the complete map contract remain open, followed by transaction payload
+composition.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6431,3 +6434,72 @@ The claim remains partial correctness and model safety on the pinned 64-bit targ
 excluding compiler/runtime correctness, OOM and termination. It establishes neither
 FX equivalence nor strict validity of ignored CBOR content. Unconditional Header
 and whole-library completion gates remain open.
+
+
+## ResourceBounds map specification and successful implementation
+
+`ResourceMapKeySpec.lean` specifies the unsigned 32-bit resource key independently
+of the named enum constants. Every representable unsigned key is accepted, including
+non-preferred CBOR widths. Null/undefined keys consume one byte and return the bare
+unsupported sentinel. An oversized unsigned key consumes its full encoding and
+returns the bare type sentinel. Unsigned parser failures restore the key position.
+The consumed boundaries for bare sentinels are not allocated diagnostic offsets.
+Key classification, prefix/value/suffix uniqueness and rejection disjointness,
+uniqueness and bounds are checked.
+
+`ResourceMapEntrySpec.lean` and `ResourceMapEntryUnique.lean` compose each accepted
+key with a ResourceBounds record decoded from zero. A later occurrence of a key
+therefore replaces the entire earlier record, including when the later value is
+null/undefined or omits fields. `ResourceMapEntriesSpec.lean` and
+`ResourceMapEntriesUnique.lean` prove arbitrary entry sequences, retain the actual
+later input for nested-record count checks, and uniquely determine private completed
+entries and any failed partial record. Each successful entry consumes at least two
+bytes, matching the outer pair-count guard.
+
+`ResourceMapValues.lean` folds complete entries into a finite map in wire order and
+proves the last entry replaces the whole value. `ResourceMapSpec.lean` and
+`ResourceMapUnique.lean` provide a complete independent result for **every byte
+input at supported depth**, with a unique map/suffix or error/consumption/offset/depth.
+Nil and allocated empty maps remain distinct. Outer count rejection precedes depth
+rejection; in-loop errors retain the outer map depth and any entered child-record
+depth. Failure positions and depth are bounded. These are specification results,
+not an all-input implementation theorem.
+
+`ResourceMapOwnership.lean` relates concrete and abstract finite maps with equal
+key domains and separately owned nullable price children. Its insertion rule handles
+fresh and duplicate keys without a distinctness premise. Replacing a value releases
+ownership of the old child under the existing affine model; it does not duplicate
+child ownership. Map storage ownership excludes nil even for an empty map. A
+separate transfer rule keeps the temporary record cell available for the actual Go
+load while moving child ownership into the eventual map entry.
+
+`ResourceMapBoundary.lean` proves the actual `cborReadResourceBoundsMap` null branch
+and outer malformed-head/count/depth errors. `ResourceMapValid.lean` proves the
+**actual complete successful allocation/insertion loop** for arbitrary independently
+accepted entry sequences. Each nested record starts from zero, insertions replace
+whole values, the destination is published at the end, input remains unchanged,
+depth is restored and the exact unread suffix is retained. This theorem carries the
+existing `Utf8ValidatorContract` through child-record decoding; no new helper premise
+or trusted-model change was introduced.
+
+Next: prove actual in-loop nullish/overflow/parser key failures and nested-record
+failures after arbitrary successful prefixes, preserving the old destination. Then
+compose the success, boundary and rejected-loop theorems into the all-input map
+contract. Transaction variants, tagged dispatch/public APIs, state-update/class
+contracts, Header's unapproved UTF-8 model correction and the independent felt-key
+map equality gap remain open.
+
+Validation: full `./check.sh` passed **2,632 build jobs** and audited **2,587 pilot
+theorems**, with **833 project/artifact hashes** and **46 stdlib source hashes**.
+An independent comparison against `a9a624af8` confirmed exactly **41 new results in
+11 modules**, unchanged dependency sets for all 2,546 prior results, unchanged total
+axiom union and all recorded hashes. No result depends on sorryAx or native evaluation
+axioms. Direct UTF-8 premises now number 239 validator results and 2 word-helper
+results. Regeneration, manifest/feasibility and archived performance checks passed.
+Production Go and trusted semantics are unchanged, preserving the frozen ordinary,
+race/checkptr and performance evidence and the original/baseline worktrees.
+
+This remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime implementation correctness, OOM and termination. The
+all-input map implementation, unconditional Header and whole-library gates are not
+closed; no FX-equivalence or strict ignored-CBOR-validity claim is made.

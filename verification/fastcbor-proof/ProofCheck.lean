@@ -642,3 +642,14 @@ import ProofCheck.ResourceBoundsSeen
 import ProofCheck.ResourceBoundsTable
 import ProofCheck.ResourceBoundsValueUnique
 import ProofCheck.ResourceBoundsValues
+import ProofCheck.ResourceMapBoundary
+import ProofCheck.ResourceMapEntriesSpec
+import ProofCheck.ResourceMapEntriesUnique
+import ProofCheck.ResourceMapEntrySpec
+import ProofCheck.ResourceMapEntryUnique
+import ProofCheck.ResourceMapKeySpec
+import ProofCheck.ResourceMapOwnership
+import ProofCheck.ResourceMapSpec
+import ProofCheck.ResourceMapUnique
+import ProofCheck.ResourceMapValid
+import ProofCheck.ResourceMapValues
