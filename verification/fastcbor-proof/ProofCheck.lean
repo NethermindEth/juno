@@ -602,3 +602,17 @@ import ProofCheck.ReceiptRecordComplete
 import ProofCheck.ReceiptRecordSpec
 import ProofCheck.ReceiptRecordUnique
 import ProofCheck.ReceiptValueUnique
+import ProofCheck.ReceiptAPIComplete
+import ProofCheck.ReceiptAPIFull
+import ProofCheck.ReceiptAPIGuard
+import ProofCheck.ReceiptAPIOutcome
+import ProofCheck.ReceiptAPISpec
+import ProofCheck.ReceiptAPIZero
+import ProofCheck.ReceiptGuard
+import ProofCheck.ReceiptPointerAPIComplete
+import ProofCheck.ReceiptPointerAPIFull
+import ProofCheck.ReceiptPointerAPIGuard
+import ProofCheck.ReceiptPointerAPIOutcome
+import ProofCheck.ReceiptPointerAPISpec
+import ProofCheck.ReceiptPointerAPIZero
+import ProofCheck.ReceiptPointerGuard

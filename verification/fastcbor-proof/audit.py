@@ -335,6 +335,39 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_receipt_public_apis": {
+        "implementation": "core/cbor_receipts_generated.go: cborZeroTransactionReceipt, cborClearTransactionReceipt, cborClearTransactionReceiptPointer, DecodeTransactionReceiptFirst, DecodeTransactionReceipt, DecodeTransactionReceiptPointerFirst, DecodeTransactionReceiptPointer",
+        "theorems": [
+            "receiptFirst_classify",
+            "receiptFirst_unique",
+            "receiptFull_classify",
+            "receiptFull_unique",
+            "receiptFull_cleanup",
+            "receiptFull_success",
+            "receiptPointerFirst_classify",
+            "receiptPointerFirst_unique",
+            "receiptPointerFull_classify",
+            "receiptPointerFull_unique",
+            "receiptPointerFull_cleanup",
+            "receiptPointerFull_success",
+            "receiptChildren_zero_iff",
+            "wp_zeroReceipt_owned",
+            "wp_clearReceipt_owned",
+            "wp_clearReceiptPointer_owned",
+            "wp_decodeReceiptFirst_complete",
+            "wp_decodeReceipt_complete",
+            "wp_decodeReceiptPointerFirst_complete",
+            "wp_decodeReceiptPointer_complete"
+        ],
+        "specification_proved": "independent First and full caller relations for value and pointer destinations; every initial value and byte input classified with unique outcomes; nonzero destination guard preserves prior value; successful First returns exact unread suffix; parse failure clears to zero value or nil pointer; full success consumes all bytes and nonempty suffix causes cleanup plus exact extraneous-byte count; parser error offsets bounded including consumed-value boundary for bare FeeUnit overflow",
+        "implementation_proved": "actual nine-field zero guard linked to independent values and nil/allocated-empty distinctions; actual whole-record and pointer cleanup; real cursor construction, complete direct/pointer reader calls and Remaining; both First and both full APIs for every input and owned initial destination, exact original suffix backing pointer/capacity, unchanged input, initialized entry diagnostics, allocated parser errors or bare overflow sentinel propagated unchanged; full trailing-input cleanup and exact Extra field",
+        "ownership_scope": "ReceiptOwned includes exact child ownership and the existing supplied-slot invariant for resource children; ReceiptPointerDestination owns the pointer cell and optional receipt, with nonnil owned record distinct from nil; rejected nonzero guards preserve concrete cells and children; cleanup releases unreachable children under the unchanged garbage-collected model",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "remaining": "shared UTF-8 word-helper/model obligation; transaction, state-update and class public APIs and dependencies remain outside these receipt results, with separate felt-key map model gap; whole-library gate remains open",
+        "scope": "complete conditional public value/pointer API contracts on pinned 64-bit partial-correctness/model-safety semantics; no production Go change or trusted-semantics repair; excludes compiler/runtime correctness, OOM, termination, FX equivalence and strict ignored-CBOR validity"
+    },
     "transaction_receipt": {
         "implementation": "core/cbor_receipts_generated.go: cborReadTransactionReceipt and cborReadTransactionReceiptPointer",
         "theorems": [
@@ -355,7 +388,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "public value/pointer guards, First and full APIs, trailing-input rejection and partial-result cleanup; shared Header UTF-8 helper remains unproved",
+        "remaining": "public value/pointer APIs now composed separately; shared Header UTF-8 helper remains unproved",
         "scope": "complete conditional internal-record and pointer-wrapper contracts under pinned 64-bit partial correctness/model safety; no production Go or trusted-semantics changes; excludes compiler/runtime correctness, OOM, termination, FX equivalence and strict ignored-CBOR validity"
     },
     "transaction_receipt_fields": {
@@ -366,8 +399,8 @@ report = {
         "implementation_proved": "actual struct access/reconstruction and child ownership, including shared resource slots and pointer slices; arbitrary owned prior receipt values; all nine generated field calls realize independently unique complete outcomes with unchanged input, exact suffixes/cursor/depth, full old receipt ownership on failure and owned error/private pointer-record state; initialized nine-field metadata, folded names, encoded order/caches, seen masks and actual NextField valid/duplicate/rejected cases",
         "error_boundary": "ReceiptFieldError preserves the actual GoInterface, not an assumed DecodeError representation; FeeUnit overflow consumes the unsigned value and returns the initialized bare ErrType sentinel with no allocated diagnostic; its numeric offset denotes only the consumed-value boundary, while other failures retain their structured diagnostic position; all represented failures are proved non-nil",
         "unproved_helper_premises": ["Utf8ValidatorContract"],
-        "remaining": "public value/pointer guards, trailing-input handling and partial-result cleanup; internal record and pointer wrapper proved separately",
-        "scope": "complete field-call and key-lookup foundation; internal record and pointer wrapper proved separately, public APIs remain open; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination; production Go and trusted semantics unchanged"
+        "remaining": "shared UTF-8 obligation; complete internal record, pointer wrapper and public APIs proved separately",
+        "scope": "complete field-call and key-lookup foundation; internal record, pointer wrapper and public APIs proved separately; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination; production Go and trusted semantics unchanged"
     },
     "execution_resources": {
         "implementation": "core/cbor_receipts_generated.go: cborReadExecutionResources and cborReadExecutionResourcesPointer",

@@ -144,7 +144,9 @@ shared-block pointer-wrapper contracts with independently unique outcomes. Full
 receipt field contracts, child ownership and key lookup now also check for every
 input. Its full internal record and pointer wrapper now have conditional all-input
 contracts with independently unique outcomes, exact partial state and actual error
-interfaces; public value/pointer API contracts remain open.
+interfaces. Both value and pointer First/full public APIs now also have conditional
+all-input/all-owned-initial-destination contracts, including exact suffix aliasing,
+zero guards, parse-failure cleanup and trailing-input rejection.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6230,3 +6232,65 @@ The claim remains partial correctness and model safety on the pinned 64-bit targ
 excluding compiler/runtime implementation correctness, OOM and termination. It does
 not establish FX equivalence or strict validity of ignored CBOR content, and neither
 the unconditional Header nor whole-library completion gate is closed.
+
+
+## Complete conditional TransactionReceipt public value and pointer APIs
+
+`ReceiptAPISpec.lean` and `ReceiptPointerAPISpec.lean` independently define First
+and full decoding for both public destination forms. Every initial value and byte
+input has a unique outcome. A nonzero value destination or nonnil pointer destination
+is rejected unchanged before parsing. Successful First decoding exposes the exact
+unread suffix; parser failure clears the destination to the zero receipt or nil
+pointer. Full decoding requires an empty suffix and otherwise clears the result
+and reports the exact number of extraneous bytes. Success, cleanup and bounded
+parser-error positions are separately proved. FeeUnit overflow still uses its
+consumed-value boundary, not an invented allocated diagnostic.
+
+`ReceiptGuard.lean` relates every actual field of the nine-field zero guard to the
+independent value. Owned nonnil child records and allocated empty slices differ
+from absent fields, and the guard preserves all concrete cells. Whole-record cleanup
+clears arbitrary partial contents. `ReceiptPointerGuard.lean` establishes the same
+nil/owned-record distinction for the pointer destination and proves actual pointer
+cleanup. These guard and cleanup contracts have no UTF-8 premise.
+
+The `ReceiptAPI*` and `ReceiptPointerAPI*` implementation modules compose the actual
+cursor constructor, complete record or pointer reader, Remaining and public wrapper
+control flow. Both First APIs return the original suffix slice, including its backing
+pointer and capacity, and preserve input ownership. They execute real cleanup after
+parse errors and return the actual allocated diagnostic or bare FeeUnit overflow
+sentinel unchanged. Both full APIs propagate First errors and execute cleanup before
+allocating an initialized trailing-input diagnostic with the exact Extra count.
+Entry categories come from the checked initializer, without an initializer premise.
+
+These contracts cover **all four actual public functions**:
+`DecodeTransactionReceiptFirst`, `DecodeTransactionReceipt`,
+`DecodeTransactionReceiptPointerFirst` and `DecodeTransactionReceiptPointer`.
+Every input and every owned initial destination is covered. The ownership predicates
+retain the previously documented resource-child supplied-slot invariant; this is
+not a claim about arbitrary unowned or aliased heap layouts. Rejected nonzero guards
+preserve the concrete destination and its children. Cleanup drops unreachable child
+ownership under the unchanged garbage-collected model.
+
+**All four API contracts remain conditional on `Utf8ValidatorContract`.** Six new
+implementation composition theorems carry that existing premise; there is no new
+helper assumption. The independent public specifications have no helper-correctness
+premise. The shared Header UTF-8 word-helper/model correction and separate felt-key
+map equality gap remain open. Transaction, state-update and class public readers
+and their remaining dependencies are still unproved. No production Go or trusted
+semantics changed in this checkpoint.
+
+Validation: the full `./check.sh` passed **2,595 build jobs** and audited **2,442
+pilot theorems**, rejecting sorryAx and native-evaluation axioms, with **796
+project/artifact hashes** and **46 stdlib source hashes**. An independent comparison
+against `d52313dee` confirmed exactly **38 added results across 14 new modules**,
+unchanged dependency sets for all 2,404 prior results, unchanged total axiom union,
+and every recorded source hash. Direct UTF-8 premise counts are now 230 validator
+results and 2 word-helper results. Regeneration, manifest/feasibility checks and
+archived performance verification passed. Unchanged Go sources retain the frozen
+ordinary/race/checkptr and performance evidence; the original, baseline and pinned
+Perennial worktrees remain unchanged.
+
+The scope remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime implementation correctness, OOM and termination, with
+no FX-equivalence or strict ignored-CBOR-validity claim. The unconditional Header
+and whole-library gates remain open.
