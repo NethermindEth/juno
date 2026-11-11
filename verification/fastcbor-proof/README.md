@@ -109,11 +109,12 @@ projection now also has complete conditional internal-record and First API
 contracts, with independently unique outcomes. The direct Event record now also
 has conditional all-input/all-owned-initial-value contracts with independently unique
 outcomes. Its enclosing pointer-slice specification is classified and uniquely
-determined. The actual pointer-slice reader now realizes every independent
-successful outcome, including bounded shared storage and fallback allocations;
-null/undefined and outer rejection branches are checked too. Inner-error loop
-propagation and all-input composition remain open. See the latest Event checkpoint
-below and “Checked remaining-entry inventory”.
+determined. The actual pointer-slice reader now has a complete conditional
+all-input contract for arbitrary prior slice headers, including bounded shared
+storage, fallback allocations, private partial failures, initialized diagnostics
+and exact cursor/depth behavior. The receipt-events projection and full receipt
+remain to be composed. See the latest Event checkpoint below and “Checked
+remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -5494,3 +5495,56 @@ admission or native-evaluation axioms. The full check revalidated saved
 compatibility/race/checkptr evidence and the archived passing performance gate
 against unchanged Go sources. Original, baseline and trusted checkouts remain
 clean at their recorded pins. No production Go or trusted semantics changed.
+
+
+## Complete Event pointer-slice implementation contract
+
+`EventPointersRejected.wp_readEventPointers_array_rejected` proves the actual
+rejected loop after any successful element prefix. Its invariant tracks the
+completed pointer table and owned records, unused shared slots, remaining
+independent rejection, and separate consumed/diagnostic offsets. Nil elements
+bypass allocation. Both shared-slot and individual-allocation branches compose
+the actual Event record's rejection contract. The caller's destination remains
+unchanged, while the temporary pointer table, successful records and failed
+partial Event remain privately owned through `EventPointersPartial`. The cursor
+retains the entered outer array and, when applicable, the failed record's map
+level. No partial slice or failed element pointer is published.
+
+`EventPointersReadRejected` composes all outer and inner rejections, deriving
+actual error categories from initialized packages. It preserves the original
+slice header and input, retains exact diagnostics, proves nonwrapping consumed
+and diagnostic positions, and bounds the final depth. Outer failures retain the
+original cursor/depth; inner failures retain the specified progress. Temporary
+allocations may be forgotten by the caller under the garbage-collected model;
+the lower-level loop theorem establishes their precise private ownership first.
+
+`EventPointersComplete.wp_readEventPointers_complete` now covers **every byte
+input at a supported depth and every prior slice header**. It returns the
+independently specified unique outcome, with exact owned successful values and
+suffix or the original destination and owned error. It composes the actual
+success/rejection implementations with independent classification/uniqueness;
+it does not assume the result of parsing. The input remains unchanged on every
+outcome. Nil versus allocated-empty slices and nil versus nonnil-zero Events
+remain distinguished by the ownership contract.
+
+All three new implementation results explicitly retain the existing
+`Utf8ValidatorContract` dependency through Event key decoding. No allocation,
+loop, record-classification or error-initialization premise was introduced.
+This completes the conditional Event pointer-slice helper; the next caller is
+the receipt-events projection (Events plus TransactionHash), including its
+optional tag, first-key-wins scan, destination guard and failure cleanup. Full
+receipt composition, Header's unapproved trusted UTF-8 correction and the
+separate felt-key map model gap remain open. No production Go or trusted
+semantics changed.
+
+Full regeneration and audit passed in
+`check-event-pointer-complete-full.log`: **2396 build jobs, 1688 audited theorems,
+597 project/artifact hashes and 46 directly translated standard-library hashes**.
+Independent verification checked the exact three additions, unchanged dependency
+sets for all 1685 previous theorems, unchanged axiom union and every recorded
+source hash. Direct helper-premise counts are 129 validator results (the three
+new compositions added) and 2 word-helper results. No theorem depends on
+admission or native-evaluation axioms. The full check revalidated saved
+compatibility/race/checkptr evidence and the archived passing performance gate
+against unchanged Go sources. The original, baseline and pinned trusted
+checkouts remain clean at their recorded revisions.

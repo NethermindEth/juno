@@ -31,7 +31,7 @@ theorem wp_eventSharedMin (a b : w64) :
     wp_end
 
 /-- The actual pointer-slice reader allocates and fills its shared backing array
-    for arbitrary nullable felt elements, retaining the exact unread suffix. -/
+    for arbitrary nullable Event elements, retaining the exact unread suffix. -/
 theorem wp_readEventPointers_array (validator : Utf8ValidatorContract (GF := GF)) (c dst : Loc) (old : GoSlice) (v : cursor.Cursor)
     (xs payload rem : List w8) (head : w8) (dq : DFrac) (d : Nat) (count : Nat) (body : List w8) (values : List (Option EventValue))
     (valid : EventPointerItemsValid (d + 1) count body rem values)

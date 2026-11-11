@@ -414,3 +414,6 @@ import ProofCheck.EventPointersOwnership
 import ProofCheck.EventPointersBoundary
 import ProofCheck.EventPointersValid
 import ProofCheck.EventPointersReadValid
+import ProofCheck.EventPointersRejected
+import ProofCheck.EventPointersReadRejected
+import ProofCheck.EventPointersComplete
