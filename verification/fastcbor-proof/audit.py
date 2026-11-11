@@ -259,6 +259,17 @@ report = {
         "pending": "Event record and event-pointer slice specification, ownership, initialization and implementation composition; containing receipt/projection contracts",
         "scope": "complete felt-value slice helper and both typed field readers against the independent Juno application relation, including initialization and outcome uniqueness; not a complete Event or receipt decoder contract; unchanged production Go and trusted semantics; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination",
     },
+    "typed_event": {
+        "implementation": "core/cbor_receipts_generated.go: cborReadEvent and cborReadEventPointers; core/internal/cborreceipts/fields_generated.go: OpenEvent and immutable field table",
+        "specification": ["verification/fastcbor-proof/ProofCheck/EventValues.lean", "verification/fastcbor-proof/ProofCheck/EventKeys.lean", "verification/fastcbor-proof/ProofCheck/EventPairs.lean", "verification/fastcbor-proof/ProofCheck/EventRecordSpec.lean"],
+        "implementation_proofs": ["verification/fastcbor-proof/ProofCheck/EventOwnership.lean", "verification/fastcbor-proof/ProofCheck/EventFieldComplete.lean"],
+        "specification_proved": "independent From/Keys/Data field identities and values; total/unique ASCII-folded name interpretation; all-input field classification with unique successful value/boundary, success/rejection separation, unique error and bounded offsets; selected and ignored values, arbitrary-order pairs with known-field duplicate rejection, unknown repeats, and complete direct Event record all-input classification; pair count and failure position bounds; direct record null/undefined preserves prior Event; later map errors retain partial Event and entered depth; actual unread suffix is explicit in successful field/pair/record relations because felt-value slice acceptance uses a contextual count guard",
+        "proved": "concrete Event struct and child ownership, zero-child state, separate From and Keys/Data field access/update reconstruction; actual cborReadFelt call on From and cborReadFeltValues calls on either slice field have all-input contracts with complete resulting Event ownership, exact values/suffixes, original input, cursor rollback on failure and owned bounded diagnostics; unchanged fields and child allocations remain owned; actual schema/cursor initialization supplies error categories",
+        "theorems": ["wp_event_sender_complete", "wp_event_values_complete", "eventRecord_classify"],
+        "unproved_helper_premises": [],
+        "pending": "receipt-package immutable metadata and initialization; actual OpenEvent/NextField dispatch and generated Event success/failure loop composition; pair/record outcome uniqueness; Event pointer-slice specification, shared allocation and loop; containing receipt/projection contracts",
+        "scope": "complete independent record classification and actual three field-branch contracts, not a complete Event record or pointer-slice implementation proof; eventual key-loop composition retains the separately reported UTF-8 validator dependency; no production Go or trusted semantics change; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination",
+    },
     "typed_boolean": {
         "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
         "specification": "verification/fastcbor-proof/ProofCheck/BoolSpec.lean",

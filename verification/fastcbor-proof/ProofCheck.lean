@@ -385,3 +385,9 @@ import ProofCheck.FeltValuesComplete
 import ProofCheck.FeltValuesTyped
 import ProofCheck.LimbItemsUnique
 import ProofCheck.FeltValuesUnique
+import ProofCheck.EventValues
+import ProofCheck.EventOwnership
+import ProofCheck.EventFieldComplete
+import ProofCheck.EventKeys
+import ProofCheck.EventPairs
+import ProofCheck.EventRecordSpec

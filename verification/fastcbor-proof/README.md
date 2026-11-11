@@ -5202,3 +5202,64 @@ and every recorded source hash. No theorem depends on admission or native-
 evaluation axioms. Saved compatibility/race/checkptr and archived performance
 evidence was revalidated against unchanged Go sources. Original and baseline
 worktrees and the pinned trusted checkout remain clean at their recorded revisions.
+
+## Event specification and complete field-branch contracts
+
+`EventValues` introduces an independent Event value with optional sender felt and
+nullable `Keys`/`Data` felt-value lists. It classifies every selected-field input
+and proves unique successful values/boundaries, success/rejection separation,
+unique errors and bounded diagnostic positions. Unlike the earlier scalar/felt
+record relations, successful Event field decoding explicitly includes the actual
+unread suffix: the felt-value slice's five-byte count guard examines all bytes
+remaining at that point, including later fields and the final record suffix.
+Treating that guard as a property of the consumed field prefix alone would change
+the decoder's acceptance contract.
+
+`EventKeys` defines total and unique ASCII-folded interpretation of `From`, `Keys`
+and `Data`, and lifts the existing complete key relation to those field identities.
+`EventPairs` specifies arbitrary successful and rejected sequences, including
+repeated unknown keys, rejection of repeated known fields, selected-field updates,
+ignored values and failures after any successful prefix. Its successful relation
+threads the actual suffix into each contextual field check. It classifies every
+pair input and proves the two-byte minimum per successful pair and bounded
+consumed/diagnostic positions for failures.
+
+`EventRecordSpec` composes the independent record-opening relation with those
+pairs and classifies every direct Event record input at a supported depth. Direct
+null/undefined preserves the previous Event contents. Successful maps restore the
+caller depth; opening failures consume nothing, while later failures retain the
+partial record and the entered map level. Diagnostic positions are bounded.
+This is a specification/classification result; complete pair/record uniqueness
+and refinement of the generated Event loop remain separate work.
+
+`EventOwnership` connects Event children to the actual translated struct and
+proves field borrowing/reconstruction, updates that retain the other children's
+ownership, and the allocation-free child state of a zero Event. `EventFieldComplete`
+proves the actual `cborReadFelt(c, &dst.From)` call and both
+`cborReadFeltValues(c, &dst.Keys/Data)` calls for every byte input and arbitrary
+owned initial Event. Success owns the complete updated Event with exact values,
+nonwrapping consumption and unread suffix. Failure preserves the entire initial
+Event and cursor, retaining the original owned diagnostic and its bounded inner
+offset. The other child allocations are framed, and error categories come from
+the existing actual schema/cursor initialization proof. These branch contracts
+have no UTF-8 or other assumed helper-correctness premise.
+
+Next work is receipt-package immutable metadata/initialization, actual
+`OpenEvent`/`NextField` dispatch and generated Event success/failure loop
+composition, pair/record outcome uniqueness, then the Event pointer-slice reader's
+specification, bounded shared allocation and loop. The containing receipt and
+projection contracts remain open. Event key-loop composition will retain the
+separately reported UTF-8 dependency; Header's unapplied model correction and the
+felt-key map equality gap are unchanged. No complete Event implementation theorem
+is claimed here, and no production Go or trusted semantics changed.
+
+Full regeneration and audit passed in `check-event-foundation-full.log`: 2370
+build jobs, 1586 audited theorems, 571 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent verification checked the exact
+28 additions, all 1558 prior theorem dependency sets unchanged, unchanged axiom
+union and explicit helper-premise inventory (116 validator and 2 word-helper
+premises), and every recorded source hash. No theorem depends on admission or
+native-evaluation axioms. Saved compatibility/race/checkptr and archived
+performance evidence was revalidated against unchanged Go sources. Original and
+baseline worktrees and the pinned trusted checkout remain clean at their recorded
+revisions.
