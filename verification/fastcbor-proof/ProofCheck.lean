@@ -1335,3 +1335,11 @@ import ProofCheck.StateDiffMapEmptyFields
 import ProofCheck.StateDiffMapNullFields
 
 import ProofCheck.StateMapEmptySpec
+
+import ProofCheck.StateDiffMapFirstKeyFields
+
+import ProofCheck.StateDiffMapFirstValueFields
+
+import ProofCheck.StateDiffStorageInnerFields
+
+import ProofCheck.StateUpdateDiffFields

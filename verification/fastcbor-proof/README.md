@@ -8744,3 +8744,58 @@ loops/public APIs remain open. The felt-key equality repair and Header's separat
 UTF-8/slice-index repair still require explicit approval. This checkpoint does
 not close complete populated-map, unconditional Header or whole-library gates;
 the pinned 64-bit partial-correctness/model-safety boundary is unchanged.
+
+## StateDiff entry errors and StateUpdate pointer-field composition
+
+`StateDiffMapFirstKeyFields` and `StateDiffMapFirstValueFields` now compose the
+actual first-entry map failures at the concrete StateDiff field references.
+All six map fields have first-key failure contracts; the four ordinary felt-map
+fields and MigratedClasses additionally have first-value failure contracts.
+Every theorem restores the complete old `StateDiffOwned` record, including the
+selected map's prior contents and all sibling allocations. Exact consumed bytes,
+nonwrapping diagnostic offsets, one retained map depth and initialized owned
+field diagnostics are preserved. Each postcondition also carries the matching
+independent `StateDiffFieldRejected` fact. Direct keys and migrated-class values
+use `LimbsFailure`; ordinary pointer values use `FeltFailure`, retaining their
+different null/undefined behavior.
+
+`StateDiffStorageInnerFields` integrates the first-inner opening, key and value
+failure contracts at StorageDiffs. These preserve the complete old record while
+retaining one depth level for an inner opening rejection or two for an inner
+entry rejection. Cursor/error offsets match the consumed outer header/key and,
+where applicable, the inner header/key. Inner count representability needed by
+the independent specification is derived from the owned input size and the
+inner count guard, not added as a new caller or helper-correctness premise. The
+actual child and allocation proofs from prior checkpoints remain the basis of
+these field compositions.
+
+`StateUpdateDiffFields` checks the actual StateDiff-pointer call at the enclosing
+StateUpdate field for null/undefined, every zero-count map-head width, and every
+opening rejection. Successful clearing produces `none`; an empty map publishes
+`some stateDiffZero`, distinct from nil. The three scalar felt fields remain
+unchanged, with exact progress/suffix and restored depth. Opening rejection
+preserves the complete old update and its old pointed-to StateDiff, while the
+fresh failed zero record remains private and owned in `StateUpdateFieldFailureOwned`.
+The postconditions include independent `StateUpdateFieldValid/Rejected` facts.
+No enclosing StateDiff or StateUpdate record-loop theorem is claimed here.
+
+Validation: `check-state-entry-integration-full.log` records full regeneration,
+**3,133** build jobs, five audit-parser tests and **4,445** audited results. This
+adds **17** theorems in **four** modules. Independent comparison against `4be34ac9b`
+checks all **4,428** prior theorem dependency sets and the full axiom union
+unchanged, with **1,336** project/artifact and **46** standard-library hashes
+matching disk. Shared direct premise counts remain **447** validator and **two**
+word-helper uses; no new helper assumption, `sorryAx` or native-evaluation
+dependency was introduced. The audit verifies all production field mappings,
+primitive failure distinctions, independent schema correspondence, derived inner
+count bounds, old-child restoration and private failed-child ownership. Go and
+trusted sources remain unchanged, original/baseline pins remain clean, and the
+full check revalidates the frozen performance and saved compatibility evidence.
+
+Successful populated-map insertion and arbitrary later entry iterations/shared
+reserve reuse remain open, along with complete StateDiff/StateUpdate record loops,
+private partial-child composition and public APIs. The felt-key equality model
+repair and Header's independent UTF-8/slice-index repair still require explicit
+approval. The first-entry and pointer base/opening results do not close complete
+map, unconditional Header or whole-library gates; the pinned 64-bit partial-
+correctness/model-safety scope is unchanged.

@@ -738,6 +738,41 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_entry_field_integration": {
+        "implementation_target": "core/cbor_state_generated.go: six StateDiff map-field reader calls and StateUpdate.StateDiff pointer reader call, using the actual core/cbor_state.go entry/nested-map error contracts",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateDiffMapFirstKeyFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffMapFirstValueFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateDiffStorageInnerFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateDiffFields.lean"
+        ],
+        "theorems": [
+            "wp_stateDiff_storage_first_key_failure",
+            "wp_stateDiff_nonces_first_key_failure",
+            "wp_stateDiff_deployed_first_key_failure",
+            "wp_stateDiff_declaredV1_first_key_failure",
+            "wp_stateDiff_replaced_first_key_failure",
+            "wp_stateDiff_migrated_first_key_failure",
+            "wp_stateDiff_nonces_first_value_failure",
+            "wp_stateDiff_deployed_first_value_failure",
+            "wp_stateDiff_declaredV1_first_value_failure",
+            "wp_stateDiff_replaced_first_value_failure",
+            "wp_stateDiff_migrated_first_value_failure",
+            "wp_stateDiff_storage_first_inner_open_rejected",
+            "wp_stateDiff_storage_first_inner_key_failure",
+            "wp_stateDiff_storage_first_inner_value_failure",
+            "wp_stateUpdate_diff_nullish",
+            "wp_stateUpdate_diff_empty",
+            "wp_stateUpdate_diff_open_rejected"
+        ],
+        "state_diff_entry_errors": "first-key failures at all six concrete map fields; first-value failures at the four ordinary felt-map fields and MigratedClasses; exact direct-key/named-value LimbsFailure versus nullable ordinary FeltFailure distinction; complete old StateDiff and all existing selected/sibling child allocations preserved",
+        "storage_nested_errors": "first-inner opening, key and value failures at StateDiff.StorageDiffs; existing child/allocator proofs compose without new correctness premises; one versus two retained map-depth levels, exact consumed bytes and diagnostic offsets, old record ownership restored; inner count representability is derived from owned input and count guard for independent specification correspondence",
+        "state_update_diff_field": "actual StateDiff pointer call at the concrete StateUpdate field: null/undefined clears only that pointer, every zero-count map-head width publishes some stateDiffZero, and every opening rejection preserves the entire old update while owning the failed private zero StateDiff in the field diagnostic",
+        "specification": "every new field theorem includes the matching independent StateDiffFieldRejected or StateUpdateFieldValid/Rejected fact; existing application schemas are unchanged; initialized error ownership, fractional input preservation and exact nonwrapping progress/offset/suffix remain explicit",
+        "unproved_contract_premises": [],
+        "remaining": "successful populated-map insertion and arbitrary later entry iterations/shared-reserve reuse; complete StateDiff/StateUpdate record loops, private partial-child composition and public APIs; felt-key equality and Header UTF-8/slice-index trusted repairs remain separately approval-dependent",
+        "scope": "first-entry/nested-first-entry failure and pointer base/opening field integration; no complete populated-map or StateDiff/StateUpdate implementation claim; unchanged Go/trusted sources and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_map_base_success": {
         "implementation_target": "core/cbor_state.go: ordinary FeltMapFrom/Map empty and Map null wrappers; core/cbor_state_generated.go: all six concrete StateDiff map fields, null/undefined and empty-map success",
         "modules": [
