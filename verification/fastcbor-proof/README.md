@@ -44,7 +44,7 @@ unsigned integers, UTF-8 strings, felts, nested signature slices, and GasPrice;
 BigInt, tagged transaction interfaces, and typed Go maps are later library work.
 Header remains the first complete-record proof milestone. Typed implementation
 work has progressed while its trusted-model repair awaits approval. The
-whole-library performance gate remains mandatory before full-library proofs.
+whole-library performance gate has passed for the recorded candidate Go sources.
 
 The specification is to be independent of fxamacker. RFC 8949 supplies the wire
 rules; the Juno schema supplies the mapping into Go values. CBOR does not specify
@@ -91,13 +91,13 @@ contract to the validator contract is checked. The actual eight-byte generic hel
 remains unproved because of the documented pinned slice-index defect. The proposed
 trusted repair is still unapplied; no unconditional Header proof is claimed.
 
-The full check audits **1070 theorems**, with no admissions or native-evaluation
-axioms. Concrete state-update layouts replace six previously opaque type axioms. The count is not a coverage
-percentage. See “Complete UTF-8 loop reduced to the word helper” below for exact
+The latest full-check evidence is recorded under the performance and signed-integer
+checkpoints below. The theorem count is not a coverage percentage. See
+“Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
-A checked preparatory inventory now records the remaining production destinations
-and all frozen benchmark cases. Five Header projections and the receipt family now have generated typed
-implementations; they do not yet have complete formal decoder contracts. See “Checked remaining-entry inventory” below.
+The checked inventory records all 15 manifested destinations as registered typed
+readers and retains all 185 frozen benchmark IDs. The remaining records do not yet
+have complete formal decoder contracts. See “Checked remaining-entry inventory” below.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -112,7 +112,8 @@ proved under the documented pinned model. See “Complete public BigInt decoder�
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
-performance gate and remaining typed-reader implementation are still open.
+performance gate has also passed, while the remaining complete record proofs
+are still open.
 The same corpus and no-fallback instrumentation checks also pass on both revisions
 with `-race -gcflags=all=-d=checkptr=2`; these are runtime checks, not formal safety
 or performance results.
@@ -126,7 +127,7 @@ or performance results.
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
 | 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration/check passes with 1070 audited theorems, no added axioms, 390 project hashes and 28 standard-library hashes; concrete state types remove six more opaque declarations. The checked entry manifest and saved ordinary/race/checkptr compatibility evidence are included; explicit unresolved premises are reported separately. The state checkpoint changes generated readers and typed map/allocation helpers; final unconditional Header check and the frozen whole-library performance gate remain pending. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration, dependency audit and archived performance verification pass at the checkpoints below. All 15 manifested destinations have typed readers; compatibility evidence includes ordinary/race/checkptr checks. All 177 comparable performance cases pass. Explicit unresolved premises remain reported separately; the final unconditional Header check is still pending. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
@@ -3812,6 +3813,38 @@ source hashes. All theorem dependency sets are unchanged from the class checkpoi
 no admissions, native-evaluation dependencies or trusted semantics changes were
 introduced by the performance tooling. The explicit UTF-8 premise counts remain
 51 validator-dependent and two word-helper-dependent results.
+
+## Complete signed-integer primitive
+
+`Int64Spec.lean` defines the signed integer wire contract independently of the Go
+reader and fxamacker. It allows both integer signs and every supported head width,
+including nonpreferred widths. Both argument ranges are bounded by MaxInt64, so
+the decoded interval includes -2^63 and 2^63-1. The checked classification covers
+every byte sequence, with head faults/truncation taking precedence over type and
+range checks. Successful prefixes have unique values and exact unique suffixes.
+
+`Int64Read.lean` proves the actual translated `Cursor.Int64` branches, using the
+already checked head parser. `Int64Complete.lean` composes these into
+`wp_int64_complete` for every byte input at any valid cursor offset. Success gives
+the specified mathematical signed value and exact nonwrapping consumption.
+Failures return zero with an owned diagnostic, preserve the input and restore the
+original cursor. The proof covers EOF, malformed/incomplete heads, wrong types,
+unsupported tags and overflow; actual cursor initialization supplies error globals.
+No unresolved helper contract is required, and no trusted semantics or Go source
+was changed. The shared error representation has BigInt-prefixed names, but this
+proof executes Int64 directly and does not use BigInt decoding as an oracle.
+
+These fourteen results are a dependency for block-index decoding. Signed arrays,
+integer-key dispatch and the complete BlockTransactionsIndexes record/API proof
+still remain. Header's UTF-8 helper and felt-key map model gaps are unchanged.
+The existing frozen performance evidence remains applicable to the unchanged Go
+sources. The full regeneration and audit (`check-int64-full.log`) pass with
+2204 build jobs, 1090 audited theorems, 408 project/artifact hashes and 46
+standard-library hashes. All 1076 existing theorem dependency sets are unchanged;
+there are no admissions or native-evaluation dependencies. The explicit UTF-8
+premise counts remain 51 validator-dependent and two word-helper-dependent
+results. Both saved compatibility reports and the archived performance decisions
+were rechecked against the current sources.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

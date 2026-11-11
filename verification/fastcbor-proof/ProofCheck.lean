@@ -202,3 +202,6 @@ import ProofCheck.BigIntErrorIs
 import ProofCheck.BigIntPayloadFailure
 import ProofCheck.BigIntFailure
 import ProofCheck.BigIntComplete
+import ProofCheck.Int64Read
+import ProofCheck.Int64Spec
+import ProofCheck.Int64Complete
