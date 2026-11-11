@@ -1,0 +1,23 @@
+--- a/Perennial/Golang/Defn/Array.lean
++++ b/Perennial/Golang/Defn/Array.lean
+@@ -27,0 +28,12 @@
++
++  go_eq_array (n : Int) (elem_type : go.GoType) {V : Type} (v1 v2 : GoArray V n) :
++    ⟦GoOp GoEquals (go.ArrayType n elem_type), (#v1, #v2)⟧ ⤳[under]
++    (if ¬(0 ≤ n ∧ n < 2^63 ∧ (v1.arr.length : Int) = n ∧ (v2.arr.length : Int) = n) then
++      gl(AngelicExit #())
++    else
++      List.foldl (fun cmp_so_far (j : Nat) =>
++        gl(if: cmp_so_far then
++          (Index (go.ArrayType n elem_type) (#v1, #(W64 (j : Int)))) =⟨elem_type⟩
++          (Index (go.ArrayType n elem_type) (#v2, #(W64 (j : Int))))
++        else #false))
++        (#true : Expr) (List.range n.toNat))
+@@ -174 +186,2 @@
+-  ArraySemantics.equals_array ArraySemantics.type_repr_array ArraySemantics.alloc_array
++  ArraySemantics.equals_array ArraySemantics.go_eq_array
++  ArraySemantics.type_repr_array ArraySemantics.alloc_array
+@@ -180 +193,2 @@
+-export ArraySemantics (array_set_step array_length_step equals_array type_repr_array alloc_array
++export ArraySemantics (array_set_step array_length_step equals_array go_eq_array
++  type_repr_array alloc_array

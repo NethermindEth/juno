@@ -8799,3 +8799,44 @@ repair and Header's independent UTF-8/slice-index repair still require explicit
 approval. The first-entry and pointer base/opening results do not close complete
 map, unconditional Header or whole-library gates; the pinned 64-bit partial-
 correctness/model-safety scope is unchanged.
+
+## Array equality repair proposal prepared; trusted model unchanged
+
+The concrete [array-value equality proposal](repros/array-equality-plan.md)
+now includes an unapplied patch, its exact trusted cost, sibling-rule analysis,
+regression criteria and the proof-side integration work needed for felt-key maps.
+It requires its own explicit approval, separate from the pending Header
+generic slice-index repair. No trusted source, pin or tracked Go file changed.
+
+The proposed rule compares elements through their existing Go equality operations
+in index order and short-circuits on the first mismatch. The patch adds one
+semantics rule with registration/export (16 inserted, 2 deleted lines), without
+Goose changes or new opaque helper models. It checks representation lengths using
+the existing array-model convention.
+
+The standalone `repros/ArrayEqualityExpansion.lean` checks only that proposed
+expression under the unchanged model. Its three WP results cover arbitrary four
+word pairs, interface short-circuiting with arbitrary later elements, and float
+delegation. All three report only `propext`, `Classical.choice`, and `Quot.sound`;
+they introduce no equality or `SafeMapKey` correctness premise. They are outside
+the production proof root and are not added to its theorem count. A standalone
+Go witness passes 12 relevant runtime checks, and the existing four-shape map
+witness test passes uncached. The patch passes `git apply --check`; both existing
+model-gap reproducers still fail at the expected obligations.
+
+The investigation also corrected the intended regression target: the original
+equality diagnostic asks for a one-step mathematical-equality result for arbitrary
+Lean array wrappers. A faithful element-wise rule instead needs a multi-step WP
+proof and well-formed array lengths. Map integration will derive four-limb facts
+from the actual decoder/ownership and use restricted admissible keys, rather
+than assuming `SafeMapKey` or exploiting malformed model values. The detailed
+proposal records that remaining work. No populated-map or unconditional Header
+milestone is closed by these preparation checks.
+
+Validation: `check-array-proposal-full.log` records a successful full check (3133
+jobs, 4445 audited production results). Independent comparison confirmed every
+prior theorem dependency set, all 1336 project/artifact hashes, all recorded
+helper premises and all other audit metadata are unchanged. The original,
+benchmark baseline and pinned framework worktrees remain clean at their recorded
+revisions. The saved performance/compatibility evidence was revalidated; no
+timing rerun was needed because the measured Go sources are unchanged.
