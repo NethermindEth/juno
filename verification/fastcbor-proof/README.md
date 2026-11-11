@@ -7113,3 +7113,57 @@ slice-index model repair, the actual word-helper proof and removal of that
 premise. Felt-key maps retain the separate array-equality modeling gap. This is
 pinned 64-bit partial correctness/model safety, excluding compiler/runtime
 correctness, OOM and termination; the whole-library goal remains open.
+
+## State and class metadata initialization and opening checkpoint
+
+All remaining state/class lookup-table initializers and record-opening wrappers
+are now checked against the actual translated production functions. This covers
+StateDiff and StateUpdate, plus DeprecatedEntryPoint, DeprecatedCairoClass,
+SierraEntryPoint, SierraEntryPointsByType, CasmEntryPoint, SegmentLengths,
+CasmClass and SierraClass. It does **not** prove those records' payload decoders.
+
+`StateMetadata.lean` and `ClassMetadata.lean` record exact field names, cached
+words/masks, encoded keys, indexes and selection bits, together with immutable
+global and backing-slice ownership. Checked certificates establish that entries
+agree with the recorded names, names fit the selection-mask width, and names are
+distinct under ASCII case folding. `StateTable.lean` and `ClassTable.lean` also
+check ASCII names, search-head ordering, nonempty prefix-separated encodings,
+cached-word correctness and inline field/index correspondence for every table.
+These are concrete metadata certificates; an independent application-level
+payload specification remains necessary for the subsequent record proofs.
+
+`StateFields.lean` and `ClassFields.lean` prove all ten actual allocation factories
+and immutable sharing. `StateInitialize.lean` and `ClassInitialize.lean` prove
+actual package startup, including global allocation, the checked cursor dependency,
+factory calls and publication, and expose table ownership to later readers.
+Modeled runtime CPU startup remains a precondition, as in the earlier metadata
+initialization proofs; unrelated core, router and registry startup are excluded.
+No initializer or helper-correctness premise is added.
+
+`StateOpen.lean` and `ClassOpen.lean` prove that each actual opening wrapper obtains
+its own published table and initialized error categories and realizes the complete
+null/map/rejection contract for every input at supported cursor depth. Input
+ownership, cursor effects and error ownership come from the checked `OpenStruct`
+contract. Opening a record does not parse its field keys or values, so these
+results require neither UTF-8 helper premise.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,791 Lean
+build jobs, auditing 3,240 results, 992 project/artifact hashes and 46 standard-library
+source hashes. An independent audit checked exactly 48 additions in ten modules,
+unchanged dependency sets for all 3,192 prior results, an unchanged axiom union,
+every recorded hash and the absence of new unresolved helper premises. Direct
+unresolved premises remain 319 for `Utf8ValidatorContract` and two for
+`Utf8WordWindowContract`. No result depends on `sorryAx` or native evaluation
+axioms. Saved compatibility and frozen performance evidence was revalidated;
+production Go and trusted semantics remain unchanged.
+
+Next: independent class payload specifications and typed ownership/field contracts,
+starting with entry-point records, then slices, enclosing/recursive records,
+class dispatch and public APIs. State payload/map ownership and public APIs also
+remain open; actual felt-keyed map updates still encounter the separate pinned
+array-equality model gap. Header and other text-dependent records still require
+the separately approved slice-index repair, the real UTF-8 word-helper proof and
+removal of the validator premise. These metadata results do not close either
+Header or whole-library completion. The claim remains pinned 64-bit partial
+correctness/model safety, excluding compiler/runtime correctness, OOM and
+termination; no formal FX equivalence or blanket ignored-CBOR validity is claimed.

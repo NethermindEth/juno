@@ -703,6 +703,104 @@ report = {
         "remaining": "transaction fields, record loops, ResourceBounds map, tag dispatch, transaction-hash projection and public API composition",
         "scope": "byte-decoding correctness, not semantic validation of named DA modes or Starknet transaction versions; pinned 64-bit partial correctness/model safety; no production Go or trusted-model change; compiler/runtime correctness, OOM and termination excluded"
     },
+    "state_metadata": {
+        "implementation": "core/internal/cborstate/fields_generated.go: all 2 factories, globals, initialize and Open wrappers",
+        "schemas": [
+            "StateDiff",
+            "StateUpdate"
+        ],
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateMetadata.lean",
+            "verification/fastcbor-proof/ProofCheck/StateFields.lean",
+            "verification/fastcbor-proof/ProofCheck/StateInitialize.lean",
+            "verification/fastcbor-proof/ProofCheck/StateOpen.lean",
+            "verification/fastcbor-proof/ProofCheck/StateTable.lean"
+        ],
+        "theorems": [
+            "stateKeys_valid",
+            "stateNames_small",
+            "stateNames_distinct",
+            "wp_makeStateDiffFields",
+            "wp_makeStateDiffFields_shared",
+            "wp_makeStateUpdateFields",
+            "wp_makeStateUpdateFields_shared",
+            "stateTable_publish",
+            "wp_state_initialize",
+            "state_initialized_metadata",
+            "state_initialized_table",
+            "wp_openState_complete",
+            "stateFieldNames_ascii",
+            "stateFieldHeads_ordered",
+            "stateFieldEncodings_nonempty",
+            "stateFieldEncodings_apart",
+            "stateCachedShortTable",
+            "stateInlineFieldTable"
+        ],
+        "metadata_proved": "exact literal names, encoded keys, cached words/masks, indexes and selection bits; ASCII names distinct under ASCII case folding, within the mask width; nonempty pairwise prefix-separated encodings, ordered search heads, complete cached-word and inline-index certificates for every table",
+        "implementation_proved": "actual factory allocation and shared immutable storage; actual package initialization constructs and publishes all 2 tables with a checked cursor dependency; opening wrappers obtain their own actual global table and initialized error objects and satisfy the complete null/map/rejection contract for every byte input at supported cursor depth",
+        "initialization_boundary": "modeled runtime CPU startup remains a precondition; unrelated core/router/registry startup excluded; no initialization or helper-correctness premise",
+        "unproved_helper_premises": [],
+        "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
+        "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
+    "class_metadata": {
+        "implementation": "core/internal/cborclasses/fields_generated.go: all 8 factories, globals, initialize and Open wrappers",
+        "schemas": [
+            "DeprecatedEntryPoint",
+            "DeprecatedCairoClass",
+            "SierraEntryPoint",
+            "SierraEntryPointsByType",
+            "CasmEntryPoint",
+            "SegmentLengths",
+            "CasmClass",
+            "SierraClass"
+        ],
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/ClassMetadata.lean",
+            "verification/fastcbor-proof/ProofCheck/ClassFields.lean",
+            "verification/fastcbor-proof/ProofCheck/ClassInitialize.lean",
+            "verification/fastcbor-proof/ProofCheck/ClassOpen.lean",
+            "verification/fastcbor-proof/ProofCheck/ClassTable.lean"
+        ],
+        "theorems": [
+            "classKeys_valid",
+            "classNames_small",
+            "classNames_distinct",
+            "wp_makeDeprecatedEntryPointFields",
+            "wp_makeDeprecatedEntryPointFields_shared",
+            "wp_makeDeprecatedCairoClassFields",
+            "wp_makeDeprecatedCairoClassFields_shared",
+            "wp_makeSierraEntryPointFields",
+            "wp_makeSierraEntryPointFields_shared",
+            "wp_makeSierraEntryPointsByTypeFields",
+            "wp_makeSierraEntryPointsByTypeFields_shared",
+            "wp_makeCasmEntryPointFields",
+            "wp_makeCasmEntryPointFields_shared",
+            "wp_makeSegmentLengthsFields",
+            "wp_makeSegmentLengthsFields_shared",
+            "wp_makeCasmClassFields",
+            "wp_makeCasmClassFields_shared",
+            "wp_makeSierraClassFields",
+            "wp_makeSierraClassFields_shared",
+            "classTable_publish",
+            "wp_class_initialize",
+            "class_initialized_metadata",
+            "class_initialized_table",
+            "wp_openClass_complete",
+            "classFieldNames_ascii",
+            "classFieldHeads_ordered",
+            "classFieldEncodings_nonempty",
+            "classFieldEncodings_apart",
+            "classCachedShortTable",
+            "classInlineFieldTable"
+        ],
+        "metadata_proved": "exact literal names, encoded keys, cached words/masks, indexes and selection bits; ASCII names distinct under ASCII case folding, within the mask width; nonempty pairwise prefix-separated encodings, ordered search heads, complete cached-word and inline-index certificates for every table",
+        "implementation_proved": "actual factory allocation and shared immutable storage; actual package initialization constructs and publishes all 8 tables with a checked cursor dependency; opening wrappers obtain their own actual global table and initialized error objects and satisfy the complete null/map/rejection contract for every byte input at supported cursor depth",
+        "initialization_boundary": "modeled runtime CPU startup remains a precondition; unrelated core/router/registry startup excluded; no initialization or helper-correctness premise",
+        "unproved_helper_premises": [],
+        "remaining": "independent class payload specifications, entry-point and recursive records, slice/JSON-byte/BigInt ownership and field composition, tagged dispatch and public APIs",
+        "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "transaction_metadata": {
         "implementation": "core/internal/cbortransactions/fields_generated.go: all seven factories, globals, initialize and Open wrappers",
         "schemas": [
@@ -944,7 +1042,7 @@ report = {
         "json_boundary": "the active Go 1.27 encoding/json.RawMessage alias and encoding/json/jsontext.Value byte-slice type are translated from build-selected sources; CBOR decoding treats these as bytes and does not call JSON parsing or validation methods",
         "json_opaque_type_dependencies": sorted({ax for xs in found.values() for ax in xs if ax.startswith("Perennial.encoding.json.")}),
         "json_opaque_boundary": "Goose package Assumptions also mention unrelated JSON package types, so their generated opaque type/underlying/zero declarations occur in theorem dependencies; they are reported explicitly, not treated as proved layouts. The RawMessage alias and Value slice used by the decoder are concrete. No JSON method implementation or correctness contract is assumed",
-        "proof_status": "translated concrete layouts and implementations; complete independent class specifications, recursive and slice ownership contracts, metadata initialization and public API proofs remain open",
+        "proof_status": "translated concrete layouts and implementations; all eight actual metadata factories, initializer, immutable publication, complete record-opening wrappers and table search/cache certificates checked; independent class payload specifications, recursive and slice ownership contracts and public API proofs remain open",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_state_update": {
@@ -955,7 +1053,7 @@ report = {
         "entries": ["StateUpdate"],
         "behavior": "typed StateUpdate/StateDiff field dispatch; ordinary Go felt-keyed maps; last duplicate map key replaces the complete prior value; nil/empty/nested map and pointer distinctions; shared value arrays across inner storage maps with a typed append/make specialization of the planner's slices.Grow(nil, n) capacity policy; fixed-array pointer conversions for migrated class hashes; zero guard, exact suffix, owned output and cleanup",
         "growth_boundary": "pinned slices library has no translated Grow body; the production helper instead uses its equivalent positive-count nil-slice append/make path, directly translated with the decoder; no trusted library body or assumed Grow contract was added",
-        "proof_status": "translated implementations and concrete layouts; complete independent state/map specifications, buffer ownership/growth, metadata initialization and public APIs remain open; the pinned array-value equality gap still blocks felt-key map proofs",
+        "proof_status": "translated implementations and concrete layouts; both actual metadata factories, initializer, immutable publication, complete record-opening wrappers and table search/cache certificates checked; independent state/map specifications, buffer ownership/growth, record and public APIs remain open; the pinned array-value equality gap still blocks felt-key map proofs",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_transactions": {
@@ -1086,7 +1184,7 @@ report = {
         "decoder_preconditions": "schema initialization supplies cursor/tables/primitive errors; cborerr initialization supplies public-API errors where read; no core or fastcbor initialization premise",
         "runtime_precondition": "internal/cpu is marked initialized in the modeled package state, which retains arbitrary immutable HasADX and HasBMI2 flag values",
         "excluded": "hardware probing, runtime creation of that initial state, unrelated core/planner startup, routing/registration and diagnostic formatting",
-        "pending": "initialization for future whole-library extensions; no unproved initializer WP premise remains for the Header decoder dependencies",
+        "pending": "state/class payload composition remains open; actual state/class metadata initialization and opening wrappers now checked alongside Header, projections, receipts and transactions; no unproved initializer WP premise for these metadata packages",
         "sentinel_boundary": "exported sentinel variables are read-only; fastcbor reexports their initial canonical values and aliases DecodeError; mutation of those variables is outside the contract",
         "pinned_fmt_type_placeholders": ["fmt.pp", "fmt.readRune"],
     },
@@ -1145,7 +1243,7 @@ report = {
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface payload contracts now compose; class-interface witnesses are checked but do not prove class payload decoding; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. The receipt execution-status projection has complete conditional record and First contracts; the receipt-events projection now also has complete conditional record and First contracts, including nested Event failure depth/consumption, independent outcome uniqueness, initialized categories, guards, cleanup and exact suffix. Full receipt and transaction public API contracts and the transaction hash projection First contract are now checked conditional on the shared UTF-8 premise; complete state-update/class decoder contracts remain open. Transaction and class decoding take explicit tag profiles; their connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables, and receipt payload-table initialization and opening wrappers for all eight tables; transaction payload-table initialization is also checked, while state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface payload contracts now compose; class-interface witnesses are checked but do not prove class payload decoding; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. The receipt execution-status projection has complete conditional record and First contracts; the receipt-events projection now also has complete conditional record and First contracts, including nested Event failure depth/consumption, independent outcome uniqueness, initialized categories, guards, cleanup and exact suffix. Full receipt and transaction public API contracts and the transaction hash projection First contract are now checked conditional on the shared UTF-8 premise; complete state-update/class decoder contracts remain open. Transaction and class decoding take explicit tag profiles; their connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables, and receipt payload-table initialization and opening wrappers for all eight tables; transaction, state and class payload-table initialization and opening wrappers are also checked; complete state/class payload decoding remains open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

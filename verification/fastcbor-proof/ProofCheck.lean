@@ -802,3 +802,13 @@ import ProofCheck.TransactionHashScanDecompose
 import ProofCheck.TransactionHashScanSpec
 import ProofCheck.TransactionHashTagBoundary
 import ProofCheck.TransactionHashValues
+import ProofCheck.StateMetadata
+import ProofCheck.StateFields
+import ProofCheck.StateInitialize
+import ProofCheck.StateOpen
+import ProofCheck.StateTable
+import ProofCheck.ClassMetadata
+import ProofCheck.ClassFields
+import ProofCheck.ClassInitialize
+import ProofCheck.ClassOpen
+import ProofCheck.ClassTable
