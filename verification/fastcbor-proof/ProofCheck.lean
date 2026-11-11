@@ -1097,3 +1097,35 @@ import ProofCheck.SierraClassValueUnique
 import ProofCheck.SierraClassValues
 
 import ProofCheck.SierraEntriesAllocated
+
+import ProofCheck.ClassAPIComplete
+
+import ProofCheck.ClassAPIFull
+
+import ProofCheck.ClassAPIGuard
+
+import ProofCheck.ClassAPIOutcome
+
+import ProofCheck.ClassAPISpec
+
+import ProofCheck.ClassAPIZero
+
+import ProofCheck.ClassComplete
+
+import ProofCheck.ClassDeprecatedDispatch
+
+import ProofCheck.ClassDispatchBoundary
+
+import ProofCheck.ClassDispatchSpec
+
+import ProofCheck.ClassDispatchUnique
+
+import ProofCheck.ClassOwnership
+
+import ProofCheck.ClassPayloadSpec
+
+import ProofCheck.ClassResultSpec
+
+import ProofCheck.ClassSierraDispatch
+
+import ProofCheck.ClassTagProfile

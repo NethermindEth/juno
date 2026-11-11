@@ -158,9 +158,11 @@ private partial ownership and old-destination preservation. All five direct tran
 conditional all-input/all-owned-prior-value contracts, including embedded
 DeployAccount field access. The enclosing tagged interface now has an independent
 all-input/unique specification and checked actual success/rejection branches for
-all five variants, plus nullish, malformed-tag and unknown-tag branches. A unified
-all-input interface WP, public API composition and transaction hash projection
-remain open.
+all five variants, plus nullish, malformed-tag and unknown-tag branches. The unified all-input interface contract, both public transaction APIs and the
+transaction hash projection First API are now checked conditional on UTF-8.
+Both class variants, their nested dependencies, actual tag dispatch and public
+First/full class APIs now also compose under that same premise. StateUpdate
+remains the production root without a complete composed decoder contract.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -2816,7 +2818,7 @@ Production Go, the trusted semantics pin and the formal scope are unchanged.
 Termination, compiler/runtime correctness and performance remain separate; the
 frozen 185-case performance gate has not run.
 
-### Checked remaining-entry inventory (preparatory)
+### Checked remaining-entry inventory
 
 `results/entry-manifest.json` is now generated and checked by
 `cmd/entrymanifest`. It scans all **154 build-selected repository packages** with
@@ -2827,7 +2829,7 @@ explicit in the artifact. Package import aliases do not hide concrete roots.
 
 The result has **14 production destination types**, plus **1 benchmark-only
 destination**, **140 structural Go shapes**, **18 ordered registry entries**, and
-all **185 frozen benchmark case IDs**. Header, its five projections and block indexes have registered typed readers.
+all **185 frozen benchmark case IDs**. All 15 destinations have registered typed readers.
 The seven variants reachable from the two production interfaces are five transaction
 variants and two class variants. The other registry entries are recorded, without
 silently expanding the fast production-root scope to trie journals or consensus WAL.
@@ -2835,13 +2837,13 @@ silently expanding the fast production-root scope to trie journals or consensus 
 | Destination group | Entries | Remaining decoder work |
 | --- | ---: | --- |
 | `Header` | 1 | Discharge the actual UTF-8 word-helper premise; the full API composition is checked conditionally |
-| Header projections | 5 | Typed implementation and static metadata generated; prove projection/NextWanted semantics, table initialization and selected output ownership |
-| Receipt pointer and receipt projections | 3 | `*TransactionReceipt`, events and execution-status projections; nested records/slices, bool/string handling and cleanup |
-| `Transaction` and hash projection | 2 | Five registered pointer variants, version/felt representation, resource-bounds map and projection tag behavior |
+| Header projections | 5 | All five First API contracts checked conditionally; shared UTF-8 premise remains |
+| Receipt pointer and receipt projections | 3 | Complete pointer and both projection API contracts checked conditionally; shared UTF-8 premise remains |
+| `Transaction` and hash projection | 2 | Five payloads, distinct-tag dispatch, public APIs and hash projection First checked conditionally; shared UTF-8 premise remains |
 | `StateUpdate` | 1 | Felt-key maps, nested storage-diff maps, migrated-class typed felt keys/values, allocations and duplicate/error policy |
-| `ClassDefinition` | 1 | Two registered variants, recursive `SegmentLengths`, raw JSON values and felt slices; public BigInt dependency now proved |
-| `BlockTransactionsIndexes` | 1 | Typed integer-key record and signed `[]int` implementation generated; independent relations and complete API proofs remain open |
-| `TransactionReceipt` by value | 1 benchmark-only | Preserve the historical destination type instead of conflating it with the production pointer root |
+| `ClassDefinition` | 1 | Both payloads and dependencies, distinct-tag dispatch and First/full APIs checked conditionally; shared UTF-8 premise remains |
+| `BlockTransactionsIndexes` | 1 | Independent unique record/API relations and First/full contracts checked conditionally; shared UTF-8 premise remains |
+| `TransactionReceipt` by value | 1 benchmark-only | Separate value-destination First/full contracts checked conditionally; shared UTF-8 premise remains |
 
 The four map shapes are `map[Resource]ResourceBounds`, `map[felt.Felt]*felt.Felt`,
 `map[felt.Felt]map[felt.Felt]*felt.Felt`, and
@@ -7929,3 +7931,66 @@ Header nor whole-library completion is claimed; the pinned 64-bit partial-
 correctness/model-safety boundary still excludes compiler/runtime implementation
 correctness, OOM and termination, FX equivalence and blanket validity of ignored
 CBOR content.
+
+## Complete class dispatch and public API checkpoint
+
+Both `DecodeClassDefinitionFirst` and `DecodeClassDefinition` now have checked
+contracts for every byte input and every owned initial interface destination,
+against independent `ClassFirstSpec` and `ClassFullSpec`. The contracts remain
+conditional on `Utf8ValidatorContract` through class payload/key decoding and
+require an explicit distinct `CBORClassTags` profile. They cover the actual
+translated production APIs, not only interface boxing witnesses or fixed inputs.
+
+`ClassTagProfile.lean` defines the two variants and proves that its distinctness
+condition is exactly inequality of the DeprecatedCairoClass and SierraClass tag
+fields. Numeric assignments, registry capture/validation, routing and fallback
+remain outside the decoder proof boundary. Independent payload and dispatch
+relations classify every input, distinguish untagged null/undefined from a
+required tag, and give unique values, suffixes and exact failure outcomes for a
+distinct profile. Successful tagged null payloads allocate a nonnil zero concrete
+class; untagged null/undefined clears the interface. The tag itself does not
+increment record depth.
+
+The actual switch branches allocate the correct concrete record from zero and
+publish its correctly typed interface only after payload success. Malformed tags
+preserve the old interface and cursor. Unknown tags consume the complete tag and
+return the actual initialized bare unsupported sentinel. Failed recognized
+payloads preserve the caller's old interface and retain ownership of the private
+partial class, including nested failed Compiled allocations, recursive segments,
+exact retained cursor/depth and initialized diagnostics. The complete dispatcher
+has an independently unique specified outcome at supported depth.
+
+The public contracts compose actual guard rejection, cursor construction,
+dispatch, Remaining, cleanup and trailing-byte rejection. Any nonnil initial
+interface, including a typed nil pointer or an unrelated dynamic type, is rejected
+unchanged before input access. First returns the original unread input slice,
+including backing pointer and capacity, on success; it returns a nil suffix on
+error. Full decoding accepts only an empty suffix and clears an otherwise
+successful value before reporting the exact trailing length. Both APIs preserve
+input ownership and retain owned output/errors. Pure classification, uniqueness,
+success and cleanup results are checked for both public specifications.
+
+Validation: `check-class-api-full.log` records a successful **3,026-job** full
+regeneration/build and **4,085** audited results. This checkpoint adds **35**
+results in **16** modules. A separate comparison against `23621a3bc` checked all
+4,050 prior theorem dependency sets and the complete axiom union unchanged;
+all **1,229** project/artifact hashes and **46** standard-library source hashes
+match disk. Nine additional direct uses of the existing UTF-8 premise bring the
+counts to **441** validator premises and **two** word-helper premises. No result
+depends on `sorryAx` or native evaluation axioms. The independent audit compared
+both production switch arms, fresh allocations, private failure ownership,
+public theorem targets/preconditions, guard/cleanup and suffix aliasing. Current
+class status and initialization/caveat metadata now report the completed
+conditional APIs. No production Go or trusted semantics changed; original and
+baseline pins remain clean, with the frozen 177-case performance pass and
+archived compatibility checks still applicable.
+
+Next: StateUpdate payload and map contracts, including the separate felt-key
+array-equality modeling gap. The shared UTF-8 premise still requires the
+separately approved slice-index model correction and actual word-helper proof.
+Header and whole-library completion remain open. Class decoding does not assert
+hash consistency, ABI/JSON or semantic-version syntax, prime choice,
+bytecode/segment consistency or executable validity. The pinned 64-bit claim
+remains partial correctness and model safety, excluding compiler/runtime
+implementation correctness, OOM and termination, FX equivalence and blanket
+validity of ignored CBOR content.
