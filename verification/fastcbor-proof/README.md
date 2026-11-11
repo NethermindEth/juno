@@ -4886,8 +4886,9 @@ read-only global ownership alongside the outcome. These results require **no
 unproved helper contract**, including no UTF-8 premise.
 
 This closes the Boolean dependency needed by the receipt execution-status
-projection and full receipt. Their field ownership, record loops and API
-composition are still outstanding. Header remains conditional on its existing
+projection and full receipt. At this checkpoint their field ownership, record
+loops and API composition remained outstanding; the projection field and map-loop
+work follows below. Header remains conditional on its existing
 UTF-8 word-helper/model issue; the felt-key map model gap is unchanged. No Go
 source or pinned trusted semantics changed.
 
@@ -4899,3 +4900,52 @@ union and unresolved-premise inventory, and every recorded hash. There are no
 admission or native-evaluation dependencies. Saved compatibility, race/checkptr
 and performance evidence was revalidated against the unchanged Go sources;
 the original and baseline worktrees remain clean at their recorded revisions.
+
+### Receipt execution-status projection fields and map loops
+
+`ReceiptStatusValues.lean` gives independent identities, values and field outcomes
+for `Reverted` and `RevertReason`, including preservation of arbitrary prior values
+on null/undefined. It proves field classification, nonempty successful encodings,
+unique successful values and boundaries, success/rejection separation and unique
+rejection reasons. `ReceiptStatusPairs.lean` interprets pairs in wire order with
+the projection's first-duplicate-wins policy. `ReceiptStatusRecord.lean` adds the
+opening and optional-tag policies and proves classification for every byte input.
+`ReceiptStatusBounds.lean` bounds both retained parser and diagnostic positions.
+These independent specification results have no implementation-helper premise.
+
+`ReceiptStatusOwnership.lean` covers every actual translated Go destination,
+including arbitrary existing string bytes. It proves that the embedded discarded
+receipt skeleton has no state, supplies concrete field access/reconstruction, and
+checks the actual generated zero guard and whole-struct clear.
+`ReceiptStatusFieldRead.lean` and `ReceiptStatusFieldComplete.lean` connect both
+actual field calls to the independent relations: success preserves the other
+field and exact suffix; failure preserves the whole projection and cursor while
+owning the actual diagnostic. Initialization supplies the error categories.
+
+The `ReceiptStatusScanSpec`, `ReceiptStatusScanDecompose` and
+`ReceiptStatusRejectDecompose` modules connect per-pair interpretation to batched
+`NextWanted` scanning in both directions. `ReceiptStatusMap.lean` and
+`ReceiptStatusMapRejected.lean` then prove the actual generated map loop for all
+specified successful and rejected pair sequences, after any accepted optional
+tag. The proofs cover arbitrary field order and existing owned values, ignored
+and duplicate fields, nested skipped content and unread suffixes. Successful maps
+restore the outer depth; rejected maps retain earlier published fields, the open
+map depth and exact cursor/diagnostic positions. The already-proved projection
+initialization provides the actual immutable metadata table.
+
+**These field and loop contracts remain conditional on
+`Utf8ValidatorContract`.** Record-level uniqueness, the early-return branches and
+complete internal/public First API composition are next; this checkpoint does
+not claim a complete receipt projection API theorem. The other receipt families,
+Header's UTF-8 word-helper issue and the felt-key map model gap remain open. No Go
+source or trusted semantics changed, and no new helper assumption was introduced.
+
+Full regeneration and audit pass in `check-receipt-status-maps-full.log`: 2322
+build jobs, 1469 audited theorems, 526 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact 46 new
+results, unchanged dependencies for every prior theorem, the unchanged axiom union
+and every recorded hash. Seven new contracts use the existing validator premise
+(110 direct results total); the two word-helper results are unchanged. No theorem
+depends on admissions or native evaluation axioms. Saved compatibility,
+race/checkptr and performance evidence was revalidated against unchanged Go
+sources. Original/baseline worktrees remain clean at their recorded revisions.

@@ -319,6 +319,18 @@ report = {
         "proof_status": "translated concrete layouts and implementations; complete independent transaction/map/projection specifications, helpers, initialization and API contracts remain open",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
+    "receipt_execution_status_projection": {
+        "implementation": "core/cbor_receipt_projections_generated.go: cborReadReceiptExecutionStatusProjection",
+        "specification": ["verification/fastcbor-proof/ProofCheck/ReceiptStatusValues.lean", "verification/fastcbor-proof/ProofCheck/ReceiptStatusPairs.lean", "verification/fastcbor-proof/ProofCheck/ReceiptStatusRecord.lean"],
+        "ownership": "verification/fastcbor-proof/ProofCheck/ReceiptStatusOwnership.lean",
+        "field_contracts": "verification/fastcbor-proof/ProofCheck/ReceiptStatusFieldComplete.lean",
+        "map_contracts": ["verification/fastcbor-proof/ProofCheck/ReceiptStatusMap.lean", "verification/fastcbor-proof/ProofCheck/ReceiptStatusMapRejected.lean"],
+        "specification_proved": "all-input field/pair/body/record classification; unique field values and boundaries, field success/rejection separation and rejection uniqueness; bounded error/consumption positions; exact successful/rejected NextWanted scan decomposition and composition with independent per-pair interpretation",
+        "implementation_proved": "actual layout covers every initial destination including arbitrary old string bytes; concrete field borrowing preserves other fields and embedded skeleton; actual zero guard and clear; all-input Boolean/string field calls; actual successful/rejected map loops after any supported optional tag, arbitrary field order, unknown and duplicate fields, exact suffix on success and retained fields/cursor/diagnostic on rejection; existing initialized projection table supplies actual metadata",
+        "unproved_contract_premises": ["Utf8ValidatorContract"],
+        "remaining": "record-level outcome uniqueness, early-return branches and complete internal/public First API composition; no complete receipt projection API theorem yet",
+        "scope": "partial correctness and model safety on the pinned 64-bit semantics; no new helper premise, production Go change, trusted semantics change or broader receipt-family proof",
+    },
     "typed_receipts": {
         "generator": "utils/cbor/cmd/cborgen/receipts.go",
         "implementation": "core/cbor_receipts_generated.go",
@@ -326,7 +338,7 @@ report = {
         "metadata": ["core/internal/cborreceipts/fields_generated.go", "core/internal/cborprojections/receipts_generated.go"],
         "entries": ["TransactionReceipt", "*TransactionReceipt", "receiptExecutionStatusProjection", "receiptEventsProjection"],
         "behavior": "typed nested records, felt-value slices, bool/string/byte-backed FeeUnit and fixed byte-array addresses; bounded shared event/message slice storage; execution resource children allocated with their parent; original full-record duplicate rejection and projection first-wins policy; zero guards, exact suffix, owned output and failure cleanup",
-        "proof_status": "translated implementations and concrete layouts; complete independent receipt specifications, nested slice/record contracts, table initialization and public API proofs remain open",
+        "proof_status": "translated implementations and concrete layouts; execution-status projection now has independent all-input classification, owned fields/guards/cleanup and conditional actual successful/rejected map-loop contracts; projection metadata initialization was already checked; its full record/API composition and the other receipt specifications, nested slice/record contracts, receipt-record table initialization and public API proofs remain open",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_block_indexes": {
