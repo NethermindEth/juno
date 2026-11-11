@@ -94,6 +94,63 @@ utf8_word_conditional_theorems = sorted(
     if re.search(r"\(\s*\w+\s*:\s*Utf8WordWindowContract\b", signature)
 )
 
+# Cross-reference current root contracts separately from the frozen Go inventory.
+# This checks the index's evidence links; Lean checks the referenced statements.
+root_contract_index = json.loads((here / "root-contracts.json").read_text())
+inputs.append(here / "root-contracts.json")
+if root_contract_index["inventory"] != "verification/fastcbor-proof/results/entry-manifest.json":
+    sys.exit("root contract index references a different inventory")
+indexed_roots = root_contract_index["roots"]
+inventory_types = {root["type"] for root in entry_manifest["roots"]}
+if len(indexed_roots) != len(inventory_types) or {root["type"] for root in indexed_roots} != inventory_types:
+    sys.exit("root contract index differs from the frozen entry inventory")
+for root in indexed_roots:
+    go_source = (repo / root["go_source"]).read_text()
+    destination = ("*" if root["type"].startswith("*") else "") + root["type"].rsplit(".", 1)[1]
+    if not root["apis"] or len(set(root["apis"])) != len(root["apis"]):
+        sys.exit(f"missing or duplicate root APIs: {root['type']}")
+    for api in root["apis"]:
+        declaration = re.search(r"^func " + re.escape(api) + r"\([^\n]*", go_source, re.M)
+        destination_pattern = r"\bdst \*" + re.escape(destination) + r"(?=[,)])"
+        if declaration is None or not re.search(destination_pattern, declaration.group()):
+            sys.exit(f"root API/destination mismatch: {root['type']} {api}")
+    if root["status"] == "conditional_general_contract":
+        if {contract["api"] for contract in root["contracts"]} != set(root["apis"]):
+            sys.exit(f"missing root API contract: {root['type']}")
+        if len(root["contracts"]) != len(root["apis"]) or root["unproved_contract_premises"] != ["Utf8ValidatorContract"]:
+            sys.exit(f"incorrect conditional root inventory: {root['type']}")
+        for contract in root["contracts"]:
+            proof = repo / contract["proof"]
+            declarations = dict(theorem_signatures(proof.read_text()))
+            name = contract["theorem"]
+            if name not in declarations or name not in found or name not in utf8_conditional_theorems:
+                sys.exit(f"missing audited conditional contract: {name}")
+            signature = declarations[name]
+            if not re.search(r"\b" + re.escape(contract["specification"]) + r"\b", signature):
+                sys.exit(f"root contract specification mismatch: {name}")
+            if root.get("additional_precondition", "") not in signature:
+                sys.exit(f"root contract precondition mismatch: {name}")
+            if "specialization" in contract:
+                specialization = contract["specialization"]
+                call = f"({specialization['dispatch']} {specialization['parameter']})"
+                dispatch = (repo / specialization["proof"]).read_text()
+                arm = f"| .{specialization['value']} => {contract['api']}"
+                if arm not in dispatch:
+                    sys.exit(f"root specialization mismatch: {contract['api']}")
+            else:
+                call = contract["api"]
+            if f"(@! {call})" not in signature:
+                sys.exit(f"root contract does not call the indexed entry: {name}")
+    elif root["status"] == "incomplete":
+        if root["contracts"] or not root.get("remaining"):
+            sys.exit(f"incomplete root needs explicit remaining work: {root['type']}")
+        for evidence in root["partial_evidence"]:
+            declarations = dict(theorem_signatures((repo / evidence["proof"]).read_text()))
+            if any(name not in declarations or name not in found for name in evidence["theorems"]):
+                sys.exit(f"missing partial root evidence: {root['type']}")
+    else:
+        sys.exit(f"unrecognized root contract status: {root['status']}")
+
 axiom_sets = []
 theorem_sets = {}
 for name, axioms in found.items():
@@ -105,6 +162,7 @@ report = {
     "perennial": rev,
     "go": subprocess.check_output(["go", "version"], text=True).strip(),
     "go_target": subprocess.check_output(["go", "env", "GOOS", "GOARCH", "GOAMD64"], text=True).splitlines(),
+    "root_contract_index": root_contract_index,
     "map_feasibility": {
         "go_witness": "verification/fastcbor-proof/feasibility/maps/witness.go",
         "checked_theorem": "wp_resourceMap_witness",
@@ -407,7 +465,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (map/record/First composition through key validation; no new helper assumption)"
         ],
-        "remaining": "shared UTF-8 word-helper proof and separately approved trusted slice-index model repair; felt-key map array-equality modeling gap; remaining state-update/class decoder contracts and relevant initialization; no unconditional Header or whole-library completion",
+        "remaining": "shared UTF-8 word-helper and separately approved slice-index model repair; StateUpdate still needs felt-key map implementation and general record/public API composition; no unconditional Header or whole-library completion",
         "scope": "complete conditional internal record and registered First API contracts; generator not trusted; no production Go or trusted semantics change; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol/hash-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_hash_foundation": {
@@ -442,7 +500,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (only the two NextWanted transaction-package wrappers; by-value felt, selected field, zero guard, cleanup and nonzero public guard proofs have no helper-correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "complete by-value felt helper and projection dependencies; complete conditional hash record/First proofs are recorded in transaction_hash_projection; unchanged production Go and trusted semantics; no workaround for pinned slice-index or array-equality gaps; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no FX-equivalence, protocol-validity or strict ignored-CBOR-validity claim"
     },
     "transaction_dispatch": {
@@ -474,7 +532,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (the ten recognized payload success/rejection branch contracts through record decoding)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "exhaustive independent specification plus actual dispatch branch contracts; the combined internal/public decoder proofs are recorded in transaction_public_decoder; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_public_decoder": {
@@ -506,7 +564,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (unified internal/public decoder composition through transaction record keys)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "partial correctness/model safety for actual translated production functions on pinned 64-bit target; generator is not trusted; no Go or trusted semantics changes; compiler/runtime correctness, OOM and termination excluded; no protocol-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_account_transaction": {
@@ -529,7 +587,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "all five direct transaction variants now have complete conditional record contracts, but the enclosing interface/public APIs remain unproved; actual embedded layout is proved without changing Go or trusted semantics; storage decoding only, no protocol-version, hash/address derivation, signature, DA-enum-membership or cross-field validity claim; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "invoke_transaction": {
@@ -552,7 +610,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "complete conditional direct InvokeTransaction record, not enclosing Transaction interface/public API; stored values only, no proof verification, signature verification, protocol-version, hash/address derivation, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "declare_transaction": {
@@ -575,7 +633,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and the ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "complete conditional direct DeclareTransaction record, not enclosing Transaction interface/public API; stored field decoding only, no protocol-version, hash, address, signature, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_transaction": {
@@ -596,7 +654,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "l1_handler_transaction": {
@@ -618,7 +676,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are checked; shared UTF-8 word-helper/model repair remains; StateUpdate has the separate felt-key map and record/public API gaps",
         "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "resource_bounds_map": {
@@ -3040,7 +3098,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "shared UTF-8 word-helper/model obligation; transaction, state-update and class public APIs and dependencies remain outside these receipt results, with separate felt-key map model gap; whole-library gate remains open",
+        "remaining": "shared UTF-8 word-helper/model obligation; StateUpdate still needs populated felt-key maps and general record/public API composition; receipt value/pointer public contracts are complete conditional on UTF-8",
         "scope": "complete conditional public value/pointer API contracts on pinned 64-bit partial-correctness/model-safety semantics; no production Go change or trusted-semantics repair; excludes compiler/runtime correctness, OOM, termination, FX equivalence and strict ignored-CBOR validity"
     },
     "transaction_receipt": {
@@ -3236,7 +3294,7 @@ report = {
         "entries": ["StateUpdate"],
         "behavior": "typed StateUpdate/StateDiff field dispatch; ordinary Go felt-keyed maps; last duplicate map key replaces the complete prior value; nil/empty/nested map and pointer distinctions; shared value arrays across inner storage maps with a typed append/make specialization of the planner's slices.Grow(nil, n) capacity policy; fixed-array pointer conversions for migrated class hashes; zero guard, exact suffix, owned output and cleanup",
         "growth_boundary": "pinned slices library has no translated Grow body; the production helper instead uses its equivalent positive-count nil-slice append/make path, directly translated with the decoder; no trusted library body or assumed Grow contract was added",
-        "proof_status": "translated implementations and concrete layouts; both actual metadata factories, initializer, immutable publication, complete record-opening wrappers and table search/cache certificates checked; independent state/map specifications, buffer ownership/growth, record and public APIs remain open; the pinned array-value equality gap still blocks felt-key map proofs",
+        "proof_status": "translated implementations and concrete layouts; metadata factories, initializer, immutable publication, opening wrappers and key lookup checked; independent state/map specifications, representation invariants and complete felt reserve allocation/growth checked; null/empty/opening and selected first-entry failure paths, scalar/declared fields and public nonzero guards checked; populated maps, general StateDiff/StateUpdate loops and complete public APIs remain open; pinned array-value equality and shared UTF-8 model gaps remain",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "typed_transactions": {
@@ -3261,7 +3319,7 @@ report = {
         "specification_proved": "all-input field/pair/body/record/First classification and unique full outcomes; successful prefix/value/suffix uniqueness and success/rejection separation; bounded error/consumption positions; exact successful/rejected NextWanted scan decomposition and composition with independent per-pair interpretation; First guard preservation, cleanup and diagnostic bounds",
         "implementation_proved": "actual layout covers every initial destination including arbitrary old string bytes; owned field calls, map loops, optional tag and opening branches compose into all-input internal record and registered First contracts; nonzero initial destination preserved/rejected, parser errors clear all partial results, success returns exact original-input suffix with pointer/capacity; input ownership preserved; initialized projection metadata and error globals supply concrete objects; allocated diagnostics and non-nil unsupported sentinel both drive actual cleanup",
         "unproved_contract_premises": ["Utf8ValidatorContract"],
-        "remaining": "discharge the shared UTF-8 word-helper/model premise; full receipt and its other child records remain separate work",
+        "remaining": "discharge the shared UTF-8 word-helper/model premise; full receipt and child contracts are checked separately, conditional on that same premise",
         "scope": "complete conditional internal record and First API contracts under pinned 64-bit partial correctness/model safety; routing/registration, compiler/runtime correctness, OOM and termination excluded; no new helper premise, production Go change, trusted semantics change or broader receipt-family proof",
     },
     "receipt_events_projection": {
@@ -3321,7 +3379,7 @@ report = {
         "unproved_contract_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "discharge shared UTF-8 word-helper/model premise; full receipt and its other child records remain separate work",
+        "remaining": "discharge shared UTF-8 word-helper/model premise; full receipt and child contracts are checked separately, conditional on that same premise",
         "scope": "complete conditional internal record and First API contracts against independent classified unique outcomes; no assumed scanner/loop/allocation/initialization correctness; guard and cleanup checked without UTF-8 premise; no production Go or trusted semantics change; pinned 64-bit partial correctness/model safety, excluding routing/registration, compiler/runtime correctness, OOM and termination",
         "record_contract": "verification/fastcbor-proof/ProofCheck/ReceiptEventsRecordComplete.lean: wp_readReceiptEvents_record_complete",
         "first_api_contract": "verification/fastcbor-proof/ProofCheck/ReceiptEventsAPIComplete.lean: wp_decodeReceiptEventsFirst_complete"

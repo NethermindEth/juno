@@ -5,6 +5,27 @@ The feasibility gate has not passed. There is no whole-library correctness theor
 The frozen whole-library performance gate passes for the recorded candidate sources;
 formal verification remains incomplete.
 
+The current [root contract index](root-contracts.json) maps all 15 manifested
+destinations to their production APIs and checked theorem statements. Fourteen
+destinations have general contracts conditional on `Utf8ValidatorContract`,
+covering 20 API entries. StateUpdate's two entries still lack general contracts.
+These counts describe contract availability, not a coverage percentage or
+unconditional verification. Transaction and class entries also require distinct
+tag profiles; the index records these preconditions explicitly.
+
+| Remaining gate | Evidence and next required work |
+| --- | --- |
+| Complete Header | Both public API contracts are composed. Approve and validate the proposed generic slice-index model correction, prove the actual UTF-8 word helper, then discharge the shared validator premise. |
+| Complete StateUpdate | Specifications, ownership foundations and selected implementation paths are checked. Approve and validate the array-equality model rule, derive felt-key comparison correctness, then prove populated maps, StateDiff and StateUpdate loops and their public APIs. |
+| Complete remaining roots | Discharge their shared UTF-8 premise, compose the resulting contracts and audit all final dependencies and source hashes. |
+
+`check.sh` cross-checks the index against the frozen entry inventory, Go function
+signatures and audited Lean theorem signatures, including the five Header
+projection specializations. This is an evidence-link check; Lean checks the
+theorem statements. The frozen Go inventory generator's older `proof_status`
+strings describe earlier checkpoints; use this index for current contract
+availability. The implementation and archived performance candidate are unchanged.
+
 ## Source and scope
 
 - Baseline: `a4a67242cc67f3855915a97bf4e79a97d217fae4`
@@ -8918,3 +8939,44 @@ General record loops, populated felt-key map implementation, later-prefix error
 composition and complete StateUpdate public APIs remain open. Header still needs
 its independent UTF-8 helper/model repair. Neither pending trusted-model repair
 has been approved or applied, and no whole-library completion is claimed.
+
+### Checked current contract index over the frozen implementation inventory
+
+`root-contracts.json` now links every manifested destination to its actual Go
+entry functions and current Lean contracts. Fourteen roots have conditional
+contracts for 20 APIs; StateUpdate's First/full entries remain incomplete. The
+index includes concrete theorem/specification names, the shared UTF-8 premise,
+class/transaction tag-distinctness preconditions, the five generic Header
+projection specializations and selected StateUpdate partial evidence. It does
+not convert conditional contracts into completed verification.
+
+The audit checks the exact 15-root inventory, Go API/destination signatures,
+contract-to-API links, audited theorem membership, named specifications and
+explicit validator premises. Generic projection entries are checked against
+the dispatch table. A separate negative check rejected 16 corrupted variants,
+including missing/duplicate roots or APIs, wrong destinations/specifications,
+hidden premises, incorrect projection mappings and false completion status.
+The check validates evidence links; it is not itself a semantic coverage proof.
+
+The frozen `entry-manifest.json` retains its generated checkpoint-era status
+text. The new index supplies current evidence without changing its Go generator
+or the benchmarked source tree. Thirteen stale status fields in the current
+audit report were corrected to reflect the conditional receipt, transaction
+and class contracts and the remaining StateUpdate composition work.
+
+`check-root-contract-index-final.log` records a passing full check: 3139 build
+jobs and all 4477 audited results. Relative to `96433f552`, every theorem's
+actual axiom set, the transitive axiom union and both explicit premise
+inventories are unchanged. The independent audit verified all 1343 project
+hashes and 46 standard-library source hashes. Only the audit script changed
+among previously hashed inputs; the new index is an additional hashed input.
+No production Go, trusted semantics or pinned revision changed. The original
+and baseline worktrees remain clean, and the archived performance and
+compatibility evidence remains applicable.
+
+The main remaining dependencies are explicit in the index: the actual UTF-8
+word helper requires the proposed generic slice-index repair; successful
+felt-key map insertion requires the proposed array-equality rule and derived
+key-safety proofs. Populated maps must then be composed through StateDiff,
+StateUpdate and its public entries. Both trusted repairs still await separate
+explicit approval. The proof goal remains incomplete.
