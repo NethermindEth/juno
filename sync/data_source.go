@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/adaptfeeder"
 	"github.com/NethermindEth/juno/blockchain"
@@ -24,18 +25,36 @@ type DataSource interface {
 }
 
 type feederGatewayDataSource struct {
-	blockchain *blockchain.Blockchain
-	feeder     *adaptfeeder.Feeder
+	blockchain       *blockchain.Blockchain
+	feeder           *adaptfeeder.Feeder
+	onClassesFetched func(blockNum uint64, count int, took time.Duration)
+}
+
+// DataSourceOption configures the feeder gateway DataSource.
+type DataSourceOption func(*feederGatewayDataSource)
+
+// WithOnClassesFetched sets a callback that gets the number of new classes of each
+// fetched block and the time to download them.
+func WithOnClassesFetched(
+	onClassesFetched func(blockNum uint64, count int, took time.Duration),
+) DataSourceOption {
+	return func(f *feederGatewayDataSource) { f.onClassesFetched = onClassesFetched }
 }
 
 func NewFeederGatewayDataSource(
 	blockchain *blockchain.Blockchain,
 	feeder *adaptfeeder.Feeder,
+	opts ...DataSourceOption,
 ) DataSource {
-	return &feederGatewayDataSource{
-		blockchain: blockchain,
-		feeder:     feeder,
+	f := &feederGatewayDataSource{
+		blockchain:       blockchain,
+		feeder:           feeder,
+		onClassesFetched: func(uint64, int, time.Duration) {},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error) {
@@ -49,6 +68,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 		return CommittedBlock{}, err
 	}
 
+	classesTimer := time.Now()
 	newClasses := make(map[felt.Felt]core.ClassDefinition, len(missingClassHashes))
 	for _, classHash := range missingClassHashes {
 		class, err := f.feeder.Class(ctx, classHash)
@@ -58,6 +78,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 
 		newClasses[*classHash] = class
 	}
+	f.onClassesFetched(blockNumber, len(newClasses), time.Since(classesTimer))
 
 	return CommittedBlock{
 		Block:       block,
