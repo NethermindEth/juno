@@ -96,8 +96,9 @@ checkpoints below. The theorem count is not a coverage percentage. See
 “Complete UTF-8 loop reduced to the word helper” below for exact
 scope, unresolved premises and reproduction evidence.
 The checked inventory records all 15 manifested destinations as registered typed
-readers and retains all 185 frozen benchmark IDs. The remaining records do not yet
-have complete formal decoder contracts. See “Checked remaining-entry inventory” below.
+readers and retains all 185 frozen benchmark IDs. BlockTransactionsIndexes now also has conditional all-input public API contracts;
+its independent outcome uniqueness/separation audit remains open. Other records
+do not yet have complete formal decoder contracts. See “Checked remaining-entry inventory” below.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -4039,6 +4040,51 @@ native-evaluation dependencies. Five new compositions explicitly carry the
 validator premise, bringing its direct count to 62; the two word-helper-premise
 results are unchanged. Saved ordinary/race/checkptr compatibility reports and the
 archived 177-case passing performance decision were revalidated by the full check.
+
+## Index-record failures and all-input API composition
+
+`IndexesMapRejected.lean` proves every specified failure through the generated
+record loop, after arbitrary valid prefixes and partially published arrays. The
+invariant retains exact remaining pairs, seen fields, both owned arrays, cursor
+consumption, diagnostic position and depth. Integer-key overflow consumes its
+head and returns bare ErrType; other key failures roll back. Selected-array
+failures retain their specified progress and private allocation behavior without
+publishing the failed replacement. Unknown/duplicate-value Skip failures restore
+the value-start cursor while retaining their exact diagnostic offset.
+
+`IndexesError.lean` keeps bare sentinels and allocated errors distinct and derives
+Skip/Felt error-category ownership from the existing initialized categories.
+`IndexesOpen.lean` proves all opening errors, including invalid/missing/wrong-type
+heads, count-before-depth precedence and original-record preservation.
+`IndexesRejected.lean` composes the complete rejection relation; its bounds track
+consumption and diagnostic offsets independently. `IndexesRejectedAPI.lean` proves
+both actual public APIs clear every partial result and preserve the precise parse
+error; First returns a nil suffix on failure. No parse error becomes a trailing
+error.
+
+`IndexesAPISpec.lean` defines independent First/full outcome relations, including
+nonzero guard preservation, all-input classification, exact success suffixes,
+parse/trailing cleanup and bounded diagnostics. `IndexesAPIComplete.lean` proves
+`wp_decodeIndexesFirst_complete` and `wp_decodeIndexes_complete` for **every byte
+input and every owned initial record** against those relations. Relevant actual
+schema/cursor and cborerr initialization supplies all error categories; callers
+supply no error-global or initialization WP assumptions. The same explicit
+`Utf8ValidatorContract` remains required for text keys. These are conditional
+partial-correctness/model-safety results, not an unconditional record milestone.
+
+The independent record/API outcome uniqueness and success/rejection separation
+proofs still remain. The shared UTF-8 word helper and unapproved trusted correction
+are unchanged, as is the felt-map model gap. Production Go, baseline worktrees,
+benchmark inputs and pinned semantics are unchanged.
+
+Full regeneration and audit pass in `check-indexes-api-complete-full.log`: 2229
+build jobs, 1181 audited theorems, 433 project/artifact hashes and 46 standard-library
+source hashes. All 1159 previous theorem dependency sets and the transitive axiom
+union are unchanged. The 22 added results introduce no new helper-contract kind;
+six compositions explicitly retain the validator premise, bringing its direct
+count to 68, with two direct word-helper results unchanged. The audit contains no
+admissions or native-evaluation dependencies. Both saved compatibility reports
+and the archived passing performance decision were revalidated by the full check.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

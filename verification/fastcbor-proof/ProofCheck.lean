@@ -225,3 +225,17 @@ import ProofCheck.IndexesSeen
 import ProofCheck.IndexesMapValid
 import ProofCheck.IndexesValid
 import ProofCheck.IndexesValidAPI
+
+import ProofCheck.IndexesError
+
+import ProofCheck.IndexesMapRejected
+
+import ProofCheck.IndexesOpen
+
+import ProofCheck.IndexesRejected
+
+import ProofCheck.IndexesRejectedAPI
+
+import ProofCheck.IndexesAPISpec
+
+import ProofCheck.IndexesAPIComplete
