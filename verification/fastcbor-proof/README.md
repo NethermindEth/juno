@@ -142,7 +142,9 @@ contracts. Both supplied-storage slot wrappers now also have complete conditiona
 contracts. ExecutionResources now also has complete conditional record and
 shared-block pointer-wrapper contracts with independently unique outcomes. Full
 receipt field contracts, child ownership and key lookup now also check for every
-input; its record-loop composition and public API contracts remain open.
+input. Its full internal record and pointer wrapper now have conditional all-input
+contracts with independently unique outcomes, exact partial state and actual error
+interfaces; public value/pointer API contracts remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6169,3 +6171,62 @@ Production Go remains unchanged; original/baseline worktrees and pinned Perennia
 remain clean at their recorded revisions. The claim remains pinned 64-bit partial
 correctness/model safety, excluding compiler/runtime correctness, OOM and
 termination; unconditional Header and whole-library gates remain open.
+
+
+## Complete conditional TransactionReceipt record and pointer wrapper
+
+`ReceiptPairs.lean`, `ReceiptValueUnique.lean`, `ReceiptPairsUnique.lean`,
+`ReceiptRecordSpec.lean` and `ReceiptRecordUnique.lean` independently specify and
+classify complete receipt records. Every byte input at supported depth has a unique
+success or rejection, for arbitrary owned prior receipt contents and field order.
+The relations cover unknown skipped values, duplicate known keys, contextual nested
+count guards, null/undefined, exact success suffixes, partial receipt contents and
+separate consumed/error positions with all retained nested cursor levels.
+
+`ReceiptMapValid.lean` and `ReceiptMapRejected.lean` prove both actual generated
+map-loop paths, composing all nine field readers, initialized table lookup and seen
+masks, ignored-value Skip and map closing. Failed fields preserve the caller-visible
+receipt while their private child allocations and cursor state remain described by
+the field error contract. Successful earlier fields remain in the partial receipt.
+`ReceiptBoundary.lean` proves actual nullish preservation and opening rejection;
+`ReceiptRecordComplete.lean` composes these into an all-input direct-record contract.
+
+The error contract preserves the actual `GoInterface`. FeeUnit overflow consumes
+the unsigned value and returns the initialized bare ErrType sentinel; it does not
+allocate a DecodeError. Its numeric offset is only the consumed-value boundary.
+All other failures retain their structured diagnostic, exact position and arguments.
+`receiptFailureOwned_nonNil` proves that every represented failure is non-nil, so
+both the real loop and pointer wrapper propagate the error without assuming a
+particular interface representation.
+
+`ReceiptPointerSpec.lean` proves independent classification, uniqueness and bounds
+for the pointer wrapper. Null/undefined clears the pointer; other inputs decode a
+fresh zero receipt, distinguishing nil from an allocated empty record.
+`ReceiptPointerRead.lean` and `ReceiptPointerComplete.lean` prove actual allocation
+and publication only on success. On failure the old destination pointer is unchanged
+and the exact partial new receipt remains privately owned, with the original error
+interface and retained cursor/depth. No existing pointee ownership is needed because
+the wrapper does not access it.
+
+**These are complete conditional internal-record and pointer-wrapper contracts.**
+The eight new implementation composition theorems retain the existing explicit
+`Utf8ValidatorContract` premise; no new helper assumption was introduced. The public
+value and pointer First/full APIs still need zero guards, cleanup and trailing-input
+composition. Header's unapproved UTF-8 model correction and the separate felt-key
+map equality gap remain unresolved. No production Go or trusted semantics changed.
+
+Validation: the full `./check.sh` passed **2,581 build jobs** and audited **2,404
+pilot theorems**, rejecting sorryAx and native-evaluation axioms, with **782
+project/artifact hashes** and **46 stdlib source hashes**. An independent comparison
+against `aac581069` confirmed exactly **44 added results across 12 new modules**,
+unchanged dependency sets for all 2,360 prior results, unchanged total axiom union,
+and every recorded source hash. Direct UTF-8 premise counts are now 224 validator
+results and 2 word-helper results. Regeneration, manifest/feasibility checks and
+archived performance verification passed; unchanged Go sources retain the frozen
+ordinary/race/checkptr and performance evidence. The original, baseline and pinned
+Perennial worktrees remain unchanged.
+
+The claim remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime implementation correctness, OOM and termination. It does
+not establish FX equivalence or strict validity of ignored CBOR content, and neither
+the unconditional Header nor whole-library completion gate is closed.

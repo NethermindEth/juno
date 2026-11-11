@@ -590,3 +590,15 @@ import ProofCheck.ReceiptOwnership
 import ProofCheck.ReceiptSeen
 import ProofCheck.ReceiptTable
 import ProofCheck.ReceiptValues
+import ProofCheck.ReceiptBoundary
+import ProofCheck.ReceiptMapRejected
+import ProofCheck.ReceiptMapValid
+import ProofCheck.ReceiptPairs
+import ProofCheck.ReceiptPairsUnique
+import ProofCheck.ReceiptPointerComplete
+import ProofCheck.ReceiptPointerRead
+import ProofCheck.ReceiptPointerSpec
+import ProofCheck.ReceiptRecordComplete
+import ProofCheck.ReceiptRecordSpec
+import ProofCheck.ReceiptRecordUnique
+import ProofCheck.ReceiptValueUnique
