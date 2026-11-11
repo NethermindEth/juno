@@ -7167,3 +7167,65 @@ removal of the validator premise. These metadata results do not close either
 Header or whole-library completion. The claim remains pinned 64-bit partial
 correctness/model safety, excluding compiler/runtime correctness, OOM and
 termination; no formal FX equivalence or blanket ignored-CBOR validity is claimed.
+
+## Complete Sierra and deprecated entry-point record checkpoint
+
+The actual generated `cborReadSierraEntryPoint` and
+`cborReadDeprecatedEntryPoint` functions now have complete direct-record contracts
+for every byte input at supported cursor depth and every owned initial record.
+Both remain **conditional on `Utf8ValidatorContract`** for map-key validation.
+These are internal class-child readers; their enclosing value slices, class
+records, tagged dispatch and public APIs still require composition.
+
+Each family has seventeen proof modules. `SierraEntryPointValues.lean` independently
+specifies an unsigned index and nullable four-limb selector. `DeprecatedEntryPointValues.lean`
+specifies two nullable four-limb values, selector and offset. A Sierra nullish
+index preserves the previous scalar; nullish felt fields clear their pointers.
+Short felt arrays zero-fill, longer arrays skip extra values, and allocated zero
+felts remain distinct from nil. This is stored-value decoding, with no claim that
+an index is a valid instruction or that a selector names an existing function.
+
+The independent key, field, pair and record relations cover every supported
+encoding and field order, case-insensitive known names, unknown values, duplicate
+known-field rejection, arbitrary prior values and failures after any successful
+prefix. Null/undefined at the direct-record level preserves both old fields.
+Pure classification, prefix uniqueness, success/rejection separation and rejected
+outcome uniqueness establish exactly one independent record outcome. Failure
+outcomes include the retained partial record, consumed bytes, diagnostic offset,
+entered map level and exact failure reason; consumed and diagnostic positions are
+separate because a failed field or skipped value rolls back its own cursor.
+
+Concrete ownership proofs borrow and restore the actual two Go fields and their
+nullable child allocations. Complete scalar/felt contracts prove both actual
+field calls, without a UTF-8 premise. The checked class-package tables match the
+independent names and field identities; table/cache certificates from the previous
+checkpoint, seen-bit proofs and actual `NextField` contracts cover fresh, unknown,
+duplicate and rejected keys. Successful/rejected generated map loops compose with
+nullish/opening branches into `wp_readSierraEntryPoint_record_complete` and
+`wp_readDeprecatedEntryPoint_record_complete`. Success preserves input ownership,
+returns exact values and suffixes, and restores depth. Failure owns the specified
+partial record and actual diagnostic with exact retained cursor/depth. Class
+metadata initialization and the existing shared scalar/felt helper schema startup
+are proved dependencies and required initialized; no initializer WP premise is
+introduced.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,825 Lean
+build jobs, auditing 3,366 results, 1,026 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 126 additions
+in 34 modules, unchanged dependency sets for all 3,240 prior results, an unchanged
+axiom union, every recorded hash and the independent field-name/update mappings.
+Sixteen new direct uses of the existing UTF-8 validator premise cover key/map/record
+composition; totals are 335 for `Utf8ValidatorContract` and two for
+`Utf8WordWindowContract`. No result depends on `sorryAx` or native evaluation
+axioms. Saved compatibility and frozen performance evidence was revalidated.
+Production Go and trusted semantics are unchanged.
+
+Next: compose the entry-point value slices and enclosing classes; prove the string
+slice helper and CASM entry-point record, recursive SegmentLengths and remaining
+class field/dispatch/API dependencies. State payload/map ownership and public APIs
+remain open, including the separate felt-key array-equality modeling gap. Header's
+unapproved slice-index repair and actual UTF-8 word-helper proof are still needed
+to remove the shared validator premise. This checkpoint does not close Header or
+the whole-library gate. The claim remains pinned 64-bit partial correctness/model
+safety, excluding compiler/runtime correctness, OOM and termination; it does not
+assert FX equivalence or strict validity of ignored CBOR content.
