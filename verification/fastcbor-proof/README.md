@@ -3835,7 +3835,7 @@ was changed. The shared error representation has BigInt-prefixed names, but this
 proof executes Int64 directly and does not use BigInt decoding as an oracle.
 
 These fourteen results are a dependency for block-index decoding. Signed-array
-success/outer-failure proofs follow below; element-failure composition, integer-key
+proofs follow below, culminating in the complete helper contract. Integer-key
 dispatch and the complete BlockTransactionsIndexes record/API proof still remain. Header's UTF-8 helper and felt-key map model gaps are unchanged.
 The existing frozen performance evidence remains applicable to the unchanged Go
 sources. The full regeneration and audit (`check-int64-full.log`) pass with
@@ -3865,8 +3865,8 @@ for that fallback or any other helper is introduced. `IntsReject.lean` separatel
 checks array-opening errors, impossible counts and exhausted nesting depth: these
 preserve the old destination and cursor and return exact owned diagnostics.
 
-This is not yet the complete array contract. Element failures after arbitrary
-valid prefixes remain to be composed and classified. In particular, an unsigned
+At that checkpoint the array contract was incomplete. Element failures after
+arbitrary valid prefixes are now composed and classified in the next checkpoint. In particular, an unsigned
 value above MaxInt64 consumes its head and returns the bare ErrType sentinel;
 a signed-decoder failure rolls back to the element start and returns a DecodeError.
 Both retain the entered array depth and leave the old destination unpublished.
@@ -3880,6 +3880,42 @@ and the transitive axiom union are unchanged, with no admissions or native
 evaluation dependencies. The saved ordinary/race/checkptr compatibility evidence
 was also checked against the same Go sources. Header's unresolved UTF-8 helper
 is unchanged (51 validator-premise and two word-helper-premise results).
+
+## Complete signed-array helper
+
+`IntElementFailure.lean` classifies every input into an independently specified
+valid element or failure. `IntsFailure.lean` proves the production loop's failures
+after arbitrary valid prefixes, including mixed positive, negative and null values.
+The result preserves the caller's old destination header and backing storage;
+the partial new slice is not published. The cursor retains the entered array depth.
+Unsigned overflow advances over the integer head and returns the bare ErrType
+sentinel. All other element errors use the signed fallback, roll back to the failed
+element's start, and return the exact owned diagnostic and argument storage.
+
+`IntsFailureSpec.lean` extends this to every array input, with the actual null,
+head, count, depth and element-error precedence. It also bounds consumption,
+failed-element offsets and retained depth. `IntsComplete.lean` proves
+`wp_readInts_complete` for **every byte input at every valid cursor offset and
+supported depth**, combining these results with the checked successful reader.
+The contract specifies exact mathematical integers, nil versus allocated empty,
+output/error ownership, read-only fractional input, exact successful suffixes,
+nonwrapping error positions, retained depth and old-destination preservation.
+Actual schema/cursor initialization supplies all error categories; there is no
+unresolved helper correctness or initializer WP premise.
+
+This completes the signed-array helper under the documented partial-correctness
+model. It does not yet prove the containing BlockTransactionsIndexes record:
+integer-key handling, the first-duplicate-wins record loop, zero guards, cleanup
+and public API composition remain. Header's UTF-8 helper and felt-map equality
+model gaps are unchanged. No production Go or trusted semantics changed, so the
+saved compatibility and performance evidence remains source-applicable.
+Full regeneration and audit (`check-ints-complete-full.log`) pass with 2211 build
+jobs, 1109 audited theorems, 415 project/artifact hashes and 46 standard-library
+hashes. All 1099 existing theorem dependency sets and the transitive axiom union
+are unchanged. No admissions or native-evaluation dependencies are present. The
+saved ordinary/race/checkptr corpus checks and archived performance decisions
+were revalidated against the unchanged sources. The explicit UTF-8 premise counts
+remain 51 validator-dependent and two word-helper-dependent results.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 
