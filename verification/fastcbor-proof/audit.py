@@ -1075,6 +1075,35 @@ report = {
         "remaining": "map diagnostic definitions are not map implementation theorems; populated state-map insertion/loops, StateDiff/StateUpdate field-loop composition and successful/rejected public decoding remain; shared UTF-8 word-helper and felt-key array-equality model gaps still need separately authorized repairs",
         "scope": "actual populated field integration for three felt fields and one felt-pointer slice plus uniform error ownership; not complete record/public implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime implementation, OOM and termination"
     },
+    "state_update_scalar_success": {
+        "implementation_target": "core/cbor_state_generated.go: cborReadStateUpdate map loop and both public StateUpdate decoders, using the actual felt-field readers and Skip",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarField.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarMap.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarRecord.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarAPIFirst.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateScalarAPIFull.lean"
+        ],
+        "theorems": [
+            "stateUpdateScalarPairs_valid",
+            "stateUpdateScalarPairs_preserve_diff",
+            "stateUpdateScalarRecord_valid",
+            "wp_stateUpdate_scalar_field_valid",
+            "wp_readStateUpdate_scalar_map_valid",
+            "wp_readStateUpdate_scalar_record_valid",
+            "wp_decodeStateUpdateFirst_scalar_valid",
+            "wp_decodeStateUpdate_scalar_valid"
+        ],
+        "input_restriction": "StateUpdateScalarPairsValid excludes choice = some StateUpdateField.diff at every selected pair; all felt-field contracts, fresh known keys and supported ignored values retain their existing meaning; StateUpdateScalarRecordValid additionally includes null/undefined; this is a wire/input restriction, not a correctness hypothesis for an implementation",
+        "specification_proved": "restricted pairs and records imply the original independent StateUpdate relations; arbitrary old StateDiff values are preserved across every pair",
+        "implementation_proved": "actual successful map/record loops for arbitrary owned prior records, supported field order/key encodings, field values and suffixes, with exact output ownership, cursor progress, unchanged input and restored depth; public First/full contracts from zero destinations satisfy StateUpdateFirstSpec/StateUpdateFullSpec; full trailing-data errors clear populated output and retain exact initialized diagnostics",
+        "unproved_contract_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "remaining": "successful selected StateDiff decoding and populated felt-key maps remain outside this scope; malformed-input failures after arbitrary scalar prefixes still need composition; the UTF-8 premise remains unresolved; no complete StateUpdate or unconditional Header claim",
+        "scope": "partial production verification with the pinned model unchanged; no map/helper correctness premise or new axiom; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_update_api_base_cases": {
         "implementation_target": "core/cbor_state_generated.go: DecodeStateUpdateFirst and DecodeStateUpdate through the actual null/undefined and empty-map record paths, remaining-slice construction and trailing-data cleanup",
         "modules": [

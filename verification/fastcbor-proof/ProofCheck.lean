@@ -1248,6 +1248,12 @@ import ProofCheck.StateUpdateAPIGuardSpec
 import ProofCheck.StateUpdateAPIOpenFailure
 import ProofCheck.StateUpdateAPIBaseFirst
 import ProofCheck.StateUpdateAPIBaseFull
+import ProofCheck.StateUpdateScalarSpec
+import ProofCheck.StateUpdateScalarField
+import ProofCheck.StateUpdateScalarMap
+import ProofCheck.StateUpdateScalarRecord
+import ProofCheck.StateUpdateScalarAPIFirst
+import ProofCheck.StateUpdateScalarAPIFull
 
 import ProofCheck.StateUpdateAPISpec
 

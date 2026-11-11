@@ -5,6 +5,15 @@ The feasibility gate has not passed. There is no whole-library correctness theor
 The frozen whole-library performance gate passes for the recorded candidate sources;
 formal verification remains incomplete.
 
+Current work continues with partial production proofs while the pinned generic
+slice-index and array-equality gaps remain explicit. No trusted repair or new
+correctness axiom is implied by this partial-verification track. StateUpdate now
+has conditional success proofs through both public APIs for records that never
+select the StateDiff field: arbitrary ordering of the three felt fields,
+supported unknown values, exact suffixes and trailing-data cleanup. Those
+restricted contracts imply the original independent decoding specification;
+they do not cover populated StateDiff or all malformed-input paths.
+
 The current [root contract index](root-contracts.json) maps all 15 manifested
 destinations to their production APIs and checked theorem statements. Fourteen
 destinations have general contracts conditional on `Utf8ValidatorContract`,
@@ -9051,3 +9060,47 @@ UTF-8 across Header and the other conditional contracts. StateUpdate additionall
 requires the separately approved array-equality rule, derived felt-key safety,
 populated map loops and general StateDiff/StateUpdate composition. The prepared
 repair plans remain the next steps on those general-proof dependency chains.
+
+### Partial StateUpdate proof: arbitrary scalar-field sequences through both APIs
+
+`StateUpdateScalarSpec.lean` defines an explicit input restriction on the
+independent record relation: each selected field must differ from StateDiff.
+The full contracts for the three felt fields and supported ignored values are
+retained. Known keys must be fresh, and their existing exact/ASCII-folded name
+mapping is unchanged. Checked lemmas show that these pair and record relations
+imply the original unrestricted specifications and preserve the old StateDiff
+value. No decoder or map implementation is assumed correct by this restriction.
+
+`StateUpdateScalarField.lean`, `StateUpdateScalarMap.lean` and
+`StateUpdateScalarRecord.lean` compose the actual generated Go field readers,
+NextField scanner and record loop. The invariant covers arbitrary supported
+field order and map widths, arbitrary valid felt contents, arbitrary supported
+unknown values, previously owned contents and arbitrary suffixes. It tracks
+remaining entries, seen bits, lookup-cache bounds, output ownership and exact
+cursor progress, and proves that successful completion restores enclosing depth.
+
+`StateUpdateScalarAPIFirst.lean` and `StateUpdateScalarAPIFull.lean` connect this
+result to the actual public functions from zero destinations. First returns the
+exact aliased unread suffix. Full decoding succeeds with an empty suffix;
+otherwise it runs real cleanup on the populated result and returns the exact
+initialized trailing-data diagnostic. Both satisfy the original public API
+specifications and preserve input ownership.
+
+The map, record and two public API results retain the existing explicit
+`Utf8ValidatorContract` premise. There is no added map-operation, array-equality
+or helper-correctness premise. This checkpoint proves successful inputs in the
+stated restriction plus the full wrapper's trailing-data behavior. Malformed
+inputs after arbitrary successful prefixes and selected StateDiff decoding
+remain outside these results. The next partial-proof step is to compose those
+failure prefixes using the already checked field/key/error contracts.
+
+`check-state-scalar-full.log` records a passing full check: 3150 jobs and 4494
+audited results. Relative to `a235dda62`, eight results were added: three
+specification lemmas and five production WPs. All 4486 prior theorem dependency
+sets and the transitive axiom union are unchanged. Exactly four new results
+explicitly require the existing validator premise, bringing that inventory to
+455; the two word-helper-premise results are unchanged. Independent checks
+verified 1354 project hashes, 46 standard-library hashes, the exact theorem and
+premise delta, the restricted-to-full specification links and unchanged frozen
+Go/trusted/original/baseline pins. The root index records the two partial API
+contracts while retaining StateUpdate's incomplete status.

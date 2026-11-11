@@ -169,6 +169,20 @@
             "wp_decodeStateUpdate_nullish_spec",
             "wp_decodeStateUpdate_empty_spec"
           ]
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateScalarAPIFirst.lean",
+          "theorems": [
+            "wp_decodeStateUpdateFirst_scalar_valid"
+          ],
+          "scope": "successful StateUpdateScalarRecordValid inputs from zero destinations; excludes selected StateDiff fields; full API also proves trailing-data cleanup; conditional on Utf8ValidatorContract"
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateScalarAPIFull.lean",
+          "theorems": [
+            "wp_decodeStateUpdate_scalar_valid"
+          ],
+          "scope": "successful StateUpdateScalarRecordValid inputs from zero destinations; excludes selected StateDiff fields; full API also proves trailing-data cleanup; conditional on Utf8ValidatorContract"
         }
       ],
       "remaining": [
