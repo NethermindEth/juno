@@ -113,7 +113,9 @@
       "verification/fastcbor-proof/ProofCheck/WantedBoundary.lean",
       "verification/fastcbor-proof/ProofCheck/WantedSelected.lean",
       "verification/fastcbor-proof/ProofCheck/WantedSkipRejected.lean",
-      "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean"
+      "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean",
+      "verification/fastcbor-proof/ProofCheck/WantedRejectedImpl.lean",
+      "verification/fastcbor-proof/ProofCheck/WantedComplete.lean"
     ],
     "proved_branches": "actual NextWanted with exhausted closed state; open-container closure restores enclosing depth; every immediate Key rejection preserves current pair count, cursor and open state; every supported width/spelling of a fresh selected text key marks only its bit, decrements exactly one pair and leaves value unread; fractional metadata/input ownership preserved",
     "unproved_contract_premises": [
@@ -123,12 +125,16 @@
       "wp_nextWanted_key_rejected",
       "wp_nextWanted_selected",
       "wp_nextWanted_text_skip_rejected",
-      "wp_nextWanted_valid"
+      "wp_nextWanted_valid",
+      "wp_nextWanted_rejected",
+      "wp_nextWanted_complete"
     ],
     "mask_correspondence": "WantedSeen.lean checks all 64 field bits, the all-fields mask including count 64, initial/updated membership, fresh-field exclusion of the all-seen shortcut and unknown/duplicate lookup exclusion",
     "successful_loop": "wp_nextWanted_valid realizes every WantedValid scan through the actual loop with arbitrary unknown/duplicate/all-seen prefixes, exact consumed suffix, selected bit/remaining count, preserved metadata/input and container closure on exhaustion; complete key and immediate Skip failures checked separately",
-    "pending": "compose failures after arbitrary skipped prefixes and the all-input scan outcome; prove actual projection metadata initialization against the generic names/mask contracts; projection-tag and pointer-scalar helpers; complete projection records and public APIs",
-    "scope": "complete independent scan specification and complete successful production scans; immediate key/Skip rejection branches checked; arbitrary-prefix rejection and the unified all-input NextWanted theorem remain open, as do complete projection decoder theorems; production Go and trusted model unchanged"
+    "rejected_loop": "wp_nextWanted_rejected realizes every WantedRejected scan through arbitrary ignored prefixes; preserves current pair/open state, input and metadata, with exact nonwrapping cursor consumption and independent diagnostic offset",
+    "all_input_contract": "wp_nextWanted_complete classifies every byte input, derives actual error-category globals from cursor initialization, and produces WantedSpec with matching concrete cursor/struct/error ownership; no assumed well-formedness or selected outcome; explicit schema names/mask and seen-state correspondence",
+    "pending": "prove actual projection metadata initialization against the generic names/mask contracts; projection-tag and pointer-scalar helpers; complete projection records and public APIs; discharge shared UTF-8 word-helper premise after separately approved trusted repair",
+    "scope": "complete independent scan specification and conditional all-input production NextWanted contract; complete projection decoder theorems remain open; partial correctness and model safety under pinned 64-bit semantics; production Go and trusted model unchanged"
   },
   "typed_header_projections": {
     "generator": "utils/cbor/cmd/cborgen/projections.go",
@@ -142,7 +148,7 @@
       "headerHashAndStateRootProjection"
     ],
     "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
-    "proof_status": "translated implementations; complete independent projection specifications, NextWanted contract, table initialization and public entry proofs remain open",
+    "proof_status": "translated implementations; all-input NextWanted contract checked conditional on UTF-8; complete independent projection record specifications, table initialization and public entry proofs remain open",
     "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim"
   },
   "typed_classes": {
@@ -461,7 +467,9 @@
         "wp_nextGasKey_valid",
         "wp_nextHeaderKey_duplicate_valid",
         "wp_nextHeaderKey_valid",
+        "wp_nextWanted_complete",
         "wp_nextWanted_key_rejected",
+        "wp_nextWanted_rejected",
         "wp_nextWanted_selected",
         "wp_nextWanted_text_skip_rejected",
         "wp_nextWanted_valid",
@@ -1817,6 +1825,8 @@
     "wp_nextWanted_integer_skip_rejected": 0,
     "wp_nextWanted_text_skip_rejected": 0,
     "wp_nextWanted_valid": 0,
+    "wp_nextWanted_rejected": 0,
+    "wp_nextWanted_complete": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -2198,7 +2208,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation remains open. Projection, receipt, transaction, state-update and class implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction, state and class table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
+  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; projection record composition remains open. Projection, receipt, transaction, state-update and class implementations are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection, receipt, transaction, state and class table initialization proofs also remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -2596,8 +2606,10 @@
     "verification/fastcbor-proof/ProofCheck/Utf8WordContract.lean": "12c52953e3583019026e9b44a9f3fcbc8ec3873463d4cfbcd86735adb4ab4d80",
     "verification/fastcbor-proof/ProofCheck/Values.lean": "8e59928740e0d8adf8698cfa250c38c2232b85a14697c562da0e8ebcfb529d07",
     "verification/fastcbor-proof/ProofCheck/WantedBoundary.lean": "0a0fd4065c702497f7bd97dd2b00864d183847980367ead795ae38852bc3e4cb",
+    "verification/fastcbor-proof/ProofCheck/WantedComplete.lean": "9eefaf86818848c997859e551c076e727fdf9cf9ed5813353b2ad58635358317",
     "verification/fastcbor-proof/ProofCheck/WantedDeterminism.lean": "574707c9c307a031c6bc3b4065c525717f3b8094376049cf38e441c721edbb9c",
     "verification/fastcbor-proof/ProofCheck/WantedFailureUnique.lean": "a25bdb1efd2073d21d276d94af0bcafba29081d8c3f285ce43db64670e3362d7",
+    "verification/fastcbor-proof/ProofCheck/WantedRejectedImpl.lean": "fed3ba46f2610e7fa5145ebf387ad9f5726c8870ebd731b2e7a44bcc3bdf98e6",
     "verification/fastcbor-proof/ProofCheck/WantedSeen.lean": "983ff0c8ec117c7dc6af86857068234759f03634354ca2d39a68b77165520788",
     "verification/fastcbor-proof/ProofCheck/WantedSelected.lean": "b994ae29eb035f3417497f32012368e5c4e6a5bc078cfd7985b06e4b969c880e",
     "verification/fastcbor-proof/ProofCheck/WantedSkipRejected.lean": "43bf61219ea219def29bfa5bd79c81785c1e973da2566ab52c661d284e5365a5",
@@ -2605,8 +2617,8 @@
     "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "4d2bbb8e4b8edc6909022809983d94daa6aee4fe5150209d06a53da9ebd7a159",
-    "verification/fastcbor-proof/audit.py": "98855c1bb9e383f893a71e1f28db7f749885753a6c2451bc90427f022d73b7a8",
+    "verification/fastcbor-proof/ProofCheck.lean": "fe514ee6cd2410a2a435f4b134c395e8c1fc034295855dce18eea07803e38685",
+    "verification/fastcbor-proof/audit.py": "26501068224e658accfd0d63cabfa9e0fbca1fa73c9ab1a2f9d73ab7921d037f",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",

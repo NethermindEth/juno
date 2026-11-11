@@ -4287,3 +4287,42 @@ separately approved plan comes from the active goal and the pinned
 `.agents/skills/fix-semantics/SKILL.md`, step 3: “Never change trusted files
 before the user signs off.” Independent payload, schema and decoder proof work
 can continue while this proposal is pending.
+
+
+### Complete projection scan implementation contract
+
+`WantedRejectedImpl.lean` proves `wp_nextWanted_rejected` through the actual
+`NextWanted` loop after arbitrary valid skipped prefixes. The cases include
+integer keys, unknown text keys, duplicate selected names and the all-fields-seen
+shortcut. A failing key leaves its bytes unread; a failing ignored value retains
+the cursor at the value start. Both retain the failing pair count and the original
+container-open state. The proof returns the actual owned diagnostic, preserving
+input and metadata, with separate exact nonwrapping consumption and error offsets.
+
+`WantedComplete.lean` combines successful and rejected scans into
+`wp_nextWanted_complete`, which accepts **every byte input at a valid cursor**
+under explicit schema/seen-mask correspondence and supported depth/count bounds.
+Actual cursor initialization supplies the error-category globals. The result
+contains the independent `WantedSpec` outcome and `WantedScanOwned`: concrete
+cursor/struct ownership, the selected index or Done, the untouched selected value
+and exact suffix on success, or the retained state and diagnostic on failure.
+Exhaustion closes an open container exactly once. This composes the checked
+implementation branches; it does not assume a valid input or a chosen scan result.
+
+The only helper correctness premise remains `Utf8ValidatorContract`. The pure
+specification's already-checked uniqueness theorem applies to these outcomes.
+This is a complete conditional **scan helper**, not yet a projection record/API
+proof or a termination proof. Projection metadata initialization, tag handling,
+nullable scalar helpers, record specifications and public API composition remain
+open. Header's unapplied trusted indexing correction and the felt-map equality
+model gap are unchanged. Production Go and trusted semantics are unchanged.
+
+Full regeneration and audit pass in `check-wanted-complete-full.log`: 2249
+build jobs, 1245 audited theorems, 453 project/artifact hashes and 46 directly
+translated standard-library hashes. Both added implementation results explicitly
+require the existing validator premise (74 direct validator-premise results;
+2 word-helper-premise results unchanged). Every previous theorem's dependency
+set and the overall axiom union are unchanged, with no admission or native
+execution axioms. Independent checks verified all recorded project hashes and
+the exact premise additions. Saved compatibility, race/checkptr and archived
+performance evidence was revalidated against the unchanged Go sources.

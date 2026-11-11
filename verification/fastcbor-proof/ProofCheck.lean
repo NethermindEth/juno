@@ -260,3 +260,6 @@ import ProofCheck.WantedSelected
 import ProofCheck.WantedSeen
 import ProofCheck.WantedSkipRejected
 import ProofCheck.WantedValidImpl
+
+import ProofCheck.WantedRejectedImpl
+import ProofCheck.WantedComplete
