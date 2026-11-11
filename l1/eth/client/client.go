@@ -95,8 +95,8 @@ func (c *Client) redial(ctx context.Context, stale *wsTransport) (*wsTransport, 
 			c.mu.Unlock()
 			return nil, ErrClosed
 		}
-		if c.tr != stale {
-			// Someone already replaced it; their transport is current.
+		if c.tr != stale && !c.tr.isClosed() {
+			// Someone already replaced it with a live transport.
 			tr := c.tr
 			c.mu.Unlock()
 			return tr, nil
