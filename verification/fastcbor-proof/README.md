@@ -7682,3 +7682,50 @@ approved generic slice-index model repair and the actual UTF-8 word-helper proof
 Neither unconditional Header nor whole-library completion is claimed; the pinned
 64-bit partial-correctness/model-safety scope and other documented boundaries
 remain unchanged.
+
+## Recursive SegmentLengths outcome determinism and failure bounds
+
+The independent recursive record and array specifications now have exactly one
+outcome for every input at supported depth. `segmentRecordSpec_total_unique` and
+`segmentArraySpec_total_unique` combine the previous all-input classification
+with successful prefix/value/suffix uniqueness, success/rejection separation and
+rejected-outcome uniqueness. Record errors uniquely determine the retained partial
+value, consumed position, diagnostic offset, entered depth and recursive reason.
+Array traversal also uniquely determines its private completed prefix and failed
+partial element, even though failed child arrays are not published.
+
+This closes the recursive specification obligations rather than assuming them.
+Intermediate record lemmas take next-depth array determinism; array lemmas take
+next-depth record determinism. `segment_deterministic_depth` proves both together
+by induction on the remaining shared depth budget. Pair and element traversal
+recurse on the remaining declared count. The final theorems have no recursive
+child-determinism or production-helper premise. Key uniqueness, scalar policy,
+Skip behavior and the opening/count/depth precedence are composed from the prior
+checked independent relations.
+
+`segmentRecordRejected_bounds` and `segmentArray_failure_bounds` additionally
+prove that the committed cursor does not exceed the diagnostic offset, the
+diagnostic remains within the available input, and initial depth plus retained
+extra depth does not exceed 32. Their recursive record/array obligations are also
+discharged jointly. Failed element sequences contain fewer completed values than
+the declared count. These facts support subsequent cursor and error-ownership
+proofs; they are not themselves proofs of the production recursive loops.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,952 Lean
+build jobs, auditing 3,853 results, 1,153 project/artifact hashes and 46
+standard-library hashes. Independent comparison checked exactly 41 new results
+in eight modules, unchanged dependencies for every prior result and an unchanged
+axiom union. All 41 additions use only the standard logical axioms; no new UTF-8
+or other helper premise was introduced. Direct premise counts remain 392 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`. No result depends
+on `sorryAx` or native evaluation axioms. Frozen performance and saved compatibility
+evidence was revalidated; no Go, trusted-semantics, original-worktree or baseline
+change was made.
+
+Next: recursive diagnostic ownership and actual recursive field/map/record/array
+implementation proofs, followed by CasmClass/SierraClass, class dispatch and
+public APIs. State-map ownership and the felt-key equality model gap remain open.
+Header's shared UTF-8 premise still requires the separately approved slice-index
+model correction and actual word-helper proof. Whole-library completion and
+unconditional Header remain unclaimed; the documented pinned 64-bit partial-
+correctness/model-safety boundaries are unchanged.
