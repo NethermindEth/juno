@@ -473,3 +473,14 @@ import ProofCheck.L2MessageSeen
 import ProofCheck.L2MessageTable
 import ProofCheck.L2MessageValueUnique
 import ProofCheck.L2MessageValues
+import ProofCheck.L2MessagePointerItemsSpec
+import ProofCheck.L2MessagePointerItemsUnique
+import ProofCheck.L2MessagePointersBoundary
+import ProofCheck.L2MessagePointersComplete
+import ProofCheck.L2MessagePointersOwnership
+import ProofCheck.L2MessagePointersReadRejected
+import ProofCheck.L2MessagePointersReadValid
+import ProofCheck.L2MessagePointersRejected
+import ProofCheck.L2MessagePointersSpec
+import ProofCheck.L2MessagePointersUnique
+import ProofCheck.L2MessagePointersValid

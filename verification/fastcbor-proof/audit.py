@@ -335,6 +335,21 @@ report = {
         "remaining": "containing message/receipt records; typed address wrapper now separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "l2_to_l1_message_pointers": {
+        "implementation": "core/cbor_receipts_generated.go: cborReadL2ToL1MessagePointers",
+        "specification": [
+            "verification/fastcbor-proof/ProofCheck/L2MessagePointerItemsSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/L2MessagePointerItemsUnique.lean",
+            "verification/fastcbor-proof/ProofCheck/L2MessagePointersSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/L2MessagePointersUnique.lean"
+        ],
+        "theorems": ["l2MessagePointerItems_classify", "l2MessagePointersSpec_total_unique", "l2MessageStorage_take", "wp_readL2MessagePointers_null", "wp_readL2MessagePointers_array", "wp_readL2MessagePointers_array_rejected", "wp_readL2MessagePointers_rejected", "wp_readL2MessagePointers_complete"],
+        "specification_proved": "every input at supported depth has an independently unique nullable-array outcome; nil versus allocated empty slice and nil versus nonnil zero record remain distinct; contextual nested counts retain all later bytes; exact count-before-depth precedence, successful suffix, rejected consumption/diagnostic offsets and retained array/map depth",
+        "implementation_proved": "actual nullish and outer expected/count/depth branches; exact signed min(count, remaining-bytes/32) shared storage; nil elements bypass record allocation; nonnil elements consume disjoint shared zero slots or allocate individual records, with actual record decoding and pointer publication; complete successful array owns exact records and children and restores outer depth; every rejected loop preserves original destination while owning private completed records, failed partial record and pointer table; caller contract retains exact error and cursor/depth, preserves input and publishes only after all elements succeed; complete all-input contract returns independently unique outcome for arbitrary prior slice headers",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "enclosing full TransactionReceipt composition",
+        "scope": "pinned 64-bit partial correctness/model safety; shared premise inherited from message record key decoding; no new semantic or allocation assumption, production Go change or trusted-model repair; temporary failed allocations may be forgotten by callers under the garbage-collected model; compiler/runtime correctness, OOM and termination excluded"
+    },
     "l2_to_l1_message": {
         "implementation": "core/cbor_receipts_generated.go: cborReadL2ToL1Message; core/transaction.go: L2ToL1Message",
         "specification": [
@@ -348,7 +363,7 @@ report = {
         "specification_proved": "independent sender felt, nullable felt-value payload and inline address values; nullish address preserves prior array; contextual nested slice count guards; ASCII folded key identities; arbitrary field order and prior contents, unknown values skipped, duplicate known fields rejected; all-input field/pair/record classification with unique success and rejection outcomes, exact suffixes, retained partial record, consumed/diagnostic offsets and entered-map flag",
         "implementation_proved": "actual field cell access and full struct/child ownership restoration; all three field calls return specified outcomes without UTF-8 premises; actual initialized receipt table matches independent names, encoded key order, cached words and inline indexes; seen bits track exact field identities; actual NextField success/duplicate/key failures; actual generated successful and rejected loops with exact partial values, consumption/diagnostic offsets and depth; actual nullish and opening failures; complete direct record contract for every input at supported depth and every owned initial value, preserving input and owning all published output/diagnostics",
         "unproved_helper_premises": ["Utf8ValidatorContract"],
-        "remaining": "enclosing cborReadL2ToL1MessagePointers allocation/publishing loop and full receipt; L1ToL2Message is separate",
+        "remaining": "enclosing full receipt; pointer-slice contract now separately composed; L1ToL2Message is separate",
         "scope": "complete conditional direct-record contract under pinned 64-bit partial-correctness/model-safety semantics; field calls independently complete without the UTF-8 premise, key/record composition retains it; original Go and trusted semantics unchanged; compiler/runtime correctness, OOM and termination excluded"
     },
     "typed_address": {
@@ -363,7 +378,7 @@ report = {
         "specification_proved": "every byte input and prior array has an independently classified unique result; null/undefined preserve old value; otherwise exactly twenty bytes in a definite byte string, with all supported head widths and arbitrary contents; success prefix/value/suffix uniqueness and disjoint rejection; failure reasons inherit precise BytesInto precedence",
         "implementation_proved": "actual Null branch and named-array full slicing followed by checked BytesInto; array/slice ownership equivalence for the same cells, actual owned-array length supplies twenty-byte destination size; all successes return exact owned output, nonwrapping consumption/suffix and unchanged input/depth; all errors preserve entire old array and cursor with initialized category and owned diagnostic; complete all-input contract returns independently unique outcome",
         "unproved_helper_premises": [],
-        "remaining": "L1ToL2Message, enclosing L2ToL1Message pointer slice and full receipt; direct L2ToL1Message is now conditionally proved",
+        "remaining": "L1ToL2Message and full receipt; direct L2ToL1Message and its pointer slice are now conditionally proved",
         "scope": "pinned 64-bit partial correctness/model safety; named-array slice dispatch is derived from existing array and underlying-type rules with a proof-local tagged adapter, not a new semantic assumption or trusted-model change; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded"
     },
     "typed_boolean": {

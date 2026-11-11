@@ -133,8 +133,10 @@ The typed FeeUnit and address readers and public `Cursor.BytesInto` now also hav
 complete all-input contracts with independently unique outcomes and no UTF-8
 helper premise. The direct L2ToL1Message record now also has a complete conditional
 all-input/all-owned-initial-value contract and an independently unique outcome.
-Its enclosing pointer slice, L1ToL2Message, resource child records and full receipt
-composition remain open.
+Its enclosing pointer slice now also has a complete conditional all-input contract,
+including shared allocations, private partial failures and independently unique
+outcomes. L1ToL2Message, resource child records and full receipt composition
+remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -5832,3 +5834,54 @@ check; production Go is unchanged, so no new timing run was needed. Original and
 baseline worktrees and pinned trusted semantics remain untouched. The claimed
 scope remains pinned 64-bit partial correctness/model safety, excluding
 compiler/runtime implementation correctness, OOM and termination.
+
+
+### Complete L2ToL1Message pointer-slice reader
+
+The `L2MessagePointerItemsSpec/Unique` and `L2MessagePointersSpec/Unique` modules
+classify every input and prove a unique nullable-array outcome at every supported
+depth. They distinguish a nil slice from an allocated empty slice, and a nil
+element from an allocated zero message. Each nested record's contextual guards
+retain the entire later input. Outer failures preserve count-before-depth
+precedence; nested failures retain exact consumption, diagnostic offset and
+entered array/map depth.
+
+`L2MessagePointersOwnership.lean` proves disjoint published-record ownership and
+an inventory of unused zero records in the shared backing array. The actual
+successful loop checks `min(count, remainingBytes/32)`, bypasses allocation for
+null/undefined elements, takes the next owned shared slot while available and
+uses individual allocation thereafter. Every slot has the concrete
+`L2ToL1Message` layout, including its inline address. Each decoded record is placed
+into its pointer-table slot, and the destination is published only after the
+whole array succeeds and the outer depth is restored.
+
+The rejected-loop proof retains ownership of the private pointer table, all
+successfully decoded records and the failed partial record after any prefix.
+The caller's old destination is preserved. The complete contract
+`wp_readL2MessagePointers_complete` covers arbitrary prior slice headers and every
+byte input, returning the independently specified unique result, exact owned
+output or diagnostic, original input and precise cursor/depth state. As in the
+existing Event pointer-slice proof, private failed allocations may be forgotten
+at the caller boundary under the garbage-collected model; the loop proves their
+ownership before doing so.
+
+**The five new composition theorems retain the existing
+`Utf8ValidatorContract` through message record decoding.** No new helper premise,
+allocation assumption or trusted-model correction was introduced. The shared
+Header word-helper/model issue and separate felt-key map equality gap remain
+open. Next are L1ToL2Message and its pointer wrapper, remaining resource records,
+and the complete TransactionReceipt/public entry composition.
+
+Full regeneration/check passed in `check-l2message-pointers-full.log`: **2463 build
+jobs, 1920 audited theorems, 664 project/artifact hashes and 46 directly translated
+stdlib source hashes**. An independent comparison with checkpoint `8398a1344`
+confirmed exactly 38 new results, unchanged dependencies for all 1882 prior
+theorems and an unchanged axiom union; every recorded hash was recomputed. No
+admission or native-evaluation axiom occurs. Direct shared-helper premise counts
+are 155 for `Utf8ValidatorContract` and two for `Utf8WordWindowContract`. The full
+check revalidated saved source-specific performance/compatibility evidence;
+production Go is unchanged, so no new timing run was needed. Original/baseline
+worktrees and pinned Perennial remain clean at their recorded revisions. This
+is still partial correctness/model safety on the pinned 64-bit target, excluding
+compiler/runtime implementation correctness, OOM and termination, and it does
+not close the unconditional Header or whole-library gates.
