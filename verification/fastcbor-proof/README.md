@@ -3834,9 +3834,9 @@ No unresolved helper contract is required, and no trusted semantics or Go source
 was changed. The shared error representation has BigInt-prefixed names, but this
 proof executes Int64 directly and does not use BigInt decoding as an oracle.
 
-These fourteen results are a dependency for block-index decoding. Signed arrays,
-integer-key dispatch and the complete BlockTransactionsIndexes record/API proof
-still remain. Header's UTF-8 helper and felt-key map model gaps are unchanged.
+These fourteen results are a dependency for block-index decoding. Signed-array
+success/outer-failure proofs follow below; element-failure composition, integer-key
+dispatch and the complete BlockTransactionsIndexes record/API proof still remain. Header's UTF-8 helper and felt-key map model gaps are unchanged.
 The existing frozen performance evidence remains applicable to the unchanged Go
 sources. The full regeneration and audit (`check-int64-full.log`) pass with
 2204 build jobs, 1090 audited theorems, 408 project/artifact hashes and 46
@@ -3845,6 +3845,41 @@ there are no admissions or native-evaluation dependencies. The explicit UTF-8
 premise counts remain 51 validator-dependent and two word-helper-dependent
 results. Both saved compatibility reports and the archived performance decisions
 were rechecked against the current sources.
+
+## Signed-array success and outer failures
+
+`IntsSpec.lean` defines valid index elements and nullable arrays independently of
+the implementation. Signed values have their mathematical CBOR meaning; null and
+undefined elements mean zero, while a null/undefined array means a nil slice.
+`Ints.lean` proves the actual `cborReadInts` loop for arbitrary mixtures and counts,
+including both signed endpoints and every supported nonpreferred head width.
+The `wp_readInts_valid` contract preserves fractional ownership of the complete
+input, returns the exact unread suffix and original depth, and owns the output
+backing storage. It distinguishes nil from an allocated empty array. The old
+slice header may be arbitrary; its former backing storage remains caller-owned.
+
+The proof follows the actual unsigned-first attempt, including its temporary
+error allocation before null and negative elements, and then the signed fallback.
+Actual package initialization supplies the error globals. No correctness premise
+for that fallback or any other helper is introduced. `IntsReject.lean` separately
+checks array-opening errors, impossible counts and exhausted nesting depth: these
+preserve the old destination and cursor and return exact owned diagnostics.
+
+This is not yet the complete array contract. Element failures after arbitrary
+valid prefixes remain to be composed and classified. In particular, an unsigned
+value above MaxInt64 consumes its head and returns the bare ErrType sentinel;
+a signed-decoder failure rolls back to the element start and returns a DecodeError.
+Both retain the entered array depth and leave the old destination unpublished.
+The complete index record, integer-key handling and public API proofs remain open.
+
+The Go implementation and pinned semantics are unchanged. Full regeneration,
+axiom/source audit and the archived performance check are recorded in
+`check-ints-full.log`: 2207 build jobs, 1099 audited theorems, 411 project/artifact
+hashes and 46 standard-library hashes. All 1090 previous theorem dependency sets
+and the transitive axiom union are unchanged, with no admissions or native
+evaluation dependencies. The saved ordinary/race/checkptr compatibility evidence
+was also checked against the same Go sources. Header's unresolved UTF-8 helper
+is unchanged (51 validator-premise and two word-helper-premise results).
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 

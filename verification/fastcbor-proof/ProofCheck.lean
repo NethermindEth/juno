@@ -205,3 +205,6 @@ import ProofCheck.BigIntComplete
 import ProofCheck.Int64Read
 import ProofCheck.Int64Spec
 import ProofCheck.Int64Complete
+import ProofCheck.IntsSpec
+import ProofCheck.Ints
+import ProofCheck.IntsReject
