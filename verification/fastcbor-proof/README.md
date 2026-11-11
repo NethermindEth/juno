@@ -106,8 +106,10 @@ byte input and owned initial value, including optional tags, exact suffixes,
 retained diagnostics, destination guards and error cleanup. The other record
 families remain to be composed, except that the receipt execution-status
 projection now also has complete conditional internal-record and First API
-contracts, with independently unique outcomes. See the latest receipt checkpoint
-below and “Checked remaining-entry inventory”.
+contracts, with independently unique outcomes. The direct Event record now also
+has conditional all-input/all-owned-initial-value contracts; independent pair/record
+outcome uniqueness and its enclosing pointer-slice reader remain open. See the
+latest Event checkpoint below and “Checked remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -5310,6 +5312,65 @@ translated standard-library hashes. Independent verification checked the exact
 union, and every recorded source hash. The explicit premise inventory has exactly
 three additional validator-dependent key theorems: 119 validator and 2 word-helper
 premises. No theorem depends on admission or native-evaluation axioms. Saved
+compatibility/race/checkptr and archived performance evidence was revalidated
+against unchanged Go sources. Original and baseline worktrees and the pinned
+trusted checkout remain clean at their recorded revisions.
+
+## Complete conditional direct Event record implementation
+
+`EventSeen` connects the actual duplicate-tracking bitmask to independent Event
+field identities. Marking one known field removes exactly that field from the
+fresh set; unknown keys leave it unchanged. `EventFieldRefine` unifies the three
+actual field-call contracts and uses independent field uniqueness and
+success/rejection separation to derive exact successful and rejected calls.
+Successful slice fields retain the real unread suffix in their contextual count
+guard. Failed fields preserve the entire prior Event and cursor, including the
+other children's ownership.
+
+`EventMapValid` proves the actual generated successful Event map loop for
+arbitrary owned initial contents, supported key encodings/order, unknown values,
+nested field contents and final suffix. It derives the exact immutable table
+and canonical errors from actual package initialization. Its invariant tracks
+remaining pairs, field identities/seen bits, cached search position, complete
+Event ownership and exact input suffix. Completion restores the caller's depth and
+returns all decoded contents with nonwrapping consumption and unchanged input.
+
+`EventMapRejected` proves every independent pair rejection after any successful
+prefix: malformed keys, duplicates, selected-field errors, ignored-value errors
+and later failures. Previously decoded fields remain owned; a failed field
+preserves its prior contents. The retained cursor and diagnostic position are
+separate and bounded, and the entered map depth remains in place. The failure
+predicate retains actual initialized error categories and owned arguments,
+including felt-value slice diagnostics. No field-helper or loop correctness is
+assumed.
+
+`EventBoundary` checks direct null/undefined preservation and every opening
+rejection through the real generated reader. `EventRecordComplete` composes the
+boundaries and loops into `wp_readEvent_record_valid`,
+`wp_readEvent_record_rejected` and `wp_readEvent_record_complete`. The last is an
+**all-input/all-owned-initial-value contract for the actual direct
+`cborReadEvent`**, at every supported initial depth, against the independently
+classified record relations. It includes exact suffixes, unchanged input,
+owned complete/partial records, restored success depth, retained failure depth
+and owned diagnostics.
+
+**The map and complete record contracts remain conditional on
+`Utf8ValidatorContract`.** They do not close Header's shared helper/model gap.
+Independent Event pair/record outcome uniqueness and success/rejection
+separation still need proof; only field-level uniqueness/separation is already
+closed. The enclosing `cborReadEventPointers` slice specification, shared
+allocation and loop remain open, as do containing receipt/projection contracts.
+These are direct internal record contracts, not public receipt API or
+whole-library correctness claims. Production Go and pinned trusted sources are
+unchanged.
+
+Full regeneration and audit passed in `check-event-record-full.log`: 2382 build
+jobs, 1637 audited theorems, 583 project/artifact hashes and 46 directly translated
+standard-library hashes. Independent verification checked the exact 14 additions,
+all 1623 prior theorem dependency sets unchanged, unchanged axiom union, and
+every recorded source hash. The five new conditional map/record theorems bring
+the explicit premise inventory to 124 validator and 2 word-helper premises.
+No theorem depends on admission or native-evaluation axioms. Saved
 compatibility/race/checkptr and archived performance evidence was revalidated
 against unchanged Go sources. Original and baseline worktrees and the pinned
 trusted checkout remain clean at their recorded revisions.

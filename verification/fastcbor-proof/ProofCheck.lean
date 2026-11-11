@@ -397,3 +397,9 @@ import ProofCheck.ReceiptInitialize
 import ProofCheck.ReceiptOpen
 import ProofCheck.EventTable
 import ProofCheck.EventKeyRead
+import ProofCheck.EventSeen
+import ProofCheck.EventFieldRefine
+import ProofCheck.EventMapValid
+import ProofCheck.EventMapRejected
+import ProofCheck.EventBoundary
+import ProofCheck.EventRecordComplete
