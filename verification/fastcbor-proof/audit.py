@@ -335,6 +335,86 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_hash_projection": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadTransactionHashProjection and registered decodeTransactionHashProjectionFirst; core/partial_cbor.go: transactionHashProjection",
+        "theorems": [
+            "wp_decodeTransactionHashFirst_complete",
+            "transactionHashFirst_classify",
+            "transactionHashFirst_unique",
+            "transactionHashFirst_cleanup",
+            "transactionHashFirst_success",
+            "transactionHashFirst_diagnostic_bound",
+            "wp_decodeTransactionHashFirst_zero",
+            "transactionHashBody_prefix_unique",
+            "transactionHashBody_not_open_failure",
+            "transactionHashBody_not_rejected",
+            "transactionHashBodyRejected_unique",
+            "wp_readTransactionHash_tag_malformed",
+            "transactionHashFieldRejected_bound",
+            "transactionHashItemRejected_bound",
+            "transactionHashPairsRejected_bounds",
+            "transactionHashBodyRejected_bounds",
+            "transactionHashRecord_failure_bounds",
+            "transactionHashFieldErrorGlobals_lookup",
+            "wp_transactionHashField_valid_spec",
+            "wp_transactionHashField_rejected_spec",
+            "transactionHashField_not_rejected",
+            "transactionHashFieldRejected_unique",
+            "transactionHashItem_prefix_unique",
+            "transactionHashItem_not_rejected",
+            "transactionHashItemRejected_unique",
+            "wp_readTransactionHashProjection_map_valid_after_tag",
+            "wp_readTransactionHashProjection_map_valid",
+            "wp_readTransactionHashProjection_map_rejected_after_tag",
+            "wp_readTransactionHashProjection_map_rejected",
+            "transactionHashPairError_scan",
+            "transactionHashItem_classify",
+            "transactionHashItem_nonempty",
+            "transactionHashPairs_classify",
+            "transactionHashPairs_count_bound",
+            "transactionHashKey_prefix_unique",
+            "transactionHashPairs_prefix_unique",
+            "transactionHashPairs_not_rejected",
+            "transactionHashPairsRejected_unique",
+            "transactionHashBody_classify",
+            "transactionHashBody_nonempty",
+            "transactionHashRecord_classify",
+            "wp_readTransactionHash_record_spec",
+            "wp_readTransactionHash_record_complete",
+            "transactionHashRecordError_diagnostic",
+            "transactionHashRecordError_nonNil",
+            "wp_readTransactionHash_record_body_rejected",
+            "transactionHashRecord_unique",
+            "transactionHashRecord_total_unique",
+            "wp_readTransactionHash_record_valid",
+            "transactionHashRejectStep_ignored",
+            "transactionHashPairs_rejected_scan",
+            "transactionHashRejectStep_pairs",
+            "transactionHashPairs_scan",
+            "transactionHashScan_done",
+            "transactionHashScan_selected",
+            "transactionHashScan_rejected",
+            "transactionHashScan_field_rejected",
+            "transactionHashScan_tail_rejected",
+            "wp_readTransactionHash_open_failure_after_tag",
+            "wp_readTransactionHash_nullish_after_tag",
+            "wp_readTransactionHash_tag_unsupported",
+            "transactionHashField_names",
+            "transactionHashFields_length",
+            "transactionHashNames_table",
+            "transactionHashField_exists",
+            "transactionHashField_classify",
+            "transactionHashField_nonempty",
+            "transactionHashField_prefix_unique"
+        ],
+        "specification_proved": "independent single-field by-value hash schema, per-key first-occurrence interpretation, all-input pair/body/optional-tag record classification and unique outcomes; skipped unknown and duplicate values, exact byte boundaries, retained partial hash and failure consumption/diagnostic offsets/entered-map state; successful/failed scan decompositions connect batching to wire-order specification; public First specification classifies every initial hash/input with unique outcome, successful tagged-record semantics, guard/parser cleanup distinctions and diagnostic bounds",
+        "implementation_proved": "actual optional tag, map opening and NextWanted loops realize all supported success and rejection outcomes with initialized metadata/errors, exact owned by-value hash, preserved input and cursor depth/consumption/diagnostics; successful field helper follows independently selected TransactionHash name and nullish preservation; unknown/duplicate fields use the actual scanner skip path; complete registered First entry covers all byte inputs and owned initial hashes, actual nonzero guard rejection, parser-failure clearing, nil error suffix and exact original-input suffix pointer/capacity with nonwrapping lengths",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract (map/record/First composition through key validation; no new helper assumption)"
+        ],
+        "remaining": "shared UTF-8 word-helper proof and separately approved trusted slice-index model repair; felt-key map array-equality modeling gap; remaining state-update/class decoder contracts and relevant initialization; no unconditional Header or whole-library completion",
+        "scope": "complete conditional internal record and registered First API contracts; generator not trusted; no production Go or trusted semantics change; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol/hash-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
+    },
     "transaction_hash_foundation": {
         "implementation": "core/cbor_readers.go: cborReadFeltValue; core/cbor_transactions_generated.go: hash field access, cborZeroTransactionHashProjection, cborClearTransactionHashProjection and nonzero guard of decodeTransactionHashProjectionFirst; cursor.NextWanted with initialized transaction-package metadata",
         "theorems": [
@@ -367,8 +447,8 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (only the two NextWanted transaction-package wrappers; by-value felt, selected field, zero guard, cleanup and nonzero public guard proofs have no helper-correctness premise)"
         ],
-        "remaining": "complete independent transactionHashProjection pair/record specification and uniqueness; actual optional-tag/open-map/NextWanted loop composition and all-input First API; shared UTF-8 word helper/model repair; felt-key map equality and state-update/class contracts",
-        "scope": "complete by-value felt helper and projection dependencies, not yet a complete transaction hash projection decoder proof; unchanged production Go and trusted semantics; no workaround for pinned slice-index or array-equality gaps; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no FX-equivalence, protocol-validity or strict ignored-CBOR-validity claim"
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
+        "scope": "complete by-value felt helper and projection dependencies; complete conditional hash record/First proofs are recorded in transaction_hash_projection; unchanged production Go and trusted semantics; no workaround for pinned slice-index or array-equality gaps; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no FX-equivalence, protocol-validity or strict ignored-CBOR-validity claim"
     },
     "transaction_dispatch": {
         "implementation": "core/cbor_transactions_generated.go: cborReadTransaction and CBORTransactionTags",
@@ -399,7 +479,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (the ten recognized payload success/rejection branch contracts through record decoding)"
         ],
-        "remaining": "unified internal and public First/full contracts now checked in transaction_public_decoder; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "exhaustive independent specification plus actual dispatch branch contracts; the combined internal/public decoder proofs are recorded in transaction_public_decoder; no production Go or trusted-semantics changes; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol validity, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_public_decoder": {
@@ -431,7 +511,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (unified internal/public decoder composition through transaction record keys)"
         ],
-        "remaining": "transaction hash projection; shared UTF-8 word-helper and separately approved trusted model repair; felt-key map equality and state-update/class contracts; no unconditional Header or whole-library completion",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "partial correctness/model safety for actual translated production functions on pinned 64-bit target; generator is not trusted; no Go or trusted semantics changes; compiler/runtime correctness, OOM and termination excluded; no protocol-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_account_transaction": {
@@ -454,7 +534,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "all five direct transaction variants now have complete conditional record contracts, but the enclosing interface/public APIs remain unproved; actual embedded layout is proved without changing Go or trusted semantics; storage decoding only, no protocol-version, hash/address derivation, signature, DA-enum-membership or cross-field validity claim; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "invoke_transaction": {
@@ -477,7 +557,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "complete conditional direct InvokeTransaction record, not enclosing Transaction interface/public API; stored values only, no proof verification, signature verification, protocol-version, hash/address derivation, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "declare_transaction": {
@@ -500,7 +580,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (record-key lookup and the ResourceBounds map field; no additional helper-correctness premise)"
         ],
-        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "complete conditional direct DeclareTransaction record, not enclosing Transaction interface/public API; stored field decoding only, no protocol-version, hash, address, signature, DA-enum-membership or cross-field validity claim; no production Go or trusted-semantics changes; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "deploy_transaction": {
@@ -521,7 +601,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "complete conditional direct DeployTransaction record, not DeployAccountTransaction or the enclosing interface API; no hash/address derivation or protocol-validity claim; no new helper premise, production Go edit or trusted-semantics change; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "l1_handler_transaction": {
@@ -543,7 +623,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract (field-key/record composition only; value helpers have no correctness premise)"
         ],
-        "remaining": "all five variant records are conditionally complete; dispatch specification and individual branches now check separately, but unified all-input dispatch and public transaction APIs remain; transaction hash projection; shared UTF-8 word-helper/model repair; separate state-update/class work",
+        "remaining": "complete conditional transaction records, tagged dispatcher, public First/full APIs and hash projection First entry are now checked; shared UTF-8 word-helper proof and separately approved model repair; felt-key map equality and state-update/class contracts remain",
         "scope": "complete conditional direct L1HandlerTransaction record, not the enclosing interface API; no new helper premise or trusted semantics; output/version/hash contents are decoded storage values, not protocol validity or hash recomputation; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no Go edits, FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "resource_bounds_map": {
@@ -1065,7 +1145,7 @@ report = {
     "axiom_sets": axiom_sets,
     "sorryAx_in_pilot": False,
     "native_evaluation_axioms_in_pilot": False,
-    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. The receipt execution-status projection has complete conditional record and First contracts; the receipt-events projection now also has complete conditional record and First contracts, including nested Event failure depth/consumption, independent outcome uniqueness, initialized categories, guards, cleanup and exact suffix. Full receipts, transactions, state updates and classes are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables, and receipt payload-table initialization and opening wrappers for all eight tables; transaction, state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
+    "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map and transaction-interface payload contracts now compose; class-interface witnesses are checked but do not prove class payload decoding; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. The receipt execution-status projection has complete conditional record and First contracts; the receipt-events projection now also has complete conditional record and First contracts, including nested Event failure depth/consumption, independent outcome uniqueness, initialized categories, guards, cleanup and exact suffix. Full receipt and transaction public API contracts and the transaction hash projection First contract are now checked conditional on the shared UTF-8 premise; complete state-update/class decoder contracts remain open. Transaction and class decoding take explicit tag profiles; their connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables, and receipt payload-table initialization and opening wrappers for all eight tables; transaction payload-table initialization is also checked, while state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
     "sha256": {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(set(inputs))},
 }
 (here / "results").mkdir(exist_ok=True)

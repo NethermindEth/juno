@@ -7046,3 +7046,70 @@ repair, actual word-helper proof, felt-key map equality, and remaining
 state-update/class contracts remain open. This checkpoint retains the pinned
 64-bit partial-correctness/model-safety boundary and does not claim protocol
 validity, FX equivalence or strict validity of ignored CBOR content.
+
+## Complete transaction hash projection record and First entry
+
+`cborReadTransactionHashProjection` and its registered
+`decodeTransactionHashProjectionFirst` entry now have checked contracts for every
+byte input and every owned initial hash. **They remain conditional on the shared
+`Utf8ValidatorContract` through field-key validation.** The specification is
+independent of FX and describes the actual projection policy; it does not claim
+hash validity or blanket validation of ignored CBOR content.
+
+`TransactionHashValues` identifies the single selected name, `TransactionHash`,
+and connects it to the actual initialized table. The application value is the
+four-word by-value felt; null/undefined preserves its prior contents.
+`TransactionHashPairs` interprets wire-order pairs with first-key-wins selection.
+Unknown and repeated keys have their values skipped, including repetitions after
+a selected nullish hash. Successful pairs publish the selected hash; rejection
+retains the last published hash and tracks cursor consumption separately from
+the diagnostic offset.
+
+The item/pair/body/record uniqueness modules prove complete independent outcomes,
+success/error separation and exact byte boundaries. `TransactionHashRecord`
+composes the existing optional-tag policy with nullish/map opening and the pair
+interpretation. Its classifier covers every input at supported depth. The bounds
+module proves that retained and diagnostic positions lie within the original
+input or at EOF. The scan specification/decomposition modules connect batched
+`NextWanted` calls with that independent per-pair interpretation, including
+ignored prefixes, selected-field failures and failures after earlier success.
+
+`TransactionHashFieldSpec`, `TransactionHashPairError` and
+`TransactionHashRecordError` connect the checked field helper and actual owned
+diagnostics to those relations. The boundary/tag modules prove actual malformed
+and unsupported tag behavior, nullish records and opening failures. The two map
+modules prove the production loop for arbitrary successful or rejected pair
+sequences, using actual initialized transaction metadata and the checked scanner.
+`TransactionHashRecordValid`, `TransactionHashRecordRejected` and
+`TransactionHashRecordComplete` compose the complete actual record function,
+including exact suffixes, input preservation, restored depth on success and
+retained map depth and hash on failure.
+
+`TransactionHashAPISpec` independently classifies public First outcomes and proves
+uniqueness, success, cleanup and diagnostic bounds. `TransactionHashAPIOutcome`,
+`TransactionHashAPIZero` and `TransactionHashAPIComplete` connect the real guard,
+cursor creation, record call and cleanup. Nonzero destinations are rejected
+unchanged. All parser errors clear the whole destination and return nil remaining
+bytes. Success owns the exact decoded four words and returns the unread slice of
+the original input, including backing pointer/capacity and nonwrapping length.
+No additional full-consumption entry is claimed: this projection registers First.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,781 Lean
+build jobs, auditing 3,192 results, 982 project/artifact hashes and 46
+standard-library source hashes. The independent audit checked exactly 68 new
+results in 25 modules, unchanged dependency sets for all 3,124 previous results,
+an unchanged axiom union and every recorded hash. No result depends on `sorryAx`
+or native evaluation axioms. Direct unresolved premises total 319 for
+`Utf8ValidatorContract` and two for `Utf8WordWindowContract`; ten new validator
+premises cover map/record/public composition. Saved compatibility and frozen
+performance evidence was revalidated. Original, baseline and Perennial worktrees
+remain clean at their pins; production Go and trusted semantics are unchanged.
+Older remaining-work references in the machine-readable audit now point to the
+completed transaction and hash-projection contracts.
+
+Next: remaining state-update/class decoder contracts and their initialization.
+Header and other UTF-8-dependent records still need the separately approved
+slice-index model repair, the actual word-helper proof and removal of that
+premise. Felt-key maps retain the separate array-equality modeling gap. This is
+pinned 64-bit partial correctness/model safety, excluding compiler/runtime
+correctness, OOM and termination; the whole-library goal remains open.
