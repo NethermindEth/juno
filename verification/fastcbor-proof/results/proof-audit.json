@@ -231,6 +231,26 @@
     "unproved_helper_premises": [],
     "scope": "complete projection tag-prelude contract under pinned 64-bit partial-correctness model, not the following record/API decoder; trusted semantics and production Go unchanged"
   },
+  "typed_boolean": {
+    "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
+    "specification": "verification/fastcbor-proof/ProofCheck/BoolSpec.lean",
+    "implementation_proofs": [
+      "verification/fastcbor-proof/ProofCheck/BoolRead.lean",
+      "verification/fastcbor-proof/ProofCheck/BoolComplete.lean"
+    ],
+    "theorems": [
+      "wp_bool_valid",
+      "wp_bool_rejected",
+      "wp_readBool_valid",
+      "wp_readBool_rejected",
+      "wp_readBool_complete",
+      "wp_readBool_initialized"
+    ],
+    "proved": "every byte input at every valid cursor and arbitrary prior Boolean; false/true bytes assign, null/undefined preserve prior value; successful consumption is exactly one nonwrapping byte with exact suffix; errors preserve field/cursor/input and own the actual original-offset diagnostic; Peek EOF is truncated, tag-major mismatches are unsupported even for incomplete tags, all other mismatches are type errors; actual initialization supplies category objects",
+    "specification_proved": "all-input classification, one-byte valid length, unique successful value/prefix/suffix, success/rejection separation and unique rejection reason",
+    "unproved_helper_premises": [],
+    "scope": "complete Boolean helper under pinned 64-bit partial-correctness semantics; receipt record/projection composition remains; compiler/runtime correctness, OOM and termination excluded; production Go and trusted semantics unchanged"
+  },
   "nullable_uint64": {
     "implementation": "core/cbor_readers.go: cborReadUint64Pointer",
     "specification": "verification/fastcbor-proof/ProofCheck/Uint64PointerSpec.lean",
@@ -2153,6 +2173,17 @@
     "wp_decodeHeaderProjectionFirst_nonzero": 0,
     "wp_decodeHeaderProjectionFirst_zero": 0,
     "wp_decodeHeaderProjectionFirst_complete": 0,
+    "bool_classify": 3,
+    "bool_valid_length": 3,
+    "bool_valid_prefix_unique": 3,
+    "bool_valid_not_rejected": 3,
+    "bool_rejected_unique": 3,
+    "wp_bool_valid": 0,
+    "wp_bool_rejected": 0,
+    "wp_readBool_valid": 0,
+    "wp_readBool_rejected": 0,
+    "wp_readBool_complete": 0,
+    "wp_readBool_initialized": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -2630,6 +2661,9 @@
     "verification/fastcbor-proof/ProofCheck/BigIntSpec.lean": "a090d9a47c4bc99186cf3843c0a5fafdea5a87c8289e0aaee27f3b94fbe7337e",
     "verification/fastcbor-proof/ProofCheck/BigIntValid.lean": "2ee9e08373e59f6ecc772f2b02afa4c087059b2856c414c55e4c59eccd48270e",
     "verification/fastcbor-proof/ProofCheck/BinaryInitialize.lean": "f3c8e3b9239c076285b1e308453e960ba0dca8c54ba12de01a56a495d18bb4d3",
+    "verification/fastcbor-proof/ProofCheck/BoolComplete.lean": "6f3c8f04ac46cc3805bfb019c9e9956bc996f1e39e7d8e6196b109b711356d30",
+    "verification/fastcbor-proof/ProofCheck/BoolRead.lean": "35efe5652c2b6a342528a6e2aa091c172fe3fa95dc2d85d27ff5916638259d52",
+    "verification/fastcbor-proof/ProofCheck/BoolSpec.lean": "a0041d8610f19babfbfe118eb7566a48d1e88e0ddac0b96136713a71106f0f84",
     "verification/fastcbor-proof/ProofCheck/CacheEOF.lean": "95bb4985c81fc18a8621bac962e328249b2323fffc4280cc3f0b6858d90fa79a",
     "verification/fastcbor-proof/ProofCheck/CacheFast.lean": "3b7c2f31ef72a30b010c5cb39b602ca3c7e5f311999c2262aaf17d8abd7f13f5",
     "verification/fastcbor-proof/ProofCheck/CacheHit.lean": "1b3fe75b56c34b8cb10ae8e43bc21b70964a1dff8a15fddbceec3e8c24bed469",
@@ -3000,8 +3034,8 @@
     "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "00fe0698ec5a343f5aa12df6ede703318cbff23389d48dd512ec28fc77bc75ae",
-    "verification/fastcbor-proof/audit.py": "b9c8ca0aa83c9263b41efde0fa9e8c081fe52e49e649d52532af812de80ff9b6",
+    "verification/fastcbor-proof/ProofCheck.lean": "6b8edb3af9526466b0bda022640aa2ffb5dee5e08eaa9db2155e47de9feb5753",
+    "verification/fastcbor-proof/audit.py": "c9f1d7813f9aa9f4dd20a18366f5909a09340420f4d82f6e35dc171e512ef30a",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",

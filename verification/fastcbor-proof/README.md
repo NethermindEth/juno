@@ -4860,3 +4860,42 @@ unchanged. No theorem depends on admissions or native evaluation axioms. Saved
 compatibility, race/checkptr and archived performance evidence was revalidated
 against unchanged Go sources. Original/baseline worktrees and trusted semantics
 remain untouched.
+
+### Complete Boolean primitive and typed field reader
+
+`BoolSpec.lean` specifies Boolean fields independently of the implementation:
+`0xf4` and `0xf5` assign false and true; null/undefined consume one byte and
+preserve the prior value. It proves all-input classification, one-byte successful
+length, uniqueness of the successful value and prefix/suffix, separation of
+success from rejection, and uniqueness of the rejection reason.
+
+`BoolRead.lean` proves the actual `Cursor.Bool` success and failure paths at any
+valid cursor offset. This primitive calls `Peek`, not the generic head parser.
+Empty input produces the truncated diagnostic; every tag-major first byte is
+unsupported, even if its tag argument is incomplete. Other bytes apart from
+false/true produce the type diagnostic, including reserved simple-value heads.
+The proof preserves input ownership, cursor depth and, on failure, the original
+position, while owning the actual error and its formatting arguments.
+
+`BoolComplete.lean` composes those paths with the real nullable field wrapper,
+proving `cborReadBool` for every byte input and arbitrary old Boolean value.
+Success consumes exactly one nonwrapping byte and leaves the exact suffix;
+failure preserves the destination and cursor. The initialized contract derives
+the diagnostic categories from actual package initialization and returns their
+read-only global ownership alongside the outcome. These results require **no
+unproved helper contract**, including no UTF-8 premise.
+
+This closes the Boolean dependency needed by the receipt execution-status
+projection and full receipt. Their field ownership, record loops and API
+composition are still outstanding. Header remains conditional on its existing
+UTF-8 word-helper/model issue; the felt-key map model gap is unchanged. No Go
+source or pinned trusted semantics changed.
+
+Full regeneration and audit pass in `check-bool-complete-full.log`: 2309 build
+jobs, 1423 audited theorems, 513 project/artifact hashes and 46 directly translated
+standard-library hashes. Independent checks verified the exact eleven new
+results, unchanged dependencies for every prior theorem, the unchanged axiom
+union and unresolved-premise inventory, and every recorded hash. There are no
+admission or native-evaluation dependencies. Saved compatibility, race/checkptr
+and performance evidence was revalidated against the unchanged Go sources;
+the original and baseline worktrees remain clean at their recorded revisions.

@@ -245,6 +245,16 @@ report = {
         "unproved_helper_premises": [],
         "scope": "complete projection tag-prelude contract under pinned 64-bit partial-correctness model, not the following record/API decoder; trusted semantics and production Go unchanged",
     },
+    "typed_boolean": {
+        "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
+        "specification": "verification/fastcbor-proof/ProofCheck/BoolSpec.lean",
+        "implementation_proofs": ["verification/fastcbor-proof/ProofCheck/BoolRead.lean", "verification/fastcbor-proof/ProofCheck/BoolComplete.lean"],
+        "theorems": ["wp_bool_valid", "wp_bool_rejected", "wp_readBool_valid", "wp_readBool_rejected", "wp_readBool_complete", "wp_readBool_initialized"],
+        "proved": "every byte input at every valid cursor and arbitrary prior Boolean; false/true bytes assign, null/undefined preserve prior value; successful consumption is exactly one nonwrapping byte with exact suffix; errors preserve field/cursor/input and own the actual original-offset diagnostic; Peek EOF is truncated, tag-major mismatches are unsupported even for incomplete tags, all other mismatches are type errors; actual initialization supplies category objects",
+        "specification_proved": "all-input classification, one-byte valid length, unique successful value/prefix/suffix, success/rejection separation and unique rejection reason",
+        "unproved_helper_premises": [],
+        "scope": "complete Boolean helper under pinned 64-bit partial-correctness semantics; receipt record/projection composition remains; compiler/runtime correctness, OOM and termination excluded; production Go and trusted semantics unchanged",
+    },
     "nullable_uint64": {
         "implementation": "core/cbor_readers.go: cborReadUint64Pointer",
         "specification": "verification/fastcbor-proof/ProofCheck/Uint64PointerSpec.lean",

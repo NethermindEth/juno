@@ -327,3 +327,7 @@ import ProofCheck.HeaderProjectionAPIOutcome
 import ProofCheck.HeaderProjectionAPIGuard
 import ProofCheck.HeaderProjectionAPIZero
 import ProofCheck.HeaderProjectionAPIComplete
+
+import ProofCheck.BoolSpec
+import ProofCheck.BoolRead
+import ProofCheck.BoolComplete
