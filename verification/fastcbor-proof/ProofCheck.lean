@@ -321,3 +321,9 @@ import ProofCheck.HeaderProjectionRecordError
 import ProofCheck.HeaderProjectionRecordValid
 import ProofCheck.HeaderProjectionRecordRejected
 import ProofCheck.HeaderProjectionRecordComplete
+
+import ProofCheck.HeaderProjectionAPISpec
+import ProofCheck.HeaderProjectionAPIOutcome
+import ProofCheck.HeaderProjectionAPIGuard
+import ProofCheck.HeaderProjectionAPIZero
+import ProofCheck.HeaderProjectionAPIComplete

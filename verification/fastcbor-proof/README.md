@@ -34,8 +34,8 @@ rejects trailing data. A nonzero destination is rejected unchanged. Duplicate st
 keys are unsupported, as in the baseline planner; they are not silently accepted
 with first-wins semantics. The generated projections retain the planner’s separate
 first-wins policy through `NextWanted`. All five Header projection internal record
-readers now have conditional all-input contracts; their public First API
-guard/cleanup/suffix composition remains open.
+readers and their registered First entries now have conditional all-input,
+all-owned-destination contracts, including guard/cleanup/suffix behavior.
 
 ## Immediate target: complete Header
 
@@ -101,9 +101,10 @@ The checked inventory records all 15 manifested destinations as registered typed
 readers and retains all 185 frozen benchmark IDs. BlockTransactionsIndexes now also has conditional all-input public API contracts;
 its independent specification now has unique outcomes and success/rejection separation
 on representable input lengths. All five Header projection internal record readers
-now also have conditional contracts for every byte input and owned initial value,
-including optional tags, exact suffixes and retained errors. Their public First
-APIs and the other record families remain to be composed. See “Checked remaining-entry inventory” below.
+and their registered First entries now also have conditional contracts for every
+byte input and owned initial value, including optional tags, exact suffixes,
+retained diagnostics, destination guards and error cleanup. The other record
+families remain to be composed. See “Checked remaining-entry inventory” below.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -4807,3 +4808,55 @@ are unchanged. No theorem depends on admissions or native evaluation axioms.
 Saved compatibility, race/checkptr and archived performance evidence was
 revalidated against unchanged Go sources. Original/baseline worktrees and pinned
 trusted semantics remain untouched.
+
+
+### Complete Header projection First APIs
+
+`HeaderProjectionAPISpec.lean` defines the independent caller contract for all
+five Header projection First entries. Nonzero initial destinations are rejected
+unchanged; parsing starts from zero; success returns the record value and unread
+suffix; every parser failure clears partial results before returning the original
+error. All-input classification, unique outcomes, cleanup, successful-record
+correspondence and input-bounded diagnostic offsets are proved without a helper
+correctness premise.
+
+`HeaderProjectionAPIOutcome.lean` describes the concrete owned output and errors.
+A successful suffix is the exact original-input slice, including backing pointer
+and capacity, with the specified bytes and length. Errors return a nil suffix.
+Guard diagnostics refer to the actual initialized entry error category; parser
+errors retain their owned allocated diagnostic or bare tag sentinel and a
+nonwrapping offset.
+
+`HeaderProjectionAPIGuard.lean` proves every actual generated First guard preserves
+an owned nonzero destination and allocates the precise diagnostic without reading
+input. `HeaderProjectionAPIZero.lean` composes the real cursor constructor,
+complete record reader, Remaining method and whole-struct clear function for
+every byte input. Both allocated parser errors and bare unsupported-tag errors
+execute cleanup. `HeaderProjectionAPIComplete.lean` combines both branches into
+**all-input/all-owned-initial-destination contracts for all five registered typed
+Header projection First entries**, deriving error-category objects from the
+existing initialization proofs. The single theorem quantifies over the five
+projection kinds and proves each corresponding translated function; it does not
+assume a generic wrapper implementation.
+
+The projection record and First API composition is now complete **conditional on
+`Utf8ValidatorContract`**, just as the Header and BlockTransactionsIndexes APIs.
+The shared UTF-8 word-helper/model issue remains unresolved, so this does not
+close the unconditional Header milestone or the whole-library proof gate.
+Routing and registration themselves remain outside scope. Next payload work is
+the receipt projections and receipt family, followed by the remaining transaction,
+state-update and class contracts and their initialization chains. The felt-key
+map equality issue remains a separate model gap. No production Go changes were
+needed for this checkpoint.
+
+Full regeneration and audit pass in `check-header-projection-api-complete-full.log`:
+2306 build jobs, 1412 audited theorems, 510 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact eight
+new results, unchanged dependency sets for every prior theorem, the unchanged
+whole axiom union, and all source/artifact hashes. Only the zero-destination and
+complete API implementation results add direct validator premises (103 direct
+results total); the two word-helper results and all premise metadata remain
+unchanged. No theorem depends on admissions or native evaluation axioms. Saved
+compatibility, race/checkptr and archived performance evidence was revalidated
+against unchanged Go sources. Original/baseline worktrees and trusted semantics
+remain untouched.

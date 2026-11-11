@@ -137,8 +137,8 @@
     "rejected_loop": "wp_nextWanted_rejected realizes every WantedRejected scan through arbitrary ignored prefixes; preserves current pair/open state, input and metadata, with exact nonwrapping cursor consumption and independent diagnostic offset",
     "all_input_contract": "wp_nextWanted_complete classifies every byte input, derives actual error-category globals from cursor initialization, and produces WantedSpec with matching concrete cursor/struct/error ownership; no assumed well-formedness or selected outcome; explicit schema names/mask and seen-state correspondence",
     "initialized_specialization": "wp_nextWanted_projection derives actual immutable names/mask for any of the seven initialized projection tables; pointer agreement ties the Struct to its published table; only the existing validator premise remains",
-    "pending": "Header projection public APIs and receipt projection records/APIs; discharge shared UTF-8 word-helper premise after separately approved trusted repair",
-    "scope": "complete independent scan specification and conditional all-input production NextWanted contract; Header projection records compose conditionally while their public APIs and receipt projections remain open; partial correctness and model safety under pinned 64-bit semantics; production Go and trusted model unchanged"
+    "pending": "receipt projection records/APIs and remaining record families; discharge shared UTF-8 word-helper premise after separately approved trusted repair",
+    "scope": "complete independent scan specification and conditional all-input production NextWanted contract; Header projection records and First APIs compose conditionally while receipt projections remain open; partial correctness and model safety under pinned 64-bit semantics; production Go and trusted model unchanged"
   },
   "header_projection_records": {
     "shapes": [
@@ -178,8 +178,22 @@
       "wp_readHeaderProjection_record_complete"
     ],
     "all_input_record_scope": "all five actual generated internal record readers on every byte input and arbitrary owned initial projection value at supported depth; independent HeaderProjectionRecordSpec determines every success/failure; input preserved, final/retained fields owned, exact nonwrapping consumption and successful suffix, enclosing depth restored on success and entered map retained on rejection; allocated diagnostics versus bare unsupported sentinel; actual initialization supplies shared tables and error categories",
-    "pending": "public First API guards/cleanup/suffix composition and shared UTF-8 premise; receipt projection payloads are separate",
-    "scope": "conditional partial correctness and model safety for complete internal Header projection records, not yet their public First APIs; no Go or trusted semantics changes"
+    "first_specification": "HeaderProjectionFirstSpec independently specifies zero-destination guarding, unchanged nonzero rejection, exact successful suffix and clearing of every parser failure; all-input classification, unique outcome, cleanup, success and diagnostic-bound properties are proved",
+    "first_api_theorems": [
+      "wp_decodeHeaderProjectionFirst_nonzero",
+      "wp_decodeHeaderProjectionFirst_zero",
+      "wp_decodeHeaderProjectionFirst_complete"
+    ],
+    "first_api_entries": [
+      "decodeHeaderHashProjectionFirst",
+      "decodeHeaderGlobalStateRootProjectionFirst",
+      "decodeHeaderTransactionCountProjectionFirst",
+      "decodeHeaderTimestampProjectionFirst",
+      "decodeHeaderHashAndStateRootProjectionFirst"
+    ],
+    "first_api_scope": "all five actual registered typed First entry functions on every byte input and owned initial destination; guard diagnostics tied to initialized entry categories, nonzero destinations preserved, all parser failures invoke actual whole-struct cleanup and return nil remaining slice, successful suffix aliases original input with exact backing pointer/capacity and length; unchanged fractional input ownership; retained allocated diagnostics or bare tag sentinel with nonwrapping error offset; package initialization derived, existing UTF-8 premise explicit",
+    "pending": "discharge shared UTF-8 premise; receipt projections and remaining record families are separate",
+    "scope": "conditional partial correctness and model safety for complete Header projection records and all five registered First entries; routing/registration itself remains outside scope; no Go or trusted semantics changes"
   },
   "projection_initialization": {
     "proofs": [
@@ -200,7 +214,7 @@
     ],
     "proved": "all seven actual allocation factories, exact immutable names/order/masks, cached-key consistency, bounded distinct folded names, actual global stores and complete package initializer through the checked cursor dependency; initialized table access; all seven actual Open wrappers against the complete null/map/rejection contract; initialized-table NextWanted specialization",
     "boundary": "explicit modeled runtime CPU startup as for Header; actual immutable table publication, no initializer WP premise; opening wrappers require no UTF-8 premise, scan retains existing Utf8ValidatorContract; opening proof excludes preceding projection-tag policy",
-    "pending": "Header projection public API composition and receipt projection record/API composition; complete Header projection internal records now checked conditionally"
+    "pending": "receipt projection record/API composition; complete Header projection internal records and First APIs now checked conditionally"
   },
   "projection_tag_policy": {
     "implementation": "core/cbor_readers.go: cborReadProjectionTag",
@@ -242,7 +256,7 @@
       "headerHashAndStateRootProjection"
     ],
     "behavior": "typed field stores and zero guards; selected-field static lookup tables; NextWanted first-duplicate-wins; original one-tag projection policy; nullable timestamp pointer; owned output, exact suffix and failure cleanup",
-    "proof_status": "complete independent all-input record specification, unique outcomes and canonical values checked; actual table initialization, concrete field ownership, successful/rejected map loops, optional tags and every internal record outcome compose conditional on UTF-8; public First API guard/cleanup/suffix composition remains open",
+    "proof_status": "complete independent all-input record and First specifications with unique outcomes; actual table initialization, concrete field ownership, successful/rejected map loops, optional tags, all internal record outcomes and all five First APIs including guard/cleanup/suffix compose conditional on UTF-8",
     "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim"
   },
   "header_projection_record_specification": {
@@ -265,7 +279,7 @@
       "headerProjectionRecord_canonical"
     ],
     "boundary": "pure independent specification results, no production-decoder or UTF-8 correctness premise; bare tagUnsupported offset denotes rejection position rather than an allocated diagnostic; representation constraints for unused slots are explicit",
-    "pending": "public First API composition using the checked record contract, zero guards and cleanup; receipt projections have separate payload contracts"
+    "pending": "shared UTF-8 implementation premise for production refinements; pure specification results need no helper correctness; receipt projections have separate payload contracts"
   },
   "typed_classes": {
     "generator": "utils/cbor/cmd/cborgen/classes.go",
@@ -547,6 +561,8 @@
         "wp_decodeHeaderFirst_rejected",
         "wp_decodeHeaderFirst_valid",
         "wp_decodeHeaderFirst_zero_complete",
+        "wp_decodeHeaderProjectionFirst_complete",
+        "wp_decodeHeaderProjectionFirst_zero",
         "wp_decodeHeader_complete",
         "wp_decodeHeader_rejected",
         "wp_decodeHeader_valid",
@@ -2094,41 +2110,49 @@
     "wp_nextWanted_projection_valid": 0,
     "wp_projectionTag_success": 0,
     "projection_unsupported_nonNil": 0,
-    "headerProjectionRejectStep_ignored": 1,
-    "headerProjectionPairs_rejected_scan": 1,
-    "headerProjectionRejectStep_pairs": 1,
-    "wp_nextWanted_projection_rejected": 0,
-    "headerProjectionPairError_scan": 0,
-    "headerProjectionFieldErrorGlobals_lookup": 0,
-    "wp_readHeaderProjection_open_failure_after_tag": 0,
-    "wp_readHeaderProjection_nullish_after_tag": 0,
-    "wp_readHeaderProjection_tag_unsupported": 0,
-    "headerProjectionRecordError_diagnostic": 0,
-    "headerProjectionRecordError_nonNil": 0,
+    "wp_readHeaderHashProjection_map_valid": 0,
+    "wp_readHeaderHashProjection_map_valid_after_tag": 0,
+    "wp_readHeaderGlobalStateRootProjection_map_valid": 0,
+    "wp_readHeaderGlobalStateRootProjection_map_valid_after_tag": 0,
     "wp_readHeaderTransactionCountProjection_map_valid": 0,
     "wp_readHeaderTransactionCountProjection_map_valid_after_tag": 0,
     "wp_readHeaderTimestampProjection_map_valid": 0,
     "wp_readHeaderTimestampProjection_map_valid_after_tag": 0,
     "wp_readHeaderHashAndStateRootProjection_map_valid": 0,
     "wp_readHeaderHashAndStateRootProjection_map_valid_after_tag": 0,
-    "wp_readHeaderHashProjection_map_valid": 0,
-    "wp_readHeaderHashProjection_map_valid_after_tag": 0,
-    "wp_readHeaderGlobalStateRootProjection_map_valid": 0,
-    "wp_readHeaderGlobalStateRootProjection_map_valid_after_tag": 0,
-    "wp_readHeaderProjection_record_valid": 0,
+    "headerProjectionRejectStep_ignored": 1,
+    "headerProjectionPairs_rejected_scan": 1,
+    "headerProjectionRejectStep_pairs": 1,
+    "wp_nextWanted_projection_rejected": 0,
+    "headerProjectionPairError_scan": 0,
+    "headerProjectionFieldErrorGlobals_lookup": 0,
     "wp_readHeaderHashProjection_map_rejected": 0,
     "wp_readHeaderHashProjection_map_rejected_after_tag": 0,
-    "wp_readHeaderTransactionCountProjection_map_rejected": 0,
-    "wp_readHeaderTransactionCountProjection_map_rejected_after_tag": 0,
     "wp_readHeaderGlobalStateRootProjection_map_rejected": 0,
     "wp_readHeaderGlobalStateRootProjection_map_rejected_after_tag": 0,
+    "wp_readHeaderTransactionCountProjection_map_rejected": 0,
+    "wp_readHeaderTransactionCountProjection_map_rejected_after_tag": 0,
     "wp_readHeaderTimestampProjection_map_rejected": 0,
     "wp_readHeaderTimestampProjection_map_rejected_after_tag": 0,
     "wp_readHeaderHashAndStateRootProjection_map_rejected": 0,
     "wp_readHeaderHashAndStateRootProjection_map_rejected_after_tag": 0,
+    "wp_readHeaderProjection_open_failure_after_tag": 0,
+    "wp_readHeaderProjection_nullish_after_tag": 0,
+    "wp_readHeaderProjection_tag_unsupported": 0,
+    "headerProjectionRecordError_diagnostic": 0,
+    "headerProjectionRecordError_nonNil": 0,
+    "wp_readHeaderProjection_record_valid": 0,
     "wp_readHeaderProjection_record_body_rejected": 0,
     "wp_readHeaderProjection_record_spec": 0,
     "wp_readHeaderProjection_record_complete": 0,
+    "headerProjectionFirst_classify": 2,
+    "headerProjectionFirst_unique": 2,
+    "headerProjectionFirst_cleanup": 1,
+    "headerProjectionFirst_success": 1,
+    "headerProjectionFirst_diagnostic_bound": 2,
+    "wp_decodeHeaderProjectionFirst_nonzero": 0,
+    "wp_decodeHeaderProjectionFirst_zero": 0,
+    "wp_decodeHeaderProjectionFirst_complete": 0,
     "bigEndianMagnitude_nonnegative": 4
   },
   "axiom_sets": [
@@ -2510,7 +2534,7 @@
   ],
   "sorryAx_in_pilot": false,
   "native_evaluation_axioms_in_pilot": false,
-  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their public First API composition remains open. Receipt projections, receipts, transactions, state updates and classes are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables; receipt, transaction, state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
+  "caveat": "Partial correctness and model safety under the pinned 64-bit Go model, with package initialization and owned inputs as preconditions; compiler/runtime correctness, OOM and termination are excluded. Generated opaque type declarations remain and are reported by the theorem axiom sets. Complete all-input/all-owned-destination Header API composition is checked against independent HeaderFirstSpec/HeaderFullSpec, but requires Utf8ValidatorContract. The complete actual UTF-8 validator loop reduces that premise to Utf8WordWindowContract; the actual generic eight-byte helper remains unproved because the documented trusted slice-index repair is unapplied. Integer-key dispatch is checked for every input conditional on the same Utf8ValidatorContract, because even unknown text keys are validated before their values are skipped. Complete public BigInt decoding is now checked against independent integer success/rejection relations, with exact values, consumption, owned outputs/errors, input preservation and rollback; the pinned errors.Is comparability model is restricted here to concrete pointer targets. Public Cursor.Int64 and the complete typed signed-array helper are also checked for every byte input without helper premises; arrays preserve nil/empty distinctions and specify unsigned-overflow consumption, signed-fallback rollback and destination preservation on errors. Relevant initialization establishes actual immutable tables and error-category objects after modeled runtime CPU startup. Resource-key map, transaction-interface and class-interface witnesses are checked, but they are not payload decoder proofs; felt-key maps expose a separate array-equality modeling gap. All 15 manifested destinations have registered typed readers: Header, its five projections, BlockTransactionsIndexes, the receipt family, Transaction, transactionHashProjection, StateUpdate and ClassDefinition. BlockTransactionsIndexes now has conditional all-input/all-owned-destination contracts against independent IndexesFirstSpec/IndexesFullSpec, including initialization, nil/empty distinctions, both arrays, first-key-wins, exact suffixes and parser/trailing/guard errors; independent outcome uniqueness/separation is checked. NextWanted has a conditional all-input scan contract with initialized error categories and exact state/diagnostic ownership; all five Header projection internal records now have conditional all-input/all-owned-initial-value contracts against independent HeaderProjectionRecordSpec, including optional tags, exact suffixes, retained partial results, depth and owned diagnostics. Their five registered First entry functions now also have conditional all-input/all-owned-destination contracts against independent HeaderProjectionFirstSpec, including actual guard rejection, failure cleanup, nil error suffix and exact original-input suffix aliasing. Receipt projections, receipts, transactions, state updates and classes are translated and behavior-tested, but their complete decoder contracts remain open. Transaction and class decoding take explicit tag profiles; its connection to registry initialization is outside the proof boundary. Projection table initialization is checked for all seven tables; receipt, transaction, state and class payload-table initialization proofs remain open. The manifest and saved no-fallback corpus results are source-specific evidence, not formal fxamacker equivalence. Ignored CBOR text is intentionally not always validated, so successful decoding is not blanket RFC validity. The frozen performance gate passes for the recorded source hashes; no universal performance or whole-library correctness theorem is claimed.",
   "sha256": {
     "core/accessors.go": "aa2e919faaa9ec246948553a0cc08b02baaf8e46163039bdbbccca124f7e2393",
     "core/aggregated_bloom_filter.go": "5a183be15a123309f0f8952b19f892d351040a593348769779f21f2cfbd9ad82",
@@ -2742,6 +2766,11 @@
     "verification/fastcbor-proof/ProofCheck/HeaderOutcomeUnique.lean": "9fbac9859098c91cfa30b0baa217955b52f09e6cd04633651efc81ff944ea0cf",
     "verification/fastcbor-proof/ProofCheck/HeaderOwnedZero.lean": "20021f0a99de75d0a1896c12ec360fb41d2a2d58c6810065d458647017ec6538",
     "verification/fastcbor-proof/ProofCheck/HeaderOwnership.lean": "d2c03fe21c6ae59327d9ffa1eacbfcdf1ca8a724ea10941cfd839424e155dbe6",
+    "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean": "442f6f2db6e93c80068a651c313da93b132da4c1ef4b3a27bdfcfe2960232b79",
+    "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIGuard.lean": "103d9018b50a6db6c422f082d343b6a9c0949c55d09a954f97ca5eb95dcf72d7",
+    "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIOutcome.lean": "1f2073403f7a7c27d61753315d818146f7a7774d3a1430a24ca28f1e2aa0f2de",
+    "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPISpec.lean": "09fcb94ce7a3cbbf9112e1f6fd41fb8f0126f0b2b7ed60d4412b5626c6816fd1",
+    "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIZero.lean": "9a15c2fadddd05bb5d82569b150775641116af9b201a20493577a863255a1999",
     "verification/fastcbor-proof/ProofCheck/HeaderProjectionBodyUnique.lean": "81593527f36c6e57a331358d2ef1bad03c51ff8be2d226a19d2e14be3a8934a3",
     "verification/fastcbor-proof/ProofCheck/HeaderProjectionBoundary.lean": "1e996eaa1ee22dc1018fdfcbd19b7e7ec8e9f2a7a928659e0fbd4bec6da81da6",
     "verification/fastcbor-proof/ProofCheck/HeaderProjectionBounds.lean": "855ac6d071f4d6d53e2011a27fa3f8cddd28168c9dd52a80539024a07e9dcd51",
@@ -2971,8 +3000,8 @@
     "verification/fastcbor-proof/ProofCheck/WantedValidImpl.lean": "b0e5fdf77f16784ab051e56808d1d457fc71b097f9093775ef70549a2d4d0ddd",
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
-    "verification/fastcbor-proof/ProofCheck.lean": "b3ccd49943c96413f8a098e0225889434cf3972abd9646992eebae1f7a929dc6",
-    "verification/fastcbor-proof/audit.py": "a944b412d4b92dbbe132b134d04e7cc72f172a0bb761c805e25709926cf3b99b",
+    "verification/fastcbor-proof/ProofCheck.lean": "00fe0698ec5a343f5aa12df6ede703318cbff23389d48dd512ec28fc77bc75ae",
+    "verification/fastcbor-proof/audit.py": "b9c8ca0aa83c9263b41efde0fa9e8c081fe52e49e649d52532af812de80ff9b6",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
     "verification/fastcbor-proof/bench/run.py": "d61aee034da99c72db6838864101dd7778da98e7bf73c008c46ed45ebaad54ce",
