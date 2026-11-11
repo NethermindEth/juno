@@ -63,3 +63,20 @@ verification/fastcbor-proof/.tools/bench-venv/bin/python \
 It is not evidence of a live process: inspect the process/tool handle before
 resuming an interrupted run. Do not run concurrent resumes into one directory.
 A terminal report cannot resume. Preserve raw logs alongside any published report.
+
+After a run terminates, validate its artifact before reporting a gate result:
+
+```sh
+verification/fastcbor-proof/.tools/bench-venv/bin/python \
+  verification/fastcbor-proof/bench/check.py /tmp/juno-cbor-gate-RUN
+```
+
+The checker rejects live/partial runs and verifies all frozen IDs, both compatibility
+reports, current source and binary hashes, the source-derived wrapper overlays,
+preflight successes, every raw sample's hash/identity/metrics, and the complete
+scheduled look sequence. It recomputes every saved decision. A verified `fail` or
+`inconclusive` report remains a failed or inconclusive gate. Run the checker while
+the original source revision and smoke evidence are available, before making fixes;
+later source changes deliberately invalidate verification against the current tree.
+The checker establishes artifact consistency, not independent proof of CPU isolation
+or the benchmark process's actual environment.
