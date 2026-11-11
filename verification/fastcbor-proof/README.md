@@ -149,7 +149,9 @@ all-input/all-owned-initial-destination contracts, including exact suffix aliasi
 zero guards, parse-failure cleanup and trailing-input rejection. Transaction-specific
 DA-mode and version-pointer helpers now also have complete contracts without an
 assumed helper premise, and all seven transaction metadata factories, initialization
-and opening wrappers are checked; transaction payload composition remains open.
+and opening wrappers are checked. The two-field ResourceBounds record now also has
+complete conditional all-input contracts; its enclosing map and transaction payload
+composition remain open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6366,3 +6368,66 @@ The scope remains partial correctness and model safety on the pinned 64-bit targ
 excluding compiler/runtime implementation correctness, OOM and termination. No
 FX-equivalence or strict ignored-CBOR-validity claim is made, and the unconditional
 Header and whole-library gates remain open.
+
+
+## Complete conditional ResourceBounds direct record
+
+`ResourceBoundsValues.lean` independently specifies the amount and nullable felt
+price. Null/undefined preserves the scalar amount but clears the price pointer;
+direct-record null/undefined preserves both old fields. The price relation reflects
+the actual stored four-limb format, without adding a uint128 restriction that the
+decoder does not enforce. Classification, prefix/value/suffix uniqueness, rejection
+uniqueness, success/rejection separation and diagnostic bounds are proved.
+
+`ResourceBoundsOwnership.lean` owns the exact concrete amount and price pointer plus
+its optional child allocation. The amount call borrows only its scalar cell; the
+price call separates pointer publication from child ownership. Both failed field
+calls reconstruct the old record. `ResourceBoundsFieldComplete.lean` composes the
+actual Uint64 and felt reader contracts on every input and prior owned value, with
+initialized error categories, unchanged input and exact suffix/cursor state.
+`ResourceBoundsFieldRefine.lean` connects independently valid/rejected fields to
+those actual calls. These field contracts have no UTF-8 or other helper premise.
+
+The keys, table, seen and key-read modules connect independent MaxAmount and
+MaxPricePerUnit names to the actual initialized transaction table, ASCII case folding,
+encoded ordering/caches, disjoint seen bits and complete NextField behavior. The pair,
+record and uniqueness modules classify arbitrary input, field order and prior values,
+including unknown skipped fields and rejection of duplicate known fields. A failed
+field or ignored value rolls back its own cursor changes, while earlier successful
+fields remain in the partial record. Consumed bytes and the deeper diagnostic offset
+remain distinct; a record failure after opening retains the outer map depth.
+
+`ResourceBoundsMapValid.lean`, `ResourceBoundsMapRejected.lean`,
+`ResourceBoundsBoundary.lean` and `ResourceBoundsRecordComplete.lean` compose the
+actual generated record loops, ignored-value Skip, map closing, nullish preservation
+and opening failures into a complete **conditional direct-record contract**. Success
+owns the decoded record, preserves input and returns the exact suffix with restored
+depth. Rejection owns the specified partial record and initialized diagnostic with
+exact cursor/offset/depth. Every input at supported depth and every owned initial
+record is covered. These Map modules prove the struct's field loop; they do not
+prove the distinct `cborReadResourceBoundsMap` Go-map reader.
+
+Eight new key/record implementation theorems carry the existing explicit
+`Utf8ValidatorContract` premise. No new helper assumption was introduced. The next
+step is the enclosing ResourceBounds map: allocation, uint32 keys, nullish/overflow
+key errors, whole-value replacement on duplicate keys, nested record decoding and
+success-only publication. Transaction variants, tag dispatch and public APIs remain
+open, as do state-update/class decoding, Header's unapproved UTF-8 model correction
+and the independent felt-key map equality gap. Production Go and trusted semantics
+are unchanged.
+
+Validation: the full `./check.sh` passed **2,621 build jobs** and audited **2,546
+pilot theorems**, rejecting sorryAx and native-evaluation axioms, with **822
+project/artifact hashes** and **46 stdlib source hashes**. An independent comparison
+against `72fd2fe7c` confirmed exactly **63 added results across 17 modules**, unchanged
+dependency sets for all 2,483 prior results, unchanged total axiom union and every
+recorded source hash. Direct UTF-8 premise counts are now 238 validator results and
+2 word-helper results. Regeneration, manifest/feasibility checks and archived
+performance verification passed. Unchanged Go sources retain the frozen ordinary,
+race/checkptr and performance evidence; original, baseline and pinned Perennial
+worktrees remain unchanged.
+
+The claim remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime correctness, OOM and termination. It establishes neither
+FX equivalence nor strict validity of ignored CBOR content. Unconditional Header
+and whole-library completion gates remain open.

@@ -335,6 +335,29 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "resource_bounds_record": {
+        "implementation": "core/cbor_transactions_generated.go: cborReadResourceBounds; core/transaction.go: ResourceBounds",
+        "theorems": [
+            "resourceBoundsField_classify",
+            "resourceBoundsField_rejected_unique",
+            "resourceBoundsOwned_zero",
+            "wp_resourceBounds_field_complete",
+            "resourceBoundsTable_names",
+            "wp_nextResourceBoundsKey_valid",
+            "resourceBoundsPairs_classify",
+            "resourceBoundsRecordSpec_total_unique",
+            "wp_readResourceBounds_map_valid",
+            "wp_readResourceBounds_map_rejected",
+            "wp_readResourceBounds_record_complete"
+        ],
+        "specification_proved": "independent MaxAmount uint64 and nullable MaxPricePerUnit four-limb value; scalar nullish preserves old amount while price nullish clears pointer; direct record nullish preserves both; field and record classification, success/failure uniqueness and disjointness, arbitrary field order and owned prior values, unknown-value Skip and known duplicate rejection, exact suffixes, partial record contents and separate consumed/diagnostic positions with retained outer-map level",
+        "implementation_proved": "actual field ownership/access and both helper calls; initialized two-field table agrees with independent names, encoded order/caches and seen masks; complete NextField cases; actual generated success/rejection loops, ignored values, map closing, nullish/opening branches and complete direct-record contract on every input at supported depth; exact unchanged input, restored depth on success and owned partial output/errors on failure",
+        "unproved_helper_premises": [
+            "Utf8ValidatorContract"
+        ],
+        "remaining": "enclosing ResourceBounds map allocation, integer keys, duplicate map-entry replacement, nested record calls and success-only publication; transaction variant and public API composition",
+        "scope": "complete conditional direct ResourceBounds record; price contract reflects stored felt limbs without imposing an extra uint128 validation absent from this decoder; field calls have no helper-correctness premise; pinned 64-bit partial correctness/model safety, compiler/runtime correctness/OOM/termination excluded; no production Go or trusted-model changes; no FX-equivalence or strict ignored-CBOR-validity claim"
+    },
     "transaction_primitives": {
         "implementation": "core/cbor_readers.go: cborReadDataAvailabilityMode and cborReadTransactionVersion",
         "theorems": [
