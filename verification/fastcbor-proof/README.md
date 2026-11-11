@@ -3717,7 +3717,36 @@ and source hashes against the original baseline. All corpus hashes were checked.
 It records the removed EventsBloom projection and historical zero-route controls;
 all cases now have source-specific compatibility classifications in
 `results/compatibility-smoke.json`. **No cases have passed the new performance
-gate and no performance timings have been collected.**
+gate.** The first paired run is underway as described below.
+
+## Frozen performance measurement in progress
+
+`bench/run.py` and `bench/frozen_bench_test.go.txt` now implement the timing port
+for all 185 frozen IDs. The six removed projections remain explicitly excluded;
+177 compatible decoder cases and two separately reported zero-decoder controls
+are measured. Block framing, case selection and planner warmup stay outside timing.
+The wrapper overlay preserves the successful fast path and panics on attempted
+fallback. It does not contain compatibility-smoke counters. The unchanged baseline
+and candidate both pass timing preflight for every present operation, direct FX
+comparisons for records/projections/indexes, and the fallback-rejection check.
+Six runner tests check pass/fail/inconclusive decisions, paired drift, preservation
+of zero allocations, missing cases and rejection of unplanned looks.
+
+The first run uses candidate Go sources from `66d35a944` and the frozen baseline.
+Artifacts are in `/tmp/juno-cbor-gate-66d35a944-v2`; the runner log is
+`/tmp/cbor-gate-measure-v2.log`. Baseline and candidate binaries, overlays and raw
+samples are hashed in `report.json`. The prior directory without the `-v2` suffix
+was a preparation-only build, before moving block operation selection outside the
+closure; it supplied no timing samples or acceptance decision.
+
+The live run uses the shared historical lock, CPU 2, GOMAXPROCS=1 and 300 ms
+samples, alternating baseline/candidate order per case and round. All comparable
+cases must meet the 3% bound for all three metrics at the prespecified 5/10/20
+looks. Student-t bounds are applied to paired log ratios with one-sided alpha/3;
+zero allocation baselines remain zero. See [the runner documentation](bench/README.md)
+for the assumptions, exclusions and resume rules. A partially collected run is
+not a passed performance gate. No whole-library proof advancement is justified by
+preflight success or incomplete measurements.
 
 ## Proposed fix: generic slice indexing in the pinned semantics
 
