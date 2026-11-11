@@ -345,3 +345,19 @@ import ProofCheck.ReceiptStatusRejectDecompose
 import ProofCheck.ReceiptStatusPairError
 import ProofCheck.ReceiptStatusMap
 import ProofCheck.ReceiptStatusMapRejected
+
+import ProofCheck.ReceiptStatusItemUnique
+import ProofCheck.ReceiptStatusPairsUnique
+import ProofCheck.ReceiptStatusBodyUnique
+import ProofCheck.ReceiptStatusRecordUnique
+import ProofCheck.ReceiptStatusBoundary
+import ProofCheck.ReceiptStatusTagBoundary
+import ProofCheck.ReceiptStatusRecordError
+import ProofCheck.ReceiptStatusRecordValid
+import ProofCheck.ReceiptStatusRecordRejected
+import ProofCheck.ReceiptStatusRecordComplete
+import ProofCheck.ReceiptStatusAPISpec
+import ProofCheck.ReceiptStatusAPIOutcome
+import ProofCheck.ReceiptStatusAPIGuard
+import ProofCheck.ReceiptStatusAPIZero
+import ProofCheck.ReceiptStatusAPIComplete

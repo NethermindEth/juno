@@ -104,7 +104,10 @@ on representable input lengths. All five Header projection internal record reade
 and their registered First entries now also have conditional contracts for every
 byte input and owned initial value, including optional tags, exact suffixes,
 retained diagnostics, destination guards and error cleanup. The other record
-families remain to be composed. See “Checked remaining-entry inventory” below.
+families remain to be composed, except that the receipt execution-status
+projection now also has complete conditional internal-record and First API
+contracts, with independently unique outcomes. See the latest receipt checkpoint
+below and “Checked remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
 section below. Twelve transaction-interface witness contracts now also check
@@ -4934,9 +4937,9 @@ map depth and exact cursor/diagnostic positions. The already-proved projection
 initialization provides the actual immutable metadata table.
 
 **These field and loop contracts remain conditional on
-`Utf8ValidatorContract`.** Record-level uniqueness, the early-return branches and
-complete internal/public First API composition are next; this checkpoint does
-not claim a complete receipt projection API theorem. The other receipt families,
+`Utf8ValidatorContract`.** At this map-loop checkpoint, record-level uniqueness,
+the early-return branches and complete internal/public First API composition
+remained; the next checkpoint composes them. The other receipt families,
 Header's UTF-8 word-helper issue and the felt-key map model gap remain open. No Go
 source or trusted semantics changed, and no new helper assumption was introduced.
 
@@ -4949,3 +4952,51 @@ and every recorded hash. Seven new contracts use the existing validator premise
 depends on admissions or native evaluation axioms. Saved compatibility,
 race/checkptr and performance evidence was revalidated against unchanged Go
 sources. Original/baseline worktrees remain clean at their recorded revisions.
+
+### Complete receipt execution-status record and First API
+
+`ReceiptStatusItemUnique`, `ReceiptStatusPairsUnique`, `ReceiptStatusBodyUnique`
+and `ReceiptStatusRecordUnique` establish independent outcome uniqueness through
+selected/ignored fields, ordered pairs, opening and optional-tag policies. Every
+input at a supported depth has exactly one specified record result, including
+retained values, parser/diagnostic positions and the entered-map state on error.
+These pure results do not assume the decoder or any helper is correct.
+
+`ReceiptStatusBoundary.lean` and `ReceiptStatusTagBoundary.lean` prove the actual
+reader's malformed-tag, bare unsupported-tag, opening-error and null/undefined
+branches. Opening uses the initialized immutable projection table. Nullish records
+complete through the real closed-state `NextWanted` branch. Bare unsupported-tag
+errors are proved non-nil using the initialized category object.
+
+`ReceiptStatusRecordValid`, `ReceiptStatusRecordRejected`, `ReceiptStatusRecordError`
+and `ReceiptStatusRecordComplete` compose those branches with both map-loop proofs.
+The resulting internal-reader contract covers every byte input and every owned
+initial value at a supported depth: exact successful value/suffix, unchanged input,
+preserved outer depth on success, retained partial values on rejection and owned
+diagnostics at bounded nonwrapping offsets. Allocated errors and bare sentinels
+remain distinct in the concrete outcome representation.
+
+The `ReceiptStatusAPI*` modules specify and prove the actual registered
+`decodeReceiptExecutionStatusProjectionFirst` entry for every input and every
+owned initial destination. Its nonzero guard rejects unchanged without reading
+input; successful decoding returns the exact suffix slice, including original
+backing pointer and capacity; parser failures execute whole-struct cleanup and
+return nil remaining bytes with the original error. The independent First
+specification has classification, uniqueness, cleanup and diagnostic-bound proofs.
+
+**The internal record and First API contracts remain conditional on
+`Utf8ValidatorContract`.** This completes their composition, not the shared
+UTF-8 word-helper proof or the whole-library gate. Next receipt work is the event
+payload/slices and events projection, then the remaining full-receipt dependencies.
+The other record families and felt-key map model gap remain open. Production Go,
+routing/registration scope and the pinned trusted semantics are unchanged.
+
+Full regeneration and audit pass in `check-receipt-status-api-complete-full.log`:
+2337 build jobs, 1500 audited theorems, 541 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact 31 new
+results, unchanged dependencies for all prior theorems, the unchanged axiom union
+and every recorded hash. Six new contracts use the existing validator premise
+(116 direct results total); the two word-helper results are unchanged. There are
+no admission or native-evaluation dependencies. Saved compatibility, race/checkptr
+and performance evidence was revalidated against unchanged Go sources. The
+original and baseline worktrees remain clean at their recorded revisions.
