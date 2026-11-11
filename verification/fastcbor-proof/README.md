@@ -5000,3 +5000,46 @@ and every recorded hash. Six new contracts use the existing validator premise
 no admission or native-evaluation dependencies. Saved compatibility, race/checkptr
 and performance evidence was revalidated against unchanged Go sources. The
 original and baseline worktrees remain clean at their recorded revisions.
+
+## Felt-value slice specification and boundary implementation proofs
+
+The event dependency work now distinguishes direct felt-value slices from
+Header's nullable felt-pointer slices. `LimbItemsSpec` defines nonnullable felt
+sequences and rejected sequences with an already-written prefix, failing-element
+start and diagnostic offset. It proves all-input classification, output length,
+input/diagnostic bounds and unique successful value/prefix/suffix.
+`FeltValuesSpec` classifies the complete slice input space and proves bounded
+failure offsets and exact successful suffix decomposition. Its allocation guard
+counts **all bytes remaining after the array head, including any later suffix**,
+at five bytes per declared felt; it does not assume every accepted felt encoding
+inherently consumes five bytes. Count rejection precedes depth checks. Elements
+reject null/undefined, while null/undefined at the slice boundary produces nil.
+
+`FeltValuesBoundary` proves the actual generic `LimbSlice[felt.Felt]` nullish path,
+all outer expectation failures, count rejection, exhausted outer depth and the
+additional nonempty-slice depth rejection at depth 31. Errors return nil, restore
+the complete cursor/depth and retain the actual owned diagnostic arguments.
+`FeltValuesEmpty` proves the actual zero-iteration `readLimbs` loop and every
+supported encoding of an empty array, including nonpreferred head widths: the
+result is nonnil, owns empty backing storage and capacity, consumes exactly the
+array head and restores depth. `FeltValuesReaders` composes null, empty-array and
+outer-head rejection through both actual typed helpers, `cborReadFeltValues` and
+`cborReadPlainFeltValues`, including old-field preservation on rejection.
+
+These 21 results add no unproved helper contract or trusted change. They are
+**not a complete nonempty slice or Event decoder proof**. Next work is the
+`readLimbs` fast/slow loop invariant, including its local input window versus
+stored cursor, partial writes and exact errors; then nonempty allocation and the
+unsafe slice view, complete slice composition/outcome uniqueness, the remaining
+typed-wrapper failures, and Event record/slice composition. The shared Header
+UTF-8 helper/model issue and felt-key map equality gap remain unresolved.
+
+Full regeneration and audit passed in `check-felt-values-boundaries-full.log`:
+2342 build jobs, 1521 audited theorems, 546 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent verification checked the exact
+21 additions, all 1500 previous dependency sets unchanged, unchanged axiom union,
+unchanged explicit helper-premise inventory, and every recorded source hash.
+There are no admission or native-evaluation dependencies. Saved compatibility,
+race/checkptr and archived performance evidence was revalidated against unchanged
+Go sources. Original and baseline worktrees remain clean at their recorded pins;
+the trusted Perennial checkout remains clean and unchanged.

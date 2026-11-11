@@ -245,6 +245,16 @@ report = {
         "unproved_helper_premises": [],
         "scope": "complete projection tag-prelude contract under pinned 64-bit partial-correctness model, not the following record/API decoder; trusted semantics and production Go unchanged",
     },
+    "typed_felt_values": {
+        "implementation": "utils/cbor/cursor/felt.go: LimbSlice[felt.Felt], Cursor.readLimbs; core/cbor_readers.go: cborReadFeltValues, cborReadPlainFeltValues",
+        "specification": ["verification/fastcbor-proof/ProofCheck/LimbItemsSpec.lean", "verification/fastcbor-proof/ProofCheck/FeltValuesSpec.lean"],
+        "implementation_proofs": ["verification/fastcbor-proof/ProofCheck/FeltValuesBoundary.lean", "verification/fastcbor-proof/ProofCheck/FeltValuesEmpty.lean", "verification/fastcbor-proof/ProofCheck/FeltValuesReaders.lean"],
+        "specification_proved": "all-input slice classification at supported depth; nonnullable element-sequence classification, value count, input bound, rejected-prefix/diagnostic bounds and unique successful prefix/value/suffix; slice failure offsets within input and successful nonempty consumed prefix",
+        "proved": "actual generic LimbSlice instantiated at felt.Felt: null/undefined returns nil; every malformed/incomplete/wrong-type outer head propagates owned original-offset diagnostic; five-byte allocation budget counts the complete remaining input including suffix and precedes depth checks; count and both outer/element depth rejections restore cursor/depth and return nil; all supported empty-array head encodings allocate a nonnil empty slice with owned backing/capacity and restore depth; readLimbs empty loop preserves cursor without input reads; both actual typed wrappers implement null, empty-array publication and unchanged-field outer-head rejection",
+        "unproved_helper_premises": [],
+        "pending": "nonempty readLimbs loop fast/slow branches, partial writes and diagnostics; nonempty allocation/unsafe slice view; full slice success/failure composition and outcome uniqueness; count/depth propagation through typed wrappers; event record and slice composition",
+        "scope": "boundary and empty-array proofs only, not a complete nonempty slice or Event decoder contract; unchanged production Go and trusted semantics; pinned 64-bit partial correctness, excluding compiler/runtime correctness, OOM and termination",
+    },
     "typed_boolean": {
         "implementation": "utils/cbor/cursor/values.go: Cursor.Bool; core/cbor_readers.go: cborReadBool",
         "specification": "verification/fastcbor-proof/ProofCheck/BoolSpec.lean",

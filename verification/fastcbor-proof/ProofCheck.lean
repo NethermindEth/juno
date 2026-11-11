@@ -361,3 +361,8 @@ import ProofCheck.ReceiptStatusAPIOutcome
 import ProofCheck.ReceiptStatusAPIGuard
 import ProofCheck.ReceiptStatusAPIZero
 import ProofCheck.ReceiptStatusAPIComplete
+import ProofCheck.LimbItemsSpec
+import ProofCheck.FeltValuesSpec
+import ProofCheck.FeltValuesBoundary
+import ProofCheck.FeltValuesEmpty
+import ProofCheck.FeltValuesReaders
