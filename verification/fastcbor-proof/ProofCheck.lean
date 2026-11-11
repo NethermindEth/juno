@@ -653,3 +653,8 @@ import ProofCheck.ResourceMapSpec
 import ProofCheck.ResourceMapUnique
 import ProofCheck.ResourceMapValid
 import ProofCheck.ResourceMapValues
+import ProofCheck.ResourceMapComplete
+import ProofCheck.ResourceMapError
+import ProofCheck.ResourceMapReadRejected
+import ProofCheck.ResourceMapReadValid
+import ProofCheck.ResourceMapRejected

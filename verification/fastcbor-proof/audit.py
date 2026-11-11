@@ -351,16 +351,22 @@ report = {
             "wp_readResourceMap_outer_failure",
             "wp_readResourceMap_count",
             "wp_readResourceMap_depth",
-            "wp_readResourceMap_map"
+            "wp_readResourceMap_map",
+            "resourceMapEntryError_nonNil",
+            "resourceMapFailureOwned_nonNil",
+            "wp_readResourceMap_map_rejected",
+            "wp_readResourceMap_valid",
+            "wp_readResourceMap_rejected",
+            "wp_readResourceMap_complete"
         ],
         "specification_proved": "independent total unique outcome for every input at supported depth; nil versus allocated empty map; unsigned uint32 keys including unnamed enum values and non-preferred widths; null/undefined keys consume one byte and reject; overwide unsigned keys consume their complete encoding and reject; parser failures restore key position; each value starts from zero; arbitrary duplicate keys replace whole records in wire order; all outer count/depth and nested record errors have exact consumed/offset/depth bounds; completed private entries and failed private record are uniquely determined",
         "ownership_proved": "concrete and abstract maps have matching key domains and separately owned nullable felt children; insertion handles fresh or duplicate keys without a distinctness premise, dropping replaced child ownership under the existing affine model; allocated map ownership excludes nil, including for an empty map; temporary record cell and price child transfer are separated for the Go load and insertion",
-        "implementation_proved": "actual null/undefined branch and outer malformed-head/count/depth rejection with destination/input preservation; complete successful allocation/insertion loop for arbitrary supported key/value sequences, initialized child records, whole-entry replacement, unchanged input, restored depth, exact unread suffix and success-only publication on accepted inputs",
+        "implementation_proved": "actual null/undefined branch and outer malformed-head/count/depth rejection; successful allocation/insertion loop for arbitrary accepted entry sequences; rejected loop after arbitrary successful prefixes including nullish keys, unsigned parser errors, width overflow and failed nested records; exact private completed map and partial value ownership, no publication on failure; complete all-input contract with independently unique map/suffix or non-nil error and consumed/offset/depth outcome, unchanged input and old destination preservation on failure",
         "unproved_helper_premises": [
-            "Utf8ValidatorContract (successful map loop through nested ResourceBounds record decoding)"
+            "Utf8ValidatorContract (nested ResourceBounds record decoding)"
         ],
-        "remaining": "actual in-loop key and nested-record rejection, including arbitrary successful prefixes; compose those with boundary/success proofs into the all-input map contract and preserve old destination on every failure; enclosing transaction variants and APIs",
-        "scope": "complete independent map specification and successful production map loop, not an all-input implementation contract; no new helper-correctness premise beyond existing UTF-8 dependency; no production Go or trusted semantics edits; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or blanket RFC-validity claim"
+        "remaining": "enclosing transaction variant records, tag dispatch and public APIs; shared UTF-8 word-helper proof/model repair",
+        "scope": "complete conditional all-input production ResourceBounds map contract; arbitrary old map pointers are preserved on every failure, and caller-owned old map contents frame through because they are never accessed; initialized bare key sentinels remain distinct from allocated diagnostics; no new helper-correctness premise beyond existing UTF-8 dependency; no production Go or trusted semantics edits; pinned 64-bit partial correctness/model safety excludes compiler/runtime correctness, OOM and termination; no FX-equivalence or blanket RFC-validity claim"
     },
     "resource_bounds_record": {
         "implementation": "core/cbor_transactions_generated.go: cborReadResourceBounds; core/transaction.go: ResourceBounds",
@@ -382,7 +388,7 @@ report = {
         "unproved_helper_premises": [
             "Utf8ValidatorContract"
         ],
-        "remaining": "enclosing ResourceBounds map in-loop rejection and all-input composition (independent map specification and successful allocation/insertion loop now checked separately); transaction variant and public API composition",
+        "remaining": "transaction variant and public API composition; enclosing ResourceBounds map now separately has a complete conditional all-input contract",
         "scope": "complete conditional direct ResourceBounds record; price contract reflects stored felt limbs without imposing an extra uint128 validation absent from this decoder; field calls have no helper-correctness premise; pinned 64-bit partial correctness/model safety, compiler/runtime correctness/OOM/termination excluded; no production Go or trusted-model changes; no FX-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_primitives": {

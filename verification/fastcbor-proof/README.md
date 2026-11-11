@@ -151,10 +151,10 @@ DA-mode and version-pointer helpers now also have complete contracts without an
 assumed helper premise, and all seven transaction metadata factories, initialization
 and opening wrappers are checked. The two-field ResourceBounds record now also has
 complete conditional all-input contracts. Its enclosing ResourceBounds map now has
-an independent total/unique specification, checked ownership and outer boundaries,
-and a conditional proof of the actual successful allocation/insertion loop. In-loop
-rejection and the complete map contract remain open, followed by transaction payload
-composition.
+an independent total/unique specification and a complete conditional all-input
+implementation contract, including every key/record failure, exact cursor/depth,
+private partial ownership and old-destination preservation. Transaction payload
+composition remains open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6503,3 +6503,54 @@ This remains partial correctness and model safety on the pinned 64-bit target,
 excluding compiler/runtime implementation correctness, OOM and termination. The
 all-input map implementation, unconditional Header and whole-library gates are not
 closed; no FX-equivalence or strict ignored-CBOR-validity claim is made.
+
+
+## Complete conditional ResourceBounds map decoder
+
+`ResourceMapError.lean` distinguishes initialized bare key errors from allocated
+diagnostics. A null/undefined key returns the actual non-nil unsupported sentinel;
+an oversized unsigned key returns the actual non-nil type sentinel. Neither acquires
+an invented diagnostic offset. Unsigned parser errors and nested-record errors own
+their actual allocated diagnostics. Both the entry and enclosing-map error relations
+prove the returned Go interface is non-nil.
+
+`ResourceMapRejected.lean` now proves the **actual rejected map loop after arbitrary
+successful prefixes**. This includes null/undefined keys, every unsigned parse error,
+32-bit overflow and every independently rejected nested ResourceBounds record. The
+loop preserves the old destination, owns the private completed map with whole-entry
+duplicate replacement, and retains a failed partial record only if value allocation
+was reached. Exact consumed positions, diagnostic offsets and the outer/child nesting
+levels are retained. Previously owned destination contents can frame through because
+the reader never accesses the old map.
+
+`ResourceMapReadValid.lean` and `ResourceMapReadRejected.lean` compose all boundaries
+with the two actual loops. `ResourceMapComplete.lean` proves
+`wp_readResourceMap_complete` for **every byte input at every supported cursor depth
+and every old map pointer**. The actual call returns the independently unique
+`ResourceMapSpec` outcome: either nil/allocated map contents with the exact suffix,
+unchanged input and restored depth, or the actual non-nil error, exact retained
+cursor/depth and unchanged destination. Temporary allocations stay private on error;
+the final caller contract may release them under the existing affine model.
+
+This closes the ResourceBounds map's conditional implementation composition. Four
+new composition results retain the existing `Utf8ValidatorContract` through nested
+record decoding; there is no added helper-correctness assumption or trusted-model
+change. Transaction variant records, tagged dispatch and public APIs are next.
+State-update/class contracts, Header's unapproved UTF-8 model correction and the
+separate felt-key map equality gap remain open. This integer-keyed map result does
+not resolve that separate array-key equality issue.
+
+Validation: full `./check.sh` passed **2,637 build jobs** and audited **2,593 pilot
+theorems**, with **838 project/artifact hashes** and **46 stdlib source hashes**.
+An independent comparison against `ef5cb61cf` confirmed exactly **6 new results in
+5 modules**, unchanged dependency sets for all 2,587 prior results, unchanged total
+axiom union and every recorded hash. No result depends on sorryAx or native evaluation
+axioms. Direct UTF-8 premises now number 243 validator results and 2 word-helper
+results. Manifest/generation/feasibility and archived performance checks passed.
+No production Go or trusted semantics changed; the frozen ordinary/race/checkptr and
+performance evidence remains applicable, and original/baseline worktrees are unchanged.
+
+The claim remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime implementation correctness, OOM and termination. The
+unconditional Header and whole-library gates remain open; no FX-equivalence or strict
+ignored-CBOR-validity claim is made.
