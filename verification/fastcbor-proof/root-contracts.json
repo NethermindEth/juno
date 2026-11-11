@@ -155,6 +155,20 @@
             "wp_decodeStateUpdateFirst_open_rejected_spec",
             "wp_decodeStateUpdate_open_rejected_spec"
           ]
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateAPIBaseFirst.lean",
+          "theorems": [
+            "wp_decodeStateUpdateFirst_nullish_spec",
+            "wp_decodeStateUpdateFirst_empty_spec"
+          ]
+        },
+        {
+          "proof": "verification/fastcbor-proof/ProofCheck/StateUpdateAPIBaseFull.lean",
+          "theorems": [
+            "wp_decodeStateUpdate_nullish_spec",
+            "wp_decodeStateUpdate_empty_spec"
+          ]
         }
       ],
       "remaining": [

@@ -9014,3 +9014,40 @@ inventories are unchanged. The independent audit verified 1346 project hashes,
 The root index adds these partial references while retaining StateUpdate's
 incomplete status. No trusted source or production Go changed; Header's UTF-8
 repair, populated felt-key maps and full StateUpdate composition remain open.
+
+### StateUpdate public null/undefined, empty-map and trailing-data paths
+
+`StateUpdateAPIBaseFirst.lean` proves actual First decoding from zero destinations
+for null, undefined and every accepted CBOR width encoding an empty map. The
+suffix is arbitrary. Both results satisfy the independent `StateUpdateFirstSpec`
+and its owned output representation, preserve every input byte and return the
+exact unread slice of the original backing storage. The proofs compose the
+actual zero guard, cursor construction, record decoder and Remaining method.
+
+`StateUpdateAPIBaseFull.lean` composes those checked First results through the
+actual full wrapper. An empty suffix returns success. A nonempty suffix runs
+cleanup and allocates the initialized extraneous-data diagnostic with the exact,
+nonwrapping remaining byte count. Both paths satisfy `StateUpdateFullSpec` and
+its concrete result ownership. These are base cases, not general StateUpdate
+implementation contracts; the root index retains incomplete status.
+
+`check-state-api-base-full.log` records a passing full check: 3144 jobs and 4486
+audited results. Compared with `d47618f20`, all 4482 prior theorem dependency
+sets, the transitive axiom union and both explicit helper-premise inventories
+are unchanged. The four new production WPs introduce no helper-correctness or
+map-key assumption. An independent audit verified 1348 project hashes and 46
+standard-library hashes, and confirmed unchanged frozen Go and preserved pins.
+
+The remaining general-contract dependency chains were rechecked against the
+unchanged trusted pin. `check-state-api-base-blocker-Utf8Word.log` reproduces the
+actual generic helper stuck at `IndexRef (index, slice)`; its existing rule
+requires `(slice, index)`. `check-state-api-base-blocker-FeltMap.log` reproduces
+the unmet `SafeMapKey felt.Felt.ty k1` obligation at actual map insertion. Both
+proposed patches still pass applicability checks; neither has been applied.
+
+Completion requires the separately approved slice-index repair, its regression
+and trusted review, and proof of the actual word helper before discharging
+UTF-8 across Header and the other conditional contracts. StateUpdate additionally
+requires the separately approved array-equality rule, derived felt-key safety,
+populated map loops and general StateDiff/StateUpdate composition. The prepared
+repair plans remain the next steps on those general-proof dependency chains.

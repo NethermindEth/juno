@@ -1075,6 +1075,23 @@ report = {
         "remaining": "map diagnostic definitions are not map implementation theorems; populated state-map insertion/loops, StateDiff/StateUpdate field-loop composition and successful/rejected public decoding remain; shared UTF-8 word-helper and felt-key array-equality model gaps still need separately authorized repairs",
         "scope": "actual populated field integration for three felt fields and one felt-pointer slice plus uniform error ownership; not complete record/public implementation correctness; unchanged Go/trusted semantics and frozen performance; pinned 64-bit partial correctness/model safety excluding compiler/runtime implementation, OOM and termination"
     },
+    "state_update_api_base_cases": {
+        "implementation_target": "core/cbor_state_generated.go: DecodeStateUpdateFirst and DecodeStateUpdate through the actual null/undefined and empty-map record paths, remaining-slice construction and trailing-data cleanup",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/StateUpdateAPIBaseFirst.lean",
+            "verification/fastcbor-proof/ProofCheck/StateUpdateAPIBaseFull.lean"
+        ],
+        "theorems": [
+            "wp_decodeStateUpdateFirst_nullish_spec",
+            "wp_decodeStateUpdateFirst_empty_spec",
+            "wp_decodeStateUpdate_nullish_spec",
+            "wp_decodeStateUpdate_empty_spec"
+        ],
+        "implementation_proved": "zero-destination First decodes null, undefined and every HeadArgument encoding of a zero-count map, with arbitrary suffixes, unchanged input and exact suffix aliasing; full decoding succeeds with no trailing bytes and otherwise executes cleanup and returns the initialized extraneous-data diagnostic with the exact nonwrapping remaining byte count; all results satisfy the independent StateUpdateFirstSpec/StateUpdateFullSpec",
+        "unproved_contract_premises": [],
+        "remaining": "these are public API base cases, not general StateUpdate contracts; populated map insertion/loops, general StateDiff/StateUpdate record composition, later failure branches and shared UTF-8 discharge remain; proposed trusted array-equality and generic slice-index repairs are unapplied pending separate approval",
+        "scope": "four actual production WP contracts with zero initial destinations, arbitrary suffix bytes and every accepted empty-map width; no decoder/helper correctness premise, SafeMapKey assumption, trusted change or Go implementation change; pinned 64-bit partial correctness/model safety"
+    },
     "state_update_api_outcomes": {
         "implementation_target": "core/cbor_state_generated.go: DecodeStateUpdateFirst and DecodeStateUpdate, through actual cursor construction, record opening and cleanup; all nonzero destination guards",
         "modules": [
