@@ -335,6 +335,17 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "execution_resources_fields": {
+        "implementation": "core/cbor_receipts_generated.go: all five calls in cborReadExecutionResources and the cborExecutionResourcesBlock layout",
+        "fields": ["BuiltinInstanceCounter", "MemoryHoles", "Steps", "DataAvailability", "TotalGasConsumed"],
+        "theorems": ["executionFieldSpec_total_unique", "executionField_rejected_depth", "executionOwned_zero", "executionBlock_zero", "wp_execution_field_valid", "wp_execution_field_rejected", "wp_execution_field_complete", "executionTable_names", "wp_nextExecutionKey_valid", "wp_nextExecutionKey_duplicate_valid", "wp_nextExecutionKey_rejected"],
+        "specification_proved": "independent field values and exact partial failures; explicit presence bits and supplied child storage distinguish null clearing from preserved storage and unpublished partial mutations; every input classified with unique field outcome at supported depth, exact consumption/suffix and diagnostic offsets, bounded retained cursor levels; independent five-name schema and folded-key meaning",
+        "implementation_proved": "actual struct access and reconstruction; shared block separates into record and supplied slots without extra allocation/disjointness assumptions; all five actual field calls realize independent success/rejection and unique complete outcomes, with exact storage ownership, unchanged input and cursor/diagnostic state; initialized metadata, encoded names/order/caches, seen bits and actual NextField valid/duplicate/rejected cases agree with independent schema",
+        "ownership_scope": "record pointers are nil or refer to their respective supplied slots; each slot is owned exactly once even when published or cleared; this includes every intermediate state reachable from the public pointer wrapper's fresh zero block, and arbitrary counters/presence within that layout; arbitrary external child-pointer layouts are not claimed",
+        "unproved_helper_premises": ["Utf8ValidatorContract"],
+        "remaining": "complete pair/record specifications and generated map loop composition, opening/nullish branches, shared-block pointer publication/failure wrapper, full receipt and public entries",
+        "scope": "field-call and key-lookup foundation only, not a complete ExecutionResources reader proof; pinned 64-bit partial correctness/model safety, excluding compiler/runtime correctness, OOM and termination; production Go and trusted semantics unchanged"
+    },
     "scalar_receipt_resources": {
         "implementation": "core/cbor_receipts_generated.go: cborReadDataAvailability, cborReadGasConsumed, cborReadBuiltinInstanceCounter, cborReadDataAvailabilitySlot and cborReadGasConsumedSlot",
         "schemas": {

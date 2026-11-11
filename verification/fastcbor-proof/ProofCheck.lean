@@ -561,3 +561,11 @@ import ProofCheck.AvailabilitySlotComplete
 import ProofCheck.GasUsedSlotSpec
 import ProofCheck.GasUsedSlotRead
 import ProofCheck.GasUsedSlotComplete
+import ProofCheck.ExecutionFieldComplete
+import ProofCheck.ExecutionFieldRead
+import ProofCheck.ExecutionKeyRead
+import ProofCheck.ExecutionKeys
+import ProofCheck.ExecutionOwnership
+import ProofCheck.ExecutionSeen
+import ProofCheck.ExecutionTable
+import ProofCheck.ExecutionValues
