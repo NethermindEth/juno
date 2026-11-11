@@ -8242,3 +8242,66 @@ UTF-8 word-helper/model obligation. This checkpoint does not close a complete
 state-map decoder, Header or whole-library gate. The pinned 64-bit
 partial-correctness/model-safety boundary still excludes compiler/runtime
 implementation correctness, OOM and termination.
+
+## StateDiff specification, ownership and opening checkpoint
+
+`StateDiffValues`, `StateDiffKeys`, `StateDiffPairs`, `StateDiffValueUnique`,
+`StateDiffPairsUnique`, `StateDiffRecordSpec` and `StateDiffRecordUnique` compose
+the independent child relations into the complete seven-field StateDiff schema.
+`StorageDiffs` uses the nested map relation; `Nonces`, `DeployedContracts`,
+`DeclaredV1Classes` and `ReplacedClasses` use the ordinary felt-pointer map;
+`DeclaredV0Classes` uses the nullable felt-pointer slice; `MigratedClasses` uses
+the named by-value felt map. Every field was checked against the actual dispatch
+in `core/cbor_state_generated.go`.
+
+The record relation covers arbitrary old contents, field orders, ASCII-folded
+names, supported ignored integer/text keys, duplicate known-field rejection,
+unknown-value skipping, null/undefined direct-record preservation, and contextual
+child count guards. It distinguishes nil and empty maps/slices and nested nullable
+values. Failed child readers preserve the old field; earlier successful fields
+remain in the partial record. Failure consumption, diagnostic offsets and retained
+depth are explicit. Duplicate struct fields are rejected, while duplicate keys
+inside map-valued fields retain their separate replacement policy.
+
+Successful prefixes/values/suffixes are unique. Success/rejection separation and
+failed/complete outcome uniqueness use the explicit bound `wire.length < 2^64`,
+inherited from the existing nullable pointer-slice failure witness. This covers
+all representable inputs in the pinned Go slice model; it is not a helper
+correctness assumption. Classification covers every input at supported depth.
+The pure results do not assume UTF-8 validator implementation correctness.
+
+`StateDiffTable` proves the seven independent names/indices agree with the actual
+metadata and supplies the search/cache conditions. `StateDiffSeen` connects the
+abstract duplicate policy to the actual seen mask. `StateDiffKeyRead` proves
+fresh/unknown selection, duplicate rejection and malformed-key rejection for the
+actual scanner, conditional on the existing UTF-8 validator premise.
+
+`StateDiffOwnership` owns the record and all seven child outputs, supplies each
+field's access/restore rule and derives zero ownership from the actual zero Go
+value. `StateDiffBoundary` proves the actual reader's direct null/undefined path
+and all opening failures. Null consumes one byte and preserves every prior
+field; opening errors preserve record/cursor/depth and retain exact diagnostics
+from initialized error categories. These are implementation paths, not a claim
+that the populated StateDiff loop has been proved.
+
+Validation: `check-state-diff-foundations-full.log` records a successful
+**3,079-job** full regeneration/build and **4,271** audited results. This adds
+**64** results in **12** modules. Independent comparison against `205a9b128`
+checked all **4,207** prior dependency sets and the complete axiom union
+unchanged; **1,282** project/artifact and **46** standard-library hashes match
+disk. Three new key-scanner contracts use the existing validator premise, bringing
+the direct-use count to **444**; the word-helper count stays **two**. No new
+helper premise or axiom was introduced, and no result depends on `sorryAx` or
+native evaluation axioms. The independent audit checked the seven source field
+mappings, child relations, explicit uniqueness bound, ownership, metadata and
+actual opening targets. Go/trusted sources and the clean original/baseline pins
+remain unchanged; frozen performance and compatibility evidence still apply.
+
+Remaining work includes populated map insertion/loop contracts, StateDiff
+field/loop implementation composition, the StateDiff pointer wrapper and
+StateUpdate record/public APIs. Felt-key insertion still needs the separately
+approved array-equality repair; Header and text-dependent readers retain the
+UTF-8 word-helper/model obligation. StateDiff specification completeness is not
+StateDiff implementation completeness. No StateUpdate, Header or whole-library
+implementation gate is closed by this checkpoint, and the pinned 64-bit
+partial-correctness/model-safety scope remains unchanged.

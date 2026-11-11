@@ -1211,3 +1211,27 @@ import ProofCheck.FeltReserveWant
 import ProofCheck.SliceAppendZero
 
 import ProofCheck.SliceFullZero
+
+import ProofCheck.StateDiffBoundary
+
+import ProofCheck.StateDiffKeyRead
+
+import ProofCheck.StateDiffKeys
+
+import ProofCheck.StateDiffOwnership
+
+import ProofCheck.StateDiffPairs
+
+import ProofCheck.StateDiffPairsUnique
+
+import ProofCheck.StateDiffRecordSpec
+
+import ProofCheck.StateDiffRecordUnique
+
+import ProofCheck.StateDiffSeen
+
+import ProofCheck.StateDiffTable
+
+import ProofCheck.StateDiffValueUnique
+
+import ProofCheck.StateDiffValues
