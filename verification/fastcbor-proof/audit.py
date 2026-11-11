@@ -335,6 +335,53 @@ report = {
         "remaining": "full receipt; typed address and containing message readers are separately proved",
         "scope": "complete public BytesInto contract for every input and separately owned destination; relies on unchanged pinned Go copy semantics and its checked proof, not a new copy assumption; no UTF-8 premise; compiler/runtime correctness, OOM and termination excluded; typed address wrapper is proved separately"
     },
+    "transaction_primitives": {
+        "implementation": "core/cbor_readers.go: cborReadDataAvailabilityMode and cborReadTransactionVersion",
+        "theorems": [
+            "daModeSpec_total_unique",
+            "daModeError_nonNil",
+            "wp_readDAMode_valid",
+            "wp_readDAMode_expected",
+            "wp_readDAMode_overflow",
+            "wp_readDAMode_rejected",
+            "wp_readDAMode_complete",
+            "wp_readTransactionVersion_valid",
+            "wp_readTransactionVersion_rejected",
+            "transactionVersionSpec_total_unique",
+            "wp_readTransactionVersion_complete"
+        ],
+        "specification_proved": "DataAvailabilityMode accepts every uint32 unsigned value across all CBOR widths, not only named enum constants; nullish preserves old scalar; unsigned parse errors roll back and width overflow consumes value before returning bare ErrType without assignment; transaction version shares independent four-limb felt encoding, including nullish clearing, zero-padded short arrays and recursively skipped long-array extras; all inputs classified with unique values/suffixes or rejection positions/reasons",
+        "implementation_proved": "actual uint32 guard/cast/store, null handling and bare overflow error; actual TransactionVersion allocation, typed pointer cast and Limbs call; publication only on success, old pointer and full cursor preserved on failure; exact owned output, unchanged input, nonwrapping consumption/suffix and initialized owned diagnostics; complete contracts at supported cursor depth with no helper-correctness premise",
+        "unproved_helper_premises": [],
+        "remaining": "transaction fields, record loops, ResourceBounds map, tag dispatch, transaction-hash projection and public API composition",
+        "scope": "byte-decoding correctness, not semantic validation of named DA modes or Starknet transaction versions; pinned 64-bit partial correctness/model safety; no production Go or trusted-model change; compiler/runtime correctness, OOM and termination excluded"
+    },
+    "transaction_metadata": {
+        "implementation": "core/internal/cbortransactions/fields_generated.go: all seven factories, globals, initialize and Open wrappers",
+        "schemas": [
+            "ResourceBounds",
+            "DeclareTransaction",
+            "DeployTransaction",
+            "InvokeTransaction",
+            "L1HandlerTransaction",
+            "DeployAccountTransaction",
+            "TransactionHashProjection"
+        ],
+        "theorems": [
+            "transactionKeys_valid",
+            "transactionNames_small",
+            "transactionNames_distinct",
+            "wp_transaction_initialize",
+            "transaction_initialized_metadata",
+            "transaction_initialized_table",
+            "wp_openTransaction_complete"
+        ],
+        "metadata_proved": "literal generated field names, cached words/masks, encodings, indexes and selection bits for all tables; entry encodings agree with recorded names and ASCII-folded names are distinct; actual table and slice allocation followed by immutable publication; actual initializer with checked cursor dependency establishes all seven tables; real opening wrappers obtain their own tables and initialized error categories and satisfy complete null/map/rejection contract for every input",
+        "initialization_boundary": "modeled runtime CPU startup remains a precondition, as in Header and receipt initialization; unrelated core/router startup excluded",
+        "unproved_helper_premises": [],
+        "remaining": "independent transaction application field relations and table-specific key/seen/sort proofs, followed by field/record/map/interface/public API composition; this foundation does not prove payload decoding or the generator",
+        "scope": "all seven actual transaction metadata factories and opening wrappers, no initializer/helper correctness premise; pinned 64-bit partial correctness/model safety; no production Go or trusted-semantics change"
+    },
     "transaction_receipt_public_apis": {
         "implementation": "core/cbor_receipts_generated.go: cborZeroTransactionReceipt, cborClearTransactionReceipt, cborClearTransactionReceiptPointer, DecodeTransactionReceiptFirst, DecodeTransactionReceipt, DecodeTransactionReceiptPointerFirst, DecodeTransactionReceiptPointer",
         "theorems": [

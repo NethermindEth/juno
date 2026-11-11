@@ -146,7 +146,10 @@ input. Its full internal record and pointer wrapper now have conditional all-inp
 contracts with independently unique outcomes, exact partial state and actual error
 interfaces. Both value and pointer First/full public APIs now also have conditional
 all-input/all-owned-initial-destination contracts, including exact suffix aliasing,
-zero guards, parse-failure cleanup and trailing-input rejection.
+zero guards, parse-failure cleanup and trailing-input rejection. Transaction-specific
+DA-mode and version-pointer helpers now also have complete contracts without an
+assumed helper premise, and all seven transaction metadata factories, initialization
+and opening wrappers are checked; transaction payload composition remains open.
 The frozen-corpus smoke now classifies every case on the baseline and current
 candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
 with no decoder calls on each. This is saved, source-specific test evidence; the
@@ -6294,3 +6297,72 @@ The scope remains partial correctness and model safety on the pinned 64-bit targ
 excluding compiler/runtime implementation correctness, OOM and termination, with
 no FX-equivalence or strict ignored-CBOR-validity claim. The unconditional Header
 and whole-library gates remain open.
+
+
+## Transaction primitive and initialization foundation
+
+`DAModeSpec.lean` independently specifies the uint32-backed transaction
+DataAvailabilityMode reader. It accepts every representable unsigned value across
+all CBOR integer widths, including values outside the named enum constants. Null
+and undefined preserve the old field. Unsigned parsing failures restore the cursor;
+width overflow consumes the unsigned encoding and returns the bare initialized
+ErrType sentinel without assigning the field. Classification, prefix/result
+uniqueness, rejection uniqueness, success/rejection separation and consumed-byte
+bounds are proved. `DAModeRead.lean` and `DAModeComplete.lean` prove the actual
+null check, Uint64 call, width guard, cast/store and error propagation, composing
+initialization into a complete all-input/all-prior-value contract.
+
+`TransactionVersionRead.lean` proves the actual version-pointer helper against the
+existing independent four-limb felt encoding relation. This includes typed allocation,
+the pointer cast and the real Limbs call. Null/undefined clears the pointer; an empty
+array allocates a nonnil zero version; short arrays zero-fill, and longer arrays
+retain four limbs and consume independently specified recursively skipped extras.
+Publication happens only after success. Failures preserve the old pointer, full
+cursor and input while returning the exact initialized diagnostic. The private
+failed allocation is not published and may be forgotten under the garbage-collected
+model. `TransactionVersionComplete.lean` proves independent unique outcomes for every
+input at supported depth and composes the actual implementation with initialized
+error categories. This is decoding of stored limbs, not semantic validation of a
+named Starknet transaction version. Neither helper has a UTF-8 or other unproved
+helper-correctness premise.
+
+`TransactionState.lean` records the exact implementation metadata for all seven
+transaction tables: ResourceBounds, DeclareTransaction, DeployTransaction,
+InvokeTransaction, L1HandlerTransaction, DeployAccountTransaction and the transaction
+hash projection. Cached words/masks, encoded keys, indexes and bits agree with the
+recorded field names; the ASCII-folded names are distinct and within table limits.
+`TransactionFields.lean` proves every actual table allocation factory and immutable
+sharing of its struct and backing slices. `TransactionInitialize.lean` proves real
+package startup, including the checked cursor dependency, all global stores and
+publication of all seven tables. Modeled runtime CPU startup is the same explicit
+precondition as the Header and receipt initialization proofs.
+
+`TransactionOpen.lean` proves every actual opening wrapper on every byte input at
+supported depth, using its own published table and initialized error categories.
+The null/map/rejection contract comes from the checked OpenStruct implementation.
+These initialization/opening results have no unproved initializer or helper premise.
+They establish implementation metadata ownership; independent transaction field
+relations, table-specific key/seen/sort properties and record-loop composition remain
+separate obligations. This does not prove the generator or transaction payloads.
+
+Next is ResourceBounds record composition and its map reader, followed by transaction
+variant fields/records, tag dispatch, the transaction-hash projection and public APIs.
+State-update and class decoding also remain open. Header's shared UTF-8 word-helper
+model correction and the distinct felt-key map equality gap remain unresolved.
+No production Go or trusted semantics changed in this checkpoint.
+
+Validation: the full `./check.sh` passed **2,604 build jobs** and audited **2,483
+pilot theorems**, rejecting sorryAx and native-evaluation axioms, with **805
+project/artifact hashes** and **46 stdlib source hashes**. An independent comparison
+against `408b12a26` confirmed exactly **41 added results across 9 modules**, unchanged
+dependency sets for all 2,442 prior results, unchanged total axiom union and every
+recorded source hash. Direct UTF-8 premise counts remain 230 validator results and
+2 word-helper results. Regeneration, manifest/feasibility checks and archived
+performance verification passed. Unchanged Go sources retain the frozen ordinary,
+race/checkptr and performance evidence. Original, baseline and pinned Perennial
+worktrees remain unchanged.
+
+The scope remains partial correctness and model safety on the pinned 64-bit target,
+excluding compiler/runtime implementation correctness, OOM and termination. No
+FX-equivalence or strict ignored-CBOR-validity claim is made, and the unconditional
+Header and whole-library gates remain open.
