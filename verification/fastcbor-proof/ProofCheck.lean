@@ -294,3 +294,7 @@ import ProofCheck.HeaderProjectionOwnership
 import ProofCheck.HeaderProjectionGuard
 import ProofCheck.HeaderProjectionFelts
 import ProofCheck.HeaderProjectionScalars
+import ProofCheck.HeaderProjectionFieldRead
+import ProofCheck.HeaderProjectionFieldRejected
+import ProofCheck.HeaderProjectionFieldComplete
+import ProofCheck.HeaderProjectionBoundary

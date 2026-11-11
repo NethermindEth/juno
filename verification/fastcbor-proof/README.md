@@ -4625,3 +4625,40 @@ additions and every project hash. All previous theorem dependency sets, the axio
 union and explicit helper-premise inventory are unchanged. Saved compatibility,
 race/checkptr and archived performance evidence was revalidated against the
 unchanged Go sources.
+
+### Uniform projection field contract and generated record boundaries
+
+`HeaderProjectionFieldRead.lean` and `HeaderProjectionFieldRejected.lean` connect
+all supported field identities to their actual concrete addresses and helpers.
+The success contract consumes the independent field-valid relation and returns
+the owned abstract result, exact suffix, cursor advancement and unchanged input.
+The rejection contract preserves the entire owned destination and cursor, with
+an owned diagnostic at the independent, bounded error offset.
+
+`HeaderProjectionFieldComplete.lean` classifies arbitrary input and composes those
+contracts. Its precondition contains no successful-encoding assumption or
+helper-correctness premise. Initialized cursor state supplies the actual error
+categories. This uniform contract is suitable for each field selected by the
+record loop; unsupported field/layout combinations are excluded by membership
+in the independently defined projection fields.
+
+`HeaderProjectionBoundary.lean` proves three branches of every actual generated
+projection record function: malformed tag heads, untagged opening failures, and
+untagged null/undefined records. Opening wrappers obtain their concrete table
+pointer from the proved projection initializer. Null/undefined returns through
+the actual closed-state NextWanted branch, preserving the previous value and
+depth while consuming exactly one byte. Failure branches preserve prior output
+ownership and return the specified diagnostics. These results introduce no UTF-8
+premise; the general scanner still has its existing explicit dependency.
+
+The generated map loops, allowed/unsupported tag composition across complete
+records, and public First API composition remain. Header's unresolved UTF-8
+helper, unapproved trusted indexing repair and felt-key map equality gap are
+unchanged. No production Go or pinned semantics changed.
+
+Full regeneration and audit pass in `check-header-projection-compose-full.log`:
+2280 build jobs, 1365 audited theorems, 484 project/artifact hashes and 46 directly
+translated standard-library hashes. Independent checks verified the exact six
+additions, every project hash, unchanged prior dependencies, unchanged axiom union
+and unchanged explicit helper-premise inventory. Saved compatibility, race/checkptr
+and archived performance evidence was revalidated against the unchanged sources.
