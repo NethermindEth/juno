@@ -926,3 +926,9 @@ import ProofCheck.SierraEntriesSeen
 import ProofCheck.SierraEntriesTable
 import ProofCheck.SierraEntriesValueUnique
 import ProofCheck.SierraEntriesValues
+import ProofCheck.BytesSpec
+import ProofCheck.BytesRead
+import ProofCheck.BytesComplete
+import ProofCheck.RawMessageSpec
+import ProofCheck.RawMessageRead
+import ProofCheck.RawMessageComplete

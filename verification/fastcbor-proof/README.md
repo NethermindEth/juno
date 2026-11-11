@@ -7471,3 +7471,57 @@ the separately approved slice-index repair and actual UTF-8 word-helper proof
 to discharge the shared premise. Unconditional Header and whole-library gates
 remain open; the pinned 64-bit partial-correctness/model-safety scope and existing
 compiler/runtime, OOM, termination and compatibility boundaries are unchanged.
+
+## Complete allocating bytes and RawMessage checkpoint
+
+The actual public `Cursor.Bytes` method and typed `cborReadRawMessage` field
+reader now have complete contracts for every byte input at supported cursor
+positions. Neither requires a UTF-8 or other unproved helper-correctness premise.
+These are dependencies of the enclosing class records; those class contracts
+remain open.
+
+`BytesSpec` independently describes a definite CBOR byte string with arbitrary
+payload contents and all supported head widths. Invalid or wrong-type heads
+precede payload truncation. Its classification, successful prefix/value/suffix
+uniqueness, success/rejection separation and failure uniqueness determine one
+outcome for every input. `RawMessageSpec` adds null and undefined, which clear
+the field, while preserving the distinction between nil and allocated empty.
+It has the same independent all-input uniqueness guarantees. No JSON or UTF-8
+validity restriction is imposed on the byte payload.
+
+`BytesRead` proves the actual payload call, nonnil zeroed slice allocation and
+copy. It temporarily separates the borrowed payload from the source slice,
+copies into newly owned storage and restores ownership of the complete unchanged
+input. Empty byte strings return nonnil empty slices. Successful decoding has
+exact nonwrapping consumption and unread suffix, with unchanged depth. Every
+error returns nil and restores the original cursor, with the exact initialized
+category and owned diagnostic. `BytesComplete` composes these paths into
+`wp_bytes_complete` against the independently unique specification.
+
+`RawMessageRead` proves the actual nullable wrapper and conditional destination
+assignment. Success publishes nil or the complete newly copied bytes; errors
+preserve the prior slice header and cursor. The contract requires only ownership
+of that destination header, so ownership of any previous backing storage can be
+framed through the call, including shared or input-aliasing old contents.
+`wp_readRawMessage_complete` returns the unique independent outcome, exact output
+ownership, unchanged input, suffix and failure behavior.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,911 Lean
+build jobs, auditing 3,662 results, 1,112 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 22 new
+results in six modules, unchanged dependency sets for all 3,640 prior results,
+an unchanged axiom union and every recorded hash. No helper premise was added;
+the existing direct UTF-8 counts remain 378 validator and 2 word-helper results.
+No result depends on `sorryAx` or native evaluation axioms. Saved compatibility
+and frozen performance evidence was revalidated. Production Go and pinned
+trusted semantics are unchanged, and original/baseline worktrees remain clean
+at their recorded pins.
+
+Next: the BigInt pointer helper, enclosing DeprecatedCairoClass/CasmClass/SierraClass
+records and recursive SegmentLengths, then class dispatch and public APIs.
+State payload/map ownership and public APIs remain open, including the separate
+felt-key equality model gap. Header still needs the separately approved
+slice-index repair and actual UTF-8 word-helper proof to remove its shared
+premise. Neither unconditional Header nor whole-library completion is claimed;
+the pinned 64-bit partial-correctness/model-safety scope and compiler/runtime,
+OOM, termination and compatibility boundaries are unchanged.

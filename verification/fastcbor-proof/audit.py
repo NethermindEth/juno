@@ -743,6 +743,54 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "raw_message_bytes": {
+        "implementation": [
+            "utils/cbor/cursor/values.go: Cursor.Bytes",
+            "core/cbor_classes.go: cborReadRawMessage"
+        ],
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/BytesSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/BytesRead.lean",
+            "verification/fastcbor-proof/ProofCheck/BytesComplete.lean",
+            "verification/fastcbor-proof/ProofCheck/RawMessageSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/RawMessageRead.lean",
+            "verification/fastcbor-proof/ProofCheck/RawMessageComplete.lean"
+        ],
+        "theorems": [
+            "bytes_classify",
+            "bytesValid_nonempty",
+            "bytesValid_prefix_unique",
+            "bytesValid_not_rejected",
+            "bytesRejected_unique",
+            "bytesSpec_unique",
+            "bytesSpec_total_unique",
+            "wp_bytes_encoded",
+            "wp_bytes_expected",
+            "wp_bytes_truncated",
+            "wp_bytes_valid",
+            "wp_bytes_rejected",
+            "wp_bytes_complete",
+            "rawMessage_classify",
+            "rawMessageValid_nonempty",
+            "rawMessageValid_prefix_unique",
+            "rawMessageValid_not_rejected",
+            "rawMessageSpec_unique",
+            "rawMessageSpec_total_unique",
+            "wp_readRawMessage_valid",
+            "wp_readRawMessage_rejected",
+            "wp_readRawMessage_complete"
+        ],
+        "specification_proved": "independent definite byte-string relation for all supported head widths and arbitrary payload contents; invalid/wrong-type heads and truncation classified with actual precedence; RawMessage null/undefined clears the value and otherwise accepts the byte relation; nil and allocated empty distinguished; all-input classification, prefix/value/suffix uniqueness, success/rejection separation and unique rejected outcomes",
+        "implementation_proved": "actual allocating Bytes method composes checked payload parsing, nonnil zeroed allocation and slice copy; full input ownership restored after temporarily borrowing the payload; successful output owns exactly the copied bytes even for zero length, with exact nonwrapping cursor/suffix and unchanged depth; all errors return nil and roll back the cursor with initialized owned diagnostics; actual RawMessage reader publishes nil or complete replacement bytes and preserves its old slice header on failure; complete contracts return independently unique outcomes",
+        "ownership_boundary": "RawMessage requires only ownership of its destination slice header; any existing backing storage can be framed through both success and failure, including shared or input-aliasing old contents; new successful payload is separately owned; allocation capacity is discarded under the garbage-collected model",
+        "contracts": [
+            "wp_bytes_complete",
+            "wp_readRawMessage_complete"
+        ],
+        "unproved_contract_premises": [],
+        "remaining": "BigInt pointer helper and enclosing class/recursive records, class dispatch and public APIs; shared UTF-8 model/helper dependency and felt-key map equality remain separate",
+        "scope": "complete all-input byte and RawMessage contracts at supported cursor positions with arbitrary owned old destination; no JSON or UTF-8 validation claim; unchanged Go and trusted semantics, pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "sierra_entry_points_by_type": {
         "implementation": "core/cbor_classes_generated.go: cborReadSierraEntryPointsByType",
         "modules": [
