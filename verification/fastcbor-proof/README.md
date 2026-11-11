@@ -4560,3 +4560,35 @@ logical axioms; every prior theorem dependency set, the overall axiom union and
 the explicit helper-premise inventory are unchanged. Independent checks verified
 the exact additions and all project hashes. Saved compatibility, race/checkptr
 and archived performance evidence was revalidated against the unchanged sources.
+
+### Concrete Header projection ownership, guards and cleanup
+
+`HeaderProjectionOwnership.lean` relates the five actual translated Go layouts
+to the independent projection value. Concrete cells retain the embedded discarded
+skeleton; child predicates own felt words and nullable timestamp storage. The
+two-felt projection owns both results separately. Canonical absent slots make the
+shared abstract value faithful to each layout. The empty discarded skeleton has
+only one value, proved directly from the translated structs. Owned concrete
+destinations are zero exactly when their abstract values are zero; allocated zero
+children remain distinct from nil.
+
+`HeaderProjectionGuard.lean` proves every actual generated zero guard and clear
+function. The guard preserves the destination and all owned children, and its
+Boolean result agrees exactly with abstract zero. Cleanup overwrites the complete
+struct and returns ownership of a zero projection after any partial result. Under
+the affine GC model, discarded child resources need not be retained; this is not
+a physical memory-reclamation claim. These are production-function proofs, not
+assumed helper contracts. They introduce no UTF-8 premise.
+
+Concrete field access/update and field-call contracts, generated record-loop
+proofs, and composition through the public First APIs remain. The existing shared
+UTF-8 premise and separately approved trusted-model repair remain unresolved, as
+does the felt-key map equality gap. No Go or pinned semantics changed.
+
+Full regeneration and audit pass in `check-header-projection-ownership-full.log`:
+2274 build jobs, 1345 audited theorems, 478 project/artifact hashes and 46 directly
+translated standard-library hashes. The exact ten additions, all project hashes,
+unchanged prior theorem dependencies and unchanged overall axiom union were
+checked independently. The explicit helper-premise inventory is unchanged. Saved
+compatibility, race/checkptr and archived performance evidence was revalidated
+against the unchanged Go sources.

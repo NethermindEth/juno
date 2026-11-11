@@ -290,3 +290,5 @@ import ProofCheck.HeaderProjectionPairsUnique
 import ProofCheck.HeaderProjectionBodyUnique
 import ProofCheck.HeaderProjectionRecordUnique
 import ProofCheck.HeaderProjectionScanSpec
+import ProofCheck.HeaderProjectionOwnership
+import ProofCheck.HeaderProjectionGuard
