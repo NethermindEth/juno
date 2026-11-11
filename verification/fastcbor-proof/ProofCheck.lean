@@ -932,3 +932,8 @@ import ProofCheck.BytesComplete
 import ProofCheck.RawMessageSpec
 import ProofCheck.RawMessageRead
 import ProofCheck.RawMessageComplete
+import ProofCheck.BigIntUnique
+import ProofCheck.BigIntDeterministic
+import ProofCheck.BigIntPointerSpec
+import ProofCheck.BigIntPointerRead
+import ProofCheck.BigIntPointerComplete

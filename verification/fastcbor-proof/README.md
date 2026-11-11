@@ -7525,3 +7525,59 @@ slice-index repair and actual UTF-8 word-helper proof to remove its shared
 premise. Neither unconditional Header nor whole-library completion is claimed;
 the pinned 64-bit partial-correctness/model-safety scope and compiler/runtime,
 OOM, termination and compatibility boundaries are unchanged.
+
+## Complete BigInt pointer and deterministic integer checkpoint
+
+The actual `cborReadBigIntPointer` helper now has a complete contract for every
+byte input at supported cursor positions and every owned prior pointer cell.
+Null and undefined clear the pointer; other supported inputs publish a complete
+normalized integer. Allocated zero is distinct from nil. Every error preserves
+the old pointer and restores the original cursor. Existing integer/backing-word
+ownership can be framed through the call, including shared old objects. These
+results require no UTF-8 or other unproved helper-correctness premise.
+
+`BigIntUnique` strengthens the existing independent mathematical integer
+specification. Complete heads exclude malformed-head failures and determine
+whether rejection is caused by a wrong major type, unsupported tag or rejected
+bignum byte payload. The corresponding proofs establish success/rejection
+separation, unique failure reasons and one independent outcome for every input.
+They retain all supported head widths and tag-2/tag-3 magnitudes, including
+leading zero bytes. `bigIntDiagnosticOffset` records the actual diagnostic
+position: payload type mismatches are reclassified at the outer tag, while
+other payload errors retain the offset after its complete head. Every such
+offset is proved bounded by the original input length, independently of cursor
+rollback.
+
+`BigIntDeterministic` refines the actual public `Cursor.BigInt` method with
+`wp_bigInt_complete_unique`: exact owned normalized value or initialized owned
+error, unchanged input/depth, nonwrapping success consumption, exact suffix,
+full failure rollback and the independently unique result. It composes the
+existing checked integer and error implementations without a new assumption.
+
+`BigIntPointerSpec` adds the nullable pointer encoding and proves all-input
+classification, successful prefix/value/suffix uniqueness, success/error
+separation, unique outcomes and diagnostic-offset bounds. `BigIntPointerRead`
+proves the actual null check, integer call and conditional pointer assignment;
+owned integer results are nonnil. `wp_readBigIntPointer_complete` composes
+these into the complete independent field contract, preserving exact inner
+error offsets and the outer reclassification behavior.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,916 Lean
+build jobs, auditing 3,684 results, 1,117 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 22 new
+results in five modules, unchanged dependencies for all 3,662 prior results,
+an unchanged axiom union and every recorded hash. No helper premise was added;
+the direct UTF-8 counts remain 378 validator and 2 word-helper results. No
+result depends on `sorryAx` or native evaluation axioms. Saved compatibility
+and frozen performance evidence was revalidated. Production Go and pinned
+trusted semantics remain unchanged; original/baseline worktrees are clean at
+their recorded pins.
+
+Next: enclosing DeprecatedCairoClass/CasmClass/SierraClass records and recursive
+SegmentLengths, then class dispatch and public APIs. State payload/map ownership
+and public APIs remain open, including the separate felt-key equality model
+gap. Header still needs the separately approved slice-index model repair and
+actual UTF-8 word-helper proof to discharge its shared premise. No unconditional
+Header or whole-library completion is claimed; the pinned 64-bit partial-
+correctness/model-safety scope and compiler/runtime, OOM, termination and
+compatibility boundaries are unchanged.

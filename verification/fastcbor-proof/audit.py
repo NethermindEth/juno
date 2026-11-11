@@ -743,6 +743,53 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "bigint_pointer": {
+        "implementation": [
+            "utils/cbor/cursor/values.go: Cursor.BigInt",
+            "core/cbor_classes.go: cborReadBigIntPointer"
+        ],
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/BigIntUnique.lean",
+            "verification/fastcbor-proof/ProofCheck/BigIntDeterministic.lean",
+            "verification/fastcbor-proof/ProofCheck/BigIntPointerSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/BigIntPointerRead.lean",
+            "verification/fastcbor-proof/ProofCheck/BigIntPointerComplete.lean"
+        ],
+        "theorems": [
+            "bigIntRejected_encoded",
+            "bigIntAfterHeadFailure_unique",
+            "bigIntValid_not_rejected",
+            "bigIntRejected_head_unique",
+            "bigIntRejected_incomplete_unique",
+            "bigIntRejected_unique",
+            "bigIntValid_not_nullish",
+            "bigIntRejected_offset_bounds",
+            "bigIntSpec_unique",
+            "bigIntSpec_total_unique",
+            "wp_bigInt_complete_unique",
+            "bigIntPointer_classify",
+            "bigIntPointerValid_nonempty",
+            "bigIntPointerValid_prefix_unique",
+            "bigIntPointerValid_not_rejected",
+            "bigIntPointerRejected_offset_bounds",
+            "bigIntPointerSpec_unique",
+            "bigIntPointerSpec_total_unique",
+            "bigIntPointerOwned_some_nonnull",
+            "wp_readBigIntPointer_valid",
+            "wp_readBigIntPointer_rejected",
+            "wp_readBigIntPointer_complete"
+        ],
+        "specification_proved": "existing independent mathematical integer relation strengthened with success/rejection separation, unique failure reasons and a unique all-input outcome; malformed or incomplete heads distinguished from complete heads, wrong majors, unsupported tags and rejected bignum payloads; payload diagnostic offsets bounded by original input; nullable pointer relation clears null/undefined and otherwise accepts the same integer relation; nil distinct from allocated zero; successful prefix/value/suffix uniqueness and unique all-input pointer outcome",
+        "implementation_proved": "actual nullable pointer helper composes the existing checked BigInt method and initialized error objects; publishes nil or a complete normalized owned integer; all errors preserve the old pointer and roll back the cursor with exact diagnostics, including inner offsets and outer reclassification of payload type errors; public BigInt method refined to return an independently unique outcome; exact nonwrapping success consumption, suffix, unchanged input and depth; nonnil owned integer fact proved",
+        "ownership_boundary": "pointer helper requires only its writable destination pointer cell; any old integer and backing-word ownership can be framed through success or failure, including shared old objects; new successful integer owns its normalized signed magnitude and backing words; nil and integer zero have distinct ownership descriptions",
+        "contracts": [
+            "wp_bigInt_complete_unique",
+            "wp_readBigIntPointer_complete"
+        ],
+        "unproved_contract_premises": [],
+        "remaining": "enclosing DeprecatedCairoClass/CasmClass/SierraClass and recursive SegmentLengths records, class dispatch and public APIs; shared UTF-8 model/helper dependency and felt-key map equality remain separate",
+        "scope": "complete all-input BigInt and pointer-helper contracts at supported cursor positions and arbitrary owned old pointer cell; all supported head widths and tag-2/tag-3 bodies including leading zero bytes; no additional Go/trusted change or helper correctness premise; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "raw_message_bytes": {
         "implementation": [
             "utils/cbor/cursor/values.go: Cursor.Bytes",
