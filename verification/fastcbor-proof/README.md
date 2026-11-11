@@ -7418,3 +7418,56 @@ slice-index repair and actual UTF-8 word-helper proof to discharge the shared
 premise. Neither unconditional Header nor whole-library completion is claimed;
 the pinned 64-bit partial-correctness/model-safety scope and existing
 compiler/runtime, OOM, termination and compatibility boundaries remain unchanged.
+
+## Complete Sierra entry-point groups checkpoint
+
+The actual generated `cborReadSierraEntryPointsByType` reader now has a complete
+contract for every byte input at supported depth and every owned prior record.
+`wp_readSierraEntries_record_complete` composes the already checked Sierra
+entry-point value-slice reader at all three fields: `Constructor`, `External`
+and `L1Handler`. It retains the explicit shared `Utf8ValidatorContract` premise;
+it introduces no field, loop, allocation or initializer correctness premise.
+
+`SierraEntriesValues` independently specifies three nullable arrays of Sierra
+entry-point values. Direct null/undefined records preserve old contents;
+nullish fields clear their own arrays. Nil and allocated-empty arrays remain
+distinct, and nullish elements become zero entry-point records. Successful field
+relations retain the actual later bytes for nested count guards. Independent
+field/key/pair/record classification, prefix uniqueness, success/rejection
+separation and rejected-outcome uniqueness cover arbitrary supported encodings,
+field order, ASCII case folding, duplicate known keys and ignored unknown keys.
+The concrete three-entry class table, indices, cached key facts and seen bits
+are tied to the independent schema and the checked class initializer.
+
+Ownership separates the three slice headers, their embedded records and felt
+children. Each actual field call publishes only a complete new array. A failed
+field preserves its prior slice and children, while retaining the nested
+helper's consumed bytes, diagnostic offset and entered array/record levels.
+The enclosing record loop retains earlier successful fields and the old value
+of the failing field. Successful records restore depth and retain exact owned
+contents, unchanged input and the original unread suffix. Opening/key/duplicate,
+unknown-value and nested-array errors retain their actual allocated diagnostics
+and arguments. Zero-record ownership is also established for later enclosing
+SierraClass composition. This does not impose protocol-level restrictions on
+function counts, entry-point indices or selectors.
+
+Validation: full `check.sh` regenerated from unchanged Go and passed 2,905 Lean
+build jobs, auditing 3,640 results, 1,106 project/artifact hashes and 46
+standard-library source hashes. An independent audit checked exactly 72 new
+results in 18 modules, unchanged dependencies for all 3,568 prior results,
+an unchanged axiom union, every hash and all three field mappings and child
+reader calls. Eleven new direct uses of the existing UTF-8 validator premise
+bring that count to 378; the two word-helper premises remain unchanged. No
+result depends on `sorryAx` or native evaluation axioms. Saved compatibility
+and frozen performance evidence was revalidated. Production Go and trusted
+semantics are unchanged; the original and baseline worktrees remain clean at
+their existing pins.
+
+Next: JSON-byte/BigInt field helpers and enclosing DeprecatedCairoClass,
+CasmClass and SierraClass records, recursive SegmentLengths, then class tag
+dispatch and public APIs. State payload/map ownership and public APIs remain
+open, including the separate felt-key equality model gap. Header still needs
+the separately approved slice-index repair and actual UTF-8 word-helper proof
+to discharge the shared premise. Unconditional Header and whole-library gates
+remain open; the pinned 64-bit partial-correctness/model-safety scope and existing
+compiler/runtime, OOM, termination and compatibility boundaries are unchanged.
