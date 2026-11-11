@@ -8481,3 +8481,53 @@ The unrelated felt-key equality repair is not included in that request. This
 checkpoint does not close StateUpdate, unconditional Header or whole-library
 implementation correctness; the pinned 64-bit partial-correctness/model-safety
 boundary remains unchanged.
+
+## State-map shared-reserve failure integration checkpoint
+
+`FeltMapReserveFailure` proves the actual `cborReadFeltMapFrom` path through map
+allocation, successful first-key decoding, the nonnull value check, reserve-slot
+allocation, a failing value `Limbs` read and the loop return. The contract covers
+arbitrary old destinations and owned reserves, all supported map heads and valid
+key encodings, and all specified nonnull first-value failures. It includes both
+reserve reuse and actual reserve growth, with a positive representable
+`count + extra` request. That explicit arithmetic precondition still needs to be
+threaded through the eventual caller-loop invariants using the existing count
+bounds; it is not a helper-correctness assumption.
+
+The old destination remains unchanged because the private map is never published.
+The map head and first key remain consumed, one outer map depth level stays entered,
+and the diagnostic offset includes the failing value's exact internal offset.
+Input remains read-only, with proved nonwrapping positions. The postcondition owns
+the remaining reserve and its exact abstract count transition, together with the
+separate consumed zero slot left private by the failed read. Allocation capacity
+rounding remains unconstrained beyond the existing proved reserve contract.
+
+`FeltMapFirstFailure` composes this into the actual `cborReadFeltMap` wrapper,
+which initializes an empty local reserve and a zero extra hint. This exercises real
+reserve growth before the same first-value failure and returns the exact initialized
+map diagnostic without changing the caller's destination.
+`FeltMapFirstFailureSpec` proves that this path is an instance of the complete
+independent `FeltMapSpec`, including its contextual count guard, consumption,
+retained depth and element/value error. No synthetic Go decoder or abstract
+replacement for the production reader is introduced.
+
+Validation: `check-map-first-value-failure-full.log` records a successful
+**3,106-job** full regeneration/build and **4,377** audited results. This adds
+**three** theorems in **three** modules. Independent comparison against `bdb0b2939`
+checked all **4,374** prior dependency sets and the full axiom union unchanged;
+**1,309** project/artifact and **46** standard-library hashes match disk. No helper
+premises were added; shared direct counts remain **447** validator and **two**
+word-helper premises. No result depends on `sorryAx` or native evaluation axioms.
+The independent audit checked the actual allocation/key/null/reserve/value-error/
+return ordering, empty-reserve wrapper, independent map relation, private disjoint
+slot/reserve, exact input/cursor/depth and source dispatch. Production Go, trusted
+sources and clean original/baseline pins remain unchanged; frozen performance and
+compatibility evidence still apply.
+
+The proved path returns before the first map insertion. First-key failures,
+successful insertion, later entries, sharing across nested storage-map loops and
+complete StateDiff/StateUpdate composition remain open. Felt-key array equality
+still needs its separate trusted-model repair; the Header slice-index repair and
+UTF-8 word-helper proof remain pending. This checkpoint does not close a complete
+map, StateUpdate, unconditional Header or whole-library implementation theorem;
+the pinned 64-bit partial-correctness/model-safety boundary remains unchanged.

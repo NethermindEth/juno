@@ -1283,3 +1283,9 @@ import ProofCheck.StateMapDiagnostics
 import ProofCheck.StateUpdateErrors
 
 import ProofCheck.StateUpdateFeltFields
+
+import ProofCheck.FeltMapFirstFailureSpec
+
+import ProofCheck.FeltMapReserveFailure
+
+import ProofCheck.FeltMapFirstFailure

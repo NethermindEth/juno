@@ -738,6 +738,25 @@ report = {
         "remaining": "independent state payload/map specifications, ownership/growth, record and public API composition; felt-keyed map updates retain the separate array-equality model gap",
         "scope": "metadata construction, publication, lookup certificates and actual record-opening wrappers; payload decoder and generator correctness are not claimed; no production Go or trusted-semantics change; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
     },
+    "state_map_reserve_failure": {
+        "implementation_target": "core/cbor_state.go: cborReadFeltMapFrom first nonnull value failure after successful first key; cborReadFeltMap wrapper with local initially empty reserve",
+        "modules": [
+            "verification/fastcbor-proof/ProofCheck/FeltMapFirstFailureSpec.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapReserveFailure.lean",
+            "verification/fastcbor-proof/ProofCheck/FeltMapFirstFailure.lean"
+        ],
+        "theorems": [
+            "feltMap_first_value_failure_spec",
+            "wp_readFeltMapFrom_first_value_failure",
+            "wp_readFeltMap_first_value_failure"
+        ],
+        "specification": "first-value rejection is proved to instantiate the existing complete independent FeltMapSpec: map head plus key consumed, one outer depth level retained, key-relative diagnostic offset and element/value reason; contextual map count guard and representable positive count preserved",
+        "implementation_proved": "actual map allocation, first key Limbs decoding, nonnull value check, cborNextFelt reserve reuse or growth, failing value Limbs read, and loop return; arbitrary old destination and owned reserve, supported map heads/key encodings, representable count+extra request and all nonnull felt failures; no destination publication",
+        "ownership": "exact remaining reserve and count transition, one consumed zero slot privately owned and disjoint from the remaining reserve, unchanged input and destination; exact nonwrapping consumed/diagnostic positions and retained map depth; ordinary wrapper initializes empty reserve and composes the same real allocation/error path",
+        "unproved_contract_premises": [],
+        "remaining": "first key failures, successful insertion and subsequent entries, sharing across nested storage-map loops, complete map/StateDiff/StateUpdate composition; Go felt-key array equality remains unsupported pending separate approval; generic slice-index/UTF-8 repair remains pending its approval",
+        "scope": "actual first-value failure path for all stated encodings and reserve states; not complete map implementation correctness; no synthetic decoder function, SafeMapKey assumption or trusted/Go change; frozen performance unchanged; pinned 64-bit partial correctness/model safety excluding compiler/runtime correctness, OOM and termination"
+    },
     "state_field_integration": {
         "implementation_target": "core/cbor_state_generated.go StateUpdate BlockHash/NewRoot/OldRoot field calls and StateDiff DeclaredV0Classes field call; existing StateDiff/StateDiffPointer/StateUpdate opening rejection paths",
         "modules": [
