@@ -29,6 +29,12 @@ def check_schedule(report, classes):
     return looks
 
 
+def canonical_look(look):
+    ids = [case['id'] for case in look['cases']]
+    require(len(ids) == len(set(ids)), 'duplicate case in saved decision')
+    return {**look, 'cases': sorted(look['cases'], key=lambda case: case['id'])}
+
+
 def check_report(directory, report):
     identity = report['identity']
     looks = check_schedule(report, identity['classifications'])
@@ -95,7 +101,7 @@ def check_report(directory, report):
             metrics = {row[i+1]: float(row[i]) for i in range(2, len(row)-1, 2)}
             require(all(metrics[m] == sample[m] for m in run.METRICS), 'saved metrics differ from raw output')
     for index, look in enumerate(looks):
-        require(look == run.analyze(report['samples'], classes, look['rounds']), 'saved decision differs from recomputation')
+        require(canonical_look(look) == canonical_look(run.analyze(report['samples'], classes, look['rounds'])), 'saved decision differs from recomputation')
         if index < len(looks)-1:
             require(look['status'] == 'inconclusive', 'samples collected after a terminal planned look')
     require(report['status'] == looks[-1]['status'], 'terminal status disagrees with last look')

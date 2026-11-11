@@ -31,6 +31,17 @@ class ArtifactSchedule(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'prespecified prefix'):
             check.check_schedule(report, {'case': 'compatible_fast'})
 
+    def test_decision_comparison_uses_ids_not_json_key_order(self):
+        left = {'rounds': 5, 'cases': [{'id': 'b', 'status': 'pass'}, {'id': 'a', 'status': 'fail'}]}
+        right = {'rounds': 5, 'cases': list(reversed(left['cases']))}
+        self.assertEqual(check.canonical_look(left), check.canonical_look(right))
+        right['cases'][0] = {'id': 'a', 'status': 'pass'}
+        self.assertNotEqual(check.canonical_look(left), check.canonical_look(right))
+
+    def test_duplicate_decision_id_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'duplicate case'):
+            check.canonical_look({'cases': [{'id': 'a'}, {'id': 'a'}]})
+
     def test_controls_required_exclusions_preserved(self):
         report = self.fixture()
         classes = {'case': 'compatible_fast', 'control': 'zero_decoder_control', 'removed': 'incompatible_removed_projection'}

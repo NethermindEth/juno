@@ -3748,6 +3748,17 @@ for the assumptions, exclusions and resume rules. A partially collected run is
 not a passed performance gate. No whole-library proof advancement is justified by
 preflight success or incomplete measurements.
 
+The first scheduled look, after five complete rounds (895 baseline/candidate
+pairs), is **inconclusive: 163 decoder cases pass, zero fail, and 14 remain
+inconclusive on ns/op**. All 177 decoder cases pass B/op and allocs/op. The 14
+remaining cases have timing intervals crossing the 3% boundary, so this is neither
+a whole-gate pass nor evidence of a confirmed regression. The unchanged run
+continues to ten rounds under the same protocol. Its saved decision was recomputed
+from the paired measurements. That check exposed only a presentation-order issue:
+JSON key sorting changes classification iteration order, so the artifact checker
+now compares decision cases by ID and rejects duplicate IDs. The runner and all
+statistical decisions are unchanged. All 13 harness/checker tests pass.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.
