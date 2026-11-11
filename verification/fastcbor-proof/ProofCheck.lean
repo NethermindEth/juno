@@ -1177,3 +1177,25 @@ import ProofCheck.MigratedClassesSpec
 import ProofCheck.MigratedClassesUnique
 
 import ProofCheck.MigratedClassesValues
+
+import ProofCheck.StorageDiffsDepth
+
+import ProofCheck.StorageDiffsEdges
+
+import ProofCheck.StorageDiffsEmpty
+
+import ProofCheck.StorageDiffsEntriesSpec
+
+import ProofCheck.StorageDiffsEntriesUnique
+
+import ProofCheck.StorageDiffsEntrySpec
+
+import ProofCheck.StorageDiffsEntryUnique
+
+import ProofCheck.StorageDiffsOwnership
+
+import ProofCheck.StorageDiffsSpec
+
+import ProofCheck.StorageDiffsUnique
+
+import ProofCheck.StorageDiffsValues

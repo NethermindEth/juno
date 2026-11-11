@@ -8121,3 +8121,62 @@ separately approved array-equality model repair. Header and text-dependent
 records retain the separate UTF-8 word-helper/model obligation. This checkpoint
 closes neither a complete state-map implementation nor the Header or whole-library
 gates; the pinned 64-bit partial-correctness/model-safety boundary is unchanged.
+
+## Nested storage-map specification and empty-map implementation checkpoint
+
+`StorageDiffsValues`, `StorageDiffsEntrySpec`, `StorageDiffsEntryUnique`,
+`StorageDiffsEntriesSpec`, `StorageDiffsEntriesUnique`, `StorageDiffsSpec`,
+`StorageDiffsUnique`, `StorageDiffsDepth` and `StorageDiffsEdges` specify the actual
+nested shape read by `cborReadStorageDiffs`:
+`map[felt.Felt]map[felt.Felt]*felt.Felt`. Outer keys require limb arrays. An inner
+value uses the complete independent `FeltMapSpec`, including null/undefined,
+allocated-empty maps and nullable felt pointers. The inner map sees **all** later
+input, including subsequent outer entries and the final suffix, because its
+count guard is contextual. The specification does not check inner maps against
+isolated item bytes.
+
+The outer map has exactly one outcome for every input at supported depth. Entry
+and sequence results establish unique successful prefixes/values/suffixes,
+success/rejection separation, private completed entries and failed parsed keys,
+and consumption/offset/count/depth bounds. A failed inner map retains its own
+consumption and depth; it does not roll back like a failed felt read. Opening
+errors retain zero additional depth, outer entry failures retain one, and errors
+after opening an inner map can retain two. Explicit lemmas distinguish null from
+empty inner maps and establish all-width empty outer-map acceptance. A duplicate
+outer key replaces the **entire** previous inner map, including replacement with
+nil; entries are not merged.
+
+`StorageDiffsOwnership` relates outer slots to nullable inner maps and their felt
+children. It proves empty child ownership, duplicate-safe logical replacement,
+allocated-map nonnull and ownership of an empty outer map. Logical replacement
+rearranges ownership only; it does not prove the Go insertion operation or assume
+an array-equality rule. Shared backing-array allocation across distinct inner
+maps still needs its implementation/ownership proof.
+
+`StorageDiffsEmpty` proves the actual empty outer-map path for every supported
+zero-count encoding, arbitrary suffix and old destination. It establishes a
+fresh owned empty map, exact consumption and remaining suffix, unchanged input
+and restored depth. This adds an implementation success case to the existing
+null/opening-error contracts without using key equality or insertion. Populated
+map loops remain unproved.
+
+Validation: `check-storage-map-full.log` records a successful **3,061-job** full
+regeneration/build and **4,198** audited results. This checkpoint adds **35**
+results in **11** modules. An independent comparison against `d9b850a3c` checked
+all **4,163** prior dependency sets and the complete axiom union unchanged;
+**1,264** project/artifact hashes and **46** standard-library hashes match disk.
+No helper premises were added; the shared counts remain **441** direct validator
+premises and **two** word-helper premises. No result depends on `sorryAx` or
+native evaluation axioms. The independent audit also checked contextual inner
+count checks, nullable inner maps, whole-map replacement, nested ownership/depth
+and the actual all-width empty-map target. Production Go and trusted semantics
+are unchanged; original and baseline worktrees retain their clean pins. Frozen
+performance and archived compatibility evidence remain applicable.
+
+All three state-map shapes now have independent specifications. Remaining work
+includes the shared spare allocator, actual populated map loops, and
+StateDiff/StateUpdate payload/public API composition. The array-equality model
+repair remains separately approval-dependent; Header and text-dependent records
+retain the independent UTF-8 word-helper/model obligation. No complete storage-map,
+StateUpdate, Header or whole-library implementation milestone is closed here.
+The pinned 64-bit partial-correctness/model-safety boundary is unchanged.
