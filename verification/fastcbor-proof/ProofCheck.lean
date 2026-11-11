@@ -221,3 +221,7 @@ import ProofCheck.IndexesRecordSpec
 import ProofCheck.IndexesOwnership
 import ProofCheck.IndexesZero
 import ProofCheck.IndexesSeen
+
+import ProofCheck.IndexesMapValid
+import ProofCheck.IndexesValid
+import ProofCheck.IndexesValidAPI

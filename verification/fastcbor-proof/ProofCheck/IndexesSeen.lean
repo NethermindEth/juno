@@ -107,6 +107,27 @@ theorem indexesPairs_preserves_seen (d n : Nat) (seen : List Bool) (initial fina
       cases hc : indexesChoice seen key <;> simp [indexesSeen, visited]
     exact (ih hm).trans hv
 
+/-- A selected field determines both the numeric key and its fresh mask bit. -/
+theorem indexesChoice_selected (seen : w64) (fields : List Bool) (key : Option w64) (field : Bool)
+    (hs : IndexesSeen seen fields) (selected : indexesChoice fields key = some field) :
+    key = some (if field then W64 2 else W64 1) ∧ seen &&& indexesMask field = W64 0 := by
+  rw [indexesChoice_mask seen fields key hs] at selected
+  cases key with
+  | none => contradiction
+  | some number =>
+    simp only at selected
+    split at selected
+    · rename_i h
+      have heq : false = field := Option.some.inj selected
+      subst field
+      exact ⟨congrArg some h.1, h.2⟩
+    · split at selected
+      · rename_i h
+        have heq : true = field := Option.some.inj selected
+        subst field
+        exact ⟨congrArg some h.1, h.2⟩
+      · contradiction
+
 end github_com.NethermindEth.juno.core
 end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.indexesMasks_disjoint
@@ -117,3 +138,5 @@ end Perennial
 #print axioms Perennial.github_com.NethermindEth.juno.core.indexesChoice_fresh
 #print axioms Perennial.github_com.NethermindEth.juno.core.indexesItem_preserves_seen
 #print axioms Perennial.github_com.NethermindEth.juno.core.indexesPairs_preserves_seen
+
+#print axioms Perennial.github_com.NethermindEth.juno.core.indexesChoice_selected

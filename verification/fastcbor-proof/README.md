@@ -4001,6 +4001,45 @@ and two word-helper results. Production Go and trusted semantics are unchanged.
 The full check revalidates both saved compatibility reports and all archived
 performance decisions against the unchanged sources.
 
+## Index-record successful loop and public API composition
+
+`IndexesMapValid.lean` now proves the actual generated
+`cborReadBlockTransactionsIndexes` loop against every successful pair sequence in
+`IndexesPairsValid`. Its invariant connects remaining pairs, the actual seen-bit
+mask, both owned arrays, nonwrapping cursor progress and the exact unread suffix.
+The proof covers both selected numeric keys, every supported key width, duplicate
+values and unknown unsigned/negative/text keys, including the generated `continue`
+path. The record can start with any owned value; first occurrences replace their
+selected field, while missing fields and skipped duplicates preserve it.
+
+`IndexesValid.lean` adds null/undefined preservation and composes every successful
+`IndexesRecordValid` input at any supported cursor offset and depth. It also proves
+that cleanup restores the public zero ownership relation after any partial value.
+`IndexesValidAPI.lean` composes successful decoding through both production public
+entries: First returns exactly the original unread input slice; full decoding
+accepts an empty suffix, and rejects a nonempty suffix after clearing both fields,
+with an owned diagnostic containing the exact unread count. Input ownership and
+nil/allocated-empty distinctions are preserved throughout.
+
+These are **conditional successful-decoding contracts**, not an all-input API
+milestone. All successful loop/record/API results explicitly carry the existing
+`Utf8ValidatorContract`, because unknown text keys are validated. The remaining
+index work is the generated failure loop, including errors after arbitrary valid
+prefixes and partially published arrays; outcome uniqueness and success/failure separation;
+and parse-error cleanup/API composition. No decoder-specific premise has been
+added beyond the existing validator contract. Header's trusted-model repair and
+the felt-map equality gap remain unchanged. Production Go, pinned semantics and
+the performance candidate sources are unchanged.
+
+Full regeneration and audit pass in `check-indexes-valid-api-full.log`: 2222 build
+jobs, 1159 audited theorems, 426 project/artifact hashes and 46 standard-library
+source hashes. Eight results were added; all 1151 prior theorem dependency sets
+and the transitive axiom union are unchanged. The audit contains no admissions or
+native-evaluation dependencies. Five new compositions explicitly carry the
+validator premise, bringing its direct count to 62; the two word-helper-premise
+results are unchanged. Saved ordinary/race/checkptr compatibility reports and the
+archived 177-case passing performance decision were revalidated by the full check.
+
 ## Proposed fix: generic slice indexing in the pinned semantics
 
 Status: **awaiting explicit approval; no trusted source has been changed**.
