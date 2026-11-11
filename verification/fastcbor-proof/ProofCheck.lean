@@ -403,3 +403,10 @@ import ProofCheck.EventMapValid
 import ProofCheck.EventMapRejected
 import ProofCheck.EventBoundary
 import ProofCheck.EventRecordComplete
+import ProofCheck.EventValueUnique
+import ProofCheck.EventPairsUnique
+import ProofCheck.EventRecordUnique
+import ProofCheck.EventPointerItemsSpec
+import ProofCheck.EventPointersSpec
+import ProofCheck.EventPointerItemsUnique
+import ProofCheck.EventPointersUnique

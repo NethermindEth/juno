@@ -107,8 +107,9 @@ retained diagnostics, destination guards and error cleanup. The other record
 families remain to be composed, except that the receipt execution-status
 projection now also has complete conditional internal-record and First API
 contracts, with independently unique outcomes. The direct Event record now also
-has conditional all-input/all-owned-initial-value contracts; independent pair/record
-outcome uniqueness and its enclosing pointer-slice reader remain open. See the
+has conditional all-input/all-owned-initial-value contracts with independently unique
+outcomes. Its enclosing pointer-slice specification is classified and uniquely
+determined, while the pointer-slice implementation proof remains open. See the
 latest Event checkpoint below and “Checked remaining-entry inventory”.
 The map feasibility witnesses now prove the resource-key operation sequence and
 expose missing array-value equality for felt-key maps; see the map-feasibility
@@ -5371,6 +5372,66 @@ all 1623 prior theorem dependency sets unchanged, unchanged axiom union, and
 every recorded source hash. The five new conditional map/record theorems bring
 the explicit premise inventory to 124 validator and 2 word-helper premises.
 No theorem depends on admission or native-evaluation axioms. Saved
+compatibility/race/checkptr and archived performance evidence was revalidated
+against unchanged Go sources. Original and baseline worktrees and the pinned
+trusted checkout remain clean at their recorded revisions.
+
+## Event outcome uniqueness and complete pointer-slice specification
+
+`EventValueUnique`, `EventPairsUnique` and `EventRecordUnique` close independent
+Event determinism and success/rejection separation. Successful values, pair
+sequences and records have unique consumed prefixes, decoded values and suffixes
+on the same complete input. Rejected sequences and records uniquely determine
+the retained partial Event, consumption, diagnostic offset, entered depth and
+reason, including key/duplicate/value precedence. `EventRecordSpec` packages
+these alternatives, and `eventRecordSpec_total_unique` establishes exactly one
+outcome for every supported-depth input. These specification theorems require no
+implementation-helper contract. The existing direct reader implementation proof
+still retains its explicit UTF-8 premise.
+
+`EventPointerItemsSpec` specifies nullable pointer elements and fixed-length
+sequences independently of allocation. Null/undefined produces a nil element
+before record decoding; an empty map produces a nonnil zero Event. Nonnil elements
+start from `eventZero`. Successful records retain the actual later elements and
+suffix in their contextual slice guards. Rejected sequences retain the private
+successful prefix, failed partial Event, consumed position, diagnostic offset
+and entered map depth. All-input classification, element progress, exact element
+counts and failure bounds are checked.
+
+`EventPointersSpec` adds the outer nullable array. Null/undefined gives a nil
+slice, while an empty array gives an allocated empty slice at a permitted depth.
+The count guard examines all remaining bytes before checking depth. There is no
+blanket element-depth precheck: at the last entered array level, nil elements
+still succeed, whereas a new map cannot be entered. Opening/count/depth failures
+consume nothing. Element failures retain the entered array and the record's
+cursor/depth, rather than rolling back the whole slice. Classification, exact
+successful suffixes, bounded consumption/diagnostics and retained-depth bounds
+are proved.
+
+`EventPointerItemsUnique` establishes unique element/sequence values and
+boundaries, success/rejection separation, and unique rejected private state.
+`EventPointersUnique` checks every outer outcome combination and proves exactly
+one complete pointer-slice result at supported depths. Count and depth precedence,
+nil/empty distinctions, partial consumption and final suffix are therefore
+properties of a deterministic independent specification.
+
+**This pointer-slice work is specification/classification/uniqueness, not a
+proof of `cborReadEventPointers`.** Remaining implementation work is concrete
+output/private allocation ownership, bounded shared Event storage, fallback
+per-element allocation, slot publication, the actual generated loop and final
+destination publication. The direct Event reader's checked conditional contract
+is ready for that composition. Containing receipt/projection APIs, Header's shared
+UTF-8 helper/model correction and the independent felt-key map gap remain open.
+No production Go or pinned trusted source changed.
+
+Full regeneration and audit passed in
+`check-event-uniqueness-pointer-spec-full.log`: 2389 build jobs, 1670 audited
+theorems, 590 project/artifact hashes and 46 directly translated standard-library
+hashes. Independent verification checked the exact 33 additions, all 1637 prior
+theorem dependency sets unchanged, unchanged axiom union and every recorded
+source hash. Every new theorem depends only on the reported logic axioms; the
+explicit helper-premise inventory is unchanged at 124 validator and 2 word-helper
+premises. No theorem depends on admission or native-evaluation axioms. Saved
 compatibility/race/checkptr and archived performance evidence was revalidated
 against unchanged Go sources. Original and baseline worktrees and the pinned
 trusted checkout remain clean at their recorded revisions.
