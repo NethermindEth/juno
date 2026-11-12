@@ -8,12 +8,6 @@
 //
 // A reader never keeps a reference to the input and writes only the destination, which must be the
 // zero value. It counts nesting to a fixed limit and never allocates more than the input can back.
-//
-// The planner uses unsafe and links to the runtime's allocator and map calls (unsafe_New, makemap,
-// mapassign, typedmemclr), which the runtime keeps for the packages that link to them
-// (go.dev/issue/67401), so a new Go version may need a fallback. A struct read behind a pointer
-// shares one allocation with the small structs it points to, so a pointer to one of them keeps the
-// whole block alive.
 package fastcbor
 
 import (

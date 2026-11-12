@@ -3,19 +3,22 @@ package fastcbor
 import (
 	"math"
 	"slices"
+	"unsafe"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
 )
 
+// limbs is the layout of a felt.
+type limbs = [cursor.Limbs]uint64
+
 // readFelt reads a felt. Null leaves the pointer nil.
-func readFelt(r *cursor.Cursor, dst **felt.Felt) error {
+func readFelt(r *cursor.Cursor, dst **limbs) error {
 	if r.Null() {
 		*dst = nil
 		return nil
 	}
-	value := new(felt.Felt)
-	if err := r.Limbs((*[cursor.Limbs]uint64)(value)); err != nil {
+	value := new(limbs)
+	if err := r.Limbs(value); err != nil {
 		return err
 	}
 	*dst = value
@@ -23,8 +26,8 @@ func readFelt(r *cursor.Cursor, dst **felt.Felt) error {
 }
 
 // readFeltSlice reads an array of felts, or null as nil.
-func readFeltSlice(r *cursor.Cursor, dst *felt.Slice[felt.Felt]) error {
-	value, err := cursor.LimbSlice[felt.Felt](r)
+func readFeltSlice(r *cursor.Cursor, dst *[]limbs) error {
+	value, err := cursor.LimbSlice[limbs](r)
 	if err != nil {
 		return err
 	}
@@ -147,7 +150,7 @@ func readRaw(r *cursor.Cursor, dst *[]byte) error {
 const minPtrSliceElement = 32
 
 // readFeltPtrSlice reads an array of felt pointers, or null as nil. An element may be null.
-func readFeltPtrSlice(r *cursor.Cursor, dst *[]*felt.Felt) error {
+func readFeltPtrSlice(r *cursor.Cursor, dst *[]*limbs) error {
 	if r.Null() {
 		*dst = nil
 		return nil
@@ -156,14 +159,14 @@ func readFeltPtrSlice(r *cursor.Cursor, dst *[]*felt.Felt) error {
 	if err != nil {
 		return err
 	}
-	out := make([]*felt.Felt, count)
+	out := make([]*limbs, count)
 	// The felts share one array the count sizes, rather than one allocation each.
-	values := make([]felt.Felt, count)
+	values := make([]limbs, count)
 	for i := range out {
 		if r.Null() {
 			continue
 		}
-		if err := r.Limbs((*[cursor.Limbs]uint64)(&values[i])); err != nil {
+		if err := r.Limbs(&values[i]); err != nil {
 			return err
 		}
 		out[i] = &values[i]
@@ -177,16 +180,16 @@ func readFeltPtrSlice(r *cursor.Cursor, dst *[]*felt.Felt) error {
 // one array for its values.
 //
 //nolint:gocritic // dst is given the map made here when there is none
-func readFeltMap(r *cursor.Cursor, dst *map[felt.Felt]*felt.Felt) error {
-	var spare []felt.Felt
+func readFeltMap[K, V ~limbs](r *cursor.Cursor, dst *map[K]*V) error {
+	var spare []V
 	return readFeltMapFrom(r, dst, &spare, 0)
 }
 
 // readFeltMapFrom is readFeltMap taking the values from spare, which it refills when it runs out.
 //
 //nolint:gocritic // dst is given the map made here when there is none
-func readFeltMapFrom(
-	r *cursor.Cursor, dst *map[felt.Felt]*felt.Felt, spare *[]felt.Felt, extra int,
+func readFeltMapFrom[K, V ~limbs](
+	r *cursor.Cursor, dst *map[K]*V, spare *[]V, extra int,
 ) error {
 	if r.Null() {
 		*dst = nil
@@ -196,10 +199,10 @@ func readFeltMapFrom(
 	if err != nil {
 		return err
 	}
-	out := make(map[felt.Felt]*felt.Felt, count)
+	out := make(map[K]*V, count)
 	for left := count; left > 0; left-- {
-		var key felt.Felt
-		if err := r.Limbs((*[cursor.Limbs]uint64)(&key)); err != nil {
+		var key K
+		if err := r.Limbs((*limbs)(unsafe.Pointer(&key))); err != nil {
 			return err
 		}
 		if r.Null() {
@@ -207,7 +210,7 @@ func readFeltMapFrom(
 			continue
 		}
 		value := nextFelt(spare, left+extra)
-		if err := r.Limbs((*[cursor.Limbs]uint64)(value)); err != nil {
+		if err := r.Limbs((*limbs)(unsafe.Pointer(value))); err != nil {
 			return err
 		}
 		out[key] = value
@@ -218,9 +221,9 @@ func readFeltMapFrom(
 }
 
 // nextFelt returns a zero felt from the front of spare, which it refills when it is empty.
-func nextFelt(spare *[]felt.Felt, want int) *felt.Felt {
+func nextFelt[V any](spare *[]V, want int) *V {
 	if len(*spare) == 0 {
-		grown := slices.Grow([]felt.Felt(nil), want)
+		grown := slices.Grow([]V(nil), want)
 		*spare = grown[:cap(grown)]
 	}
 	value := &(*spare)[0]
@@ -231,7 +234,7 @@ func nextFelt(spare *[]felt.Felt, want int) *felt.Felt {
 // readStorageDiffs reads a map from contract address to its map of storage updates.
 //
 //nolint:gocritic // dst is given the map made here when there is none
-func readStorageDiffs(r *cursor.Cursor, dst *map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+func readStorageDiffs[K, V ~limbs](r *cursor.Cursor, dst *map[K]map[K]*V) error {
 	if r.Null() {
 		*dst = nil
 		return nil
@@ -240,17 +243,46 @@ func readStorageDiffs(r *cursor.Cursor, dst *map[felt.Felt]map[felt.Felt]*felt.F
 	if err != nil {
 		return err
 	}
-	out := make(map[felt.Felt]map[felt.Felt]*felt.Felt, count)
+	out := make(map[K]map[K]*V, count)
 	// The inner maps take their values from shared arrays, each sized for at least one
 	// value per map still to come.
-	var spare []felt.Felt
+	var spare []V
 	for ; count > 0; count-- {
-		var key felt.Felt
-		if err := r.Limbs((*[cursor.Limbs]uint64)(&key)); err != nil {
+		var key K
+		if err := r.Limbs((*limbs)(unsafe.Pointer(&key))); err != nil {
 			return err
 		}
-		var value map[felt.Felt]*felt.Felt
+		var value map[K]*V
 		if err := readFeltMapFrom(r, &value, &spare, count-1); err != nil {
+			return err
+		}
+		out[key] = value
+	}
+	r.Leave()
+	*dst = out
+	return nil
+}
+
+// readFeltValueMap reads a map from felt to felt held by value, or null as nil.
+//
+//nolint:gocritic // dst is given the map made here when there is none
+func readFeltValueMap[K, V ~limbs](r *cursor.Cursor, dst *map[K]V) error {
+	if r.Null() {
+		*dst = nil
+		return nil
+	}
+	count, err := r.MapLen()
+	if err != nil {
+		return err
+	}
+	out := make(map[K]V, count)
+	for ; count > 0; count-- {
+		var key K
+		if err := cursor.Felt(r, &key); err != nil {
+			return err
+		}
+		var value V
+		if err := cursor.Felt(r, &value); err != nil {
 			return err
 		}
 		out[key] = value
