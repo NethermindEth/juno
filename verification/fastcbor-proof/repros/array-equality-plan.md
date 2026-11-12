@@ -1,8 +1,10 @@
 # Proposed array-value equality repair
 
 Status: **awaiting explicit approval; the patch is not applied**. This proposal
-is separate from the Header generic slice-index repair. Neither approval implies
-the other. Base: Perennial `84d5380639a38f56cd517f1e81246fad7be5b21b`.
+is separate from the adopted Header generic slice-index repair. Approval of that
+upstream branch did not approve this rule. Current base: Perennial
+`9489271c166c7567fb4561f3aed83da866cc921f`. The patch was originally prepared against
+`84d5380639a38f56cd517f1e81246fad7be5b21b`; the relevant array model is unchanged.
 
 ## Defect and scope
 
@@ -109,11 +111,30 @@ later failure, including nested inner maps and any retained key. They install no
 still belong to the repair work below. Their 28 results are included in the
 production dependency audit, unlike the standalone RHS preparation checks.
 
+## Revalidation on the current pin (2026-11-12)
+
+The exact patch still passes `git apply --unidiff-zero --check` against
+`9489271c166c7567fb4561f3aed83da866cc921f`. Both `Array.lean` and the sibling
+struct-comparison scheme in `PostLang.lean` are unchanged since the original base.
+`ArrayEqualityExpansion.lean` checks again, with its three WP results depending
+only on `propext`, `Classical.choice` and `Quot.sound`.
+`FeltMap.lean` still fails at the expected `SafeMapKey` obligation, and
+`MapKeyEquality.lean` still fails to synthesize array/Felt/SierraClassHash equality
+steps. The 12-case standalone Go witness and the existing Go map feasibility tests
+pass. The Perennial checkout is clean; no part of the patch is installed.
+
+The 14 non-StateUpdate roots now have general API contracts without helper
+correctness premises. This rule is needed for the remaining StateUpdate root's
+felt-keyed maps, not for those completed contracts. Approval would authorize the
+isolated rule implementation, framework regressions and review, safe-key/map
+witness proofs, and repinning after validation. Populated map-loop and
+StateDiff/StateUpdate API proofs would then continue against that validated pin.
+
 ## Work authorized by approval of this proposal
 
 1. Create a separate Perennial worktree from the pinned revision. Apply exactly
-   the attached rule/registration patch. Keep the independent Header repair in
-   a separate commit and do not apply it without its own approval.
+   the attached rule/registration patch. Preserve the already-authorized upstream
+   slice-index fix in the base; this adds only the separate array-equality rule.
 2. Add framework regressions for actual array `GoEquals`: zero-length arrays;
    equal and unequal words at each index; named and generic arrays; nested
    arrays; arrays of structs and structs with arrays; interface short-circuiting
@@ -145,7 +166,8 @@ production dependency audit, unlike the standalone RHS preparation checks.
    upstream publication or benchmark redesign is included.
 
 Full StateDiff/StateUpdate entry loops, record composition and public APIs remain
-work after this prerequisite. This proposal does not claim Header completion,
+work after this prerequisite. Fourteen other roots now have their API helper
+dependencies discharged. This proposal does not itself establish
 whole-library verification, compiler/runtime verification or fxamacker equivalence.
 
 The explicit approval requirement comes from the active goal and

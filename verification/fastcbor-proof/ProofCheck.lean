@@ -1368,3 +1368,11 @@ import ProofCheck.StateRecordKeyFailure
 import ProofCheck.StatePointerKeyFailure
 
 import ProofCheck.HeaderAPIVerified
+import ProofCheck.ClassAPIVerified
+import ProofCheck.HeaderProjectionAPIVerified
+import ProofCheck.IndexesAPIVerified
+import ProofCheck.ReceiptAPIVerified
+import ProofCheck.ReceiptPointerAPIVerified
+import ProofCheck.ReceiptProjectionAPIVerified
+import ProofCheck.TransactionAPIVerified
+import ProofCheck.TransactionHashAPIVerified

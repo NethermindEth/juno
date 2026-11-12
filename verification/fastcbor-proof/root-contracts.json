@@ -1,5 +1,5 @@
 {
-  "scope": "Current proof-contract index over the frozen 15-root implementation inventory. Header has general contracts with no helper correctness premise. Other conditional entries retain explicit, now-proved UTF-8 contract parameters; StateUpdate remains incomplete. Routing, registration, fallback and formatting remain outside the proof scope.",
+  "scope": "Current proof-contract index over the frozen 15-root implementation inventory. Fourteen roots (20 API entries) have general contracts with no helper correctness premise. StateUpdate remains incomplete. Routing, registration, fallback and formatting remain outside the proof scope.",
   "inventory": "verification/fastcbor-proof/results/entry-manifest.json",
   "status_note": "The frozen Go inventory generator contains checkpoint-era proof_status strings. This separately checked index supplies current theorem links without changing the benchmarked Go sources.",
   "common_boundary": "Pinned 64-bit partial correctness/model safety with owned inputs/destinations and package initialization; compiler/runtime correctness, OOM and termination excluded. No fxamacker equivalence or strict validation of ignored CBOR.",
@@ -7,7 +7,7 @@
     {
       "type": "*github.com/NethermindEth/juno/core.TransactionReceipt",
       "go_source": "core/cbor_receipts_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "DecodeTransactionReceiptPointerFirst",
         "DecodeTransactionReceiptPointer"
@@ -15,25 +15,23 @@
       "contracts": [
         {
           "api": "DecodeTransactionReceiptPointerFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptPointerAPIComplete.lean",
-          "theorem": "wp_decodeReceiptPointerFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptPointerAPIVerified.lean",
+          "theorem": "wp_decodeReceiptPointerFirst_verified",
           "specification": "ReceiptPointerFirstSpec"
         },
         {
           "api": "DecodeTransactionReceiptPointer",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptPointerAPIFull.lean",
-          "theorem": "wp_decodeReceiptPointer_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptPointerAPIVerified.lean",
+          "theorem": "wp_decodeReceiptPointer_verified",
           "specification": "ReceiptPointerFullSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.BlockTransactionsIndexes",
       "go_source": "core/cbor_indexes_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "DecodeBlockTransactionsIndexesFirst",
         "DecodeBlockTransactionsIndexes"
@@ -41,25 +39,23 @@
       "contracts": [
         {
           "api": "DecodeBlockTransactionsIndexesFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/IndexesAPIComplete.lean",
-          "theorem": "wp_decodeIndexesFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/IndexesAPIVerified.lean",
+          "theorem": "wp_decodeIndexesFirst_verified",
           "specification": "IndexesFirstSpec"
         },
         {
           "api": "DecodeBlockTransactionsIndexes",
-          "proof": "verification/fastcbor-proof/ProofCheck/IndexesAPIComplete.lean",
-          "theorem": "wp_decodeIndexes_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/IndexesAPIVerified.lean",
+          "theorem": "wp_decodeIndexes_verified",
           "specification": "IndexesFullSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.ClassDefinition",
       "go_source": "core/cbor_classes_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "DecodeClassDefinitionFirst",
         "DecodeClassDefinition"
@@ -67,21 +63,19 @@
       "contracts": [
         {
           "api": "DecodeClassDefinitionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/ClassAPIComplete.lean",
-          "theorem": "wp_decodeClassFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ClassAPIVerified.lean",
+          "theorem": "wp_decodeClassFirst_verified",
           "specification": "ClassFirstSpec"
         },
         {
           "api": "DecodeClassDefinition",
-          "proof": "verification/fastcbor-proof/ProofCheck/ClassAPIFull.lean",
-          "theorem": "wp_decodeClass_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ClassAPIVerified.lean",
+          "theorem": "wp_decodeClass_verified",
           "specification": "ClassFullSpec"
         }
       ],
       "additional_precondition": "ClassTagsDistinct tags",
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.Header",
@@ -194,7 +188,7 @@
     {
       "type": "github.com/NethermindEth/juno/core.Transaction",
       "go_source": "core/cbor_transactions_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "DecodeTransactionFirst",
         "DecodeTransaction"
@@ -202,26 +196,24 @@
       "contracts": [
         {
           "api": "DecodeTransactionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/TransactionAPIComplete.lean",
-          "theorem": "wp_decodeTransactionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/TransactionAPIVerified.lean",
+          "theorem": "wp_decodeTransactionFirst_verified",
           "specification": "TransactionFirstSpec"
         },
         {
           "api": "DecodeTransaction",
-          "proof": "verification/fastcbor-proof/ProofCheck/TransactionAPIFull.lean",
-          "theorem": "wp_decodeTransaction_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/TransactionAPIVerified.lean",
+          "theorem": "wp_decodeTransaction_verified",
           "specification": "TransactionFullSpec"
         }
       ],
       "additional_precondition": "TransactionTagsDistinct tags",
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.TransactionReceipt",
       "go_source": "core/cbor_receipts_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "DecodeTransactionReceiptFirst",
         "DecodeTransactionReceipt"
@@ -229,33 +221,31 @@
       "contracts": [
         {
           "api": "DecodeTransactionReceiptFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptAPIComplete.lean",
-          "theorem": "wp_decodeReceiptFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptAPIVerified.lean",
+          "theorem": "wp_decodeReceiptFirst_verified",
           "specification": "ReceiptFirstSpec"
         },
         {
           "api": "DecodeTransactionReceipt",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptAPIFull.lean",
-          "theorem": "wp_decodeReceipt_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptAPIVerified.lean",
+          "theorem": "wp_decodeReceipt_verified",
           "specification": "ReceiptFullSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerGlobalStateRootProjection",
       "go_source": "core/cbor_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeHeaderGlobalStateRootProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeHeaderGlobalStateRootProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean",
-          "theorem": "wp_decodeHeaderProjectionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIVerified.lean",
+          "theorem": "wp_decodeHeaderProjectionFirst_verified",
           "specification": "HeaderProjectionFirstSpec",
           "specialization": {
             "parameter": "kind",
@@ -265,22 +255,20 @@
           }
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerHashAndStateRootProjection",
       "go_source": "core/cbor_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeHeaderHashAndStateRootProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeHeaderHashAndStateRootProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean",
-          "theorem": "wp_decodeHeaderProjectionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIVerified.lean",
+          "theorem": "wp_decodeHeaderProjectionFirst_verified",
           "specification": "HeaderProjectionFirstSpec",
           "specialization": {
             "parameter": "kind",
@@ -290,22 +278,20 @@
           }
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerHashProjection",
       "go_source": "core/cbor_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeHeaderHashProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeHeaderHashProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean",
-          "theorem": "wp_decodeHeaderProjectionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIVerified.lean",
+          "theorem": "wp_decodeHeaderProjectionFirst_verified",
           "specification": "HeaderProjectionFirstSpec",
           "specialization": {
             "parameter": "kind",
@@ -315,22 +301,20 @@
           }
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerTimestampProjection",
       "go_source": "core/cbor_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeHeaderTimestampProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeHeaderTimestampProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean",
-          "theorem": "wp_decodeHeaderProjectionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIVerified.lean",
+          "theorem": "wp_decodeHeaderProjectionFirst_verified",
           "specification": "HeaderProjectionFirstSpec",
           "specialization": {
             "parameter": "kind",
@@ -340,22 +324,20 @@
           }
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.headerTransactionCountProjection",
       "go_source": "core/cbor_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeHeaderTransactionCountProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeHeaderTransactionCountProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIComplete.lean",
-          "theorem": "wp_decodeHeaderProjectionFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/HeaderProjectionAPIVerified.lean",
+          "theorem": "wp_decodeHeaderProjectionFirst_verified",
           "specification": "HeaderProjectionFirstSpec",
           "specialization": {
             "parameter": "kind",
@@ -365,66 +347,58 @@
           }
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.receiptEventsProjection",
       "go_source": "core/cbor_receipt_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeReceiptEventsProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeReceiptEventsProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptEventsAPIComplete.lean",
-          "theorem": "wp_decodeReceiptEventsFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptProjectionAPIVerified.lean",
+          "theorem": "wp_decodeReceiptEventsFirst_verified",
           "specification": "ReceiptEventsFirstSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.receiptExecutionStatusProjection",
       "go_source": "core/cbor_receipt_projections_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeReceiptExecutionStatusProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeReceiptExecutionStatusProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptStatusAPIComplete.lean",
-          "theorem": "wp_decodeReceiptStatusFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/ReceiptProjectionAPIVerified.lean",
+          "theorem": "wp_decodeReceiptStatusFirst_verified",
           "specification": "ReceiptStatusFirstSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     },
     {
       "type": "github.com/NethermindEth/juno/core.transactionHashProjection",
       "go_source": "core/cbor_transactions_generated.go",
-      "status": "conditional_general_contract",
+      "status": "proved_general_contract",
       "apis": [
         "decodeTransactionHashProjectionFirst"
       ],
       "contracts": [
         {
           "api": "decodeTransactionHashProjectionFirst",
-          "proof": "verification/fastcbor-proof/ProofCheck/TransactionHashAPIComplete.lean",
-          "theorem": "wp_decodeTransactionHashFirst_complete",
+          "proof": "verification/fastcbor-proof/ProofCheck/TransactionHashAPIVerified.lean",
+          "theorem": "wp_decodeTransactionHashFirst_verified",
           "specification": "TransactionHashFirstSpec"
         }
       ],
-      "explicit_contract_premises": [
-        "Utf8ValidatorContract"
-      ]
+      "explicit_contract_premises": []
     }
   ]
 }

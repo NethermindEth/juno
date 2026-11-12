@@ -7,8 +7,9 @@ formal verification remains incomplete.
 
 The harness now pins the user-authorized upstream slice-index fix branch at
 `9489271c166c7567fb4561f3aed83da866cc921f`; merging upstream is not required.
-The actual UTF-8 helper and validator are proved, and both Header public APIs
-have contracts without a helper correctness premise. The separate array-equality
+The actual UTF-8 helper and validator are proved. Fourteen manifested roots now
+have general API contracts without a helper correctness premise, covering 20
+API entries. The separate array-equality
 model gap remains open; its proposed repair is unapplied. No new correctness
 axiom is introduced. StateUpdate now
 has conditional success proofs through both public APIs for records that never
@@ -18,11 +19,10 @@ restricted contracts imply the original independent decoding specification;
 they do not cover populated StateDiff or all malformed-input paths.
 
 The current [root contract index](root-contracts.json) maps all 15 manifested
-destinations to their production APIs and checked theorem statements. Header
-has two general API contracts with its UTF-8 premise discharged. Thirteen other
-destinations retain 18 modular API contracts parameterized by the now-proved
-`Utf8ValidatorContract`; explicit endpoint instantiation remains to be recorded.
-StateUpdate's two entries still lack general contracts. These counts describe
+destinations to their production APIs and checked theorem statements. Header,
+its five projections, BlockTransactionsIndexes, the receipt family, Transaction,
+transactionHashProjection and ClassDefinition have their UTF-8 premise discharged
+at the indexed API endpoints. StateUpdate's two entries still lack general contracts. These counts describe
 contract availability, not a coverage percentage or whole-library verification. Transaction and class entries also require distinct
 tag profiles; the index records these preconditions explicitly.
 
@@ -30,7 +30,7 @@ tag profiles; the index records these preconditions explicitly.
 | --- | --- |
 | Header milestone | Both general public API contracts compose with the proved UTF-8 validator in `HeaderAPIVerified.lean`. No helper correctness premise remains. |
 | Complete StateUpdate | Specifications, ownership foundations and selected implementation paths are checked. Approve and validate the array-equality model rule, derive felt-key comparison correctness, then prove populated maps, StateDiff and StateUpdate loops and their public APIs. |
-| Complete remaining roots | Instantiate their shared UTF-8 parameter with the now-proved validator, publish the resulting API contracts and audit their dependencies and source hashes. |
+| Other 13 roots | Complete general API contracts in eight `*APIVerified.lean` modules; 18 additional API entries, including five Header projection specializations, have the shared UTF-8 dependency discharged. |
 
 `check.sh` cross-checks the index against the frozen entry inventory, Go function
 signatures and audited Lean theorem signatures, including the five Header
@@ -38,6 +38,26 @@ projection specializations. This is an evidence-link check; Lean checks the
 theorem statements. The frozen Go inventory generator's older `proof_status`
 strings describe earlier checkpoints; use this index for current contract
 availability. The implementation and archived performance candidate are unchanged.
+
+## Remaining-root API discharge checkpoint
+
+`check-roots-verified-full.log` records a successful full regeneration/build and
+**4513 audited results**: 14 new wrapper theorems cover 18 API entries across the
+remaining 13 non-StateUpdate roots. One parameterized theorem covers all five
+Header projections. Every wrapper supplies the proved validator to its existing
+complete contract; input domains, ownership, initialization, schema/tag conditions,
+success/error specifications and suffix guarantees are unchanged. The 4499 prior
+axiom sets and the overall axiom union are unchanged. The audit rejects admissions
+and native-evaluation axioms and records 1366 project hashes and 46 standard-library
+source hashes. The 455 modular lemmas taking a validator parameter remain valid;
+they are no longer unproved implementation dependencies of these API endpoints.
+
+StateUpdate remains incomplete. The [array-equality proposal](repros/array-equality-plan.md)
+is refreshed against the current pin; its patch is still unapplied. Adding that
+rule is the prerequisite for proving safe felt-key comparisons and actual map
+operations, followed by populated map loops, StateDiff/StateUpdate composition
+and both public APIs. The upstream test-fixture dependency mismatch does not
+block this work.
 
 ## Source and scope
 
@@ -143,9 +163,10 @@ the current overview, root index and audit supersede their UTF-8/pin status.
 
 The checked inventory covers all 15 registered typed destinations and retains
 all 185 frozen benchmark IDs. Header is complete within the boundary below.
-The index links the other 18 general modular API contracts for projections,
-indexes, receipts, transactions and classes; their explicit UTF-8 parameter can
-now be supplied by `utf8ValidatorContract_proved`. StateUpdate retains partial
+The index links the other 18 general API contracts for projections, indexes,
+receipts, transactions and classes. Their wrappers supply
+`utf8ValidatorContract_proved` while preserving the complete original statements,
+including distinct-tag preconditions and the five projection specializations. StateUpdate retains partial
 contracts and still needs populated felt-key maps, general StateDiff/StateUpdate
 composition and both complete public APIs. The array-value equality modeling gap
 is separate from the adopted indexing fix.
@@ -170,8 +191,7 @@ This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
 cover every input and have checked deterministic outcomes. All Header composition
 work is connected and the UTF-8 helper premise is discharged. The remaining
-library work is to publish the other contracts with that proof supplied, and to
-address felt-keyed maps and the complete StateUpdate APIs. Go compatibility
+library work is to address felt-keyed maps and the complete StateUpdate APIs. Go compatibility
 checks and the archived performance gate provide separate empirical evidence.
 
 ### Definition of Header complete

@@ -178,6 +178,14 @@ report = {
     "go": subprocess.check_output(["go", "version"], text=True).strip(),
     "go_target": subprocess.check_output(["go", "env", "GOOS", "GOARCH", "GOAMD64"], text=True).splitlines(),
     "root_contract_index": root_contract_index,
+    "verified_root_summary": {
+        "roots": sum(root["status"] == "proved_general_contract" for root in indexed_roots),
+        "api_entries": sum(len(root["apis"]) for root in indexed_roots if root["status"] == "proved_general_contract"),
+        "theorems": sorted({contract["theorem"] for root in indexed_roots if root["status"] == "proved_general_contract" for contract in root["contracts"]}),
+        "incomplete_roots": [root["type"] for root in indexed_roots if root["status"] == "incomplete"],
+        "scope": "general API partial correctness/model safety under the pinned framework, ownership, initialization and schema/tag preconditions; no helper correctness premises; compiler/runtime correctness, OOM, termination, routing/registration and FX equivalence excluded",
+        "remaining": "StateUpdate requires array-value equality support, safe felt-key map operations, populated map loops and StateDiff/StateUpdate record/API composition",
+    },
     "map_feasibility": {
         "go_witness": "verification/fastcbor-proof/feasibility/maps/witness.go",
         "checked_theorem": "wp_resourceMap_witness",
@@ -480,7 +488,7 @@ report = {
         "explicit_helper_premises": [
             "Utf8ValidatorContract (map/record/First composition through key validation; no new helper assumption)"
         ],
-        "remaining": "composition with the now-proved UTF-8 validator for remaining API endpoints; StateUpdate still needs felt-key map implementation and general record/public API composition; Header helper dependencies are discharged; no whole-library completion",
+        "remaining": "all non-StateUpdate API endpoints now compose with the proved UTF-8 validator; StateUpdate still needs felt-key map implementation and general record/public API composition; Header helper dependencies are discharged; no whole-library completion",
         "scope": "complete conditional internal record and registered First API contracts; generator not trusted; no production Go or trusted semantics change; partial correctness/model safety on pinned 64-bit target excludes compiler/runtime correctness, OOM and termination; no protocol/hash-validity, fxamacker-equivalence or strict ignored-CBOR-validity claim"
     },
     "transaction_hash_foundation": {
@@ -3495,7 +3503,7 @@ report = {
         "explicit_contract_premises": ["Utf8ValidatorContract"],
         "proof_status": "independent all-input record classification, pair-count/progress/depth bounds, first-key-wins preservation and production-mask correspondence checked; actual signed-array writes and failures compose at both owned fields; nil/empty-aware zero guard, standalone cleanup and both nonzero-destination API branches checked; complete success/failure record loops and both all-input/all-owned-destination public APIs compose against independent IndexesFirstSpec/IndexesFullSpec conditional on the explicit UTF-8 validator premise; actual initialization supplies error categories; bare unsigned-overflow sentinel and owned diagnostics remain distinct; exact suffixes, input ownership, partial output, depth/progress and cleanup are checked",
         "specification_audit": "IndexesDeterminism, IndexesDisjoint, IndexesFailureUnique and IndexesOutcomeUnique check unique successful values/suffixes, exact partial output/progress/offset/depth/diagnostics, success/rejection separation and exactly one specified First/full outcome for every representable byte input and initial destination; these pure results have no helper correctness premise",
-        "pending": "arbitrary text keys retain the existing UTF-8 implementation dependency, so no unconditional index milestone is claimed",
+        "pending": "the indexed IndexesAPIVerified endpoints discharge the UTF-8 parameter with its proved implementation",
         "performance": "frozen whole-library gate passes for the source hashes in performance-gate.json; no universal performance claim",
     },
     "stdlib_go_source_sha256": dict(sorted(stdlib_sources.items())),
