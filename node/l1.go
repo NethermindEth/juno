@@ -80,7 +80,7 @@ func newGethL1StateProvider(
 	ethNode string,
 	chain *blockchain.Blockchain,
 	opts ...l1.GethL1StateProviderOption,
-) (*l1.GethL1StateProvider, error) {
+) (l1StateProviderFull, error) {
 	if err := validateWSURL(ethNode); err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func newGethL1StateProvider(
 		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("dialing L1 state provider: %w", err)
+		return nil, err
 	}
 	return provider, nil
 }
@@ -102,7 +102,7 @@ func newEthL1StateProvider(
 	ethNode string,
 	chain *blockchain.Blockchain,
 	opts ...l1.EthL1StateProviderOption,
-) (*l1.EthL1StateProvider, error) {
+) (l1StateProviderFull, error) {
 	if err := validateWSURL(ethNode); err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func newEthL1StateProvider(
 		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("dialing L1 state provider: %w", err)
+		return nil, err
 	}
 	return provider, nil
 }
