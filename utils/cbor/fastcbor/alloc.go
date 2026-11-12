@@ -6,8 +6,8 @@ import (
 )
 
 // reflect.New looks up the type of a pointer to what it allocates before it allocates. These are
-// the runtime's allocators behind reflect, which take the type itself, and the runtime keeps them
-// for the packages that link to them (go.dev/issue/67401).
+// the runtime's allocators behind reflect, which take the type itself. The reflect ones are kept
+// stable for outside users (go.dev/issue/67401), the map assignment ones are not.
 
 // runtimeType is the runtime's description of a type, which a reflect.Type points to.
 type runtimeType struct{}
@@ -33,12 +33,6 @@ func unsafe_NewArray(typ *runtimeType, n int) unsafe.Pointer
 //
 //go:linkname makemap reflect.makemap
 func makemap(t *runtimeType, cap int) unsafe.Pointer
-
-// mapassign0 stores a copy of the value val points to under a copy of the key key points to.
-//
-//go:linkname mapassign0 reflect.mapassign0
-//nolint:revive // the name is the runtime's
-func mapassign0(t *runtimeType, m, key, val unsafe.Pointer)
 
 // typedmemclr zeroes the value of the type that ptr points to.
 //

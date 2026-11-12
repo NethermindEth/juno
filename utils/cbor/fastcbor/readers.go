@@ -7,46 +7,42 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
 )
 
-// A Reader reads one item from the start of data into the value at dst, which must be the zero
+// A rootReader reads one item from the start of data into the value at dst, which must be the zero
 // value of the type it was planned for, and returns the bytes after the item.
-type Reader = func(data []byte, dst unsafe.Pointer) (rest []byte, err error)
+type rootReader = func(data []byte, dst unsafe.Pointer) (rest []byte, err error)
 
-// feltEncoded are the types that write a felt or a slice of felts as a felt does. Other felt-like
-// types are found by probing.
-var feltEncoded = map[reflect.Type]bool{
-	reflect.TypeFor[felt.Felt]():             true,
-	reflect.TypeFor[felt.Slice[felt.Felt]](): true,
+// feltEncoded are the types that RegisterFelt declared as written as a felt, or a slice of felts.
+var feltEncoded = map[reflect.Type]bool{}
+
+// special are the types that a reader written for them reads, before any rule applies.
+var special = map[reflect.Type]fieldReader{
+	reflect.TypeFor[[]int](): asFieldReader(readInts),
 }
 
-// newGenericPlans makes the planner with the generic rules and the readers of the felt maps.
-func newGenericPlans() *plans {
-	return newPlans(overrides{generic: true, types: map[reflect.Type]func(*planner) fieldReader{
-		reflect.TypeFor[map[felt.Felt]*felt.Felt]():                    leaf(readFeltMap),
-		reflect.TypeFor[map[felt.Felt]map[felt.Felt]*felt.Felt]():      leaf(readStorageDiffs),
-		reflect.TypeFor[map[felt.SierraClassHash]felt.CasmClassHash](): leaf(readMigratedClasses),
-		reflect.TypeFor[[]int]():                                       leaf(readInts),
-	}})
+// isSpecial reports whether a reader written for t reads it.
+func isSpecial(t reflect.Type) bool {
+	_, ok := specialReader(t)
+	return ok
 }
 
 var (
-	generic = newGenericPlans()
-	// readers has the Reader of each type asked for, or nil if there is none.
+	shared = &plans{structs: map[reflect.Type]*structPlan{}}
+	// readers has the rootReader of each type asked for, or nil if there is none.
 	readers sync.Map // reflect.Type -> *entry
 	mu      sync.Mutex
 )
 
 type entry struct {
-	read Reader
+	read rootReader
 	err  error
 }
 
-// readerFor returns the Reader of t, planning it the first time. It returns nil if t cannot be
+// readerFor returns the rootReader of t, planning it the first time. It returns nil if t cannot be
 // planned, and then err says why.
-func readerFor(t reflect.Type) (read Reader, err error) {
+func readerFor(t reflect.Type) (read rootReader, err error) {
 	if e, ok := readers.Load(t); ok {
 		return e.(*entry).read, e.(*entry).err
 	}
@@ -55,14 +51,9 @@ func readerFor(t reflect.Type) (read Reader, err error) {
 	if e, ok := readers.Load(t); ok {
 		return e.(*entry).read, e.(*entry).err
 	}
-	read, err = generic.reader(t)
+	read, err = shared.reader(t)
 	readers.Store(t, &entry{read: read, err: err})
 	return read, err
-}
-
-// leaf makes a reader that needs no plan an override.
-func leaf[T any](read func(*cursor.Cursor, *T) error) func(*planner) fieldReader {
-	return func(*planner) fieldReader { return asFieldReader(read) }
 }
 
 func readBigInt(r *cursor.Cursor, dst *big.Int) error {
@@ -126,7 +117,7 @@ func readInts(c *cursor.Cursor, dst *[]int) error {
 }
 
 // reader returns the reader of the type t, or why there is none.
-func (s *plans) reader(t reflect.Type) (Reader, error) {
+func (s *plans) reader(t reflect.Type) (rootReader, error) {
 	read, p, err := s.planner(t)
 	if err != nil {
 		return nil, err

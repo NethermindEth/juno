@@ -1,7 +1,6 @@
 package fastcbor
 
 import (
-	"bytes"
 	"encoding"
 	"math"
 	"math/big"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
 )
 
@@ -208,7 +206,7 @@ func (p *planner) mapReader(t reflect.Type, path string) fieldReader {
 	keyRuntime, valueRuntime := runtimeTypeOf(keyType), runtimeTypeOf(valueType)
 	// The runtime's integer-key calls are those the compiler uses for elements kept in the slots of
 	// the map, which they are up to mapMaxElemBytes.
-	plain := !ownEncoding(keyType) && p.types[keyType] == nil && valueType.Size() <= mapMaxElemBytes
+	plain := !ownEncoding(keyType) && !isSpecial(keyType) && valueType.Size() <= mapMaxElemBytes
 	if plain {
 		switch {
 		case keyType.Kind() == reflect.Uint32:
@@ -316,68 +314,6 @@ func opaque(t reflect.Type) bool {
 	return t == reflect.TypeFor[big.Int]() || t.Kind() == reflect.Struct && !hasExportedField(t)
 }
 
-// probed has what probeFeltLike decided of each type.
-var probed = map[reflect.Type]bool{}
-
-// probeFeltLike finds out whether t, or what it points to, encodes itself as a felt, and tells the
-// planner to read it as one. It writes a few values both ways and compares the bytes and the values
-// read back.
-//
-//nolint:gocyclo // guard clauses, each ruling a type out
-func probeFeltLike(t reflect.Type) {
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if feltEncoded[t] {
-		return
-	}
-	if _, done := probed[t]; done {
-		return
-	}
-	probed[t] = false
-	if t.Kind() != reflect.Array || t.Len() != cursor.Limbs || t.Elem().Kind() != reflect.Uint64 ||
-		t.Size() != reflect.TypeFor[felt.Felt]().Size() || !ownEncoding(t) {
-		return
-	}
-	defer func() {
-		if recover() != nil {
-			probed[t] = false
-			delete(feltEncoded, t)
-		}
-	}()
-	for _, limbs := range [][cursor.Limbs]uint64{
-		{},
-		{1},
-		{0, 1},
-		{0, 0, 0, 1},
-		{0x1234567890abcdef, 0x0fedcba098765432, 0x0123456789abcdef, 0x00ff00ff00ff00ff},
-	} {
-		own, plain, back := reflect.New(t), reflect.New(reflect.TypeFor[felt.Felt]()), reflect.New(t)
-		*(*[cursor.Limbs]uint64)(own.UnsafePointer()) = limbs
-		*(*[cursor.Limbs]uint64)(plain.UnsafePointer()) = limbs
-		ownEncoder, ok := own.Interface().(cborMarshaler)
-		plainEncoder := plain.Interface().(cborMarshaler)
-		decoder, canDecode := back.Interface().(cborUnmarshaler)
-		if !ok || !canDecode {
-			return
-		}
-		ownBytes, err := ownEncoder.MarshalCBOR()
-		if err != nil {
-			return
-		}
-		plainBytes, err := plainEncoder.MarshalCBOR()
-		if err != nil || !bytes.Equal(ownBytes, plainBytes) {
-			return
-		}
-		if err := decoder.UnmarshalCBOR(plainBytes); err != nil ||
-			*(*[cursor.Limbs]uint64)(back.UnsafePointer()) != limbs {
-			return
-		}
-	}
-	probed[t] = true
-	feltEncoded[t] = true
-}
-
 // maxSharedSize is the largest struct that siblings share an allocation of, as an absent one wastes
 // its room.
 const maxSharedSize = 128
@@ -390,14 +326,14 @@ type siblingGroup struct {
 }
 
 // inlineElem returns the struct a pointer type points to if it can be allocated with its parent.
-// That is a plain struct of at most maxSize bytes that no override or own encoding reads.
+// That is a plain struct of at most maxSize bytes that no special reader or own encoding reads.
 func (p *planner) inlineElem(typ reflect.Type, maxSize uintptr) (reflect.Type, bool) {
 	if typ.Kind() != reflect.Pointer {
 		return nil, false
 	}
 	elem := typ.Elem()
 	if elem.Kind() != reflect.Struct || elem.Size() == 0 || elem.Size() > maxSize ||
-		p.types[typ] != nil || p.types[elem] != nil || opaque(elem) ||
+		isSpecial(typ) || isSpecial(elem) || opaque(elem) ||
 		ownEncoding(typ) || ownEncoding(elem) {
 		return nil, false
 	}
@@ -406,14 +342,8 @@ func (p *planner) inlineElem(typ reflect.Type, maxSize uintptr) (reflect.Type, b
 
 // siblingGroups finds the groups of two or more fields that point to the same small struct type.
 func (p *planner) siblingGroups(all []wireField) map[int]*siblingGroup {
-	if !p.generic {
-		return nil
-	}
 	byElem := map[reflect.Type][]int{}
 	for i, f := range all {
-		if _, overridden := p.fields[f.owner][f.goName]; overridden {
-			continue
-		}
 		if elem, ok := p.inlineElem(f.typ, maxSharedSize); ok {
 			byElem[elem] = append(byElem[elem], i)
 		}
