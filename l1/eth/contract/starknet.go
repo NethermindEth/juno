@@ -49,8 +49,7 @@ func Decode(log *eth.Log) (*LogStateUpdate, error) {
 	// Nonzero upper bytes mean a malformed log.
 	for _, b := range log.Data[32:56] {
 		if b != 0 {
-			return nil, fmt.Errorf("blockNumber exceeds uint64: upper bytes not zero: 0x%x",
-				log.Data[32:64])
+			return nil, fmt.Errorf("blockNumber exceeds uint64: 0x%x", log.Data[32:64])
 		}
 	}
 	ev := &LogStateUpdate{
