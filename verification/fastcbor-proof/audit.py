@@ -173,11 +173,12 @@ for name, axioms in found.items():
         axiom_sets.append(axioms)
     theorem_sets[name] = axiom_sets.index(axioms)
 report = {
-    "status": "full decoder correctness remains pending; frozen performance gate passes for the recorded sources",
+    "status": "accepted partial verification: 14 roots / 20 APIs proved within the stated boundary; StateUpdate remains incomplete and deferred; frozen performance gate passes for the recorded sources",
     "perennial": rev,
     "go": subprocess.check_output(["go", "version"], text=True).strip(),
     "go_target": subprocess.check_output(["go", "env", "GOOS", "GOARCH", "GOAMD64"], text=True).splitlines(),
     "root_contract_index": root_contract_index,
+    "scope_decision": root_contract_index["scope_decision"],
     "verified_root_summary": {
         "roots": sum(root["status"] == "proved_general_contract" for root in indexed_roots),
         "api_entries": sum(len(root["apis"]) for root in indexed_roots if root["status"] == "proved_general_contract"),

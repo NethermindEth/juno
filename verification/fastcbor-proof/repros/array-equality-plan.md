@@ -1,8 +1,10 @@
 # Proposed array-value equality repair
 
-Status: **awaiting explicit approval; the patch is not applied**. This proposal
-is separate from the adopted Header generic slice-index repair. Approval of that
-upstream branch did not approve this rule. Current base: Perennial
+Status: **deferred by user decision on 2026-11-12; the patch is not applied**.
+The user accepted partial verification with StateUpdate's remaining gap documented.
+No approval request is pending and no trusted-model change is authorized by this
+decision. This proposal is retained only for a possible future extension.
+It is separate from the adopted Header generic slice-index repair. Current base: Perennial
 `9489271c166c7567fb4561f3aed83da866cc921f`. The patch was originally prepared against
 `84d5380639a38f56cd517f1e81246fad7be5b21b`; the relevant array model is unchanged.
 
@@ -130,7 +132,7 @@ isolated rule implementation, framework regressions and review, safe-key/map
 witness proofs, and repinning after validation. Populated map-loop and
 StateDiff/StateUpdate API proofs would then continue against that validated pin.
 
-## Work authorized by approval of this proposal
+## Deferred implementation plan (requires a future decision)
 
 1. Create a separate Perennial worktree from the pinned revision. Apply exactly
    the attached rule/registration patch. Preserve the already-authorized upstream

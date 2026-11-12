@@ -1,5 +1,5 @@
 {
-  "scope": "Current proof-contract index over the frozen 15-root implementation inventory. Fourteen roots (20 API entries) have general contracts with no helper correctness premise. StateUpdate remains incomplete. Routing, registration, fallback and formatting remain outside the proof scope.",
+  "scope": "Accepted partial-verification endpoint (user decision 2026-11-12): fourteen roots (20 API entries) have general contracts with no helper correctness premise. StateUpdate remains incomplete and is explicitly accepted as unverified beyond its partial evidence. Routing, registration, fallback and formatting remain outside the proof scope.",
   "inventory": "verification/fastcbor-proof/results/entry-manifest.json",
   "status_note": "The frozen Go inventory generator contains checkpoint-era proof_status strings. This separately checked index supplies current theorem links without changing the benchmarked Go sources.",
   "common_boundary": "Pinned 64-bit partial correctness/model safety with owned inputs/destinations and package initialization; compiler/runtime correctness, OOM and termination excluded. No fxamacker equivalence or strict validation of ignored CBOR.",
@@ -183,7 +183,8 @@
       ],
       "explicit_contract_premises": [
         "Utf8ValidatorContract"
-      ]
+      ],
+      "disposition": "accepted gap; remaining work deferred by user decision 2026-11-12"
     },
     {
       "type": "github.com/NethermindEth/juno/core.Transaction",
@@ -400,5 +401,12 @@
       ],
       "explicit_contract_premises": []
     }
-  ]
+  ],
+  "scope_decision": {
+    "date": "2026-11-12",
+    "disposition": "accepted_partial_verification",
+    "deferred": "StateUpdate array-equality model support, safe felt-key map operations, populated map loops and complete StateDiff/StateUpdate API proofs",
+    "array_equality_patch": "unapplied; no approval pending",
+    "whole_library_correctness_claim": false
+  }
 }

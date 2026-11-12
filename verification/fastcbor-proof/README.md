@@ -1,16 +1,20 @@
-# Typed fastcbor proof pilot
+# Typed fastcbor partial verification
 
-This directory is an **incomplete first stage** of the typed-decoder verification plan.
-The feasibility gate has not passed. There is no whole-library correctness theorem.
-The frozen whole-library performance gate passes for the recorded candidate sources;
-formal verification remains incomplete.
+This is the **accepted partial-verification endpoint**, as agreed on 2026-11-12.
+Fourteen of the 15 manifested roots (20 API entries) have general proofs without
+helper-correctness premises under the documented model boundary. StateUpdate's
+two APIs remain without general proofs; its existing partial proofs are retained.
+The user chose to leave this gap documented and make no array-equality repair.
+There is no whole-library correctness claim. The frozen whole-library performance
+gate passes for the recorded candidate sources.
 
 The harness now pins the user-authorized upstream slice-index fix branch at
 `9489271c166c7567fb4561f3aed83da866cc921f`; merging upstream is not required.
 The actual UTF-8 helper and validator are proved. Fourteen manifested roots now
 have general API contracts without a helper correctness premise, covering 20
 API entries. The separate array-equality
-model gap remains open; its proposed repair is unapplied. No new correctness
+model gap is accepted as a limitation of this endpoint; its proposed repair is
+deferred and unapplied. No new correctness
 axiom is introduced. StateUpdate now
 has conditional success proofs through both public APIs for records that never
 select the StateDiff field: arbitrary ordering of the three felt fields,
@@ -26,10 +30,10 @@ at the indexed API endpoints. StateUpdate's two entries still lack general contr
 contract availability, not a coverage percentage or whole-library verification. Transaction and class entries also require distinct
 tag profiles; the index records these preconditions explicitly.
 
-| Remaining gate | Evidence and next required work |
+| Scope | Evidence and disposition |
 | --- | --- |
 | Header milestone | Both general public API contracts compose with the proved UTF-8 validator in `HeaderAPIVerified.lean`. No helper correctness premise remains. |
-| Complete StateUpdate | Specifications, ownership foundations and selected implementation paths are checked. Approve and validate the array-equality model rule, derive felt-key comparison correctness, then prove populated maps, StateDiff and StateUpdate loops and their public APIs. |
+| StateUpdate — accepted gap | Specifications, ownership foundations and selected implementation paths are checked. Array-value equality, safe felt-key map operations, populated map loops, and complete StateDiff/StateUpdate API composition remain unproved. This work is deferred by user decision; no approval is pending. |
 | Other 13 roots | Complete general API contracts in eight `*APIVerified.lean` modules; 18 additional API entries, including five Header projection specializations, have the shared UTF-8 dependency discharged. |
 
 `check.sh` cross-checks the index against the frozen entry inventory, Go function
@@ -52,12 +56,13 @@ and native-evaluation axioms and records 1366 project hashes and 46 standard-lib
 source hashes. The 455 modular lemmas taking a validator parameter remain valid;
 they are no longer unproved implementation dependencies of these API endpoints.
 
-StateUpdate remains incomplete. The [array-equality proposal](repros/array-equality-plan.md)
-is refreshed against the current pin; its patch is still unapplied. Adding that
-rule is the prerequisite for proving safe felt-key comparisons and actual map
-operations, followed by populated map loops, StateDiff/StateUpdate composition
-and both public APIs. The upstream test-fixture dependency mismatch does not
-block this work.
+StateUpdate remains incomplete by the accepted scope decision. The
+[array-equality proposal](repros/array-equality-plan.md) is retained as deferred
+reference material; its patch is unapplied and no approval is pending. A future
+extension would need both the model rule and subsequent safe-key, populated-map,
+StateDiff and StateUpdate implementation proofs. The rule alone would not prove
+those APIs. The unrelated upstream test-fixture mismatch does not affect the
+completed Juno proof results.
 
 ## Source and scope
 

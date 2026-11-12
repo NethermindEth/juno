@@ -1,5 +1,5 @@
 {
-  "status": "full decoder correctness remains pending; frozen performance gate passes for the recorded sources",
+  "status": "accepted partial verification: 14 roots / 20 APIs proved within the stated boundary; StateUpdate remains incomplete and deferred; frozen performance gate passes for the recorded sources",
   "perennial": "9489271c166c7567fb4561f3aed83da866cc921f",
   "go": "go version go1.27.0 linux/amd64",
   "go_target": [
@@ -8,7 +8,7 @@
     "v1"
   ],
   "root_contract_index": {
-    "scope": "Current proof-contract index over the frozen 15-root implementation inventory. Fourteen roots (20 API entries) have general contracts with no helper correctness premise. StateUpdate remains incomplete. Routing, registration, fallback and formatting remain outside the proof scope.",
+    "scope": "Accepted partial-verification endpoint (user decision 2026-11-12): fourteen roots (20 API entries) have general contracts with no helper correctness premise. StateUpdate remains incomplete and is explicitly accepted as unverified beyond its partial evidence. Routing, registration, fallback and formatting remain outside the proof scope.",
     "inventory": "verification/fastcbor-proof/results/entry-manifest.json",
     "status_note": "The frozen Go inventory generator contains checkpoint-era proof_status strings. This separately checked index supplies current theorem links without changing the benchmarked Go sources.",
     "common_boundary": "Pinned 64-bit partial correctness/model safety with owned inputs/destinations and package initialization; compiler/runtime correctness, OOM and termination excluded. No fxamacker equivalence or strict validation of ignored CBOR.",
@@ -192,7 +192,8 @@
         ],
         "explicit_contract_premises": [
           "Utf8ValidatorContract"
-        ]
+        ],
+        "disposition": "accepted gap; remaining work deferred by user decision 2026-11-12"
       },
       {
         "type": "github.com/NethermindEth/juno/core.Transaction",
@@ -409,7 +410,21 @@
         ],
         "explicit_contract_premises": []
       }
-    ]
+    ],
+    "scope_decision": {
+      "date": "2026-11-12",
+      "disposition": "accepted_partial_verification",
+      "deferred": "StateUpdate array-equality model support, safe felt-key map operations, populated map loops and complete StateDiff/StateUpdate API proofs",
+      "array_equality_patch": "unapplied; no approval pending",
+      "whole_library_correctness_claim": false
+    }
+  },
+  "scope_decision": {
+    "date": "2026-11-12",
+    "disposition": "accepted_partial_verification",
+    "deferred": "StateUpdate array-equality model support, safe felt-key map operations, populated map loops and complete StateDiff/StateUpdate API proofs",
+    "array_equality_patch": "unapplied; no approval pending",
+    "whole_library_correctness_claim": false
   },
   "verified_root_summary": {
     "roots": 14,
@@ -11136,7 +11151,7 @@
     "verification/fastcbor-proof/ProofCheck/WireDeterminism.lean": "0dee60d1ac2511dbd17cea4154938065194321bdf4aa2f06220b0b59d99e7045",
     "verification/fastcbor-proof/ProofCheck/WireFailurePrefix.lean": "7ef3edcf78c370a18febd0497003a8758f806a2acb0af45a331f7e915e9a7055",
     "verification/fastcbor-proof/ProofCheck.lean": "45b4f3f63fdc6c2ab2c2a286a8e98b581813437d4660b903379bf0cfe15a2cfd",
-    "verification/fastcbor-proof/audit.py": "bccbdbd1509b7732374a8cc8fab57649680d1dcbd487234b57359e6ac4157b8e",
+    "verification/fastcbor-proof/audit.py": "d4729ee3d29b7194aaf29c62b9478b172276911ffa03b57b9604c542375e67f6",
     "verification/fastcbor-proof/audit_signatures.py": "506a23a0b11e828ca228586c30f419c609743bdf7b4fb375ca5318b616a5fee6",
     "verification/fastcbor-proof/bench/check.py": "f6c9280fce8080d20ca1b3adf31e301d0dfd4319b66bc04c44703afdba16e61c",
     "verification/fastcbor-proof/bench/frozen_bench_test.go.txt": "39f1e9b1acb6443e7a08dbf89ca614d95bd30dad76c6b316398253ba5792273e",
@@ -11182,7 +11197,7 @@
     "verification/fastcbor-proof/results/entry-manifest.json": "8e43c9b4d7c070c8a128cdae9fe5c43a932ef414cab9317077244cf4c24846e7",
     "verification/fastcbor-proof/results/performance-66d35a944.zip": "74d7e8eb13a6e242730729ebd9749f5c1b1934a133189ccbe35cda2e6ddf50a9",
     "verification/fastcbor-proof/results/performance-gate.json": "e07a742f2b67d2480c0e3a6d596048071bbd556fa2ebec64d12737986e134f3b",
-    "verification/fastcbor-proof/root-contracts.json": "264440c9a1c7146133b5f0f336e8a12a2be51d5a0fe243692672ac7488ffd690",
+    "verification/fastcbor-proof/root-contracts.json": "436c82e6852ecda42767e2a07ccba3e2def153f686063df4c599602b661009ee",
     "verification/fastcbor-proof/smoke/frozen_test.go.txt": "26dff0c7d652944982f489e8fce64d07bd8bc5d1bd97287396df2f71f7e6c354",
     "verification/fastcbor-proof/smoke/run.py": "14e24e614eb08608465f56820374f8c2c2581c89f1841f86e564ff132c6ef8de",
     "verification/fastcbor-proof/test_audit_signatures.py": "f788e217ce3476db77d7160bdb88396918b104150057b0f54bbf195b89efc69f"
