@@ -13,13 +13,12 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
 )
 
 // A structPlan reads one struct type. It is planned once, from the type and its cbor and json
 // field tags, and finds the function that reads each field then, so a read does no reflection. A
-// type with no reader, or one that encodes itself and has no override, fails the plan and the read
+// type with no reader, or one that encodes itself and has no decoder, fails the plan and the read
 // returns ErrUnsupported.
 //
 // A struct whose fields of size 0 decode themselves is a projection. It reads only the fields it
@@ -50,9 +49,8 @@ type structPlan struct {
 	special bool
 }
 
-// fieldRead is how one field is read. offset is where the field is in the struct, or for a field
-// override where the struct that declares it is. read is called for opCall, and plan for opStruct
-// and opPtr.
+// fieldRead is how one field is read. offset is where the field is in the struct. read is called
+// for opCall, and plan for opStruct and opPtr.
 type fieldRead struct {
 	offset uintptr
 	op     op
@@ -85,11 +83,11 @@ func (f *fieldRead) readAt(r *cursor.Cursor, base unsafe.Pointer) error {
 	dst := unsafe.Add(base, f.offset)
 	switch f.op {
 	case opFelt:
-		return readFelt(r, (**felt.Felt)(dst))
+		return readFelt(r, (**limbs)(dst))
 	case opUint64:
 		return readUint64(r, (*uint64)(dst))
 	case opFeltSlice:
-		return readFeltSlice(r, (*felt.Slice[felt.Felt])(dst))
+		return readFeltSlice(r, (*[]limbs)(dst))
 	case opBool:
 		return readBool(r, (*bool)(dst))
 	case opString:
@@ -148,11 +146,11 @@ func (p *structPlan) read(r *cursor.Cursor, base unsafe.Pointer) error {
 		dst := unsafe.Add(base, f.offset)
 		switch f.op {
 		case opFelt:
-			err = readFelt(r, (**felt.Felt)(dst))
+			err = readFelt(r, (**limbs)(dst))
 		case opUint64:
 			err = readUint64(r, (*uint64)(dst))
 		case opFeltSlice:
-			err = readFeltSlice(r, (*felt.Slice[felt.Felt])(dst))
+			err = readFeltSlice(r, (*[]limbs)(dst))
 		case opBool:
 			err = readBool(r, (*bool)(dst))
 		case opString:
@@ -192,50 +190,29 @@ func (p *structPlan) readPart(r *cursor.Cursor, base unsafe.Pointer) error {
 	return err
 }
 
-// overrides holds what the planner cannot work out from a type. types gives the reader of a type,
-// made from the planner so that it can use other plans, and is consulted before any rule. fields
-// does the same for a field, by the struct that declares it and the field's Go name, and its reader
-// is given the address of that struct. generic reads the types no rule reads from what the types
-// say of themselves, so the planner needs no knowledge of Juno's types.
-type overrides struct {
-	types   map[reflect.Type]func(*planner) fieldReader
-	fields  map[reflect.Type]map[string]func(*planner) fieldReader
-	generic bool
-}
-
 // plans has the plans of the roots planned so far, which later roots share.
 type plans struct {
-	overrides
 	structs map[reflect.Type]*structPlan
-	made    map[reflect.Type]fieldReader
-}
-
-func newPlans(o overrides) *plans {
-	return &plans{
-		overrides: o, structs: map[reflect.Type]*structPlan{}, made: map[reflect.Type]fieldReader{},
-	}
 }
 
 // planner builds the readers of the types one root type needs, so that a type that cannot be
 // planned fails only the roots that hold it. structs has the plan of each struct type seen, empty
-// until its fields are planned, so a type that holds itself finds its own plan there. made has the
-// reader each type override made, and errs what could not be planned.
+// until its fields are planned, so a type that holds itself finds its own plan there. errs has what
+// could not be planned.
 type planner struct {
-	overrides
 	structs map[reflect.Type]*structPlan
-	made    map[reflect.Type]fieldReader
 	errs    []error
 }
 
 // planner returns the reader of the type t, and the planner that made it, or an error naming every
 // field it could not read.
 func (s *plans) planner(t reflect.Type) (fieldReader, *planner, error) {
-	p := &planner{overrides: s.overrides, structs: maps.Clone(s.structs), made: maps.Clone(s.made)}
+	p := &planner{structs: maps.Clone(s.structs)}
 	read := p.reader(t, t.String())
 	if len(p.errs) > 0 {
 		return nil, p, errors.Join(p.errs...)
 	}
-	s.structs, s.made = p.structs, p.made
+	s.structs = p.structs
 	return read, p, nil
 }
 
@@ -276,47 +253,42 @@ func ownEncoding(t reflect.Type) bool {
 // isFelt reports whether t is stored as a felt, which is an array of four uint64.
 func isFelt(t reflect.Type) bool {
 	return t.Kind() == reflect.Array && t.Len() == cursor.Limbs && t.Elem().Kind() == reflect.Uint64 &&
-		(feltEncoded[t] || !ownEncoding(t))
+		(declaredFelt(t) || !ownEncoding(t))
+}
+
+// selfReadStruct reports whether t is a struct, or a pointer to one, that reads itself.
+func selfReadStruct(t reflect.Type) bool {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return t.Kind() == reflect.Struct && ownEncoding(t)
 }
 
 // reader returns the reader of the type t found at path, or records why there is none.
 //
 //nolint:gocyclo // a list of independent rules, one branch each
 func (p *planner) reader(t reflect.Type, path string) fieldReader {
-	if read, ok := p.made[t]; ok {
+	if read, ok := specialReader(t); ok {
 		return read
-	}
-	if build, ok := p.types[t]; ok {
-		read := build(p)
-		p.made[t] = read
-		return read
-	}
-	if p.generic {
-		probeFeltLike(t)
 	}
 	if read := feltReader(t); read != nil {
 		return read
 	}
 	if ownEncoding(t) {
-		if p.generic {
-			return p.ownEncodingReader(t, path)
-		}
-		return p.fail("%s: %v has its own CBOR encoding but does not decode itself", path, t)
+		return p.ownEncodingReader(t, path)
 	}
 
-	if p.generic {
-		switch {
-		case t == reflect.TypeFor[*big.Int]():
-			return asFieldReader(readBigIntPtr)
-		case t.Kind() == reflect.Interface:
-			return p.interfaceReader(t, path)
-		case t.Kind() == reflect.Map:
-			return p.mapReader(t, path)
-		case t == reflect.TypeFor[big.Int]():
-			return asFieldReader(readBigInt)
-		case t.Kind() == reflect.Struct && !hasExportedField(t):
-			return p.fail("%s: %v has no exported field to read into", path, t)
-		}
+	switch {
+	case t == reflect.TypeFor[*big.Int]():
+		return asFieldReader(readBigIntPtr)
+	case t.Kind() == reflect.Interface:
+		return p.interfaceReader(t, path)
+	case t.Kind() == reflect.Map:
+		return p.mapReader(t, path)
+	case t == reflect.TypeFor[big.Int]():
+		return asFieldReader(readBigInt)
+	case t.Kind() == reflect.Struct && !hasExportedField(t):
+		return p.fail("%s: %v has no exported field to read into", path, t)
 	}
 
 	switch t.Kind() {
@@ -366,7 +338,7 @@ func feltReader(t reflect.Type) fieldReader {
 	case t.Kind() == reflect.Pointer && isFelt(t.Elem()):
 		// Every felt type has the layout and the pointer-free memory of a felt.Felt.
 		return asFieldReader(readFelt)
-	case t.Kind() == reflect.Slice && isFelt(t.Elem()) && (feltEncoded[t] || !ownEncoding(t)):
+	case t.Kind() == reflect.Slice && isFelt(t.Elem()) && (declaredFelt(t) || !ownEncoding(t)):
 		return asFieldReader(readFeltSlice)
 	case t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Pointer &&
 		isFelt(t.Elem().Elem()) && !ownEncoding(t):
@@ -382,7 +354,7 @@ func (p *planner) pointerReader(t reflect.Type, path string) fieldReader {
 	if read == nil {
 		return nil
 	}
-	if elem.Kind() == reflect.Struct && p.types[elem] == nil {
+	if elem.Kind() == reflect.Struct && !isSpecial(elem) {
 		return p.structOf(elem, path).readPtr
 	}
 	alloc := runtimeTypeOf(elem)
@@ -411,10 +383,10 @@ func (p *planner) sliceReader(t reflect.Type, path string) fieldReader {
 		return nil
 	}
 	if elem.Kind() == reflect.Pointer && elem.Elem().Kind() == reflect.Struct &&
-		p.types[elem] == nil && p.types[elem.Elem()] == nil {
+		!isSpecial(elem) && !isSpecial(elem.Elem()) && !selfReadStruct(elem) {
 		return readPtrSliceOf(p.structOf(elem.Elem(), path), t, reflect.SliceOf(elem.Elem()))
 	}
-	if elem.Kind() == reflect.Struct && p.types[elem] == nil {
+	if elem.Kind() == reflect.Struct && !isSpecial(elem) && !selfReadStruct(elem) {
 		read = nil
 	}
 	return readSliceOf(read, p.structs[elem], t)
@@ -440,10 +412,10 @@ func (p *planner) structOf(t reflect.Type, path string) *structPlan {
 //nolint:gocyclo // one pass over the fields, each branch a way to read one
 func (p *planner) fillStruct(plan *structPlan, t reflect.Type, path string) bool {
 	if ownEncoding(t) {
-		p.fail("%s: %v has its own CBOR encoding; check what it writes and give it an override", path, t)
+		p.fail("%s: %v has its own CBOR encoding and cannot be read field by field", path, t)
 		return false
 	}
-	if p.generic && hasIntKeys(t) {
+	if hasIntKeys(t) {
 		return p.fillIntKeyed(plan, t, path)
 	}
 	if f, ok := t.FieldByName("_"); ok && f.Tag.Get("cbor") != "" && f.Tag.Get("cbor") != "-" {
@@ -473,11 +445,6 @@ func (p *planner) fillStruct(plan *structPlan, t reflect.Type, path string) bool
 			reads = append(reads, fieldRead{offset: f.offset, op: opCall, read: read})
 			continue
 		}
-		if build, overridden := p.fields[f.owner][f.goName]; overridden {
-			names = append(names, f.name)
-			reads = append(reads, fieldRead{offset: f.ownerOffset, read: build(p)})
-			continue
-		}
 		if f.typ.Size() == 0 && reflect.PointerTo(f.typ).Implements(selfDecoder) {
 			skipped = append(skipped, f.name)
 			continue
@@ -500,7 +467,7 @@ func (p *planner) fillStruct(plan *structPlan, t reflect.Type, path string) bool
 		return false
 	}
 	plan.fields, plan.reads, plan.partial = cursor.NewFields(names...), reads, len(skipped) > 0
-	if p.generic && !plan.partial {
+	if !plan.partial {
 		p.fuseChildren(plan, t, all, groups, readIndex, path)
 	}
 	return true
@@ -511,11 +478,11 @@ func (p *planner) fieldRead(f *wireField, read fieldReader) fieldRead {
 	out := fieldRead{offset: f.offset, op: opCall, read: read}
 	t := f.typ
 	switch {
-	case p.types[t] != nil:
-	case p.generic && (opaque(t) || t.Kind() == reflect.Pointer && opaque(t.Elem())):
+	case isSpecial(t) || selfReadStruct(t):
+	case opaque(t) || t.Kind() == reflect.Pointer && opaque(t.Elem()):
 	case t.Kind() == reflect.Struct:
 		out.op, out.plan = opStruct, p.structs[t]
-	case t.Kind() == reflect.Pointer && t.Elem().Kind() == reflect.Struct && p.types[t.Elem()] == nil:
+	case t.Kind() == reflect.Pointer && t.Elem().Kind() == reflect.Struct && !isSpecial(t.Elem()):
 		out.op, out.plan = opPtr, p.structs[t.Elem()]
 	default:
 		out.op = scalarOp(t)
@@ -528,7 +495,7 @@ func scalarOp(t reflect.Type) op {
 	switch {
 	case t.Kind() == reflect.Pointer && isFelt(t.Elem()):
 		return opFelt
-	case t.Kind() == reflect.Slice && isFelt(t.Elem()) && (feltEncoded[t] || !ownEncoding(t)):
+	case t.Kind() == reflect.Slice && isFelt(t.Elem()) && (declaredFelt(t) || !ownEncoding(t)):
 		return opFeltSlice
 	case ownEncoding(t):
 		return opCall
@@ -545,17 +512,14 @@ func scalarOp(t reflect.Type) op {
 }
 
 // wireField is a field of a struct as it is stored, with embedded structs promoted. goName is its
-// name in Go, owner the struct that declares it and ownerOffset where that struct is. depth is
-// how many embedded structs it is in, and tagged whether it has a tag.
+// name in Go. depth is how many embedded structs it is in, and tagged whether it has a tag.
 type wireField struct {
-	name        string
-	offset      uintptr
-	typ         reflect.Type
-	goName      string
-	owner       reflect.Type
-	ownerOffset uintptr
-	depth       int
-	tagged      bool
+	name   string
+	offset uintptr
+	typ    reflect.Type
+	goName string
+	depth  int
+	tagged bool
 }
 
 // collectFields lists the fields of the struct type t at offset base, and of the structs embedded
@@ -601,8 +565,8 @@ func collectFields(
 		}
 		out = append(out, wireField{
 			name: name, offset: base + f.Offset, typ: f.Type,
-			goName: f.Name, owner: t, ownerOffset: base,
-			depth: depth, tagged: tag != "",
+			goName: f.Name,
+			depth:  depth, tagged: tag != "",
 		})
 	}
 	return out, nil
@@ -775,9 +739,9 @@ func readByteArray(n int) fieldReader {
 }
 
 // readFeltInPlace reads a felt held by value. Null leaves it as it was.
-func readFeltInPlace(r *cursor.Cursor, dst *felt.Felt) error {
+func readFeltInPlace(r *cursor.Cursor, dst *limbs) error {
 	if r.Null() {
 		return nil
 	}
-	return r.Limbs((*[cursor.Limbs]uint64)(dst))
+	return r.Limbs(dst)
 }

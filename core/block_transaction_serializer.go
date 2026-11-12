@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
-	typedvalue "github.com/NethermindEth/juno/db/typed/value"
 	"github.com/NethermindEth/juno/utils/cbor"
 )
 
@@ -166,9 +165,7 @@ func (blockTransactionsPartialSerializer[E, S, T]) UnmarshalPartial(
 	value *T,
 ) error {
 	var blockTransactions BlockTransactions
-	remaining, err := typedvalue.FastCbor[BlockTransactionsIndexes]().UnmarshalFirst(
-		data, &blockTransactions.Indexes,
-	)
+	remaining, err := cbor.UnmarshalFirstFast(data, &blockTransactions.Indexes)
 	if err != nil {
 		return err
 	}
