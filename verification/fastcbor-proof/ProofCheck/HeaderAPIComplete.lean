@@ -17,8 +17,8 @@ variable [sem : go.Semantics] [package_sem : Assumptions]
 
 /-- Actual First decoding for every owned initial Header and every byte input.
     Nonzero destinations are preserved and rejected before reading input; zero
-    destinations have the complete record contract. UTF-8 validation remains an
-    explicit, unresolved premise, not an assumed axiom or completed milestone. -/
+    destinations have the complete record contract. UTF-8 validation is an
+    explicit parameter here; HeaderAPIVerified supplies its implementation proof. -/
 theorem wp_decodeHeaderFirst_complete (validator : Utf8ValidatorContract (GF := GF))
     (dst : Loc) (old : HeaderValue) (input : GoSlice) (wire : List w8) (dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗
@@ -65,7 +65,7 @@ theorem wp_decodeHeaderFirst_complete (validator : Utf8ValidatorContract (GF := 
 
 /-- Actual full decoding for every owned initial Header and byte input, with
     independent specified results, exact owned diagnostics and unchanged input.
-    This is conditional partial correctness until the validator premise is proved. -/
+    HeaderAPIVerified instantiates the explicit validator parameter with its proof. -/
 theorem wp_decodeHeader_complete (validator : Utf8ValidatorContract (GF := GF))
     (dst : Loc) (old : HeaderValue) (input : GoSlice) (wire : List w8) (dq : DFrac) :
     {{ isPkgInit (PROP := IProp GF) pkg_id.github_com.NethermindEth.juno.core.internal.cborschema ∗

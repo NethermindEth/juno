@@ -5,9 +5,12 @@ The feasibility gate has not passed. There is no whole-library correctness theor
 The frozen whole-library performance gate passes for the recorded candidate sources;
 formal verification remains incomplete.
 
-Current work continues with partial production proofs while the pinned generic
-slice-index and array-equality gaps remain explicit. No trusted repair or new
-correctness axiom is implied by this partial-verification track. StateUpdate now
+The harness now pins the user-authorized upstream slice-index fix branch at
+`9489271c166c7567fb4561f3aed83da866cc921f`; merging upstream is not required.
+The actual UTF-8 helper and validator are proved, and both Header public APIs
+have contracts without a helper correctness premise. The separate array-equality
+model gap remains open; its proposed repair is unapplied. No new correctness
+axiom is introduced. StateUpdate now
 has conditional success proofs through both public APIs for records that never
 select the StateDiff field: arbitrary ordering of the three felt fields,
 supported unknown values, exact suffixes and trailing-data cleanup. Those
@@ -15,18 +18,19 @@ restricted contracts imply the original independent decoding specification;
 they do not cover populated StateDiff or all malformed-input paths.
 
 The current [root contract index](root-contracts.json) maps all 15 manifested
-destinations to their production APIs and checked theorem statements. Fourteen
-destinations have general contracts conditional on `Utf8ValidatorContract`,
-covering 20 API entries. StateUpdate's two entries still lack general contracts.
-These counts describe contract availability, not a coverage percentage or
-unconditional verification. Transaction and class entries also require distinct
+destinations to their production APIs and checked theorem statements. Header
+has two general API contracts with its UTF-8 premise discharged. Thirteen other
+destinations retain 18 modular API contracts parameterized by the now-proved
+`Utf8ValidatorContract`; explicit endpoint instantiation remains to be recorded.
+StateUpdate's two entries still lack general contracts. These counts describe
+contract availability, not a coverage percentage or whole-library verification. Transaction and class entries also require distinct
 tag profiles; the index records these preconditions explicitly.
 
 | Remaining gate | Evidence and next required work |
 | --- | --- |
-| Complete Header | Both public API contracts are composed. Approve and validate the proposed generic slice-index model correction, prove the actual UTF-8 word helper, then discharge the shared validator premise. |
+| Header milestone | Both general public API contracts compose with the proved UTF-8 validator in `HeaderAPIVerified.lean`. No helper correctness premise remains. |
 | Complete StateUpdate | Specifications, ownership foundations and selected implementation paths are checked. Approve and validate the array-equality model rule, derive felt-key comparison correctness, then prove populated maps, StateDiff and StateUpdate loops and their public APIs. |
-| Complete remaining roots | Discharge their shared UTF-8 premise, compose the resulting contracts and audit all final dependencies and source hashes. |
+| Complete remaining roots | Instantiate their shared UTF-8 parameter with the now-proved validator, publish the resulting API contracts and audit their dependencies and source hashes. |
 
 `check.sh` cross-checks the index against the frozen entry inventory, Go function
 signatures and audited Lean theorem signatures, including the five Header
@@ -42,7 +46,8 @@ availability. The implementation and archived performance candidate are unchange
 - Worktree: `cbor-fastcbor-verified`, branch `danielntmd/cbor-fastcbor-verified`,
   based on the earlier assessment commit `2f33ecf2f`.
 - Perennial/Goose: the commit in `perennial.rev`; Lean: `lean-toolchain`;
-  Go: 1.27.0, linux/amd64. Upstream semantics are unchanged.
+  Go: 1.27.0, linux/amd64. The exact upstream fix pin is recorded; the checkout
+  has no local trusted edits. See [the dependency review](repros/upstream-9489271-review.md).
 
 `utils/cbor/cmd/cborgen` reads the actual Go types and emits typed Header/GasPrice,
 index, receipt, transaction, state-update, class and projection readers in core. Unknown field shapes fail generation.
@@ -67,15 +72,15 @@ first-wins policy through `NextWanted`. All five Header projection internal reco
 readers and their registered First entries now have conditional all-input,
 all-owned-destination contracts, including guard/cleanup/suffix behavior.
 
-## Immediate target: complete Header
+## Header milestone and remaining scope
 
-The next target is one general Header contract, covering all 15 fields and its
+The Header milestone is a general contract covering all 15 fields and its
 GasPrice children, arbitrary supported field order/widths and suffixes, and
 failure cleanup. It is not a proof about one populated sample. Header needs
 unsigned integers, UTF-8 strings, felts, nested signature slices, and GasPrice;
 BigInt, tagged transaction interfaces, and typed Go maps are later library work.
-Header remains the first complete-record proof milestone. Typed implementation
-work has progressed while its trusted-model repair awaits approval. The
+Header is the first record with both general public API contracts whose helper
+premises are discharged. The upstream model fix was explicitly authorized. The
 whole-library performance gate has passed for the recorded candidate Go sources.
 
 The specification is to be independent of fxamacker. RFC 8949 supplies the wire
@@ -108,119 +113,66 @@ The complete contract must account for these current application choices:
 - Indefinite lengths and some tags are unsupported. Container/tag depth is bounded
   by the production limit of 32, including the special chained-tag counting rule.
 
-These choices are to be formalized explicitly; this list is not a completed
-proof. Strict validation of all ignored CBOR content would require a separately
+These choices are represented in the checked application specifications and
+composed Header contracts. Strict validation of all ignored CBOR content would require a separately
 specified behavior change and performance evaluation. No such change is made here.
 
 ### Header work queue and exit criteria
 
-Latest checkpoint: both public Header APIs have checked contracts for **every byte
-input and every owned initial destination**, against `HeaderFirstSpec` and
-`HeaderFullSpec`, conditional on `Utf8ValidatorContract`. The destination guard is
-fully composed. The complete actual UTF-8 validator loop is now checked conditional
-only on `Utf8WordWindowContract`, and the implication from that smaller helper
-contract to the validator contract is checked. The actual eight-byte generic helper
-remains unproved because of the documented pinned slice-index defect. The proposed
-trusted repair is still unapplied; no unconditional Header proof is claimed.
+Latest checkpoint: `wp_decodeHeaderFirst_verified` and `wp_decodeHeader_verified`
+cover **every byte input and every owned initial destination**, against
+`HeaderFirstSpec` and `HeaderFullSpec`, with no UTF-8/helper correctness premise.
+`utf8WordWindowContract_proved` proves the actual generic helper on arbitrary
+valid offsets while preserving whole-slice ownership. Together with the existing
+validator loop, it proves `utf8ValidatorContract_proved` for every byte input.
+The two API wrappers instantiate the existing complete contracts with that proof.
+These are partial-correctness/model-safety results under the pinned 64-bit model,
+framework assumptions, ownership and package initialization. They do not prove
+compiler/runtime correctness, OOM behavior, termination, strict RFC validity of
+ignored content or equivalence with fxamacker.
 
-The latest full-check evidence is recorded under the performance and signed-integer
-checkpoints below. The theorem count is not a coverage percentage. See
-“Complete UTF-8 loop reduced to the word helper” below for exact
-scope, unresolved premises and reproduction evidence.
-The checked inventory records all 15 manifested destinations as registered typed
-readers and retains all 185 frozen benchmark IDs. BlockTransactionsIndexes now also has conditional all-input public API contracts;
-its independent specification now has unique outcomes and success/rejection separation
-on representable input lengths. All five Header projection internal record readers
-and their registered First entries now also have conditional contracts for every
-byte input and owned initial value, including optional tags, exact suffixes,
-retained diagnostics, destination guards and error cleanup. The other record
-families remain to be composed, except that the receipt execution-status
-projection now also has complete conditional internal-record and First API
-contracts, with independently unique outcomes. The direct Event record now also
-has conditional all-input/all-owned-initial-value contracts with independently unique
-outcomes. Its enclosing pointer-slice specification is classified and uniquely
-determined. The actual pointer-slice reader now has a complete conditional
-all-input contract for arbitrary prior slice headers, including bounded shared
-storage, fallback allocations, private partial failures, initialized diagnostics
-and exact cursor/depth behavior. The receipt-events projection now also has
-complete conditional internal-record and First API contracts, with independent
-all-input classification and unique outcomes. Its nested Event failures retain
-exact consumption/depth internally; the public API clears partial results and
-preserves input ownership. Full receipt composition remains. See the latest
-receipt-events checkpoint below and “Checked remaining-entry inventory”.
-The map feasibility witnesses now prove the resource-key operation sequence and
-expose missing array-value equality for felt-key maps; see the map-feasibility
-section below. Twelve transaction-interface witness contracts now also check
-boxing and type-switch recovery for the five concrete pointer variants, including
-typed nils and unknown-type handling. These are independent of the unresolved
-Header helper; they do not prove transaction payload decoding.
-The BigInt dependency work now checks the complete public `Cursor.BigInt` decoder
-for every byte input at any valid cursor position, including all integer forms,
-owned output, exact consumption and every specified rejection/rollback. Its
-head, payload, magnitude, category identity and `errors.Is` dependencies are
-proved under the documented pinned model. See “Complete public BigInt decoder”.
-The typed FeeUnit and address readers and public `Cursor.BytesInto` now also have
-complete all-input contracts with independently unique outcomes and no UTF-8
-helper premise. The direct L2ToL1Message record now also has a complete conditional
-all-input/all-owned-initial-value contract and an independently unique outcome.
-Its enclosing pointer slice now also has a complete conditional all-input contract,
-including shared allocations, private partial failures and independently unique
-outcomes. L1ToL2Message and its pointer wrapper now also have complete conditional
-all-input contracts and independently unique outcomes. The direct DataAvailability,
-GasConsumed and BuiltinInstanceCounter records now also have complete conditional
-contracts. Both supplied-storage slot wrappers now also have complete conditional
-contracts. ExecutionResources now also has complete conditional record and
-shared-block pointer-wrapper contracts with independently unique outcomes. Full
-receipt field contracts, child ownership and key lookup now also check for every
-input. Its full internal record and pointer wrapper now have conditional all-input
-contracts with independently unique outcomes, exact partial state and actual error
-interfaces. Both value and pointer First/full public APIs now also have conditional
-all-input/all-owned-initial-destination contracts, including exact suffix aliasing,
-zero guards, parse-failure cleanup and trailing-input rejection. Transaction-specific
-DA-mode and version-pointer helpers now also have complete contracts without an
-assumed helper premise, and all seven transaction metadata factories, initialization
-and opening wrappers are checked. The two-field ResourceBounds record now also has
-complete conditional all-input contracts. Its enclosing ResourceBounds map now has
-an independent total/unique specification and a complete conditional all-input
-implementation contract, including every key/record failure, exact cursor/depth,
-private partial ownership and old-destination preservation. All five direct transaction variants
-(L1-handler, Deploy, Declare, Invoke and DeployAccount) now also have complete
-conditional all-input/all-owned-prior-value contracts, including embedded
-DeployAccount field access. The enclosing tagged interface now has an independent
-all-input/unique specification and checked actual success/rejection branches for
-all five variants, plus nullish, malformed-tag and unknown-tag branches. The unified all-input interface contract, both public transaction APIs and the
-transaction hash projection First API are now checked conditional on UTF-8.
-Both class variants, their nested dependencies, actual tag dispatch and public
-First/full class APIs now also compose under that same premise. StateUpdate
-remains the production root without a complete composed decoder contract.
-The frozen-corpus smoke now classifies every case on the baseline and current
-candidate: 177 compatible fast decodes, 6 removed-projection cases and 2 controls
-with no decoder calls on each. This is saved, source-specific test evidence; the
-performance gate has also passed, while the remaining complete record proofs
-are still open.
-The same corpus and no-fallback instrumentation checks also pass on both revisions
-with `-race -gcflags=all=-d=checkptr=2`; these are runtime checks, not formal safety
-or performance results.
+The full check passes with **4499 audited results** (five new results, all 4494
+previous axiom sets and the overall axiom union unchanged), no admissions or
+native-evaluation axioms, 1358 verified project hashes and 46 standard-library
+source hashes. Go source files and the archived performance candidate are unchanged.
+
+The final full-check log for this dependency update is `check-upstream-fix-final.log`;
+`results/proof-audit.json` records exact checked theorem dependencies and source
+hashes. Older checkpoint sections below preserve historical counts and blockers;
+the current overview, root index and audit supersede their UTF-8/pin status.
+
+The checked inventory covers all 15 registered typed destinations and retains
+all 185 frozen benchmark IDs. Header is complete within the boundary below.
+The index links the other 18 general modular API contracts for projections,
+indexes, receipts, transactions and classes; their explicit UTF-8 parameter can
+now be supplied by `utf8ValidatorContract_proved`. StateUpdate retains partial
+contracts and still needs populated felt-key maps, general StateDiff/StateUpdate
+composition and both complete public APIs. The array-value equality modeling gap
+is separate from the adopted indexing fix.
+
+Compatibility evidence remains source-specific: 177 compatible fast decodes,
+six removed projections and two no-decoder controls on the frozen corpus, with
+ordinary, race and checkptr checks. The archived performance gate passes for all
+177 comparable cases. None of these counts is a formal coverage percentage.
 
 | Order | Work | Exit criterion | Current status |
 | --- | --- | --- | --- |
 | 1 | Formalize the complete Header application contract | Independent definitions of accepted encodings, decoded values, rejection cases and ownership, covering all 15 fields and GasPrice; the checklist above is represented formally | Complete independent relations, all-input classification, success/error separation and outcome uniqueness are checked for Header and GasPrice. These specification results do not assume FX behavior. |
 | 2 | Finish primitive error contracts | Reserved/invalid heads, wrong types, truncation, excessive counts and depth have the specified result, cursor state and error information | Complete primitive/head/count/depth errors and ownership/progress contracts are checked. Text UTF-8 rejection composition still has the validator premise described below. |
-| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success/failure and both fast/slow paths are checked. The complete production UTF-8 loop is now checked conditional only on Utf8WordWindowContract; the actual eight-byte generic helper remains unproved because of the pinned indexing defect. Text conversion/composition uses the resulting validator contract. |
+| 3 | General felt and UTF-8 contracts | Fast and slow felt paths agree on limb contents, consumption and failure behavior; text validation and conversion have proved contracts | General felt success/failure and both fast/slow paths are checked. The actual eight-byte generic helper and complete production UTF-8 loop are proved on the authorized upstream fix pin. Text conversion/composition uses the resulting validator contract. |
 | 4 | General field lookup and Skip | Every supported field order, width, case variant, unknown key/value, duplicate and nested skip is covered, including rollback/error behavior | General recursive Skip is checked, preserving its intentional ignored-text and chained-tag policies. Complete field lookup, key widths/case folding and duplicate handling compose for both schemas conditional on the UTF-8 validator; no other key-helper WP premise remains. |
 | 5 | Nested outputs and GasPrice | Arbitrary signature lengths and contents, nil/empty distinctions, disjoint owned elements in shared allocations, and partial-construction errors are covered | General signature allocation, nil/empty distinctions and cleanup are checked. Complete GasPrice records, shared slots, both Header price fields and all failures compose conditional on the UTF-8 validator. |
 | 6 | Initialization and immutable table sharing | Relevant actual initialization establishes the table contents and shareable ownership needed by independent decoder calls | Relevant cursor, schema and cborerr initialization is proved after modeled runtime CPU startup. Exact immutable tables and canonical errors come from initialization; no initializer WP premise remains for Header. Runtime/hardware startup and unrelated core/planner initialization remain outside scope. |
-| 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two API contracts still explicitly require Utf8ValidatorContract, now reduced to the unproved word helper; the Header milestone is not closed. |
-| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration, dependency audit and archived performance verification pass at the checkpoints below. All 15 manifested destinations have typed readers; compatibility evidence includes ordinary/race/checkptr checks. All 177 comparable performance cases pass. Explicit unresolved premises remain reported separately; the final unconditional Header check is still pending. |
+| 7 | Header loop and public APIs | Compose the preceding contracts into general theorems for cborReadHeader, DecodeHeaderFirst and DecodeHeader, including arbitrary supported records and all specified rejection cases | Complete actual Header loops and both public APIs now compose for every byte input and every owned initial destination, including guard rejection, exact suffixes, read-only input, owned results/errors and cleanup. The two wrappers in HeaderAPIVerified instantiate the now-proved Utf8ValidatorContract; no helper correctness premise remains. |
+| 8 | Reproduction and validation | Regenerate from the current Go source, Lean-check the full dependency chain, audit axioms/assumptions, and pass the applicable Go regression/property/corpus checks | Full regeneration, dependency audit and archived performance verification pass at the checkpoints below. All 15 manifested destinations have typed readers; compatibility evidence includes ordinary/race/checkptr checks. All 177 comparable performance cases pass. Both Header API contracts now pass without helper correctness premises; explicit parameters of other modular contracts remain inventoried separately. |
 
 This is dependency order, not eight isolated phases. Nested GasPrice uses field
 lookup, and felt extras use recursive Skip. The independent record specifications
 cover every input and have checked deterministic outcomes. All Header composition
-work is now connected, but the UTF-8 helper premise must be discharged before the
-Header milestone can pass. BigInt, tagged transaction interfaces and ordinary Go
-maps remain later library work. The existing Go differential/property checks
-protect compatibility; neither they nor the conditional Lean proofs satisfy the
-frozen whole-library performance gate.
+work is connected and the UTF-8 helper premise is discharged. The remaining
+library work is to publish the other contracts with that proof supplied, and to
+address felt-keyed maps and the complete StateUpdate APIs. Go compatibility
+checks and the archived performance gate provide separate empirical evidence.
 
 ### Definition of Header complete
 
@@ -254,12 +206,12 @@ are outside the formal claim. The generator itself is not the proof target: the
 emitted readers and their mapping to the independent schema are checked.
 
 Header completion is the first substantial end-to-end result, not completion of
-the decoder-library project or approval to deploy. It will show whether the proof
-contracts compose for this representative type. Further required shapes still need
-feasibility checks. Before expanding to full-library proofs, enumerate the exact
-remaining production roots in a checked manifest, implement their typed readers,
-pass compatibility checks and the frozen performance gate below. The 185-case
-benchmark universe is not itself a manifest of formally verified entry points.
+the decoder-library project or approval to deploy. The contracts now compose
+for this representative type. The checked manifest and typed implementations
+already cover the remaining production roots, and compatibility/performance gates
+pass for their frozen sources. Formal completion of those roots remains governed
+by the root index; the 185-case benchmark universe is not a manifest of formally
+verified entry points.
 
 ## What Lean checks
 

@@ -12,11 +12,10 @@ variable [GooseExts] [GooseSemantics] [GooseInterp] [GoGlobalContext]
 variable {hlc : HasLC} {GF : BundledGFunctors} [hG : HeapGS hlc GF]
 variable [sem : go.Semantics]
 
-/-- The unresolved production-validator obligation, stated as a proposition.
-    It is not an axiom or an instance: callers must explicitly supply a proof.
-    The checked implementation loop reduces this contract to the explicit
-    Utf8WordWindowContract. That actual helper remains unproved because of
-    the documented generic-index semantics obstruction. -/
+/-- The production-validator contract, stated as a proposition.
+    It is not an axiom or an instance: callers explicitly supply a proof.
+    Utf8FromWord proves it from the actual helper and complete validator loop;
+    modular decoder lemmas retain it as a parameter. -/
 def Utf8ValidatorContract : Prop :=
   ∀ (data : GoSlice) (xs : List w8) (dq : DFrac),
     {{ isPkgInit (PROP := IProp GF) pkg_id.unicode.utf8 ∗ data ↦*{dq} xs }}
