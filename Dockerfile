@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7.0
 
 # --- Builder stage ---
-FROM golang:1.27-bookworm AS builder
+FROM golang:1.27.3-bookworm AS builder
 
 ARG RUST_VERSION=1.94.1
 
@@ -66,7 +66,7 @@ ENTRYPOINT ["juno"]
 # --- Runtime base stage ---
 # Builds a Wolfi filesystem with glibc and no shell or package manager from the packages pinned in
 # docker/apko.lock.json. It runs on the build platform, so a cross-arch build needs no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS base
+FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm AS base
 
 # Keep in sync with APKO_VERSION in the Makefile.
 ARG APKO_VERSION=v1.4.11
