@@ -270,8 +270,7 @@ func (s *StateReader) getHistoricalValue(prefix []byte, blockNum uint64) (felt.F
 	var ret felt.Felt
 
 	err := s.valueAt(prefix, blockNum, func(val []byte) error {
-		ret.SetBytes(val)
-		return nil
+		return ret.SetMinimalBytes(val)
 	})
 	if err != nil {
 		if errors.Is(err, ErrNoHistoryValue) {
