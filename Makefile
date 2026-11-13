@@ -4,9 +4,11 @@
 
 ifeq ($(VM_DEBUG),true)
     GO_TAGS = -tags vm_debug
+    COMPACTFELT_GO_TAGS = -tags vm_debug,compactfelt
     VM_TARGET = debug
 else
     GO_TAGS =
+    COMPACTFELT_GO_TAGS = -tags compactfelt
     VM_TARGET = all
 endif
 
@@ -87,6 +89,9 @@ test-new-state: clean-testcache rustdeps ## Run tests with new state
 test-cached: rustdeps ## Run cached tests
 	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
+test-compactfelt: rustdeps ## Run tests with the compact felt codec built in
+	go test $(COMPACTFELT_GO_TAGS) $(TEST_MODE_FLAGS) ./...
+
 test-race: clean-testcache rustdeps ## Run tests with race detection
 	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./... -race $(TEST_RACE_LDFLAGS)
 
@@ -113,11 +118,13 @@ install-golangci-lint:
 install-k6: ## Install the k6 load generator used by the RPC benchmark harness
 	go install go.k6.io/k6@latest
 
-lint: install-golangci-lint lint-diff
+lint: install-golangci-lint lint-diff ## Lint the regular build, then core/felt with the compact felt codec
 	golangci-lint run
+	golangci-lint run --build-tags compactfelt ./core/felt/...
 
-lint-diff:
+lint-diff: ## Lint changes vs origin/main in both the regular and the compact felt build
 	golangci-lint run --config=./.golangci_diff.yaml --new-from-rev=origin/main
+	golangci-lint run --config=./.golangci_diff.yaml --new-from-rev=origin/main --build-tags compactfelt
 
 tidy: ## Add missing and remove unused modules
 	go mod tidy

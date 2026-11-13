@@ -7,16 +7,21 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/migration/blockeventsbloom"
 	"github.com/NethermindEth/juno/migration/blocktransactions"
+	"github.com/NethermindEth/juno/migration/compactfelt"
 	"github.com/NethermindEth/juno/migration/historyprunner"
 	"github.com/NethermindEth/juno/migration/state/newstate"
 	"github.com/NethermindEth/juno/migration/statedifflength"
 	"github.com/NethermindEth/juno/utils/log"
 )
+
+// compactFeltEnableHint tells the operator how to enable the compact felt migration.
+const compactFeltEnableHint = "build with -tags compactfelt"
 
 // registerMigrations creates and configures the migration registry with all migrations.
 // This is where all migrations should be registered. Optional migrations can use
@@ -27,11 +32,12 @@ func registerMigrations(cfg *Config) *migration.Registry {
 		WithOptional(
 			historyprunner.New(cfg.RetainedBlocks, cfg.PruneMinAge),
 			cfg.Prune,
-			PruneModeFlag,
+			"set the --"+PruneModeFlag+" flag",
 		).
-		WithOptional(newstate.New(), cfg.NewState, "new-state").
+		WithOptional(newstate.New(), cfg.NewState, "set the --new-state flag").
 		With(&statedifflength.Migrator{}).
-		With(&blockeventsbloom.Migrator{})
+		With(&blockeventsbloom.Migrator{}).
+		WithOptional(&compactfelt.Migrator{}, felt.CompactWrites, compactFeltEnableHint)
 
 	return registry
 }

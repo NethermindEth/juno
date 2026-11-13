@@ -158,19 +158,19 @@ func TestRegistry_TargetVersion(t *testing.T) {
 	require.False(t, target.Has(2))
 }
 
-func TestRegistry_OptionalMigrationFlags(t *testing.T) {
+func TestRegistry_EnableHints(t *testing.T) {
 	r := migration.NewRegistry()
 	m0 := &mockMigration{}
 	m1 := &mockMigration{}
 	m2 := &mockMigration{}
 
 	r.With(m0)
-	r.WithOptional(m1, true, "migration-1")
-	r.WithOptional(m2, false, "migration-2")
+	r.WithOptional(m1, true, "set the --migration-1 flag")
+	r.WithOptional(m2, false, "set the --migration-2 flag")
 
-	flags := r.OptionalMigrationFlags()
-	require.Equal(t, 3, len(flags))
-	require.Equal(t, "", flags[0])
-	require.Equal(t, "migration-1", flags[1])
-	require.Equal(t, "migration-2", flags[2])
+	hints := r.EnableHints()
+	require.Equal(t, 3, len(hints))
+	require.Equal(t, "", hints[0])
+	require.Equal(t, "set the --migration-1 flag", hints[1])
+	require.Equal(t, "set the --migration-2 flag", hints[2])
 }

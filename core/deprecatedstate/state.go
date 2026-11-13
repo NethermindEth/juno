@@ -898,7 +898,7 @@ func (s *State) ContractStorageAt(
 		return felt.Felt{}, err
 	}
 
-	return felt.FromBytes[felt.Felt](value), nil
+	return felt.FromMinimalBytes[felt.Felt](value)
 }
 
 // ContractStorageLastUpdatedAt returns the block number at which a given storage
@@ -923,7 +923,7 @@ func (s *State) ContractNonceAt(
 	if err != nil {
 		return felt.Felt{}, err
 	}
-	return felt.FromBytes[felt.Felt](value), nil
+	return felt.FromMinimalBytes[felt.Felt](value)
 }
 
 func (s *State) ContractClassHashAt(
@@ -936,7 +936,7 @@ func (s *State) ContractClassHashAt(
 		return felt.Felt{}, err
 	}
 
-	return felt.FromBytes[felt.Felt](value), nil
+	return felt.FromMinimalBytes[felt.Felt](value)
 }
 
 func (s *State) CompiledClassHashAt(

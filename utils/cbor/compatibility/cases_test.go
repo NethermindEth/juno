@@ -2,6 +2,7 @@ package cbor_test
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"testing"
 
@@ -16,14 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const goldenFile = "testdata/golden_bytes.json"
-
 // goldenBytes is each record's hex, keyed by name.
 // It is how the records were written, so it is byte for byte what a database holds.
-func goldenBytes(t *testing.T) map[string]string {
+func goldenBytes(t *testing.T, file string) map[string]string {
 	t.Helper()
 
-	data, err := os.ReadFile(goldenFile)
+	data, err := os.ReadFile(file)
 	require.NoError(t, err)
 
 	var vectors map[string]string
@@ -62,7 +61,19 @@ func goldenCases() []goldenCase {
 		{"[][]byte, the p2p shape", [][]byte{{1, 2, 3}, {4, 5}, {}}},
 		{"[]byte, the schema state", []byte{9, 8, 7}},
 		{"[][]byte nil", [][]byte(nil)},
-		{"*felt.Felt, the 37-byte shape", felt.NewFromUint64[felt.Felt](7)},
+		{"*felt.Felt", felt.NewFromUint64[felt.Felt](7)},
+		{"*felt.Felt, zero", felt.NewFromUint64[felt.Felt](0)},
+		{"*felt.Felt, smallest byte string", felt.NewFromUint64[felt.Felt](24)},
+		{"*felt.Felt, largest uint64", felt.NewFromUint64[felt.Felt](math.MaxUint64)},
+		{"*felt.Felt, largest felt", felt.NewUnsafeFromString[felt.Felt](largestFeltHex)},
+		{"felt.Hash", felt.UnsafeFromString[felt.Hash](hashHex)},
+		{"felt.Address", felt.UnsafeFromString[felt.Address](hashHex)},
+		{"felt.ClassHash", felt.UnsafeFromString[felt.ClassHash](hashHex)},
+		{"felt.SierraClassHash", felt.UnsafeFromString[felt.SierraClassHash](hashHex)},
+		{"felt.CasmClassHash", felt.UnsafeFromString[felt.CasmClassHash](hashHex)},
+		{"felt.TransactionHash", felt.UnsafeFromString[felt.TransactionHash](hashHex)},
+		{"felt.StateRootHash", felt.UnsafeFromString[felt.StateRootHash](hashHex)},
+		{"StateDiff, mixed key lengths", mixedKeyStateDiff()},
 		{"felt.Slice, two felts", felt.Slice[felt.Felt]{
 			felt.FromUint64[felt.Felt](7),
 			felt.FromUint64[felt.Felt](8),
@@ -112,6 +123,34 @@ func goldenCases() []goldenCase {
 			Version:   49,
 			EncLayers: []byte{50, 51},
 		}},
+	}
+}
+
+const (
+	// largestFeltHex is p - 1, the largest canonical felt.
+	largestFeltHex = "0x800000000000011000000000000000000000000000000000000000000000000"
+	// hashHex is a full-width value, the size of a hash or address.
+	hashHex = "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+)
+
+// mixedKeyStateDiff has felt map keys of every encoded length, which fixes their canonical order.
+func mixedKeyStateDiff() core.StateDiff {
+	small := felt.FromUint64[felt.Felt](5)
+	oneByte := felt.FromUint64[felt.Felt](24)
+	word := felt.FromUint64[felt.Felt](math.MaxUint64)
+	hash := felt.UnsafeFromString[felt.Felt](hashHex)
+	return core.StateDiff{
+		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			hash:  {small: &word, hash: &oneByte},
+			small: {oneByte: &hash},
+		},
+		Nonces: map[felt.Felt]*felt.Felt{
+			hash: &small, word: &oneByte, oneByte: &word, small: &hash,
+		},
+		MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+			felt.SierraClassHash(hash):  felt.CasmClassHash(small),
+			felt.SierraClassHash(small): felt.CasmClassHash(hash),
+		},
 	}
 }
 

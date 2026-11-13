@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -274,12 +275,17 @@ func readNode(r db.KeyValueReader, prefix []byte, oldPath *trie.BitArray) (parse
 	return node, err
 }
 
+// UnmarshalBinary decodes a deprecated trie node. Data of at most a felt's size is a leaf, stored
+// full width or trimmed.
 func (n *parsedNode) UnmarshalBinary(data []byte) error {
-	if len(data) < felt.Bytes {
-		return fmt.Errorf("trie: node data too short (%d bytes)", len(data))
+	if len(data) == 0 {
+		return errors.New("trie: empty node data")
 	}
-	n.value = felt.FromBytes[felt.Felt](data[:felt.Bytes])
-	data = data[felt.Bytes:]
+	valueLength := min(len(data), felt.Bytes)
+	if err := n.value.SetMinimalBytes(data[:valueLength]); err != nil {
+		return fmt.Errorf("trie: decoding node value: %w", err)
+	}
+	data = data[valueLength:]
 	if len(data) == 0 {
 		n.isLeaf = true
 		return nil
