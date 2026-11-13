@@ -19,7 +19,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/testutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/pruner"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/sync/rpcsource"
@@ -42,9 +44,30 @@ func newMainnetChain(t *testing.T) *blockchain.Blockchain {
 	return testutils.NewChainFor(t, &networks.Mainnet, mainnetChainHeight, mainnetClassHash)
 }
 
+func newChainOn(database db.KeyValueStore, network *networks.Network) *blockchain.Blockchain {
+	return blockchain.New(database, network, blockchain.WithNewState(statetestutils.UseNewState()))
+}
+
 func newLocalChain(t *testing.T, network *networks.Network) *blockchain.Blockchain {
 	t.Helper()
-	return blockchain.New(memory.New(), network, blockchain.WithNewState(statetestutils.UseNewState()))
+	return newChainOn(memory.New(), network)
+}
+
+func newPrunedChain(
+	t *testing.T,
+	network *networks.Network,
+	height int,
+	prunedBelow uint64,
+) *blockchain.Blockchain {
+	t.Helper()
+	database := memory.New()
+	chain := newChainOn(database, network)
+	storeBlocks(t, chain, newGateway(t, network), height)
+
+	_, _, err := pruner.PruneUpto(t.Context(), database, prunedBelow, db.Megabyte)
+	require.NoError(t, err)
+
+	return chain
 }
 
 func newGateway(t *testing.T, network *networks.Network) *adaptfeeder.Feeder {
@@ -120,12 +143,15 @@ func classHashes(classes map[felt.Felt]core.ClassDefinition) []felt.Felt {
 
 func TestCheckRemote(t *testing.T) {
 	remote := testutils.NewChain(t)
+	const prunedBelow = 2
+	prunedRemote := newPrunedChain(t, &networks.Mainnet, mainnetChainHeight, prunedBelow)
 
 	tests := []struct {
-		name    string
-		network *networks.Network
-		client  func(t *testing.T) *rpc.Client
-		wantErr string
+		name        string
+		network     *networks.Network
+		localBlocks int
+		client      func(t *testing.T) *rpc.Client
+		wantErr     string
 	}{
 		{
 			name:    "node on the same network",
@@ -163,11 +189,45 @@ func TestCheckRemote(t *testing.T) {
 			client:  newUnreachableClient,
 			wantErr: "querying the RPC sync node chain id",
 		},
+		{
+			name:    "node that pruned the next block",
+			network: &networks.Mainnet,
+			client: func(t *testing.T) *rpc.Client {
+				return newClient(t, testutils.Serve(t, prunedRemote))
+			},
+			wantErr: "RPC sync node has pruned block 0, which this node needs next; " +
+				"point --rpc-sync-url at an archive node or start from a recent database snapshot",
+		},
+		{
+			name:        "pruned node that kept the next block",
+			network:     &networks.Mainnet,
+			localBlocks: prunedBelow,
+			client: func(t *testing.T) *rpc.Client {
+				return newClient(t, testutils.Serve(t, prunedRemote))
+			},
+		},
+		{
+			name:        "node at this node's height",
+			network:     &networks.Mainnet,
+			localBlocks: mainnetChainHeight,
+			client: func(t *testing.T) *rpc.Client {
+				return newClient(t, testutils.Serve(t, prunedRemote))
+			},
+		},
+		{
+			name:    "node with no blocks",
+			network: &networks.Sepolia,
+			client: func(t *testing.T) *rpc.Client {
+				return newClient(t, testutils.Serve(t, newLocalChain(t, &networks.Sepolia)))
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			source := newSource(t, newLocalChain(t, tt.network), tt.client(t))
+			chain := newLocalChain(t, tt.network)
+			storeBlocks(t, chain, newGateway(t, tt.network), tt.localBlocks)
+			source := newSource(t, chain, tt.client(t))
 
 			err := source.CheckRemote(t.Context())
 
