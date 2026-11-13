@@ -139,7 +139,8 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 	DisableSync              bool `mapstructure:"disable-sync"`
 
-	RPCSyncURL string `mapstructure:"rpc-sync-url"`
+	RPCSyncURL  string         `mapstructure:"rpc-sync-url"`
+	RPCSyncMode rpcsource.Mode `mapstructure:"rpc-sync-mode"`
 
 	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
 	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
@@ -510,10 +511,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			if err != nil {
 				return nil, fmt.Errorf("setting up RPC sync client: %w", err)
 			}
-			rpcSyncSource = rpcsource.New(chain, rpcSyncClient, logger)
-			logger.Info("Syncing committed blocks from an RPC node; "+
-				"pre-confirmed data still comes from the feeder gateway",
-				zap.String("url", log.SanitizeString(cfg.RPCSyncURL)))
+			logger.Info(
+				"Syncing committed blocks from an RPC node; "+
+					"pre-confirmed data still comes from the feeder gateway",
+				zap.String("url", log.SanitizeString(cfg.RPCSyncURL)),
+				zap.Stringer("mode", cfg.RPCSyncMode),
+			)
 		}
 
 		if !cfg.DisableSync {
@@ -529,16 +532,21 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			}
 
 			gw := adaptfeeder.New(client)
-			var dataSource sync.DataSource
-			if rpcSyncSource != nil {
+			// Only the feeder gateway source reports class downloads.
+			var dataSourceOpts []sync.DataSourceOption
+			if cfg.Metrics {
+				dataSourceOpts = append(dataSourceOpts, makeClassDownloadMetrics())
+			}
+			dataSource := sync.NewFeederGatewayDataSource(chain, gw, dataSourceOpts...)
+			if rpcSyncClient != nil {
+				rpcSyncSource = rpcsource.New(
+					chain,
+					rpcSyncClient,
+					dataSource,
+					cfg.RPCSyncMode,
+					logger,
+				)
 				dataSource = rpcSyncSource
-			} else {
-				// Only the feeder gateway source reports class downloads.
-				var dataSourceOpts []sync.DataSourceOption
-				if cfg.Metrics {
-					dataSourceOpts = append(dataSourceOpts, makeClassDownloadMetrics())
-				}
-				dataSource = sync.NewFeederGatewayDataSource(chain, gw, dataSourceOpts...)
 			}
 			synchronizer = sync.New(
 				chain,

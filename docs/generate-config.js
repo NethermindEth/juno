@@ -209,6 +209,10 @@ function parseValue(value) {
     return "mainnet";
   }
 
+  if (value === "rpcsource.Follow") {
+    return "follow";
+  }
+
   // Prune-mode flag name lives in another package as a string constant.
   if (value === "node.PruneModeFlag") {
     return "prune-mode";

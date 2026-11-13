@@ -15,6 +15,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -1179,6 +1180,71 @@ func TestRPCSyncURLValidation(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.url, config.RPCSyncURL)
+		})
+	}
+}
+
+func TestRPCSyncModeFlag(t *testing.T) {
+	const url = "http://rpc.host/rpc/v0_10"
+	tests := map[string]struct {
+		args      []string
+		config    string
+		want      rpcsource.Mode
+		errSubstr string
+	}{
+		"no flags": {want: rpcsource.Follow},
+		"follow": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "follow"},
+			want: rpcsource.Follow,
+		},
+		"catch-up": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "catch-up"},
+			want: rpcsource.CatchUp,
+		},
+		"catch-up in another case": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "Catch-Up"},
+			want: rpcsource.CatchUp,
+		},
+		"catch-up in the config file": {
+			config: "rpc-sync-url: " + url + "\nrpc-sync-mode: catch-up\n",
+			want:   rpcsource.CatchUp,
+		},
+		"number in the config file": {
+			config:    "rpc-sync-url: " + url + "\nrpc-sync-mode: 1\n",
+			errSubstr: "invalid --rpc-sync-mode 1: unknown RPC sync mode",
+		},
+		"bool in the config file": {
+			config:    "rpc-sync-url: " + url + "\nrpc-sync-mode: true\n",
+			errSubstr: "invalid --rpc-sync-mode true: unknown RPC sync mode",
+		},
+		"without --rpc-sync-url": {
+			args:      []string{"--rpc-sync-mode", "catch-up"},
+			errSubstr: "--rpc-sync-mode requires --rpc-sync-url to be set",
+		},
+		"unknown mode": {
+			args:      []string{"--rpc-sync-url", url, "--rpc-sync-mode", "bogus"},
+			errSubstr: "unknown RPC sync mode (known: follow, catch-up)",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			args := tc.args
+			if tc.config != "" {
+				args = append(args, "--config", tempCfgFile(t, tc.config))
+			}
+			cmd.SetArgs(args)
+
+			err := cmd.ExecuteContext(t.Context())
+			if tc.errSubstr != "" {
+				assert.ErrorContains(t, err, tc.errSubstr)
+				return
+			}
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, config.RPCSyncMode)
 		})
 	}
 }
