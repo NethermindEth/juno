@@ -14,15 +14,14 @@ func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, erro
 	var classHash felt.Felt
 	//nolint:staticcheck,nolintlint // old state layout
 	err := r.Get(db.DeprecatedContractClassHashKey(addr), func(data []byte) error {
-		classHash.SetBytes(data)
-		return nil
+		return classHash.SetMinimalBytes(data)
 	})
 	return classHash, err
 }
 
 func WriteContractClassHash(w db.KeyValueWriter, addr, classHash *felt.Felt) error {
 	//nolint:staticcheck,nolintlint // old state layout
-	return w.Put(db.DeprecatedContractClassHashKey(addr), classHash.Marshal())
+	return w.Put(db.DeprecatedContractClassHashKey(addr), classHash.StoredBytes())
 }
 
 func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {

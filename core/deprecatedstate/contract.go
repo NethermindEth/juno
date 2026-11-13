@@ -157,7 +157,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (felt.Felt, erro
 //nolint:staticcheck // Necessary for old state
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
 	classHashKey := db.DeprecatedContractClassHashKey(addr)
-	return txn.Put(classHashKey, classHash.Marshal())
+	return txn.Put(classHashKey, classHash.StoredBytes())
 }
 
 // Replace replaces the class that the contract instantiates
