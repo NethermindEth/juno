@@ -87,7 +87,7 @@ func lagEvent(missedSeq, nextSeq uint64) ring.EventOrLag[*core.WithBloom[*core.B
 }
 
 // fakeBlockReader serves blocks whose numbers were registered; any other number
-// returns db.ErrKeyNotFound, mirroring a block that is not yet persisted.
+// returns db.ErrKeyNotFound, mirroring a number above the head after a reorg.
 type fakeBlockReader struct {
 	available map[uint64]*core.Block
 }
