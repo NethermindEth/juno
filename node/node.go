@@ -64,6 +64,12 @@ const (
 	PruneMinAgeFlag  = "prune-min-age"
 )
 
+// DefaultRPCMaxSubscriptionsMemory is 10% of the memory available to the process, in [256, 4096] MB
+func DefaultRPCMaxSubscriptionsMemory() uint {
+	const share, minMB, maxMB = 10, 256, 4096
+	return uint(min(max(compiler.AvailableMemoryMB()/share, minMB), maxMB))
+}
+
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel                 string           `mapstructure:"log-level"`
@@ -141,14 +147,15 @@ type Config struct {
 
 	RPCSyncURL string `mapstructure:"rpc-sync-url"`
 
-	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
-	RPCMaxWSConnections      uint          `mapstructure:"rpc-max-ws-connections"`
-	RPCMaxSubscriptions      uint          `mapstructure:"rpc-max-subscriptions"`
-	RPCMaxBatchSize          uint          `mapstructure:"rpc-max-batch-size"`
-	RPCMaxBatchResponseSize  uint          `mapstructure:"rpc-max-batch-response-size"`
-	RPCBatchConcurrency      uint          `mapstructure:"rpc-batch-concurrency"`
+	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
+	RPCMaxWSConnections       uint          `mapstructure:"rpc-max-ws-connections"`
+	RPCMaxSubscriptions       uint          `mapstructure:"rpc-max-subscriptions"`
+	RPCMaxSubscriptionsMemory uint          `mapstructure:"rpc-max-subscriptions-memory"`
+	RPCMaxBatchSize           uint          `mapstructure:"rpc-max-batch-size"`
+	RPCMaxBatchResponseSize   uint          `mapstructure:"rpc-max-batch-response-size"`
+	RPCBatchConcurrency       uint          `mapstructure:"rpc-batch-concurrency"`
 
 	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
 	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
@@ -622,6 +629,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 	}
 
+	rpcHandler.WithMaxSubscriptionsMemory(cfg.RPCMaxSubscriptionsMemory)
 	services = append(services, rpcHandler)
 
 	// to improve RPC throughput we double GOMAXPROCS
