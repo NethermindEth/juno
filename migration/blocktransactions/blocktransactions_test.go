@@ -1,6 +1,7 @@
 package blocktransactions_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"iter"
@@ -23,13 +24,38 @@ import (
 )
 
 const (
-	delay           = 200 * time.Millisecond
-	chainHeight     = uint64(5000)
-	minTransactions = 0
-	maxTransactions = 50
+	delay            = 200 * time.Millisecond
+	fullChainHeight  = uint64(5000)
+	shortChainHeight = uint64(500)
+	minTransactions  = 0
+	maxTransactions  = 50
 )
 
+// testing.Short is not valid before flag parsing, so this cannot be a package-level constant.
+func testChainHeight() uint64 {
+	if testing.Short() {
+		return shortChainHeight
+	}
+	return fullChainHeight
+}
+
+// cancelOnLog cancels at a log line instead of a timer, so short mode does not depend on speed.
+// It holds no mutable state because several goroutines log at the same time.
+type cancelOnLog struct {
+	cancel  context.CancelFunc
+	trigger string
+}
+
+func (c *cancelOnLog) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte(c.trigger)) {
+		c.cancel()
+	}
+	return len(p), nil
+}
+
 func TestBlockTransactionsMigration(t *testing.T) {
+	chainHeight := testChainHeight()
+
 	t.Run("Empty database", func(t *testing.T) {
 		database := openDatabase(t, t.TempDir())
 
@@ -44,11 +70,12 @@ func TestBlockTransactionsMigration(t *testing.T) {
 	})
 
 	t.Run("Existing database", func(t *testing.T) {
-		counts, allTransactions, allReceipts := generateFixtures(t)
+		counts, allTransactions, allReceipts := generateFixtures(t, chainHeight)
 
 		t.Run("No cancellation", func(t *testing.T) {
 			runTestBlockTransactionsMigration(
 				t,
+				chainHeight,
 				counts,
 				allTransactions,
 				allReceipts,
@@ -59,6 +86,7 @@ func TestBlockTransactionsMigration(t *testing.T) {
 		t.Run("With cancellation", func(t *testing.T) {
 			runTestBlockTransactionsMigration(
 				t,
+				chainHeight,
 				counts,
 				allTransactions,
 				allReceipts,
@@ -68,7 +96,10 @@ func TestBlockTransactionsMigration(t *testing.T) {
 	})
 }
 
-func generateFixtures(t *testing.T) ([]int, [][]core.Transaction, [][]*core.TransactionReceipt) {
+func generateFixtures(
+	t *testing.T,
+	chainHeight uint64,
+) ([]int, [][]core.Transaction, [][]*core.TransactionReceipt) {
 	t.Helper()
 	counts := make([]int, chainHeight+1)
 	allTransactions := make([][]core.Transaction, chainHeight+1)
@@ -85,6 +116,7 @@ func generateFixtures(t *testing.T) ([]int, [][]core.Transaction, [][]*core.Tran
 
 func runTestBlockTransactionsMigration(
 	t *testing.T,
+	chainHeight uint64,
 	counts []int,
 	allTransactions [][]core.Transaction,
 	allReceipts [][]*core.TransactionReceipt,
@@ -154,20 +186,27 @@ func runTestBlockTransactionsMigration(
 			t.Run(name, func(t *testing.T) {
 				database := openDatabase(t, dir)
 
-				logger, err := log.NewZapLogger(log.NewLevel(zapcore.InfoLevel), log.WithColour(true))
-				require.NoError(t, err)
-
 				ctx := t.Context()
+				logOptions := []log.LoggerOption{log.WithColour(true)}
 
 				if shouldCancel {
 					var cancel context.CancelFunc
 					ctx, cancel = context.WithCancel(ctx)
 
-					go func() {
-						time.Sleep(delay)
-						cancel()
-					}()
+					if testing.Short() {
+						logOptions = append(logOptions, log.WithWriter(
+							&cancelOnLog{cancel: cancel, trigger: "Migrating block"},
+						))
+					} else {
+						go func() {
+							time.Sleep(delay)
+							cancel()
+						}()
+					}
 				}
+
+				logger, err := log.NewZapLogger(log.NewLevel(zapcore.InfoLevel), logOptions...)
+				require.NoError(t, err)
 
 				state, err := blocktransactions.Migrator{}.Migrate(
 					ctx,

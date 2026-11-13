@@ -3,8 +3,6 @@
 # --- Builder stage ---
 FROM golang:1.27.3-bookworm AS builder
 
-ARG RUST_VERSION=1.94.1
-
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl gcc make git build-essential \
@@ -15,11 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # no jemalloc package, and the Debian libjemalloc.so.2 does not pull in libstdc++.
 RUN rm /usr/lib/$(gcc -dumpmachine)/libjemalloc.so
 
-# Install Rust
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain ${RUST_VERSION} --profile minimal
+# Install rustup only. The toolchain comes from rust-toolchain.toml below, so there is one compiler.
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain none --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
+
+# Install the pinned toolchain before the dependency build. Without it, the later COPY adds the file
+# and cargo builds again with a different compiler.
+COPY rust-toolchain.toml ./
+RUN rustup toolchain install
 
 # Copy Cargo manifests for dependency caching
 COPY Makefile ./
