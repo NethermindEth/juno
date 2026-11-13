@@ -18,6 +18,7 @@
 | `rpc-max-concurrent-requests` | `1024` | Maximum concurrent RPC requests, over HTTP and websocket together; 0 disables the limit |
 | `rpc-max-request-queue` | `2048` | Maximum number of HTTP RPC requests to queue after reaching rpc-max-concurrent-requests limit. Websocket requests are never queued |
 | `rpc-max-subscriptions` | `0` | Maximum subscriptions one websocket connection may hold. The limit is per connection so that one client cannot take the slots another needs; multiplied by rpc-max-ws-connections it is the most the process will carry. 0 disables the limit |
+| `rpc-max-subscriptions-memory` | `10% of available memory (min 256, max 4096)` | Size (in MBs) of memory all websocket subscriptions may hold together, estimated from their filters. 0 disables the limit |
 | `rpc-max-ws-connections` | `0` | Maximum concurrent websocket connections, across all RPC versions. 0 disables the limit |
 | `rpc-request-timeout` | `1m` | Maximum time for an RPC request to complete |
 

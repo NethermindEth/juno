@@ -120,6 +120,7 @@ const (
 	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
 	rpcMaxWSConnectionsF                = "rpc-max-ws-connections"
 	rpcMaxSubscriptionsF                = "rpc-max-subscriptions"
+	rpcMaxSubscriptionsMemoryF          = "rpc-max-subscriptions-memory"
 	rpcMaxBatchSizeF                    = "rpc-max-batch-size"
 	rpcMaxBatchResponseSizeF            = "rpc-max-batch-response-size"
 	rpcBatchConcurrencyF                = "rpc-batch-concurrency"
@@ -316,6 +317,8 @@ const (
 		"The limit is per connection so that one client cannot take the slots another needs; " +
 		"multiplied by rpc-max-ws-connections it is the most the process will carry. " +
 		"0 disables the limit."
+	rpcMaxSubscriptionsMemoryUsage = "Size (in MBs) of memory all websocket subscriptions " +
+		"may hold together, estimated from their filters. 0 disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
@@ -562,6 +565,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultNetwork := networks.Mainnet
 	defaultRPCSyncMode := rpcsource.Follow
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
+	defaultRPCMaxSubscriptionsMemory := node.DefaultRPCMaxSubscriptionsMemory()
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -585,6 +589,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	)
 	junoCmd.Flags().Uint(rpcMaxWSConnectionsF, defaultRPCMaxWSConnections, rpcMaxWSConnectionsUsage)
 	junoCmd.Flags().Uint(rpcMaxSubscriptionsF, defaultRPCMaxSubscriptions, rpcMaxSubscriptionsUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxSubscriptionsMemoryF,
+		defaultRPCMaxSubscriptionsMemory,
+		rpcMaxSubscriptionsMemoryUsage,
+	)
 	junoCmd.Flags().Uint(rpcMaxBatchSizeF, defaultRPCMaxBatchSize, rpcMaxBatchSizeUsage)
 	junoCmd.Flags().Uint(
 		rpcMaxBatchResponseSizeF,
@@ -612,6 +621,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcMaxRequestQueueF,
 		rpcMaxWSConnectionsF,
 		rpcMaxSubscriptionsF,
+		rpcMaxSubscriptionsMemoryF,
 		rpcMaxBatchSizeF,
 		rpcMaxBatchResponseSizeF,
 		rpcBatchConcurrencyF,

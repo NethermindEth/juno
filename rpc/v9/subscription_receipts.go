@@ -76,7 +76,8 @@ func newReceiptsSubscriber(
 	}
 
 	s := subscriber{
-		onReorg: state.onReorg,
+		onReorg:    state.onReorg,
+		filterSize: int64(len(senders)) * rpccore.SenderAddressSize,
 	}
 
 	if slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
