@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -36,6 +37,10 @@ var _ sync.DataSource = (*Source)(nil)
 type Source struct {
 	blockchain *blockchain.Blockchain
 	client     *rpc.Client
+	feeder     sync.DataSource
+	mode       Mode
+	caughtUp   atomic.Bool
+	remoteHead atomic.Pointer[core.Header]
 	logger     log.StructuredLogger
 	errorPause time.Duration
 }
@@ -50,12 +55,16 @@ func WithErrorPause(d time.Duration) Option {
 func New(
 	chain *blockchain.Blockchain,
 	client *rpc.Client,
+	feeder sync.DataSource,
+	mode Mode,
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Source {
 	source := &Source{
 		blockchain: chain,
 		client:     client,
+		feeder:     feeder,
+		mode:       mode,
 		logger:     logger,
 		errorPause: defaultErrorPause,
 	}
@@ -164,7 +173,7 @@ func (s *Source) nextBlockNumber() (uint64, error) {
 }
 
 func (s *Source) remoteHeadReaches(ctx context.Context, blockNumber uint64) (bool, error) {
-	head, err := s.client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
+	head, err := s.refreshRemoteHead(ctx)
 	if rpc.IsError(err, rpccore.ErrNoBlock) {
 		return false, nil
 	}
@@ -191,9 +200,77 @@ func (s *Source) remoteServesBlock(ctx context.Context, blockNumber uint64) (boo
 	return true, nil
 }
 
-// BlockByNumber pauses before reporting an error: the synchronizer refetches as soon as
-// it fails, most often while polling for a block the remote doesn't have yet.
+func (s *Source) fetchesFromFeeder(ctx context.Context) (bool, error) {
+	switch s.mode {
+	case Follow:
+		return false, nil
+	case CatchUp:
+		return s.catchUpEnded(ctx)
+	default:
+		return false, fmt.Errorf("unknown RPC sync mode %s", s.mode)
+	}
+}
+
+func (s *Source) catchUpEnded(ctx context.Context) (bool, error) {
+	if s.caughtUp.Load() {
+		return true, nil
+	}
+
+	next, err := s.nextBlockNumber()
+	if err != nil {
+		return false, err
+	}
+
+	if s.knownRemoteHeadReaches(next) {
+		return false, nil
+	}
+
+	remoteHasNext, err := s.remoteHeadReaches(ctx, next)
+	if err != nil {
+		return false, err
+	}
+	if remoteHasNext {
+		return false, nil
+	}
+
+	s.endCatchUp(next)
+	return true, nil
+}
+
+func (s *Source) knownRemoteHeadReaches(blockNumber uint64) bool {
+	head := s.remoteHead.Load()
+	return head != nil && head.Number >= blockNumber
+}
+
+func (s *Source) endCatchUp(nextBlockNumber uint64) {
+	if s.caughtUp.CompareAndSwap(false, true) {
+		s.logger.Info(
+			"Holding every block the RPC sync node has; "+
+				"syncing committed blocks from the feeder gateway for the rest of the run",
+			zap.Uint64("next", nextBlockNumber),
+		)
+	}
+}
+
+// BlockByNumber pauses before reporting an RPC error: the synchronizer refetches as soon
+// as it fails, most often while polling for a block the remote doesn't have yet.
 func (s *Source) BlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (sync.CommittedBlock, error) {
+	fromFeeder, err := s.fetchesFromFeeder(ctx)
+	if err != nil {
+		s.pauseAfterError(ctx, blockNumber, err)
+		return sync.CommittedBlock{}, err
+	}
+	if fromFeeder {
+		return s.feeder.BlockByNumber(ctx, blockNumber)
+	}
+
+	return s.rpcBlockByNumber(ctx, blockNumber)
+}
+
+func (s *Source) rpcBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
 ) (sync.CommittedBlock, error) {
@@ -353,10 +430,29 @@ func (s *Source) class(
 }
 
 func (s *Source) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
+	fromFeeder, err := s.fetchesFromFeeder(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if fromFeeder {
+		return s.feeder.BlockHeaderLatest(ctx)
+	}
+
+	return s.refreshRemoteHead(ctx)
+}
+
+// refreshRemoteHead forgets the stored head when the RPC node has none left, so a head
+// that moved backwards never keeps catch-up from ending.
+func (s *Source) refreshRemoteHead(ctx context.Context) (*core.Header, error) {
 	head, err := s.client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
+	if rpc.IsError(err, rpccore.ErrNoBlock) {
+		s.remoteHead.Store(nil)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	return &core.Header{Number: head.Number, Hash: head.Hash}, nil
+	header := &core.Header{Number: head.Number, Hash: head.Hash}
+	s.remoteHead.Store(header)
+	return header, nil
 }

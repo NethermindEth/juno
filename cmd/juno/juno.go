@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
@@ -67,6 +68,7 @@ const (
 	preConfirmedOnDemandWaitF           = "preconfirmed-on-demand-wait"
 	disableSyncF                        = "disable-sync"
 	rpcSyncURLF                         = "rpc-sync-url"
+	rpcSyncModeF                        = "rpc-sync-mode"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -247,6 +249,11 @@ const (
 	rpcSyncURLUsage  = "Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) " +
 		"to sync committed blocks from instead of the feeder gateway. " +
 		"Pre-confirmed data still comes from the feeder gateway."
+	rpcSyncModeUsage = "How committed-block sync uses --rpc-sync-url. " +
+		"follow: every block from the RPC node. " +
+		"catch-up: from the RPC node until this node holds every block it has, " +
+		"then from the feeder gateway for the rest of the run. " +
+		"Options: follow, catch-up."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -467,6 +474,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		if v.IsSet(rpcSyncModeF) && config.RPCSyncURL == "" {
+			return fmt.Errorf("--%s requires --%s to be set", rpcSyncModeF, rpcSyncURLF)
+		}
+
+		// Unmarshal decodes a YAML number or bool into the mode without calling UnmarshalText.
+		rpcSyncMode := v.GetString(rpcSyncModeF)
+		if err := config.RPCSyncMode.Set(rpcSyncMode); err != nil {
+			return fmt.Errorf("invalid --%s %s: %w", rpcSyncModeF, rpcSyncMode, err)
+		}
+
 		// --prune-min-age layers on top of --prune-mode; without pruning
 		// enabled there is no floor for it to constrain.
 		if v.IsSet(pruneMinAgeF) && !config.Prune {
@@ -543,6 +560,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
+	defaultRPCSyncMode := rpcsource.Follow
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
@@ -633,6 +651,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	junoCmd.Flags().String(rpcSyncURLF, defaultRPCSyncURL, rpcSyncURLUsage)
+	junoCmd.Flags().Var(&defaultRPCSyncMode, rpcSyncModeF, rpcSyncModeUsage)
 	setCategory(junoCmd, catSyncPolling,
 		disableSyncF,
 		preConfirmedPollIntervalF,
@@ -641,6 +660,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		remoteDBF,
 		readinessBlockToleranceF,
 		rpcSyncURLF,
+		rpcSyncModeF,
 	)
 
 	// --- Gateway ---

@@ -49,6 +49,7 @@
 | `preconfirmed-stale-after` | `500ms` | How long after a pre_confirmed poll its result is served as is. Once stale, an RPC request reading the pre_confirmed block triggers a new poll first (0s: every request polls) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
+| `rpc-sync-mode` | `follow` | How committed-block sync uses --rpc-sync-url. follow: every block from the RPC node. catch-up: from the RPC node until this node holds every block it has, then from the feeder gateway for the rest of the run. Options: follow, catch-up |
 | `rpc-sync-url` |  | Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) to sync committed blocks from instead of the feeder gateway. Pre-confirmed data still comes from the feeder gateway |
 
 ### Gateway
