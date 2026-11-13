@@ -143,7 +143,7 @@ func (b *batch) DeleteRange(start, end []byte) error {
 	}
 	defer it.Close()
 
-	for ok := it.Seek(start); ok; ok = it.Next() {
+	for ok := it.SeekGE(start); ok; ok = it.Next() {
 		if bytes.Compare(it.Key(), end) >= 0 {
 			break
 		}
