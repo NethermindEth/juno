@@ -16,6 +16,7 @@ type samplerInput[T any] struct {
 	ctx    context.Context
 	client *rpcClient
 	rng    *rand.Rand
+	index  int
 	args   *T
 	cache  *sierraCache
 }
@@ -32,6 +33,7 @@ func (input samplerInput[T]) rebindArgs[U any](args *U) samplerInput[U] {
 		ctx:    input.ctx,
 		client: input.client,
 		rng:    input.rng,
+		index:  input.index,
 		args:   args,
 		cache:  input.cache,
 	}
@@ -60,16 +62,20 @@ func (cfg *rootConfig) newSampledCmd[T any, PT interface {
 	PT(args).bind(cmd, client)
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		cache := newSierraCache()
-		gen := func(ctx context.Context, rng *rand.Rand) (any, error) {
+		gen := func(ctx context.Context, rng *rand.Rand, index int) (any, error) {
 			input := samplerInput[T]{
 				ctx:    ctx,
 				client: client,
 				rng:    rng,
+				index:  index,
 				args:   args,
 				cache:  cache,
 			}
 			result, err := resample(func() (R, error) { return sample(input) })
 			if err != nil {
+				if block, ok := listedBlock(args, index); ok {
+					return nil, fmt.Errorf("%s: block %d: %w", method, block, err)
+				}
 				return nil, fmt.Errorf("%s: %w", method, err)
 			}
 			return result, nil
@@ -124,4 +130,16 @@ func pickRandom[T any](rng *rand.Rand, items []T) (T, error) {
 		return zero, errResample
 	}
 	return items[rng.Uint64N(uint64(len(items)))], nil
+}
+
+// listedBlock returns the --blocks entry for the index-th request, if args
+// has a block list.
+func listedBlock(args any, index int) (uint64, bool) {
+	lister, ok := args.(interface {
+		listedBlock(index int) (uint64, bool)
+	})
+	if !ok {
+		return 0, false
+	}
+	return lister.listedBlock(index)
 }
