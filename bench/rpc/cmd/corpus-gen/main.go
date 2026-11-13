@@ -31,7 +31,8 @@ type rootConfig struct {
 	concurrency int
 }
 
-func newRootCmd() *cobra.Command {
+// NewRootCmd returns the corpus-gen root command.
+func NewRootCmd() *cobra.Command {
 	cfg := &rootConfig{}
 
 	cmd := &cobra.Command{
@@ -95,6 +96,9 @@ func newRootCmd() *cobra.Command {
 		cfg.newSampledCmd("starknet_getStorageAt", storageAtSampler),
 		cfg.newSampledCmd("starknet_getEvents", eventsSampler),
 		cfg.newSampledCmd("starknet_getStorageProof", storageProofSampler),
+		cfg.newSampledCmd("starknet_call", callSampler),
+		cfg.newSampledCmd("starknet_estimateFee", estimateFeeSampler),
+		cfg.newSampledCmd("starknet_simulateTransactions", simulateTxsSampler),
 	)
 	cmd.AddCommand(newNoParamCmds(
 		cfg,
@@ -109,7 +113,7 @@ func newRootCmd() *cobra.Command {
 const methodsGroupID = "methods"
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	if err := NewRootCmd().Execute(); err != nil {
 		os.Exit(1)
 	}
 }
