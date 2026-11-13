@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
 	"strconv"
@@ -149,7 +150,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 				defer assertIteratorErrorsAfterClose(t, it)
 
 				if startBytes != nil {
-					it.Seek(startBytes)
+					it.SeekGE(startBytes)
 				} else {
 					it.First()
 				}
@@ -230,23 +231,23 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.False(t, it.Valid(), "Valid() must return false after Prev() goes past beginning")
 		})
 
-		t.Run("Seek past end then Prev lands on last key", func(t *testing.T) {
+		t.Run("SeekGE past end then Prev lands on last key", func(t *testing.T) {
 			it, err := database.NewIterator(nil, false)
 			require.NoError(t, err)
 			defer it.Close()
 
-			require.False(t, it.Seek([]byte("zzz")), "Seek past all keys must return false")
-			require.True(t, it.Prev(), "Prev after out-of-range Seek must return true")
+			require.False(t, it.SeekGE([]byte("zzz")), "SeekGE past all keys must return false")
+			require.True(t, it.Prev(), "Prev after out-of-range SeekGE must return true")
 			require.True(t, it.Valid())
 			require.Equal(t, "k3", string(it.Key()))
 		})
 
-		t.Run("Full reverse iteration via Seek upper bound", func(t *testing.T) {
+		t.Run("Full reverse iteration via SeekGE upper bound", func(t *testing.T) {
 			it, err := database.NewIterator(nil, false)
 			require.NoError(t, err)
 			defer it.Close()
 
-			it.Seek([]byte("zzz"))
+			it.SeekGE([]byte("zzz"))
 			var keys []string
 			for it.Prev(); it.Valid(); it.Prev() {
 				keys = append(keys, string(it.Key()))
@@ -254,12 +255,24 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.Equal(t, []string{"k3", "k2", "k1"}, keys)
 		})
 
-		t.Run("Seek exact match then reverse", func(t *testing.T) {
+		t.Run("Full reverse iteration from Last", func(t *testing.T) {
 			it, err := database.NewIterator(nil, false)
 			require.NoError(t, err)
 			defer it.Close()
 
-			require.True(t, it.Seek([]byte("k2")))
+			var keys []string
+			for it.Last(); it.Valid(); it.Prev() {
+				keys = append(keys, string(it.Key()))
+			}
+			require.Equal(t, []string{"k3", "k2", "k1"}, keys)
+		})
+
+		t.Run("SeekGE exact match then reverse", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.True(t, it.SeekGE([]byte("k2")))
 			require.Equal(t, "k2", string(it.Key()))
 
 			require.True(t, it.Prev())
@@ -267,6 +280,184 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 			require.False(t, it.Prev())
 			require.False(t, it.Valid())
+		})
+	})
+
+	t.Run("IteratorSeek", func(t *testing.T) {
+		database := newDB()
+		defer database.Close()
+
+		for _, key := range []string{"a1", "a3", "a5", "b1"} {
+			require.NoError(t, database.Put([]byte(key), []byte("v"+key)))
+		}
+
+		// found is the expected key, or "" when the seek must leave the iterator invalid.
+		tests := []struct {
+			name   string
+			prefix string
+			seek   func(Iterator, []byte) bool
+			key    string
+			found  string
+		}{
+			{"SeekGE exact", "", Iterator.SeekGE, "a3", "a3"},
+			{"SeekGE between", "", Iterator.SeekGE, "a4", "a5"},
+			{"SeekGE before first", "", Iterator.SeekGE, "a", "a1"},
+			{"SeekGE past last", "", Iterator.SeekGE, "c", ""},
+			{"SeekLT exact", "", Iterator.SeekLT, "a3", "a1"},
+			{"SeekLT between", "", Iterator.SeekLT, "a4", "a3"},
+			{"SeekLT first", "", Iterator.SeekLT, "a1", ""},
+			{"SeekLT past last", "", Iterator.SeekLT, "c", "b1"},
+			{"SeekLT extension of a key", "", Iterator.SeekLT, "a3\x00", "a3"},
+			{"SeekLT past prefix stays in prefix", "a", Iterator.SeekLT, "b1", "a5"},
+			{"SeekGE before prefix stays in prefix", "b", Iterator.SeekGE, "a", "b1"},
+			{"SeekLT before prefix", "b", Iterator.SeekLT, "a5", ""},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				var prefix []byte
+				if tt.prefix != "" {
+					prefix = []byte(tt.prefix)
+				}
+				it, err := database.NewIterator(prefix, prefix != nil)
+				require.NoError(t, err)
+				defer it.Close()
+
+				require.Equal(t, tt.found != "", tt.seek(it, []byte(tt.key)))
+				require.Equal(t, tt.found != "", it.Valid())
+				if tt.found == "" {
+					return
+				}
+				require.Equal(t, tt.found, string(it.Key()))
+				val, err := it.Value()
+				require.NoError(t, err)
+				require.Equal(t, "v"+tt.found, string(val))
+			})
+		}
+
+		t.Run("Last respects prefix", func(t *testing.T) {
+			it, err := database.NewIterator([]byte("a"), true)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.True(t, it.Last())
+			require.Equal(t, "a5", string(it.Key()))
+		})
+
+		t.Run("Last on empty range", func(t *testing.T) {
+			it, err := database.NewIterator([]byte("z"), true)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.False(t, it.Last())
+			require.False(t, it.Valid())
+		})
+
+		t.Run("Direction changes after SeekLT and Last", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			require.True(t, it.SeekLT([]byte("a4")))
+			require.True(t, it.Next())
+			require.Equal(t, "a5", string(it.Key()))
+
+			require.True(t, it.SeekLT([]byte("a4")))
+			require.True(t, it.Prev())
+			require.Equal(t, "a1", string(it.Key()))
+
+			require.True(t, it.Last())
+			require.False(t, it.Next(), "Next after Last must run past the end")
+			require.False(t, it.Valid())
+
+			require.False(t, it.SeekLT([]byte("a1")), "SeekLT before the first key must fail")
+			require.True(t, it.Next(), "Next after a failed SeekLT must land on the first key")
+			require.Equal(t, "a1", string(it.Key()))
+		})
+
+		t.Run("Moves past either end keep the iterator exhausted", func(t *testing.T) {
+			type move struct {
+				name  string
+				do    func(Iterator) bool
+				found string // expected key, or "" when the iterator must be invalid
+			}
+			var (
+				first  = func(found string) move { return move{"First", Iterator.First, found} }
+				last   = func(found string) move { return move{"Last", Iterator.Last, found} }
+				next   = func(found string) move { return move{"Next", Iterator.Next, found} }
+				prev   = func(found string) move { return move{"Prev", Iterator.Prev, found} }
+				seekGE = func(key, found string) move {
+					do := func(it Iterator) bool { return it.SeekGE([]byte(key)) }
+					return move{"SeekGE(" + key + ")", do, found}
+				}
+				seekLT = func(key, found string) move {
+					do := func(it Iterator) bool { return it.SeekLT([]byte(key)) }
+					return move{"SeekLT(" + key + ")", do, found}
+				}
+			)
+
+			tests := []struct {
+				name   string
+				prefix string
+				moves  []move
+			}{
+				{"Next on a fresh iterator lands on first", "", []move{next("a1"), next("a3")}},
+				{"Prev on a fresh iterator lands on first", "", []move{prev("a1"), prev("")}},
+				{"Prev before first stays exhausted", "", []move{first("a1"), prev(""), prev(""), next("a1")}},
+				{
+					"Prev after failed SeekLT stays exhausted", "",
+					[]move{seekLT("a1", ""), prev(""), next("a1")},
+				},
+				{"Next after last stays exhausted", "", []move{last("b1"), next(""), next(""), prev("b1")}},
+				{"Next after failed SeekGE stays exhausted", "", []move{seekGE("c", ""), next(""), prev("b1")}},
+				{"Seek recovers an exhausted iterator", "", []move{first("a1"), prev(""), seekGE("a4", "a5")}},
+				{
+					"Exhaustion respects prefix start", "b",
+					[]move{seekLT("b1", ""), prev(""), prev(""), next("b1")},
+				},
+				{
+					"Exhaustion respects prefix end", "a",
+					[]move{seekGE("b", ""), next(""), next(""), prev("a5")},
+				},
+				{
+					"Empty range never becomes valid", "z",
+					[]move{next(""), prev(""), first(""), prev(""), last(""), next(""), seekLT("zz", "")},
+				},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var prefix []byte
+					if tt.prefix != "" {
+						prefix = []byte(tt.prefix)
+					}
+					it, err := database.NewIterator(prefix, prefix != nil)
+					require.NoError(t, err)
+					defer it.Close()
+
+					for i, m := range tt.moves {
+						step := fmt.Sprintf("move %d: %s", i, m.name)
+						require.Equal(t, m.found != "", m.do(it), step)
+						require.Equal(t, m.found != "", it.Valid(), step)
+						if m.found != "" {
+							require.Equal(t, m.found, string(it.Key()), step)
+						}
+					}
+				})
+			}
+		})
+
+		t.Run("Repeated SeekLT on one iterator", func(t *testing.T) {
+			it, err := database.NewIterator(nil, false)
+			require.NoError(t, err)
+			defer it.Close()
+
+			for _, step := range []struct{ key, found string }{
+				{"a5", "a3"}, {"a2", "a1"}, {"b9", "b1"}, {"a4", "a3"},
+			} {
+				require.True(t, it.SeekLT([]byte(step.key)))
+				require.Equal(t, step.found, string(it.Key()))
+			}
 		})
 	})
 
@@ -876,8 +1067,18 @@ func assertIteratorErrorsAfterClose(t *testing.T, it Iterator) {
 	)
 	require.Panics(
 		t,
-		func() { it.Seek([]byte("key")) },
-		"iterator seek should panic after close",
+		func() { it.Last() },
+		"iterator last should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.SeekGE([]byte("key")) },
+		"iterator seekGE should panic after close",
+	)
+	require.Panics(
+		t,
+		func() { it.SeekLT([]byte("key")) },
+		"iterator seekLT should panic after close",
 	)
 	_, err := it.Value()
 	require.Error(t, err, "iterator value should fail after close")

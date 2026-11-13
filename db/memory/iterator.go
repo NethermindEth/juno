@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"bytes"
 	"errors"
 	"slices"
 
@@ -11,10 +10,12 @@ import (
 var _ db.Iterator = (*iterator)(nil)
 
 type iterator struct {
-	curInd int
-	keys   []string
-	values [][]byte
-	closed bool
+	// curInd is clamped to [-1, len(keys)] so stepping past either end stays exhausted.
+	curInd     int
+	positioned bool
+	keys       []string
+	values     [][]byte
+	closed     bool
 }
 
 func (i *iterator) Valid() bool {
@@ -30,28 +31,25 @@ func (i *iterator) First() bool {
 		panic(errIteratorClosed)
 	}
 
+	i.positioned = true
 	i.curInd = 0
 	return i.Valid()
 }
 
+// Prev on an unpositioned iterator moves to the first key, consistent with pebble.
 func (i *iterator) Prev() bool {
 	if i.closed {
 		panic(errIteratorClosed)
 	}
 
-	if i.curInd == 0 {
-		// consistent with pebble's behaviour when Prev() is called on the first key:
-		// iterator becomes invalid
-		i.curInd = -1
-		return false
-	}
-
-	if i.curInd == -1 {
+	if !i.positioned {
 		return i.First()
 	}
 
-	i.curInd--
-	return true
+	if i.curInd >= 0 {
+		i.curInd--
+	}
+	return i.Valid()
 }
 
 func (i *iterator) Next() bool {
@@ -59,7 +57,13 @@ func (i *iterator) Next() bool {
 		panic(errIteratorClosed)
 	}
 
-	i.curInd++
+	if !i.positioned {
+		return i.First()
+	}
+
+	if i.curInd < len(i.keys) {
+		i.curInd++
+	}
 	return i.Valid()
 }
 
@@ -101,22 +105,37 @@ func (i *iterator) UncopiedValue() ([]byte, error) {
 	return i.values[i.curInd], nil
 }
 
-func (i *iterator) Seek(key []byte) bool {
+func (i *iterator) Last() bool {
 	if i.closed {
 		panic(errIteratorClosed)
 	}
 
-	for j := range i.keys {
-		if bytes.Compare(key, []byte(i.keys[j])) <= 0 {
-			i.curInd = j
-			return true
-		}
+	i.positioned = true
+	i.curInd = len(i.keys) - 1
+	return i.Valid()
+}
+
+// SeekGE positions one past the end when key is past all entries, so that Prev() gives the
+// last valid key, consistent with pebble's behaviour.
+func (i *iterator) SeekGE(key []byte) bool {
+	if i.closed {
+		panic(errIteratorClosed)
 	}
 
-	// key is past all entries: position one past the end so that Prev() gives the last valid key,
-	// consistent with pebble's behaviour when SeekGE finds no key within the iterator bounds.
-	i.curInd = len(i.keys)
-	return false
+	i.positioned = true
+	i.curInd, _ = slices.BinarySearch(i.keys, string(key))
+	return i.Valid()
+}
+
+func (i *iterator) SeekLT(key []byte) bool {
+	if i.closed {
+		panic(errIteratorClosed)
+	}
+
+	i.positioned = true
+	index, _ := slices.BinarySearch(i.keys, string(key))
+	i.curInd = index - 1
+	return i.Valid()
 }
 
 func (i *iterator) Close() error {
