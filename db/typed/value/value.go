@@ -29,3 +29,7 @@ func BinaryCbor[V any, P binaryMarshaler[V]]() binaryCborSerializer[V, P] {
 func Cbor[V any]() cborSerializer[V] {
 	return cborSerializer[V]{}
 }
+
+func FastCbor[V any]() fastCborSerializer[V] {
+	return fastCborSerializer[V]{}
+}

@@ -1,5 +1,6 @@
-// Package cursor reads CBOR from a byte slice in a single pass. A Cursor knows CBOR but no Go
-// types, so a decoder built on top decides what to read and the Cursor reads it.
+// Package cursor reads CBOR from a byte slice in a single pass. It is the lowest layer of the
+// fastcbor decoder. A Cursor knows CBOR but no Go types, so fastcbor decides what to read and the
+// Cursor reads it.
 //
 // A general-purpose CBOR decoder checks that the whole input is well-formed and then decodes it,
 // accepting every form the standard allows. A Cursor checks as it reads, and reads only the forms
