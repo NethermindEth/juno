@@ -184,6 +184,28 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
 
+	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, logger)
+
+		fromAddrs := make([]felt.Address, rpccore.MaxEventFilterKeys+1)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddrs, nil, nil, nil)
+		assert.Zero(t, id)
+		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
+	})
+
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)

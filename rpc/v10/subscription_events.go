@@ -71,6 +71,10 @@ func newEventSubscriber(
 	blockID *SubscriptionBlockID,
 	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (subscriber, *jsonrpc.Error) {
+	if len(fromAddrs) > rpccore.MaxEventFilterKeys {
+		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
+	}
+
 	lenKeys := len(keys)
 	for _, k := range keys {
 		if lenKeys += len(k); lenKeys > rpccore.MaxEventFilterKeys {
