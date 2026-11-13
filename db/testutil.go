@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"sort"
 	"strconv"
@@ -372,6 +373,78 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.False(t, it.SeekLT([]byte("a1")), "SeekLT before the first key must fail")
 			require.True(t, it.Next(), "Next after a failed SeekLT must land on the first key")
 			require.Equal(t, "a1", string(it.Key()))
+		})
+
+		t.Run("Moves past either end keep the iterator exhausted", func(t *testing.T) {
+			type move struct {
+				name  string
+				do    func(Iterator) bool
+				found string // expected key, or "" when the iterator must be invalid
+			}
+			var (
+				first  = func(found string) move { return move{"First", Iterator.First, found} }
+				last   = func(found string) move { return move{"Last", Iterator.Last, found} }
+				next   = func(found string) move { return move{"Next", Iterator.Next, found} }
+				prev   = func(found string) move { return move{"Prev", Iterator.Prev, found} }
+				seekGE = func(key, found string) move {
+					do := func(it Iterator) bool { return it.SeekGE([]byte(key)) }
+					return move{"SeekGE(" + key + ")", do, found}
+				}
+				seekLT = func(key, found string) move {
+					do := func(it Iterator) bool { return it.SeekLT([]byte(key)) }
+					return move{"SeekLT(" + key + ")", do, found}
+				}
+			)
+
+			tests := []struct {
+				name   string
+				prefix string
+				moves  []move
+			}{
+				{"Next on a fresh iterator lands on first", "", []move{next("a1"), next("a3")}},
+				{"Prev on a fresh iterator lands on first", "", []move{prev("a1"), prev("")}},
+				{"Prev before first stays exhausted", "", []move{first("a1"), prev(""), prev(""), next("a1")}},
+				{
+					"Prev after failed SeekLT stays exhausted", "",
+					[]move{seekLT("a1", ""), prev(""), next("a1")},
+				},
+				{"Next after last stays exhausted", "", []move{last("b1"), next(""), next(""), prev("b1")}},
+				{"Next after failed SeekGE stays exhausted", "", []move{seekGE("c", ""), next(""), prev("b1")}},
+				{"Seek recovers an exhausted iterator", "", []move{first("a1"), prev(""), seekGE("a4", "a5")}},
+				{
+					"Exhaustion respects prefix start", "b",
+					[]move{seekLT("b1", ""), prev(""), prev(""), next("b1")},
+				},
+				{
+					"Exhaustion respects prefix end", "a",
+					[]move{seekGE("b", ""), next(""), next(""), prev("a5")},
+				},
+				{
+					"Empty range never becomes valid", "z",
+					[]move{next(""), prev(""), first(""), prev(""), last(""), next(""), seekLT("zz", "")},
+				},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					var prefix []byte
+					if tt.prefix != "" {
+						prefix = []byte(tt.prefix)
+					}
+					it, err := database.NewIterator(prefix, prefix != nil)
+					require.NoError(t, err)
+					defer it.Close()
+
+					for i, m := range tt.moves {
+						step := fmt.Sprintf("move %d: %s", i, m.name)
+						require.Equal(t, m.found != "", m.do(it), step)
+						require.Equal(t, m.found != "", it.Valid(), step)
+						if m.found != "" {
+							require.Equal(t, m.found, string(it.Key()), step)
+						}
+					}
+				})
+			}
 		})
 
 		t.Run("Repeated SeekLT on one iterator", func(t *testing.T) {
