@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/broadcaster/broadcast/ring"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -150,8 +151,8 @@ func TestMultipleIteratorsReceiveSameData(t *testing.T) {
 				received := 0
 				for ev := range rb.Iterator(t.Context()) {
 					val, ok := ev.AsEvent()
-					require.True(t, ok)
-					require.Equal(t, received, val)
+					assert.True(t, ok)
+					assert.Equal(t, received, val)
 					received++
 					if received >= numEvents {
 						break
@@ -198,8 +199,8 @@ func TestConcurrentWrites_AllDelivered_NoLag(t *testing.T) {
 			received := 0
 			for ev := range rb.Iterator(t.Context()) {
 				p, ok := ev.AsEvent()
-				require.True(t, ok, "received lag")
-				require.Equal(t, seen[p.Prod]+1, p.Seq, "per-producer order must be preserved")
+				assert.True(t, ok, "received lag")
+				assert.Equal(t, seen[p.Prod]+1, p.Seq, "per-producer order must be preserved")
 				seen[p.Prod] = p.Seq
 				received++
 				if received >= total {
@@ -287,7 +288,7 @@ func TestIteratorLagResync(t *testing.T) {
 					}
 				} else if lag, ok := ev.AsLag(); ok {
 					sawLag = true
-					require.GreaterOrEqual(t, lag.NextSeq, uint64(4), "next seq should be at least 4")
+					assert.GreaterOrEqual(t, lag.NextSeq, uint64(4), "next seq should be at least 4")
 				} else {
 					t.Errorf("should have event or lag")
 				}

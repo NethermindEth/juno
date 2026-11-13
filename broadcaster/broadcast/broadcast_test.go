@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/broadcaster/broadcast"
 	"github.com/NethermindEth/juno/broadcaster/broadcast/ring"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,10 +75,12 @@ func TestMultipleSubscribersReceiveSameData(t *testing.T) {
 			defer unsub()
 			for i := range numEvents {
 				ev, ok := recvWithTimeout(t, recv, time.Second)
-				require.True(t, ok, "subscriber out closed early")
+				if !assert.True(t, ok, "subscriber out closed early") {
+					return
+				}
 				val, ok := ev.AsEvent()
-				require.True(t, ok)
-				require.Equal(t, i, val)
+				assert.True(t, ok)
+				assert.Equal(t, i, val)
 			}
 		})
 	}
@@ -354,7 +357,7 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 				read := 0
 				for read < 3 {
 					_, ok := recvWithTimeout(t, recv, time.Second)
-					require.True(t, ok, "out closed unexpectedly during hot send")
+					assert.True(t, ok, "out closed unexpectedly during hot send")
 					read++
 				}
 				unsub()
