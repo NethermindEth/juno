@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
@@ -20,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -58,6 +60,17 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
 	h.rpcv9Handler.WithCompiler(compiler)
 	h.rpcv10Handler.WithCompiler(compiler)
+	return h
+}
+
+// WithMaxSubscriptionsMemory bounds the memory subscriptions hold across versions; 0 is unbounded
+func (h *Handler) WithMaxSubscriptionsMemory(megabytes uint) *Handler {
+	if megabytes == 0 {
+		return h
+	}
+	sem := semaphore.NewWeighted(int64(megabytes) * db.Megabyte)
+	h.rpcv9Handler.WithSubscriptionMemoryLimiter(sem)
+	h.rpcv10Handler.WithSubscriptionMemoryLimiter(sem)
 	return h
 }
 

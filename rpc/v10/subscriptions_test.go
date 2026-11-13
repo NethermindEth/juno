@@ -35,6 +35,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/sync/semaphore"
 )
 
 // mustNewChain builds a pre_confirmed ChainReader from statically valid test
@@ -3090,6 +3091,62 @@ func TestSubscribeRespectsConnectionLimit(t *testing.T) {
 	require.Nil(t, rpcErr)
 	require.True(t, ok)
 	assert.Equal(t, int64(0), conn.held.Load(), "the slot is free once Unsubscribe returns")
+
+	subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
+}
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, 56377)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	// Fits one subscription without a filter, with no room for a filter
+	handler := New(mockChain, nil, nil, logger).
+		WithSubscriptionMemoryLimiter(semaphore.NewWeighted(rpccore.SubscriptionBaseSize + 1))
+
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	connCtx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	conn := &limitedConn{
+		fakeConn: &fakeConn{Conn: clientConn, w: serverConn, ctx: connCtx},
+		max:      10,
+	}
+	ctx := context.WithValue(connCtx, jsonrpc.ConnKey{}, conn)
+
+	blockIDLatest := BlockIDLatest()
+	subBlockID := (*SubscriptionBlockID)(&blockIDLatest)
+
+	_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr, "the filter counts")
+	assert.Equal(t, int64(0), conn.held.Load(), "a refused call must return its connection slot")
+
+	subID, rpcErr := handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
+
+	_, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+	assert.Equal(t, int64(1), conn.held.Load())
+
+	// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+	ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
 
 	subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
 	require.Nil(t, rpcErr)

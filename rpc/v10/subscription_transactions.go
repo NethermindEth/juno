@@ -88,7 +88,8 @@ func newTransactionsSubscriber(
 	}
 
 	s := subscriber{
-		onReorg: state.onReorg,
+		onReorg:    state.onReorg,
+		filterSize: int64(len(senders)) * rpccore.SenderAddressSize,
 	}
 
 	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {

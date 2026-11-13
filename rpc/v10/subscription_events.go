@@ -116,6 +116,8 @@ func newEventSubscriber(
 		},
 		onNewHead: state.onNewHead,
 		onReorg:   state.onReorg,
+		filterSize: int64(len(fromAddrs))*rpccore.EventAddressSize +
+			int64(lenKeys)*rpccore.EventKeySize,
 	}
 	if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 		s.onPreConfirmed = state.onPreConfirmed

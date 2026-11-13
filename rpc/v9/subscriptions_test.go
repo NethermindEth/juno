@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/sync/semaphore"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -2592,4 +2593,29 @@ func newPreConfirmedWithBloom(
 ) *core.WithBloom[*pending.PreConfirmed] {
 	withBloom := pending.NewPreConfirmedWithBloom(preConfirmed)
 	return &withBloom
+}
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	// Fits one subscription without a filter, with no room for a filter
+	handler := New(nil, nil, nil, log.NewNopZapLogger()).
+		WithSubscriptionMemoryLimiter(semaphore.NewWeighted(rpccore.SubscriptionBaseSize + 1))
+	conn := &fakeConn{w: io.Discard, ctx: t.Context()}
+	ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+
+	_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Felt{{}}, nil)
+	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr, "the filter counts")
+
+	subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)
+	require.Nil(t, rpcErr)
+
+	_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+
+	// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+	ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+
+	_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+	require.Nil(t, rpcErr)
 }
