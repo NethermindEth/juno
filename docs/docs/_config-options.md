@@ -37,6 +37,7 @@
 | `disable-l1-verification` | `false` | Disables L1 verification since an Ethereum node is not provided |
 | `eth-node` |  | WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, Juno must connect to an Ethereum node and parse events in the Starknet contract |
 | `network` | `mainnet` | Options: mainnet, sepolia, sepolia-integration |
+| `use-new-l1-client` | `false` | Use the experimental L1 client implementation. Requires --eth-node |
 
 ### Sync & Polling
 

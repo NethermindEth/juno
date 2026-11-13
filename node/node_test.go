@@ -2,6 +2,10 @@ package node_test
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/coder/websocket"
 	"github.com/stretchr/testify/require"
 )
 
@@ -265,6 +270,53 @@ func TestNewRejectsModesThatBypassRPCSync(t *testing.T) {
 			test.config.RPCSyncURL = "http://rpc.host"
 			_, err := node.New(&test.config, "test", log.NewLevel(log.INFO))
 			require.ErrorContains(t, err, test.errString)
+		})
+	}
+}
+
+func TestNew_RejectsNewL1ClientWithoutL1Verification(t *testing.T) {
+	_, err := node.New(&node.Config{
+		UseNewL1Client:        true,
+		DisableL1Verification: true,
+	}, "test", log.NewLevel(log.INFO))
+	require.ErrorContains(t, err, "--use-new-l1-client requires L1 verification")
+}
+
+func TestNewNodeWithL1Client(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+		for {
+			if _, _, err := conn.Read(r.Context()); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(srv.Close)
+	ethNode := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	for _, useNewL1Client := range []bool{false, true} {
+		t.Run(fmt.Sprintf("useNewL1Client=%v", useNewL1Client), func(t *testing.T) {
+			config := &node.Config{
+				LogLevel:                           "info",
+				DatabasePath:                       t.TempDir(),
+				DBCompression:                      "zstd",
+				Network:                            networks.Sepolia,
+				EthNode:                            ethNode,
+				UseNewL1Client:                     useNewL1Client,
+				DisableSync:                        true,
+				SubmittedTransactionsCacheEntryTTL: time.Second,
+			}
+
+			n, err := node.New(config, "v0.3", log.NewLevel(log.INFO))
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel()
+			n.Run(ctx)
 		})
 	}
 }
