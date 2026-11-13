@@ -185,7 +185,7 @@ func benchmarkHubPublisherThroughput[T any](
 					}
 					b.StopTimer()
 
-					// Closing the last publisher cancels broadcast subscribers.
+					// Unsubscribe closes each Recv channel so the drain goroutines exit.
 					for _, s := range subs {
 						s.Unsubscribe()
 					}
