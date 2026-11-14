@@ -71,15 +71,24 @@ jobs:
           fi
 
           echo "Documentation version ${MINOR_VERSION} is present and up to date."
+  check-go-version:
+    name: Check Go Version
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify the release builds use the latest Go patch release
+        run: .github/workflow-scripts/check_go_version.sh
   build-binaries:
     name: Build Binaries
     if: github.repository_owner == 'NethermindEth'
-    needs: [check-docs-version]
+    needs: [check-docs-version, check-go-version]
     uses: ./.github/workflows/build-binaries.yml
   docker-image:
     name: Build and Push Docker Image
     if: github.repository_owner == 'NethermindEth'
-    needs: [check-docs-version]
+    needs: [check-docs-version, check-go-version]
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
       repo_type: "non-official"
