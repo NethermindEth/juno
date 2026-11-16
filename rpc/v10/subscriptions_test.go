@@ -35,7 +35,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"golang.org/x/sync/semaphore"
 )
 
 // mustNewChain builds a pre_confirmed ChainReader from statically valid test
@@ -3145,7 +3144,9 @@ func TestSubscribeRespectsMemoryLimit(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	// Fits one subscription without a filter, with no room for a filter
 	handler := New(mockChain, nil, nil, logger).
-		WithSubscriptionMemoryLimiter(semaphore.NewWeighted(rpccore.SubscriptionBaseSize + 1))
+		WithSubscriptionMemoryLimiter(
+			rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1),
+		)
 
 	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
 	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)

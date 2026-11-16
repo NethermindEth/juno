@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
@@ -21,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -63,14 +61,12 @@ func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
 	return h
 }
 
-// WithMaxSubscriptionsMemory bounds the memory subscriptions hold across versions; 0 is unbounded
-func (h *Handler) WithMaxSubscriptionsMemory(megabytes uint) *Handler {
-	if megabytes == 0 {
-		return h
-	}
-	sem := semaphore.NewWeighted(int64(megabytes) * db.Megabyte)
-	h.rpcv9Handler.WithSubscriptionMemoryLimiter(sem)
-	h.rpcv10Handler.WithSubscriptionMemoryLimiter(sem)
+// WithSubscriptionMemoryLimiter bounds subscription memory across versions; nil is unbounded
+func (h *Handler) WithSubscriptionMemoryLimiter(
+	limiter *rpccore.SubscriptionMemoryLimiter,
+) *Handler {
+	h.rpcv9Handler.WithSubscriptionMemoryLimiter(limiter)
+	h.rpcv10Handler.WithSubscriptionMemoryLimiter(limiter)
 	return h
 }
 

@@ -38,7 +38,7 @@ type Websocket struct {
 	// For logging busy warnings without flooding
 	sampledLogger  log.StructuredLogger
 	connParams     *WebsocketConnParams
-	listener       NewRequestListener
+	listener       WebsocketListener
 	shutdown       <-chan struct{}
 	requestTimeout time.Duration
 	gate           *Gate
@@ -95,8 +95,8 @@ func (ws *Websocket) WithGate(g *Gate) *Websocket {
 	return ws
 }
 
-// WithListener registers a NewRequestListener
-func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
+// WithListener registers a WebsocketListener
+func (ws *Websocket) WithListener(listener WebsocketListener) *Websocket {
 	ws.listener = listener
 	return ws
 }
@@ -159,7 +159,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	wsc := newWebsocketConn(ctx, conn, ws.connParams, ws.maxSubscriptions)
+	wsc := newWebsocketConn(ctx, conn, ws.connParams, ws.maxSubscriptions, ws.listener)
 
 	for {
 		var body []byte
@@ -327,6 +327,7 @@ type websocketConn struct {
 	ctx    context.Context
 	params *WebsocketConnParams
 
+	listener WebsocketListener
 	// subscriptions caps the connection's subscriptions; nil leaves them unbounded
 	subscriptions *semaphore.Weighted
 }
@@ -338,12 +339,14 @@ func newWebsocketConn(
 	conn *websocket.Conn,
 	params *WebsocketConnParams,
 	maxSubscriptions int64,
+	listener WebsocketListener,
 ) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	wsc := &websocketConn{
-		conn:   conn,
-		ctx:    ctx,
-		params: params,
+		conn:     conn,
+		ctx:      ctx,
+		params:   params,
+		listener: listener,
 	}
 	if maxSubscriptions > 0 {
 		wsc.subscriptions = semaphore.NewWeighted(maxSubscriptions)
@@ -353,13 +356,19 @@ func newWebsocketConn(
 
 // TryAcquireSubscription takes a slot if the connection is below its limit
 func (wsc *websocketConn) TryAcquireSubscription() bool {
-	return wsc.subscriptions == nil || wsc.subscriptions.TryAcquire(1)
+	if wsc.subscriptions != nil && !wsc.subscriptions.TryAcquire(1) {
+		wsc.listener.OnSubscriptionRejected()
+		return false
+	}
+	wsc.listener.OnSubscribe()
+	return true
 }
 
 func (wsc *websocketConn) ReleaseSubscription() {
 	if wsc.subscriptions != nil {
 		wsc.subscriptions.Release(1)
 	}
+	wsc.listener.OnUnsubscribe()
 }
 
 func (wsc *websocketConn) Read(p []byte) (int, error) {

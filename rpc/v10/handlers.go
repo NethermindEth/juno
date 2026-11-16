@@ -23,7 +23,6 @@ import (
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/sourcegraph/conc"
-	"golang.org/x/sync/semaphore"
 )
 
 type Handler struct {
@@ -56,7 +55,7 @@ type Handler struct {
 
 	l1Client rpccore.L1Client
 
-	subscriptionMemoryLimiter *semaphore.Weighted
+	subscriptionMemoryLimiter *rpccore.SubscriptionMemoryLimiter
 }
 
 type subscription struct {
@@ -146,8 +145,10 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache
 }
 
 // WithSubscriptionMemoryLimiter bounds, in bytes, what subscriptions hold; nil is unbounded
-func (h *Handler) WithSubscriptionMemoryLimiter(sem *semaphore.Weighted) *Handler {
-	h.subscriptionMemoryLimiter = sem
+func (h *Handler) WithSubscriptionMemoryLimiter(
+	limiter *rpccore.SubscriptionMemoryLimiter,
+) *Handler {
+	h.subscriptionMemoryLimiter = limiter
 	return h
 }
 
