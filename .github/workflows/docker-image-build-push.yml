@@ -7,6 +7,10 @@ on:
         description: "Choose repository type"
         type: string
         default: "non-official"
+      release_binaries:
+        description: "Upload the Linux binaries of the images as release artifacts"
+        type: boolean
+        default: false
     outputs:
       tag:
         description: "The tag that was built"
@@ -74,6 +78,37 @@ jobs:
           platforms: linux/amd64
           outputs: type=cacheonly
 
+      # The export uses the cache, thus the release binary is the binary of the images.
+      - name: Export the AMD64 binary
+        if: inputs.release_binaries
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: .
+          target: binary
+          platforms: linux/amd64
+          outputs: type=local,dest=binary
+
+      - name: Package the AMD64 binary
+        if: inputs.release_binaries
+        env:
+          ARTIFACT_NAME: juno-${{ needs.setup.outputs.tag }}-linux-amd64
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y upx-ucl
+          cp binary/juno "$ARTIFACT_NAME"
+          upx "$ARTIFACT_NAME"
+          "./$ARTIFACT_NAME" --help > /dev/null
+          sha256sum "$ARTIFACT_NAME" > "$ARTIFACT_NAME.sha256"
+          zip "$ARTIFACT_NAME.zip" "$ARTIFACT_NAME" "$ARTIFACT_NAME.sha256"
+
+      - name: Upload the AMD64 binary
+        if: inputs.release_binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: juno-${{ needs.setup.outputs.tag }}-linux-amd64.zip
+          path: juno-${{ needs.setup.outputs.tag }}-linux-amd64.zip
+          retention-days: 30
+
       - name: Login to Docker Hub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         env:
@@ -98,6 +133,24 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless
+
+      # The release binary comes from a separate export. Make sure that the pushed images contain
+      # the same binary. A failure here stops the draft release.
+      - name: Check that the AMD64 images contain the release binary
+        if: inputs.release_binaries
+        env:
+          TAG: ${{ needs.setup.outputs.tag }}
+        run: |
+          for image in "nethermindeth/juno:$TAG" "nethermindeth/juno:$TAG-distroless"; do
+            docker pull -q "$image"
+            container=$(docker create "$image")
+            docker cp "$container:/usr/local/bin/juno" image-juno
+            docker rm "$container" > /dev/null
+            if ! cmp image-juno binary/juno; then
+              echo "::error::$image does not contain the release binary of this build."
+              exit 1
+            fi
+          done
 
   build_and_push_docker_image_arm:
     needs: setup
@@ -130,6 +183,37 @@ jobs:
           platforms: linux/arm64
           outputs: type=cacheonly
 
+      # The export uses the cache, thus the release binary is the binary of the images.
+      - name: Export the ARM64 binary
+        if: inputs.release_binaries
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: .
+          target: binary
+          platforms: linux/arm64
+          outputs: type=local,dest=binary
+
+      - name: Package the ARM64 binary
+        if: inputs.release_binaries
+        env:
+          ARTIFACT_NAME: juno-${{ needs.setup.outputs.tag }}-linux-arm64
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y upx-ucl
+          cp binary/juno "$ARTIFACT_NAME"
+          upx "$ARTIFACT_NAME"
+          "./$ARTIFACT_NAME" --help > /dev/null
+          sha256sum "$ARTIFACT_NAME" > "$ARTIFACT_NAME.sha256"
+          zip "$ARTIFACT_NAME.zip" "$ARTIFACT_NAME" "$ARTIFACT_NAME.sha256"
+
+      - name: Upload the ARM64 binary
+        if: inputs.release_binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: juno-${{ needs.setup.outputs.tag }}-linux-arm64.zip
+          path: juno-${{ needs.setup.outputs.tag }}-linux-arm64.zip
+          retention-days: 30
+
       - name: Login to Docker Hub
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         env:
@@ -154,6 +238,24 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-distroless-arm64
+
+      # The release binary comes from a separate export. Make sure that the pushed images contain
+      # the same binary. A failure here stops the draft release.
+      - name: Check that the ARM64 images contain the release binary
+        if: inputs.release_binaries
+        env:
+          TAG: ${{ needs.setup.outputs.tag }}
+        run: |
+          for image in "nethermindeth/juno:$TAG-arm64" "nethermindeth/juno:$TAG-distroless-arm64"; do
+            docker pull -q "$image"
+            container=$(docker create "$image")
+            docker cp "$container:/usr/local/bin/juno" image-juno
+            docker rm "$container" > /dev/null
+            if ! cmp image-juno binary/juno; then
+              echo "::error::$image does not contain the release binary of this build."
+              exit 1
+            fi
+          done
 
       - name: Cleanup self-hosted
         run: docker system prune -af

@@ -44,6 +44,14 @@ COPY . .
 
 # Build with make juno
 RUN make juno
+RUN make check-go-build
+
+# --- Binary stage ---
+# Holds only the binary. Releases export it as the Linux release binary, thus the release binary
+# and the images have the same build. Build it with --target binary --output type=local,dest=<dir>.
+FROM scratch AS binary
+
+COPY --from=builder /app/build/juno /juno
 
 # --- Debian image ---
 # The earlier runtime image with a shell and utilities. Releases publish it as nethermind/juno:<tag>

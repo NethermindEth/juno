@@ -83,7 +83,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify the release builds use the latest Go patch release
-        run: .github/workflow-scripts/check_go_version.sh
+        run: .github/workflow-scripts/check_go_version.sh --latest
   build-binaries:
     name: Build Binaries
     if: github.repository_owner == 'NethermindEth'
@@ -96,6 +96,7 @@ jobs:
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
       repo_type: "non-official"
+      release_binaries: true
     secrets: inherit
   tag-non-official-latest:
     name: Tag Non-Official Image as Latest
