@@ -1,0 +1,620 @@
+{
+  "schemaVersion": 1,
+  "run": {
+    "id": "20261116T030024Z-5724c7d2a1ef",
+    "status": "passed",
+    "startedAt": "2026-11-16T03:00:24Z",
+    "finishedAt": "2026-11-16T03:33:33Z",
+    "runnerExitCode": 0
+  },
+  "benchmark": {
+    "imageDigest": "sha256:a4b20fa83a144a0ed63469fbfcb3419d68f051672957d30b7ac4fd589e971d50"
+  },
+  "juno": {
+    "version": "v0.16.7-rc.0-160-g0ee4356fa",
+    "imageDigest": "sha256:5724c7d2a1efb9ab2c113ec2b8d9804d6e84ab6f824c242015e57ee39a54a3c5",
+    "chainId": "0x534e5f4d41494e",
+    "blockNumber": 12945535,
+    "rpcVersion": "0.10.3"
+  },
+  "snapshot": {
+    "id": "juno_mainnet_v0.16.5_12945535.tar.zst",
+    "sha256": "845c9960da60678a821a32a6c44e7b68fc6a3869743d751a0e5ff7ccf83384bd"
+  },
+  "load": {
+    "vus": 50,
+    "duration": "30s"
+  },
+  "runtime": {
+    "juno": {
+      "resources": {
+        "requests": {
+          "cpu": "2",
+          "memory": "8Gi"
+        },
+        "limits": {
+          "cpu": "2",
+          "memory": "8Gi"
+        }
+      },
+      "args": [
+        "--db-path=/var/lib/juno",
+        "--network=mainnet",
+        "--disable-sync",
+        "--disable-l1-verification",
+        "--max-vm-queue=50",
+        "--http=true",
+        "--http-host=0.0.0.0",
+        "--http-port=6060",
+        "--log-level=debug"
+      ]
+    },
+    "benchmarkRunner": {
+      "resources": {
+        "requests": {
+          "cpu": "500m",
+          "memory": "2Gi"
+        },
+        "limits": {
+          "cpu": "500m",
+          "memory": "2Gi"
+        }
+      },
+      "args": []
+    }
+  },
+  "cases": [
+    {
+      "id": "blockHashAndNumber",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 186284,
+        "rate": 6192.881225963589,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 186284,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 7.799054377896168,
+        "med": 1.7322009999999999,
+        "p90": 6.412297000000006,
+        "p95": 75.49679435,
+        "p99": 82.82217879999999,
+        "max": 93.512366
+      }
+    },
+    {
+      "id": "blockNumber",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 196799,
+        "rate": 6559.835651879737,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 196799,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 7.396886719073822,
+        "med": 1.637154,
+        "p90": 5.6692572000000085,
+        "p95": 74.84016709999997,
+        "p99": 82.70919047999998,
+        "max": 94.260918
+      }
+    },
+    {
+      "id": "chainId",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 196221,
+        "rate": 6523.797527995763,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 196221,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 7.396396480035082,
+        "med": 1.630872,
+        "p90": 5.678457,
+        "p95": 74.79589,
+        "p99": 82.96751019999999,
+        "max": 94.63668
+      }
+    },
+    {
+      "id": "syncing",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 192734,
+        "rate": 6424.348784577659,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 192734,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 7.556571252529419,
+        "med": 1.647262,
+        "p90": 6.0178401000000195,
+        "p95": 75.27749515,
+        "p99": 82.95720211000004,
+        "max": 93.57993
+      }
+    },
+    {
+      "id": "getBlockTransactionCount",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 120963,
+        "rate": 4022.1033411454846,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 120963,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 12.22231590667389,
+        "med": 5.336747,
+        "p90": 59.47471960000001,
+        "p95": 66.39757490000001,
+        "p99": 77.16146536000004,
+        "max": 89.620219
+      }
+    },
+    {
+      "id": "getBlockWithReceipts",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 11437,
+        "rate": 379.938441675393,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 11437,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 121.87224889490244,
+        "med": 103.990222,
+        "p90": 196.7023216,
+        "p95": 205.39606019999994,
+        "p99": 296.65419584,
+        "max": 506.358453
+      }
+    },
+    {
+      "id": "getBlockWithTxHashes",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 61025,
+        "rate": 2023.9495224207153,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 61025,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 24.529227332585283,
+        "med": 19.138634,
+        "p90": 29.3437226,
+        "p95": 36.64742239999998,
+        "p99": 188.0569412800001,
+        "max": 764.209656
+      }
+    },
+    {
+      "id": "getBlockWithTxs",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 21312,
+        "rate": 708.3438169708364,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 21312,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 68.36918570945943,
+        "med": 83.478983,
+        "p90": 105.66036360000001,
+        "p95": 145.30111140000005,
+        "p99": 206.44824147999987,
+        "max": 542.13122
+      }
+    },
+    {
+      "id": "getStateUpdate",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 37288,
+        "rate": 1240.3056860786721,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 37288,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 39.5275726497802,
+        "med": 13.787181,
+        "p90": 87.0350507,
+        "p95": 92.0798466,
+        "p99": 118.99922742999978,
+        "max": 197.917575
+      }
+    },
+    {
+      "id": "traceBlockTransactions",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 294,
+        "rate": 4.971545276903057,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 294,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 6647.963904183673,
+        "med": 595.255273,
+        "p90": 16319.4582029,
+        "p95": 18665.08637274999,
+        "p99": 25230.15255818999,
+        "max": 37487.256563
+      }
+    },
+    {
+      "id": "getTransactionByBlockIdAndIndex",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 43962,
+        "rate": 1462.481161913537,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 43962,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 33.987240387402665,
+        "med": 13.579039999999999,
+        "p90": 74.6321566,
+        "p95": 81.07094784999998,
+        "p99": 93.76001781,
+        "max": 147.027029
+      }
+    },
+    {
+      "id": "getTransactionByHash",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 65759,
+        "rate": 2183.878962404447,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 65759,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 22.69226840023421,
+        "med": 16.323175,
+        "p90": 39.1451876,
+        "p95": 50.529983999999935,
+        "p99": 138.04429819999973,
+        "max": 663.905811
+      }
+    },
+    {
+      "id": "getTransactionReceipt",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 71499,
+        "rate": 2382.2117046875223,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 71499,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 20.85829703366476,
+        "med": 18.271101,
+        "p90": 28.555740200000002,
+        "p95": 33.89524759999997,
+        "p99": 65.3743713600014,
+        "max": 826.210101
+      }
+    },
+    {
+      "id": "getTransactionStatus",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 93801,
+        "rate": 3126.2401975937223,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 93801,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 15.903555165691392,
+        "med": 12.195822,
+        "p90": 29.416348,
+        "p95": 37.525083,
+        "p99": 57.857764,
+        "max": 605.757374
+      }
+    },
+    {
+      "id": "traceTransaction",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 422,
+        "rate": 10.515458764005631,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 422,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 4052.739181232225,
+        "med": 1062.240032,
+        "p90": 9678.585498700002,
+        "p95": 11319.42061735,
+        "p99": 14795.975442080004,
+        "max": 19340.390402
+      }
+    },
+    {
+      "id": "getClass",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 2446,
+        "rate": 79.94260963587992,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 2446,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 483.35778053557004,
+        "med": 405.562143,
+        "p90": 808.5224264999999,
+        "p95": 987.89948825,
+        "p99": 1386.6197122000003,
+        "max": 2490.465157
+      }
+    },
+    {
+      "id": "getClassAt",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 2505,
+        "rate": 82.13144132649565,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 2505,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 473.2299301736532,
+        "med": 407.977588,
+        "p90": 809.2458224,
+        "p95": 992.9211959999999,
+        "p99": 1297.2268194800001,
+        "max": 2092.069321
+      }
+    },
+    {
+      "id": "getClassHashAt",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 143068,
+        "rate": 4756.700701028527,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 143068,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 10.305463220531571,
+        "med": 2.3911495,
+        "p90": 57.517246200000024,
+        "p95": 75.46149095,
+        "p99": 81.49370095999998,
+        "max": 97.803187
+      }
+    },
+    {
+      "id": "getCompiledCasm",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 1566,
+        "rate": 50.720186228619845,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 1566,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 663.2098403869727,
+        "med": 592.9755325,
+        "p90": 1118.714311,
+        "p95": 1304.849244,
+        "p99": 1898.78139635,
+        "max": 3208.443502
+      }
+    },
+    {
+      "id": "getNonce",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 115369,
+        "rate": 3845.3256375537576,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 115369,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 12.847126072333285,
+        "med": 4.980479,
+        "p90": 58.9733854,
+        "p95": 67.63850079999996,
+        "p99": 78.20580631999997,
+        "max": 260.065549
+      }
+    },
+    {
+      "id": "getStorageAt",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 95576,
+        "rate": 3183.9313262150968,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 95576,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 15.60720614850984,
+        "med": 9.702596,
+        "p90": 36.433661,
+        "p95": 46.19490625,
+        "p99": 65.8171255,
+        "max": 173.869304
+      }
+    },
+    {
+      "id": "getEvents",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 5345,
+        "rate": 177.43540725064784,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 5345,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 280.8794374899915,
+        "med": 271.045409,
+        "p90": 472.3901488000001,
+        "p95": 535.6292088000001,
+        "p99": 654.1200814400011,
+        "max": 1023.853122
+      }
+    },
+    {
+      "id": "getStorageProof",
+      "status": "passed",
+      "failureReason": null,
+      "requests": {
+        "count": 18903,
+        "rate": 628.2988163678392,
+        "failureRate": 0
+      },
+      "checks": {
+        "passes": 18903,
+        "failures": 0
+      },
+      "checkFailureRate": 0,
+      "droppedIterations": 0,
+      "latencyMs": {
+        "avg": 79.21453371200292,
+        "med": 55.856138,
+        "p90": 196.5661414,
+        "p95": 244.44282549999997,
+        "p99": 358.3591274399999,
+        "max": 647.9732
+      }
+    }
+  ]
+}
