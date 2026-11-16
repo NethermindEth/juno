@@ -39,13 +39,12 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     permissions:
-      contents: write # to list draft releases and to create a missing notes draft
+      contents: read
     outputs:
       sha: ${{ steps.check.outputs.sha }}
       prerelease: ${{ steps.check.outputs.prerelease }}
       review: ${{ steps.check.outputs.review }}
-      notes: ${{ steps.notes.outputs.id }}
-      core: ${{ steps.notes.outputs.core }}
+      core: ${{ steps.core.outputs.core }}
     steps:
       - name: Check that a person started the run
         env:
@@ -83,6 +82,12 @@ jobs:
           -ref "$REF" -version "$VERSION" -repo "$GITHUB_REPOSITORY"
           -summary "$GITHUB_STEP_SUMMARY" -output "$GITHUB_OUTPUT"
 
+      - name: Get the version without the pre-release part
+        id: core
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "core=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
+
       - name: Check that the test is an rc
         if: inputs.mode == 'test' && steps.check.outputs.prerelease != 'true'
         env:
@@ -109,19 +114,32 @@ jobs:
           fi
           cat docs-check.log
 
+  notes:
+    name: Release notes
+    needs: verify
+    runs-on: ubuntu-latest
+    # The versions of one release use the same notes draft, so they look for it one at a time.
+    concurrency:
+      group: release-notes-${{ needs.verify.outputs.core }}
+      cancel-in-progress: false
+    permissions:
+      contents: write # to list draft releases and to create a missing notes draft
+    outputs:
+      id: ${{ steps.notes.outputs.id }}
+    steps:
       - name: Read the release notes draft
         id: notes
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ inputs.version }}
-          SHA: ${{ steps.check.outputs.sha }}
+          CORE: ${{ needs.verify.outputs.core }}
+          SHA: ${{ needs.verify.outputs.sha }}
           MODE: ${{ inputs.mode }}
         run: |
           # One draft holds the notes of vX.Y.Z and all its rcs, so the notes can start at the first test.
           # The release run publishes that draft with the name and the tag of the version.
-          export CORE="${VERSION%%-*}"
-          echo "core=$CORE" >> "$GITHUB_OUTPUT"
-          drafts=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '[.[] | select(.draft and
+          drafts=$(gh api --paginate "repos/$GH_REPO/releases" --jq '[.[] | select(.draft and
             ([.name, .tag_name] | any((. // "") | . == env.CORE or startswith(env.CORE + "-"))))]' | jq -s 'add // []')
           count=$(jq length <<<"$drafts")
           if [ "$count" -gt 1 ]; then
@@ -133,16 +151,28 @@ jobs:
             exit 1
           fi
           if [ "$count" -eq 0 ]; then
-            # A draft does not create the tag.
-            url=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$CORE" -f name="$CORE" \
-              -f target_commitish="$SHA" -F draft=true -F generate_release_notes=true --jq .html_url)
-            echo "No release notes draft for $CORE. Created [a draft with generated notes]($url). Review it before the release." \
+            # A published rc took the draft with it. Start from its notes, not from generated notes.
+            rc=$(gh api --paginate "repos/$GH_REPO/releases" \
+              --jq '[.[] | select((.draft | not) and ((.tag_name // "") | startswith(env.CORE + "-")))]' |
+              jq -s 'add // [] | sort_by(.published_at) | last // empty')
+            if [ -n "$rc" ]; then
+              jq -r '.body // ""' <<<"$rc" > notes.md
+              from="the notes of $(jq -r .tag_name <<<"$rc")"
+              url=$(gh api "repos/$GH_REPO/releases" -f tag_name="$CORE" -f name="$CORE" \
+                -f target_commitish="$SHA" -F draft=true -F body=@notes.md --jq .html_url)
+            else
+              from="generated notes"
+              # A draft does not create the tag.
+              url=$(gh api "repos/$GH_REPO/releases" -f tag_name="$CORE" -f name="$CORE" \
+                -f target_commitish="$SHA" -F draft=true -F generate_release_notes=true --jq .html_url)
+            fi
+            echo "No release notes draft for $CORE. Created [a draft with $from]($url). Review it before the release." \
               >> "$GITHUB_STEP_SUMMARY"
             if [ "$MODE" != release ]; then
-              echo "::warning::No release notes draft for $CORE. Created one with generated notes: $url"
+              echo "::warning::No release notes draft for $CORE. Created one with $from: $url"
               exit 0
             fi
-            echo "::error::No release notes draft for $CORE. Created one with generated notes: $url. Review it, then run the release again."
+            echo "::error::No release notes draft for $CORE. Created one with $from: $url. Review it, then run the release again."
             exit 1
           fi
           body=$(jq -r '.[0].body // ""' <<<"$drafts")
@@ -221,7 +251,7 @@ jobs:
   publish:
     name: Publish
     if: inputs.mode != 'dry-run'
-    needs: [verify, build-binaries, build-image]
+    needs: [verify, notes, build-binaries, build-image]
     runs-on: ubuntu-latest
     environment: release
     # The versions of one release use the same notes draft, so they publish one at a time.
@@ -402,7 +432,7 @@ jobs:
       - name: Upload the release files to the notes draft
         if: inputs.mode == 'release'
         env:
-          ID: ${{ needs.verify.outputs.notes }}
+          ID: ${{ needs.notes.outputs.id }}
         run: |
           # Publish the notes draft itself, so that edits to the notes after the verify job stay.
           if [ "$(gh api "repos/$GH_REPO/releases/$ID" --jq .draft)" != true ]; then
@@ -449,7 +479,7 @@ jobs:
       - name: Publish the GitHub release
         if: inputs.mode == 'release'
         env:
-          ID: ${{ needs.verify.outputs.notes }}
+          ID: ${{ needs.notes.outputs.id }}
         run: |
           # Any writer can change a draft, so compare its files with the files built here.
           want=$(cd binaries && sha256sum juno-*.zip SHA256SUMS | awk '{print "sha256:" $1, $2}' | sort)
