@@ -45,6 +45,7 @@ jobs:
       prerelease: ${{ steps.check.outputs.prerelease }}
       review: ${{ steps.check.outputs.review }}
       notes: ${{ steps.notes.outputs.id }}
+      core: ${{ steps.notes.outputs.core }}
     steps:
       - name: Check that a person started the run
         env:
@@ -119,6 +120,7 @@ jobs:
           # One draft holds the notes of vX.Y.Z and all its rcs, so the notes can start at the first test.
           # The release run publishes that draft with the name and the tag of the version.
           export CORE="${VERSION%%-*}"
+          echo "core=$CORE" >> "$GITHUB_OUTPUT"
           drafts=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '[.[] | select(.draft and
             ([.name, .tag_name] | any((. // "") | . == env.CORE or startswith(env.CORE + "-"))))]' | jq -s 'add // []')
           count=$(jq length <<<"$drafts")
@@ -222,6 +224,10 @@ jobs:
     needs: [verify, build-binaries, build-image]
     runs-on: ubuntu-latest
     environment: release
+    # The versions of one release use the same notes draft, so they publish one at a time.
+    concurrency:
+      group: release-publish-${{ needs.verify.outputs.core }}
+      cancel-in-progress: false
     permissions:
       actions: read # to read who approved the run
       contents: write
