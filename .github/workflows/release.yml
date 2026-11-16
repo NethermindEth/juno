@@ -1,20 +1,23 @@
 name: Release
+run-name: >-
+  ${{ inputs.mode == 'test' && 'Test image' || inputs.mode == 'release' && 'Release' || 'Dry run' }}
+  ${{ inputs.version }} from ${{ inputs.ref }}
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch to release: main or release/vX.Y.Z"
+        description: "Branch to build: main or release/vX.Y.Z"
         required: true
         type: string
       version:
-        description: "Release tag, for example v0.16.9 or v0.16.9-rc.1"
+        description: "Version, for example v0.16.9 or v0.16.9-rc.1"
         required: true
         type: string
       mode:
         description: >-
-          dry-run: run the checks and the builds, publish nothing.
-          test: push an rc to the staging repository and move its latest tags, with no tag and no GitHub release.
+          dry-run: run the checks and the builds. Push no image, create no tag and no GitHub release.
+          test: also push an rc to the staging repository and move its latest tags. Create no tag and no GitHub release.
           release: publish the version.
         type: choice
         options: [dry-run, test, release]
@@ -59,6 +62,17 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Show what this run publishes
+        env:
+          MODE: ${{ inputs.mode }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          case $MODE in
+            dry-run) echo "# Dry run of $VERSION: checks and builds only. This run pushes no image and creates no tag and no GitHub release. If there is no release notes draft, it creates one." ;;
+            test) echo "# Test image $VERSION: after the approval, this run pushes \`$STAGING_REPO:$VERSION\` and moves \`$STAGING_REPO:latest\`. It creates no tag and no GitHub release, and pushes nothing to \`$OFFICIAL_REPO\`. The binaries are in the artifacts of this run." ;;
+            release) echo "# Release $VERSION: after the approval, this run creates the tag \`$VERSION\`, publishes the GitHub release from the notes draft, pushes \`$OFFICIAL_REPO:$VERSION\` and \`$STAGING_REPO:$VERSION\`, and moves \`$STAGING_REPO:latest\`. A version that is not an rc also moves \`$OFFICIAL_REPO:latest\`." ;;
+          esac >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -249,7 +263,7 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Publish
+    name: ${{ inputs.mode == 'test' && 'Push the test image' || 'Publish the release' }}
     if: inputs.mode != 'dry-run'
     needs: [verify, notes, build-binaries, build-image]
     runs-on: ubuntu-latest
@@ -514,6 +528,31 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Show what this run published
+        env:
+          MODE: ${{ inputs.mode }}
+          DEBIAN: ${{ steps.push.outputs.debian }}
+          DISTROLESS: ${{ steps.push.outputs.distroless }}
+        run: |
+          rows=("$STAGING_REPO:$VERSION $DEBIAN" "$STAGING_REPO:$VERSION-distroless $DISTROLESS"
+            "$STAGING_REPO:latest $DEBIAN" "$STAGING_REPO:latest-distroless $DISTROLESS")
+          if [ "$MODE" = release ]; then
+            rows+=("$OFFICIAL_REPO:$VERSION $DEBIAN" "$OFFICIAL_REPO:$VERSION-distroless $DISTROLESS")
+            if [ "$PRERELEASE" = false ]; then
+              rows+=("$OFFICIAL_REPO:latest $DEBIAN" "$OFFICIAL_REPO:latest-distroless $DISTROLESS")
+            fi
+          fi
+          {
+            echo "## Published images"; echo
+            echo "| Tag | Digest |"; echo "|---|---|"
+            for row in "${rows[@]}"; do echo "| \`${row% *}\` | \`${row#* }\` |"; done
+            echo; echo "Check the provenance of an image:"; echo
+            echo '```'; echo "gh attestation verify oci://index.docker.io/$STAGING_REPO@$DEBIAN -R $GH_REPO"; echo '```'
+            if [ "$MODE" = release ]; then
+              echo; echo "GitHub release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Log out of Docker Hub
         if: always()
