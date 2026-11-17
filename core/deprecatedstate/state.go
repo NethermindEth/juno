@@ -854,35 +854,16 @@ func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
 		return nil, err
 	}
 
-	seekKey := binary.BigEndian.AppendUint64(key, height)
-	for it.SeekGE(seekKey); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
-			break
-		}
-
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
-			// last change happened before the height we are looking for
-			// check head state
-			break
-		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this
-			// log entry is not useful. Advance the iterator and see we can use the next entry.
-			// If not, ErrCheckHeadState will be returned.
-			continue
-		}
-
-		val, itErr := it.Value()
-		if err = errors.Join(itErr, it.Close()); err != nil {
-			return nil, err
-		}
-		// seekedHeight > height
-		return val, nil
+	// Entries hold the value before the change at their block, so the first one after height has it.
+	if height == math.MaxUint64 || !it.SeekGE(binary.BigEndian.AppendUint64(key, height+1)) {
+		return nil, errors.Join(ErrCheckHeadState, it.Close())
 	}
 
-	return nil, errors.Join(ErrCheckHeadState, it.Close())
+	val, itErr := it.Value()
+	if err = errors.Join(itErr, it.Close()); err != nil {
+		return nil, err
+	}
+	return val, nil
 }
 
 // ContractStorageAt returns the value of a storage location
@@ -993,21 +974,16 @@ func (s *State) lastUpdatedBlockNumber(
 	}
 	defer it.Close()
 
-	seekKey := binary.BigEndian.AppendUint64(historyKeyPrefix, upToBlock)
-
-	if it.SeekGE(seekKey) {
-		seekedKey := it.Key()
-		seekedBlock := binary.BigEndian.Uint64(seekedKey[len(historyKeyPrefix):])
-		if seekedBlock == upToBlock {
-			return upToBlock, nil
-		}
-	}
-
-	if !it.Prev() {
+	if !seekAtOrBefore(it, historyKeyPrefix, upToBlock) {
 		return 0, nil
 	}
+	return binary.BigEndian.Uint64(it.Key()[len(historyKeyPrefix):]), nil
+}
 
-	foundKey := it.Key()
-	blockNum := binary.BigEndian.Uint64(foundKey[len(historyKeyPrefix):])
-	return blockNum, nil
+// seekAtOrBefore moves it, bounded to prefix, to the last history entry at or before blockNum.
+func seekAtOrBefore(it db.Iterator, prefix []byte, blockNum uint64) bool {
+	if blockNum == math.MaxUint64 {
+		return it.Last()
+	}
+	return it.SeekLT(binary.BigEndian.AppendUint64(prefix, blockNum+1))
 }
