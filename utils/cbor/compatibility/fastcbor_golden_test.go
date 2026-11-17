@@ -62,8 +62,11 @@ func TestFastcborGoldenBytes(t *testing.T) {
 	}
 	require.NotEmpty(t, cases)
 
-	// fastcbor reads the legacy form of a felt.
-	assertDecodesFromGolden(t, func(data []byte, dst any) error {
-		return fastcborDecoders[reflect.TypeOf(dst).Elem()](data, dst)
-	}, goldenBytes(t, legacyGoldenFile), cases)
+	for _, file := range []string{legacyGoldenFile, compactGoldenFile} {
+		t.Run(file, func(t *testing.T) {
+			assertDecodesFromGolden(t, func(data []byte, dst any) error {
+				return fastcborDecoders[reflect.TypeOf(dst).Elem()](data, dst)
+			}, goldenBytes(t, file), cases)
+		})
+	}
 }
