@@ -77,8 +77,8 @@ const (
 	opPtr
 )
 
-// readAt reads the field of the struct at base. The loop of read repeats its switch, as calling
-// readAt there measured 2 to 4% slower.
+// readAt reads the field of the struct at base. The loop of read repeats its switch to spare a call
+// for every field.
 func (f *fieldRead) readAt(r *cursor.Cursor, base unsafe.Pointer) error {
 	dst := unsafe.Add(base, f.offset)
 	switch f.op {

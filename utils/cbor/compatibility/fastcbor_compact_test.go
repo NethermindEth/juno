@@ -89,39 +89,3 @@ func TestFeltWidthsAcrossReaders(t *testing.T) {
 		}
 	}
 }
-
-// BenchmarkFeltDecode compares readers on the form selected by the build tag.
-func BenchmarkFeltDecode(b *testing.B) {
-	value := felt.FromUint64[felt.Felt](1 << 40)
-	values := make([]felt.Felt, 64)
-	pairs := make(map[felt.Felt]felt.Felt, len(values))
-	for i := range values {
-		values[i] = felt.FromUint64[felt.Felt](uint64(i) + 1<<40)
-		pairs[values[i]] = value
-	}
-	benchmarkFeltDecode(b, "single", value)
-	benchmarkFeltDecode(b, "slice", values)
-	benchmarkFeltDecode(b, "map", pairs)
-}
-
-func benchmarkFeltDecode[T any](b *testing.B, name string, value T) {
-	data, err := fxamacker.Marshal(value)
-	require.NoError(b, err)
-	for _, reader := range []struct {
-		name string
-		read func([]byte, *T) error
-	}{
-		{"fastcbor", fastcbor.Unmarshal[T]},
-		{"fxamacker", func(data []byte, dst *T) error { return fxamacker.Unmarshal(data, dst) }},
-	} {
-		b.Run(name+"/"+reader.name, func(b *testing.B) {
-			b.ReportAllocs()
-			for b.Loop() {
-				var dst T
-				if err := reader.read(data, &dst); err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-	}
-}

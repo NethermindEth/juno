@@ -144,7 +144,7 @@ func TestMapsKeyedByIntegers(t *testing.T) {
 		M32 map[uint32]uint64    `cbor:"m32"`
 		M64 map[uint64]*small    `cbor:"m64"`
 	}
-	// a map of the given bytes under the given key
+	// under returns a map that holds the given bytes under the given key.
 	under := func(name string, m []byte) []byte {
 		return append(append([]byte{0xa1, 0x60 | byte(len(name))}, name...), m...)
 	}
