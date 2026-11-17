@@ -28,11 +28,13 @@ type Op int32
 
 const (
 	Op_FIRST      Op = 0
-	Op_SEEK       Op = 1
+	Op_SEEK_GE    Op = 1
 	Op_CURRENT    Op = 4
+	Op_LAST       Op = 6
 	Op_NEXT       Op = 8
 	Op_PREV       Op = 12
 	Op_SEEK_EXACT Op = 15
+	Op_SEEK_LT    Op = 16
 	Op_OPEN       Op = 30
 	Op_CLOSE      Op = 31
 	Op_GET        Op = 64
@@ -42,22 +44,26 @@ const (
 var (
 	Op_name = map[int32]string{
 		0:  "FIRST",
-		1:  "SEEK",
+		1:  "SEEK_GE",
 		4:  "CURRENT",
+		6:  "LAST",
 		8:  "NEXT",
 		12: "PREV",
 		15: "SEEK_EXACT",
+		16: "SEEK_LT",
 		30: "OPEN",
 		31: "CLOSE",
 		64: "GET",
 	}
 	Op_value = map[string]int32{
 		"FIRST":      0,
-		"SEEK":       1,
+		"SEEK_GE":    1,
 		"CURRENT":    4,
+		"LAST":       6,
 		"NEXT":       8,
 		"PREV":       12,
 		"SEEK_EXACT": 15,
+		"SEEK_LT":    16,
 		"OPEN":       30,
 		"CLOSE":      31,
 		"GET":        64,
@@ -324,15 +330,17 @@ const file_kv_proto_rawDesc = "" +
 	"\fVersionReply\x12\x14\n" +
 	"\x05major\x18\x01 \x01(\rR\x05major\x12\x14\n" +
 	"\x05minor\x18\x02 \x01(\rR\x05minor\x12\x14\n" +
-	"\x05patch\x18\x03 \x01(\rR\x05patch*h\n" +
+	"\x05patch\x18\x03 \x01(\rR\x05patch*\x82\x01\n" +
 	"\x02Op\x12\t\n" +
-	"\x05FIRST\x10\x00\x12\b\n" +
-	"\x04SEEK\x10\x01\x12\v\n" +
+	"\x05FIRST\x10\x00\x12\v\n" +
+	"\aSEEK_GE\x10\x01\x12\v\n" +
 	"\aCURRENT\x10\x04\x12\b\n" +
+	"\x04LAST\x10\x06\x12\b\n" +
 	"\x04NEXT\x10\b\x12\b\n" +
 	"\x04PREV\x10\f\x12\x0e\n" +
 	"\n" +
-	"SEEK_EXACT\x10\x0f\x12\b\n" +
+	"SEEK_EXACT\x10\x0f\x12\v\n" +
+	"\aSEEK_LT\x10\x10\x12\b\n" +
 	"\x04OPEN\x10\x1e\x12\t\n" +
 	"\x05CLOSE\x10\x1f\x12\a\n" +
 	"\x03GET\x10@2k\n" +

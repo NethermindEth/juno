@@ -170,7 +170,7 @@ func (w *storageWalk) run(history db.Iterator, prefix []byte) error {
 // migrated reports a rerun after the wipe, which must skip: head leaves at the floor would
 // overwrite history. Leaves are written in slot order, so only a written last leaf means done.
 func (w *storageWalk) migrated() (bool, error) {
-	if w.leaves.Seek(dbutils.UpperBound(w.leafPrefix)) || !w.leaves.Prev() {
+	if w.leaves.SeekGE(dbutils.UpperBound(w.leafPrefix)) || !w.leaves.Prev() {
 		return false, nil
 	}
 	lastSlot := felt.FromBytes[felt.Felt](w.leafSlot())
