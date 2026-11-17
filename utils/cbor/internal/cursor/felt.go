@@ -14,6 +14,15 @@ const (
 	feltLen  = 1 + Limbs*(1+8)
 )
 
+// limbHead is the head of a limb in the eight-byte form.
+const limbHead = MajorUint | info8Byte
+
+// wideFelt reports whether buf starts with a felt whose four limbs all take the eight-byte form.
+func wideFelt(buf []byte) bool {
+	return len(buf) >= feltLen && buf[0] == feltHead &&
+		buf[1] == limbHead && buf[10] == limbHead && buf[19] == limbHead && buf[28] == limbHead
+}
+
 // Limbs reads a felt, an array of four unsigned integers that are the limbs of its Montgomery
 // form. dst is written only on success.
 func (c *Cursor) Limbs(dst *[Limbs]uint64) error {
@@ -22,10 +31,7 @@ func (c *Cursor) Limbs(dst *[Limbs]uint64) error {
 		return c.limbsSlow(dst)
 	}
 	buf := c.buf[c.pos:]
-	// Written out here, in readLimbs, skip and skipElements, and not as a helper, because a helper
-	// measured slower.
-	if len(buf) >= feltLen && buf[0] == feltHead &&
-		buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+	if wideFelt(buf) {
 		dst[0] = binary.BigEndian.Uint64(buf[2:])
 		dst[1] = binary.BigEndian.Uint64(buf[11:])
 		dst[2] = binary.BigEndian.Uint64(buf[20:])
@@ -153,8 +159,7 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
 	buf := c.buf[c.pos:]
 	for i := range felts {
-		if len(buf) >= feltLen && buf[0] == feltHead &&
-			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+		if wideFelt(buf) {
 			felt := &felts[i]
 			felt[0] = binary.BigEndian.Uint64(buf[2:])
 			felt[1] = binary.BigEndian.Uint64(buf[11:])

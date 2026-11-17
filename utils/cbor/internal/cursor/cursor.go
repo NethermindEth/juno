@@ -199,7 +199,8 @@ func describe(head byte) string {
 	}
 }
 
-// ArrayLen reads an array head and returns its element count, capped by the bytes left.
+// ArrayLen reads an array head and returns its element count, capped by the bytes left. The caller
+// must call Leave after reading the elements.
 func (c *Cursor) ArrayLen() (int, error) {
 	if c.pos < len(c.buf) && c.depth < maxNestedLevels {
 		// count < bytes left including the head is count <= bytes left after it.
@@ -212,7 +213,8 @@ func (c *Cursor) ArrayLen() (int, error) {
 	return c.containerLen(majorArray, 1)
 }
 
-// MapLen reads a map head and returns its pair count, capped by the bytes left.
+// MapLen reads a map head and returns its pair count, capped by the bytes left. The caller must
+// call Leave after reading the elements.
 func (c *Cursor) MapLen() (int, error) {
 	if c.pos < len(c.buf) && c.depth < maxNestedLevels {
 		if count := c.buf[c.pos] - majorMap; count < info1Byte && 2*int(count) < len(c.buf)-c.pos {

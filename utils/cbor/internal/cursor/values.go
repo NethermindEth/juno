@@ -7,6 +7,12 @@ import (
 	"unicode/utf8"
 )
 
+// Tags for big numbers. https://www.rfc-editor.org/rfc/rfc8949.html#section-3.4.3
+const (
+	tagPositiveBignum = 2
+	tagNegativeBignum = 3
+)
+
 // Uint64 reads an unsigned integer. A negative one is a type error.
 func (c *Cursor) Uint64() (uint64, error) {
 	return c.expect(MajorUint)
@@ -150,9 +156,3 @@ func (c *Cursor) BigInt() (*big.Int, error) {
 		return nil, c.mismatch("an integer", c.buf[start])
 	}
 }
-
-// Tags for big numbers. https://www.rfc-editor.org/rfc/rfc8949.html#section-3.4.3
-const (
-	tagPositiveBignum = 2
-	tagNegativeBignum = 3
-)

@@ -18,8 +18,7 @@ func (c *Cursor) Skip() error {
 func (c *Cursor) skip(depth int) error {
 	// A felt in the uint64 form is the bulk of a record and needs no head decoding. It opens a level
 	// of its own.
-	if buf := c.buf[c.pos:]; depth < maxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
-		buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+	if buf := c.buf[c.pos:]; depth < maxNestedLevels && wideFelt(buf) {
 		c.pos += feltLen
 		return nil
 	}
@@ -83,8 +82,7 @@ func (c *Cursor) skipElements(count, limit uint64, perCount, depth int) error {
 		return c.fail(ErrTruncated, "count exceeds the input")
 	}
 	for n := count * uint64(perCount); n > 0; n-- {
-		if buf := c.buf[c.pos:]; depth < maxNestedLevels && len(buf) >= feltLen && buf[0] == feltHead &&
-			buf[1] == 0x1b && buf[10] == 0x1b && buf[19] == 0x1b && buf[28] == 0x1b {
+		if buf := c.buf[c.pos:]; depth < maxNestedLevels && wideFelt(buf) {
 			c.pos += feltLen
 			continue
 		}
