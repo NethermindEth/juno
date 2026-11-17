@@ -425,9 +425,7 @@ func newSupersededPruner(
 }
 
 func (p *supersededPruner) prune(keyPrefix []byte) error {
-	// Seek may run past the bucket end; Prev then lands on its last entry
-	p.it.SeekGE(binary.BigEndian.AppendUint64(keyPrefix, p.blockNumber))
-	if !p.it.Prev() {
+	if !p.it.SeekLT(binary.BigEndian.AppendUint64(keyPrefix, p.blockNumber)) {
 		return nil
 	}
 	key := p.it.Key()
