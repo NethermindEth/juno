@@ -93,7 +93,8 @@ func readInts(c *cursor.Cursor, dst *[]int) error {
 	}
 	out := make([]int, count)
 	for i := range out {
-		// Stored offsets are unsigned; a null or a negative integer takes the second try.
+		// Stored offsets are unsigned. A null leaves the element zero, and a negative integer is read as
+		// signed.
 		value, err := c.Uint64()
 		if err != nil {
 			if c.Null() {
@@ -123,7 +124,7 @@ func (s *plans) reader(t reflect.Type) (rootReader, error) {
 		return nil, err
 	}
 	if structPlan := p.structs[t]; structPlan != nil {
-		// The plan of a struct is called directly, not through its method value.
+		// A struct calls its own plan here, with no indirect call.
 		return func(data []byte, dst unsafe.Pointer) ([]byte, error) {
 			c := borrow(data)
 			err := structPlan.read(c, dst)
@@ -148,8 +149,8 @@ func (s *plans) reader(t reflect.Type) (rootReader, error) {
 // cursorPool keeps Cursors, which would otherwise escape to the heap on every decode.
 var cursorPool = sync.Pool{New: func() any { return new(cursor.Cursor) }}
 
-// borrow returns a pooled Cursor positioned at the start of data. It and giveBack are not in the
-// readers because the compiler did not inline NewCursor and Remaining into their closures.
+// borrow returns a pooled Cursor positioned at the start of data. It and giveBack are functions of
+// their own, as NewCursor and Remaining do not inline into the closures of the readers.
 func borrow(data []byte) *cursor.Cursor {
 	c := cursorPool.Get().(*cursor.Cursor)
 	*c = cursor.NewCursor(data)
