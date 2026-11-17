@@ -189,3 +189,57 @@ jobs:
         env:
           STARKNET_RPC: ${{ secrets.RPC_URL }}/${{ matrix.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}
         run: ./golden.sh test
+
+  corpus-diff-tests:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rpc_version: v0_9
+            spec_version: v0.9
+          - rpc_version: v0_10
+            spec_version: v0.10
+    name: corpus-diff-tests-${{ matrix.rpc_version }}
+    steps:
+      - name: Checkout golden tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: NethermindEth/starknet-golden-tests
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build corpus-diff
+        run: go build -o corpus-diff ./cmd/corpus-diff
+
+      - name: Compare the node with the recorded responses
+        env:
+          NODE_URL: ${{ secrets.RPC_URL }}/${{ matrix.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}
+          SPEC_VERSION: ${{ matrix.spec_version }}
+        run: |
+          ./corpus-diff compare \
+            --corpus "corpora/sepolia/$SPEC_VERSION" \
+            --records "recorded/sepolia/$SPEC_VERSION" \
+            --node "$NODE_URL" \
+            --concurrency 4 \
+            --report report
+
+      - name: Write the job summary
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f report/summary.md ]; then
+            cat report/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: corpus-diff-report-${{ matrix.rpc_version }}
+          path: report/
+          if-no-files-found: ignore
