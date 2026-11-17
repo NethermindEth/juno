@@ -4,8 +4,8 @@
 //
 // A general-purpose CBOR decoder checks that the whole input is well-formed and then decodes it,
 // accepting every form the standard allows. A Cursor checks as it reads, and reads only the forms
-// Juno stores. These are integers, strings, felts as four limbs and struct fields by number, with
-// Skip for what is not wanted. Anything else, and anything malformed, is an error.
+// Juno stores. These are integers, strings, felts in the legacy or compact form and struct fields
+// by number, with Skip for what is not wanted. Anything else, and anything malformed, is an error.
 //
 // Its primitives are pinned to the examples of RFC 8949 Appendix A, and its felts to literal
 // bytes. The examples are at https://www.rfc-editor.org/rfc/rfc8949.html#appendix-A
