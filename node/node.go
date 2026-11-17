@@ -529,9 +529,16 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			}
 
 			gw := adaptfeeder.New(client)
-			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+			var dataSource sync.DataSource
 			if rpcSyncSource != nil {
 				dataSource = rpcSyncSource
+			} else {
+				// Only the feeder gateway source reports class downloads.
+				var dataSourceOpts []sync.DataSourceOption
+				if cfg.Metrics {
+					dataSourceOpts = append(dataSourceOpts, makeClassDownloadMetrics())
+				}
+				dataSource = sync.NewFeederGatewayDataSource(chain, gw, dataSourceOpts...)
 			}
 			synchronizer = sync.New(
 				chain,
