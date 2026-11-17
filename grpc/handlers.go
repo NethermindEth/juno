@@ -86,6 +86,7 @@ func (h Handler) handleTxCursor(
 		}
 		return server.Send(responsePair)
 	} else if cur.Op == gen.Op_CLOSE {
+		responsePair.CursorId = cur.Cursor
 		if err := tx.closeCursor(cur.Cursor); err != nil {
 			return fmt.Errorf("cursor %d operation %q: %w", cur.Cursor, cur.Op, err)
 		}
