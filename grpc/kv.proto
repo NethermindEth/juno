@@ -15,11 +15,13 @@ service KV {
 // FIRST is the enum zero-value, so a Cursor with an unset op silently behaves as FIRST.
 enum Op {
   FIRST = 0;
-  SEEK = 1;
+  SEEK_GE = 1;
   CURRENT = 4;
+  LAST = 6;
   NEXT = 8;
   PREV = 12;
   SEEK_EXACT = 15;
+  SEEK_LT = 16;
   OPEN = 30;
   CLOSE = 31;
   GET = 64;

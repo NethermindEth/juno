@@ -269,7 +269,7 @@ func addressSeq(
 
 		progressBytes := progress.Bytes()
 		from := append(append(make([]byte, 0, len(prefix)+felt.Bytes), prefix...), progressBytes[:]...)
-		for valid := it.Seek(from); valid; valid = it.Next() {
+		for valid := it.SeekGE(from); valid; valid = it.Next() {
 			key := it.Key()
 			if len(key) != len(prefix)+felt.Bytes {
 				iterErr = fmt.Errorf(

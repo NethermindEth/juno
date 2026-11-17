@@ -102,7 +102,9 @@ func TestHandlers_Tx(t *testing.T) {
 	cID := cur.CursorId
 
 	ops := []gen.Op{
-		gen.Op_SEEK,
+		gen.Op_LAST,
+		gen.Op_SEEK_GE,
+		gen.Op_SEEK_LT,
 		gen.Op_SEEK_EXACT,
 		gen.Op_NEXT,
 		gen.Op_CURRENT,
@@ -122,4 +124,74 @@ func TestHandlers_Tx(t *testing.T) {
 		assert.Empty(t, cur.V)
 	}
 	stream.Close()
+}
+
+func TestHandlers_TxCursorMoves(t *testing.T) {
+	memDB := memory.New()
+	for _, key := range [][]byte{{0x01}, {0x02}, {0x03}} {
+		require.NoError(t, memDB.Put(key, append([]byte("v"), key...)))
+	}
+	stream := createTxStream(t, Handler{db: memDB})
+
+	stream.SendFromClient(&gen.Cursor{Op: gen.Op_OPEN})
+	opened, err := stream.RecvToClient()
+	require.NoError(t, err)
+
+	// found is the key the cursor must land on, or nil when the move leaves it invalid.
+	moves := []struct {
+		op    gen.Op
+		key   []byte
+		found []byte
+	}{
+		{gen.Op_FIRST, nil, []byte{0x01}},
+		{gen.Op_NEXT, nil, []byte{0x02}},
+		{gen.Op_CURRENT, nil, []byte{0x02}},
+		{gen.Op_LAST, nil, []byte{0x03}},
+		{gen.Op_PREV, nil, []byte{0x02}},
+		{gen.Op_SEEK_GE, []byte{0x02}, []byte{0x02}},
+		{gen.Op_SEEK_LT, []byte{0x02}, []byte{0x01}},
+		{gen.Op_SEEK_LT, []byte{0x01}, nil},
+		{gen.Op_CLOSE, nil, nil},
+	}
+
+	for _, move := range moves {
+		stream.SendFromClient(&gen.Cursor{Op: move.op, Cursor: opened.CursorId, K: move.key})
+		pair, err := stream.RecvToClient()
+		require.NoError(t, err)
+		assert.Equal(t, move.found, pair.K, "op %s", move.op)
+		if move.found == nil {
+			assert.Empty(t, pair.V, "op %s", move.op)
+		} else {
+			assert.Equal(t, append([]byte("v"), move.found...), pair.V, "op %s", move.op)
+		}
+	}
+	stream.Close()
+}
+
+func TestHandlers_TxCursorErrors(t *testing.T) {
+	// cursorOffset is added to the opened cursor's ID, so a non-zero offset names an unknown cursor.
+	tests := []struct {
+		name         string
+		op           gen.Op
+		cursorOffset uint32
+		wantErr      string
+	}{
+		{name: "unknown op", op: gen.Op(99), wantErr: "unknown operation"},
+		{name: "close unknown cursor", op: gen.Op_CLOSE, cursorOffset: 1, wantErr: "not found"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := makeGrpcStreamMock(t)
+			txErr := make(chan error, 1)
+			go func() { txErr <- Handler{db: memory.New()}.Tx(stream) }()
+
+			stream.SendFromClient(&gen.Cursor{Op: gen.Op_OPEN})
+			opened, err := stream.RecvToClient()
+			require.NoError(t, err)
+
+			stream.SendFromClient(&gen.Cursor{Op: tt.op, Cursor: opened.CursorId + tt.cursorOffset})
+			require.ErrorContains(t, <-txErr, tt.wantErr)
+		})
+	}
 }
