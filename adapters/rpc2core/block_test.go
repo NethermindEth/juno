@@ -208,17 +208,17 @@ func TestAdaptBlockVerifiesHash(t *testing.T) {
 func TestAdaptBlockZeroSequencer(t *testing.T) {
 	tests := []struct {
 		fixture fixtureBlock
-		want    *felt.Felt
+		want    *felt.Address
 	}{
 		{fixture: mainnet1466, want: nil},
-		{fixture: mainnet763497, want: new(felt.Zero[felt.Felt]())},
-		{fixture: sepoliaIntegration64164, want: new(felt.Zero[felt.Felt]())},
+		{fixture: mainnet763497, want: new(felt.Zero[felt.Address]())},
+		{fixture: sepoliaIntegration64164, want: new(felt.Zero[felt.Address]())},
 	}
 
 	for _, test := range tests {
 		t.Run(test.fixture.String(), func(t *testing.T) {
 			served := servedBlock(t, coreBlock(t, test.fixture))
-			served.SequencerAddress = new(felt.Zero[felt.Felt]())
+			served.SequencerAddress = new(felt.Zero[felt.Address]())
 
 			adapted, err := rpc2core.AdaptBlock(served, test.fixture.network)
 			require.NoError(t, err)
@@ -243,8 +243,8 @@ func singleTransactionBlock(transaction core.Transaction) *core.Block {
 			Hash:             new(felt.One[felt.Felt]()),
 			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           1,
-			GlobalStateRoot:  new(felt.Zero[felt.Felt]()),
-			SequencerAddress: new(felt.One[felt.Felt]()),
+			GlobalStateRoot:  new(felt.Zero[felt.StateRootHash]()),
+			SequencerAddress: new(felt.One[felt.Address]()),
 			TransactionCount: 1,
 			ProtocolVersion:  "0.13.4",
 			L1GasPriceETH:    new(felt.One[felt.Felt]()),

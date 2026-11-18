@@ -41,7 +41,7 @@ func testBloomWithKeys(t *testing.T, keys [][]byte) *bloom.BloomFilter {
 // writeBlockEventFrom seeds block blockNum with a single receipt whose one
 // event is emitted from `from`. fillRunningEventFilter reconstructs the block's
 // bloom from these receipts, so a BlocksForKeys query on from.Bytes() hits.
-func writeBlockEventFrom(t *testing.T, w db.KeyValueWriter, blockNum uint64, from *felt.Felt) {
+func writeBlockEventFrom(t *testing.T, w db.KeyValueWriter, blockNum uint64, from *felt.Address) {
 	t.Helper()
 	receipts := []*core.TransactionReceipt{{Events: []*core.Event{{From: from}}}}
 	require.NoError(t, core.WriteTransactionsAndReceipts(w, blockNum, nil, receipts))
@@ -172,7 +172,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, testDB.Close()) })
 			latest := core.NumBlocksPerFilter + 5
 
-			eventFrom := felt.NewRandom[felt.Felt]()
+			eventFrom := felt.NewRandom[felt.Address]()
 			fromBytes := eventFrom.Bytes()
 			headerKeys := [][]byte{fromBytes[:]}
 			batch := testDB.NewBatch()
@@ -237,7 +237,7 @@ func TestRunningEventFilter_InsertWithBatch_AtWindowBoundary(t *testing.T) {
 	// the chain-height read sees the pre-batch value during ensureInit.
 
 	boundary := core.NumBlocksPerFilter - 1
-	eventFrom := felt.NewRandom[felt.Felt]()
+	eventFrom := felt.NewRandom[felt.Address]()
 	fromBytes := eventFrom.Bytes()
 	headerKeys := [][]byte{fromBytes[:]}
 
@@ -326,7 +326,7 @@ func TestRunningEventFilter_OnReorgWithBatch_AtWindowBoundary(t *testing.T) {
 	// reverted block.
 
 	boundary := core.NumBlocksPerFilter - 1
-	eventFrom := felt.NewRandom[felt.Felt]()
+	eventFrom := felt.NewRandom[felt.Address]()
 	fromBytes := eventFrom.Bytes()
 	headerKeys := [][]byte{fromBytes[:]}
 

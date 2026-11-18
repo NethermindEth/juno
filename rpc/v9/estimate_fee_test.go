@@ -163,7 +163,7 @@ func TestEstimateFee(t *testing.T) {
 				Version:       felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				Nonce:         felt.NewUnsafeFromString[felt.Felt]("0x0"),
 				MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				SenderAddress: felt.NewUnsafeFromString[felt.Address]("0x2"),
 				Signature: &felt.Slice[felt.Felt]{
 					felt.UnsafeFromString[felt.Felt]("0x123"),
 				},
@@ -201,7 +201,7 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	blockID := blockIDLatest(t)
 	msg := &rpc.MsgFromL1{
-		To:       felt.FromUint64[felt.Felt](0xABCD),
+		To:       felt.FromUint64[felt.Address](0xABCD),
 		Selector: felt.FromUint64[felt.Felt](0x1),
 		Payload:  []felt.Felt{felt.FromUint64[felt.Felt](0xCAFE)},
 	}

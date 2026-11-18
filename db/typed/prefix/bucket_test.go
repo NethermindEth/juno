@@ -94,7 +94,7 @@ func extractExpectedEntries(
 }
 
 func compareAddress(a, b felt.Address) int {
-	return (*felt.Felt)(&a).Cmp((*felt.Felt)(&b))
+	return a.Cmp(&b)
 }
 
 func filter[K comparable, V any](filter *K, cmp func(K, K) int, entries map[K]V) iter.Seq[K] {

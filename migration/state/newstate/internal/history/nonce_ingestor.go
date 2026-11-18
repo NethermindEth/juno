@@ -48,41 +48,40 @@ func newNonceIngestor(
 // pre-value, or the head nonce when no history is left. Unpruned, it is always zero.
 // Deprecated rows are wiped with the whole bucket once the phase completes.
 func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.Task) error {
-	addrFelt := (*felt.Felt)(&addr)
-
 	curTask := &i.Tasks[index]
-	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(addrFelt)
+	//nolint:staticcheck,nolintlint // old state layout
+	deprecatedPrefix := db.DeprecatedContractNonceHistoryKey(&addr)
 
 	depIt, err := i.Database.NewIterator(deprecatedPrefix, true)
 	if err != nil {
-		return fmt.Errorf("nonce: open deprecated iter(%s): %w", addrFelt, err)
+		return fmt.Errorf("nonce: open deprecated iter(%s): %w", &addr, err)
 	}
 	defer depIt.Close()
 
 	hasHistory := depIt.First()
 	if !hasHistory {
 		// No deprecated rows and new ones exist: a rerun after the phase completed.
-		migrated, err := hasEntries(i.Database, db.ContractNonceHistoryKey(addrFelt))
+		migrated, err := hasEntries(i.Database, db.ContractNonceHistoryKey(&addr))
 		if err != nil || migrated {
 			return err
 		}
 	}
 
-	contract, err := state.GetContract(i.Database, addrFelt)
+	contract, err := state.GetContract(i.Database, &addr)
 	if err != nil {
-		return fmt.Errorf("nonce: GetContract(%s): %w", addrFelt, err)
+		return fmt.Errorf("nonce: GetContract(%s): %w", &addr, err)
 	}
 
 	floorNonce := contract.Nonce
 	if hasHistory {
 		rawValue, err := depIt.Value()
 		if err != nil {
-			return fmt.Errorf("nonce(%s): %w", addrFelt, err)
+			return fmt.Errorf("nonce(%s): %w", &addr, err)
 		}
 		floorNonce = felt.FromBytes[felt.Felt](rawValue)
 	}
 	if !floorNonce.IsZero() {
-		if err := i.write(curTask, outputs, addrFelt, i.floor, &floorNonce); err != nil {
+		if err := i.write(curTask, outputs, &addr, i.floor, &floorNonce); err != nil {
 			return err
 		}
 	}
@@ -90,18 +89,18 @@ func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.
 	for hasHistory {
 		block, err := parseBlockKey(depIt.Key(), deprecatedPrefix)
 		if err != nil {
-			return fmt.Errorf("nonce(%s): %w", addrFelt, err)
+			return fmt.Errorf("nonce(%s): %w", &addr, err)
 		}
 		hasNext := depIt.Next()
 		historyValue := contract.Nonce
 		if hasNext {
 			rawValue, err := depIt.Value()
 			if err != nil {
-				return fmt.Errorf("nonce(%s): %w", addrFelt, err)
+				return fmt.Errorf("nonce(%s): %w", &addr, err)
 			}
 			historyValue = felt.FromBytes[felt.Felt](rawValue)
 		}
-		if err := i.write(curTask, outputs, addrFelt, block, &historyValue); err != nil {
+		if err := i.write(curTask, outputs, &addr, block, &historyValue); err != nil {
 			return err
 		}
 		hasHistory = hasNext
@@ -112,7 +111,11 @@ func (i *nonceIngestor) Run(index int, addr felt.Address, outputs chan<- common.
 }
 
 func (i *nonceIngestor) write(
-	t *common.Task, outputs chan<- common.Task, addr *felt.Felt, block uint64, nonce *felt.Felt,
+	t *common.Task,
+	outputs chan<- common.Task,
+	addr *felt.Address,
+	block uint64,
+	nonce *felt.Felt,
 ) error {
 	if err := state.WriteNonceHistory(t.Batch, addr, block, nonce); err != nil {
 		return err

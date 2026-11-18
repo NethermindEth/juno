@@ -22,12 +22,12 @@ import (
 func writeBlock(t *testing.T, database db.KeyValueStore, blockNum, storageDiffs uint64) {
 	t.Helper()
 
-	diffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+	diffs := make(map[felt.Address]map[felt.Felt]*felt.Felt)
 	inner := make(map[felt.Felt]*felt.Felt, storageDiffs)
 	for i := range storageDiffs {
 		inner[felt.FromUint64[felt.Felt](i)] = felt.NewFromUint64[felt.Felt](i)
 	}
-	diffs[felt.FromUint64[felt.Felt](blockNum)] = inner
+	diffs[felt.FromUint64[felt.Address](blockNum)] = inner
 
 	require.NoError(t, core.StateUpdatesByBlockNumberBucket.Put(database, blockNum, &core.StateUpdate{
 		StateDiff: &core.StateDiff{StorageDiffs: diffs},

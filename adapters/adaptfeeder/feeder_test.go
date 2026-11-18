@@ -46,7 +46,7 @@ func TestClassV0(t *testing.T) {
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
-			hash := felt.NewUnsafeFromString[felt.Felt](hashString)
+			hash := felt.NewUnsafeFromString[felt.ClassHash](hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
 			classGeneric, err := adapter.Class(ctx, hash)
@@ -64,15 +64,19 @@ func TestClassV1(t *testing.T) {
 	adapter := adaptfeeder.New(client)
 
 	tests := []struct {
-		classHash        *felt.Felt
+		classHash        *felt.ClassHash
 		hasCompiledClass bool
 	}{
 		{
-			classHash:        felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			classHash: felt.NewUnsafeFromString[felt.ClassHash](
+				"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+			),
 			hasCompiledClass: true,
 		},
 		{
-			classHash:        felt.NewUnsafeFromString[felt.Felt]("0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
+			classHash: felt.NewUnsafeFromString[felt.ClassHash](
+				"0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
+			),
 			hasCompiledClass: false,
 		},
 	}
@@ -135,7 +139,7 @@ func TestAdapterErrorPaths(t *testing.T) {
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 	missing := uint64(99999999)
-	missingHash := felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")
+	missingHash := felt.NewUnsafeFromString[felt.ClassHash]("0xdeadbeef")
 
 	t.Run("StateUpdateWithBlock error", func(t *testing.T) {
 		su, blk, err := adapter.StateUpdateWithBlock(ctx, missing)

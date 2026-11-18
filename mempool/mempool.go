@@ -39,7 +39,7 @@ type memPoolTxn struct {
 // persistent db txn value
 type dbPoolTxn struct {
 	Txn      BroadcastedTransaction
-	NextHash *felt.Felt
+	NextHash *felt.TransactionHash
 }
 
 // memTxnList represents a linked list of user transactions at runtime
@@ -187,7 +187,7 @@ func (p *SequencerMempool) LoadFromDB() error {
 func (p *SequencerMempool) writeToDB(userTxn *BroadcastedTransaction) error {
 	batch := p.db.NewBatch()
 
-	var tailVal *felt.Felt
+	var tailVal *felt.TransactionHash
 	val, err := GetTailValue(p.db)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {

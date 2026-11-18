@@ -291,7 +291,7 @@ func TestEthL1StateProvider_FilterStateUpdate_DecodesAndTranslates(t *testing.T)
 	assert.Equal(t, uint64(1), got[0].L2BlockNumber)
 	assert.Equal(t, uint64(1_000), got[0].L1RefHeight)
 	assert.False(t, got[0].Removed)
-	assert.Equal(t, *new(felt.Felt).SetUint64(1), got[0].StateRoot)
+	assert.Equal(t, felt.FromUint64[felt.StateRootHash](1), got[0].StateRoot)
 	assert.Equal(t, *new(felt.Felt).SetUint64(101), got[0].L2BlockHash)
 
 	assert.Equal(t, uint64(2), got[1].L2BlockNumber)

@@ -76,9 +76,11 @@ func progressiveHandler(t *testing.T, runner vm.VM) progressiveFixture {
 	}
 	txs := make([]core.Transaction, 3)
 	for i := range txs {
-		txs[i] = &core.InvokeTransaction{TransactionHash: felt.NewFromUint64[felt.Felt](uint64(i + 1))}
+		txs[i] = &core.InvokeTransaction{
+			TransactionHash: felt.NewFromUint64[felt.TransactionHash](uint64(i + 1)),
+		}
 		reader.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txs[i].Hash()),
+			txs[i].Hash(),
 		).Return(header.Number, uint64(i), nil).AnyTimes()
 	}
 	reader.EXPECT().BlockHeaderByNumber(header.Number).Return(header, nil).AnyTimes()
@@ -114,8 +116,8 @@ func TestProgressiveFailureRetainsPrefixAndOffsetsError(t *testing.T) {
 		return progressiveResult(txs), nil
 	}}
 	f := progressiveHandler(t, runner)
-	first := (*felt.TransactionHash)(f.txs[0].Hash())
-	second := (*felt.TransactionHash)(f.txs[1].Hash())
+	first := f.txs[0].Hash()
+	second := f.txs[1].Hash()
 	prefix, _, rpcErr := f.handler.TraceTransaction(t.Context(), first)
 	require.Nil(t, rpcErr)
 	_, steps, rpcErr := f.handler.TraceBlockTransactions(t.Context(), &f.blockID, nil)
@@ -150,7 +152,7 @@ func TestProgressiveWaiterCancellation(t *testing.T) {
 			return progressiveResult(txs), nil
 		}}
 		f := progressiveHandler(t, runner)
-		target := (*felt.TransactionHash)(f.txs[1].Hash())
+		target := f.txs[1].Hash()
 		owner := make(chan *jsonrpc.Error, 1)
 		go func() {
 			_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
@@ -210,7 +212,7 @@ func TestProgressivePanicAndMalformedResultsDoNotPublish(t *testing.T) {
 				return result, nil
 			}}
 			f := progressiveHandler(t, runner)
-			target := (*felt.TransactionHash)(f.txs[0].Hash())
+			target := f.txs[0].Hash()
 			request := func() {
 				_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 				require.NotNil(t, rpcErr)
@@ -256,7 +258,7 @@ func TestProgressiveInitialReadsReplayPreservesPrefix(t *testing.T) {
 			return result, nil
 		}}
 		f := progressiveHandler(t, runner)
-		target := (*felt.TransactionHash)(f.txs[0].Hash())
+		target := f.txs[0].Hash()
 		prefix, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 		require.Nil(t, rpcErr)
 		require.Equal(t, execution{transactions: f.txs[:1]}, <-observed)
@@ -295,8 +297,8 @@ func TestProgressiveInitialReadsReplayPreservesPrefix(t *testing.T) {
 }
 
 func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
-	classHash := felt.FromUint64[felt.Felt](44)
-	address := felt.FromUint64[felt.Felt](45)
+	classHash := felt.FromUint64[felt.ClassHash](44)
+	address := felt.FromUint64[felt.Address](45)
 	key := felt.FromUint64[felt.Felt](46)
 	definition := &core.DeprecatedCairoClass{}
 	calls := 0
@@ -308,7 +310,7 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 		calls++
 		result := progressiveResult(txs)
 		if calls == 1 {
-			result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.Felt{&classHash}
+			result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.ClassHash{&classHash}
 			result.Traces[0].StateDiff.StorageDiffs = []vm.StorageDiff{{
 				Address:        address,
 				StorageEntries: []vm.Entry{{Key: key, Value: felt.One[felt.Felt]()}},
@@ -326,11 +328,11 @@ func TestProgressiveCheckpointDeclarationsAndStorage(t *testing.T) {
 	f := progressiveHandler(t, runner)
 	f.head.EXPECT().Class(&classHash).Return(&core.DeclaredClassDefinition{Class: definition}, nil)
 	_, _, rpcErr := f.handler.TraceTransaction(
-		t.Context(), (*felt.TransactionHash)(f.txs[0].Hash()),
+		t.Context(), f.txs[0].Hash(),
 	)
 	require.Nil(t, rpcErr)
 	_, _, rpcErr = f.handler.TraceTransaction(
-		t.Context(), (*felt.TransactionHash)(f.txs[1].Hash()),
+		t.Context(), f.txs[1].Hash(),
 	)
 	require.Nil(t, rpcErr)
 	require.Equal(t, 2, calls)
@@ -354,7 +356,7 @@ func TestProgressiveTargetIdentityBeforeExecutionAndOnHit(t *testing.T) {
 	require.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	require.Zero(t, calls)
 	_, _, rpcErr = f.handler.TraceTransaction(
-		t.Context(), (*felt.TransactionHash)(f.txs[0].Hash()),
+		t.Context(), f.txs[0].Hash(),
 	)
 	require.Nil(t, rpcErr)
 	_, _, rpcErr = f.handler.TraceTransaction(t.Context(), bad)
@@ -368,7 +370,7 @@ func TestProgressiveTargetIdentityBeforeExecutionAndOnHit(t *testing.T) {
 }
 
 func TestProgressiveCheckpointReadFailurePreservesPrefix(t *testing.T) {
-	classHash := felt.FromUint64[felt.Felt](44)
+	classHash := felt.FromUint64[felt.ClassHash](44)
 	calls := 0
 	runner := &progressiveVM{run: func(
 		txs []core.Transaction,
@@ -377,16 +379,16 @@ func TestProgressiveCheckpointReadFailurePreservesPrefix(t *testing.T) {
 	) (vm.ExecutionResults, error) {
 		calls++
 		result := progressiveResult(txs)
-		result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.Felt{&classHash}
+		result.Traces[0].StateDiff.DeprecatedDeclaredClasses = []*felt.ClassHash{&classHash}
 		return result, nil
 	}}
 	f := progressiveHandler(t, runner)
 	f.head.EXPECT().Class(&classHash).Return(nil, errors.New("class read failed"))
-	target := (*felt.TransactionHash)(f.txs[0].Hash())
+	target := f.txs[0].Hash()
 	_, _, rpcErr := f.handler.TraceTransaction(t.Context(), target)
 	require.Nil(t, rpcErr)
 	_, _, rpcErr = f.handler.TraceTransaction(
-		t.Context(), (*felt.TransactionHash)(f.txs[1].Hash()),
+		t.Context(), f.txs[1].Hash(),
 	)
 	require.NotNil(t, rpcErr)
 	require.Equal(t, jsonrpc.InternalError, rpcErr.Code)

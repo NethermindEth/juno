@@ -16,15 +16,14 @@ const (
 // stateContract is the on-disk record of a contract's state.
 type stateContract struct {
 	// todo(rdr): should be felt.Nonce
-	Nonce felt.Felt // Nonce indicates many transiction this contract has done
-	// todo(rdr): update to use felt.SierraHash here
-	ClassHash      felt.Felt // ClassHash points to where the contract implementation lives
-	DeployedHeight uint64    // Block number at which the contract was deployed
+	Nonce          felt.Felt      // Nonce indicates many transiction this contract has done
+	ClassHash      felt.ClassHash // ClassHash points to where the contract implementation lives
+	DeployedHeight uint64         // Block number at which the contract was deployed
 	// todo(rdr): This has to be a new type, probably a felt.TrieRoot or felt.TrieHash
 	StorageRoot felt.Felt // StorageRoot points which trie holds this contract storage
 }
 
-func newContractDeployed(classHash felt.Felt, deployHeight uint64) stateContract {
+func newContractDeployed(classHash felt.ClassHash, deployHeight uint64) stateContract {
 	return stateContract{
 		Nonce:          felt.Zero[felt.Felt](),
 		ClassHash:      classHash,

@@ -39,7 +39,7 @@ func storeBlocks(
 	t *testing.T,
 	network *networks.Network,
 	blocks uint64,
-	classes map[felt.Felt]core.ClassDefinition,
+	classes map[felt.ClassHash]core.ClassDefinition,
 ) (*rpcv10.Handler, *feeder.Client) {
 	t.Helper()
 	chain := blockchain.New(

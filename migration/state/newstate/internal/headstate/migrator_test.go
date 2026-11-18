@@ -18,8 +18,8 @@ import (
 )
 
 type contractData struct {
-	addr      felt.Felt
-	classHash felt.Felt
+	addr      felt.Address
+	classHash felt.ClassHash
 	nonce     felt.Felt
 	height    uint64
 }
@@ -66,20 +66,20 @@ func TestMigrate_ConsolidatesAddresses(t *testing.T) {
 
 	seeds := []contractData{
 		{
-			addr:      felt.FromUint64[felt.Felt](1),
-			classHash: felt.FromUint64[felt.Felt](170),
+			addr:      felt.FromUint64[felt.Address](1),
+			classHash: felt.FromUint64[felt.ClassHash](170),
 			nonce:     felt.FromUint64[felt.Felt](7),
 			height:    100,
 		},
 		{
-			addr:      felt.FromUint64[felt.Felt](2),
-			classHash: felt.FromUint64[felt.Felt](187),
+			addr:      felt.FromUint64[felt.Address](2),
+			classHash: felt.FromUint64[felt.ClassHash](187),
 			nonce:     felt.Zero[felt.Felt](), // never updated
 			height:    200,
 		},
 		{
-			addr:      felt.FromUint64[felt.Felt](3),
-			classHash: felt.FromUint64[felt.Felt](204),
+			addr:      felt.FromUint64[felt.Address](3),
+			classHash: felt.FromUint64[felt.ClassHash](204),
 			nonce:     felt.FromUint64[felt.Felt](66),
 			height:    300,
 		},
@@ -121,16 +121,16 @@ func TestMigrate_SkipsAlreadyMigrated(t *testing.T) {
 	// addrDone has been migrated already (Contract record exists). Its old
 	// keys are still around (simulating a previous partial run that wrote
 	// the Contract record but didn't reach wipeDeprecatedBuckets).
-	addrDone := felt.FromUint64[felt.Felt](1)
-	doneClassHash := felt.FromUint64[felt.Felt](170)
+	addrDone := felt.FromUint64[felt.Address](1)
+	doneClassHash := felt.FromUint64[felt.ClassHash](170)
 	doneNonce := felt.FromUint64[felt.Felt](57005)
 
 	require.NoError(t, state.WriteContract(memDB, &addrDone, doneNonce, doneClassHash, 111))
 	require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &addrDone, &doneClassHash))
 	require.NoError(t, deprecatedstate.WriteContractDeploymentHeight(memDB, &addrDone, 111))
 
-	addrPending := felt.FromUint64[felt.Felt](2)
-	pendingClassHash := felt.FromUint64[felt.Felt](187)
+	addrPending := felt.FromUint64[felt.Address](2)
+	pendingClassHash := felt.FromUint64[felt.ClassHash](187)
 	pendingNonce := felt.FromUint64[felt.Felt](9)
 
 	require.NoError(t, deprecatedstate.WriteContractClassHash(memDB, &addrPending, &pendingClassHash))
@@ -174,14 +174,14 @@ func TestMigrate_Idempotent(t *testing.T) {
 
 	seeds := []contractData{
 		{
-			addr:      felt.FromUint64[felt.Felt](1),
-			classHash: felt.FromUint64[felt.Felt](170),
+			addr:      felt.FromUint64[felt.Address](1),
+			classHash: felt.FromUint64[felt.ClassHash](170),
 			nonce:     felt.FromUint64[felt.Felt](7),
 			height:    100,
 		},
 		{
-			addr:      felt.FromUint64[felt.Felt](2),
-			classHash: felt.FromUint64[felt.Felt](187),
+			addr:      felt.FromUint64[felt.Address](2),
+			classHash: felt.FromUint64[felt.ClassHash](187),
 			nonce:     felt.Zero[felt.Felt](),
 			height:    200,
 		},
@@ -208,8 +208,8 @@ func TestMigrate_Idempotent(t *testing.T) {
 }
 
 func TestMigrate_MissingSecondaryRowMidRunIsAnError(t *testing.T) {
-	gap := felt.FromUint64[felt.Felt](20)
-	gapClassHash := felt.FromUint64[felt.Felt](120)
+	gap := felt.FromUint64[felt.Address](20)
+	gapClassHash := felt.FromUint64[felt.ClassHash](120)
 	gapNonce := felt.FromUint64[felt.Felt](22)
 
 	tests := []struct {
@@ -242,14 +242,14 @@ func TestMigrate_MissingSecondaryRowMidRunIsAnError(t *testing.T) {
 
 			seedDeprecated(t, memDB, []contractData{
 				{
-					addr:      felt.FromUint64[felt.Felt](10),
-					classHash: felt.FromUint64[felt.Felt](110),
+					addr:      felt.FromUint64[felt.Address](10),
+					classHash: felt.FromUint64[felt.ClassHash](110),
 					nonce:     felt.FromUint64[felt.Felt](11),
 					height:    100,
 				},
 				{
-					addr:      felt.FromUint64[felt.Felt](30),
-					classHash: felt.FromUint64[felt.Felt](130),
+					addr:      felt.FromUint64[felt.Address](30),
+					classHash: felt.FromUint64[felt.ClassHash](130),
 					nonce:     felt.FromUint64[felt.Felt](33),
 					height:    300,
 				},

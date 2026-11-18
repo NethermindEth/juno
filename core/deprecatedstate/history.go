@@ -30,9 +30,9 @@ func (s *stateHistory) ChainHeight() (uint64, error) {
 	return s.blockNumber, nil
 }
 
-func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractClassHash(addr *felt.Address) (felt.ClassHash, error) {
 	if err := s.checkDeployed(addr); err != nil {
-		return felt.Felt{}, err
+		return felt.ClassHash{}, err
 	}
 
 	val, err := s.state.ContractClassHashAt(addr, s.blockNumber)
@@ -40,12 +40,12 @@ func (s *stateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractClassHash(addr)
 		}
-		return felt.Felt{}, err
+		return felt.ClassHash{}, err
 	}
 	return val, nil
 }
 
-func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractNonce(addr *felt.Address) (felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return felt.Felt{}, err
 	}
@@ -60,7 +60,7 @@ func (s *stateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	return val, nil
 }
 
-func (s *stateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+func (s *stateHistory) ContractStorage(addr *felt.Address, key *felt.Felt) (felt.Felt, error) {
 	val, err := s.state.ContractStorageAt(addr, key, s.blockNumber)
 	if err != nil {
 		if !errors.Is(err, ErrCheckHeadState) {
@@ -92,7 +92,7 @@ func (s *stateHistory) ContractStorageLastUpdatedBlock(
 	return s.state.ContractStorageLastUpdatedAt(addr, key, s.blockNumber)
 }
 
-func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
+func (s *stateHistory) checkDeployed(addr *felt.Address) error {
 	isDeployed, err := s.state.ContractDeployedAt(addr, s.blockNumber)
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func (s *stateHistory) checkDeployed(addr *felt.Felt) error {
 }
 
 func (s *stateHistory) Class(
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) (*core.DeclaredClassDefinition, error) {
 	declaredClass, err := s.state.Class(classHash)
 	if err != nil {
@@ -138,6 +138,6 @@ func (s *stateHistory) ContractTrie() (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }
 
-func (s *stateHistory) ContractStorageTrie(addr *felt.Felt) (core.TrieReader, error) {
+func (s *stateHistory) ContractStorageTrie(addr *felt.Address) (core.TrieReader, error) {
 	return nil, ErrHistoricalTrieNotSupported
 }

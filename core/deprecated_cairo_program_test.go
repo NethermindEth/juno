@@ -62,7 +62,7 @@ func TestUpstreamCairo0ClassHashCorpus(t *testing.T) {
 
 			got, err := class.Hash()
 			require.NoError(t, err)
-			assert.Equal(t, felt.UnsafeFromString[felt.Felt](want.ClassHash), got)
+			assert.Equal(t, felt.UnsafeFromString[felt.ClassHash](want.ClassHash), got)
 		})
 	}
 }
@@ -111,7 +111,7 @@ func TestCairo0ClassHashRegressions(t *testing.T) {
 
 			got, err := class.Hash()
 			require.NoError(t, err)
-			assert.Equal(t, felt.UnsafeFromString[felt.Felt](want.ClassHash), got)
+			assert.Equal(t, felt.UnsafeFromString[felt.ClassHash](want.ClassHash), got)
 		})
 	}
 }

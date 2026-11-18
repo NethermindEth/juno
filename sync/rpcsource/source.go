@@ -225,8 +225,8 @@ func (s *Source) stateUpdate(
 func (s *Source) classes(
 	ctx context.Context,
 	blockNumber uint64,
-	classHashes []*felt.Felt,
-) (map[felt.Felt]core.ClassDefinition, error) {
+	classHashes []*felt.ClassHash,
+) (map[felt.ClassHash]core.ClassDefinition, error) {
 	p := pool.NewWithResults[core.ClassDefinition]().
 		WithContext(ctx).
 		WithMaxGoroutines(maxConcurrentClassFetches).
@@ -242,7 +242,7 @@ func (s *Source) classes(
 		return nil, err
 	}
 
-	classes := make(map[felt.Felt]core.ClassDefinition, len(classHashes))
+	classes := make(map[felt.ClassHash]core.ClassDefinition, len(classHashes))
 	for i, classHash := range classHashes {
 		classes[*classHash] = definitions[i]
 	}
@@ -253,7 +253,7 @@ func (s *Source) classes(
 func (s *Source) class(
 	ctx context.Context,
 	blockNumber uint64,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) (core.ClassDefinition, error) {
 	class, err := s.client.Call(
 		ctx,

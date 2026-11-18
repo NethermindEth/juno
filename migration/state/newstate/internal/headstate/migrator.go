@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
@@ -77,7 +76,7 @@ func migrateContracts(
 		if ctx.Err() != nil {
 			break
 		}
-		addr := (*felt.Felt)(&contract.addr)
+		addr := &contract.addr
 		if err := state.WriteContract(
 			batch, addr, contract.nonce, contract.classHash, contract.height,
 		); err != nil {

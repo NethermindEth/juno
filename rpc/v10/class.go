@@ -37,7 +37,7 @@ type ClassEntryPoint struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L484
-func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) Class(id *BlockID, classHash *felt.ClassHash) (*Class, *jsonrpc.Error) {
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -47,7 +47,7 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 	return class(stateReader, classHash)
 }
 
-func class(stateReader core.StateReader, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+func class(stateReader core.StateReader, classHash *felt.ClassHash) (*Class, *jsonrpc.Error) {
 	declared, err := stateReader.Class(classHash)
 	if err != nil {
 		return nil, rpccore.ErrClassHashNotFound
@@ -88,7 +88,7 @@ func class(stateReader core.StateReader, classHash *felt.Felt) (*Class, *jsonrpc
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L573
-func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) ClassAt(id *BlockID, address *felt.Address) (*Class, *jsonrpc.Error) {
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -117,7 +117,10 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/v0.10.3/api/starknet_api_openrpc.json#L533
-func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ClassHashAt(
+	id *BlockID,
+	address *felt.Address,
+) (*felt.ClassHash, *jsonrpc.Error) {
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -127,7 +130,10 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	return classHashAt(stateReader, address)
 }
 
-func classHashAt(stateReader core.StateReader, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func classHashAt(
+	stateReader core.StateReader,
+	address *felt.Address,
+) (*felt.ClassHash, *jsonrpc.Error) {
 	// System contracts (0x1, 0x2) hold storage but have no Cairo class.
 	if state.IsSystemContract(address) {
 		return nil, rpccore.ErrContractNotFound

@@ -52,7 +52,7 @@ type SubscriptionEmittedEvent struct {
 // round; the deduper scopes it to a (block number, round identifier). Canonical and
 // historical events bypass the deduper entirely.
 type SentEvent struct {
-	TransactionHash  felt.Felt
+	TransactionHash  felt.TransactionHash
 	TransactionIndex uint
 	EventIndex       uint
 }

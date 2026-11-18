@@ -11,7 +11,7 @@ import (
 
 func TestAdaptReceipt(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
-		hash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE")
+		hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xCAFEBABE")
 		receipt := &receipt.Receipt{
 			Type: &receipt.Receipt_L1Handler_{
 				L1Handler: &receipt.Receipt_L1Handler{
@@ -29,7 +29,7 @@ func TestAdaptReceipt(t *testing.T) {
 		reasons := []string{"reason", ""}
 
 		for _, reason := range reasons {
-			hash := felt.NewUnsafeFromString[felt.Felt]("0xCAFEDEAD")
+			hash := felt.NewUnsafeFromString[felt.TransactionHash]("0xCAFEDEAD")
 			receipt := &receipt.Receipt{
 				Type: &receipt.Receipt_L1Handler_{
 					L1Handler: &receipt.Receipt_L1Handler{

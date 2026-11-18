@@ -49,11 +49,11 @@ func (e ExecuteInvocation) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 type FunctionInvocation struct {
-	ContractAddress    felt.Felt   `json:"contract_address"`
-	EntryPointSelector *felt.Felt  `json:"entry_point_selector"`
-	Calldata           []felt.Felt `json:"calldata"`
-	CallerAddress      felt.Felt   `json:"caller_address"`
-	ClassHash          *felt.Felt  `json:"class_hash"`
+	ContractAddress    felt.Address    `json:"contract_address"`
+	EntryPointSelector *felt.Felt      `json:"entry_point_selector"`
+	Calldata           []felt.Felt     `json:"calldata"`
+	CallerAddress      felt.Address    `json:"caller_address"`
+	ClassHash          *felt.ClassHash `json:"class_hash"`
 	// todo(rdr): use an enum here
 	EntryPointType string `json:"entry_point_type"`
 	// todo(rdr): use an enum here
@@ -73,10 +73,10 @@ type OrderedEvent struct {
 }
 
 type OrderedL2toL1Message struct {
-	Order   uint64      `json:"order"`
-	From    *felt.Felt  `json:"from_address"`
-	To      *felt.Felt  `json:"to_address"`
-	Payload []felt.Felt `json:"payload"`
+	Order   uint64        `json:"order"`
+	From    *felt.Address `json:"from_address"`
+	To      *felt.Felt    `json:"to_address"`
+	Payload []felt.Felt   `json:"payload"`
 }
 
 /****************************************************
@@ -311,7 +311,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
 	// confirm the trace at that index really is the transaction that was asked for.
 	if txIndex >= uint64(len(blockTraces.Traces)) ||
-		!blockTraces.Traces[txIndex].Hash.Equal((*felt.Felt)(hash)) {
+		!blockTraces.Traces[txIndex].Hash.Equal(hash) {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
