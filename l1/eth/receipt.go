@@ -6,9 +6,14 @@ import (
 	"fmt"
 )
 
+// MaxDataBytesLen is the maximum allowed byte length for a DataBytes payload.
+// In Ethereum, block gas limits cap total log data to ~3.75MB under an honest node.
+// Capping to 4MB prevents unbounded memory allocation when connected to a dishonest/harmful RPC node.
+const MaxDataBytesLen = 4 * 1024 * 1024 // 4 MB
+
 // DataBytes is a []byte that JSON-decodes from a 0x-prefixed hex string,
 // matching the Ethereum JSON-RPC "data" wire format. An empty payload ("0x") is allowed.
-// Unbounded — log/call data is capped by the L1 block gas limit (~3.75Mb at 30M max block gas)
+// Capped at [MaxDataBytesLen] to protect against unbounded memory allocation from dishonest clients.
 type DataBytes []byte
 
 func (h *DataBytes) UnmarshalJSON(input []byte) error {
@@ -19,7 +24,11 @@ func (h *DataBytes) UnmarshalJSON(input []byte) error {
 	if len(raw)%2 != 0 {
 		return errors.New("odd length")
 	}
-	out := make([]byte, len(raw)/2)
+	byteLen := len(raw) / 2
+	if byteLen > MaxDataBytesLen {
+		return fmt.Errorf("data length %d bytes exceeds maximum allowed limit (%d bytes)", byteLen, MaxDataBytesLen)
+	}
+	out := make([]byte, byteLen)
 	if _, err := hex.Decode(out, raw); err != nil {
 		return fmt.Errorf("invalid hex: %w", err)
 	}

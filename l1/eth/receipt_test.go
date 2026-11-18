@@ -131,3 +131,24 @@ func TestReceipt_UnmarshalJSON_NoLogs(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &ours))
 	assert.Empty(t, ours.Logs)
 }
+
+func TestDataBytes_UnmarshalJSON_BoundLimit(t *testing.T) {
+	t.Run("payload exceeding MaxDataBytesLen is rejected", func(t *testing.T) {
+		// Construct hex string that decodes to MaxDataBytesLen + 1 bytes
+		excessBytes := eth.MaxDataBytesLen + 1
+		hexLen := 2 + excessBytes*2
+		buf := make([]byte, hexLen+2) // +2 for JSON quotes
+		buf[0] = '"'
+		buf[1] = '0'
+		buf[2] = 'x'
+		for i := 3; i < hexLen+1; i++ {
+			buf[i] = 'a'
+		}
+		buf[hexLen+1] = '"'
+
+		var d eth.DataBytes
+		err := json.Unmarshal(buf, &d)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds maximum allowed limit")
+	})
+}
