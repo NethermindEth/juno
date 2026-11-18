@@ -83,7 +83,7 @@ func (t *transition) OnProposalInit(
 		Header: &starknet.MessageHeader{
 			Height: init.BlockNum,
 			Round:  init.Round,
-			Sender: starknet.Address(init.Proposer),
+			Sender: init.Proposer,
 		},
 		ValidRound: init.ValidRound,
 	}, nil
@@ -95,7 +95,7 @@ func (t *transition) OnEmptyBlockCommitment(
 	commitment *types.ProposalCommitment,
 ) (*AwaitingProposalFinState, error) {
 	buildState, err := t.builder.InitPreconfirmedBlock(&builder.BuildParams{
-		Builder:           felt.Felt(state.Header.Sender),
+		Builder:           state.Header.Sender,
 		Timestamp:         commitment.Timestamp,
 		L2GasPriceFRI:     felt.Zero[felt.Felt](),
 		L1GasPriceWEI:     felt.Zero[felt.Felt](),

@@ -23,14 +23,14 @@ const (
 )
 
 type DBInfo struct {
-	Network         string     `json:"network"`
-	SchemaVersion   uint64     `json:"schema_version"`
-	ChainHeight     uint64     `json:"chain_height"`
-	LatestBlockHash *felt.Felt `json:"latest_block_hash"`
-	LatestStateRoot *felt.Felt `json:"latest_state_root"`
-	L1Height        uint64     `json:"l1_height"`
-	L1BlockHash     *felt.Felt `json:"l1_block_hash"`
-	L1StateRoot     *felt.Felt `json:"l1_state_root"`
+	Network         string              `json:"network"`
+	SchemaVersion   uint64              `json:"schema_version"`
+	ChainHeight     uint64              `json:"chain_height"`
+	LatestBlockHash *felt.Felt          `json:"latest_block_hash"`
+	LatestStateRoot *felt.StateRootHash `json:"latest_state_root"`
+	L1Height        uint64              `json:"l1_height"`
+	L1BlockHash     *felt.Felt          `json:"l1_block_hash"`
+	L1StateRoot     *felt.StateRootHash `json:"l1_state_root"`
 }
 
 func DBCmd(defaultDBPath string) *cobra.Command {

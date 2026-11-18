@@ -40,7 +40,7 @@ type DataSource interface {
 		identifier string,
 		txCount uint64,
 	) (starknet.PreConfirmedUpdate, error)
-	Class(ctx context.Context, classHash *felt.Felt) (core.ClassDefinition, error)
+	Class(ctx context.Context, classHash *felt.ClassHash) (core.ClassDefinition, error)
 }
 
 // Poller drives the pre-confirmed chain from a single goroutine.
@@ -340,7 +340,7 @@ func (p *Poller) apply(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	applied, err := p.preConfirmedChain.ApplyUpdate(
 		update, blockNumber, baseTxCount, oldestPreConf, newClasses,
@@ -370,7 +370,7 @@ func (p *Poller) fetchDeclaredClasses(
 	ctx context.Context,
 	storedTip *pending.PreConfirmed,
 	update starknet.PreConfirmedUpdate,
-) (map[felt.Felt]core.ClassDefinition, error) {
+) (map[felt.ClassHash]core.ClassDefinition, error) {
 	// A delta or no-change re-poll continues storedTip's round, so the classes it already
 	// declared belong to this same block; a full block is a fresh round carrying only its
 	// own.
@@ -395,7 +395,7 @@ func (p *Poller) fetchDeclaredClasses(
 		return nil, nil
 	}
 
-	classes := make(map[felt.Felt]core.ClassDefinition, declaredCount)
+	classes := make(map[felt.ClassHash]core.ClassDefinition, declaredCount)
 	for classHash := range declaredClassHashes(storedStateDiff, updateStateDiffs) {
 		class, err := p.dataSource.Class(ctx, classHash)
 		if err != nil {
@@ -411,8 +411,8 @@ func (p *Poller) fetchDeclaredClasses(
 func declaredClassHashes(
 	storedStateDiff *core.StateDiff,
 	updateStateDiffs []*starknet.StateDiff,
-) iter.Seq[*felt.Felt] {
-	return func(yield func(*felt.Felt) bool) {
+) iter.Seq[*felt.ClassHash] {
+	return func(yield func(*felt.ClassHash) bool) {
 		if storedStateDiff != nil {
 			for _, classHash := range storedStateDiff.DeclaredV0Classes {
 				if !yield(classHash) {
@@ -420,7 +420,7 @@ func declaredClassHashes(
 				}
 			}
 			for classHash := range storedStateDiff.DeclaredV1Classes {
-				if !yield(&classHash) {
+				if !yield((*felt.ClassHash)(&classHash)) {
 					return
 				}
 			}
@@ -432,7 +432,7 @@ func declaredClassHashes(
 				}
 			}
 			for i := range stateDiff.DeclaredClasses {
-				if !yield(stateDiff.DeclaredClasses[i].ClassHash) {
+				if !yield((*felt.ClassHash)(stateDiff.DeclaredClasses[i].ClassHash)) {
 					return
 				}
 			}
@@ -494,7 +494,7 @@ func makeEmptyPreConfirmedForParent(
 		StateUpdate: &core.StateUpdate{
 			StateDiff: stateDiff,
 		},
-		NewClasses:            make(map[felt.Felt]core.ClassDefinition, 0),
+		NewClasses:            make(map[felt.ClassHash]core.ClassDefinition, 0),
 		TransactionStateDiffs: make([]*core.StateDiff, 0),
 		BlockIdentifier:       feeder.PreConfirmedBlankIdentifier,
 	}
@@ -506,12 +506,12 @@ func makeEmptyPreConfirmedForParent(
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, 1),
-		Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
+		StorageDiffs:      make(map[felt.Address]map[felt.Felt]*felt.Felt, 1),
+		Nonces:            make(map[felt.Address]*felt.Felt, 0),
+		DeployedContracts: make(map[felt.Address]*felt.ClassHash, 0),
+		DeclaredV0Classes: make([]*felt.ClassHash, 0),
+		DeclaredV1Classes: make(map[felt.SierraClassHash]*felt.CasmClassHash, 0),
+		ReplacedClasses:   make(map[felt.Address]*felt.ClassHash, 0),
 		MigratedClasses:   make(map[felt.SierraClassHash]felt.CasmClassHash, 0),
 	}
 

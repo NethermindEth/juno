@@ -240,12 +240,16 @@ func testApplyUpdateDeltaRegistersNewClass(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	const round = "round-1"
 	applyBlock(t, s, round, 1, 1, oldestSlot) // stored without classes
-	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classHash := felt.FromUint64[felt.ClassHash](0xC1A55)
 	classDef := &core.DeprecatedCairoClass{}
 
 	delta := makeTestDelta(round, 1)
 	affected, err := s.ApplyUpdate(
-		delta, 1, 1, oldestSlot, map[felt.Felt]core.ClassDefinition{classHash: classDef},
+		delta,
+		1,
+		1,
+		oldestSlot,
+		map[felt.ClassHash]core.ClassDefinition{classHash: classDef},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, affected, "a delta advancing the tip must publish the affected entry")
@@ -259,9 +263,9 @@ func testApplyUpdateNoChangeRegistersClasses(t *testing.T) {
 	oldestSlot := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
 	applyBlock(t, s, roundID(1), 1, 1, oldestSlot)
-	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classHash := felt.FromUint64[felt.ClassHash](0xC1A55)
 	classDef := &core.DeprecatedCairoClass{}
-	classes := map[felt.Felt]core.ClassDefinition{classHash: classDef}
+	classes := map[felt.ClassHash]core.ClassDefinition{classHash: classDef}
 
 	affected, err := s.ApplyUpdate(starknet.PreConfirmedNoChange{}, 1, 0, oldestSlot, classes)
 	require.NoError(t, err)
@@ -439,14 +443,14 @@ func testApplyUpdateDeltaMergesBloom(t *testing.T) {
 	s := preconfirmed.NewChainStorage()
 	const round = "round-1"
 	seed := makeTestPreConfirmedBlock(round, 2)
-	seed.Receipts[0].Events = []*starknet.Event{{From: felt.NewFromUint64[felt.Felt](11)}}
+	seed.Receipts[0].Events = []*starknet.Event{{From: felt.NewFromUint64[felt.Address](11)}}
 	seeded, err := s.ApplyUpdate(seed, 1, 0, oldestPreConf, nil)
 	require.NoError(t, err)
 	seedBloom := seeded.Bloom.Copy()
 
 	delta := makeTestDelta(round, 1)
 	delta.Receipts[0].Events = []*starknet.Event{{
-		From: felt.NewFromUint64[felt.Felt](22),
+		From: felt.NewFromUint64[felt.Address](22),
 		Keys: []felt.Felt{felt.FromUint64[felt.Felt](33)},
 	}}
 	applied, err := s.ApplyUpdate(delta, 1, 2, oldestPreConf, nil)
@@ -824,7 +828,7 @@ func applyBlockWithStorageWrites(
 	t *testing.T,
 	s *preconfirmed.ChainStorage,
 	identifier string,
-	contract *felt.Felt,
+	contract *felt.Address,
 	writes []storageWrite,
 	number uint64,
 	oldestPreConf uint64,
@@ -835,7 +839,7 @@ func applyBlockWithStorageWrites(
 	receipts := make([]*starknet.TransactionReceipt, txCount)
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i, w := range writes {
-		hash := felt.NewFromUint64[felt.Felt](number*1000 + uint64(i))
+		hash := felt.NewFromUint64[felt.TransactionHash](number*1000 + uint64(i))
 		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
@@ -848,11 +852,11 @@ func applyBlockWithStorageWrites(
 		key := w.key
 		value := felt.NewFromUint64[felt.Felt](w.value)
 		stateDiffs[i] = &starknet.StateDiff{
-			StorageDiffs: map[string][]struct {
+			StorageDiffs: map[felt.Address][]struct {
 				Key   *felt.Felt `json:"key"`
 				Value *felt.Felt `json:"value"`
 			}{
-				contract.String(): {{Key: &key, Value: value}},
+				*contract: {{Key: &key, Value: value}},
 			},
 		}
 	}
@@ -864,7 +868,7 @@ func applyBlockWithStorageWrites(
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      new(felt.One[felt.Felt]()),
+		SequencerAddress:      new(felt.One[felt.Address]()),
 		L1GasPrice: &starknet.GasPrice{
 			PriceInWei: new(felt.One[felt.Felt]()),
 			PriceInFri: new(felt.One[felt.Felt]()),
@@ -886,7 +890,7 @@ func applyBlockWithStorageWrites(
 func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
-	contract := felt.FromUint64[felt.Felt](0xC0)
+	contract := felt.FromUint64[felt.Address](0xC0)
 	keyShared := felt.FromUint64[felt.Felt](0x1)
 	keyOnlyInSlot1 := felt.FromUint64[felt.Felt](0xA)
 
@@ -958,12 +962,12 @@ func testChainReaderPreConfirmedStateAtComposes(t *testing.T) {
 func testChainReaderPreConfirmedStateAtResolvesDeclaredClass(t *testing.T) {
 	oldestSlot := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
-	classHash := felt.FromUint64[felt.Felt](0xC1A55)
+	classHash := felt.FromUint64[felt.ClassHash](0xC1A55)
 	classDef := core.DeprecatedCairoClass{}
 
 	// Slot 1 (a backfilled block) declares the class; slot 2 is the tip.
 	_, err := s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(1), 0), 1, 0, oldestSlot,
-		map[felt.Felt]core.ClassDefinition{classHash: &classDef})
+		map[felt.ClassHash]core.ClassDefinition{classHash: &classDef})
 	require.NoError(t, err)
 	_, err = s.ApplyUpdate(makeTestPreConfirmedBlock(roundID(2), 0), 2, 0, oldestSlot, nil)
 	require.NoError(t, err)
@@ -1021,7 +1025,7 @@ func testChainReaderPreConfirmedStateAtOutOfRange(t *testing.T) {
 func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
-	contract := felt.FromUint64[felt.Felt](0xC0)
+	contract := felt.FromUint64[felt.Address](0xC0)
 	key := felt.FromUint64[felt.Felt](0x1)
 
 	// keyShared is touched in every slot — exercises last-write-wins merging
@@ -1110,7 +1114,7 @@ func testChainReaderPreConfirmedStateBeforeIndexAtTraversesTxs(t *testing.T) {
 func testChainReaderPreConfirmedStateBeforeIndexAtBadIndex(t *testing.T) {
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
-	contract := felt.FromUint64[felt.Felt](0xC0)
+	contract := felt.FromUint64[felt.Address](0xC0)
 	key := felt.FromUint64[felt.Felt](0x1)
 
 	applyBlockWithStorageWrites(
@@ -1223,7 +1227,7 @@ func txChainFixture(t *testing.T) *preconfirmed.ChainReader {
 	t.Helper()
 	oldestPreConf := oldestPreConfFor(0)
 	s := preconfirmed.NewChainStorage()
-	contract := felt.FromUint64[felt.Felt](0xC0)
+	contract := felt.FromUint64[felt.Address](0xC0)
 	applyBlockWithStorageWrites(t, s, roundID(1), &contract,
 		[]storageWrite{
 			{felt.FromUint64[felt.Felt](1), 1},
@@ -1232,7 +1236,10 @@ func txChainFixture(t *testing.T) *preconfirmed.ChainReader {
 		},
 		1, oldestPreConf)
 	applyBlockWithStorageWrites(t, s, roundID(2), &contract,
-		[]storageWrite{{felt.FromUint64[felt.Felt](4), 4}, {felt.FromUint64[felt.Felt](5), 5}},
+		[]storageWrite{
+			{felt.FromUint64[felt.Felt](4), 4},
+			{felt.FromUint64[felt.Felt](5), 5},
+		},
 		2, oldestPreConf)
 	applyBlockWithStorageWrites(t, s, roundID(3), &contract,
 		[]storageWrite{
@@ -1258,7 +1265,7 @@ func testChainReaderTransactionByHashAcrossChain(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			hash := felt.NewFromUint64[felt.Felt](tc.hash)
+			hash := felt.NewFromUint64[felt.TransactionHash](tc.hash)
 			tx, err := c.TransactionByHash(hash)
 			require.NoError(t, err)
 			require.NotNil(t, tx)
@@ -1277,7 +1284,7 @@ func testChainReaderTransactionByHashMissing(t *testing.T) {
 
 	t.Run("unknown hash", func(t *testing.T) {
 		c := txChainFixture(t)
-		_, err := c.TransactionByHash(felt.NewFromUint64[felt.Felt](999_999))
+		_, err := c.TransactionByHash(felt.NewFromUint64[felt.TransactionHash](999_999))
 		require.ErrorIs(t, err, pending.ErrTransactionNotFound)
 	})
 }
@@ -1296,7 +1303,7 @@ func testChainReaderReceiptByHashAcrossChain(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			hash := felt.NewFromUint64[felt.Felt](tc.hash)
+			hash := felt.NewFromUint64[felt.TransactionHash](tc.hash)
 			receipt, blockNumber, err := c.ReceiptByHash(hash)
 			require.NoError(t, err)
 			require.NotNil(t, receipt)
@@ -1316,7 +1323,7 @@ func testChainReaderReceiptByHashMissing(t *testing.T) {
 
 	t.Run("unknown hash", func(t *testing.T) {
 		c := txChainFixture(t)
-		_, _, err := c.ReceiptByHash(felt.NewFromUint64[felt.Felt](999_999))
+		_, _, err := c.ReceiptByHash(felt.NewFromUint64[felt.TransactionHash](999_999))
 		require.ErrorIs(t, err, pending.ErrTransactionReceiptNotFound)
 	})
 }

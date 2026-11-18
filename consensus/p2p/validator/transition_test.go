@@ -28,7 +28,7 @@ import (
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
 // head without access to the state. To get around this, a custom chain was used
 // in these tests.
-func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
+func getBuilder(t *testing.T, seqAddr *felt.Address) (*builder.Builder, *core.Header) {
 	t.Helper()
 	testDB := memory.New()
 	network := &networks.Mainnet
@@ -80,7 +80,7 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 // This test assumes Sepolia block 0 has been committed, and now
 // the Proposer proposes an empty block for block 1
 func TestEmptyProposal(t *testing.T) {
-	proposerAddr := felt.NewUnsafeFromString[felt.Felt]("0xabcdef")
+	proposerAddr := felt.NewUnsafeFromString[felt.Address]("0xabcdef")
 	testBuilder, head := getBuilder(t, proposerAddr)
 
 	initialState := InitialState{}
@@ -100,7 +100,7 @@ func TestEmptyProposal(t *testing.T) {
 		Builder:          *proposerAddr,
 		Timestamp:        0,
 		ProtocolVersion:  *builder.CurrentStarknetVersion,
-		OldStateRoot: felt.UnsafeFromString[felt.Felt](
+		OldStateRoot: felt.UnsafeFromString[felt.StateRootHash](
 			"0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72",
 		),
 		// Other fields are set to 0 as expected by the validator
@@ -131,7 +131,7 @@ func TestEmptyProposal(t *testing.T) {
 // The proposer proposes a valid non-empty block with a single invoke transaction.
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
-	proposerAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	proposerAddr := felt.NewUnsafeFromString[felt.Address]("0xDEADBEEF")
 	b, head := getBuilder(t, proposerAddr)
 	transition := NewTransition(b, nil)
 	initialState := InitialState{}
@@ -168,10 +168,12 @@ func TestProposal(t *testing.T) {
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"
 	invokeTxn := core.InvokeTransaction{
-		TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992"),
-		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
-		Version:         felt.NewFromUint64[core.TransactionVersion](3),
-		Nonce:           felt.NewFromUint64[felt.Felt](0),
+		TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash](
+			"0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992",
+		),
+		SenderAddress: felt.NewUnsafeFromString[felt.Address]("0x101"),
+		Version:       felt.NewFromUint64[core.TransactionVersion](3),
+		Nonce:         felt.NewFromUint64[felt.Felt](0),
 		TransactionSignature: []felt.Felt{
 			felt.UnsafeFromString[felt.Felt](
 				"0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0",
@@ -228,7 +230,7 @@ func TestProposal(t *testing.T) {
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *builder.CurrentStarknetVersion,
 
-		OldStateRoot: felt.UnsafeFromString[felt.Felt](
+		OldStateRoot: felt.UnsafeFromString[felt.StateRootHash](
 			"0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72",
 		),
 		StateDiffCommitment: felt.UnsafeFromString[felt.Felt](

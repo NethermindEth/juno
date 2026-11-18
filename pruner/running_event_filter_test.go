@@ -39,7 +39,7 @@ func storeBlockWithEvent(
 	t *testing.T,
 	database db.KeyValueStore,
 	blockNum uint64,
-	from *felt.Felt,
+	from *felt.Address,
 ) {
 	t.Helper()
 	testutils.StoreBlock(t, database, blockNum)
@@ -49,7 +49,7 @@ func storeBlockWithEvent(
 
 // eventQueryKey returns the BlocksForKeys probe key that EventsBloom derives
 // for an event emitted from `from`.
-func eventQueryKey(from *felt.Felt) []byte {
+func eventQueryKey(from *felt.Address) []byte {
 	b := from.Bytes()
 	return b[:]
 }
@@ -74,7 +74,7 @@ func TestRunningEventFilter_LazyInitialization_CaughtUp(t *testing.T) {
 	database := testutils.NewPebbleTestDB(t)
 
 	sharedBloom := testBloomWithRandomKey(t)
-	eventFrom := felt.NewRandom[felt.Felt]()
+	eventFrom := felt.NewRandom[felt.Address]()
 	for i := uint64(0); i <= latest; i++ {
 		storeBlockWithEvent(t, database, i, eventFrom)
 	}
@@ -111,10 +111,10 @@ func TestRunningEventFilter_LazyInitialization_RebuildAnchorless_FillFromFloor(t
 	)
 	database := testutils.NewPebbleTestDB(t)
 
-	retainedFrom := felt.NewRandom[felt.Felt]()
+	retainedFrom := felt.NewRandom[felt.Address]()
 	retainedKeys := [][]byte{eventQueryKey(retainedFrom)}
 	for blockNum := uint64(0); blockNum <= latest; blockNum++ {
-		from := felt.NewRandom[felt.Felt]()
+		from := felt.NewRandom[felt.Address]()
 		if blockNum >= pruneTo {
 			from = retainedFrom
 		}
@@ -165,7 +165,7 @@ func setupSameWindowResume(
 	// snapshotKeys is stamped directly into the persisted snapshot bitmap
 	// (resume path preserves these bits) so it can be any raw key. Distinct
 	// values so each assertion isolates one path.
-	headerFrom := felt.NewRandom[felt.Felt]()
+	headerFrom := felt.NewRandom[felt.Address]()
 	headerKeys = [][]byte{eventQueryKey(headerFrom)}
 	snapshotKeys = [][]byte{{0x11, 0x22}}
 
@@ -174,7 +174,7 @@ func setupSameWindowResume(
 	for i := uint64(0); i <= latest; i++ {
 		from := headerFrom
 		if i < snapshotNext {
-			from = felt.NewRandom[felt.Felt]()
+			from = felt.NewRandom[felt.Address]()
 		}
 		storeBlockWithEvent(t, database, i, from)
 	}
@@ -282,7 +282,7 @@ func TestRunningEventFilter_LazyInitialization_MultiWindowRebuildAfterPrune(t *t
 	latest := core.NumBlocksPerFilter + 5
 	database := testutils.NewPebbleTestDB(t)
 
-	eventFrom := felt.NewRandom[felt.Felt]()
+	eventFrom := felt.NewRandom[felt.Address]()
 	headerKeys := [][]byte{eventQueryKey(eventFrom)}
 	// Full block fixture only for blocks PruneUpto will iterate; the
 	// per-block sweep reads hash-keyed data so it needs the full shape.

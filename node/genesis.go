@@ -28,7 +28,7 @@ func buildGenesis(
 	}
 
 	var diff core.StateDiff
-	var classes map[felt.Felt]core.ClassDefinition
+	var classes map[felt.ClassHash]core.ClassDefinition
 	switch {
 	case genesisPath != "":
 		genesisConfig, err := genesis.Read(genesisPath)

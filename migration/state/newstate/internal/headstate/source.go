@@ -13,7 +13,7 @@ import (
 
 type pendingContract struct {
 	addr      felt.Address
-	classHash felt.Felt
+	classHash felt.ClassHash
 	nonce     felt.Felt
 	height    uint64
 }

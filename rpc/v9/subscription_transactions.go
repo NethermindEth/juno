@@ -29,7 +29,7 @@ import (
 func (h *Handler) SubscribeNewTransactions(
 	ctx context.Context,
 	finalityStatus []TxnStatusWithoutL1,
-	senderAddr []felt.Felt,
+	senderAddr []felt.Address,
 ) (SubscriptionID, *jsonrpc.Error) {
 	wsConn, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -53,7 +53,7 @@ type SubscriptionNewTransaction struct {
 // goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
 type transactionsSubscriberState struct {
 	conn           jsonrpc.Conn
-	senders        []felt.Felt
+	senders        []felt.Address
 	finalityStatus []TxnStatusWithoutL1
 	deduper        *rpccore.PreConfirmedDeduper[felt.TransactionHash]
 }
@@ -61,7 +61,7 @@ type transactionsSubscriberState struct {
 func newTransactionsSubscriber(
 	conn jsonrpc.Conn,
 	finalityStatus []TxnStatusWithoutL1,
-	senders []felt.Felt,
+	senders []felt.Address,
 ) (subscriber, *jsonrpc.Error) {
 	if len(senders) > rpccore.MaxEventFilterKeys {
 		return subscriber{}, rpccore.ErrTooManyAddressesInFilter
@@ -142,7 +142,7 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 		return s.deduper.MarkSent(
 			block.Number,
 			preConfirmed.BlockIdentifier,
-			(*felt.TransactionHash)(txn.Hash()),
+			txn.Hash(),
 		)
 	}
 
@@ -158,7 +158,7 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 // an RPC subscription transaction with the given finality status.
 func transactionsOf(
 	b *core.Block,
-	senders []felt.Felt,
+	senders []felt.Address,
 	finalityStatus TxnStatusWithoutL1,
 	shouldSend func(core.Transaction) bool,
 ) iter.Seq[*SubscriptionNewTransaction] {

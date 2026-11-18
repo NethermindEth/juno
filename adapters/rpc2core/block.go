@@ -119,7 +119,7 @@ func adaptHeader(
 
 // The server serves an unknown sequencer as zero. Only pre-0.13.2 hashing retries an unknown
 // sequencer with the fallback, and post-0.13.4 hashing panics on one.
-func adaptSequencerAddress(address *felt.Felt, version *semver.Version) *felt.Felt {
+func adaptSequencerAddress(address *felt.Address, version *semver.Version) *felt.Address {
 	if address.IsZero() && version.LessThan(core.Ver0_13_2) {
 		return nil
 	}

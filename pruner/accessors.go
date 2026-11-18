@@ -256,7 +256,7 @@ func deleteTransactionHashReverseLookups(
 		if err != nil {
 			return err
 		}
-		txHash := (*felt.TransactionHash)(tx.Hash())
+		txHash := tx.Hash()
 		err := core.TransactionBlockNumbersAndIndicesByHashBucket.Delete(writer, txHash)
 		if err != nil {
 			return err
@@ -393,7 +393,8 @@ func pruneNewStateHistoryFromUpdate(
 	if err != nil {
 		return err
 	}
-	for _, classes := range []map[felt.Felt]*felt.Felt{diff.DeployedContracts, diff.ReplacedClasses} {
+	classMaps := []map[felt.Address]*felt.ClassHash{diff.DeployedContracts, diff.ReplacedClasses}
+	for _, classes := range classMaps {
 		for addr := range classes {
 			if err := classHashes.prune(db.ContractClassHashHistoryKey(&addr)); err != nil {
 				return errors.Join(err, classHashes.close())

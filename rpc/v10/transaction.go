@@ -96,7 +96,7 @@ func (h *Handler) AddTransaction(
 	}
 
 	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add((*felt.Felt)(&res.TransactionHash))
+		h.submittedTransactionsCache.Add(&res.TransactionHash)
 	}
 
 	return res, nil
@@ -108,7 +108,7 @@ func adaptAndCompileBroadcastedTxToCore(
 	tx *BroadcastedTransaction,
 	network *networks.Network,
 ) (core.Transaction, core.ClassDefinition, error) {
-	var classHash *felt.Felt
+	var classHash *felt.ClassHash
 	var sierraClass core.ClassDefinition
 
 	if tx.Type == TxnDeclare {
@@ -153,20 +153,20 @@ func (h *Handler) addToMempool(
 	}); err != nil {
 		return AddTxResponse{}, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	userTxnHash := felt.TransactionHash(*userTxn.Hash())
+	userTxnHash := *userTxn.Hash()
 	res := AddTxResponse{TransactionHash: userTxnHash}
 	switch tx.Type {
 	case TxnDeployAccount:
 		contractAddress := core.ContractAddress(
-			new(felt.Zero[felt.Felt]()),
+			new(felt.Zero[felt.Address]()),
 			tx.ClassHash,
 			tx.ContractAddressSalt,
 			*tx.ConstructorCallData,
 		)
-		res.ContractAddress = (*felt.Address)(&contractAddress)
+		res.ContractAddress = &contractAddress
 	case TxnDeclare:
 		// Class hash was already computed in adaptAndCompileBroadcastedTxToCore.
-		res.ClassHash = (*felt.ClassHash)(userTxn.(*core.DeclareTransaction).ClassHash)
+		res.ClassHash = userTxn.(*core.DeclareTransaction).ClassHash
 	}
 	return res, userTxn, nil
 }
@@ -267,7 +267,7 @@ func ContractClassToGatewayPayload(class *ContractClass) ([]byte, error) {
 
 func (h *Handler) TransactionStatus(
 	ctx context.Context,
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
 	status, txErr := h.transactionStatusFromStore(hash)
 	switch txErr {
@@ -306,7 +306,7 @@ func (h *Handler) TransactionStatus(
 // the status needs instead of adapting the whole receipt. Returns
 // rpccore.ErrTxnHashNotFound if the transaction is not found locally.
 func (h *Handler) transactionStatusFromStore(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
 	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
@@ -340,10 +340,10 @@ func (h *Handler) transactionStatusFromStore(
 // store. Returns rpccore.ErrTxnHashNotFound if the transaction is not in a
 // finalised block.
 func (h *Handler) finalisedTransactionStatus(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionStatus, *jsonrpc.Error) {
 	blockNumber, index, err := h.bcReader.BlockNumberAndIndexByTxHash(
-		(*felt.TransactionHash)(hash),
+		hash,
 	)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -405,7 +405,7 @@ func newTransactionStatus(
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 	responseFlags ResponseFlags,
 ) (Transaction, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
@@ -442,7 +442,7 @@ func (h *Handler) TransactionByHash(
 // finalisedTransactionByHash looks a transaction up in the finalised blocks.
 // Returns rpccore.ErrTxnHashNotFound if it is not there.
 func (h *Handler) finalisedTransactionByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (core.Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(hash)
 	if err != nil {
@@ -517,7 +517,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
 	// The stored pre_confirmed chain answers without waiting for a poll.
 	if chain, err := h.syncReader.ReadPreConfirmedChain(); err == nil {
@@ -546,9 +546,9 @@ func (h *Handler) TransactionReceiptByHash(
 // getFinalisedTransactionReceipt searches for a transaction receipt in the finalised blocks.
 // Returns rpccore.ErrTxnHashNotFound if the transaction is not in a finalised block.
 func (h *Handler) getFinalisedTransactionReceipt(
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, *jsonrpc.Error) {
-	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash((*felt.TransactionHash)(hash))
+	blockNumber, idx, err := h.bcReader.BlockNumberAndIndexByTxHash(hash)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return TransactionReceiptWithBlockInfo{}, rpccore.ErrInternal.CloneWithData(err)
@@ -589,7 +589,7 @@ func (h *Handler) getFinalisedTransactionReceipt(
 // Reports whether the chain holds the transaction.
 func preConfirmedTransactionReceipt(
 	chain *preconfirmed.ChainReader,
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (TransactionReceiptWithBlockInfo, bool) {
 	receipt, blockNumber, err := chain.ReceiptByHash(hash)
 	if err != nil {

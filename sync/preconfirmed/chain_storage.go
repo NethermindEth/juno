@@ -110,7 +110,7 @@ func (c *ChainReader) OldestFirstWithBloom() iter.Seq[*core.WithBloom[*pending.P
 // TransactionByHash scans every chain entry's Block.Transactions.
 //
 // Returns [pending.ErrTransactionNotFound] when missing.
-func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
+func (c *ChainReader) TransactionByHash(hash *felt.TransactionHash) (core.Transaction, error) {
 	if c.length == 0 {
 		return nil, pending.ErrTransactionNotFound
 	}
@@ -130,8 +130,7 @@ func (c *ChainReader) TransactionByHash(hash *felt.Felt) (core.Transaction, erro
 // and the number of the block it lives in. ErrTransactionReceiptNotFound when
 // missing.
 func (c *ChainReader) ReceiptByHash(
-	// todo(rdr): change to felt.TransactionHash
-	hash *felt.Felt,
+	hash *felt.TransactionHash,
 ) (*core.TransactionReceipt, uint64, error) {
 	if c.length == 0 {
 		return nil, 0, pending.ErrTransactionReceiptNotFound
@@ -165,7 +164,7 @@ func (c *ChainReader) PreConfirmedStateAt(
 	}
 
 	stateDiff := core.EmptyStateDiff()
-	var newClasses map[felt.Felt]core.ClassDefinition
+	var newClasses map[felt.ClassHash]core.ClassDefinition
 	for entry := range c.OldestFirst() {
 		stateDiff.Merge(entry.StateUpdate.StateDiff)
 		newClasses = mergeClassesInto(newClasses, entry.NewClasses)
@@ -194,7 +193,7 @@ func (c *ChainReader) PreConfirmedStateBeforeIndexAt(
 
 	stateDiff := core.EmptyStateDiff()
 	var target *pending.PreConfirmed
-	var newClasses map[felt.Felt]core.ClassDefinition
+	var newClasses map[felt.ClassHash]core.ClassDefinition
 	for entry := range c.OldestFirst() {
 		if entry.Block.Number == blockNumber {
 			target = entry
@@ -333,7 +332,7 @@ func (s *ChainStorage) ApplyUpdate(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*core.WithBloom[*pending.PreConfirmed], error) {
 	current := s.inner.Load()
 	newChain, affected, err := computeUpdate(
@@ -359,14 +358,14 @@ func (s *ChainStorage) ApplyUpdate(
 // mergeClassesCopying returns base with the entries of extra added, without mutating base's map
 // (copy-on-write). Returns base unchanged when extra is empty.
 func mergeClassesCopying(
-	base, extra map[felt.Felt]core.ClassDefinition,
-) map[felt.Felt]core.ClassDefinition {
+	base, extra map[felt.ClassHash]core.ClassDefinition,
+) map[felt.ClassHash]core.ClassDefinition {
 	if len(extra) == 0 {
 		return base
 	}
 	merged := maps.Clone(base)
 	if merged == nil {
-		merged = make(map[felt.Felt]core.ClassDefinition, len(extra))
+		merged = make(map[felt.ClassHash]core.ClassDefinition, len(extra))
 	}
 	maps.Copy(merged, extra)
 	return merged
@@ -446,7 +445,7 @@ func computeUpdate(
 	blockNumber uint64,
 	baseTxCount uint64,
 	oldestPreConf uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	if current == nil || current.length == 0 {
 		block, ok := update.(starknet.PreConfirmedBlock)
@@ -508,7 +507,7 @@ func bootstrapChain(
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
 	oldestPreConf uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	if blockNumber != oldestPreConf {
 		return nil, nil, fmt.Errorf(
@@ -533,7 +532,7 @@ func extend(
 	current *ChainReader,
 	block *starknet.PreConfirmedBlock,
 	blockNumber uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	next, err := sn2core.AdaptPreConfirmedBlock(block, blockNumber)
 	if err != nil {
@@ -567,7 +566,7 @@ func replaceSlot(
 	update starknet.PreConfirmedUpdate,
 	blockNumber uint64,
 	baseTxCount uint64,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) (*ChainReader, *core.WithBloom[*pending.PreConfirmed], error) {
 	depthFromHead := int(current.tip() - blockNumber)
 	target := current.head
@@ -673,8 +672,8 @@ func shouldPreserveSlot(existing, incoming *pending.PreConfirmed) bool {
 // mergeClassesInto copies src's entries into dst, mutating dst in place and
 // returning it. When dst is nil it returns a fresh clone of src.
 func mergeClassesInto(
-	dst, src map[felt.Felt]core.ClassDefinition,
-) map[felt.Felt]core.ClassDefinition {
+	dst, src map[felt.ClassHash]core.ClassDefinition,
+) map[felt.ClassHash]core.ClassDefinition {
 	if len(src) == 0 {
 		return dst
 	}

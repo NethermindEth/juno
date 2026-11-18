@@ -39,7 +39,7 @@ func NewPebbleTestDB(t *testing.T) db.KeyValueStore {
 // every pruned bucket.
 type StoredBlock struct {
 	Header   *core.Header
-	TxHashes []*felt.Felt
+	TxHashes []*felt.TransactionHash
 	// L1HandlerMsgHashes are the message hashes for any L1 handler txs in this block.
 	L1HandlerMsgHashes [][]byte
 	// StateUpdate is the state update written for this block.
@@ -97,9 +97,9 @@ func (l Layout) historyKeys(blockNum uint64, diff *core.StateDiff) [][]byte {
 
 // historyReader reads state history at a height.
 type historyReader interface {
-	ContractStorageAt(addr, key *felt.Felt, height uint64) (felt.Felt, error)
-	ContractNonceAt(addr *felt.Felt, height uint64) (felt.Felt, error)
-	ContractClassHashAt(addr *felt.Felt, height uint64) (felt.Felt, error)
+	ContractStorageAt(addr *felt.Address, key *felt.Felt, height uint64) (felt.Felt, error)
+	ContractNonceAt(addr *felt.Address, height uint64) (felt.Felt, error)
+	ContractClassHashAt(addr *felt.Address, height uint64) (felt.ClassHash, error)
 }
 
 // historyReader returns the reader of the layout's state history.
@@ -110,7 +110,7 @@ func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyRe
 		return deprecatedstate.New(database.NewIndexedBatch())
 	}
 	stateDB := state.NewStateDB(database, triedb.New(database, nil))
-	reader, err := state.NewStateReader(new(felt.Zero[felt.Felt]()), stateDB)
+	reader, err := state.NewStateReader(new(felt.Zero[felt.StateRootHash]()), stateDB)
 	require.NoError(t, err)
 	return reader
 }
@@ -118,9 +118,9 @@ func (l Layout) historyReader(t *testing.T, database db.KeyValueStore) historyRe
 // Two fixed addresses that appear across multiple blocks to simulate
 // realistic state history where the same contract is touched repeatedly.
 var (
-	SharedAddr1 = felt.NewFromUint64[felt.Felt](0xA001) //nolint:mnd // test fixture
-	SharedAddr2 = addrWithPrefix(0x07FF, 0xA002)        //nolint:mnd // test fixture
-	SharedSlot  = felt.NewFromUint64[felt.Felt](0x5001) //nolint:mnd // test fixture
+	SharedAddr1 = felt.NewFromUint64[felt.Address](0xA001) //nolint:mnd // test fixture
+	SharedAddr2 = addrWithPrefix(0x07FF, 0xA002)           //nolint:mnd // test fixture
+	SharedSlot  = felt.NewFromUint64[felt.Felt](0x5001)    //nolint:mnd // test fixture
 )
 
 // Address prefixes the unique addresses cycle through, so the history spans
@@ -128,8 +128,8 @@ var (
 var uniqueAddrPrefixes = []uint16{0x0000, 0x0001, 0x0099, 0x07FF}
 
 // addrWithPrefix returns an address whose first two bytes are prefix.
-func addrWithPrefix(prefix uint16, low uint64) *felt.Felt {
-	return felt.NewUnsafeFromString[felt.Felt](fmt.Sprintf("0x%04x%060x", prefix, low))
+func addrWithPrefix(prefix uint16, low uint64) *felt.Address {
+	return felt.NewUnsafeFromString[felt.Address](fmt.Sprintf("0x%04x%060x", prefix, low))
 }
 
 // StoreBlock writes a complete block into the database covering all pruned buckets:
@@ -176,23 +176,23 @@ func StoreBlockWithLayout(
 		Timestamp:        timestamp,
 		Hash:             felt.NewRandom[felt.Felt](),
 		ParentHash:       felt.NewRandom[felt.Felt](),
-		GlobalStateRoot:  felt.NewRandom[felt.Felt](),
-		SequencerAddress: felt.NewRandom[felt.Felt](),
+		GlobalStateRoot:  felt.NewRandom[felt.StateRootHash](),
+		SequencerAddress: felt.NewRandom[felt.Address](),
 		TransactionCount: 3,
 	}
 
 	// Create transactions: 2 invoke + 1 L1 handler.
 	invokeTx1 := &core.InvokeTransaction{
-		TransactionHash: felt.NewRandom[felt.Felt](),
+		TransactionHash: felt.NewRandom[felt.TransactionHash](),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 	}
 	invokeTx2 := &core.InvokeTransaction{
-		TransactionHash: felt.NewRandom[felt.Felt](),
+		TransactionHash: felt.NewRandom[felt.TransactionHash](),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 	}
 	l1HandlerTx := &core.L1HandlerTransaction{
-		TransactionHash:    felt.NewRandom[felt.Felt](),
-		ContractAddress:    felt.NewRandom[felt.Felt](),
+		TransactionHash:    felt.NewRandom[felt.TransactionHash](),
+		ContractAddress:    felt.NewRandom[felt.Address](),
 		EntryPointSelector: felt.NewRandom[felt.Felt](),
 		Nonce:              felt.NewFromUint64[felt.Felt](blockNum),
 		CallData:           []felt.Felt{felt.Random[felt.Felt](), felt.Random[felt.Felt]()},
@@ -200,7 +200,7 @@ func StoreBlockWithLayout(
 	}
 
 	txs := []core.Transaction{invokeTx1, invokeTx2, l1HandlerTx}
-	txHashes := []*felt.Felt{invokeTx1.Hash(), invokeTx2.Hash(), l1HandlerTx.Hash()}
+	txHashes := []*felt.TransactionHash{invokeTx1.Hash(), invokeTx2.Hash(), l1HandlerTx.Hash()}
 
 	receipts := make([]*core.TransactionReceipt, 3)
 	for i, tx := range txs {
@@ -228,7 +228,7 @@ func StoreBlockWithLayout(
 	uniqueSlot := felt.NewFromUint64[felt.Felt](0xC000 + blockNum) //nolint:mnd // test fixture
 	oldValue := felt.NewFromUint64[felt.Felt](blockNum * 100)      //nolint:mnd // test fixture
 
-	storageDiffs := map[felt.Felt]map[felt.Felt]*felt.Felt{
+	storageDiffs := map[felt.Address]map[felt.Felt]*felt.Felt{
 		*SharedAddr1: {
 			*SharedSlot: oldValue,
 		},
@@ -237,23 +237,23 @@ func StoreBlockWithLayout(
 		},
 	}
 
-	nonces := map[felt.Felt]*felt.Felt{
+	nonces := map[felt.Address]*felt.Felt{
 		*SharedAddr1: oldValue,
 	}
 
-	replacedClasses := map[felt.Felt]*felt.Felt{
-		*SharedAddr2: oldValue,
+	replacedClasses := map[felt.Address]*felt.ClassHash{
+		*SharedAddr2: (*felt.ClassHash)(oldValue),
 	}
 
 	stateUpdate := &core.StateUpdate{
 		BlockHash: header.Hash,
-		NewRoot:   felt.NewRandom[felt.Felt](),
-		OldRoot:   felt.NewRandom[felt.Felt](),
+		NewRoot:   felt.NewRandom[felt.StateRootHash](),
+		OldRoot:   felt.NewRandom[felt.StateRootHash](),
 		StateDiff: &core.StateDiff{
 			StorageDiffs:      storageDiffs,
 			Nonces:            nonces,
 			ReplacedClasses:   replacedClasses,
-			DeployedContracts: make(map[felt.Felt]*felt.Felt),
+			DeployedContracts: make(map[felt.Address]*felt.ClassHash),
 		},
 	}
 
@@ -307,7 +307,7 @@ func AssertBlockExists(t *testing.T, database db.KeyValueReader, block *StoredBl
 
 	for i, txHash := range block.TxHashes {
 		_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
-			database, (*felt.TransactionHash)(txHash))
+			database, txHash)
 		assert.NoError(t, err, "block %d tx %d hash lookup should exist", blockNum, i)
 	}
 
@@ -341,7 +341,7 @@ func AssertBlockPruned(t *testing.T, database db.KeyValueReader, block *StoredBl
 	for i, txHash := range block.TxHashes {
 		_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
 			database,
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		)
 		assert.Error(t, err, "block %d tx %d hash lookup should be deleted", blockNum, i)
 	}
@@ -450,7 +450,7 @@ func AssertPostPruneState(
 			for j, txHash := range blocks[i].TxHashes {
 				_, err := core.TransactionBlockNumbersAndIndicesByHashBucket.Get(
 					database,
-					(*felt.TransactionHash)(txHash),
+					txHash,
 				)
 				assert.Error(t, err,
 					"block %d tx %d hash lookup should be deleted", i, j)
@@ -507,7 +507,7 @@ func HistoryAnswers(
 	reader := blocks[0].Layout.historyReader(t, database)
 
 	answers := make(map[string]felt.Felt)
-	record := func(kind string, at uint64, get func() (felt.Felt, error), parts ...*felt.Felt) {
+	record := func(kind string, at uint64, get func() (felt.Felt, error), parts ...fmt.Stringer) {
 		v, err := get()
 		if errors.Is(err, deprecatedstate.ErrCheckHeadState) {
 			return
@@ -532,7 +532,8 @@ func HistoryAnswers(
 			}
 			for addr := range diff.ReplacedClasses {
 				record("class", height, func() (felt.Felt, error) {
-					return reader.ContractClassHashAt(&addr, height)
+					classHash, err := reader.ContractClassHashAt(&addr, height)
+					return felt.Felt(classHash), err
 				}, &addr)
 			}
 		}

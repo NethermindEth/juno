@@ -132,7 +132,7 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 		return s.deduper.MarkSent(
 			block.Number,
 			preConfirmed.BlockIdentifier,
-			(*felt.TransactionHash)(txn.Hash()),
+			txn.Hash(),
 		)
 	}
 

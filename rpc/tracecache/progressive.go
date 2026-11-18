@@ -60,7 +60,7 @@ func PlanRange(
 ) (Range, error) {
 	invalidTarget := target != nil && (target.Hash == nil ||
 		target.Index >= uint64(len(transactions)) ||
-		!transactions[target.Index].Hash().Equal((*felt.Felt)(target.Hash)))
+		!transactions[target.Index].Hash().Equal(target.Hash))
 	if invalidTarget {
 		return Range{}, ErrTargetNotFound
 	}
@@ -164,16 +164,16 @@ func OffsetExecutionError(err error, offset uint64) error {
 func loadCheckpointClasses(
 	diff *core.StateDiff,
 	classLookup core.StateReader,
-) (map[felt.Felt]core.ClassDefinition, error) {
+) (map[felt.ClassHash]core.ClassDefinition, error) {
 	classes := make(
-		map[felt.Felt]core.ClassDefinition,
+		map[felt.ClassHash]core.ClassDefinition,
 		len(diff.DeclaredV0Classes)+len(diff.DeclaredV1Classes),
 	)
 	for _, hash := range diff.DeclaredV0Classes {
 		classes[*hash] = nil
 	}
 	for hash := range diff.DeclaredV1Classes {
-		classes[hash] = nil
+		classes[felt.ClassHash(hash)] = nil
 	}
 	for hash := range classes {
 		declared, err := classLookup.Class(&hash)

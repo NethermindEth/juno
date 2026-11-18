@@ -12,24 +12,24 @@ import (
 )
 
 type StateUpdate struct {
-	BlockHash *felt.Felt `json:"block_hash,omitempty"`
-	NewRoot   *felt.Felt `json:"new_root,omitempty"`
-	OldRoot   *felt.Felt `json:"old_root"`
-	StateDiff *StateDiff `json:"state_diff"`
+	BlockHash *felt.Felt          `json:"block_hash,omitempty"`
+	NewRoot   *felt.StateRootHash `json:"new_root,omitempty"`
+	OldRoot   *felt.StateRootHash `json:"old_root"`
+	StateDiff *StateDiff          `json:"state_diff"`
 }
 
 type StateDiff struct {
 	StorageDiffs              []StorageDiff      `json:"storage_diffs"`
 	Nonces                    []Nonce            `json:"nonces"`
 	DeployedContracts         []DeployedContract `json:"deployed_contracts"`
-	DeprecatedDeclaredClasses []*felt.Felt       `json:"deprecated_declared_classes"`
+	DeprecatedDeclaredClasses []*felt.ClassHash  `json:"deprecated_declared_classes"`
 	DeclaredClasses           []DeclaredClass    `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass    `json:"replaced_classes"`
 }
 
 type StorageDiff struct {
-	Address        felt.Felt `json:"address"`
-	StorageEntries []Entry   `json:"storage_entries"`
+	Address        felt.Address `json:"address"`
+	StorageEntries []Entry      `json:"storage_entries"`
 }
 
 type Entry struct {
@@ -38,23 +38,23 @@ type Entry struct {
 }
 
 type Nonce struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	Nonce           felt.Felt `json:"nonce"`
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
 }
 
 type DeployedContract struct {
-	Address   felt.Felt `json:"address"`
-	ClassHash felt.Felt `json:"class_hash"`
+	Address   felt.Address   `json:"address"`
+	ClassHash felt.ClassHash `json:"class_hash"`
 }
 
 type DeclaredClass struct {
-	ClassHash         felt.Felt `json:"class_hash"`
-	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
+	ClassHash         felt.SierraClassHash `json:"class_hash"`
+	CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
 }
 
 type ReplacedClass struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	ClassHash       felt.Felt `json:"class_hash"`
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
 }
 
 /****************************************************

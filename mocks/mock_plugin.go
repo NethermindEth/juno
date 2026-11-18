@@ -57,7 +57,7 @@ func (mr *MockJunoPluginMockRecorder) Init() *gomock.Call {
 }
 
 // NewBlock mocks base method.
-func (m *MockJunoPlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.ClassDefinition) error {
+func (m *MockJunoPlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.ClassHash]core.ClassDefinition) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBlock", block, stateUpdate, newClasses)
 	ret0, _ := ret[0].(error)

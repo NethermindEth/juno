@@ -18,38 +18,38 @@ func TestPendingState(t *testing.T) {
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
-	deployedAddr := felt.NewRandom[felt.Felt]()
-	deployedAddr2 := felt.NewRandom[felt.Felt]()
-	deployedClassHash := felt.NewRandom[felt.Felt]()
-	replacedAddr := felt.NewRandom[felt.Felt]()
-	replacedClassHash := felt.NewRandom[felt.Felt]()
+	deployedAddr := felt.NewRandom[felt.Address]()
+	deployedAddr2 := felt.NewRandom[felt.Address]()
+	deployedClassHash := felt.NewRandom[felt.ClassHash]()
+	replacedAddr := felt.NewRandom[felt.Address]()
+	replacedClassHash := felt.NewRandom[felt.ClassHash]()
 	existingContractAddr := felt.NewRandom[felt.Address]()
 
 	key := felt.NewFromUint64[felt.Felt](44)
 	value := felt.NewFromUint64[felt.Felt](37)
 
 	stateDiff := &core.StateDiff{
-		DeployedContracts: map[felt.Felt]*felt.Felt{
+		DeployedContracts: map[felt.Address]*felt.ClassHash{
 			*deployedAddr:  deployedClassHash,
 			*deployedAddr2: deployedClassHash,
 		},
-		ReplacedClasses: map[felt.Felt]*felt.Felt{
+		ReplacedClasses: map[felt.Address]*felt.ClassHash{
 			*replacedAddr: replacedClassHash,
 		},
-		Nonces: map[felt.Felt]*felt.Felt{
+		Nonces: map[felt.Address]*felt.Felt{
 			*deployedAddr: felt.NewFromUint64[felt.Felt](44),
 		},
-		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+		StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 			*deployedAddr: {
 				*key: value,
 			},
-			felt.Felt(*existingContractAddr): {
+			*existingContractAddr: {
 				*key: value,
 			},
 		},
 	}
 
-	newClasses := map[felt.Felt]core.ClassDefinition{
+	newClasses := map[felt.ClassHash]core.ClassDefinition{
 		*deployedClassHash: &core.DeprecatedCairoClass{},
 	}
 
@@ -77,10 +77,10 @@ func TestPendingState(t *testing.T) {
 			})
 		})
 		t.Run("from head", func(t *testing.T) {
-			expectedClassHash := felt.NewFromUint64[felt.Felt](37)
+			expectedClassHash := felt.NewFromUint64[felt.ClassHash](37)
 			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
-			cH, cErr := state.ContractClassHash(new(felt.Zero[felt.Felt]()))
+			cH, cErr := state.ContractClassHash(new(felt.Zero[felt.Address]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedClassHash, &cH)
 		})
@@ -99,7 +99,7 @@ func TestPendingState(t *testing.T) {
 			expectedNonce := felt.NewFromUint64[felt.Felt](1337)
 			mockState.EXPECT().ContractNonce(gomock.Any()).Return(*expectedNonce, nil)
 
-			cN, cErr := state.ContractNonce(new(felt.Zero[felt.Felt]()))
+			cN, cErr := state.ContractNonce(new(felt.Zero[felt.Address]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedNonce, &cN)
 		})
@@ -122,14 +122,12 @@ func TestPendingState(t *testing.T) {
 			expectedValue := felt.NewFromUint64[felt.Felt](0xDEADBEEF)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedValue, nil)
 
-			cV, cErr := state.ContractStorage(new(felt.Zero[felt.Felt]()), new(felt.Zero[felt.Felt]()))
+			cV, cErr := state.ContractStorage(new(felt.Zero[felt.Address]()), new(felt.Zero[felt.Felt]()))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, &cV)
 		})
 	})
 	t.Run("ContractStorageLastUpdatedBlock", func(t *testing.T) {
-		deployedAddr := (*felt.Address)(deployedAddr)
-		deployedAddr2 := (*felt.Address)(deployedAddr2)
 		t.Run("from pending", func(t *testing.T) {
 			blockNum, err := state.ContractStorageLastUpdatedBlock(
 				deployedAddr, key,
@@ -191,7 +189,7 @@ func TestPendingState(t *testing.T) {
 			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClassDefinition{
 				Class: &core.SierraClass{},
 			}, nil)
-			pC, pErr := state.Class(new(felt.Zero[felt.Felt]()))
+			pC, pErr := state.Class(new(felt.Zero[felt.ClassHash]()))
 			require.NoError(t, pErr)
 			_, ok := pC.Class.(*core.SierraClass)
 			assert.True(t, ok)

@@ -110,7 +110,7 @@ func TestVersion0x3Validation(t *testing.T) {
 						MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
 					},
 				},
-				SenderAddress:         new(felt.Zero[felt.Felt]()),
+				SenderAddress:         new(felt.Zero[felt.Address]()),
 				Signature:             &emptySlice,
 				CallData:              &emptySlice,
 				Tip:                   new(felt.Zero[felt.Felt]()),

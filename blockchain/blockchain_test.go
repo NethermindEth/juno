@@ -150,8 +150,6 @@ func TestBlockByNumberAndHash(t *testing.T) {
 }
 
 func TestSanityCheckNewHeight(t *testing.T) {
-	h1 := felt.NewRandom[felt.Felt]()
-
 	chain := blockchain.New(
 		memory.New(),
 		&networks.Mainnet,
@@ -174,7 +172,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
 		mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
 
-		stateUpdate := &core.StateUpdate{BlockHash: h1}
+		stateUpdate := &core.StateUpdate{BlockHash: felt.NewRandom[felt.Felt]()}
 		_, err := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 		assert.EqualError(t, err, "block hashes do not match")
 	})
@@ -182,7 +180,10 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
 			mainnetBlock1 := adaptfeedertest.Block(t, client, 1)
-			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
+			stateUpdate := &core.StateUpdate{
+				BlockHash: mainnetBlock1.Hash,
+				NewRoot:   felt.NewRandom[felt.StateRootHash](),
+			}
 
 			_, err := chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 			assert.EqualError(t, err, "block's GlobalStateRoot does not match state update's NewRoot")
@@ -293,7 +294,7 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 		"0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	expectedHash := felt.UnsafeFromString[felt.Felt](
+	expectedHash := felt.UnsafeFromString[felt.TransactionHash](
 		"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
 	)
 	require.Equal(t, expectedHash, l1HandlerTxnHash)
@@ -366,13 +367,13 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
-		tx, err := chain.TransactionByHash(felt.NewFromUint64[felt.Felt](345))
+		tx, err := chain.TransactionByHash(felt.NewFromUint64[felt.TransactionHash](345))
 		assert.Nil(t, tx)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
-		r, _, _, err := chain.Receipt(felt.NewFromUint64[felt.Felt](234))
+		r, _, _, err := chain.Receipt(felt.NewFromUint64[felt.TransactionHash](234))
 		assert.Nil(t, r)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
@@ -436,7 +437,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 				Hash:             felt.NewRandom[felt.Felt](),
 				GlobalStateRoot:  head.GlobalStateRoot,
 				ProtocolVersion:  head.ProtocolVersion,
-				SequencerAddress: new(felt.Zero[felt.Felt]()),
+				SequencerAddress: new(felt.Zero[felt.Address]()),
 				L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 				L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			},
@@ -712,7 +713,7 @@ func TestEvents(t *testing.T) {
 				assert.Contains(
 					t,
 					from,
-					felt.Address(*event.From),
+					*event.From,
 					"event.From should be in the from addresses list",
 				)
 			}
@@ -813,7 +814,7 @@ func TestEvents(t *testing.T) {
 
 		for _, event := range events {
 			require.NotNil(t, event.From)
-			assert.Equal(t, address1, felt.Address(*event.From))
+			assert.Equal(t, address1, *event.From)
 		}
 
 		require.NoError(t, filter.Close())
@@ -1072,7 +1073,7 @@ func TestEventsMultiPreConfirmed(t *testing.T) {
 		require.NotEmpty(t, events)
 		for _, e := range events {
 			require.NotNil(t, e.From)
-			require.Equal(t, from[0], felt.Address(*e.From))
+			require.Equal(t, from[0], *e.From)
 			require.NotNil(t, e.BlockNumber)
 			require.Equal(t, lastPreConfirmedBlockNum, e.BlockNumber)
 		}
@@ -1361,7 +1362,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	client := feeder.NewTestClient(t, &networks.Integration)
 	gw := adaptfeeder.New(client)
 
-	sierraClassHashFelt := felt.UnsafeFromString[felt.Felt](
+	sierraClassHashFelt := felt.UnsafeFromString[felt.ClassHash](
 		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
 	)
 	classDef, err := gw.Class(t.Context(), &sierraClassHashFelt)
@@ -1371,10 +1372,10 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	require.NotNil(t, sierraClass.Compiled, "class must have Compiled set")
 
 	sierraHash := felt.SierraClassHash(sierraClassHashFelt)
-	v1CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV1))
-	v2CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+	v1CasmHash := sierraClass.Compiled.Hash(core.HashVersionV1)
+	v2CasmHash := sierraClass.Compiled.Hash(core.HashVersionV2)
 
-	newClasses := map[felt.Felt]core.ClassDefinition{
+	newClasses := map[felt.ClassHash]core.ClassDefinition{
 		sierraClassHashFelt: sierraClass,
 	}
 
@@ -1391,7 +1392,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.Zero[felt.Address]()),
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
@@ -1411,10 +1412,10 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 	}
 
 	stateUpdate0 := &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				sierraClassHashFelt: (*felt.Felt)(&v1CasmHash),
+			DeclaredV1Classes: map[felt.SierraClassHash]*felt.CasmClassHash{
+				sierraHash: &v1CasmHash,
 			},
 		},
 	}
@@ -1432,7 +1433,7 @@ func TestRevertHeadMigratedCasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       block0.Hash,
 			Number:           1,
-			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.Zero[felt.Address]()),
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
@@ -1500,7 +1501,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 
-	sierraClassHashFelt := felt.UnsafeFromString[felt.Felt](
+	sierraClassHashFelt := felt.UnsafeFromString[felt.ClassHash](
 		"0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
 	)
 	classDef, err := gw.Class(t.Context(), &sierraClassHashFelt)
@@ -1511,9 +1512,9 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	require.NotNil(t, sierraClass.Compiled, "class must be compiled")
 
 	sierraHash := felt.SierraClassHash(sierraClassHashFelt)
-	v2CasmHash := felt.CasmClassHash(sierraClass.Compiled.Hash(core.HashVersionV2))
+	v2CasmHash := sierraClass.Compiled.Hash(core.HashVersionV2)
 
-	newClasses := map[felt.Felt]core.ClassDefinition{
+	newClasses := map[felt.ClassHash]core.ClassDefinition{
 		sierraClassHashFelt: sierraClass,
 	}
 
@@ -1530,7 +1531,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       new(felt.Zero[felt.Felt]()),
 			Number:           0,
-			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.Zero[felt.Address]()),
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
@@ -1548,7 +1549,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		Receipts:     receipts0,
 	}
 	stateUpdate0 := &core.StateUpdate{
-		OldRoot:   new(felt.Zero[felt.Felt]()),
+		OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{},
 	}
 	require.NoError(t, chain.Finalise(
@@ -1566,7 +1567,7 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 		Header: &core.Header{
 			ParentHash:       block0.Hash,
 			Number:           1,
-			SequencerAddress: new(felt.Zero[felt.Felt]()),
+			SequencerAddress: new(felt.Zero[felt.Address]()),
 			L1GasPriceETH:    new(felt.Zero[felt.Felt]()),
 			L1GasPriceSTRK:   new(felt.Zero[felt.Felt]()),
 			L1DataGasPrice: &core.GasPrice{
@@ -1588,8 +1589,8 @@ func TestRevertHeadDeclaredV2CasmClasses(t *testing.T) {
 	stateUpdate1 := &core.StateUpdate{
 		OldRoot: stateUpdate0.NewRoot,
 		StateDiff: &core.StateDiff{
-			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				sierraClassHashFelt: (*felt.Felt)(&v2CasmHash),
+			DeclaredV1Classes: map[felt.SierraClassHash]*felt.CasmClassHash{
+				sierraHash: &v2CasmHash,
 			},
 		},
 	}
@@ -1627,11 +1628,11 @@ func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{
 			BlockNumber: 1,
-			StateRoot:   felt.NewFromUint64[felt.Felt](2),
+			StateRoot:   felt.NewFromUint64[felt.StateRootHash](2),
 		},
 		{
 			BlockNumber: 2,
-			StateRoot:   felt.NewFromUint64[felt.Felt](3),
+			StateRoot:   felt.NewFromUint64[felt.StateRootHash](3),
 		},
 	}
 
@@ -1653,7 +1654,7 @@ func TestL1Update(t *testing.T) {
 func TestSubscribeL1Head(t *testing.T) {
 	l1Head := &core.L1Head{
 		BlockNumber: 1,
-		StateRoot:   felt.NewFromUint64[felt.Felt](2),
+		StateRoot:   felt.NewFromUint64[felt.StateRootHash](2),
 	}
 
 	chain := blockchain.New(
@@ -1671,7 +1672,7 @@ func TestSubscribeL1Head(t *testing.T) {
 	assert.Equal(t, l1Head, got)
 }
 
-func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.Felt {
+func chainStateCommitment(t *testing.T, database db.KeyValueStore) felt.StateRootHash {
 	height, err := core.ChainHeightBucket.Get(database, struct{}{})
 	require.NoError(t, err)
 	header, err := core.BlockHeadersByNumberBucket.Get(database, height)

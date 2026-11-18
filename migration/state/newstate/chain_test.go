@@ -17,11 +17,11 @@ import (
 )
 
 // chainAddrs are the contracts randomStateDiffs touches, system contracts first.
-var chainAddrs = []felt.Felt{
-	felt.FromUint64[felt.Felt](1), felt.FromUint64[felt.Felt](2),
-	felt.FromUint64[felt.Felt](0x100), felt.FromUint64[felt.Felt](0x101),
-	felt.FromUint64[felt.Felt](0x102), felt.FromUint64[felt.Felt](0x103),
-	felt.FromUint64[felt.Felt](0x104), felt.FromUint64[felt.Felt](0x105),
+var chainAddrs = []felt.Address{
+	felt.FromUint64[felt.Address](1), felt.FromUint64[felt.Address](2),
+	felt.FromUint64[felt.Address](0x100), felt.FromUint64[felt.Address](0x101),
+	felt.FromUint64[felt.Address](0x102), felt.FromUint64[felt.Address](0x103),
+	felt.FromUint64[felt.Address](0x104), felt.FromUint64[felt.Address](0x105),
 }
 
 var chainSlots = []felt.Felt{
@@ -31,32 +31,28 @@ var chainSlots = []felt.Felt{
 // randomStateDiffs deploys, replaces classes, bumps nonces and writes storage at random.
 func randomStateDiffs(seed int64, blocks int) []*core.StateDiff {
 	r := rand.New(rand.NewSource(seed)) //nolint:gosec // deterministic fixture
-	deployed := map[felt.Felt]bool{}
-	nonces := map[felt.Felt]uint64{}
-	randomFelt := func(base, n int) *felt.Felt {
-		v := felt.FromUint64[felt.Felt](uint64(base + r.Intn(n)))
-		return &v
-	}
+	deployed := map[felt.Address]bool{}
+	nonces := map[felt.Address]uint64{}
 
 	diffs := make([]*core.StateDiff, blocks)
 	for height := range diffs {
 		d := &core.StateDiff{
-			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{},
-			Nonces:            map[felt.Felt]*felt.Felt{},
-			DeployedContracts: map[felt.Felt]*felt.Felt{},
-			ReplacedClasses:   map[felt.Felt]*felt.Felt{},
+			StorageDiffs:      map[felt.Address]map[felt.Felt]*felt.Felt{},
+			Nonces:            map[felt.Address]*felt.Felt{},
+			DeployedContracts: map[felt.Address]*felt.ClassHash{},
+			ReplacedClasses:   map[felt.Address]*felt.ClassHash{},
 		}
 		for _, addr := range chainAddrs {
 			system := state.IsSystemContract(&addr)
 			if !system && !deployed[addr] {
 				if r.Intn(4) == 0 {
-					d.DeployedContracts[addr] = randomFelt(0xC0, 4)
+					d.DeployedContracts[addr] = randomFelt[felt.ClassHash](r, 0xC0, 4)
 					deployed[addr] = true
 				}
 				continue
 			}
 			if !system && r.Intn(6) == 0 {
-				d.ReplacedClasses[addr] = randomFelt(0xC0, 4)
+				d.ReplacedClasses[addr] = randomFelt[felt.ClassHash](r, 0xC0, 4)
 			}
 			if !system && r.Intn(3) == 0 {
 				nonces[addr]++
@@ -65,7 +61,7 @@ func randomStateDiffs(seed int64, blocks int) []*core.StateDiff {
 			}
 			writes := map[felt.Felt]*felt.Felt{}
 			for range r.Intn(3) {
-				writes[chainSlots[r.Intn(len(chainSlots))]] = randomFelt(0, 6)
+				writes[chainSlots[r.Intn(len(chainSlots))]] = randomFelt[felt.Felt](r, 0, 6)
 			}
 			if len(writes) > 0 {
 				d.StorageDiffs[addr] = writes
@@ -74,6 +70,12 @@ func randomStateDiffs(seed int64, blocks int) []*core.StateDiff {
 		diffs[height] = d
 	}
 	return diffs
+}
+
+// randomFelt returns a felt of kind F drawn from [base, base+n).
+func randomFelt[F felt.FeltLike](r *rand.Rand, base, n int) *F {
+	v := felt.FromUint64[F](uint64(base + r.Intn(n)))
+	return &v
 }
 
 // storeDeprecatedChain applies diffs through the deprecated state and writes block data.
@@ -88,7 +90,10 @@ func storeDeprecatedChain(t *testing.T, database db.KeyValueStore, diffs []*core
 		require.NoError(t, err)
 		header = &core.Header{Number: blockNum, Hash: felt.NewFromUint64[felt.Felt](blockNum + 1)}
 		su := &core.StateUpdate{
-			BlockHash: header.Hash, OldRoot: &oldRoot, NewRoot: new(felt.Zero[felt.Felt]()), StateDiff: d,
+			BlockHash: header.Hash,
+			OldRoot:   &oldRoot,
+			NewRoot:   new(felt.Zero[felt.StateRootHash]()),
+			StateDiff: d,
 		}
 		require.NoError(t, st.Update(header, su, nil, true), "block %d", height)
 
@@ -125,13 +130,14 @@ func stateAnswers(
 			txn := database.NewIndexedBatch() //nolint:staticcheck // the deprecated state needs it
 			reader = deprecatedstate.NewHistory(deprecatedstate.New(txn), height)
 		} else {
-			history, err := state.NewStateHistory(height, new(felt.Zero[felt.Felt]()), stateDB)
+			history, err := state.NewStateHistory(height, new(felt.Zero[felt.StateRootHash]()), stateDB)
 			require.NoError(t, err)
 			reader = &history
 		}
 		for _, addr := range chainAddrs {
 			key := fmt.Sprintf("%d/%s/", height, &addr)
-			answers[key+"class"] = format(reader.ContractClassHash(&addr))
+			classHash, err := reader.ContractClassHash(&addr)
+			answers[key+"class"] = format(felt.Felt(classHash), err)
 			answers[key+"nonce"] = format(reader.ContractNonce(&addr))
 			for _, slot := range chainSlots {
 				answers[key+slot.String()] = format(reader.ContractStorage(&addr, &slot))

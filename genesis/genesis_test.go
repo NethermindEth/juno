@@ -64,7 +64,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {
-			require.NotNil(t, stateDiff.DeclaredV1Classes[con.ClassHash])
+			require.NotNil(t, stateDiff.DeclaredV1Classes[felt.SierraClassHash(con.ClassHash)])
 			require.NotNil(t, newClasses[con.ClassHash])
 		}
 		require.Empty(t, stateDiff.ReplacedClasses)
@@ -72,13 +72,17 @@ func TestGenesisStateDiff(t *testing.T) {
 		numFundedAccounts := 0
 		v3InvokeTxnTransferAmount := "0x1111111"
 		v3InvokeTxnTriggered := false
-		strkAddress := felt.NewUnsafeFromString[felt.Felt]("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
+		strkAddress := felt.NewUnsafeFromString[felt.Address](
+			"0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7",
+		)
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
-			if v.Equal(felt.NewUnsafeFromString[felt.Felt]("0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
+			// see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt]("0x56bc75e2d63100000")) {
 				numFundedAccounts++
 			}
-			if v.Equal(felt.NewUnsafeFromString[felt.Felt](v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
+			// see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt](v3InvokeTxnTransferAmount)) {
 				v3InvokeTxnTriggered = true
 			}
 		}
@@ -86,17 +90,17 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.True(t, v3InvokeTxnTriggered)
 
 		// see the DEPLOY_ACCOUNT and INVOKE txns in genesis_prefund_accounts.json
-		deployedClassHash := felt.NewUnsafeFromString[felt.Felt](
+		deployedClassHash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
 		)
 		deployedAddress := core.ContractAddress(
-			new(felt.Zero[felt.Felt]()),
+			new(felt.Zero[felt.Address]()),
 			deployedClassHash,
 			new(felt.Zero[felt.Felt]()),
 			nil,
 		)
 		require.Equal(t, deployedClassHash, stateDiff.DeployedContracts[deployedAddress])
-		invokeSender := felt.NewUnsafeFromString[felt.Felt](
+		invokeSender := felt.NewUnsafeFromString[felt.Address](
 			"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 		)
 		require.Equal(t, new(felt.One[felt.Felt]()), stateDiff.Nonces[*invokeSender])
