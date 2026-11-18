@@ -349,7 +349,7 @@ func (d *DeclaredClassDefinition) UnmarshalBinary(data []byte) error {
 	}
 
 	d.At = binary.BigEndian.Uint64(data[:8])
-	return cbor.UnmarshalFast(data[8:], &d.Class)
+	return cbor.Unmarshal(data[8:], &d.Class)
 }
 
 // ClassCasmHashMetadata tracks the CASM (Compiled Sierra) hash metadata for a class.

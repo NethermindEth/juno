@@ -38,6 +38,13 @@ func TestADestinationThatIsNotZeroIsUnsupported(t *testing.T) {
 	require.Equal(t, prefilled, got, "the destination was written")
 }
 
+func TestANilDestinationIsUnsupported(t *testing.T) {
+	var dst *uint64
+	require.ErrorIs(t, fastcbor.Unmarshal([]byte{0x01}, dst), fastcbor.ErrUnsupported)
+	_, err := fastcbor.UnmarshalFirst([]byte{0x01}, dst)
+	require.ErrorIs(t, err, fastcbor.ErrUnsupported)
+}
+
 func TestAFailedReadLeavesTheDestinationZero(t *testing.T) {
 	type record struct {
 		A uint64

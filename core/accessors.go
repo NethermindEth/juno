@@ -95,7 +95,7 @@ func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []Transaction) error {
 func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header headerGlobalStateRootProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.UnmarshalFast(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func GetGlobalStateRootByBlockNumber(r db.KeyValueReader, blockNum uint64) (*fel
 func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Felt, error) {
 	var header headerHashProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.UnmarshalFast(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func GetBlockHeaderHashByNumber(r db.KeyValueReader, blockNum uint64) (*felt.Fel
 func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTransactionCountProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.UnmarshalFast(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -138,7 +138,7 @@ func GetBlockTransactionCountByNumber(r db.KeyValueReader, blockNum uint64) (uin
 func GetBlockHeaderTimestampByNumber(r db.KeyValueReader, blockNum uint64) (uint64, error) {
 	var header headerTimestampProjection
 	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.UnmarshalFast(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return 0, err
@@ -155,7 +155,7 @@ func GetBlockHeaderHashAndStateRootByNumber(
 ) (hash, stateRoot *felt.Felt, err error) {
 	var header headerHashAndStateRootProjection
 	err = r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
-		return cbor.UnmarshalFast(data, &header)
+		return cbor.Unmarshal(data, &header)
 	})
 	if err != nil {
 		return nil, nil, err
