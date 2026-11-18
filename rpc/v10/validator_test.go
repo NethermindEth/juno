@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/l1/eth"
 	rpc "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,4 +130,156 @@ func TestVersion0x3Validation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateResultPageRequest(t *testing.T) {
+	t.Parallel()
+	v := rpc.Validator()
+
+	assert.Error(t, v.Struct(rpc.ResultPageRequest{ChunkSize: 0}))
+	assert.NoError(t, v.Struct(rpc.ResultPageRequest{ChunkSize: 1}))
+	assert.NoError(t, v.Struct(rpc.ResultPageRequest{ChunkSize: 100}))
+}
+
+func TestValidateMsgFromL1(t *testing.T) {
+	t.Parallel()
+	v := rpc.Validator()
+
+	valid := rpc.MsgFromL1{
+		From:     eth.Address{1},
+		To:       felt.FromUint64[felt.Felt](2),
+		Payload:  []felt.Felt{felt.FromUint64[felt.Felt](3)},
+		Selector: felt.FromUint64[felt.Felt](4),
+	}
+	assert.NoError(t, v.Struct(valid))
+
+	missingFrom := valid
+	missingFrom.From = eth.Address{}
+	assert.Error(t, v.Struct(missingFrom))
+
+	missingPayload := valid
+	missingPayload.Payload = nil
+	assert.Error(t, v.Struct(missingPayload))
+}
+
+func TestValidateTransactionTrace(t *testing.T) {
+	t.Parallel()
+	v := rpc.Validator()
+
+	// INVOKE requires ExecuteInvocation
+	invokeWithoutExec := rpc.TransactionTrace{
+		Type: rpc.TxnInvoke,
+	}
+	assert.Error(t, v.Struct(invokeWithoutExec))
+
+	invokeWithExec := rpc.TransactionTrace{
+		Type:              rpc.TxnInvoke,
+		ExecuteInvocation: &rpc.ExecuteInvocation{},
+	}
+	assert.NoError(t, v.Struct(invokeWithExec))
+
+	// DEPLOY_ACCOUNT requires ConstructorInvocation
+	deployAccountWithoutCtor := rpc.TransactionTrace{
+		Type: rpc.TxnDeployAccount,
+	}
+	assert.Error(t, v.Struct(deployAccountWithoutCtor))
+
+	deployAccountWithCtor := rpc.TransactionTrace{
+		Type:                  rpc.TxnDeployAccount,
+		ConstructorInvocation: &rpc.FunctionInvocation{},
+	}
+	assert.NoError(t, v.Struct(deployAccountWithCtor))
+
+	// L1_HANDLER requires FunctionInvocation
+	l1HandlerWithoutFunc := rpc.TransactionTrace{
+		Type: rpc.TxnL1Handler,
+	}
+	assert.Error(t, v.Struct(l1HandlerWithoutFunc))
+
+	l1HandlerWithFunc := rpc.TransactionTrace{
+		Type:               rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.ExecuteInvocation{},
+	}
+	assert.NoError(t, v.Struct(l1HandlerWithFunc))
+}
+
+func TestValidateBroadcastedTransaction(t *testing.T) {
+	t.Parallel()
+	v := rpc.Validator()
+
+	daMode := rpc.DAModeL1
+	emptySlice := felt.Slice[felt.Felt]{}
+	v3 := felt.FromUint64[felt.Felt](3)
+	bounds := &rpc.ResourceBoundsMap{
+		L1Gas: rpc.ResourceBounds{
+			MaxAmount:       new(felt.Zero[felt.Felt]()),
+			MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+		},
+		L2Gas: rpc.ResourceBounds{
+			MaxAmount:       new(felt.Zero[felt.Felt]()),
+			MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+		},
+		L1DataGas: rpc.ResourceBounds{
+			MaxAmount:       new(felt.Zero[felt.Felt]()),
+			MaxPricePerUnit: new(felt.Zero[felt.Felt]()),
+		},
+	}
+
+	baseTx := rpc.Transaction{
+		Version:               &v3,
+		Nonce:                 new(felt.Zero[felt.Felt]()),
+		ResourceBounds:        bounds,
+		Signature:             &emptySlice,
+		Tip:                   new(felt.Zero[felt.Felt]()),
+		PaymasterData:         &emptySlice,
+		NonceDAMode:           &daMode,
+		FeeDAMode:             &daMode,
+		SenderAddress:         new(felt.Zero[felt.Felt]()),
+		AccountDeploymentData: &emptySlice,
+	}
+
+	t.Run("DECLARE requires ContractClass", func(t *testing.T) {
+		declareTx := rpc.BroadcastedTransaction{
+			Transaction: baseTx,
+		}
+		declareTx.Type = rpc.TxnDeclare
+		assert.Error(t, v.Struct(declareTx), "DECLARE without ContractClass should fail")
+
+		declareTx.ContractClass = &rpc.ContractClass{
+			SierraProgram:        []felt.Felt{felt.FromUint64[felt.Felt](1)},
+			ContractClassVersion: "0.1.0",
+			EntryPoints: rpc.ContractClassEntryPoints{
+				Constructor: []rpc.ContractClassEntryPoint{},
+				External:    []rpc.ContractClassEntryPoint{},
+				L1Handler:   []rpc.ContractClassEntryPoint{},
+			},
+		}
+		assert.NoError(t, v.Struct(declareTx), "DECLARE with ContractClass should pass")
+	})
+
+	t.Run("Proof is excluded unless INVOKE", func(t *testing.T) {
+		declareTx := rpc.BroadcastedTransaction{
+			Transaction: baseTx,
+			ContractClass: &rpc.ContractClass{
+				SierraProgram:        []felt.Felt{felt.FromUint64[felt.Felt](1)},
+				ContractClassVersion: "0.1.0",
+				EntryPoints: rpc.ContractClassEntryPoints{
+					Constructor: []rpc.ContractClassEntryPoint{},
+					External:    []rpc.ContractClassEntryPoint{},
+					L1Handler:   []rpc.ContractClassEntryPoint{},
+				},
+			},
+			Proof: core.Base64("dGVzdA=="),
+		}
+		declareTx.Type = rpc.TxnDeclare
+		assert.Error(t, v.Struct(declareTx), "DECLARE with Proof should fail")
+
+		invokeTx := rpc.BroadcastedTransaction{
+			Transaction: baseTx,
+			Proof:       core.Base64("dGVzdA=="),
+		}
+		invokeTx.Type = rpc.TxnInvoke
+		invokeTx.CallData = &emptySlice
+		assert.NoError(t, v.Struct(invokeTx), "INVOKE with Proof should pass")
+	})
 }
