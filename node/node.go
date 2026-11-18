@@ -923,16 +923,30 @@ func (n *Node) StartService(
 	wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service,
 ) {
 	wg.Go(func() {
-		// Immediately acknowledge panicing services by shutting down the node
-		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
-		defer cancel()
-		if err := s.Run(ctx); err != nil {
-			n.logger.Error(
-				"Service error",
-				zap.String("name", reflect.TypeOf(s).String()),
-				zap.Error(err),
-			)
+		// A panicking service is critical: trigger a node-wide shutdown so the
+		// other services stop without waiting for user intervention, then
+		// re-panic so conc.WaitGroup can propagate it to the caller.
+		defer func() {
+			if r := recover(); r != nil {
+				cancel()
+				panic(r)
+			}
+		}()
+
+		var name string
+		if s != nil {
+			name = reflect.TypeOf(s).String()
 		}
+
+		if err := s.Run(ctx); err != nil {
+			n.logger.Error("Service error", zap.String("name", name), zap.Error(err))
+			cancel()
+			return
+		}
+
+		// The service finished its work without error. Let it exit cleanly without
+		// bringing down the rest of the node.
+		n.logger.Info("Service finished", zap.String("name", name))
 	})
 }
 
