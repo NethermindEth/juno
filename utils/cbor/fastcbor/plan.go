@@ -21,8 +21,8 @@ import (
 // type with no reader, or one that encodes itself and has no decoder, fails the plan and the read
 // returns ErrUnsupported.
 //
-// A struct whose fields of size 0 decode themselves is a projection. It reads only the fields it
-// names, with NextWanted.
+// A struct with zero-sized fields that implement cborDiscarder is a projection. It reads only the
+// fields it names, with NextWanted.
 
 // fieldReader reads one item into the value that dst points to.
 type fieldReader func(r *cursor.Cursor, dst unsafe.Pointer) error
@@ -228,8 +228,14 @@ type (
 	cborUnmarshaler interface{ UnmarshalCBOR([]byte) error }
 )
 
+// cborDiscarder marks a zero-sized type whose UnmarshalCBOR only discards its input. A field of
+// such a type is skipped and not decoded, so its method must not validate the input or have side
+// effects.
+type cborDiscarder interface{ DiscardCBOR() }
+
 var (
 	selfDecoder = reflect.TypeFor[cborUnmarshaler]()
+	discarder   = reflect.TypeFor[cborDiscarder]()
 	// encodings are the interfaces through which a type encodes itself, among those the CBOR
 	// encoders honor.
 	encodings = []reflect.Type{
@@ -445,7 +451,8 @@ func (p *planner) fillStruct(plan *structPlan, t reflect.Type, path string) bool
 			reads = append(reads, fieldRead{offset: f.offset, op: opCall, read: read})
 			continue
 		}
-		if f.typ.Size() == 0 && reflect.PointerTo(f.typ).Implements(selfDecoder) {
+		if f.typ.Size() == 0 && reflect.PointerTo(f.typ).Implements(selfDecoder) &&
+			reflect.PointerTo(f.typ).Implements(discarder) {
 			skipped = append(skipped, f.name)
 			continue
 		}

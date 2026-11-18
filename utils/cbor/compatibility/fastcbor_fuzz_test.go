@@ -3,6 +3,7 @@
 package cbor_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -39,6 +40,22 @@ func (e *skewedFelt) UnmarshalCBOR(data []byte) error {
 	return nil
 }
 
+// versionOne is a zero-sized type that reads only the integer 1, as a version marker does.
+type versionOne struct{}
+
+var errVersion = errors.New("not version 1")
+
+func (*versionOne) UnmarshalCBOR(data []byte) error {
+	var version uint64
+	if err := fxamacker.Unmarshal(data, &version); err != nil {
+		return err
+	}
+	if version != 1 {
+		return errVersion
+	}
+	return nil
+}
+
 type fuzzedInner struct{ A uint64 }
 
 // fuzzed has a field of each kind a record has, which are an integer, a string, a slice, a felt, a
@@ -69,6 +86,12 @@ type fuzzedSkewed struct {
 }
 
 type fuzzedSelfPtrs struct{ SelfPtrs []*selfInt }
+
+// fuzzedZero holds a zero-sized type that reads itself, whose decoder rejects some input.
+type fuzzedZero struct {
+	Version versionOne
+	Value   uint64
+}
 
 // FuzzStructsMatchFxamacker reads arbitrary bytes into a struct with fastcbor and with fxamacker.
 // Both must fail, or both succeed with equal values. Which field a key names (exact match first,
@@ -109,6 +132,8 @@ func FuzzStructsMatchFxamacker(f *testing.F) {
 		{0xa1, 0x65, 'I', 'n', 'n', 'e', 'r', 0xa1, 0x61, 'A', 0x07},   // nested struct
 		{0xa1, 0x65, 'I', 'n', 'n', 'e', 'r', 0xf6},                    // null pointer
 		{0xbf, 0x63, 'F', 'e', 'e', 0x05, 0xff},                        // indefinite-length map
+		{0xa2, 0x67, 'V', 'e', 'r', 's', 'i', 'o', 'n', 0x01, 0x65, 'V', 'a', 'l', 'u', 'e', 0x07},
+		{0xa2, 0x67, 'V', 'e', 'r', 's', 'i', 'o', 'n', 0x02, 0x65, 'V', 'a', 'l', 'u', 'e', 0x07},
 	} {
 		f.Add(seed)
 	}
@@ -117,5 +142,6 @@ func FuzzStructsMatchFxamacker(f *testing.F) {
 		compare[fuzzedSelf](t, data)
 		compare[fuzzedSkewed](t, data)
 		compare[fuzzedSelfPtrs](t, data)
+		compare[fuzzedZero](t, data)
 	})
 }
