@@ -26,6 +26,9 @@ var (
 	_ cbor.SelfDecoder = discardedCBOR{}
 )
 
+// DiscardCBOR lets fastcbor skip a projection field without calling UnmarshalCBOR.
+func (discardedCBOR) DiscardCBOR() {}
+
 func (discardedCBOR) UnmarshalCBOR([]byte) error { return nil }
 
 // MarshalCBOR refuses to encode: projections are decode-only, and marshaling one would emit its

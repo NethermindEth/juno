@@ -165,7 +165,7 @@ func (blockTransactionsPartialSerializer[E, S, T]) UnmarshalPartial(
 	value *T,
 ) error {
 	var blockTransactions BlockTransactions
-	remaining, err := cbor.UnmarshalFirst(data, &blockTransactions.Indexes)
+	remaining, err := cbor.UnmarshalFirstFast(data, &blockTransactions.Indexes)
 	if err != nil {
 		return err
 	}
