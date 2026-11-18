@@ -13,7 +13,7 @@ func (a *txHashWithProofFactsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 }
 
 func txHashSampler(input samplerInput[blockRangeFlags]) (txHashParams, error) {
-	blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
+	blockNumber := input.args.sampleBlockNumber(input.rng)
 	block, err := input.client.blockWithTxHashes(input.ctx, blockNumber)
 	if err != nil {
 		return txHashParams{}, err
