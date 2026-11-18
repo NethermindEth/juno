@@ -4,15 +4,20 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
 )
 
-// The block fetch polls past the tip, so this answer paces the caller instead of
-// burning the retry budget.
+// These answers describe the remote chain, so retrying can't change them: the block fetch
+// polls past the tip, and a remote with no blocks has no head yet.
 func retryable(err error) bool {
-	code, isRPCError := errorCode(err)
-	return !isRPCError || code != rpccore.ErrBlockNotFound.Code
+	return !IsError(err, rpccore.ErrBlockNotFound) && !IsError(err, rpccore.ErrNoBlock)
+}
+
+func IsError(err error, want *jsonrpc.Error) bool {
+	code, ok := errorCode(err)
+	return ok && code == want.Code
 }
 
 func outcome(err error) string {
