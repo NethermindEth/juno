@@ -943,15 +943,25 @@ func (n *Node) StartService(
 	wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service,
 ) {
 	wg.Go(func() {
-		// Immediately acknowledge panicing services by shutting down the node
-		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
-		defer cancel()
+		finished := false
+		defer func() {
+			if !finished {
+				cancel()
+			}
+		}()
+
 		if err := s.Run(ctx); err != nil {
 			n.logger.Error(
 				"Service error",
 				zap.String("name", reflect.TypeOf(s).String()),
 				zap.Error(err),
 			)
+			return
+		}
+		finished = true
+
+		if ctx.Err() == nil {
+			n.logger.Warn("Service finished", zap.String("name", reflect.TypeOf(s).String()))
 		}
 	})
 }
