@@ -105,6 +105,10 @@ func post(ctx context.Context, c *rpcClient, method string, body []byte, env any
 	return nil
 }
 
+func (c *rpcClient) chainID(ctx context.Context) (string, error) {
+	return c.rpcCall[string](ctx, "starknet_chainId", nil)
+}
+
 func (c *rpcClient) specVersion(ctx context.Context) (string, error) {
 	return c.rpcCall[string](ctx, "starknet_specVersion", nil)
 }
