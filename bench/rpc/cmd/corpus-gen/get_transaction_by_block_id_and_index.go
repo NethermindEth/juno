@@ -23,7 +23,7 @@ func (a *txByBlockIDAndIndexArgs) bind(cmd *cobra.Command, client *rpcClient) {
 func txByBlockIDAndIndexSampler(
 	input samplerInput[txByBlockIDAndIndexArgs],
 ) (txByBlockIDAndIndexParams, error) {
-	blockNumber := input.args.sampleBlockNumber(input.rng)
+	blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
 	count, err := input.client.txCountInBlock(input.ctx, blockNumber)
 	if err != nil {
 		return txByBlockIDAndIndexParams{}, err

@@ -109,6 +109,10 @@ func (c *rpcClient) specVersion(ctx context.Context) (string, error) {
 	return c.rpcCall[string](ctx, "starknet_specVersion", nil)
 }
 
+func (c *rpcClient) chainID(ctx context.Context) (string, error) {
+	return c.rpcCall[string](ctx, "starknet_chainId", nil)
+}
+
 func (c *rpcClient) blockNumber(ctx context.Context) (uint64, error) {
 	return c.rpcCall[uint64](ctx, "starknet_blockNumber", nil)
 }

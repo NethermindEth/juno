@@ -105,6 +105,7 @@ Corpus must be redirected in (`<`), not piped. k6 prints its summary to stdout;
 | `--count`       | corpus entries                                 |
 | `--block-start` | sample range low (inclusive, default 0)        |
 | `--block-end`   | sample range high (inclusive, default latest)  |
+| `--blocks`      | sample these blocks in order, one per request; `--count` defaults to one entry per block (not for `getStorageProof`) |
 | `--seed`        | reproducible corpus (mixed with method + options) |
 | `--batch N`     | N requests per entry                           |
 | `--concurrency` | concurrent sampling requests (`GOMAXPROCS`)    |

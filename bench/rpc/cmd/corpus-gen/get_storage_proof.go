@@ -36,6 +36,10 @@ func (a *storageProofArgs) bind(cmd *cobra.Command, client *rpcClient) {
 		if a.NumClasses < 0 || a.NumContracts < 0 || a.NumKeys < 0 {
 			return fmt.Errorf("--num-classes, --num-contracts and --num-keys must be >= 0")
 		}
+		if cmd.Flags().Changed(blocksFlag) {
+			// Each request draws several members, and proofs query "latest" anyway.
+			return fmt.Errorf("--%s is not supported", blocksFlag)
+		}
 		return nil
 	})
 	a.blockRangeFlags.bind(cmd, client)

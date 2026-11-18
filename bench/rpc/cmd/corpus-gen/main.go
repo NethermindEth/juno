@@ -117,6 +117,7 @@ func main() {
 type corpusMeta[T any] struct {
 	Method      string `json:"method"`
 	RPCVersion  string `json:"rpcVersion"`
+	ChainID     string `json:"chainId"`
 	Seed        uint64 `json:"seed"`
 	Count       int    `json:"count"`
 	Batch       int    `json:"batch"`
@@ -147,7 +148,8 @@ func writeCorpus[T any](w io.Writer, c *corpus[T]) error {
 	return err
 }
 
-type paramsGen func(ctx context.Context, rng *rand.Rand) (any, error)
+// paramsGen returns the params of the index-th request in the corpus.
+type paramsGen func(ctx context.Context, rng *rand.Rand, index int) (any, error)
 
 func runCorpus[T any](
 	cmd *cobra.Command,
@@ -188,6 +190,10 @@ func buildCorpus[T any](
 	if err != nil {
 		return nil, fmt.Errorf("fetch spec version: %w", err)
 	}
+	chainID, err := client.chainID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetch chain id: %w", err)
+	}
 
 	var completed atomic.Int64
 	stopProgress := reportProgress(progress, &completed, cfg.count)
@@ -210,12 +216,13 @@ func buildCorpus[T any](
 			batchSize := max(1, cfg.batch)
 			entry := make([]jsonRPCRequest, batchSize)
 			for j := range entry {
-				params, genErr := gen(ctx, rng)
+				index := i*batchSize + j
+				params, genErr := gen(ctx, rng, index)
 				if genErr != nil {
 					return genErr
 				}
 				entry[j] = jsonRPCRequest{
-					JSONRPC: "2.0", ID: i*batchSize + j + 1, Method: method, Params: params,
+					JSONRPC: "2.0", ID: index + 1, Method: method, Params: params,
 				}
 			}
 			if cfg.batch == 0 {
@@ -235,6 +242,7 @@ func buildCorpus[T any](
 		Meta: corpusMeta[T]{
 			Method:      method,
 			RPCVersion:  version,
+			ChainID:     chainID,
 			Seed:        cfg.seed,
 			Count:       cfg.count,
 			Batch:       cfg.batch,

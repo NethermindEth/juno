@@ -10,7 +10,7 @@ func contractAddressSampler(
 	listAddresses func(stateDiff) []string,
 ) sampler[blockIDArgs, contractAtBlockParams] {
 	return func(input samplerInput[blockIDArgs]) (contractAtBlockParams, error) {
-		blockNumber := input.args.sampleBlockNumber(input.rng)
+		blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
 		update, err := input.client.stateUpdateAt(input.ctx, blockNumber)
 		if err != nil {
 			return contractAtBlockParams{}, err
