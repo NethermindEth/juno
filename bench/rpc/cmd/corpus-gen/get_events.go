@@ -68,10 +68,8 @@ func (a *eventsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 			if a.MinWindow, a.MaxWindow, err = parseBounds("window", window); err != nil {
 				return err
 			}
-			if rangeSize := a.End - a.Start + 1; a.MaxWindow > rangeSize {
-				return fmt.Errorf(
-					"--window max (%d) must be <= the block range size (%d)", a.MaxWindow, rangeSize,
-				)
+			if err := a.checkWindowFits(); err != nil {
+				return err
 			}
 		}
 		var err error
@@ -90,6 +88,25 @@ func (a *eventsArgs) bind(cmd *cobra.Command, client *rpcClient) {
 		}
 		return nil
 	})
+}
+
+func (a *eventsArgs) checkWindowFits() error {
+	if len(a.Blocks) > 0 {
+		// A window can reach MaxWindow-1 blocks past the last listed block.
+		if last := a.End + a.MaxWindow - 1; last > a.latest {
+			return fmt.Errorf(
+				"--window max (%d) reaches block %d, after the latest block (%d)",
+				a.MaxWindow, last, a.latest,
+			)
+		}
+		return nil
+	}
+	if rangeSize := a.End - a.Start + 1; a.MaxWindow > rangeSize {
+		return fmt.Errorf(
+			"--window max (%d) must be <= the block range size (%d)", a.MaxWindow, rangeSize,
+		)
+	}
+	return nil
 }
 
 func parseBounds(flag string, values []uint) (lo, hi uint64, err error) {
@@ -131,7 +148,7 @@ func eventsSampler(input samplerInput[eventsArgs]) (eventsParams, error) {
 }
 
 func sampleAnchor(input samplerInput[eventsArgs]) (uint64, receiptEvent, []receiptEvent, error) {
-	number := input.args.sampleBlockNumber(input.rng)
+	number := input.args.sampleBlockNumber(input.rng, input.index)
 	if input.args.Addresses == 0 && len(input.args.Keys) == 0 {
 		return number, receiptEvent{}, nil, nil
 	}
@@ -243,11 +260,15 @@ func randomFelt(rng *rand.Rand) string {
 
 func sampleWindow(rng *rand.Rand, args *eventsArgs, anchor uint64) (from, to uint64) {
 	window := uniformRange(rng, args.MinWindow, args.MaxWindow)
-	lo := args.Start
+	lo, hi := args.Start, min(anchor, args.End-window+1)
+	if len(args.Blocks) > 0 {
+		// Listed blocks are anchors, not bounds: the window may start at
+		// genesis or end after the last listed block.
+		lo, hi = 0, anchor
+	}
 	if anchor+1 > window && anchor+1-window > lo {
 		lo = anchor + 1 - window
 	}
-	hi := min(anchor, args.End-window+1)
 	from = uniformRange(rng, lo, hi)
 	return from, from + window - 1
 }

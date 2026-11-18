@@ -42,6 +42,12 @@ type blockIDArgs struct {
 func (a *blockIDArgs) bind(cmd *cobra.Command, client *rpcClient) {
 	a.BlockIDKind.bind(cmd, client)
 	a.blockRangeFlags.bind(cmd, client)
+	chainPreRunE(cmd, func() error {
+		if a.BlockIDKind == blockIDLatest && len(a.Blocks) > 0 {
+			return fmt.Errorf("--block-id latest ignores --%s", blocksFlag)
+		}
+		return nil
+	})
 }
 
 type blockIDWithProofFactsArgs struct {
@@ -77,9 +83,8 @@ func resolveBlockID(
 }
 
 func blockIDSampler(input samplerInput[blockIDArgs]) (blockIDParams, error) {
-	id, err := resolveBlockID(
-		input.ctx, input.client, input.args.BlockIDKind, input.args.sampleBlockNumber(input.rng),
-	)
+	blockNumber := input.args.sampleBlockNumber(input.rng, input.index)
+	id, err := resolveBlockID(input.ctx, input.client, input.args.BlockIDKind, blockNumber)
 	if err != nil {
 		return blockIDParams{}, err
 	}
