@@ -298,6 +298,15 @@ func TestCall(t *testing.T) {
 	)
 }
 
+func wantUnretriedRPCError(code int) func(t *testing.T, err error) {
+	return func(t *testing.T, err error) {
+		var rpcErr gethrpc.Error
+		require.ErrorAs(t, err, &rpcErr)
+		assert.Equal(t, code, rpcErr.ErrorCode())
+		assert.NotContains(t, err.Error(), "giving up")
+	}
+}
+
 func TestCallRetries(t *testing.T) {
 	remote := testutils.Serve(t, testutils.NewChain(t))
 	emptyRemote := testutils.Serve(t, testutils.NewChainFor(t, &networks.Sepolia, 0))
@@ -312,7 +321,7 @@ func TestCallRetries(t *testing.T) {
 		wantErr      func(t *testing.T, err error)
 	}{
 		{
-			name:   "block not found is not retried",
+			name:   "BLOCK_NOT_FOUND is not retried",
 			remote: remote,
 			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
 			call: func(ctx context.Context, client *rpc.Client) error {
@@ -324,7 +333,7 @@ func TestCallRetries(t *testing.T) {
 			wantErr:      wantUnretriedRPCError(rpccore.ErrBlockNotFound.Code),
 		},
 		{
-			name:   "no blocks is not retried",
+			name:   "NO_BLOCKS is not retried",
 			remote: emptyRemote,
 			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
 			call: func(ctx context.Context, client *rpc.Client) error {
@@ -443,15 +452,6 @@ func TestCallRetries(t *testing.T) {
 			tt.wantErr(t, err)
 			assert.Equal(t, tt.wantRequests, handler.requests.Load())
 		})
-	}
-}
-
-func wantUnretriedRPCError(code int) func(t *testing.T, err error) {
-	return func(t *testing.T, err error) {
-		var rpcErr gethrpc.Error
-		require.ErrorAs(t, err, &rpcErr)
-		assert.Equal(t, code, rpcErr.ErrorCode())
-		assert.NotContains(t, err.Error(), "giving up")
 	}
 }
 

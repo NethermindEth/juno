@@ -128,11 +128,11 @@ func (s *Source) checkNextBlockNotPruned(ctx context.Context) error {
 		return err
 	}
 
-	reached, err := s.remoteHeadReaches(ctx, next)
+	above, err := s.remoteHeadIsAbove(ctx, next)
 	if err != nil {
 		return err
 	}
-	if !reached {
+	if !above {
 		return nil
 	}
 
@@ -143,7 +143,8 @@ func (s *Source) checkNextBlockNotPruned(ctx context.Context) error {
 	if !served {
 		return fmt.Errorf(
 			"RPC sync node has pruned block %d, which this node needs next; "+
-				"point --rpc-sync-url at an archive node or start from a recent database snapshot",
+				"point --rpc-sync-url at an archive node, "+
+				"or remove --rpc-sync-url to sync from the feeder gateway",
 			next,
 		)
 	}
@@ -163,7 +164,9 @@ func (s *Source) nextBlockNumber() (uint64, error) {
 	return height + 1, nil
 }
 
-func (s *Source) remoteHeadReaches(ctx context.Context, blockNumber uint64) (bool, error) {
+// A node never prunes its head, so only a block below the head can be pruned. A missing
+// block at the head comes from a load-balanced backend that lags behind.
+func (s *Source) remoteHeadIsAbove(ctx context.Context, blockNumber uint64) (bool, error) {
 	head, err := s.client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
 	if rpc.IsError(err, rpccore.ErrNoBlock) {
 		return false, nil
@@ -172,7 +175,7 @@ func (s *Source) remoteHeadReaches(ctx context.Context, blockNumber uint64) (boo
 		return false, fmt.Errorf("querying the RPC sync node head: %w", err)
 	}
 
-	return head.Number >= blockNumber, nil
+	return head.Number > blockNumber, nil
 }
 
 func (s *Source) remoteServesBlock(ctx context.Context, blockNumber uint64) (bool, error) {

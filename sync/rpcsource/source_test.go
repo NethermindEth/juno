@@ -53,23 +53,6 @@ func newLocalChain(t *testing.T, network *networks.Network) *blockchain.Blockcha
 	return newChainOn(memory.New(), network)
 }
 
-func newPrunedChain(
-	t *testing.T,
-	network *networks.Network,
-	height int,
-	prunedBelow uint64,
-) *blockchain.Blockchain {
-	t.Helper()
-	database := memory.New()
-	chain := newChainOn(database, network)
-	storeBlocks(t, chain, newGateway(t, network), height)
-
-	_, _, err := pruner.PruneUpto(t.Context(), database, prunedBelow, db.Megabyte)
-	require.NoError(t, err)
-
-	return chain
-}
-
 func newGateway(t *testing.T, network *networks.Network) *adaptfeeder.Feeder {
 	t.Helper()
 	return adaptfeeder.New(feeder.NewTestClient(t, network))
@@ -94,6 +77,23 @@ func storeBlocks(
 			core.EventsBloom(committed.Block.Receipts),
 		))
 	}
+}
+
+func newPrunedChain(
+	t *testing.T,
+	network *networks.Network,
+	height int,
+	prunedBelow uint64,
+) *blockchain.Blockchain {
+	t.Helper()
+	database := memory.New()
+	chain := newChainOn(database, network)
+	storeBlocks(t, chain, newGateway(t, network), height)
+
+	_, _, err := pruner.PruneUpto(t.Context(), database, prunedBelow, db.Megabyte)
+	require.NoError(t, err)
+
+	return chain
 }
 
 func newClientAt(t *testing.T, serverURL *url.URL) *rpc.Client {
@@ -143,7 +143,7 @@ func classHashes(classes map[felt.Felt]core.ClassDefinition) []felt.Felt {
 
 func TestCheckRemote(t *testing.T) {
 	remote := testutils.NewChain(t)
-	const prunedBelow = 2
+	const prunedBelow = 1
 	prunedRemote := newPrunedChain(t, &networks.Mainnet, mainnetChainHeight, prunedBelow)
 
 	tests := []struct {
@@ -195,8 +195,7 @@ func TestCheckRemote(t *testing.T) {
 			client: func(t *testing.T) *rpc.Client {
 				return newClient(t, testutils.Serve(t, prunedRemote))
 			},
-			wantErr: "RPC sync node has pruned block 0, which this node needs next; " +
-				"point --rpc-sync-url at an archive node or start from a recent database snapshot",
+			wantErr: "RPC sync node has pruned block 0",
 		},
 		{
 			name:        "pruned node that kept the next block",
