@@ -138,6 +138,15 @@ The feeder gateway is still used for pre-confirmed blocks, transaction forwardin
 ./build/juno --network sepolia --rpc-sync-url http://<host>:6060/v0_10 --db-path /var/lib/juno
 ```
 
+`--rpc-sync-mode` sets how committed-block sync uses the RPC node:
+
+- `follow` (default): every committed block comes from the RPC node. Use it when several nodes sync from one node that syncs from the feeder gateway, so that only that one node loads the feeder gateway.
+- `catch-up`: committed blocks come from the RPC node until Juno holds every block the RPC node has, then from the feeder gateway for the rest of the run. Use it when the RPC node only speeds up the initial sync, or when it no longer advances, such as a node running with `--disable-sync`. Juno logs the switch once. An unreachable RPC node never triggers it, and a restart starts on the RPC node again.
+
+```bash
+./build/juno --network sepolia --rpc-sync-url http://<host>:6060/v0_10 --rpc-sync-mode catch-up --db-path /var/lib/juno
+```
+
 ## Subcommands
 
 Juno provides several subcommands to perform specific tasks or operations. Here are the available ones:
