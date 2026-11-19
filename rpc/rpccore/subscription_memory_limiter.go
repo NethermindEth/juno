@@ -2,7 +2,8 @@ package rpccore
 
 import "sync/atomic"
 
-// SubscriptionMemoryLimiter bounds the memory, in bytes, that subscriptions hold together
+// SubscriptionMemoryLimiter bounds the memory, in bytes, that subscriptions hold together.
+// A zero limit counts it without rejecting.
 type SubscriptionMemoryLimiter struct {
 	limit    int64
 	used     atomic.Int64
@@ -17,7 +18,7 @@ func NewSubscriptionMemoryLimiter(limit int64) *SubscriptionMemoryLimiter {
 func (l *SubscriptionMemoryLimiter) TryAcquire(size int64) bool {
 	for {
 		used := l.used.Load()
-		if used+size > l.limit {
+		if l.limit > 0 && used+size > l.limit {
 			l.rejected.Add(1)
 			return false
 		}

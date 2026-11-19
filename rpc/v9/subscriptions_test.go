@@ -2672,7 +2672,7 @@ func TestSubscribeRespectsMemoryLimit(t *testing.T) {
 	conn := &fakeConn{w: io.Discard, ctx: t.Context()}
 	ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
 
-	_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Felt{{}}, nil)
+	_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
 	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr, "the filter counts")
 
 	subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)

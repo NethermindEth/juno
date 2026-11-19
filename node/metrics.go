@@ -170,10 +170,7 @@ func makeWSMetrics(memoryLimiter *rpccore.SubscriptionMemoryLimiter) jsonrpc.Web
 		Help:      "Total number of subscriptions rejected because a connection reached its limit.",
 	})
 	prometheus.MustRegister(reqCounter, subscriptions, rejected)
-
-	if memoryLimiter != nil {
-		makeSubscriptionMemoryMetrics(memoryLimiter)
-	}
+	makeSubscriptionMemoryMetrics(memoryLimiter)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
@@ -198,7 +195,7 @@ func makeSubscriptionMemoryMetrics(limiter *rpccore.SubscriptionMemoryLimiter) {
 		Namespace: "rpc",
 		Subsystem: "ws",
 		Name:      "subscriptions_memory_limit_bytes",
-		Help:      "Memory websocket subscriptions may hold together, in bytes.",
+		Help:      "Memory websocket subscriptions may hold together, in bytes; 0 is unlimited.",
 	}, func() float64 {
 		return float64(limiter.Limit())
 	})

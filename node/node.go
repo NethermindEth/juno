@@ -644,13 +644,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 	}
 
-	var subscriptionMemoryLimiter *rpccore.SubscriptionMemoryLimiter
-	if cfg.RPCMaxSubscriptionsMemory > 0 {
-		subscriptionMemoryLimiter = rpccore.NewSubscriptionMemoryLimiter(
-			int64(cfg.RPCMaxSubscriptionsMemory) * db.Megabyte,
-		)
-		rpcHandler.WithSubscriptionMemoryLimiter(subscriptionMemoryLimiter)
-	}
+	subscriptionMemoryLimiter := rpccore.NewSubscriptionMemoryLimiter(
+		int64(cfg.RPCMaxSubscriptionsMemory) * db.Megabyte,
+	)
+	rpcHandler.WithSubscriptionMemoryLimiter(subscriptionMemoryLimiter)
 	services = append(services, rpcHandler)
 
 	// to improve RPC throughput we double GOMAXPROCS

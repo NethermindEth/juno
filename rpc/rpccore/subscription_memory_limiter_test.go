@@ -22,3 +22,15 @@ func TestSubscriptionMemoryLimiter(t *testing.T) {
 	assert.True(t, l.TryAcquire(5))
 	assert.Equal(t, uint64(1), l.Rejected())
 }
+
+func TestSubscriptionMemoryLimiterZeroLimitOnlyCounts(t *testing.T) {
+	l := rpccore.NewSubscriptionMemoryLimiter(0)
+
+	assert.True(t, l.TryAcquire(1<<40))
+	assert.True(t, l.TryAcquire(1))
+	assert.Equal(t, int64(1<<40+1), l.Used())
+	assert.Equal(t, uint64(0), l.Rejected())
+
+	l.Release(1 << 40)
+	assert.Equal(t, int64(1), l.Used())
+}

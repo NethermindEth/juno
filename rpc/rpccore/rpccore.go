@@ -19,9 +19,10 @@ var MinL1ToL2MessageFee = felt.FromUint64[felt.Felt](minL1ToL2MessageFeeWei)
 
 // Measured memory of a subscription: a fixed part plus its parsed filter
 const (
-	SubscriptionBaseSize = 10 << 10 // 10 KB
+	SubscriptionBaseSize = 12 << 10 // 12 KB
 	EventAddressSize     = 96       // 96 B
 	EventKeySize         = 128      // 128 B
+	EventKeyPositionSize = 512      // 512 B, each position is a map
 	SenderAddressSize    = 32       // 32 B
 )
 
