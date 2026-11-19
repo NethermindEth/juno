@@ -51,14 +51,15 @@ type SubscriptionNewTransaction struct {
 }
 
 // transactionsSubscriberState is touched only by its single subscription dispatch
-// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
+// goroutine, so its pre_confirmed cursor is intentionally lock-free. Don't share it
+// across goroutines.
 type transactionsSubscriberState struct {
 	conn jsonrpc.Conn
 
-	senders        []felt.Address
-	finalityStatus []TxnStatusWithoutL1
-	deduper        *rpccore.PreConfirmedDeduper
-	tags           SubscriptionTags
+	senders            []felt.Address
+	finalityStatus     []TxnStatusWithoutL1
+	preConfirmedCursor *rpccore.PreConfirmedCursor
+	tags               SubscriptionTags
 }
 
 func newTransactionsSubscriber(
@@ -80,11 +81,11 @@ func newTransactionsSubscriber(
 	}
 
 	state := &transactionsSubscriberState{
-		conn:           conn,
-		senders:        senders,
-		finalityStatus: finalityStatus,
-		deduper:        rpccore.NewPreConfirmedDeduper(),
-		tags:           tags,
+		conn:               conn,
+		senders:            senders,
+		finalityStatus:     finalityStatus,
+		preConfirmedCursor: rpccore.NewPreConfirmedCursor(),
+		tags:               tags,
 	}
 
 	s := subscriber{
@@ -112,7 +113,7 @@ func (s *transactionsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.deduper.Clear()
+	s.preConfirmedCursor.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -123,7 +124,7 @@ func (s *transactionsSubscriberState) onNewHead(
 	headWithBloom *core.WithBloom[*core.Block],
 ) error {
 	head := headWithBloom.Value
-	// Canonical blocks are published exactly once, so they bypass the deduper.
+	// Canonical blocks are published exactly once, so they bypass the pre_confirmed cursor.
 	status := TxnStatusWithoutL1(TxnStatusAcceptedOnL2)
 	for txn := range transactionsOf(head, s.senders, status, s.tags.IncludeProofFacts, 0) {
 		if err := sendTransaction(s.conn, txn, id); err != nil {
@@ -145,7 +146,11 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	// The pre_confirmed tip is re-published in full on every delta and only grows within a
 	// round, so start after the transactions already processed. A same-height round
 	// replacement changes BlockIdentifier and re-emits.
-	from := s.deduper.Advance(block.Number, preConfirmed.BlockIdentifier, len(block.Transactions))
+	from := s.preConfirmedCursor.Advance(
+		block.Number,
+		preConfirmed.BlockIdentifier,
+		len(block.Transactions),
+	)
 	for txn := range transactionsOf(block, s.senders, status, s.tags.IncludeProofFacts, from) {
 		if err := sendTransaction(s.conn, txn, id); err != nil {
 			return err

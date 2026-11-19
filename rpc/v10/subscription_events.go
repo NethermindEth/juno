@@ -50,11 +50,11 @@ type SubscriptionEmittedEvent struct {
 
 // Do not share this state or its cache across goroutines without restoring synchronisation.
 type eventSubscriberState struct {
-	handler      *Handler
-	conn         jsonrpc.Conn
-	l1HeadNumber uint64
-	deduper      *rpccore.PreConfirmedDeduper
-	eventMatcher blockchain.EventMatcher
+	handler            *Handler
+	conn               jsonrpc.Conn
+	l1HeadNumber       uint64
+	preConfirmedCursor *rpccore.PreConfirmedCursor
+	eventMatcher       blockchain.EventMatcher
 }
 
 func newEventSubscriber(
@@ -83,11 +83,11 @@ func newEventSubscriber(
 	}
 
 	state := &eventSubscriberState{
-		handler:      handler,
-		conn:         conn,
-		l1HeadNumber: l1Head.BlockNumber,
-		deduper:      rpccore.NewPreConfirmedDeduper(),
-		eventMatcher: blockchain.NewEventMatcher(fromAddrs, keys),
+		handler:            handler,
+		conn:               conn,
+		l1HeadNumber:       l1Head.BlockNumber,
+		preConfirmedCursor: rpccore.NewPreConfirmedCursor(),
+		eventMatcher:       blockchain.NewEventMatcher(fromAddrs, keys),
 	}
 
 	// Historical replay is bounded to the canonical tip even for pre_confirmed
@@ -120,7 +120,7 @@ func (s *eventSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.deduper.Clear()
+	s.preConfirmedCursor.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -131,7 +131,7 @@ func (s *eventSubscriberState) onNewHead(
 	headWithBloom *core.WithBloom[*core.Block],
 ) error {
 	head := headWithBloom.Value
-	// Canonical blocks bypass the deduper: they are published once.
+	// Canonical blocks bypass the pre_confirmed cursor: they are published once.
 	for event := range matchingEvents(&s.eventMatcher, head, headWithBloom.Bloom, 0) {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -155,7 +155,11 @@ func (s *eventSubscriberState) onPreConfirmed(
 	// The pre_confirmed tip is re-published in full on every delta and only grows within a
 	// round, so start after the transactions already processed. A same-height round
 	// replacement changes BlockIdentifier and re-emits.
-	from := s.deduper.Advance(block.Number, preConfirmed.BlockIdentifier, len(block.Transactions))
+	from := s.preConfirmedCursor.Advance(
+		block.Number,
+		preConfirmed.BlockIdentifier,
+		len(block.Transactions),
+	)
 	for event := range matchingEvents(
 		&s.eventMatcher, block, preConfirmedWithBloom.Bloom, from,
 	) {
@@ -290,7 +294,7 @@ func (s *eventSubscriberState) sendHistoricalEvents(
 		}
 
 		// Historical replay is a one-shot bootstrap with no internal
-		// duplicates, so it sends directly without the deduper.
+		// duplicates, so it sends directly without the pre_confirmed cursor.
 		if err := s.sendFilteredEvent(id, &events[i], finalityStatus); err != nil {
 			return err
 		}
