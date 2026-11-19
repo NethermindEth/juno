@@ -110,14 +110,20 @@ jobs:
           echo "::error::$VERSION is not an rc. Release it, or test an rc of it."
           exit 1
 
-      - name: Check the docs version
+      # The checks below read the source of the release. They run the scripts of this workflow, not the
+      # scripts in that source.
+      - name: Check out the release source
         if: inputs.mode != 'test'
         env:
           SHA: ${{ steps.check.outputs.sha }}
+        run: git worktree add --detach "$RUNNER_TEMP/release-src" "$SHA"
+
+      - name: Check the docs version
+        if: inputs.mode != 'test'
+        env:
           REF: ${{ inputs.ref }}
           VERSION: ${{ inputs.version }}
         run: |
-          git worktree add --detach "$RUNNER_TEMP/release-src" "$SHA"
           CORE="${VERSION%%-*}"
           if ! .github/workflow-scripts/check-docs-version.sh "$CORE" "$RUNNER_TEMP/release-src" > docs-check.log; then
             cat docs-check.log
@@ -127,6 +133,11 @@ jobs:
             exit 1
           fi
           cat docs-check.log
+
+      - name: Check that the release builds with the latest Go patch release
+        if: inputs.mode != 'test'
+        working-directory: ${{ runner.temp }}/release-src
+        run: "$GITHUB_WORKSPACE/.github/workflow-scripts/check_go_version.sh"
 
   notes:
     name: Release notes
