@@ -674,6 +674,23 @@ func TestSubscribeEvents(t *testing.T) {
 				},
 			},
 			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					handler.preConfirmedFeed.Send(b2PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b2PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b2PreConfirmedExtendedEmitted,
+				},
+			},
+			{
 				description: "new pre_confirmed block",
 				notify: func() {
 					handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&b3PreConfirmedPartial))
@@ -1843,6 +1860,27 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				},
 			},
 			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						b1PreConfirmedExtended.Block.Transactions,
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+						false,
+					),
+				},
+			},
+			{
 				description: "new pre_confirmed block",
 				notify: func() {
 					syncer.preConfirmed.Send(b2PreConfirmedPartialWithBloom)
@@ -2413,6 +2451,27 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						nil,
 						TxnPreConfirmed,
 					)[partialPreConfirmedCount:],
+				},
+			},
+			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]TransactionReceiptWithBlockInfo{
+					toAdaptedReceiptsWithFilter(
+						b1PreConfirmedExtended.Block,
+						nil,
+						TxnPreConfirmed,
+					),
 				},
 			},
 			{

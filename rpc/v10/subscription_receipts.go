@@ -45,11 +45,12 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 }
 
 // receiptsSubscriberState is touched only by its single subscription dispatch
-// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
+// goroutine, so its pre_confirmed cursor is intentionally lock-free. Don't share it
+// across goroutines.
 type receiptsSubscriberState struct {
-	conn    jsonrpc.Conn
-	senders []felt.Address
-	deduper *rpccore.PreConfirmedDeduper[felt.TransactionHash]
+	conn               jsonrpc.Conn
+	senders            []felt.Address
+	preConfirmedCursor *rpccore.PreConfirmedCursor
 }
 
 func newReceiptsSubscriber(
@@ -70,9 +71,9 @@ func newReceiptsSubscriber(
 	}
 
 	state := &receiptsSubscriberState{
-		conn:    conn,
-		senders: senders,
-		deduper: rpccore.NewPreConfirmedDeduper[felt.TransactionHash](),
+		conn:               conn,
+		senders:            senders,
+		preConfirmedCursor: rpccore.NewPreConfirmedCursor(),
 	}
 
 	s := subscriber{
@@ -96,7 +97,7 @@ func (s *receiptsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.deduper.Clear()
+	s.preConfirmedCursor.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -107,9 +108,9 @@ func (s *receiptsSubscriberState) onNewHead(
 	headWithBloom *core.WithBloom[*core.Block],
 ) error {
 	head := headWithBloom.Value
-	// Canonical blocks are published exactly once, so they bypass the deduper.
+	// Canonical blocks are published exactly once, so they bypass the pre_confirmed cursor.
 	status := TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
-	for receipt := range receiptsOf(head, s.senders, status, nil) {
+	for receipt := range receiptsOf(head, s.senders, status, 0) {
 		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
@@ -126,17 +127,15 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 	preConfirmed := preConfirmedWithBloom.Value
 	block := preConfirmed.GetBlock()
 	status := TxnFinalityStatusWithoutL1(TxnPreConfirmed)
-	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
-	// receipts. A same-height round replacement changes BlockIdentifier and re-emits.
-	shouldSend := func(txn core.Transaction) bool {
-		return s.deduper.MarkSent(
-			block.Number,
-			preConfirmed.BlockIdentifier,
-			txn.Hash(),
-		)
-	}
-
-	for receipt := range receiptsOf(block, s.senders, status, shouldSend) {
+	// The pre_confirmed tip is re-published in full on every delta and only grows within a
+	// round, so start after the transactions already processed. A same-height round
+	// replacement changes BlockIdentifier and re-emits.
+	from := s.preConfirmedCursor.Advance(
+		block.Number,
+		preConfirmed.BlockIdentifier,
+		len(block.Transactions),
+	)
+	for receipt := range receiptsOf(block, s.senders, status, from) {
 		if err := sendTransactionReceipt(s.conn, &receipt, id); err != nil {
 			return err
 		}
@@ -144,20 +143,18 @@ func (s *receiptsSubscriberState) onPreConfirmed(
 	return nil
 }
 
-// receiptsOf yields each sender-matching receipt in the block, adapted to an RPC receipt.
+// receiptsOf yields each sender-matching receipt in the block from transaction index from,
+// adapted to an RPC receipt.
 func receiptsOf(
 	block *core.Block,
 	senders []felt.Address,
 	finalityStatus TxnFinalityStatusWithoutL1,
-	shouldSend func(core.Transaction) bool,
+	from int,
 ) iter.Seq[TransactionReceiptWithBlockInfo] {
 	return func(yield func(TransactionReceiptWithBlockInfo) bool) {
-		for i, txn := range block.Transactions {
+		for i := from; i < len(block.Transactions); i++ {
+			txn := block.Transactions[i]
 			if !filterTxBySender(txn, senders) {
-				continue
-			}
-
-			if shouldSend != nil && !shouldSend(txn) {
 				continue
 			}
 
