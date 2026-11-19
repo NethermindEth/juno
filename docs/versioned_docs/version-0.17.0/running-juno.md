@@ -131,7 +131,7 @@ unzip $NAME.zip $NAME && mv $NAME juno && rm $NAME.zip
 
 To install a specific version instead of the latest, replace the first line with that version, e.g. `VERSION=v0.17.0`.
 
-The binary needs jemalloc at runtime: install it with `sudo apt-get install -y libjemalloc2` on Ubuntu/Debian, or `brew install jemalloc` on macOS.
+The Linux binaries contain jemalloc. The macOS binaries need jemalloc at runtime: install it with `brew install jemalloc`.
 
 **2. Run the binary**
 
@@ -234,7 +234,7 @@ docker run -d \
 **Prerequisites**
 
 - [Golang 1.27](https://go.dev/doc/install) or later
-- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.1 or higher, installed with `rustup`. The build uses `llvm-objcopy` from the `llvm-tools` component, which `rustup` installs automatically. With a different Rust installation, set `OBJCOPY` to the path of `llvm-objcopy`.
 - C compiler: `gcc` or `clang`
 - [jemalloc](https://github.com/jemalloc/jemalloc)
 
