@@ -12,7 +12,8 @@ import (
 // other key are skipped, the first of two keys naming a field is the one read, and the pairs after
 // the last field read are still checked.
 func TestNextWanted(t *testing.T) {
-	fields := cursor.NewFields("A", "Bee")
+	fields, err := cursor.NewFields("A", "Bee")
+	require.NoError(t, err)
 	// The keys are in canonical order, shorter first and then bytewise.
 	canonical := slices.Concat(
 		[]byte{0xa5},

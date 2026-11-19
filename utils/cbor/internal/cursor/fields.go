@@ -2,6 +2,7 @@ package cursor
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -22,6 +23,7 @@ const maxFields = 64
 // Fields matches the keys of a struct's map to field numbers, by an exact name first and then
 // ignoring case. order holds each key as encoded, in canonical order (shorter first, then
 // bytewise), names the wire name of each field by number, and all has the bit of every field set.
+// The zero Fields has no fields.
 type Fields struct {
 	order []fieldKey
 	names []string
@@ -35,11 +37,12 @@ const keyWords = 3
 // masks selecting the bytes that belong to it, so a key is compared a word at a time. bit is the
 // field's bit in Struct.seen, and short is whether the words hold all of encoded.
 type fieldKey struct {
-	words, masks [keyWords]uint64
-	encoded      string
-	field        int
-	bit          uint64
-	short        bool
+	words   [keyWords]uint64
+	masks   [keyWords]uint64
+	encoded string
+	field   int
+	bit     uint64
+	short   bool
 }
 
 func newFieldKey(encoded string, field int) fieldKey {
@@ -51,13 +54,14 @@ func newFieldKey(encoded string, field int) fieldKey {
 	return out
 }
 
-// NewFields returns the Fields of a struct whose field i has the wire name names[i]. The names
-// must be ASCII, under 256 bytes and distinct ignoring case.
-func NewFields(names ...string) *Fields {
+// NewFields returns the Fields of a struct whose field i has the wire name names[i]. It returns an
+// error if there are more than 64 names, or a name is not ASCII, is 256 bytes or more, or repeats
+// another ignoring case.
+func NewFields(names ...string) (Fields, error) {
 	if len(names) > maxFields {
-		panic("cursor: too many fields")
+		return Fields{}, fmt.Errorf("cursor: %d fields, at most %d", len(names), maxFields)
 	}
-	out := &Fields{order: make([]fieldKey, len(names)), names: names, all: 1<<len(names) - 1}
+	out := Fields{order: make([]fieldKey, len(names)), names: names, all: 1<<len(names) - 1}
 	folded := make(map[string]bool, len(names))
 	for i, name := range names {
 		var head string
@@ -67,16 +71,16 @@ func NewFields(names ...string) *Fields {
 		case len(name) < 1<<8:
 			head = string([]byte{majorString | info1Byte, byte(len(name))})
 		default:
-			panic("cursor: field name too long: " + name)
+			return Fields{}, fmt.Errorf("cursor: a field name of %d bytes is too long", len(name))
 		}
 		for _, c := range []byte(name) {
 			if c >= utf8.RuneSelf {
-				panic("cursor: field name is not ASCII: " + name)
+				return Fields{}, fmt.Errorf("cursor: field name %q is not ASCII", name)
 			}
 		}
 		lower := strings.ToLower(name)
 		if folded[lower] {
-			panic("cursor: field names repeat ignoring case: " + name)
+			return Fields{}, fmt.Errorf("cursor: field name %q repeats another ignoring case", name)
 		}
 		folded[lower] = true
 		out.order[i] = newFieldKey(head+name, i)
@@ -86,14 +90,14 @@ func NewFields(names ...string) *Fields {
 	slices.SortFunc(out.order, func(a, b fieldKey) int {
 		return strings.Compare(a.encoded, b.encoded)
 	})
-	return out
+	return out, nil
 }
 
 // Struct is the progress of reading one struct's map. It holds the pairs left, where in
 // fields.order the next key is expected, a bit for each field read, and whether a map was opened,
 // which Done closes.
 type Struct struct {
-	fields *Fields
+	fields Fields
 	left   int
 	next   int
 	seen   uint64
@@ -101,7 +105,7 @@ type Struct struct {
 }
 
 // OpenStruct reads the head of a struct's map. A null struct has no pairs.
-func (c *Cursor) OpenStruct(fields *Fields) (Struct, error) {
+func (c *Cursor) OpenStruct(fields Fields) (Struct, error) {
 	if c.Null() {
 		return Struct{fields: fields}, nil
 	}
@@ -121,10 +125,13 @@ func (c *Cursor) NextField(s *Struct) (int, error) {
 	if s.left > 0 && s.next < len(s.fields.order) && c.pos+keyWords*8 <= len(c.buf) {
 		key := &s.fields.order[s.next]
 		buf := c.buf[c.pos : c.pos+keyWords*8]
-		if (binary.LittleEndian.Uint64(buf)^key.words[0])&key.masks[0]|
-			(binary.LittleEndian.Uint64(buf[8:])^key.words[1])&key.masks[1]|
-			(binary.LittleEndian.Uint64(buf[16:])^key.words[2])&key.masks[2]|
-			s.seen&key.bit == 0 && key.short {
+		// A byte of the key differs from the expected one if its bit is set in mismatch.
+		mismatch := (binary.LittleEndian.Uint64(buf)^key.words[0])&key.masks[0] |
+			(binary.LittleEndian.Uint64(buf[8:])^key.words[1])&key.masks[1] |
+			(binary.LittleEndian.Uint64(buf[16:])^key.words[2])&key.masks[2]
+		alreadyRead := s.seen & key.bit
+		isNext := mismatch|alreadyRead == 0 && key.short
+		if isNext {
 			c.pos += len(key.encoded)
 			s.left--
 			s.next++
@@ -287,7 +294,7 @@ func equalFoldASCII(key []byte, name string) bool {
 func (c *Cursor) Key() (key []byte, isText bool, err error) {
 	// A short text key with its length in the head or the byte after it.
 	buf := c.buf[c.pos:]
-	if len(buf) > 0 {
+	if c.valid() {
 		length, size := int(buf[0]-majorString), 1
 		if length == info1Byte && len(buf) > 1 {
 			length, size = int(buf[1]), 2
