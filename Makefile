@@ -45,6 +45,11 @@ juno-cached: ## Cached Juno compilation
 	@mkdir -p build
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
+GO_TOOLCHAIN = $(shell sed -n 's/^toolchain //p' go.mod)
+check-go-build: ## Check that build/juno was built with the Go toolchain in go.mod
+	@go version build/juno | grep -qx 'build/juno: $(GO_TOOLCHAIN)' || (echo "go.mod toolchain is $(GO_TOOLCHAIN), but $$(go version build/juno)" && exit 1)
+	@echo "build/juno was built with $(GO_TOOLCHAIN)"
+
 corpus-gen: ## Build the corpus generator
 	@mkdir -p build
 	@go build -o build/corpus-gen ./bench/rpc/cmd/corpus-gen
@@ -57,7 +62,8 @@ MINIMUM_RUST_VERSION = 1.94.1
 CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
 check-rust: ## Ensure rust version is greater than minimum
 	@echo "Checking if current rust version >= $(MINIMUM_RUST_VERSION)"
-	@bash -c '[[ $(CURR_RUST_VERSION) < $(MINIMUM_RUST_VERSION) ]] && (echo "Rust version must be >= $(MINIMUM_RUST_VERSION).  Found version $(CURR_RUST_VERSION)" && exit 1) || echo "Current rust version is $(CURR_RUST_VERSION)"'
+	@printf '%s\n' $(MINIMUM_RUST_VERSION) $(CURR_RUST_VERSION) | sort -V -C || (echo "Rust version must be >= $(MINIMUM_RUST_VERSION).  Found version $(CURR_RUST_VERSION)" && exit 1)
+	@echo "Current rust version is $(CURR_RUST_VERSION)"
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)

@@ -1,0 +1,39 @@
+name: Go Version
+on:
+  pull_request:
+    paths:
+      - go.mod
+      - "**/Dockerfile*"
+      - .github/workflow-scripts/check_go_version.sh
+      - .github/workflows/go-version.yml
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check-go-version:
+    name: Check Go Version
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # A new Go patch release must not fail pull requests, thus only the schedule checks for it.
+      - name: Check the Dockerfiles against go.mod
+        if: github.event_name == 'pull_request'
+        run: .github/workflow-scripts/check_go_version.sh
+      - name: Check the Dockerfiles against go.mod and for the latest Go patch release
+        if: github.event_name != 'pull_request'
+        run: .github/workflow-scripts/check_go_version.sh --latest
+      - name: Notify Slack
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"The Juno Go version check failed. See the <${RUN_URL}|workflow run> for the fix.\"}" \
+            "$SLACK_WEBHOOK_URL"

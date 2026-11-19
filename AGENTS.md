@@ -17,7 +17,7 @@ make clean             # Clean all build artifacts
 
 The binary is output to `build/juno`.
 
-**Requirements**: Go 1.27+, Rust 1.94.1+ (`rust-toolchain.toml` pins 1.98). On macOS, jemalloc and pkg-config are required. On Linux, libjemalloc-dev, libbz2-dev, and pkg-config are needed.
+**Requirements**: Go 1.27+, Rust 1.94.1+ (`rust-toolchain.toml` pins the version of the release builds). On macOS, jemalloc and pkg-config are required. On Linux, libjemalloc-dev, libbz2-dev, and pkg-config are needed.
 
 ## Testing
 

@@ -1,5 +1,7 @@
 name: Build Binaries
 
+# Builds the macOS release binaries. The Linux release binaries come from the Docker build, see the
+# build-image job of release.yml.
 on:
   push:
     tags:
@@ -26,12 +28,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            arch: amd64
           - os: macos-15-intel
             arch: amd64
-          - os: ${{ vars.ARM64_LINUX_RUNNER || 'ubuntu-arm64-4-core' }}
-            arch: arm64
           - os: macos-latest
             arch: arm64
     runs-on: ${{ matrix.os }}
@@ -53,14 +51,7 @@ jobs:
           git for-each-ref --format='delete %(refname)' refs/tags | git update-ref --stdin
           git tag "$VERSION"
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y upx-ucl libjemalloc-dev libjemalloc2 libbz2-dev
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
+      - name: Install dependencies
         run: brew install jemalloc
 
       - name: Record the Jemalloc library path
@@ -77,9 +68,7 @@ jobs:
             .jemalloc-libdir
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-        with:
-          toolchain: "1.94.1"
+        run: rustup toolchain install
 
       - name: Cache Rust dependencies
         if: ${{ !inputs.no-cache }}
@@ -88,39 +77,22 @@ jobs:
           key: rust-toolchain-${{ matrix.os }}
           workspaces: vm/rust
 
-      - name: Set TAG env var
-        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
-
       - name: Get artifact name
-        run: |
-          OS_NAME=$([ "${{ runner.os }}" == "macOS" ] && echo "darwin" || echo "linux")
-          echo "ARTIFACT_NAME=juno-${TAG}-${OS_NAME}-${{ matrix.arch }}" >> $GITHUB_ENV
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: echo "ARTIFACT_NAME=juno-$(git describe --tags)-darwin-$ARCH" >> "$GITHUB_ENV"
 
       - name: Build binary
         run: make juno
 
-      - name: Compress binary (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          upx build/juno
-          mv build/juno "${ARTIFACT_NAME}"
-
-      - name: Prepare binary (macOS)
-        if: runner.os == 'macOS'
-        run: mv build/juno "${ARTIFACT_NAME}"
-
-      - name: Generate checksum
-        run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            shasum -a 256 "${ARTIFACT_NAME}" > "${ARTIFACT_NAME}.sha256"
-          else
-            sha256sum "${ARTIFACT_NAME}" > "${ARTIFACT_NAME}.sha256"
-          fi
+      - name: Verify the binary was built with the Go toolchain in go.mod
+        run: make check-go-build
 
       - name: Zip binary and checksum
         run: |
-          zip "${ARTIFACT_NAME}.zip" "${ARTIFACT_NAME}" "${ARTIFACT_NAME}.sha256"
-          rm "${ARTIFACT_NAME}" "${ARTIFACT_NAME}.sha256"
+          mv build/juno "$ARTIFACT_NAME"
+          shasum -a 256 "$ARTIFACT_NAME" > "$ARTIFACT_NAME.sha256"
+          zip "$ARTIFACT_NAME.zip" "$ARTIFACT_NAME" "$ARTIFACT_NAME.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
