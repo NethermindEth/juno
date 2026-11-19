@@ -110,13 +110,33 @@ jobs:
           echo "::error::$VERSION is not an rc. Release it, or test an rc of it."
           exit 1
 
-      # The checks below read the source of the release. They run the scripts of this workflow, not the
-      # scripts in that source.
+      # The steps below check the release source ($RUNNER_TEMP/release-src) with the check scripts
+      # of this workflow ($GITHUB_WORKSPACE, normally main). A commit on the release branch thus
+      # cannot change the checks that the release must pass.
       - name: Check out the release source
-        if: inputs.mode != 'test'
         env:
           SHA: ${{ steps.check.outputs.sha }}
         run: git worktree add --detach "$RUNNER_TEMP/release-src" "$SHA"
+
+      - name: Check that the release source has the release build changes
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          # build-image takes the Linux binaries from the binary stage of the Dockerfile.
+          # build-binaries runs make check-go-build.
+          FAILED=0
+          if ! grep -qE '^FROM .* AS binary$' "$RUNNER_TEMP/release-src/Dockerfile"; then
+            echo "::error::The Dockerfile on $REF has no binary stage."
+            FAILED=1
+          fi
+          if ! grep -q '^check-go-build:' "$RUNNER_TEMP/release-src/Makefile"; then
+            echo "::error::The Makefile on $REF has no check-go-build target."
+            FAILED=1
+          fi
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::Cherry-pick the release build changes from main into $REF."
+            exit 1
+          fi
 
       - name: Check the docs version
         if: inputs.mode != 'test'
@@ -137,7 +157,7 @@ jobs:
       - name: Check that the release builds with the latest Go patch release
         if: inputs.mode != 'test'
         working-directory: ${{ runner.temp }}/release-src
-        run: "$GITHUB_WORKSPACE/.github/workflow-scripts/check_go_version.sh"
+        run: '"$GITHUB_WORKSPACE/.github/workflow-scripts/check_go_version.sh" --latest'
 
   notes:
     name: Release notes
@@ -220,15 +240,15 @@ jobs:
       version: ${{ inputs.version }}
       no-cache: true
 
+  # One job for each architecture builds the two images and the Linux binary with one builder. They
+  # thus contain the same build of juno, and the job checks that.
   build-image:
-    name: Build image (${{ matrix.target }}, ${{ matrix.arch }})
+    name: Build images and binary (${{ matrix.arch }})
     needs: verify
     permissions:
       contents: read
     strategy:
       matrix:
-        target: [debian, distroless]
-        arch: [amd64, arm64]
         include:
           - arch: amd64
             runner: ubuntu-latest
@@ -253,25 +273,69 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - name: Build the image
+      - name: Build the images and the binary
         env:
-          TARGET: ${{ matrix.target }}
           ARCH: ${{ matrix.arch }}
           SHA: ${{ needs.verify.outputs.sha }}
           VERSION: ${{ inputs.version }}
         run: |
-          docker buildx build --target "$TARGET" --platform "linux/$ARCH" --provenance=false --sbom=false \
-            --label "org.opencontainers.image.revision=$SHA" \
-            --label "org.opencontainers.image.version=$VERSION" \
-            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --output "type=oci,dest=juno-$TARGET-$ARCH.tar" .
+          for target in debian distroless; do
+            docker buildx build --target "$target" --platform "linux/$ARCH" --provenance=false --sbom=false \
+              --label "org.opencontainers.image.revision=$SHA" \
+              --label "org.opencontainers.image.version=$VERSION" \
+              --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              --output "type=oci,dest=juno-$target-$ARCH.tar" .
+          done
+          docker buildx build --target binary --platform "linux/$ARCH" --provenance=false --sbom=false \
+            --output type=local,dest=binary .
 
-      - name: Upload the image
+      - name: Check that the images contain the binary
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          for target in debian distroless; do
+            dir=$(mktemp -d)
+            tar -xf "juno-$target-$ARCH.tar" -C "$dir"
+            mkdir "$dir/rootfs"
+            found=0
+            # Only the layers are archives. tar finds their compression itself.
+            for blob in "$dir"/blobs/sha256/*; do
+              member=$(tar -tf "$blob" 2> /dev/null | grep -E '^(\./)?usr/local/bin/juno$') || continue
+              tar -xf "$blob" -C "$dir/rootfs" "$member"
+              found=$((found + 1))
+            done
+            if [ "$found" -ne 1 ] || ! cmp "$dir/rootfs/usr/local/bin/juno" binary/juno; then
+              echo "::error::The $target image does not contain the binary of this build ($found layers have usr/local/bin/juno)."
+              exit 1
+            fi
+          done
+
+      - name: Package the binary
+        env:
+          NAME: juno-${{ inputs.version }}-linux-${{ matrix.arch }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y upx-ucl
+          mv binary/juno "$NAME"
+          upx "$NAME"
+          # Stop before the upload if the compressed binary does not start outside the image.
+          "./$NAME" --help > /dev/null
+          sha256sum "$NAME" > "$NAME.sha256"
+          zip "$NAME.zip" "$NAME" "$NAME.sha256"
+
+      - name: Upload the images
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: image-${{ matrix.target }}-${{ matrix.arch }}
-          path: juno-${{ matrix.target }}-${{ matrix.arch }}.tar
+          name: image-${{ matrix.arch }}
+          path: juno-*-${{ matrix.arch }}.tar
           retention-days: 7
+
+      - name: Upload the binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+        with:
+          name: juno-${{ inputs.version }}-linux-${{ matrix.arch }}.zip
+          path: juno-${{ inputs.version }}-linux-${{ matrix.arch }}.zip
+          retention-days: 30
 
   publish:
     name: ${{ inputs.mode == 'test' && 'Push the test image' || 'Publish the release' }}

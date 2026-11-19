@@ -1,7 +1,13 @@
 #!/bin/bash
-# Checks that the release builds use the latest patch release of the Go minor version in go.mod.
+# Checks that each Dockerfile builds with the Go toolchain in go.mod.
+# With --latest, also checks that this toolchain is the latest patch release of its Go minor.
 
 set -euo pipefail
+
+CHECK_LATEST=false
+if [[ "${1:-}" == "--latest" ]]; then
+  CHECK_LATEST=true
+fi
 
 # Matches each Dockerfile stage that builds from a golang image.
 GOLANG_FROM='^FROM .*golang:'
@@ -40,6 +46,10 @@ done < <(git grep -n "$GOLANG_FROM" -- '*Dockerfile*')
 
 if [[ "$FAILED" == 1 ]]; then
   print_fix "$TOOLCHAIN"
+fi
+
+if [[ "$CHECK_LATEST" == false ]]; then
+  exit "$FAILED"
 fi
 
 MINOR="${TOOLCHAIN%.*}"
