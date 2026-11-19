@@ -24,7 +24,7 @@ func (c *Cursor) skip(depth int) error {
 	}
 
 	head := byte(0)
-	if c.pos < len(c.buf) {
+	if c.valid() {
 		head = c.buf[c.pos]
 	}
 	major, argument, err := c.head()

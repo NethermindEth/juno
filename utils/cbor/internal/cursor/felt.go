@@ -84,36 +84,34 @@ func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
 
 // limbsSlow reads a felt whose limbs are not all eight bytes wide.
 func (c *Cursor) limbsSlow(dst *[Limbs]uint64) error {
-	if buf := c.buf[c.pos:]; len(buf) > 0 {
-		if major := buf[0] & majorMask; major == MajorUint || major == majorBytes {
+	if c.valid() {
+		if major := c.buf[c.pos] & majorMask; major == MajorUint || major == majorBytes {
 			return c.compactLimbs(dst)
 		}
 	}
-	start := c.pos
-	count, err := c.expect(majorArray)
+	// A felt is an array, so the items past the fourth, which Skip passes, sit one level deeper. They
+	// are read with a copy, which c follows only if the read succeeds.
+	inner := *c
+	count, err := inner.expect(majorArray)
 	if err != nil {
 		return err
 	}
-	// A felt is an array, so the items past the fourth, which Skip passes, sit one level deeper.
-	if err := c.enter(start); err != nil {
-		c.pos = start
+	if err := inner.enter(c.pos); err != nil {
 		return err
 	}
 	// As with a Go array, a shorter felt leaves the rest zero and a longer one is cut off.
 	var limbs [Limbs]uint64
 	for i := range count {
 		if i >= Limbs {
-			err = c.Skip()
+			err = inner.Skip()
 		} else {
-			limbs[i], err = c.Uint64()
+			limbs[i], err = inner.Uint64()
 		}
 		if err != nil {
-			c.depth--
-			c.pos = start
 			return err
 		}
 	}
-	c.depth--
+	c.pos = inner.pos
 	*dst = limbs
 	return nil
 }
@@ -124,31 +122,29 @@ func LimbSlice[F ~[Limbs]uint64](c *Cursor) ([]F, error) {
 		return nil, nil
 	}
 	start := c.pos
-	count, err := c.expect(majorArray)
+	// The slice is read with a copy, which c follows only if the read succeeds.
+	inner := *c
+	count, err := inner.expect(majorArray)
 	if err != nil {
 		return nil, err
 	}
-	if left := c.Len(); count > uint64(left) {
+	if left := inner.Len(); count > uint64(left) {
 		// A compact felt takes at least one byte, so the input must back the allocation.
-		c.pos = start
 		return nil, c.fail(
 			ErrUnsupported, "count %d does not fit the %d bytes left at one byte per felt", count, left,
 		)
 	}
 	// The slice is a nesting level. Legacy felt arrays add another.
-	if err := c.enter(start); err != nil {
-		c.pos = start
+	if err := inner.enter(start); err != nil {
 		return nil, err
 	}
 	out := make([]F, count)
 	// F has the layout of [Limbs]uint64, so the slice can be read as one.
 	felts := unsafe.Slice((*[Limbs]uint64)(unsafe.Pointer(unsafe.SliceData(out))), len(out))
-	err = c.readLimbs(felts)
-	c.depth--
-	if err != nil {
-		c.pos = start
+	if err := inner.readLimbs(felts); err != nil {
 		return nil, err
 	}
+	c.pos = inner.pos
 	return out, nil
 }
 

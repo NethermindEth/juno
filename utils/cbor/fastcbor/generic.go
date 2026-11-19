@@ -459,7 +459,7 @@ func (p *planner) fillIntKeyed(plan *structPlan, t reflect.Type, path string) bo
 		p.fail("%s: %v has no field keyed by an integer, or more than 64", path, t)
 		return false
 	}
-	plan.fields, plan.intKeys = cursor.NewFields(), keys
+	plan.intKeys = keys
 	return true
 }
 

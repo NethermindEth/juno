@@ -82,9 +82,12 @@ func (c *Cursor) Len() int { return len(c.buf) - c.pos }
 // Pos returns the number of bytes consumed so far.
 func (c *Cursor) Pos() int { return c.pos }
 
+// valid reports whether the Cursor is at a byte of the input.
+func (c *Cursor) valid() bool { return c.pos < len(c.buf) }
+
 // Peek returns the next head byte without consuming it.
 func (c *Cursor) Peek() (byte, error) {
-	if c.pos >= len(c.buf) {
+	if !c.valid() {
 		return 0, c.fail(ErrTruncated, "input ends before the item")
 	}
 	return c.buf[c.pos], nil
@@ -93,29 +96,23 @@ func (c *Cursor) Peek() (byte, error) {
 // head reads the head of the next item, which gives its major type and argument. It consumes
 // nothing on error.
 func (c *Cursor) head() (major byte, argument uint64, err error) {
+	if !c.valid() {
+		return 0, 0, c.fail(ErrTruncated, "input ends before the item")
+	}
 	// The argument is small enough to live in the info bits.
-	if c.pos < len(c.buf) {
-		if head := c.buf[c.pos]; head&infoMask < info1Byte {
-			c.pos++
-			return head & majorMask, uint64(head & infoMask), nil
-		}
+	if head := c.buf[c.pos]; head&infoMask < info1Byte {
+		c.pos++
+		return head & majorMask, uint64(head & infoMask), nil
 	}
 	return c.headSlow()
 }
 
-// headSlow is head for a missing head or an argument that follows the head byte.
+// headSlow is head for an argument that follows the head byte, or a head that is not valid. The
+// input must hold the head byte, whose additional information must be 24 or more.
 func (c *Cursor) headSlow() (major byte, argument uint64, err error) {
-	if c.pos >= len(c.buf) {
-		return 0, 0, c.fail(ErrTruncated, "input ends before the item")
-	}
 	head := c.buf[c.pos]
 	major = head & majorMask
 	info := head & infoMask
-
-	if info < info1Byte {
-		c.pos++
-		return major, uint64(info), nil
-	}
 
 	if info > info8Byte {
 		// 28-30 are reserved. 31 is an indefinite length, which this package does not read, or a break.
@@ -149,16 +146,23 @@ func (c *Cursor) headSlow() (major byte, argument uint64, err error) {
 
 // expect reads a head of the given major type, and consumes nothing if it is another.
 func (c *Cursor) expect(want byte) (uint64, error) {
-	if c.pos < len(c.buf) {
-		if info := c.buf[c.pos] - want; info < info1Byte {
-			c.pos++
-			return uint64(info), nil
-		}
+	if !c.valid() {
+		return 0, c.fail(ErrTruncated, "input ends before the item")
+	}
+	if info := c.buf[c.pos] - want; info < info1Byte {
+		c.pos++
+		return uint64(info), nil
 	}
 	return c.expectSlow(want)
 }
 
+// expectSlow is expect for another type, or for an argument that follows the head byte. The input
+// must hold the head byte.
 func (c *Cursor) expectSlow(want byte) (uint64, error) {
+	if head := c.buf[c.pos]; head&infoMask < info1Byte {
+		// expect would have read a small argument of the wanted type, so this is another type.
+		return 0, c.mismatch(describe(want), head)
+	}
 	start := c.pos
 	major, argument, err := c.headSlow()
 	if err != nil {
@@ -203,7 +207,7 @@ func describe(head byte) string {
 // ArrayLen reads an array head and returns its element count, capped by the bytes left. The caller
 // must call Leave after reading the elements.
 func (c *Cursor) ArrayLen() (int, error) {
-	if c.pos < len(c.buf) && c.depth < maxNestedLevels {
+	if c.valid() && c.depth < maxNestedLevels {
 		// count < bytes left including the head is count <= bytes left after it.
 		if count := c.buf[c.pos] - majorArray; count < info1Byte && int(count) < len(c.buf)-c.pos {
 			c.pos++
@@ -217,7 +221,7 @@ func (c *Cursor) ArrayLen() (int, error) {
 // MapLen reads a map head and returns its pair count, capped by the bytes left. The caller must
 // call Leave after reading the elements.
 func (c *Cursor) MapLen() (int, error) {
-	if c.pos < len(c.buf) && c.depth < maxNestedLevels {
+	if c.valid() && c.depth < maxNestedLevels {
 		if count := c.buf[c.pos] - majorMap; count < info1Byte && 2*int(count) < len(c.buf)-c.pos {
 			c.pos++
 			c.depth++
@@ -230,7 +234,7 @@ func (c *Cursor) MapLen() (int, error) {
 // containerLen reads an array or map head whose items take at least perItem bytes each.
 func (c *Cursor) containerLen(want byte, perItem uint64) (int, error) {
 	start := c.pos
-	count, err := c.expectSlow(want)
+	count, err := c.expect(want)
 	if err != nil {
 		return 0, err
 	}
@@ -263,7 +267,7 @@ func (c *Cursor) Tag() (uint64, error) {
 
 // Null consumes the next item if it is null or undefined, and reports whether it did.
 func (c *Cursor) Null() bool {
-	if c.pos < len(c.buf) && (c.buf[c.pos] == simpleNull || c.buf[c.pos] == simpleUndefined) {
+	if c.valid() && (c.buf[c.pos] == simpleNull || c.buf[c.pos] == simpleUndefined) {
 		c.pos++
 		return true
 	}

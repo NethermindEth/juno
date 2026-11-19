@@ -9,6 +9,7 @@ import (
 	"errors"
 	"math/big"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -35,7 +36,10 @@ func nested(levels int, leaf byte) []byte {
 	return append(bytes.Repeat([]byte{0x81}, levels), leaf)
 }
 
-// felts is an array of n felts in the uint64 form, as a Sierra program is stored.
+// felts is a made-up array of n felts in the uint64 form, as the program of a Sierra class is
+// stored. A felt is the array head 0x84 and four limbs, each the head 0x1b and 8 big-endian bytes.
+// The limbs here are the bytes 1 to 8, not those of a real felt. The array of felts has the head
+// 0x98 and a length byte, so n is at most 255.
 func felts(n int) []byte {
 	felt := []byte{
 		0x84, 0x1b, 1, 2, 3, 4, 5, 6, 7, 8, 0x1b, 1, 2, 3, 4, 5, 6, 7, 8,
@@ -102,8 +106,9 @@ func readerSeeds() [][]byte {
 }
 
 // FuzzSkipMatchesFxamacker checks Skip against the decoder it replaces. Both must agree on
-// whether the first item is well-formed and on where it ends. The one allowed difference is
-// ErrUnsupported, an indefinite-length item that the Cursor does not read.
+// whether the first item is well-formed and on where it ends. The allowed difference is
+// ErrUnsupported for the two items the Cursor does not read: an indefinite-length item, and a tag 0
+// to 3, whose content only a reader that returns the value can check.
 func FuzzSkipMatchesFxamacker(f *testing.F) {
 	for _, s := range seeds() {
 		f.Add(s)
@@ -117,6 +122,9 @@ func FuzzSkipMatchesFxamacker(f *testing.F) {
 		err := c.Skip()
 
 		if errors.Is(err, cursor.ErrUnsupported) {
+			known := strings.Contains(err.Error(), "indefinite-length") ||
+				strings.Contains(err.Error(), "tag 0 to 3")
+			require.Truef(t, known, "unsupported for another reason: %v", err)
 			return
 		}
 		require.Equalf(t, fxErr == nil, err == nil, "fx=%v fast=%v", fxErr, err)
@@ -127,6 +135,29 @@ func FuzzSkipMatchesFxamacker(f *testing.F) {
 		require.Equal(t, len(rest), c.Len())
 		require.True(t, bytes.Equal(rest, c.Remaining()))
 	})
+}
+
+func same[T comparable](want, got T) bool { return want == got }
+
+// readerMatches checks one typed reader against fxamacker decoding the same data into a T. If
+// the reader succeeds, fxamacker succeeds with an equal value and the same remainder.
+func readerMatches[T any](
+	t *testing.T,
+	data []byte,
+	read func(*cursor.Cursor) (T, error),
+	equal func(want, got T) bool,
+) {
+	t.Helper()
+	var want T
+	rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
+	c := cursor.NewCursor(data)
+	got, err := read(&c)
+	if err != nil {
+		return
+	}
+	require.NoError(t, fxErr)
+	require.True(t, equal(want, got), "fx=%v fast=%v", want, got)
+	require.Equal(t, rest, c.Remaining())
 }
 
 // FuzzReadersMatchFxamacker checks that every typed reader that succeeds yields what the
@@ -176,29 +207,6 @@ func FuzzReadersMatchFxamacker(f *testing.F) {
 			require.Equal(t, rest, c.Remaining())
 		})
 	})
-}
-
-func same[T comparable](want, got T) bool { return want == got }
-
-// readerMatches checks one typed reader against fxamacker decoding the same data into a T. If
-// the reader succeeds, fxamacker succeeds with an equal value and the same remainder.
-func readerMatches[T any](
-	t *testing.T,
-	data []byte,
-	read func(*cursor.Cursor) (T, error),
-	equal func(want, got T) bool,
-) {
-	t.Helper()
-	var want T
-	rest, fxErr := fxamacker.UnmarshalFirst(data, &want)
-	c := cursor.NewCursor(data)
-	got, err := read(&c)
-	if err != nil {
-		return
-	}
-	require.NoError(t, fxErr)
-	require.True(t, equal(want, got), "fx=%v fast=%v", want, got)
-	require.Equal(t, rest, c.Remaining())
 }
 
 // FuzzNeverPanics drives every reader over arbitrary bytes, as a decoder does when it walks
