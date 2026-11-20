@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -715,10 +716,18 @@ func TestWebsocketSubscriptionSlotsArePerConnection(t *testing.T) {
 		},
 	}
 
+	var active, rejected atomic.Int64
+	listener := &jsonrpc.SelectiveListener{
+		OnSubscribeCb:            func() { active.Add(1) },
+		OnUnsubscribeCb:          func() { active.Add(-1) },
+		OnSubscriptionRejectedCb: func() { rejected.Add(1) },
+	}
+
 	rpc := jsonrpc.NewServer(pool.New().WithMaxGoroutines(1), log.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(subscribe, unsubscribe))
 	ws := jsonrpc.NewWebsocket(rpc, nil, log.NewNopZapLogger()).
-		WithMaxSubscriptions(maxSubs)
+		WithMaxSubscriptions(maxSubs).
+		WithListener(listener)
 	srv := httptest.NewServer(ws)
 	t.Cleanup(srv.Close)
 
@@ -760,4 +769,7 @@ func TestWebsocketSubscriptionSlotsArePerConnection(t *testing.T) {
 		call(connA, "test_unsubscribe", 4))
 	assert.JSONEq(t, fmt.Sprintf(subscribed, 5), call(connA, "test_subscribe", 5))
 	assert.JSONEq(t, fmt.Sprintf(tooMany, 5), call(connB, "test_subscribe", 5))
+
+	assert.Equal(t, int64(2*maxSubs), active.Load())
+	assert.Equal(t, int64(3), rejected.Load())
 }

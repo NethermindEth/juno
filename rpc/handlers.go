@@ -61,6 +61,15 @@ func (h *Handler) WithCompiler(compiler compiler.Compiler) *Handler {
 	return h
 }
 
+// WithSubscriptionMemoryLimiter bounds subscription memory across versions; nil is unbounded
+func (h *Handler) WithSubscriptionMemoryLimiter(
+	limiter *rpccore.SubscriptionMemoryLimiter,
+) *Handler {
+	h.rpcv9Handler.WithSubscriptionMemoryLimiter(limiter)
+	h.rpcv10Handler.WithSubscriptionMemoryLimiter(limiter)
+	return h
+}
+
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.rpcv9Handler.WithFilterLimit(limit)

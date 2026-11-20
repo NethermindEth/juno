@@ -3132,3 +3132,70 @@ func TestSubscribeRespectsConnectionLimit(t *testing.T) {
 	require.Nil(t, rpcErr)
 	assertNextHead(t, clientConn, subID, &adaptedHeader)
 }
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	// Fits one subscription without a filter, with no room for a filter
+	newLimiter := func() *rpccore.SubscriptionMemoryLimiter {
+		return rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1)
+	}
+
+	t.Run("filter counts toward the charge", func(t *testing.T) {
+		handler := New(nil, nil, nil, log.NewNopZapLogger()).WithSubscriptionMemoryLimiter(newLimiter())
+		conn := &limitedConn{fakeConn: &fakeConn{w: io.Discard, ctx: t.Context()}, max: 10}
+		ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+
+		_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+		assert.Equal(t, int64(0), conn.held.Load(), "a refused call must return its connection slot")
+	})
+
+	t.Run("memory returned on unsubscribe", func(t *testing.T) {
+		client := feeder.NewTestClient(t, &networks.Sepolia)
+		block1, commitments1, _ := GetTestBlockWithCommitments(t, client, 56377)
+		adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockChain := mocks.NewMockReader(mockCtrl)
+		handler := New(mockChain, nil, nil, log.NewNopZapLogger()).
+			WithSubscriptionMemoryLimiter(newLimiter())
+
+		mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+		mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+		mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		connCtx, cancel := context.WithCancel(t.Context())
+		t.Cleanup(cancel)
+		conn := &limitedConn{
+			fakeConn: &fakeConn{Conn: clientConn, w: serverConn, ctx: connCtx},
+			max:      10,
+		}
+		ctx := context.WithValue(connCtx, jsonrpc.ConnKey{}, conn)
+
+		blockIDLatest := BlockIDLatest()
+		subBlockID := (*SubscriptionBlockID)(&blockIDLatest)
+
+		subID, rpcErr := handler.SubscribeNewHeads(ctx, subBlockID)
+		require.Nil(t, rpcErr)
+		assertNextHead(t, clientConn, subID, &adaptedHeader)
+
+		_, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+		assert.Equal(t, int64(1), conn.held.Load())
+
+		// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+		ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+		require.Nil(t, rpcErr)
+		require.True(t, ok)
+
+		subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+		require.Nil(t, rpcErr)
+		assertNextHead(t, clientConn, subID, &adaptedHeader)
+	})
+}

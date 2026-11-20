@@ -17,6 +17,7 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
@@ -148,10 +149,11 @@ func makeRPCOverWebsocket(
 	gate *jsonrpc.Gate,
 	maxConns uint,
 	maxSubscriptions uint,
+	subscriptionMemoryLimiter *rpccore.SubscriptionMemoryLimiter,
 ) *httpService {
-	var listener jsonrpc.NewRequestListener
+	var listener jsonrpc.WebsocketListener
 	if metricsEnabled {
-		listener = makeWSMetrics()
+		listener = makeWSMetrics(subscriptionMemoryLimiter)
 	}
 
 	shutdown := make(chan struct{})

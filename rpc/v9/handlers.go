@@ -53,6 +53,8 @@ type Handler struct {
 	callMaxGas   uint64
 
 	l1Client rpccore.L1Client
+
+	subscriptionMemoryLimiter *rpccore.SubscriptionMemoryLimiter
 }
 
 type subscription struct {
@@ -138,6 +140,14 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 
 func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
 	h.submittedTransactionsCache = cache
+	return h
+}
+
+// WithSubscriptionMemoryLimiter bounds, in bytes, what subscriptions hold; nil is unbounded
+func (h *Handler) WithSubscriptionMemoryLimiter(
+	limiter *rpccore.SubscriptionMemoryLimiter,
+) *Handler {
+	h.subscriptionMemoryLimiter = limiter
 	return h
 }
 
