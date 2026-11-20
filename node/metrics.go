@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/pruner"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/prometheus/client_golang/prometheus"
@@ -149,20 +150,64 @@ func makeRPCGateMetrics(gate *jsonrpc.Gate) {
 	prometheus.MustRegister(active, queued, rejected)
 }
 
-func makeWSMetrics() jsonrpc.NewRequestListener {
+func makeWSMetrics(memoryLimiter *rpccore.SubscriptionMemoryLimiter) jsonrpc.WebsocketListener {
 	reqCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "ws",
 		Name:      "requests",
 		Help:      "Total number of WebSocket RPC requests received",
 	})
-	prometheus.MustRegister(reqCounter)
+	subscriptions := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions",
+		Help:      "Number of active websocket subscriptions.",
+	})
+	rejected := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_connection_rejected",
+		Help:      "Total number of subscriptions rejected because a connection reached its limit.",
+	})
+	prometheus.MustRegister(reqCounter, subscriptions, rejected)
+	makeSubscriptionMemoryMetrics(memoryLimiter)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
 			reqCounter.Inc()
 		},
+		OnSubscribeCb:            subscriptions.Inc,
+		OnUnsubscribeCb:          subscriptions.Dec,
+		OnSubscriptionRejectedCb: rejected.Inc,
 	}
+}
+
+func makeSubscriptionMemoryMetrics(limiter *rpccore.SubscriptionMemoryLimiter) {
+	used := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_bytes",
+		Help:      "Estimated memory held by websocket subscriptions, in bytes.",
+	}, func() float64 {
+		return float64(limiter.Used())
+	})
+	limit := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_limit_bytes",
+		Help:      "Memory websocket subscriptions may hold together, in bytes; 0 is unlimited.",
+	}, func() float64 {
+		return float64(limiter.Limit())
+	})
+	rejected := prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_rejected",
+		Help:      "Total number of subscriptions rejected because the memory limit was reached.",
+	}, func() float64 {
+		return float64(limiter.Rejected())
+	})
+	prometheus.MustRegister(used, limit, rejected)
 }
 
 func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {

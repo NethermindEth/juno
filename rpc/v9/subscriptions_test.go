@@ -2662,3 +2662,40 @@ func newPreConfirmedWithBloom(
 	withBloom := pending.NewPreConfirmedWithBloom(preConfirmed)
 	return &withBloom
 }
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	// Fits one subscription without a filter, with no room for a filter
+	newHandler := func() *Handler {
+		return New(nil, nil, nil, log.NewNopZapLogger()).
+			WithSubscriptionMemoryLimiter(
+				rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1),
+			)
+	}
+	newCtx := func(t *testing.T) context.Context {
+		conn := &fakeConn{w: io.Discard, ctx: t.Context()}
+		return context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+	}
+
+	t.Run("filter counts toward the charge", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+	})
+
+	t.Run("memory returned on unsubscribe", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
+
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+
+		// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+		ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+		require.Nil(t, rpcErr)
+		require.True(t, ok)
+
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
+	})
+}
