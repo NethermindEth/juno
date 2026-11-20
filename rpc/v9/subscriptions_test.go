@@ -2665,27 +2665,37 @@ func newPreConfirmedWithBloom(
 
 func TestSubscribeRespectsMemoryLimit(t *testing.T) {
 	// Fits one subscription without a filter, with no room for a filter
-	handler := New(nil, nil, nil, log.NewNopZapLogger()).
-		WithSubscriptionMemoryLimiter(
-			rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1),
-		)
-	conn := &fakeConn{w: io.Discard, ctx: t.Context()}
-	ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+	newHandler := func() *Handler {
+		return New(nil, nil, nil, log.NewNopZapLogger()).
+			WithSubscriptionMemoryLimiter(
+				rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1),
+			)
+	}
+	newCtx := func(t *testing.T) context.Context {
+		conn := &fakeConn{w: io.Discard, ctx: t.Context()}
+		return context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+	}
 
-	_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
-	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr, "the filter counts")
+	t.Run("filter counts toward the charge", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+	})
 
-	subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)
-	require.Nil(t, rpcErr)
+	t.Run("memory returned on unsubscribe", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
 
-	_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
-	assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
 
-	// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
-	ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
-	require.Nil(t, rpcErr)
-	require.True(t, ok)
+		// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+		ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+		require.Nil(t, rpcErr)
+		require.True(t, ok)
 
-	_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
-	require.Nil(t, rpcErr)
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
+	})
 }

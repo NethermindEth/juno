@@ -129,6 +129,7 @@ func TestSubscriptionMemoryEstimateCoversRealUsage(t *testing.T) {
 
 				cancel()
 				synctest.Wait()
+				assert.Zero(t, limiter.Used(), "closing the connection releases the memory")
 			})
 		})
 	}

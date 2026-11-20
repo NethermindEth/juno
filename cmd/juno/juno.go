@@ -319,8 +319,7 @@ const (
 		"0 disables the limit."
 	rpcMaxSubscriptionsMemoryUsage = "Size (in MBs) of memory all websocket subscriptions " +
 		"may hold together, estimated from their filters. Defaults to 10% of available memory " +
-		"(cgroup limit, else host RAM), clamped to [256, 4096] MB. " +
-		"0 disables the limit but keeps the estimate in metrics."
+		"(cgroup limit, else host RAM), clamped to [256, 4096] MB. 0 disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
