@@ -35,7 +35,7 @@ func (l LazySlice[T]) getInto(index int, value *T) error {
 	if index < len(l.indexes)-1 {
 		end = l.indexes[index+1]
 	}
-	return cbor.Unmarshal(l.data[start:end], value)
+	return cbor.UnmarshalFast(l.data[start:end], value)
 }
 
 func (l LazySlice[T]) Get(index int) (T, error) {

@@ -43,6 +43,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/NethermindEth/juno/sync/rpcsource"
+	"github.com/NethermindEth/juno/utils/cbor"
 	"github.com/NethermindEth/juno/utils/log"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -209,6 +210,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	cbor.SetFastLogger(logger)
 
 	if cfg.DisableSync {
 		if cfg.Sequencer {
