@@ -56,7 +56,7 @@ type PreConfirmedBlock struct {
 	Status                string                `json:"status"`
 	Timestamp             uint64                `json:"timestamp"`
 	Version               string                `json:"starknet_version"`
-	SequencerAddress      *felt.Felt            `json:"sequencer_address"`
+	SequencerAddress      *felt.Address         `json:"sequencer_address"`
 	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
 	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`

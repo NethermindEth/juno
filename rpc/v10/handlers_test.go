@@ -62,15 +62,15 @@ func TestThrottledVMError(t *testing.T) {
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x000000C"),
 		}
 		declaredClass := &core.DeclaredClassDefinition{
 			At:    3002,
 			Class: &core.SierraClass{},
 		}
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
-			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
+			TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.ClassHash]("0x00000BC00"),
 		}
 		block := &core.Block{
 			Header:       header,

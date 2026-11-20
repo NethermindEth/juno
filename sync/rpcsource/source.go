@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -14,11 +15,11 @@ import (
 	"github.com/NethermindEth/juno/clients/rpc"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv10 "github.com/NethermindEth/juno/rpc/v10"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils/log"
-	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/sourcegraph/conc/pool"
 	"go.uber.org/zap"
 )
@@ -36,6 +37,10 @@ var _ sync.DataSource = (*Source)(nil)
 type Source struct {
 	blockchain *blockchain.Blockchain
 	client     *rpc.Client
+	feeder     sync.DataSource
+	mode       Mode
+	caughtUp   atomic.Bool
+	remoteHead atomic.Pointer[core.Header]
 	logger     log.StructuredLogger
 	errorPause time.Duration
 }
@@ -50,12 +55,16 @@ func WithErrorPause(d time.Duration) Option {
 func New(
 	chain *blockchain.Blockchain,
 	client *rpc.Client,
+	feeder sync.DataSource,
+	mode Mode,
 	logger log.StructuredLogger,
 	opts ...Option,
 ) *Source {
 	source := &Source{
 		blockchain: chain,
 		client:     client,
+		feeder:     feeder,
+		mode:       mode,
 		logger:     logger,
 		errorPause: defaultErrorPause,
 	}
@@ -71,7 +80,11 @@ func (s *Source) CheckRemote(ctx context.Context) error {
 		return err
 	}
 
-	return s.checkSpecVersion(ctx)
+	if err := s.checkSpecVersion(ctx); err != nil {
+		return err
+	}
+
+	return s.checkNextBlockNotPruned(ctx)
 }
 
 func (s *Source) checkChainID(ctx context.Context) error {
@@ -118,9 +131,153 @@ func (s *Source) checkSpecVersion(ctx context.Context) error {
 	return nil
 }
 
-// BlockByNumber pauses before reporting an error: the synchronizer refetches as soon as
-// it fails, most often while polling for a block the remote doesn't have yet.
+func (s *Source) checkNextBlockNotPruned(ctx context.Context) error {
+	next, err := s.nextBlockNumber()
+	if err != nil {
+		return err
+	}
+
+	above, err := s.remoteHeadIsAbove(ctx, next)
+	if err != nil {
+		return err
+	}
+	if !above {
+		return nil
+	}
+
+	served, err := s.remoteServesBlock(ctx, next)
+	if err != nil {
+		return err
+	}
+	if !served {
+		return fmt.Errorf(
+			"RPC sync node has pruned block %d, which this node needs next; "+
+				"point --rpc-sync-url at an archive node, "+
+				"or remove --rpc-sync-url to sync from the feeder gateway",
+			next,
+		)
+	}
+
+	return nil
+}
+
+func (s *Source) nextBlockNumber() (uint64, error) {
+	height, err := s.blockchain.Height()
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("reading the local chain height: %w", err)
+	}
+
+	return height + 1, nil
+}
+
+// A node never prunes its head, so only a block below the head can be pruned. A missing
+// block at the head comes from a load-balanced backend that lags behind.
+func (s *Source) remoteHeadIsAbove(ctx context.Context, blockNumber uint64) (bool, error) {
+	return s.remoteHeadReaches(ctx, blockNumber+1)
+}
+
+func (s *Source) remoteHeadReaches(ctx context.Context, blockNumber uint64) (bool, error) {
+	head, err := s.refreshRemoteHead(ctx)
+	if rpc.IsError(err, rpccore.ErrNoBlock) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("querying the RPC sync node head: %w", err)
+	}
+
+	return head.Number >= blockNumber, nil
+}
+
+func (s *Source) remoteServesBlock(ctx context.Context, blockNumber uint64) (bool, error) {
+	_, err := s.client.Call(
+		ctx,
+		rpc.BlockWithReceipts,
+		rpc.BlockWithReceiptsParams{BlockNumber: blockNumber},
+	)
+	if rpc.IsError(err, rpccore.ErrBlockNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("querying block %d from the RPC sync node: %w", blockNumber, err)
+	}
+
+	return true, nil
+}
+
+func (s *Source) fetchesFromFeeder(ctx context.Context) (bool, error) {
+	switch s.mode {
+	case Follow:
+		return false, nil
+	case CatchUp:
+		return s.catchUpEnded(ctx)
+	default:
+		return false, fmt.Errorf("unknown RPC sync mode %s", s.mode)
+	}
+}
+
+func (s *Source) catchUpEnded(ctx context.Context) (bool, error) {
+	if s.caughtUp.Load() {
+		return true, nil
+	}
+
+	next, err := s.nextBlockNumber()
+	if err != nil {
+		return false, err
+	}
+
+	if s.knownRemoteHeadReaches(next) {
+		return false, nil
+	}
+
+	remoteHasNext, err := s.remoteHeadReaches(ctx, next)
+	if err != nil {
+		return false, err
+	}
+	if remoteHasNext {
+		return false, nil
+	}
+
+	s.endCatchUp(next)
+	return true, nil
+}
+
+func (s *Source) knownRemoteHeadReaches(blockNumber uint64) bool {
+	head := s.remoteHead.Load()
+	return head != nil && head.Number >= blockNumber
+}
+
+func (s *Source) endCatchUp(nextBlockNumber uint64) {
+	if s.caughtUp.CompareAndSwap(false, true) {
+		s.logger.Info(
+			"Holding every block the RPC sync node has; "+
+				"syncing committed blocks from the feeder gateway for the rest of the run",
+			zap.Uint64("next", nextBlockNumber),
+		)
+	}
+}
+
+// BlockByNumber pauses before reporting an RPC error: the synchronizer refetches as soon
+// as it fails, most often while polling for a block the remote doesn't have yet.
 func (s *Source) BlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (sync.CommittedBlock, error) {
+	fromFeeder, err := s.fetchesFromFeeder(ctx)
+	if err != nil {
+		s.pauseAfterError(ctx, blockNumber, err)
+		return sync.CommittedBlock{}, err
+	}
+	if fromFeeder {
+		return s.feeder.BlockByNumber(ctx, blockNumber)
+	}
+
+	return s.rpcBlockByNumber(ctx, blockNumber)
+}
+
+func (s *Source) rpcBlockByNumber(
 	ctx context.Context,
 	blockNumber uint64,
 ) (sync.CommittedBlock, error) {
@@ -137,7 +294,7 @@ func (s *Source) pauseAfterError(ctx context.Context, blockNumber uint64, err er
 		return
 	}
 
-	if isBlockNotFound(err) {
+	if rpc.IsError(err, rpccore.ErrBlockNotFound) {
 		s.logger.Debug("Block not available on the RPC sync node yet",
 			zap.Uint64("number", blockNumber))
 	} else {
@@ -225,8 +382,8 @@ func (s *Source) stateUpdate(
 func (s *Source) classes(
 	ctx context.Context,
 	blockNumber uint64,
-	classHashes []*felt.Felt,
-) (map[felt.Felt]core.ClassDefinition, error) {
+	classHashes []*felt.ClassHash,
+) (map[felt.ClassHash]core.ClassDefinition, error) {
 	p := pool.NewWithResults[core.ClassDefinition]().
 		WithContext(ctx).
 		WithMaxGoroutines(maxConcurrentClassFetches).
@@ -242,7 +399,7 @@ func (s *Source) classes(
 		return nil, err
 	}
 
-	classes := make(map[felt.Felt]core.ClassDefinition, len(classHashes))
+	classes := make(map[felt.ClassHash]core.ClassDefinition, len(classHashes))
 	for i, classHash := range classHashes {
 		classes[*classHash] = definitions[i]
 	}
@@ -253,7 +410,7 @@ func (s *Source) classes(
 func (s *Source) class(
 	ctx context.Context,
 	blockNumber uint64,
-	classHash *felt.Felt,
+	classHash *felt.ClassHash,
 ) (core.ClassDefinition, error) {
 	class, err := s.client.Call(
 		ctx,
@@ -280,15 +437,29 @@ func (s *Source) class(
 }
 
 func (s *Source) BlockHeaderLatest(ctx context.Context) (*core.Header, error) {
+	fromFeeder, err := s.fetchesFromFeeder(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if fromFeeder {
+		return s.feeder.BlockHeaderLatest(ctx)
+	}
+
+	return s.refreshRemoteHead(ctx)
+}
+
+// refreshRemoteHead forgets the stored head when the RPC node has none left, so a head
+// that moved backwards never keeps catch-up from ending.
+func (s *Source) refreshRemoteHead(ctx context.Context) (*core.Header, error) {
 	head, err := s.client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
+	if rpc.IsError(err, rpccore.ErrNoBlock) {
+		s.remoteHead.Store(nil)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	return &core.Header{Number: head.Number, Hash: head.Hash}, nil
-}
-
-func isBlockNotFound(err error) bool {
-	var rpcErr gethrpc.Error
-	return errors.As(err, &rpcErr) && rpcErr.ErrorCode() == rpccore.ErrBlockNotFound.Code
+	header := &core.Header{Number: head.Number, Hash: head.Hash}
+	s.remoteHead.Store(header)
+	return header, nil
 }

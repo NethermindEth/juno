@@ -108,6 +108,9 @@ const extractConfigs = (codebase) => {
     if (configName === "max-vms") {
       defaultValue = "3 * CPU Cores";
     }
+    if (configName === "rpc-max-subscriptions-memory") {
+      defaultValue = "10% of available memory (min 256, max 4096)";
+    }
     if (configName === "max-vm-queue") {
       defaultValue = "2 * max-vms";
     }
@@ -207,6 +210,10 @@ function parseValue(value) {
   // Network type
   if (value === "networks.Mainnet") {
     return "mainnet";
+  }
+
+  if (value === "rpcsource.Follow") {
+    return "follow";
   }
 
   // Prune-mode flag name lives in another package as a string constant.

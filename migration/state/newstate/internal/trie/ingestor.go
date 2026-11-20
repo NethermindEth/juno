@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -180,13 +181,12 @@ func writeStorageRoot(
 	owner *felt.Address,
 	root *felt.Felt,
 ) error {
-	addr := (*felt.Felt)(owner)
-	contract, err := state.GetContract(r, addr)
+	contract, err := state.GetContract(r, owner)
 	if err != nil {
 		return fmt.Errorf("reading contract %x: %w", owner, err)
 	}
 	contract.StorageRoot = *root
-	if err := state.WriteContractRecord(w, addr, &contract); err != nil {
+	if err := state.WriteContractRecord(w, owner, &contract); err != nil {
 		return fmt.Errorf("writing storage root of %x: %w", owner, err)
 	}
 	return nil
@@ -274,12 +274,17 @@ func readNode(r db.KeyValueReader, prefix []byte, oldPath *trie.BitArray) (parse
 	return node, err
 }
 
+// UnmarshalBinary decodes a deprecated trie node. Data of at most a felt's size is a leaf, stored
+// full width or trimmed.
 func (n *parsedNode) UnmarshalBinary(data []byte) error {
-	if len(data) < felt.Bytes {
-		return fmt.Errorf("trie: node data too short (%d bytes)", len(data))
+	if len(data) == 0 {
+		return errors.New("trie: empty node data")
 	}
-	n.value = felt.FromBytes[felt.Felt](data[:felt.Bytes])
-	data = data[felt.Bytes:]
+	valueLength := min(len(data), felt.Bytes)
+	if err := n.value.SetMinimalBytes(data[:valueLength]); err != nil {
+		return fmt.Errorf("trie: decoding node value: %w", err)
+	}
+	data = data[valueLength:]
 	if len(data) == 0 {
 		n.isLeaf = true
 		return nil

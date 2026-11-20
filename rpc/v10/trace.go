@@ -274,7 +274,7 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	// txIndex comes from the tx-hash index while the traces come from a later read of the block, so
 	// confirm the trace at that index really is the transaction that was asked for.
 	if txIndex >= uint64(len(blockTraces.Traces)) ||
-		!blockTraces.Traces[txIndex].Hash.Equal((*felt.Felt)(hash)) {
+		!blockTraces.Traces[txIndex].Hash.Equal(hash) {
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 

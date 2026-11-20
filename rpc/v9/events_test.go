@@ -374,7 +374,7 @@ func TestEvents(t *testing.T) {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					// todo: remove the cast to felt.Felt
-					if event.From.Equal((*felt.Felt)(testAddress)) {
+					if event.From.Equal(testAddress) {
 						filtered = append(filtered, event)
 					}
 				}
@@ -396,7 +396,7 @@ func TestEvents(t *testing.T) {
 				var filtered []rpc.EmittedEvent
 				for _, event := range canonicalEvents {
 					// todo: remove the cast to felt.Felt
-					if event.From.Equal((*felt.Felt)(testAddress)) &&
+					if event.From.Equal(testAddress) &&
 						len(event.Keys) > 0 && event.Keys[0].Equal(testKey) {
 						filtered = append(filtered, event)
 					}

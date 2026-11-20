@@ -17,6 +17,15 @@ const minL1ToL2MessageFeeWei = 50_000_000_000_000
 // messages that pay less.
 var MinL1ToL2MessageFee = felt.FromUint64[felt.Felt](minL1ToL2MessageFeeWei)
 
+// Measured memory of a subscription: a fixed part plus its parsed filter
+const (
+	SubscriptionBaseSize = 12 << 10 // 12 KB
+	EventAddressSize     = 96       // 96 B
+	EventKeySize         = 128      // 128 B
+	EventKeyPositionSize = 512      // 512 B, each position is a map
+	SenderAddressSize    = 32       // 32 B
+)
+
 const (
 	MaxEventChunkSize             = 10240
 	MaxEventFilterKeys            = 1024
@@ -91,6 +100,10 @@ var (
 	ErrCallOnPreConfirmed                = &jsonrpc.Error{
 		Code: 70, Message: "This method does not support being called on the pre_confirmed block",
 	}
+	ErrTooManySubscriptions = jsonrpc.Err(jsonrpc.InvalidRequest,
+		map[string]string{"reason": "Too many subscriptions"})
+	ErrSubscriptionMemoryExhausted = jsonrpc.Err(jsonrpc.InvalidRequest,
+		map[string]string{"reason": "Subscription memory limit reached"})
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}

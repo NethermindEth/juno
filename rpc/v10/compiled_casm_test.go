@@ -29,12 +29,12 @@ func TestCompiledCasm(t *testing.T) {
 
 	t.Run("db failure", func(t *testing.T) {
 		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))
-		resp, err := handler.CompiledCasm(felt.NewUnsafeFromString[felt.Felt]("0x000"))
+		resp, err := handler.CompiledCasm(felt.NewUnsafeFromString[felt.ClassHash]("0x000"))
 		require.Equal(t, jsonrpc.InternalError, err.Code)
 		require.Zero(t, resp)
 	})
 	t.Run("class doesn't exist", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt]("0x111")
+		classHash := felt.NewUnsafeFromString[felt.ClassHash]("0x111")
 
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(nil, db.ErrKeyNotFound)
@@ -45,7 +45,7 @@ func TestCompiledCasm(t *testing.T) {
 		require.Zero(t, resp)
 	})
 	t.Run("deprecated cairo", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt](
+		classHash := felt.NewUnsafeFromString[felt.ClassHash](
 			"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
 		)
 
@@ -65,7 +65,7 @@ func TestCompiledCasm(t *testing.T) {
 	})
 
 	t.Run("cairo", func(t *testing.T) {
-		classHash := felt.NewUnsafeFromString[felt.Felt]("0x222")
+		classHash := felt.NewUnsafeFromString[felt.ClassHash]("0x222")
 
 		// Create a compiled class with test data
 		casm := core.CasmClass{

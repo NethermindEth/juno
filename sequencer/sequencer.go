@@ -31,7 +31,7 @@ var (
 type Sequencer struct {
 	builder          *builder.Builder
 	buildState       *builder.BuildState
-	sequencerAddress *felt.Felt
+	sequencerAddress *felt.Address
 	privKey          *ecdsa.PrivateKey
 	logger           log.Logger
 	blockTime        time.Duration
@@ -48,7 +48,7 @@ type Sequencer struct {
 func New(
 	b *builder.Builder,
 	mempool *mempool.SequencerMempool,
-	sequencerAddress *felt.Felt,
+	sequencerAddress *felt.Address,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
 	logger log.Logger,

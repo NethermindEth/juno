@@ -14,14 +14,14 @@ type Storage map[felt.Felt]*felt.Felt
 type stateObject struct {
 	state *State // the state this object belongs to
 
-	addr     felt.Felt      // address of the contract
+	addr     felt.Address   // address of the contract
 	contract *stateContract // contract info
 
 	dirtyStorage Storage     // storage changes
 	storageTrie  *trie2.Trie // storage trie
 }
 
-func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stateObject {
+func newStateObject(state *State, addr *felt.Address, contract *stateContract) stateObject {
 	return stateObject{
 		state:        state,
 		addr:         *addr,
@@ -30,7 +30,7 @@ func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stat
 	}
 }
 
-func (s *stateObject) setClassHash(classHash *felt.Felt) {
+func (s *stateObject) setClassHash(classHash *felt.ClassHash) {
 	s.contract.ClassHash = *classHash
 }
 
@@ -64,7 +64,7 @@ func (s *stateObject) getStorageRoot() (felt.Felt, error) {
 			return felt.Zero[felt.Felt](), err
 		}
 		s.contract.StorageRoot = root
-		return root, nil
+		return s.contract.StorageRoot, nil
 	}
 
 	// Otherwise, return the storage root from the contract.

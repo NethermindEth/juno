@@ -37,7 +37,8 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 	receipts := make([]*starknet.TransactionReceipt, txCount)
 	stateDiffs := make([]*starknet.StateDiff, txCount)
 	for i := range txCount {
-		hash := felt.NewFromUint64[felt.Felt](uint64(i + 1))
+		hash := felt.NewFromUint64[felt.TransactionHash](uint64(i + 1))
+		address := felt.FromUint64[felt.Address](uint64(i + 1))
 		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
@@ -48,11 +49,11 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		}
 		receipts[i] = &starknet.TransactionReceipt{TransactionHash: hash}
 		stateDiffs[i] = &starknet.StateDiff{
-			StorageDiffs: map[string][]struct {
+			StorageDiffs: map[felt.Address][]struct {
 				Key   *felt.Felt `json:"key"`
 				Value *felt.Felt `json:"value"`
 			}{
-				hash.String(): {{
+				address: {{
 					Key:   felt.NewFromUint64[felt.Felt](uint64(i + 1)),
 					Value: felt.NewFromUint64[felt.Felt](uint64(i + 1)),
 				}},
@@ -67,7 +68,7 @@ func makeTestPreConfirmedBlock(identifier string, txCount int) starknet.PreConfi
 		Status:                "PRE_CONFIRMED",
 		Timestamp:             uint64(time.Now().Unix()),
 		Version:               core.Ver0_14_0.String(),
-		SequencerAddress:      new(felt.One[felt.Felt]()),
+		SequencerAddress:      new(felt.One[felt.Address]()),
 		L1GasPrice: &starknet.GasPrice{
 			PriceInWei: new(felt.One[felt.Felt]()),
 			PriceInFri: new(felt.One[felt.Felt]()),
@@ -91,7 +92,7 @@ func makeTestDelta(identifier string, addedCount int) starknet.PreConfirmedDelta
 	receipts := make([]*starknet.TransactionReceipt, addedCount)
 	stateDiffs := make([]*starknet.StateDiff, addedCount)
 	for i := range addedCount {
-		hash := felt.NewFromUint64[felt.Felt](uint64(100 + i))
+		hash := felt.NewFromUint64[felt.TransactionHash](uint64(100 + i))
 		emptySlice := []felt.Felt{}
 		txs[i] = starknet.Transaction{
 			Hash:      hash,
@@ -980,7 +981,7 @@ func TestPollerReorgSameHeightDifferentIdentifier(t *testing.T) {
 func classesAt(
 	snap *preconfirmed.ChainReader,
 	blockNumber uint64,
-) map[felt.Felt]core.ClassDefinition {
+) map[felt.ClassHash]core.ClassDefinition {
 	for pc := range snap.OldestFirst() {
 		if pc.Block.Number == blockNumber {
 			return pc.NewClasses
@@ -998,15 +999,15 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		classHash := felt.NewFromUint64[felt.Felt](0xC1A55)
+		classHash := felt.NewFromUint64[felt.ClassHash](0xC1A55)
 		classDef := &core.SierraClass{}
 
 		seed := makeTestPreConfirmedBlock("r1", 0) // stored old tip, declares nothing
 		repoll := makeTestPreConfirmedBlock("r1b", 1)
 		repoll.TransactionStateDiffs[0].DeclaredClasses = []struct {
-			ClassHash         *felt.Felt `json:"class_hash"`
-			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
-		}{{ClassHash: classHash}}
+			ClassHash         *felt.SierraClassHash `json:"class_hash"`
+			CompiledClassHash *felt.CasmClassHash   `json:"compiled_class_hash"`
+		}{{ClassHash: (*felt.SierraClassHash)(classHash)}}
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)
@@ -1047,21 +1048,21 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		storedClass := felt.NewFromUint64[felt.Felt](0xADD)
-		deltaClass := felt.NewFromUint64[felt.Felt](0xC1A55)
+		storedClass := felt.NewFromUint64[felt.ClassHash](0xADD)
+		deltaClass := felt.NewFromUint64[felt.ClassHash](0xC1A55)
 		storedDef := &core.SierraClass{}
 		deltaDef := &core.SierraClass{}
 
 		seed := makeTestPreConfirmedBlock("r1", 1) // stored old tip declares storedClass
 		seed.TransactionStateDiffs[0].DeclaredClasses = []struct {
-			ClassHash         *felt.Felt `json:"class_hash"`
-			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
-		}{{ClassHash: storedClass}}
+			ClassHash         *felt.SierraClassHash `json:"class_hash"`
+			CompiledClassHash *felt.CasmClassHash   `json:"compiled_class_hash"`
+		}{{ClassHash: (*felt.SierraClassHash)(storedClass)}}
 		repoll := makeTestDelta("r1", 1) // same-round delta declares deltaClass
 		repoll.TransactionStateDiffs[0].DeclaredClasses = []struct {
-			ClassHash         *felt.Felt `json:"class_hash"`
-			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
-		}{{ClassHash: deltaClass}}
+			ClassHash         *felt.SierraClassHash `json:"class_hash"`
+			CompiledClassHash *felt.CasmClassHash   `json:"compiled_class_hash"`
+		}{{ClassHash: (*felt.SierraClassHash)(deltaClass)}}
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)
@@ -1107,14 +1108,14 @@ func TestPollerBackfillFetchesDeclaredClasses(t *testing.T) {
 		t.Parallel()
 		fx := newChainFixture(t)
 
-		storedClass := felt.NewFromUint64[felt.Felt](0xADD)
+		storedClass := felt.NewFromUint64[felt.ClassHash](0xADD)
 		storedDef := &core.SierraClass{}
 
 		seed := makeTestPreConfirmedBlock("r1", 1) // stored old tip declares storedClass
 		seed.TransactionStateDiffs[0].DeclaredClasses = []struct {
-			ClassHash         *felt.Felt `json:"class_hash"`
-			CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
-		}{{ClassHash: storedClass}}
+			ClassHash         *felt.SierraClassHash `json:"class_hash"`
+			CompiledClassHash *felt.CasmClassHash   `json:"compiled_class_hash"`
+		}{{ClassHash: (*felt.SierraClassHash)(storedClass)}}
 		newTip := makeTestPreConfirmedBlock("r2", 0)
 
 		ctrl := gomock.NewController(t)

@@ -45,11 +45,12 @@ func TestAdaptStateUpdate(t *testing.T) {
 }
 
 func TestAdaptStateDiff(t *testing.T) {
-	address := felt.NewUnsafeFromString[felt.Felt]("0xa")
+	address := felt.NewUnsafeFromString[felt.Address]("0xa")
 	key := felt.NewUnsafeFromString[felt.Felt]("0xb")
 	value := felt.NewUnsafeFromString[felt.Felt]("0xc")
-	classHash := felt.NewUnsafeFromString[felt.Felt]("0xd")
-	compiledClassHash := felt.NewUnsafeFromString[felt.Felt]("0xe")
+	classHash := felt.NewUnsafeFromString[felt.ClassHash]("0xd")
+	sierraClassHash := felt.UnsafeFromString[felt.SierraClassHash]("0xd")
+	compiledClassHash := felt.NewUnsafeFromString[felt.CasmClassHash]("0xe")
 
 	tests := []struct {
 		name     string
@@ -89,21 +90,21 @@ func TestAdaptStateDiff(t *testing.T) {
 		},
 		{
 			name:   "deprecated declared classes",
-			served: &rpcv10.StateDiff{DeprecatedDeclaredClasses: []*felt.Felt{classHash}},
+			served: &rpcv10.StateDiff{DeprecatedDeclaredClasses: []*felt.ClassHash{classHash}},
 			expected: func(diff *core.StateDiff) {
-				diff.DeclaredV0Classes = []*felt.Felt{classHash}
+				diff.DeclaredV0Classes = []*felt.ClassHash{classHash}
 			},
 		},
 		{
 			name: "declared classes",
 			served: &rpcv10.StateDiff{
 				DeclaredClasses: []rpcv10.DeclaredClass{{
-					ClassHash:         *classHash,
+					ClassHash:         sierraClassHash,
 					CompiledClassHash: *compiledClassHash,
 				}},
 			},
 			expected: func(diff *core.StateDiff) {
-				diff.DeclaredV1Classes[*classHash] = compiledClassHash
+				diff.DeclaredV1Classes[sierraClassHash] = compiledClassHash
 			},
 		},
 		{
@@ -118,11 +119,11 @@ func TestAdaptStateDiff(t *testing.T) {
 		{
 			name: "migrated compiled classes",
 			served: &rpcv10.StateDiff{MigratedCompiledClasses: []rpcv10.MigratedCompiledClass{{
-				ClassHash:         felt.SierraClassHash(*classHash),
-				CompiledClassHash: felt.CasmClassHash(*compiledClassHash),
+				ClassHash:         sierraClassHash,
+				CompiledClassHash: *compiledClassHash,
 			}}},
 			expected: func(diff *core.StateDiff) {
-				diff.MigratedClasses[felt.SierraClassHash(*classHash)] = felt.CasmClassHash(*compiledClassHash)
+				diff.MigratedClasses[sierraClassHash] = *compiledClassHash
 			},
 		},
 	}
@@ -131,8 +132,8 @@ func TestAdaptStateDiff(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			served := &rpcv10.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				NewRoot:   new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 				StateDiff: test.served,
 			}
 			expected := core.EmptyStateDiff()
@@ -144,8 +145,8 @@ func TestAdaptStateDiff(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, core.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				NewRoot:   new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 				StateDiff: &expected,
 			}, adapted)
 		})
@@ -166,8 +167,8 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 		{
 			name: "missing block_hash",
 			served: &rpcv10.StateUpdate{
-				NewRoot:   new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update is missing block_hash",
@@ -176,7 +177,7 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 			name: "missing new_root",
 			served: &rpcv10.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update for block 0x1 is missing new_root",
@@ -185,7 +186,7 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 			name: "missing old_root",
 			served: &rpcv10.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				NewRoot:   new(felt.One[felt.Felt]()),
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
 				StateDiff: &rpcv10.StateDiff{},
 			},
 			err: "state update for block 0x1 is missing old_root",
@@ -194,8 +195,8 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 			name: "missing state_diff",
 			served: &rpcv10.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				NewRoot:   new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
 			},
 			err: "state update for block 0x1 is missing state_diff",
 		},
@@ -203,12 +204,11 @@ func TestAdaptStateUpdateErrors(t *testing.T) {
 			name: "null deprecated declared class",
 			served: &rpcv10.StateUpdate{
 				BlockHash: new(felt.One[felt.Felt]()),
-				NewRoot:   new(felt.One[felt.Felt]()),
-				OldRoot:   new(felt.Zero[felt.Felt]()),
-				StateDiff: &rpcv10.StateDiff{DeprecatedDeclaredClasses: []*felt.Felt{
-					new(felt.One[felt.Felt]()),
-					nil,
-				}},
+				NewRoot:   new(felt.One[felt.StateRootHash]()),
+				OldRoot:   new(felt.Zero[felt.StateRootHash]()),
+				StateDiff: &rpcv10.StateDiff{
+					DeprecatedDeclaredClasses: []*felt.ClassHash{new(felt.One[felt.ClassHash]()), nil},
+				},
 			},
 			err: "state update for block 0x1 has a null deprecated declared class",
 		},

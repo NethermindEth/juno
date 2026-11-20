@@ -2,6 +2,7 @@ package cbor_test
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"testing"
 
@@ -16,14 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const goldenFile = "testdata/golden_bytes.json"
-
 // goldenBytes is each record's hex, keyed by name.
 // It is how the records were written, so it is byte for byte what a database holds.
-func goldenBytes(t *testing.T) map[string]string {
+func goldenBytes(t *testing.T, file string) map[string]string {
 	t.Helper()
 
-	data, err := os.ReadFile(goldenFile)
+	data, err := os.ReadFile(file)
 	require.NoError(t, err)
 
 	var vectors map[string]string
@@ -62,7 +61,19 @@ func goldenCases() []goldenCase {
 		{"[][]byte, the p2p shape", [][]byte{{1, 2, 3}, {4, 5}, {}}},
 		{"[]byte, the schema state", []byte{9, 8, 7}},
 		{"[][]byte nil", [][]byte(nil)},
-		{"*felt.Felt, the 37-byte shape", felt.NewFromUint64[felt.Felt](7)},
+		{"*felt.Felt", felt.NewFromUint64[felt.Felt](7)},
+		{"*felt.Felt, zero", felt.NewFromUint64[felt.Felt](0)},
+		{"*felt.Felt, smallest byte string", felt.NewFromUint64[felt.Felt](24)},
+		{"*felt.Felt, largest uint64", felt.NewFromUint64[felt.Felt](math.MaxUint64)},
+		{"*felt.Felt, largest felt", felt.NewUnsafeFromString[felt.Felt](largestFeltHex)},
+		{"felt.Hash", felt.UnsafeFromString[felt.Hash](hashHex)},
+		{"felt.Address", felt.UnsafeFromString[felt.Address](hashHex)},
+		{"felt.ClassHash", felt.UnsafeFromString[felt.ClassHash](hashHex)},
+		{"felt.SierraClassHash", felt.UnsafeFromString[felt.SierraClassHash](hashHex)},
+		{"felt.CasmClassHash", felt.UnsafeFromString[felt.CasmClassHash](hashHex)},
+		{"felt.TransactionHash", felt.UnsafeFromString[felt.TransactionHash](hashHex)},
+		{"felt.StateRootHash", felt.UnsafeFromString[felt.StateRootHash](hashHex)},
+		{"StateDiff, mixed key lengths", mixedKeyStateDiff()},
 		{"felt.Slice, two felts", felt.Slice[felt.Felt]{
 			felt.FromUint64[felt.Felt](7),
 			felt.FromUint64[felt.Felt](8),
@@ -76,7 +87,7 @@ func goldenCases() []goldenCase {
 		{"L1Head", core.L1Head{
 			BlockNumber: 8,
 			BlockHash:   felt.NewFromUint64[felt.Felt](9),
-			StateRoot:   felt.NewFromUint64[felt.Felt](10),
+			StateRoot:   felt.NewFromUint64[felt.StateRootHash](10),
 		}},
 		{"BlockCommitments", core.BlockCommitments{
 			TransactionCommitment: felt.NewFromUint64[felt.Felt](12),
@@ -115,6 +126,37 @@ func goldenCases() []goldenCase {
 	}
 }
 
+const (
+	// largestFeltHex is p - 1, the largest canonical felt.
+	largestFeltHex = "0x800000000000011000000000000000000000000000000000000000000000000"
+	// hashHex is a full-width value, the size of a hash or address.
+	hashHex = "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+)
+
+// mixedKeyStateDiff has felt map keys of every encoded length, which fixes their canonical order.
+func mixedKeyStateDiff() core.StateDiff {
+	small := felt.FromUint64[felt.Felt](5)
+	oneByte := felt.FromUint64[felt.Felt](24)
+	word := felt.FromUint64[felt.Felt](math.MaxUint64)
+	hash := felt.UnsafeFromString[felt.Felt](hashHex)
+	return core.StateDiff{
+		StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+			felt.Address(hash):  {small: &word, hash: &oneByte},
+			felt.Address(small): {oneByte: &hash},
+		},
+		Nonces: map[felt.Address]*felt.Felt{
+			felt.Address(hash):    &small,
+			felt.Address(word):    &oneByte,
+			felt.Address(oneByte): &word,
+			felt.Address(small):   &hash,
+		},
+		MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
+			felt.SierraClassHash(hash):  felt.CasmClassHash(small),
+			felt.SierraClassHash(small): felt.CasmClassHash(hash),
+		},
+	}
+}
+
 func populatedDeclaredClassDefinition() core.DeclaredClassDefinition {
 	return core.DeclaredClassDefinition{
 		At: 777,
@@ -136,14 +178,14 @@ func populatedDeclaredClassDefinition() core.DeclaredClassDefinition {
 func populatedDeclareTransaction() core.DeclareTransaction {
 	version := felt.FromUint64[core.TransactionVersion](3)
 	return core.DeclareTransaction{
-		TransactionHash:       felt.NewFromUint64[felt.Felt](1),
-		ClassHash:             felt.NewFromUint64[felt.Felt](2),
-		SenderAddress:         felt.NewFromUint64[felt.Felt](3),
+		TransactionHash:       felt.NewFromUint64[felt.TransactionHash](1),
+		ClassHash:             felt.NewFromUint64[felt.ClassHash](2),
+		SenderAddress:         felt.NewFromUint64[felt.Address](3),
 		MaxFee:                felt.NewFromUint64[felt.Felt](4),
 		TransactionSignature:  felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](5)},
 		Nonce:                 felt.NewFromUint64[felt.Felt](6),
 		Version:               &version,
-		CompiledClassHash:     felt.NewFromUint64[felt.Felt](7),
+		CompiledClassHash:     felt.NewFromUint64[felt.CasmClassHash](7),
 		Tip:                   8,
 		PaymasterData:         felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](9)},
 		AccountDeploymentData: felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](10)},
@@ -158,10 +200,10 @@ func populatedDeclareTransaction() core.DeclareTransaction {
 func populatedDeployTransaction() core.DeployTransaction {
 	version := felt.FromUint64[core.TransactionVersion](0)
 	return core.DeployTransaction{
-		TransactionHash:     felt.NewFromUint64[felt.Felt](13),
+		TransactionHash:     felt.NewFromUint64[felt.TransactionHash](13),
 		ContractAddressSalt: felt.NewFromUint64[felt.Felt](14),
-		ContractAddress:     felt.NewFromUint64[felt.Felt](15),
-		ClassHash:           felt.NewFromUint64[felt.Felt](16),
+		ContractAddress:     felt.NewFromUint64[felt.Address](15),
+		ClassHash:           felt.NewFromUint64[felt.ClassHash](16),
 		ConstructorCallData: felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](17)},
 		Version:             &version,
 	}
@@ -170,8 +212,8 @@ func populatedDeployTransaction() core.DeployTransaction {
 func populatedL1HandlerTransaction() core.L1HandlerTransaction {
 	version := felt.FromUint64[core.TransactionVersion](0)
 	return core.L1HandlerTransaction{
-		TransactionHash:    felt.NewFromUint64[felt.Felt](18),
-		ContractAddress:    felt.NewFromUint64[felt.Felt](19),
+		TransactionHash:    felt.NewFromUint64[felt.TransactionHash](18),
+		ContractAddress:    felt.NewFromUint64[felt.Address](19),
 		EntryPointSelector: felt.NewFromUint64[felt.Felt](20),
 		Nonce:              felt.NewFromUint64[felt.Felt](21),
 		CallData:           felt.Slice[felt.Felt]{felt.FromUint64[felt.Felt](22)},
@@ -214,26 +256,26 @@ func populatedDeprecatedCairoClass() core.DeprecatedCairoClass {
 func populatedStateUpdate() core.StateUpdate {
 	return core.StateUpdate{
 		BlockHash: felt.NewFromUint64[felt.Felt](23),
-		NewRoot:   felt.NewFromUint64[felt.Felt](24),
-		OldRoot:   felt.NewFromUint64[felt.Felt](25),
+		NewRoot:   felt.NewFromUint64[felt.StateRootHash](24),
+		OldRoot:   felt.NewFromUint64[felt.StateRootHash](25),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				felt.FromUint64[felt.Felt](26): {
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				felt.FromUint64[felt.Address](26): {
 					felt.FromUint64[felt.Felt](27): felt.NewFromUint64[felt.Felt](28),
 				},
 			},
-			Nonces: map[felt.Felt]*felt.Felt{
-				felt.FromUint64[felt.Felt](29): felt.NewFromUint64[felt.Felt](30),
+			Nonces: map[felt.Address]*felt.Felt{
+				felt.FromUint64[felt.Address](29): felt.NewFromUint64[felt.Felt](30),
 			},
-			DeployedContracts: map[felt.Felt]*felt.Felt{
-				felt.FromUint64[felt.Felt](31): felt.NewFromUint64[felt.Felt](32),
+			DeployedContracts: map[felt.Address]*felt.ClassHash{
+				felt.FromUint64[felt.Address](31): felt.NewFromUint64[felt.ClassHash](32),
 			},
-			DeclaredV0Classes: []*felt.Felt{felt.NewFromUint64[felt.Felt](33)},
-			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-				felt.FromUint64[felt.Felt](34): felt.NewFromUint64[felt.Felt](35),
+			DeclaredV0Classes: []*felt.ClassHash{felt.NewFromUint64[felt.ClassHash](33)},
+			DeclaredV1Classes: map[felt.SierraClassHash]*felt.CasmClassHash{
+				felt.FromUint64[felt.SierraClassHash](34): felt.NewFromUint64[felt.CasmClassHash](35),
 			},
-			ReplacedClasses: map[felt.Felt]*felt.Felt{
-				felt.FromUint64[felt.Felt](36): felt.NewFromUint64[felt.Felt](37),
+			ReplacedClasses: map[felt.Address]*felt.ClassHash{
+				felt.FromUint64[felt.Address](36): felt.NewFromUint64[felt.ClassHash](37),
 			},
 			MigratedClasses: map[felt.SierraClassHash]felt.CasmClassHash{
 				felt.FromUint64[felt.SierraClassHash](38): felt.FromUint64[felt.CasmClassHash](39),
@@ -247,8 +289,8 @@ func populatedHeader() core.Header {
 		Hash:             felt.NewFromUint64[felt.Felt](1),
 		ParentHash:       felt.NewFromUint64[felt.Felt](2),
 		Number:           3,
-		GlobalStateRoot:  felt.NewFromUint64[felt.Felt](4),
-		SequencerAddress: felt.NewFromUint64[felt.Felt](5),
+		GlobalStateRoot:  felt.NewFromUint64[felt.StateRootHash](4),
+		SequencerAddress: felt.NewFromUint64[felt.Address](5),
 		TransactionCount: 6,
 		EventCount:       7,
 		Timestamp:        8,
@@ -274,15 +316,15 @@ func populatedHeader() core.Header {
 func populatedInvokeTransaction() core.InvokeTransaction {
 	version := felt.FromUint64[core.TransactionVersion](3)
 	return core.InvokeTransaction{
-		TransactionHash:       felt.NewFromUint64[felt.Felt](1),
+		TransactionHash:       felt.NewFromUint64[felt.TransactionHash](1),
 		CallData:              []felt.Felt{felt.FromUint64[felt.Felt](2)},
 		TransactionSignature:  []felt.Felt{felt.FromUint64[felt.Felt](3), felt.FromUint64[felt.Felt](4)},
 		MaxFee:                felt.NewFromUint64[felt.Felt](5),
-		ContractAddress:       felt.NewFromUint64[felt.Felt](6),
+		ContractAddress:       felt.NewFromUint64[felt.Address](6),
 		Version:               &version,
 		EntryPointSelector:    felt.NewFromUint64[felt.Felt](7),
 		Nonce:                 felt.NewFromUint64[felt.Felt](8),
-		SenderAddress:         felt.NewFromUint64[felt.Felt](9),
+		SenderAddress:         felt.NewFromUint64[felt.Address](9),
 		Tip:                   10,
 		PaymasterData:         []felt.Felt{felt.FromUint64[felt.Felt](11)},
 		AccountDeploymentData: []felt.Felt{felt.FromUint64[felt.Felt](12)},
@@ -300,16 +342,16 @@ func populatedReceipt() core.TransactionReceipt {
 	return core.TransactionReceipt{
 		Fee:             felt.NewFromUint64[felt.Felt](1),
 		FeeUnit:         core.STRK,
-		TransactionHash: felt.NewFromUint64[felt.Felt](2),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](2),
 		Reverted:        true,
 		RevertReason:    "some reason",
 		Events: []*core.Event{{
-			From: felt.NewFromUint64[felt.Felt](3),
+			From: felt.NewFromUint64[felt.Address](3),
 			Keys: []felt.Felt{felt.FromUint64[felt.Felt](4)},
 			Data: []felt.Felt{felt.FromUint64[felt.Felt](5)},
 		}},
 		L2ToL1Message: []*core.L2ToL1Message{{
-			From:    felt.NewFromUint64[felt.Felt](6),
+			From:    felt.NewFromUint64[felt.Address](6),
 			Payload: []felt.Felt{felt.FromUint64[felt.Felt](7)},
 			To:      eth.Address{0x1, 0x2},
 		}},

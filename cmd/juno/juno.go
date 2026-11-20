@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils"
 	_ "github.com/NethermindEth/juno/utils/cbor/registry"
 	"github.com/NethermindEth/juno/utils/log"
@@ -57,6 +58,7 @@ const (
 	networkF                            = "network"
 	ethNodeF                            = "eth-node"
 	disableL1VerificationF              = "disable-l1-verification"
+	useNewL1ClientF                     = "use-new-l1-client"
 	pprofF                              = "pprof"
 	pprofHostF                          = "pprof-host"
 	pprofPortF                          = "pprof-port"
@@ -66,6 +68,7 @@ const (
 	preConfirmedOnDemandWaitF           = "preconfirmed-on-demand-wait"
 	disableSyncF                        = "disable-sync"
 	rpcSyncURLF                         = "rpc-sync-url"
+	rpcSyncModeF                        = "rpc-sync-mode"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -115,6 +118,9 @@ const (
 	rpcRequestTimeoutF                  = "rpc-request-timeout"
 	rpcMaxConcurrentRequestsF           = "rpc-max-concurrent-requests"
 	rpcMaxRequestQueueF                 = "rpc-max-request-queue"
+	rpcMaxWSConnectionsF                = "rpc-max-ws-connections"
+	rpcMaxSubscriptionsF                = "rpc-max-subscriptions"
+	rpcMaxSubscriptionsMemoryF          = "rpc-max-subscriptions-memory"
 	rpcMaxBatchSizeF                    = "rpc-max-batch-size"
 	rpcMaxBatchResponseSizeF            = "rpc-max-batch-response-size"
 	rpcBatchConcurrencyF                = "rpc-batch-concurrency"
@@ -137,6 +143,7 @@ const (
 	defaultWSPort                             = 6061
 	defaultEthNode                            = ""
 	defaultDisableL1Verification              = false
+	defaultUseNewL1Client                     = false
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
@@ -190,6 +197,8 @@ const (
 	defaultRPCRequestTimeout                  = 1 * time.Minute
 	defaultRPCMaxConcurrentRequests           = 1024
 	defaultRPCMaxQueuedRequests               = 2048
+	defaultRPCMaxWSConnections                = 0
+	defaultRPCMaxSubscriptions                = 0
 	defaultRPCMaxBatchSize                    = 1000
 	defaultRPCMaxBatchResponseSize            = 64 // MB
 	defaultRPCBatchConcurrency                = uint(0)
@@ -226,7 +235,9 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
+	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
+	useNewL1ClientUsage        = "Use the experimental L1 client implementation. " +
+		"Requires --eth-node."
 	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
 		"(0s will disable fetching of pre_confirmed block)."
 	preConfirmedStaleAfterUsage = "How long after a pre_confirmed poll its result is served " +
@@ -239,6 +250,11 @@ const (
 	rpcSyncURLUsage  = "Starknet JSON-RPC v0.10 endpoint (http, https, ws or wss) " +
 		"to sync committed blocks from instead of the feeder gateway. " +
 		"Pre-confirmed data still comes from the feeder gateway."
+	rpcSyncModeUsage = "How committed-block sync uses --rpc-sync-url. " +
+		"follow: every block from the RPC node. " +
+		"catch-up: from the RPC node until this node holds every block it has, " +
+		"then from the feeder gateway for the rest of the run. " +
+		"Options: follow, catch-up."
 	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
 	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
@@ -295,6 +311,15 @@ const (
 		"together; 0 disables the limit."
 	rpcMaxRequestQueueUsage = "Maximum number of HTTP RPC requests to queue after " +
 		"reaching rpc-max-concurrent-requests limit. Websocket requests are never queued."
+	rpcMaxWSConnectionsUsage = "Maximum concurrent websocket connections, across all " +
+		"RPC versions. 0 disables the limit."
+	rpcMaxSubscriptionsUsage = "Maximum subscriptions one websocket connection may hold. " +
+		"The limit is per connection so that one client cannot take the slots another needs; " +
+		"multiplied by rpc-max-ws-connections it is the most the process will carry. " +
+		"0 disables the limit."
+	rpcMaxSubscriptionsMemoryUsage = "Size (in MBs) of memory all websocket subscriptions " +
+		"may hold together, estimated from their filters. Defaults to 10% of available memory " +
+		"(cgroup limit, else host RAM), clamped to [256, 4096] MB. 0 disables the limit."
 	rpcMaxBatchSizeUsage = "Maximum number of calls in a single batch request. " +
 		"0 disables the limit."
 	rpcMaxBatchResponseSizeUsage = "Size (in MBs) at which a batch stops being processed. " +
@@ -453,6 +478,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		if v.IsSet(rpcSyncModeF) && config.RPCSyncURL == "" {
+			return fmt.Errorf("--%s requires --%s to be set", rpcSyncModeF, rpcSyncURLF)
+		}
+
+		// Unmarshal decodes a YAML number or bool into the mode without calling UnmarshalText.
+		rpcSyncMode := v.GetString(rpcSyncModeF)
+		if err := config.RPCSyncMode.Set(rpcSyncMode); err != nil {
+			return fmt.Errorf("invalid --%s %s: %w", rpcSyncModeF, rpcSyncMode, err)
+		}
+
 		// --prune-min-age layers on top of --prune-mode; without pruning
 		// enabled there is no floor for it to constrain.
 		if v.IsSet(pruneMinAgeF) && !config.Prune {
@@ -529,7 +564,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultNetwork := networks.Mainnet
+	defaultRPCSyncMode := rpcsource.Follow
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
+	defaultRPCMaxSubscriptionsMemory := node.DefaultRPCMaxSubscriptionsMemory()
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	// --- HTTP RPC ---
@@ -550,6 +587,13 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcMaxRequestQueueF,
 		defaultRPCMaxQueuedRequests,
 		rpcMaxRequestQueueUsage,
+	)
+	junoCmd.Flags().Uint(rpcMaxWSConnectionsF, defaultRPCMaxWSConnections, rpcMaxWSConnectionsUsage)
+	junoCmd.Flags().Uint(rpcMaxSubscriptionsF, defaultRPCMaxSubscriptions, rpcMaxSubscriptionsUsage)
+	junoCmd.Flags().Uint(
+		rpcMaxSubscriptionsMemoryF,
+		defaultRPCMaxSubscriptionsMemory,
+		rpcMaxSubscriptionsMemoryUsage,
 	)
 	junoCmd.Flags().Uint(rpcMaxBatchSizeF, defaultRPCMaxBatchSize, rpcMaxBatchSizeUsage)
 	junoCmd.Flags().Uint(
@@ -576,6 +620,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		rpcRequestTimeoutF,
 		rpcMaxConcurrentRequestsF,
 		rpcMaxRequestQueueF,
+		rpcMaxWSConnectionsF,
+		rpcMaxSubscriptionsF,
+		rpcMaxSubscriptionsMemoryF,
 		rpcMaxBatchSizeF,
 		rpcMaxBatchResponseSizeF,
 		rpcBatchConcurrencyF,
@@ -595,8 +642,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
+	junoCmd.Flags().Bool(useNewL1ClientF, defaultUseNewL1Client, useNewL1ClientUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF)
+	setCategory(junoCmd, catNetwork, networkF, ethNodeF, disableL1VerificationF, useNewL1ClientF)
 
 	// --- Sync & Polling ---
 	junoCmd.Flags().Bool(disableSyncF, defaultDisableSync, disableSyncUsage)
@@ -614,6 +662,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage,
 	)
 	junoCmd.Flags().String(rpcSyncURLF, defaultRPCSyncURL, rpcSyncURLUsage)
+	junoCmd.Flags().Var(&defaultRPCSyncMode, rpcSyncModeF, rpcSyncModeUsage)
 	setCategory(junoCmd, catSyncPolling,
 		disableSyncF,
 		preConfirmedPollIntervalF,
@@ -622,6 +671,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		remoteDBF,
 		readinessBlockToleranceF,
 		rpcSyncURLF,
+		rpcSyncModeF,
 	)
 
 	// --- Gateway ---

@@ -43,7 +43,7 @@ func AdaptStateUpdate(response *rpcv10.StateUpdate) (core.StateUpdate, error) {
 }
 
 func adaptStateDiff(diff *rpcv10.StateDiff) core.StateDiff {
-	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
+	storageDiffs := make(map[felt.Address]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
 	for i := range diff.StorageDiffs {
 		contractDiff := &diff.StorageDiffs[i]
 		entries := make(map[felt.Felt]*felt.Felt, len(contractDiff.StorageEntries))
@@ -55,22 +55,23 @@ func adaptStateDiff(diff *rpcv10.StateDiff) core.StateDiff {
 		storageDiffs[contractDiff.Address] = entries
 	}
 
-	nonces := make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
+	nonces := make(map[felt.Address]*felt.Felt, len(diff.Nonces))
 	for i := range diff.Nonces {
 		nonces[diff.Nonces[i].ContractAddress] = &diff.Nonces[i].Nonce
 	}
 
-	deployedContracts := make(map[felt.Felt]*felt.Felt, len(diff.DeployedContracts))
+	deployedContracts := make(map[felt.Address]*felt.ClassHash, len(diff.DeployedContracts))
 	for i := range diff.DeployedContracts {
 		deployedContracts[diff.DeployedContracts[i].Address] = &diff.DeployedContracts[i].ClassHash
 	}
 
-	declaredV1Classes := make(map[felt.Felt]*felt.Felt, len(diff.DeclaredClasses))
+	declaredV1Classes := make(map[felt.SierraClassHash]*felt.CasmClassHash, len(diff.DeclaredClasses))
 	for i := range diff.DeclaredClasses {
-		declaredV1Classes[diff.DeclaredClasses[i].ClassHash] = &diff.DeclaredClasses[i].CompiledClassHash
+		declared := &diff.DeclaredClasses[i]
+		declaredV1Classes[declared.ClassHash] = &declared.CompiledClassHash
 	}
 
-	replacedClasses := make(map[felt.Felt]*felt.Felt, len(diff.ReplacedClasses))
+	replacedClasses := make(map[felt.Address]*felt.ClassHash, len(diff.ReplacedClasses))
 	for i := range diff.ReplacedClasses {
 		replacedClasses[diff.ReplacedClasses[i].ContractAddress] = &diff.ReplacedClasses[i].ClassHash
 	}

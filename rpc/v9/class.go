@@ -41,7 +41,7 @@ type ClassEntryPoint struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
 type FunctionCall struct {
-	ContractAddress    felt.Felt      `json:"contract_address"`
+	ContractAddress    felt.Address   `json:"contract_address"`
 	EntryPointSelector felt.Felt      `json:"entry_point_selector"`
 	Calldata           CalldataInputs `json:"calldata"`
 }
@@ -95,7 +95,7 @@ func AdaptDeclaredClass(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L410
-func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) Class(id *BlockID, classHash *felt.ClassHash) (*Class, *jsonrpc.Error) {
 	state, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -141,7 +141,7 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*Class, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L499
-func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Error) {
+func (h *Handler) ClassAt(id *BlockID, address *felt.Address) (*Class, *jsonrpc.Error) {
 	classHash, err := h.ClassHashAt(id, address)
 	if err != nil {
 		return nil, err
@@ -163,7 +163,10 @@ func (h *Handler) ClassAt(id *BlockID, address *felt.Felt) (*Class, *jsonrpc.Err
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L459
-func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) ClassHashAt(
+	id *BlockID,
+	address *felt.Address,
+) (*felt.ClassHash, *jsonrpc.Error) {
 	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr

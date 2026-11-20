@@ -68,6 +68,10 @@ func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
 
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
+
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.WithBloom[*core.Block]]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
@@ -668,6 +672,23 @@ func TestSubscribeEvents(t *testing.T) {
 				},
 			},
 			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					handler.preConfirmedFeed.Send(b2PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b2PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b2PreConfirmedExtendedEmitted,
+				},
+			},
+			{
 				description: "new pre_confirmed block",
 				notify: func() {
 					handler.preConfirmedFeed.Send(b3PreConfirmedPartialWithBloom)
@@ -804,7 +825,7 @@ func TestSubscribeEventsReplayReadsStoredPreConfirmedChain(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	logger := log.NewNopZapLogger()
-	txHash := felt.NewFromUint64[felt.Felt](1)
+	txHash := felt.NewFromUint64[felt.TransactionHash](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
@@ -825,7 +846,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, logger).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
 			ReadPreConfirmedChain().
@@ -864,21 +885,21 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
 		t.Run("accepted on L1", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
@@ -904,9 +925,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		txToBroadcast := BroadcastedTransaction{Transaction: AdaptTransaction(block.Transactions[0])}
 
 		var tempGatewayResponse struct {
-			TransactionHash *felt.Felt `json:"transaction_hash"`
-			ContractAddress *felt.Felt `json:"address"`
-			ClassHash       *felt.Felt `json:"class_hash"`
+			TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+			ContractAddress *felt.Felt            `json:"address"`
+			ClassHash       *felt.Felt            `json:"class_hash"`
 		}
 
 		tempGatewayResponse.TransactionHash = txToBroadcast.Hash
@@ -923,7 +944,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		)
 		require.Nil(t, addErr)
 		txHash := addRes.TransactionHash
-		mockChain.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(txHash)).Return(
+		mockChain.EXPECT().BlockNumberAndIndexByTxHash(txHash).Return(
 			uint64(0), uint64(0), db.ErrKeyNotFound,
 		).Times(2)
 		mockSyncer.EXPECT().ReadPreConfirmedChain().
@@ -961,7 +982,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		})
 		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -977,7 +998,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		l1Head := core.L1Head{BlockNumber: block.Number}
 		mockSyncer.EXPECT().ReadPreConfirmedChain().Return(chainAboveBlock, nil)
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(block.Number, uint64(0), nil)
 		mockChain.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
 			block.Number, uint64(0),
@@ -1445,7 +1466,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	type testCase struct {
 		description   string
 		statuses      []TxnStatusWithoutL1
-		senderAddress []felt.Felt
+		senderAddress []felt.Address
 		steps         []stepInfo
 	}
 
@@ -1619,7 +1640,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	senderAddress := AdaptTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Felt{*senderAddress}
+	senderFilter := []felt.Address{*senderAddress}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
 		if filterTxBySender(txn, senderFilter) {
@@ -1634,7 +1655,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
-		senderAddress: []felt.Felt{*senderAddress},
+		senderAddress: []felt.Address{*senderAddress},
 		steps: []stepInfo{
 			{
 				description: "on receiving new transaction",
@@ -1698,6 +1719,26 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedExtended.Block.Transactions[partialPreConfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						b1PreConfirmedExtended.Block.Transactions,
 						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 					),
 				},
@@ -1770,7 +1811,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
-		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
+		addresses := make([]felt.Address, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -1816,13 +1857,13 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	type testCase struct {
 		description   string
 		statuses      []TxnFinalityStatusWithoutL1
-		senderAddress []felt.Felt
+		senderAddress []felt.Address
 		steps         []stepInfo
 	}
 
 	toAdaptedReceiptsWithFilter := func(
 		b *core.Block,
-		senderAddress []felt.Felt,
+		senderAddress []felt.Address,
 		finalityStatus TxnFinalityStatus,
 	) []TransactionReceiptWithBlockInfo {
 		receipts := make([]TransactionReceiptWithBlockInfo, 0)
@@ -1992,7 +2033,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	}
 
 	senderAddress := AdaptTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Felt{*senderAddress}
+	senderFilter := []felt.Address{*senderAddress}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
 		senderFilter,
@@ -2079,6 +2120,27 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 				},
 			},
 			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]TransactionReceiptWithBlockInfo{
+					toAdaptedReceiptsWithFilter(
+						b1PreConfirmedExtended.Block,
+						nil,
+						TxnPreConfirmed,
+					),
+				},
+			},
+			{
 				description: "new pre_confirmed block",
 				notify: func() {
 					syncer.preConfirmed.Send(b2PreConfirmedPartialWithBloom)
@@ -2149,7 +2211,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	}
 
 	t.Run("Returns error if to many address in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
-		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
+		addresses := make([]felt.Address, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -2357,7 +2419,15 @@ func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, method st
 	require.Equal(t, string(resp), string(got))
 }
 
-func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash *felt.Felt, finality TxnStatus, execution TxnExecutionStatus, failureReason string) {
+func assertNextTxnStatus(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	txHash *felt.TransactionHash,
+	finality TxnStatus,
+	execution TxnExecutionStatus,
+	failureReason string,
+) {
 	t.Helper()
 
 	assertNextMessage(t, conn, id, "starknet_subscriptionTransactionStatus", SubscriptionTransactionStatus{
@@ -2477,7 +2547,7 @@ func createTestEvents(
 	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			// todo: remove the cast to felt.Felt
-			if fromAddress != nil && !event.From.Equal((*felt.Felt)(fromAddress)) {
+			if fromAddress != nil && !event.From.Equal(fromAddress) {
 				continue
 			}
 
@@ -2527,7 +2597,7 @@ func createTestEventsWebsocket(
 }
 
 func createTestTxStatusWebsocket(
-	t *testing.T, h *Handler, txHash *felt.Felt,
+	t *testing.T, h *Handler, txHash *felt.TransactionHash,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -2537,7 +2607,7 @@ func createTestTxStatusWebsocket(
 }
 
 func createTestNewTransactionsWebsocket(
-	t *testing.T, h *Handler, finalityStatus []TxnStatusWithoutL1, senderAddress []felt.Felt,
+	t *testing.T, h *Handler, finalityStatus []TxnStatusWithoutL1, senderAddress []felt.Address,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -2547,7 +2617,10 @@ func createTestNewTransactionsWebsocket(
 }
 
 func createTestTransactionReceiptsWebsocket(
-	t *testing.T, h *Handler, senderAddress []felt.Felt, finalityStatus []TxnFinalityStatusWithoutL1,
+	t *testing.T,
+	h *Handler,
+	senderAddress []felt.Address,
+	finalityStatus []TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -2588,4 +2661,41 @@ func newPreConfirmedWithBloom(
 ) *core.WithBloom[*pending.PreConfirmed] {
 	withBloom := pending.NewPreConfirmedWithBloom(preConfirmed)
 	return &withBloom
+}
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	// Fits one subscription without a filter, with no room for a filter
+	newHandler := func() *Handler {
+		return New(nil, nil, nil, log.NewNopZapLogger()).
+			WithSubscriptionMemoryLimiter(
+				rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1),
+			)
+	}
+	newCtx := func(t *testing.T) context.Context {
+		conn := &fakeConn{w: io.Discard, ctx: t.Context()}
+		return context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+	}
+
+	t.Run("filter counts toward the charge", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+	})
+
+	t.Run("memory returned on unsubscribe", func(t *testing.T) {
+		handler, ctx := newHandler(), newCtx(t)
+		subID, rpcErr := handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
+
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+
+		// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+		ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+		require.Nil(t, rpcErr)
+		require.True(t, ok)
+
+		_, rpcErr = handler.SubscribeNewTransactions(ctx, nil, nil)
+		require.Nil(t, rpcErr)
+	})
 }

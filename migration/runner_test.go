@@ -138,7 +138,7 @@ func TestNewRunner(t *testing.T) {
 				registry := migration.NewRegistry().
 					With(&mockMigration{}).
 					With(&mockMigration{}).
-					WithOptional(&mockMigration{}, false, "migration-2")
+					WithOptional(&mockMigration{}, false, "set the --migration-2 flag")
 
 				runner, err := migration.NewRunner(
 					registry,
@@ -148,8 +148,11 @@ func TestNewRunner(t *testing.T) {
 				)
 				require.Error(t, err)
 				require.Nil(t, runner)
-				require.Contains(t, err.Error(), "cannot opt out of previously enabled migrations:")
-				require.Contains(t, err.Error(), "--migration-2")
+				require.Contains(
+					t,
+					err.Error(),
+					"cannot opt out of previously enabled migrations; to enable them: set the --migration-2 flag",
+				)
 			})
 		}
 	})

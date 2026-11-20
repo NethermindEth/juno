@@ -93,7 +93,7 @@ func updateStateRoots(
 	state core.State,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	oldRoot, err := state.Commitment(block.ProtocolVersion)
 	if err != nil {
@@ -121,7 +121,7 @@ func writeBlockContent(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	commitments *core.BlockCommitments,
-	newClasses map[felt.Felt]core.ClassDefinition,
+	newClasses map[felt.ClassHash]core.ClassDefinition,
 ) error {
 	if err := core.WriteBlockHeader(writer, block.Header); err != nil {
 		return err

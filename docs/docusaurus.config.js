@@ -22,7 +22,8 @@ const config = {
   organizationName: "NethermindEth", // Usually your GitHub org/user name.
   projectName: "juno", // Usually your repo name.
 
-  onBrokenLinks: "warn",
+  onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
 
   future: {
     v4: true,
@@ -32,7 +33,7 @@ const config = {
   markdown: {
     hooks: {
       // Was the top-level onBrokenMarkdownLinks, deprecated since v3.10.
-      onBrokenMarkdownLinks: "warn",
+      onBrokenMarkdownLinks: "throw",
     },
   },
 

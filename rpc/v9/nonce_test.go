@@ -26,7 +26,7 @@ func TestNonce(t *testing.T) {
 	logger := log.NewNopZapLogger()
 	handler := rpc.New(mockReader, mockSyncReader, nil, logger)
 
-	targetAddress := felt.FromUint64[felt.Felt](1234)
+	targetAddress := felt.FromUint64[felt.Address](1234)
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
@@ -175,7 +175,7 @@ func TestNonce(t *testing.T) {
 			core.L1Head{
 				BlockNumber: l1AcceptedBlockNumber,
 				BlockHash:   new(felt.One[felt.Felt]()),
-				StateRoot:   new(felt.One[felt.Felt]()),
+				StateRoot:   new(felt.One[felt.StateRootHash]()),
 			},
 			nil,
 		)
@@ -197,7 +197,7 @@ func TestNonce(t *testing.T) {
 			core.L1Head{
 				BlockNumber: l1HeadAhead,
 				BlockHash:   new(felt.One[felt.Felt]()),
-				StateRoot:   new(felt.One[felt.Felt]()),
+				StateRoot:   new(felt.One[felt.StateRootHash]()),
 			},
 			nil,
 		)

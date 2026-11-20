@@ -283,11 +283,11 @@ func buildAllBatches(t *testing.T, batchSizes []int) [][]core.Transaction {
 
 func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	t.Helper()
-	hash := felt.FromUint64[felt.Felt](nonce)
+	hash := felt.FromUint64[felt.TransactionHash](nonce)
 
 	return &core.InvokeTransaction{
 		TransactionHash: &hash,
-		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
+		SenderAddress:   felt.NewUnsafeFromString[felt.Address]("0x101"),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
 		Nonce:           felt.NewFromUint64[felt.Felt](nonce),
 		TransactionSignature: []felt.Felt{

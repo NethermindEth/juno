@@ -286,8 +286,8 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 }
 
-func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(transactions))
+func transactionHashesOf(transactions []core.Transaction) []felt.TransactionHash {
+	hashes := make([]felt.TransactionHash, len(transactions))
 	for i, transaction := range transactions {
 		hashes[i] = *transaction.Hash()
 	}
@@ -578,7 +578,7 @@ func TestBlockWithTxs(t *testing.T) {
 		}
 	}
 
-	latestBlockTxMap := make(map[felt.Felt]core.Transaction)
+	latestBlockTxMap := make(map[felt.TransactionHash]core.Transaction)
 	for _, tx := range latestBlock.Transactions {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
@@ -589,7 +589,7 @@ func TestBlockWithTxs(t *testing.T) {
 	mockSyncReader.EXPECT().ReadPreConfirmedChain().Return(emptyPreConfirmedChain(t), nil).
 		Times(len(latestBlock.Transactions) * 7)
 	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
-		func(hash *felt.Felt) (core.Transaction, error) {
+		func(hash *felt.TransactionHash) (core.Transaction, error) {
 			if tx, found := latestBlockTxMap[*hash]; found {
 				return tx, nil
 			}
@@ -778,7 +778,7 @@ func TestBlockWithTxs(t *testing.T) {
 		mockSyncReader.EXPECT().RequestPreConfirmedChain().
 			Return(mustNewChain(t, &baseEntry, &tipEntry), nil).Times(2)
 
-		expectedHashes := make([]*felt.Felt, len(latestBlock.Transactions))
+		expectedHashes := make([]*felt.TransactionHash, len(latestBlock.Transactions))
 		for i, txn := range latestBlock.Transactions {
 			expectedHashes[i] = txn.Hash()
 		}
@@ -1124,11 +1124,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		blockID := blockIDLatest(t)
 		block, rpcErr := handler.BlockWithTxs(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, new(felt.Zero[felt.Felt]()), block.BlockHeader.SequencerAddress)
+		require.Equal(t, new(felt.Zero[felt.Address]()), block.BlockHeader.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
 		require.Nil(t, rpcErr)
-		require.Equal(t, new(felt.Zero[felt.Felt]()), blockWithTxHashes.BlockHeader.SequencerAddress)
+		require.Equal(t, new(felt.Zero[felt.Address]()), blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
 }
 

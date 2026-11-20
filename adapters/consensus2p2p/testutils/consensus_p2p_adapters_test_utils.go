@@ -100,7 +100,7 @@ func GetTestProposalInit(t *testing.T) (consensus.ProposalInit, *p2pconsensus.Pr
 	blockNumber := rand.Uint64()
 	round := rand.Uint32()
 	validRound := rand.Uint32()
-	proposer, proposerBytes := getRandomFelt[felt.Felt](t)
+	proposer, proposerBytes := getRandomFelt[felt.Address](t)
 
 	consensusProposalInit := consensus.ProposalInit{
 		BlockNum:   consensus.Height(blockNumber),
@@ -122,7 +122,7 @@ func GetTestProposalInit(t *testing.T) (consensus.ProposalInit, *p2pconsensus.Pr
 func GetTestBlockInfo(t *testing.T) (consensus.BlockInfo, *p2pconsensus.BlockInfo) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
-	builder, builderBytes := getRandomFelt[felt.Felt](t)
+	builder, builderBytes := getRandomFelt[felt.Address](t)
 	l2GasPriceFri, l2GasPriceFriUint128 := getRandomUint128[felt.Felt]()
 	l1GasPriceWei, l1GasPriceWeiUint128 := getRandomUint128[felt.Felt]()
 	l1DataGasPriceWei, l1DataGasPriceWeiUint128 := getRandomUint128[felt.Felt]()
@@ -159,9 +159,9 @@ func GetTestProposalCommitment(t *testing.T) (
 ) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
-	builder, builderBytes := getRandomFelt[felt.Felt](t)
+	builder, builderBytes := getRandomFelt[felt.Address](t)
 	parentCommitment, parentCommitmentBytes := getRandomFelt[felt.Felt](t)
-	oldStateRoot, oldStateRootBytes := getRandomFelt[felt.Felt](t)
+	oldStateRoot, oldStateRootBytes := getRandomFelt[felt.StateRootHash](t)
 	versionConstantCommitment, versionConstantCommitmentBytes := getRandomFelt[felt.Felt](t)
 	stateDiffCommitment, stateDiffCommitmentBytes := getRandomFelt[felt.Felt](t)
 	transactionCommitment, transactionCommitmentBytes := getRandomFelt[felt.Felt](t)

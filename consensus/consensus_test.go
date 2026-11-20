@@ -63,7 +63,7 @@ type testConfig struct {
 func getBlockchain(
 	t *testing.T,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.ClassDefinition,
+	genesisClasses map[felt.ClassHash]core.ClassDefinition,
 ) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
@@ -80,7 +80,7 @@ func getBlockchain(
 func loadGenesis(
 	t *testing.T,
 	logger *log.ZapLogger,
-) (core.StateDiff, map[felt.Felt]core.ClassDefinition) {
+) (core.StateDiff, map[felt.ClassHash]core.ClassDefinition) {
 	t.Helper()
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func initNode(
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
-	genesisClasses map[felt.Felt]core.ClassDefinition,
+	genesisClasses map[felt.ClassHash]core.ClassDefinition,
 ) {
 	t.Helper()
 

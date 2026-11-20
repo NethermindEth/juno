@@ -14,8 +14,8 @@ func AdaptHash[F felt.FeltLike](h *common.Hash) *F {
 	return adapt[F](h)
 }
 
-func AdaptAddress(h *common.Address) *felt.Felt {
-	return adapt[felt.Felt](h)
+func AdaptAddress(h *common.Address) *felt.Address {
+	return adapt[felt.Address](h)
 }
 
 func AdaptEthAddress(h *receipt.EthereumAddress) eth.Address {

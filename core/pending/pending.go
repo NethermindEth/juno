@@ -29,7 +29,7 @@ type PreConfirmed struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
 	// Node does not fetch unknown classes. but we keep it for sequencer
-	NewClasses            map[felt.Felt]core.ClassDefinition
+	NewClasses            map[felt.ClassHash]core.ClassDefinition
 	TransactionStateDiffs []*core.StateDiff
 	// BlockIdentifier is an identifier returned by the feeder gateway
 	// that uniquely identifies the current round of the pre_confirmed block.
@@ -51,7 +51,9 @@ func NewPreConfirmed(
 	}
 }
 
-func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]core.ClassDefinition) *PreConfirmed {
+func (p *PreConfirmed) WithNewClasses(
+	newClasses map[felt.ClassHash]core.ClassDefinition,
+) *PreConfirmed {
 	p.NewClasses = newClasses
 	return p
 }
@@ -77,7 +79,7 @@ func (p *PreConfirmed) GetStateUpdate() *core.StateUpdate {
 	return p.StateUpdate
 }
 
-func (p *PreConfirmed) GetNewClasses() map[felt.Felt]core.ClassDefinition {
+func (p *PreConfirmed) GetNewClasses() map[felt.ClassHash]core.ClassDefinition {
 	return p.NewClasses
 }
 
@@ -91,7 +93,7 @@ func (p *PreConfirmed) TransactionByHash(
 	hash *felt.TransactionHash,
 ) (core.Transaction, uint, error) {
 	for i, tx := range p.Block.Transactions {
-		if tx.Hash().Equal((*felt.Felt)(hash)) {
+		if tx.Hash().Equal(hash) {
 			return tx, uint(i), nil
 		}
 	}
@@ -102,7 +104,7 @@ func (p *PreConfirmed) ReceiptByHash(
 	hash *felt.TransactionHash,
 ) (*core.TransactionReceipt, error) {
 	for _, receipt := range p.Block.Receipts {
-		if receipt.TransactionHash.Equal((*felt.Felt)(hash)) {
+		if receipt.TransactionHash.Equal(hash) {
 			return receipt, nil
 		}
 	}

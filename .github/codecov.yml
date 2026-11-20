@@ -13,6 +13,7 @@ github_checks:
 ignore:
   - mocks
   - l1/internal/contract/starknet.go
+  - l1/internal/clienttest
   - grpc/gen/*
   - vm
   - starknet-p2p-specs

@@ -28,7 +28,6 @@ import (
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/node/upgrader"
 	"github.com/NethermindEth/juno/p2p"
@@ -65,6 +64,12 @@ const (
 	PruneMinAgeFlag  = "prune-min-age"
 )
 
+// DefaultRPCMaxSubscriptionsMemory is 10% of the memory available to the process, in [256, 4096] MB
+func DefaultRPCMaxSubscriptionsMemory() uint {
+	const share, minMB, maxMB = 10, 256, 4096
+	return uint(min(max(compiler.AvailableMemoryMB()/share, minMB), maxMB))
+}
+
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel                 string           `mapstructure:"log-level"`
@@ -83,6 +88,7 @@ type Config struct {
 	Network                  networks.Network `mapstructure:"network"`
 	EthNode                  string           `mapstructure:"eth-node"`
 	DisableL1Verification    bool             `mapstructure:"disable-l1-verification"`
+	UseNewL1Client           bool             `mapstructure:"use-new-l1-client"`
 	Pprof                    bool             `mapstructure:"pprof"`
 	PprofHost                string           `mapstructure:"pprof-host"`
 	PprofPort                uint16           `mapstructure:"pprof-port"`
@@ -139,14 +145,18 @@ type Config struct {
 	DisableReceivedTxnStream bool `mapstructure:"disable-received-txn-stream"`
 	DisableSync              bool `mapstructure:"disable-sync"`
 
-	RPCSyncURL string `mapstructure:"rpc-sync-url"`
+	RPCSyncURL  string         `mapstructure:"rpc-sync-url"`
+	RPCSyncMode rpcsource.Mode `mapstructure:"rpc-sync-mode"`
 
-	RPCRequestTimeout        time.Duration `mapstructure:"rpc-request-timeout"`
-	RPCMaxConcurrentRequests uint          `mapstructure:"rpc-max-concurrent-requests"`
-	RPCMaxRequestQueue       uint          `mapstructure:"rpc-max-request-queue"`
-	RPCMaxBatchSize          uint          `mapstructure:"rpc-max-batch-size"`
-	RPCMaxBatchResponseSize  uint          `mapstructure:"rpc-max-batch-response-size"`
-	RPCBatchConcurrency      uint          `mapstructure:"rpc-batch-concurrency"`
+	RPCRequestTimeout         time.Duration `mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentRequests  uint          `mapstructure:"rpc-max-concurrent-requests"`
+	RPCMaxRequestQueue        uint          `mapstructure:"rpc-max-request-queue"`
+	RPCMaxWSConnections       uint          `mapstructure:"rpc-max-ws-connections"`
+	RPCMaxSubscriptions       uint          `mapstructure:"rpc-max-subscriptions"`
+	RPCMaxSubscriptionsMemory uint          `mapstructure:"rpc-max-subscriptions-memory"`
+	RPCMaxBatchSize           uint          `mapstructure:"rpc-max-batch-size"`
+	RPCMaxBatchResponseSize   uint          `mapstructure:"rpc-max-batch-response-size"`
+	RPCBatchConcurrency       uint          `mapstructure:"rpc-batch-concurrency"`
 
 	// If MaxConcurrentCompilations or MaxCompilationQueue are not informed (Explicit is false)
 	// the value is derived at startup. An informed 0 stays valid (no compilations / no queue).
@@ -247,6 +257,11 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if cfg.Prune && cfg.DisableL1Verification {
 		return nil, errors.New("--prune-mode requires L1 verification; " +
 			"remove --disable-l1-verification or disable --prune-mode")
+	}
+
+	if cfg.UseNewL1Client && cfg.DisableL1Verification {
+		return nil, errors.New("--use-new-l1-client requires L1 verification; " +
+			"remove --disable-l1-verification or --use-new-l1-client")
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
@@ -408,7 +423,7 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		mempool := mempool.New(database, chain, mempoolLimit, logger)
 		executor := builder.NewExecutor(chain, nodeVM, logger, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
-		seq := sequencer.New(&builder, mempool, felt.NewFromUint64[felt.Felt](sequencerAddress),
+		seq := sequencer.New(&builder, mempool, felt.NewFromUint64[felt.Address](sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), logger)
 		seq.WithPlugin(junoPlugin)
 		rpcHandler = junorpc.New(chain, &seq, throttledVM, version, logger, &cfg.Network).
@@ -503,10 +518,12 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			if err != nil {
 				return nil, fmt.Errorf("setting up RPC sync client: %w", err)
 			}
-			rpcSyncSource = rpcsource.New(chain, rpcSyncClient, logger)
-			logger.Info("Syncing committed blocks from an RPC node; "+
-				"pre-confirmed data still comes from the feeder gateway",
-				zap.String("url", log.SanitizeString(cfg.RPCSyncURL)))
+			logger.Info(
+				"Syncing committed blocks from an RPC node; "+
+					"pre-confirmed data still comes from the feeder gateway",
+				zap.String("url", log.SanitizeString(cfg.RPCSyncURL)),
+				zap.Stringer("mode", cfg.RPCSyncMode),
+			)
 		}
 
 		if !cfg.DisableSync {
@@ -522,8 +539,20 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 			}
 
 			gw := adaptfeeder.New(client)
-			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-			if rpcSyncSource != nil {
+			// Only the feeder gateway source reports class downloads.
+			var dataSourceOpts []sync.DataSourceOption
+			if cfg.Metrics {
+				dataSourceOpts = append(dataSourceOpts, makeClassDownloadMetrics())
+			}
+			dataSource := sync.NewFeederGatewayDataSource(chain, gw, dataSourceOpts...)
+			if rpcSyncClient != nil {
+				rpcSyncSource = rpcsource.New(
+					chain,
+					rpcSyncClient,
+					dataSource,
+					cfg.RPCSyncMode,
+					logger,
+				)
 				dataSource = rpcSyncSource
 			}
 			synchronizer = sync.New(
@@ -615,6 +644,10 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 		}
 	}
 
+	subscriptionMemoryLimiter := rpccore.NewSubscriptionMemoryLimiter(
+		int64(cfg.RPCMaxSubscriptionsMemory) * db.Megabyte,
+	)
+	rpcHandler.WithSubscriptionMemoryLimiter(subscriptionMemoryLimiter)
 	services = append(services, rpcHandler)
 
 	// to improve RPC throughput we double GOMAXPROCS
@@ -705,6 +738,9 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 				cfg.RPCCorsEnable,
 				cfg.RPCRequestTimeout,
 				rpcGate,
+				cfg.RPCMaxWSConnections,
+				cfg.RPCMaxSubscriptions,
+				subscriptionMemoryLimiter,
 			),
 		)
 	}
@@ -771,13 +807,17 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	}
 
 	if !n.cfg.DisableL1Verification {
-		// Due to mutually exclusive flag we can do the following.
 		if n.cfg.EthNode == "" {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
 		l1Client, provider, err := newL1Client(
-			context.Background(), cfg.EthNode, cfg.Metrics, n.blockchain, n.logger,
+			context.Background(),
+			cfg.UseNewL1Client,
+			cfg.EthNode,
+			cfg.Metrics,
+			n.blockchain,
+			n.logger,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("initializing L1 client: %w", err)
@@ -801,68 +841,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 
 	built = true
 	return n, nil
-}
-
-func newL1Client(
-	ctx context.Context,
-	ethNode string,
-	includeMetrics bool,
-	chain *blockchain.Blockchain,
-	logger log.StructuredLogger,
-) (*l1.Client, *l1.GethL1StateProvider, error) {
-	// One EventListener, shared by the L1 client (OnNewL1Head) and
-	// the provider (OnL1Call), wired only under --metrics.
-	l1Opts := []l1.Option{}
-	providerOpts := []l1.GethL1StateProviderOption{}
-	if includeMetrics {
-		listener := makeL1Metrics(chain)
-		l1Opts = append(l1Opts, l1.WithEventListener(listener))
-		providerOpts = append(providerOpts, l1.WithL1StateProviderListener(listener))
-	}
-
-	provider, err := newGethL1StateProvider(ctx, ethNode, chain, providerOpts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating L1 state provider: %w", err)
-	}
-	if includeMetrics {
-		registerL1Metrics(provider)
-	}
-
-	return l1.NewClient(provider, chain, logger, l1Opts...), provider, nil
-}
-
-// newGethL1StateProvider validates the Ethereum endpoint URL and dials the L1
-// client. ws/wss is enforced at the URL level because subscribe-based
-// log delivery (eth_subscribe) requires a long-lived connection that
-// HTTP doesn't provide.
-func newGethL1StateProvider(
-	ctx context.Context,
-	ethNode string,
-	chain *blockchain.Blockchain,
-	opts ...l1.GethL1StateProviderOption,
-) (*l1.GethL1StateProvider, error) {
-	ethNodeURL, err := url.Parse(ethNode)
-	if err != nil {
-		return nil, fmt.Errorf("parsing Ethereum node URL: %w", err)
-	}
-	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New(
-			"non-websocket Ethereum node URL (need wss://... or ws://...)",
-		)
-	}
-
-	// One-minute timeout layered on the caller's ctx so a slow dial
-	// can't outlive node startup or the migration that triggered it.
-	dialCtx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	provider, err := l1.NewGethL1StateProvider(
-		dialCtx, ethNode, chain.Network().CoreContractAddress, opts...,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("setting up L1 state provider: %w", err)
-	}
-	return provider, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/pruner"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/sync/preconfirmed"
 	"github.com/prometheus/client_golang/prometheus"
@@ -149,20 +150,64 @@ func makeRPCGateMetrics(gate *jsonrpc.Gate) {
 	prometheus.MustRegister(active, queued, rejected)
 }
 
-func makeWSMetrics() jsonrpc.NewRequestListener {
+func makeWSMetrics(memoryLimiter *rpccore.SubscriptionMemoryLimiter) jsonrpc.WebsocketListener {
 	reqCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "ws",
 		Name:      "requests",
 		Help:      "Total number of WebSocket RPC requests received",
 	})
-	prometheus.MustRegister(reqCounter)
+	subscriptions := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions",
+		Help:      "Number of active websocket subscriptions.",
+	})
+	rejected := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_connection_rejected",
+		Help:      "Total number of subscriptions rejected because a connection reached its limit.",
+	})
+	prometheus.MustRegister(reqCounter, subscriptions, rejected)
+	makeSubscriptionMemoryMetrics(memoryLimiter)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
 			reqCounter.Inc()
 		},
+		OnSubscribeCb:            subscriptions.Inc,
+		OnUnsubscribeCb:          subscriptions.Dec,
+		OnSubscriptionRejectedCb: rejected.Inc,
 	}
+}
+
+func makeSubscriptionMemoryMetrics(limiter *rpccore.SubscriptionMemoryLimiter) {
+	used := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_bytes",
+		Help:      "Estimated memory held by websocket subscriptions, in bytes.",
+	}, func() float64 {
+		return float64(limiter.Used())
+	})
+	limit := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_limit_bytes",
+		Help:      "Memory websocket subscriptions may hold together, in bytes; 0 is unlimited.",
+	}, func() float64 {
+		return float64(limiter.Limit())
+	})
+	rejected := prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "subscriptions_memory_rejected",
+		Help:      "Total number of subscriptions rejected because the memory limit was reached.",
+	}, func() float64 {
+		return float64(limiter.Rejected())
+	})
+	prometheus.MustRegister(used, limit, rejected)
 }
 
 func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
@@ -203,11 +248,19 @@ func makeRPCMetrics(versions ...string) []jsonrpc.EventListener {
 	return listeners
 }
 
+// Sync timer buckets go from 0.5 ms to about 16 s: waits and store take milliseconds,
+// fetches take up to seconds.
+const (
+	syncTimerMinBucket = 0.0005
+	syncTimerBuckets   = 16
+)
+
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
 	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespaceSync,
 		Name:      "timers",
 		Help:      "Synchronisation operation duration in seconds",
+		Buckets:   prometheus.ExponentialBuckets(syncTimerMinBucket, 2, syncTimerBuckets),
 	}, []string{"op"})
 	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: namespaceSync,
@@ -239,7 +292,26 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		return 0
 	})
 
-	prometheus.MustRegister(opTimerHistogram, blockCount, chainHeightGauge, bestBlockGauge, reorgCount)
+	fetchesInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespaceSync,
+		Name:      "fetches_in_flight",
+		Help:      "Number of block fetches in progress",
+	})
+	txCount := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespaceSync,
+		Name:      "transactions",
+		Help:      "Total number of transactions in the blocks stored during Synchronisation",
+	})
+
+	prometheus.MustRegister(
+		opTimerHistogram,
+		blockCount,
+		chainHeightGauge,
+		bestBlockGauge,
+		reorgCount,
+		fetchesInFlight,
+		txCount,
+	)
 
 	return &sync.SelectiveListener{
 		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
@@ -251,7 +323,37 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		OnReorgCb: func(blockNum uint64) {
 			reorgCount.Inc()
 		},
+		OnFetchStartedCb: fetchesInFlight.Inc,
+		OnFetchDoneCb:    fetchesInFlight.Dec,
+		OnBlockStoredCb: func(blockNum uint64, txs int) {
+			txCount.Add(float64(txs))
+		},
 	}
+}
+
+// makeClassDownloadMetrics registers the class download metrics of the feeder sync source.
+func makeClassDownloadMetrics() sync.DataSourceOption {
+	newClasses := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespaceSync,
+		Name:      "block_new_classes",
+		Help:      "Number of new classes that each block fetch downloaded",
+		Buckets:   []float64{0, 1, 2, 5, 10, 20, 50},
+	})
+	downloadTime := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespaceSync,
+		Name:      "class_download_seconds",
+		Help:      "Time to download all new classes of one block, for blocks with new classes",
+		Buckets:   prometheus.ExponentialBuckets(syncTimerMinBucket, 2, syncTimerBuckets),
+	})
+	prometheus.MustRegister(newClasses, downloadTime)
+
+	return sync.WithOnClassesFetched(func(blockNum uint64, count int, took time.Duration) {
+		newClasses.Observe(float64(count))
+		// Most blocks declare no class; their zero times would hide the cost of the others.
+		if count > 0 {
+			downloadTime.Observe(took.Seconds())
+		}
+	})
 }
 
 func makePreConfirmedMetrics() preconfirmed.EventListener {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/db"
@@ -95,7 +96,7 @@ func NewRunner(
 	err = validateNoOptOut(
 		targetVersion,
 		metadata.LastTargetVersion,
-		registry.OptionalMigrationFlags(),
+		registry.EnableHints(),
 	)
 	if err != nil {
 		return nil, err
@@ -242,34 +243,33 @@ func validateNoVersionDowngrade(current, target SchemaVersion) error {
 func validateNoOptOut(
 	target,
 	lastTargetVersion SchemaVersion,
-	optionalMigrationFlags []string,
+	enableHints []string,
 ) error {
 	optOutAttempts := lastTargetVersion.Difference(target)
 	if optOutAttempts == 0 {
 		return nil
 	}
-	// Build a list of migration flags that cannot be opted out of
-	flagList := make([]string, 0, optOutAttempts.Len())
+	// Build a list of how to enable each migration that cannot be opted out of
+	hints := make([]string, 0, optOutAttempts.Len())
 	for idx := range optOutAttempts.Iter() {
-		if int(idx) >= len(optionalMigrationFlags) {
+		if int(idx) >= len(enableHints) {
 			// Bits beyond the current registry are unknown migrations from a newer
 			// Juno; let validateNoVersionDowngrade surface that. Iter yields in
 			// ascending order, so every remaining bit is also out of range.
 			break
 		}
-		if flag := optionalMigrationFlags[idx]; flag != "" {
-			flagList = append(flagList, fmt.Sprintf("--%s", flag))
+		if hint := enableHints[idx]; hint != "" {
+			hints = append(hints, hint)
 		} else {
-			// Fallback to index if flag is not available
-			flagList = append(flagList, fmt.Sprintf("--migration-%d", idx))
+			hints = append(hints, fmt.Sprintf("enable migration %d", idx))
 		}
 	}
-	if len(flagList) == 0 {
+	if len(hints) == 0 {
 		return nil
 	}
 
 	return fmt.Errorf(
-		"cannot opt out of previously enabled migrations: %v (set these flags to enable)",
-		flagList,
+		"cannot opt out of previously enabled migrations; to enable them: %s",
+		strings.Join(hints, ", "),
 	)
 }

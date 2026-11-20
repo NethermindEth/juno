@@ -94,7 +94,7 @@ func extractExpectedEntries(
 }
 
 func compareAddress(a, b felt.Address) int {
-	return (*felt.Felt)(&a).Cmp((*felt.Felt)(&b))
+	return a.Cmp(&b)
 }
 
 func filter[K comparable, V any](filter *K, cmp func(K, K) int, entries map[K]V) iter.Seq[K] {
@@ -363,7 +363,8 @@ func insertInvalidValue(t *testing.T, database db.KeyValueWriter) testKey {
 		address: felt.Address(*maxFelt),
 		slot:    []byte(cryptorand.Text()),
 	}
-	invalidValue := []byte("invalid felt")
+	// Longer than any felt row, so it is invalid at either stored width.
+	invalidValue := make([]byte, felt.Bytes+1)
 	require.NoError(t, bucket.RawValue().Put(database, lastKey, &invalidValue))
 	return lastKey
 }

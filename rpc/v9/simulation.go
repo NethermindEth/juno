@@ -56,8 +56,8 @@ type SimulatedTransaction struct {
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace     `json:"trace_root,omitempty"`
+	TransactionHash *felt.TransactionHash `json:"transaction_hash,omitempty"`
 }
 
 type BroadcastedTransactionInputs = rpccore.LimitSlice[

@@ -12,6 +12,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain/networks"
 	"github.com/NethermindEth/juno/clients/rpc"
 	"github.com/NethermindEth/juno/clients/rpc/testutils"
 	"github.com/NethermindEth/juno/clients/timeout"
@@ -226,8 +227,8 @@ func TestCall(t *testing.T) {
 	client := newClient(t, testutils.Serve(t, chain))
 	blockNumber := uint64(testutils.ChainHeight - 1)
 	blockID := rpcv10.BlockIDFromNumber(blockNumber)
-	deprecatedClass := felt.NewUnsafeFromString[felt.Felt](testutils.DeprecatedClassHash)
-	sierraClass := felt.NewUnsafeFromString[felt.Felt](testutils.SierraClassHash)
+	deprecatedClass := felt.NewUnsafeFromString[felt.ClassHash](testutils.DeprecatedClassHash)
+	sierraClass := felt.NewUnsafeFromString[felt.ClassHash](testutils.SierraClassHash)
 
 	runCall(
 		t, "chain id",
@@ -297,11 +298,22 @@ func TestCall(t *testing.T) {
 	)
 }
 
+func wantUnretriedRPCError(code int) func(t *testing.T, err error) {
+	return func(t *testing.T, err error) {
+		var rpcErr gethrpc.Error
+		require.ErrorAs(t, err, &rpcErr)
+		assert.Equal(t, code, rpcErr.ErrorCode())
+		assert.NotContains(t, err.Error(), "giving up")
+	}
+}
+
 func TestCallRetries(t *testing.T) {
 	remote := testutils.Serve(t, testutils.NewChain(t))
+	emptyRemote := testutils.Serve(t, testutils.NewChainFor(t, &networks.Sepolia, 0))
 
 	tests := []struct {
 		name         string
+		remote       http.Handler
 		serve        func(cancel context.CancelFunc) func(request int64, r *http.Request) bool
 		opts         []rpc.Option
 		call         func(ctx context.Context, client *rpc.Client) error
@@ -309,23 +321,31 @@ func TestCallRetries(t *testing.T) {
 		wantErr      func(t *testing.T, err error)
 	}{
 		{
-			name:  "block not found is not retried",
-			serve: func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
+			name:   "BLOCK_NOT_FOUND is not retried",
+			remote: remote,
+			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
 			call: func(ctx context.Context, client *rpc.Client) error {
 				params := rpc.BlockWithReceiptsParams{BlockNumber: testutils.MissingBlockNumber}
 				_, err := client.Call(ctx, rpc.BlockWithReceipts, params)
 				return err
 			},
 			wantRequests: 1,
-			wantErr: func(t *testing.T, err error) {
-				var rpcErr gethrpc.Error
-				require.ErrorAs(t, err, &rpcErr)
-				assert.Equal(t, rpccore.ErrBlockNotFound.Code, rpcErr.ErrorCode())
-				assert.NotContains(t, err.Error(), "giving up")
-			},
+			wantErr:      wantUnretriedRPCError(rpccore.ErrBlockNotFound.Code),
 		},
 		{
-			name: "transient failures are retried",
+			name:   "NO_BLOCKS is not retried",
+			remote: emptyRemote,
+			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
+			call: func(ctx context.Context, client *rpc.Client) error {
+				_, err := client.Call(ctx, rpc.BlockHashAndNumber, rpc.NoParams{})
+				return err
+			},
+			wantRequests: 1,
+			wantErr:      wantUnretriedRPCError(rpccore.ErrNoBlock.Code),
+		},
+		{
+			name:   "transient failures are retried",
+			remote: remote,
 			serve: func(context.CancelFunc) func(int64, *http.Request) bool {
 				return func(request int64, _ *http.Request) bool { return request > 2 }
 			},
@@ -338,7 +358,8 @@ func TestCallRetries(t *testing.T) {
 			wantErr:      func(t *testing.T, err error) { require.NoError(t, err) },
 		},
 		{
-			name: "timed out requests are retried",
+			name:   "timed out requests are retried",
+			remote: remote,
 			serve: func(context.CancelFunc) func(int64, *http.Request) bool {
 				return func(request int64, r *http.Request) bool {
 					if request > 1 {
@@ -360,13 +381,14 @@ func TestCallRetries(t *testing.T) {
 			wantErr:      func(t *testing.T, err error) { require.NoError(t, err) },
 		},
 		{
-			name:  "other rpc errors are retried",
-			serve: func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
-			opts:  []rpc.Option{rpc.WithMaxRetries(2)},
+			name:   "other rpc errors are retried",
+			remote: remote,
+			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveAll },
+			opts:   []rpc.Option{rpc.WithMaxRetries(2)},
 			call: func(ctx context.Context, client *rpc.Client) error {
 				params := rpc.ClassParams{
 					BlockNumber: testutils.ChainHeight - 1,
-					ClassHash:   felt.NewFromUint64[felt.Felt](1),
+					ClassHash:   felt.NewFromUint64[felt.ClassHash](1),
 				}
 				_, err := client.Call(ctx, rpc.Class, params)
 				return err
@@ -380,9 +402,10 @@ func TestCallRetries(t *testing.T) {
 			},
 		},
 		{
-			name:  "gives up after max retries",
-			serve: func(context.CancelFunc) func(int64, *http.Request) bool { return serveNone },
-			opts:  []rpc.Option{rpc.WithMaxRetries(2)},
+			name:   "gives up after max retries",
+			remote: remote,
+			serve:  func(context.CancelFunc) func(int64, *http.Request) bool { return serveNone },
+			opts:   []rpc.Option{rpc.WithMaxRetries(2)},
 			call: func(ctx context.Context, client *rpc.Client) error {
 				_, err := client.Call(ctx, rpc.ChainID, rpc.NoParams{})
 				return err
@@ -396,7 +419,8 @@ func TestCallRetries(t *testing.T) {
 			},
 		},
 		{
-			name: "cancelled context stops the backoff",
+			name:   "cancelled context stops the backoff",
+			remote: remote,
 			serve: func(cancel context.CancelFunc) func(int64, *http.Request) bool {
 				return func(int64, *http.Request) bool {
 					cancel()
@@ -420,7 +444,7 @@ func TestCallRetries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			t.Cleanup(cancel)
-			handler := newGate(remote, tt.serve(cancel))
+			handler := newGate(tt.remote, tt.serve(cancel))
 			client := newClient(t, handler, tt.opts...)
 
 			err := tt.call(ctx, client)

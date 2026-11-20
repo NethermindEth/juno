@@ -1,6 +1,7 @@
 package felt_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils/cbor"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +36,7 @@ func randomSlice[F felt.FeltLike](size int) felt.Slice[F] {
 	rng := rand.New(rand.NewSource(1))
 	slice := make(felt.Slice[F], size)
 	for idx := range slice {
-		slice[idx] = fromLimbs[F](rng.Uint64(), rng.Uint64(), rng.Uint64(), rng.Uint64())
+		slice[idx] = randomFelt[F](rng)
 	}
 	return slice
 }
@@ -121,6 +123,21 @@ func TestSliceRoundTripCBORBoundarySizes(t *testing.T) {
 
 			requireSliceDecodeCBOREquivalent[felt.Felt](t, fast)
 			requireSliceDecodeCBOREquivalent[feltoid](t, fast)
+
+			var decoded felt.Slice[felt.Felt]
+			require.NoError(t, decoded.UnmarshalCBOR(fast))
+			require.Equal(t, s, decoded)
+
+			// fp.Element has no CBOR methods, so the generic encoder writes the legacy limb arrays.
+			legacyElements := make([]fp.Element, len(s))
+			for i := range s {
+				legacyElements[i] = fp.Element(s[i])
+			}
+			legacy, err := cbor.Marshal(legacyElements)
+			require.NoError(t, err)
+			var fromLegacy felt.Slice[felt.Felt]
+			require.NoError(t, fromLegacy.UnmarshalCBOR(legacy))
+			require.Equal(t, s, fromLegacy)
 		})
 	}
 }
@@ -142,8 +159,10 @@ func TestSliceMarshalCBORNil(t *testing.T) {
 }
 
 func TestSliceDecodeCBORCornerCases(t *testing.T) {
-	feltBytes1 := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
-	feltBytes2 := encodeFeltCBOR(t, fromLimbs[felt.Felt](2))
+	feltBytes1 := encodeFeltCBOR(t, felt.FromUint64[felt.Felt](1))
+	feltBytes2 := encodeFeltCBOR(t, felt.FromUint64[felt.Felt](math.MaxUint64))
+	legacyFelt := felt.FromUint64[felt.Felt](3)
+	legacyBytes := legacyCBOR(t, &legacyFelt)
 
 	cases := []struct {
 		name string
@@ -175,6 +194,14 @@ func TestSliceDecodeCBORCornerCases(t *testing.T) {
 		)},
 		{"uint8-length header, missing count byte", []byte{cborArrayUint8}},
 		{"uint16-length header, truncated count", []byte{cborArrayUint16, 0x00}},
+		{"one legacy felt", slices.Concat([]byte{cborArrayOne}, legacyBytes)},
+		{"legacy and compact felts", slices.Concat([]byte{cborArrayTwo}, legacyBytes, feltBytes2)},
+		{"non-compact element", []byte{cborArrayOne, 0x41, 0x05}},
+		{"element above the modulus", slices.Concat(
+			[]byte{cborArrayOne, 0x58, 0x20},
+			bytes.Repeat([]byte{0xff}, 32),
+		)},
+		{"null element", []byte{cborArrayOne, cborNull}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -185,7 +212,7 @@ func TestSliceDecodeCBORCornerCases(t *testing.T) {
 }
 
 func TestSliceDecodeCBORRejectsOversizedHeader(t *testing.T) {
-	feltBytes := encodeFeltCBOR(t, fromLimbs[felt.Felt](1))
+	feltBytes := encodeFeltCBOR(t, felt.FromUint64[felt.Felt](1))
 
 	// cborArrayUint32 reads the element count
 	// math.MaxUint32 = ~4.29 billion elements, far more than the payload holds.

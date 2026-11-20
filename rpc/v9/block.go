@@ -195,17 +195,17 @@ func (b *BlockID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // PRE_CONFIRMED_BLOCK_HEADER
 // https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L1636
 type BlockHeader struct {
-	Hash             *felt.Felt    `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt    `json:"parent_hash,omitempty"`
-	Number           *uint64       `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt    `json:"new_root,omitempty"`
-	Timestamp        uint64        `json:"timestamp"`
-	SequencerAddress *felt.Felt    `json:"sequencer_address,omitempty"`
-	L1GasPrice       ResourcePrice `json:"l1_gas_price"`
-	L1DataGasPrice   ResourcePrice `json:"l1_data_gas_price"`
-	L1DAMode         L1DAMode      `json:"l1_da_mode"`
-	StarknetVersion  string        `json:"starknet_version"`
-	L2GasPrice       ResourcePrice `json:"l2_gas_price"`
+	Hash             *felt.Felt          `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt          `json:"parent_hash,omitempty"`
+	Number           *uint64             `json:"block_number,omitempty"`
+	NewRoot          *felt.StateRootHash `json:"new_root,omitempty"`
+	Timestamp        uint64              `json:"timestamp"`
+	SequencerAddress *felt.Address       `json:"sequencer_address,omitempty"`
+	L1GasPrice       ResourcePrice       `json:"l1_gas_price"`
+	L1DataGasPrice   ResourcePrice       `json:"l1_data_gas_price"`
+	L1DAMode         L1DAMode            `json:"l1_da_mode"`
+	StarknetVersion  string              `json:"starknet_version"`
+	L2GasPrice       ResourcePrice       `json:"l2_gas_price"`
 }
 
 type ResourcePrice struct {
@@ -242,7 +242,7 @@ type BlockWithTxs struct {
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes []felt.Felt `json:"transactions"`
+	TxnHashes []felt.TransactionHash `json:"transactions"`
 }
 
 type TransactionWithReceipt struct {
@@ -384,8 +384,8 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 
 // transactionHashesOf collects each transaction's hash, for blocks served from memory where the
 // transactions are already decoded.
-func transactionHashesOf(transactions []core.Transaction) []felt.Felt {
-	hashes := make([]felt.Felt, len(transactions))
+func transactionHashesOf(transactions []core.Transaction) []felt.TransactionHash {
+	hashes := make([]felt.TransactionHash, len(transactions))
 	for index, transaction := range transactions {
 		hashes[index] = *transaction.Hash()
 	}
@@ -517,7 +517,7 @@ func (h *Handler) blockStatus(id *BlockID, blockNumber uint64) (BlockStatus, *js
 func AdaptBlockHeader(header *core.Header) BlockHeader {
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = new(felt.Zero[felt.Felt]())
+		sequencerAddress = new(felt.Zero[felt.Address]())
 	}
 
 	var l1DAMode L1DAMode

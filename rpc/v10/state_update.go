@@ -13,15 +13,15 @@ import (
 
 // https://github.com/starkware-libs/starknet-specs/blob/8016dd08ed7cd220168db16f24c8a6827ab88317/api/starknet_api_openrpc.json#L909
 type StateUpdate struct {
-	BlockHash *felt.Felt `json:"block_hash,omitempty"`
-	NewRoot   *felt.Felt `json:"new_root,omitempty"`
-	OldRoot   *felt.Felt `json:"old_root,omitempty"`
-	StateDiff *StateDiff `json:"state_diff"`
+	BlockHash *felt.Felt          `json:"block_hash,omitempty"`
+	NewRoot   *felt.StateRootHash `json:"new_root,omitempty"`
+	OldRoot   *felt.StateRootHash `json:"old_root,omitempty"`
+	StateDiff *StateDiff          `json:"state_diff"`
 }
 
 type StorageDiff struct {
-	Address        felt.Felt `json:"address"`
-	StorageEntries []Entry   `json:"storage_entries"`
+	Address        felt.Address `json:"address"`
+	StorageEntries []Entry      `json:"storage_entries"`
 }
 
 type Entry struct {
@@ -30,30 +30,30 @@ type Entry struct {
 }
 
 type Nonce struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	Nonce           felt.Felt `json:"nonce"`
+	ContractAddress felt.Address `json:"contract_address"`
+	Nonce           felt.Felt    `json:"nonce"`
 }
 
 type DeployedContract struct {
-	Address   felt.Felt `json:"address"`
-	ClassHash felt.Felt `json:"class_hash"`
+	Address   felt.Address   `json:"address"`
+	ClassHash felt.ClassHash `json:"class_hash"`
 }
 
 type DeclaredClass struct {
-	ClassHash         felt.Felt `json:"class_hash"`
-	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
+	ClassHash         felt.SierraClassHash `json:"class_hash"`
+	CompiledClassHash felt.CasmClassHash   `json:"compiled_class_hash"`
 }
 
 type ReplacedClass struct {
-	ContractAddress felt.Felt `json:"contract_address"`
-	ClassHash       felt.Felt `json:"class_hash"`
+	ContractAddress felt.Address   `json:"contract_address"`
+	ClassHash       felt.ClassHash `json:"class_hash"`
 }
 
 type StateDiff struct {
 	StorageDiffs              []StorageDiff           `json:"storage_diffs"`
 	Nonces                    []Nonce                 `json:"nonces"`
 	DeployedContracts         []DeployedContract      `json:"deployed_contracts"`
-	DeprecatedDeclaredClasses []*felt.Felt            `json:"deprecated_declared_classes"`
+	DeprecatedDeclaredClasses []*felt.ClassHash       `json:"deprecated_declared_classes"`
 	DeclaredClasses           []DeclaredClass         `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass         `json:"replaced_classes"`
 	MigratedCompiledClasses   []MigratedCompiledClass `json:"migrated_compiled_classes"`
@@ -83,7 +83,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		if contractAddresses.Contains((*felt.Address)(&addr)) {
+		if contractAddresses.Contains(&addr) {
 			nonces = append(nonces, Nonce{
 				ContractAddress: addr,
 				Nonce:           *nonce,
@@ -93,7 +93,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		if !contractAddresses.Contains((*felt.Address)(&addr)) {
+		if !contractAddresses.Contains(&addr) {
 			continue
 		}
 		entries := make([]Entry, len(diffs))
@@ -113,7 +113,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		if contractAddresses.Contains((*felt.Address)(&addr)) {
+		if contractAddresses.Contains(&addr) {
 			deployedContracts = append(deployedContracts, DeployedContract{
 				Address:   addr,
 				ClassHash: *classHash,
@@ -133,7 +133,7 @@ func (h *Handler) StateUpdate(id *BlockID, contractAddresses AddressList) (State
 
 	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		if contractAddresses.Contains((*felt.Address)(&addr)) {
+		if contractAddresses.Contains(&addr) {
 			replacedClasses = append(replacedClasses, ReplacedClass{
 				ClassHash:       *classHash,
 				ContractAddress: addr,

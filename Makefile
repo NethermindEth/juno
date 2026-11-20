@@ -4,9 +4,11 @@
 
 ifeq ($(VM_DEBUG),true)
     GO_TAGS = -tags vm_debug
+    COMPACTFELT_GO_TAGS = -tags vm_debug,compactfelt
     VM_TARGET = debug
 else
     GO_TAGS =
+    COMPACTFELT_GO_TAGS = -tags compactfelt
     VM_TARGET = all
 endif
 
@@ -43,6 +45,11 @@ juno-cached: ## Cached Juno compilation
 	@mkdir -p build
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
+GO_TOOLCHAIN = $(shell sed -n 's/^toolchain //p' go.mod)
+check-go-build: ## Check that build/juno was built with the Go toolchain in go.mod
+	@go version build/juno | grep -qx 'build/juno: $(GO_TOOLCHAIN)' || (echo "go.mod toolchain is $(GO_TOOLCHAIN), but $$(go version build/juno)" && exit 1)
+	@echo "build/juno was built with $(GO_TOOLCHAIN)"
+
 corpus-gen: ## Build the corpus generator
 	@mkdir -p build
 	@go build -o build/corpus-gen ./bench/rpc/cmd/corpus-gen
@@ -55,7 +62,8 @@ MINIMUM_RUST_VERSION = 1.94.1
 CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
 check-rust: ## Ensure rust version is greater than minimum
 	@echo "Checking if current rust version >= $(MINIMUM_RUST_VERSION)"
-	@bash -c '[[ $(CURR_RUST_VERSION) < $(MINIMUM_RUST_VERSION) ]] && (echo "Rust version must be >= $(MINIMUM_RUST_VERSION).  Found version $(CURR_RUST_VERSION)" && exit 1) || echo "Current rust version is $(CURR_RUST_VERSION)"'
+	@printf '%s\n' $(MINIMUM_RUST_VERSION) $(CURR_RUST_VERSION) | sort -V -C || (echo "Rust version must be >= $(MINIMUM_RUST_VERSION).  Found version $(CURR_RUST_VERSION)" && exit 1)
+	@echo "Current rust version is $(CURR_RUST_VERSION)"
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
@@ -87,6 +95,9 @@ test-new-state: clean-testcache rustdeps ## Run tests with new state
 test-cached: rustdeps ## Run cached tests
 	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./...
 
+test-compactfelt: rustdeps ## Run tests with the compact felt codec built in
+	go test $(COMPACTFELT_GO_TAGS) $(TEST_MODE_FLAGS) ./...
+
 test-race: clean-testcache rustdeps ## Run tests with race detection
 	go test $(GO_TAGS) $(TEST_MODE_FLAGS) ./... -race $(TEST_RACE_LDFLAGS)
 
@@ -113,11 +124,13 @@ install-golangci-lint:
 install-k6: ## Install the k6 load generator used by the RPC benchmark harness
 	go install go.k6.io/k6@latest
 
-lint: install-golangci-lint lint-diff
+lint: install-golangci-lint lint-diff ## Lint the regular build, then core/felt with the compact felt codec
 	golangci-lint run
+	golangci-lint run --build-tags compactfelt ./core/felt/...
 
-lint-diff:
+lint-diff: ## Lint changes vs origin/main in both the regular and the compact felt build
 	golangci-lint run --config=./.golangci_diff.yaml --new-from-rev=origin/main
+	golangci-lint run --config=./.golangci_diff.yaml --new-from-rev=origin/main --build-tags compactfelt
 
 tidy: ## Add missing and remove unused modules
 	go mod tidy

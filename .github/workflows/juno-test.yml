@@ -63,9 +63,8 @@ jobs:
             go.sum
             .jemalloc-libdir
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-        with:
-          toolchain: "1.94.1"
+      - name: Set up Rust
+        run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
@@ -86,6 +85,9 @@ jobs:
         env:
           FULL_TESTS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.consensus == 'true' }}
         run: make test
+
+      - name: Tests (compact felt codec)
+        run: make test-compactfelt
 
       #    Tests with race condition detector are flaky; we're disabling them for now
       #      - name: Tests (Race Detection)

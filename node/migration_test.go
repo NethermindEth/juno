@@ -21,7 +21,7 @@ func TestFetchL1HeadIfMissing_SkipsL1FetchWhenHeadPresent(t *testing.T) {
 	expected := &core.L1Head{
 		BlockNumber: 1,
 		BlockHash:   felt.NewRandom[felt.Felt](),
-		StateRoot:   felt.NewRandom[felt.Felt](),
+		StateRoot:   felt.NewRandom[felt.StateRootHash](),
 	}
 	require.NoError(t, core.L1HeightBucket.Put(database, struct{}{}, expected))
 

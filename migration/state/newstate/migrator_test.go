@@ -51,9 +51,9 @@ const (
 )
 
 type contractFixture struct {
-	addr            felt.Felt
-	deployClassHash felt.Felt
-	headClassHash   felt.Felt
+	addr            felt.Address
+	deployClassHash felt.ClassHash
+	headClassHash   felt.ClassHash
 	preNonce        felt.Felt
 	headNonce       felt.Felt
 	slot            felt.Felt
@@ -62,9 +62,9 @@ type contractFixture struct {
 }
 
 var fixture = contractFixture{
-	addr:            felt.FromUint64[felt.Felt](0xABCDEF),
-	deployClassHash: felt.FromUint64[felt.Felt](0xAA),
-	headClassHash:   felt.FromUint64[felt.Felt](0xBB),
+	addr:            felt.FromUint64[felt.Address](0xABCDEF),
+	deployClassHash: felt.FromUint64[felt.ClassHash](0xAA),
+	headClassHash:   felt.FromUint64[felt.ClassHash](0xBB),
 	preNonce:        felt.FromUint64[felt.Felt](3),
 	headNonce:       felt.FromUint64[felt.Felt](7),
 	slot:            felt.FromUint64[felt.Felt](0x55),
@@ -101,7 +101,7 @@ func seedDeprecatedContract(t *testing.T, memDB db.KeyValueStore) {
 func seedDeprecatedStorageTrie(
 	t *testing.T,
 	memDB db.KeyValueStore,
-	addr felt.Felt,
+	addr felt.Address,
 	leaves map[felt.Felt]felt.Felt,
 ) {
 	t.Helper()
@@ -153,7 +153,7 @@ func assertMigrated(t *testing.T, memDB db.KeyValueStore) {
 	assert.Equal(t, deployHeight, contract.DeployedHeight)
 
 	reader, err := state.NewStateReader(
-		new(felt.Zero[felt.Felt]()),
+		new(felt.Zero[felt.StateRootHash]()),
 		state.NewStateDB(memDB, triedb.New(memDB, nil)),
 	)
 	require.NoError(t, err)

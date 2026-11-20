@@ -20,12 +20,11 @@ func TestStateHistory(t *testing.T) {
 	state := deprecatedstate.New(txn)
 
 	addr := felt.FromUint64[felt.Address](1)
-	addrFelt := felt.Felt(addr)
 	storageKey := felt.NewFromUint64[felt.Felt](2)
-	declaredCH := felt.NewFromUint64[felt.Felt](3)
+	declaredCH := felt.NewFromUint64[felt.ClassHash](3)
 
-	initialClassHash := felt.NewFromUint64[felt.Felt](10)
-	updatedClassHash := felt.NewFromUint64[felt.Felt](20)
+	initialClassHash := felt.NewFromUint64[felt.ClassHash](10)
+	updatedClassHash := felt.NewFromUint64[felt.ClassHash](20)
 	initialNonce := felt.NewFromUint64[felt.Felt](5)
 	updatedNonce := felt.NewFromUint64[felt.Felt](9)
 	initialStorage := felt.NewFromUint64[felt.Felt](100)
@@ -35,28 +34,30 @@ func TestStateHistory(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{addrFelt: initialClassHash},
-			Nonces:            map[felt.Felt]*felt.Felt{addrFelt: initialNonce},
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*storageKey: initialStorage},
+			DeployedContracts: map[felt.Address]*felt.ClassHash{addr: initialClassHash},
+			Nonces:            map[felt.Address]*felt.Felt{addr: initialNonce},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*storageKey: initialStorage},
 			},
 		},
-	}, map[felt.Felt]core.ClassDefinition{*declaredCH: &core.SierraClass{}}, true))
+	}, map[felt.ClassHash]core.ClassDefinition{
+		*declaredCH: &core.SierraClass{},
+	}, true))
 
 	root, err := state.Commitment("")
 	require.NoError(t, err)
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			ReplacedClasses: map[felt.Felt]*felt.Felt{addrFelt: updatedClassHash},
-			Nonces:          map[felt.Felt]*felt.Felt{addrFelt: updatedNonce},
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				addrFelt: {*storageKey: updatedStorage},
+			ReplacedClasses: map[felt.Address]*felt.ClassHash{addr: updatedClassHash},
+			Nonces:          map[felt.Address]*felt.Felt{addr: updatedNonce},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
+				addr: {*storageKey: updatedStorage},
 			},
 		},
 	}, nil, true))
@@ -66,46 +67,46 @@ func TestStateHistory(t *testing.T) {
 	snapshotAfterChange := deprecatedstate.NewHistory(state, changeHeight+1)
 
 	t.Run("contract not deployed", func(t *testing.T) {
-		_, err := snapshotBeforeDeployment.ContractClassHash(&addrFelt)
+		_, err := snapshotBeforeDeployment.ContractClassHash(&addr)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
-		_, err = snapshotBeforeDeployment.ContractNonce(&addrFelt)
+		_, err = snapshotBeforeDeployment.ContractNonce(&addr)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 
-		_, err = snapshotBeforeDeployment.ContractStorage(&addrFelt, storageKey)
+		_, err = snapshotBeforeDeployment.ContractStorage(&addr, storageKey)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
 	t.Run("historical values at deployment height", func(t *testing.T) {
-		classHash, err := snapshotAtDeployment.ContractClassHash(&addrFelt)
+		classHash, err := snapshotAtDeployment.ContractClassHash(&addr)
 		require.NoError(t, err)
 		require.Equal(t, *initialClassHash, classHash)
 
-		nonce, err := snapshotAtDeployment.ContractNonce(&addrFelt)
+		nonce, err := snapshotAtDeployment.ContractNonce(&addr)
 		require.NoError(t, err)
 		require.Equal(t, *initialNonce, nonce)
 
-		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, storageKey)
+		storage, err := snapshotAtDeployment.ContractStorage(&addr, storageKey)
 		require.NoError(t, err)
 		require.Equal(t, *initialStorage, storage)
 	})
 
 	t.Run("head state values after change", func(t *testing.T) {
-		classHash, err := snapshotAfterChange.ContractClassHash(&addrFelt)
+		classHash, err := snapshotAfterChange.ContractClassHash(&addr)
 		require.NoError(t, err)
 		require.Equal(t, *updatedClassHash, classHash)
 
-		nonce, err := snapshotAfterChange.ContractNonce(&addrFelt)
+		nonce, err := snapshotAfterChange.ContractNonce(&addr)
 		require.NoError(t, err)
 		require.Equal(t, *updatedNonce, nonce)
 
-		storage, err := snapshotAfterChange.ContractStorage(&addrFelt, storageKey)
+		storage, err := snapshotAfterChange.ContractStorage(&addr, storageKey)
 		require.NoError(t, err)
 		require.Equal(t, *updatedStorage, storage)
 	})
 
 	t.Run("non-deployed address returns error", func(t *testing.T) {
-		nonDeployedAddr := felt.NewFromUint64[felt.Felt](999)
+		nonDeployedAddr := felt.NewFromUint64[felt.Address](999)
 		_, err := snapshotAtDeployment.ContractClassHash(nonDeployedAddr)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
@@ -197,7 +198,7 @@ func TestStateHistory(t *testing.T) {
 
 	t.Run("unset slot on deployed contract returns zero", func(t *testing.T) {
 		unsetKey := felt.NewFromUint64[felt.Felt](999)
-		storage, err := snapshotAtDeployment.ContractStorage(&addrFelt, unsetKey)
+		storage, err := snapshotAtDeployment.ContractStorage(&addr, unsetKey)
 		require.NoError(t, err)
 		require.Equal(t, felt.Zero[felt.Felt](), storage)
 	})
@@ -211,7 +212,7 @@ func TestStateHistory(t *testing.T) {
 			_, err = snapshotAtDeployment.ContractTrie()
 			require.ErrorIs(t, err, deprecatedstate.ErrHistoricalTrieNotSupported)
 
-			_, err = snapshotAtDeployment.ContractStorageTrie(&addrFelt)
+			_, err = snapshotAtDeployment.ContractStorageTrie(&addr)
 			require.ErrorIs(t, err, deprecatedstate.ErrHistoricalTrieNotSupported)
 		},
 	)
@@ -222,9 +223,9 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 	state := deprecatedstate.New(txn)
 
-	addr := felt.NewFromUint64[felt.Felt](1)
+	addr := felt.NewFromUint64[felt.Address](1)
 	storageKey := felt.NewFromUint64[felt.Felt](2)
-	classHash := felt.NewFromUint64[felt.Felt](10)
+	classHash := felt.NewFromUint64[felt.ClassHash](10)
 	initialValue := felt.NewFromUint64[felt.Felt](100)
 	updatedValue := felt.NewFromUint64[felt.Felt](200)
 
@@ -232,11 +233,11 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 	changeHeight := uint64(10)
 
 	require.NoError(t, state.Update(&core.Header{Number: deployedHeight}, &core.StateUpdate{
-		OldRoot: new(felt.Zero[felt.Felt]()),
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		OldRoot: new(felt.Zero[felt.StateRootHash]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			DeployedContracts: map[felt.Address]*felt.ClassHash{*addr: classHash},
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 				*addr: {*storageKey: initialValue},
 			},
 		},
@@ -247,9 +248,9 @@ func TestContractStorageSkipsDeploymentProbeForNonZeroValue(t *testing.T) {
 
 	require.NoError(t, state.Update(&core.Header{Number: changeHeight}, &core.StateUpdate{
 		OldRoot: &root,
-		NewRoot: new(felt.Zero[felt.Felt]()),
+		NewRoot: new(felt.Zero[felt.StateRootHash]()),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: map[felt.Address]map[felt.Felt]*felt.Felt{
 				*addr: {*storageKey: updatedValue},
 			},
 		},
@@ -306,7 +307,7 @@ func (getFailBatch) Get([]byte, func([]byte) error) error {
 func TestContractStorageWrapsDBFailures(t *testing.T) {
 	testDB := memory.New()
 
-	addr := felt.NewFromUint64[felt.Felt](1)
+	addr := felt.NewFromUint64[felt.Address](1)
 	storageKey := felt.NewFromUint64[felt.Felt](2)
 
 	tests := []struct {

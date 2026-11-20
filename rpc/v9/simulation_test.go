@@ -273,7 +273,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpc.Transaction{
 						Version:       &version3,
 						Type:          rpc.TxnDeclare,
-						SenderAddress: new(felt.Zero[felt.Felt]()),
+						SenderAddress: new(felt.Zero[felt.Address]()),
 					},
 				},
 			},
@@ -298,7 +298,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					Transaction: rpc.Transaction{
 						Version:       &version3,
 						Type:          rpc.TxnInvoke,
-						SenderAddress: new(felt.Zero[felt.Felt]()),
+						SenderAddress: new(felt.Zero[felt.Address]()),
 					},
 				},
 			},

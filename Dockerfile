@@ -1,9 +1,7 @@
 # syntax=docker/dockerfile:1.7.0
 
 # --- Builder stage ---
-FROM golang:1.27-bookworm AS builder
-
-ARG RUST_VERSION=1.94.1
+FROM golang:1.27.4-bookworm AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,11 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # no jemalloc package, and the Debian libjemalloc.so.2 does not pull in libstdc++.
 RUN rm /usr/lib/$(gcc -dumpmachine)/libjemalloc.so
 
-# Install Rust
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain ${RUST_VERSION} --profile minimal
+# Install rustup, then the Rust toolchain that rust-toolchain.toml pins
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain none --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
+
+COPY rust-toolchain.toml ./
+RUN rustup toolchain install
 
 # Copy Cargo manifests for dependency caching
 COPY Makefile ./
@@ -43,6 +44,14 @@ COPY . .
 
 # Build with make juno
 RUN make juno
+RUN make check-go-build
+
+# --- Binary stage ---
+# Holds only the binary. Releases export it as the Linux release binary, thus the release binary
+# and the images have the same build. Build it with --target binary --output type=local,dest=<dir>.
+FROM scratch AS binary
+
+COPY --from=builder /app/build/juno /juno
 
 # --- Debian image ---
 # The earlier runtime image with a shell and utilities. Releases publish it as nethermind/juno:<tag>
@@ -66,7 +75,7 @@ ENTRYPOINT ["juno"]
 # --- Runtime base stage ---
 # Builds a Wolfi filesystem with glibc and no shell or package manager from the packages pinned in
 # docker/apko.lock.json. It runs on the build platform, so a cross-arch build needs no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS base
+FROM --platform=$BUILDPLATFORM golang:1.27.4-bookworm AS base
 
 # Keep in sync with APKO_VERSION in the Makefile.
 ARG APKO_VERSION=v1.4.11

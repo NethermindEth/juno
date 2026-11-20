@@ -207,7 +207,7 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEven
 type BlockBody struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.ClassDefinition
+	NewClasses  map[felt.ClassHash]core.ClassDefinition
 	Commitments *core.BlockCommitments
 	Err         error
 }
@@ -291,12 +291,12 @@ func (s *BlockFetcher) processSpecBlockParts(
 					select {
 					case <-ctx.Done():
 					default:
-						var prevBlockRoot *felt.Felt
+						var prevBlockRoot *felt.StateRootHash
 						if curBlockNum == 0 {
-							prevBlockRoot = new(felt.Zero[felt.Felt]())
+							prevBlockRoot = new(felt.Zero[felt.StateRootHash]())
 						} else if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
 							// First check cache if the header is not present, then get it from the db.
-							prevBlockRoot = p2p2core.AdaptHash[felt.Felt](oldHeader.header.StateRoot)
+							prevBlockRoot = p2p2core.AdaptHash[felt.StateRootHash](oldHeader.header.StateRoot)
 						} else {
 							stateRoot, err := s.blockchain.GlobalStateRootByBlockNumber(curBlockNum - 1)
 							if err != nil {
@@ -333,7 +333,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 	txs []*synctransaction.TransactionInBlock,
 	receipts []*receipt.Receipt,
 	events []*event.Event,
-	prevBlockRoot *felt.Felt,
+	prevBlockRoot *felt.StateRootHash,
 ) <-chan BlockBody {
 	bodyCh := make(chan BlockBody)
 	go func() {
@@ -356,9 +356,9 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			coreBlock.Transactions = coreTxs
 
-			txHashEventsM := make(map[felt.Felt][]*core.Event)
+			txHashEventsM := make(map[felt.TransactionHash][]*core.Event)
 			for _, event := range events {
-				txH := p2p2core.AdaptHash[felt.Felt](event.TransactionHash)
+				txH := p2p2core.AdaptHash[felt.TransactionHash](event.TransactionHash)
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 
@@ -394,7 +394,7 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 				return
 			}
 
-			newClasses := make(map[felt.Felt]core.ClassDefinition)
+			newClasses := make(map[felt.ClassHash]core.ClassDefinition)
 			for _, cls := range classes {
 				coreC, err := p2p2core.AdaptClass(ctx, s.compiler, cls)
 				if err != nil {

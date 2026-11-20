@@ -1,8 +1,8 @@
 package vm
 
 /*
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
+#cgo vm_debug  LDFLAGS: ${SRCDIR}/rust/target/debug/cgo/libjuno_starknet_rs.a   -lbz2
+#cgo !vm_debug LDFLAGS: ${SRCDIR}/rust/target/release/cgo/libjuno_starknet_rs.a -lbz2
 
 #include "vm_ffi.h"
 */
@@ -161,7 +161,7 @@ type callContext struct {
 	executionSteps  uint64
 	receipts        []json.RawMessage
 	initialReads    json.RawMessage
-	declaredClasses map[felt.Felt]core.ClassDefinition
+	declaredClasses map[felt.ClassHash]core.ClassDefinition
 	executionFailed bool
 }
 
@@ -252,8 +252,8 @@ func makeFeltFromPtr[F felt.FeltLike](ptr unsafe.Pointer) *F {
 }
 
 type CallInfo struct {
-	ContractAddress *felt.Felt
-	ClassHash       *felt.Felt
+	ContractAddress *felt.Address
+	ClassHash       *felt.ClassHash
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
 }

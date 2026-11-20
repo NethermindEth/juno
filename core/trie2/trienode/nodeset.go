@@ -112,7 +112,7 @@ func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 	if nodes == nil {
 		return ns
 	}
-	if (*felt.Felt)(&nodes.Owner).IsZero() {
+	if nodes.Owner.IsZero() {
 		ns.OwnerSet = nodes
 	} else {
 		ns.ChildSets[nodes.Owner] = nodes
@@ -121,7 +121,7 @@ func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 }
 
 func (m *MergeNodeSet) Merge(other *NodeSet) error {
-	if (*felt.Felt)(&other.Owner).IsZero() {
+	if other.Owner.IsZero() {
 		return m.OwnerSet.Merge(other.Owner, other.Nodes)
 	}
 

@@ -94,14 +94,20 @@ func TestStateUpdate(t *testing.T) {
 
 		require.Equal(t, len(coreUpdate.StateDiff.ReplacedClasses), len(rpcUpdate.StateDiff.ReplacedClasses))
 		for index := range rpcUpdate.StateDiff.ReplacedClasses {
-			require.Equal(t, *coreUpdate.StateDiff.ReplacedClasses[rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress],
-				rpcUpdate.StateDiff.ReplacedClasses[index].ClassHash)
+			replaced := rpcUpdate.StateDiff.ReplacedClasses[index]
+			require.Equal(t,
+				*coreUpdate.StateDiff.ReplacedClasses[replaced.ContractAddress],
+				replaced.ClassHash,
+			)
 		}
 
 		require.Equal(t, len(coreUpdate.StateDiff.DeclaredV1Classes), len(rpcUpdate.StateDiff.DeclaredClasses))
 		for index := range rpcUpdate.StateDiff.DeclaredClasses {
-			require.Equal(t, *coreUpdate.StateDiff.DeclaredV1Classes[rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash],
-				rpcUpdate.StateDiff.DeclaredClasses[index].CompiledClassHash)
+			declared := rpcUpdate.StateDiff.DeclaredClasses[index]
+			require.Equal(t,
+				*coreUpdate.StateDiff.DeclaredV1Classes[declared.ClassHash],
+				declared.CompiledClassHash,
+			)
 		}
 	}
 

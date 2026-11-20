@@ -68,6 +68,10 @@ func (fc *fakeConn) Context() context.Context {
 	return fc.ctx
 }
 
+func (fc *fakeConn) TryAcquireSubscription() bool { return true }
+
+func (fc *fakeConn) ReleaseSubscription() {}
+
 type fakeSyncer struct {
 	newHeads     *feed.Feed[*core.WithBloom[*core.Block]]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
@@ -670,6 +674,23 @@ func TestSubscribeEvents(t *testing.T) {
 				},
 			},
 			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					handler.preConfirmedFeed.Send(b2PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b2PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]SubscriptionEmittedEvent{
+					b2PreConfirmedExtendedEmitted,
+				},
+			},
+			{
 				description: "new pre_confirmed block",
 				notify: func() {
 					handler.preConfirmedFeed.Send(newPreConfirmedWithBloom(&b3PreConfirmedPartial))
@@ -866,7 +887,7 @@ func TestSubscribeEventsReplayReadsStoredPreConfirmedChain(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	logger := log.NewNopZapLogger()
-	txHash := felt.NewFromUint64[felt.Felt](1)
+	txHash := felt.NewFromUint64[felt.TransactionHash](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
@@ -888,7 +909,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, logger).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-			(*felt.TransactionHash)(txHash),
+			txHash,
 		).Return(uint64(0), uint64(0), db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().
 			ReadPreConfirmedChain().
@@ -927,11 +948,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
@@ -946,11 +967,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			)
 		})
 		t.Run("accepted on L1", func(t *testing.T) {
-			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
+			txHash, err := felt.NewFromString[felt.TransactionHash]("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().BlockNumberAndIndexByTxHash(
-				(*felt.TransactionHash)(txHash),
+				txHash,
 			).Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(
@@ -986,9 +1007,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		var tempGatewayResponse struct {
-			TransactionHash *felt.Felt `json:"transaction_hash"`
-			ContractAddress *felt.Felt `json:"address"`
-			ClassHash       *felt.Felt `json:"class_hash"`
+			TransactionHash *felt.TransactionHash `json:"transaction_hash"`
+			ContractAddress *felt.Felt            `json:"address"`
+			ClassHash       *felt.Felt            `json:"class_hash"`
 		}
 
 		tempGatewayResponse.TransactionHash = txToBroadcast.Hash
@@ -1013,13 +1034,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().RequestPreConfirmedChain().
 			Return(preconfirmed.ChainReader{}, db.ErrKeyNotFound).Times(1)
 
-		id, conn := createTestTxStatusWebsocket(t, handler, (*felt.Felt)(&txHash))
+		id, conn := createTestTxStatusWebsocket(t, handler, &txHash)
 
 		assertNextTxnStatus(
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusReceived,
 			UnknownExecution,
 			"",
@@ -1027,7 +1048,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		// PreConfirmed Status
 		rpcTx := AdaptCoreTransaction(block.Transactions[0])
-		rpcTx.Hash = (*felt.Felt)(&txHash)
+		rpcTx.Hash = &txHash
 
 		preConfirmed := &pending.PreConfirmed{
 			Block: &core.Block{
@@ -1048,12 +1069,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusPreConfirmed,
 			TxnSuccess,
 			"",
 		)
-		require.Equal(t, block.Transactions[0].Hash(), (*felt.Felt)(&txHash))
+		require.Equal(t, *block.Transactions[0].Hash(), txHash)
 
 		// Accepted on l2 Status. The stored chain now starts above the committed block.
 		chainAboveBlock := mustNewChain(t, &pending.PreConfirmed{
@@ -1076,7 +1097,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusAcceptedOnL2,
 			TxnSuccess,
 			"",
@@ -1099,7 +1120,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			t,
 			conn,
 			id,
-			(*felt.Felt)(&txHash),
+			&txHash,
 			TxnStatusAcceptedOnL1,
 			TxnSuccess,
 			"",
@@ -1744,7 +1765,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
-	senderFilter := []felt.Address{felt.Address(*senderAddress)}
+	senderFilter := []felt.Address{*senderAddress}
 	senderTransactions := make([]core.Transaction, 0)
 	for _, txn := range newHead2.Transactions {
 		if filterTxBySender(txn, senderFilter) {
@@ -1759,7 +1780,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		},
-		senderAddress: []felt.Address{felt.Address(*senderAddress)},
+		senderAddress: []felt.Address{*senderAddress},
 		steps: []stepInfo{
 			{
 				description: "on receiving new transaction",
@@ -1833,6 +1854,27 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				expect: [][]*SubscriptionNewTransaction{
 					toTransactionsWithFinalityStatus(
 						b1PreConfirmedExtended.Block.Transactions[partialPreConfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+						false,
+					),
+				},
+			},
+			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						b1PreConfirmedExtended.Block.Transactions,
 						TxnStatusWithoutL1(TxnStatusPreConfirmed),
 						false,
 					),
@@ -1913,9 +1955,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	// Create a block with two Invoke V3 transactions (one with proof facts, one without),
 	// for proof facts testing.
 	invokeV3WithProofFacts := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](124),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](124),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
-		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+		SenderAddress:   felt.NewFromUint64[felt.Address](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -1931,9 +1973,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	}
 
 	invokeV3WithoutProofFacts := &core.InvokeTransaction{
-		TransactionHash: felt.NewFromUint64[felt.Felt](123),
+		TransactionHash: felt.NewFromUint64[felt.TransactionHash](123),
 		Version:         felt.NewFromUint64[core.TransactionVersion](3),
-		SenderAddress:   felt.NewFromUint64[felt.Felt](456),
+		SenderAddress:   felt.NewFromUint64[felt.Address](456),
 		Nonce:           felt.NewFromUint64[felt.Felt](1),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -2324,7 +2366,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 
 	senderAddress := AdaptCoreTransaction(newHead2.Transactions[0]).SenderAddress
 	senderFilter := []felt.Address{
-		felt.Address(*senderAddress),
+		*senderAddress,
 	}
 	b2PreConfirmedPartialFilteredReceipts := toAdaptedReceiptsWithFilter(
 		b2PreConfirmedPartial.Block,
@@ -2409,6 +2451,27 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 						nil,
 						TxnPreConfirmed,
 					)[partialPreConfirmedCount:],
+				},
+			},
+			{
+				description: "stale snapshot of the round, nothing sent",
+				notify: func() {
+					syncer.preConfirmed.Send(b1PreConfirmedPartialWithBloom)
+				},
+			},
+			{
+				description: "new round at the same height re-emits",
+				notify: func() {
+					newRound := b1PreConfirmedExtended
+					newRound.BlockIdentifier = "round-2"
+					syncer.preConfirmed.Send(newPreConfirmedWithBloom(&newRound))
+				},
+				expect: [][]TransactionReceiptWithBlockInfo{
+					toAdaptedReceiptsWithFilter(
+						b1PreConfirmedExtended.Block,
+						nil,
+						TxnPreConfirmed,
+					),
 				},
 			},
 			{
@@ -2660,7 +2723,7 @@ func assertNextTxnStatus(
 	t *testing.T,
 	conn net.Conn,
 	id SubscriptionID,
-	txHash *felt.Felt,
+	txHash *felt.TransactionHash,
 	finality TxnStatus,
 	execution TxnExecutionStatus,
 	failureReason string,
@@ -2818,7 +2881,7 @@ func createTestEvents(
 	for txIndex, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			// todo: remove the cast to felt.Felt
-			if len(fromAddresses) > 0 && !slices.Contains(fromAddresses, felt.Address(*event.From)) {
+			if len(fromAddresses) > 0 && !slices.Contains(fromAddresses, *event.From) {
 				continue
 			}
 
@@ -2870,7 +2933,7 @@ func createTestEventsWebsocket(
 }
 
 func createTestTxStatusWebsocket(
-	t *testing.T, h *Handler, txHash *felt.Felt,
+	t *testing.T, h *Handler, txHash *felt.TransactionHash,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
@@ -2983,4 +3046,156 @@ func newPreConfirmedWithBloom(
 ) *core.WithBloom[*pending.PreConfirmed] {
 	withBloom := pending.NewPreConfirmedWithBloom(preConfirmed)
 	return &withBloom
+}
+
+// limitedConn is a fakeConn that also caps its subscriptions, which is what a
+// real websocket connection does. Equal is redeclared because fakeConn's asserts
+// on *fakeConn and would not recognise this type, and Unsubscribe compares the
+// stored connection to the caller's.
+type limitedConn struct {
+	*fakeConn
+	held atomic.Int64
+	max  int64
+}
+
+func (lc *limitedConn) Equal(other jsonrpc.Conn) bool {
+	other2, ok := other.(*limitedConn)
+	if !ok {
+		return false
+	}
+	return lc.w == other2.w
+}
+
+func (lc *limitedConn) TryAcquireSubscription() bool {
+	for {
+		held := lc.held.Load()
+		if held >= lc.max {
+			return false
+		}
+		if lc.held.CompareAndSwap(held, held+1) {
+			return true
+		}
+	}
+}
+
+func (lc *limitedConn) ReleaseSubscription() {
+	lc.held.Add(-1)
+}
+
+func TestSubscribeRespectsConnectionLimit(t *testing.T) {
+	logger := log.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &networks.Sepolia)
+	block1, commitments1, _ := GetTestBlockWithCommitments(t, client, 56377)
+	adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	handler := New(mockChain, nil, nil, logger)
+
+	mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+	mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+	mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	connCtx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	conn := &limitedConn{
+		fakeConn: &fakeConn{Conn: clientConn, w: serverConn, ctx: connCtx},
+		max:      1,
+	}
+	ctx := context.WithValue(connCtx, jsonrpc.ConnKey{}, conn)
+
+	blockIDLatest := BlockIDLatest()
+	subBlockID := (*SubscriptionBlockID)(&blockIDLatest)
+
+	subID, rpcErr := handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
+	assert.Equal(t, int64(1), conn.held.Load())
+
+	_, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	assert.Equal(t, rpccore.ErrTooManySubscriptions, rpcErr)
+	assert.Equal(t, int64(1), conn.held.Load(), "a refused call must not take a slot")
+
+	ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+	assert.Equal(t, int64(0), conn.held.Load(), "the slot is free once Unsubscribe returns")
+
+	subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+	require.Nil(t, rpcErr)
+	assertNextHead(t, clientConn, subID, &adaptedHeader)
+}
+
+func TestSubscribeRespectsMemoryLimit(t *testing.T) {
+	// Fits one subscription without a filter, with no room for a filter
+	newLimiter := func() *rpccore.SubscriptionMemoryLimiter {
+		return rpccore.NewSubscriptionMemoryLimiter(rpccore.SubscriptionBaseSize + 1)
+	}
+
+	t.Run("filter counts toward the charge", func(t *testing.T) {
+		handler := New(nil, nil, nil, log.NewNopZapLogger()).WithSubscriptionMemoryLimiter(newLimiter())
+		conn := &limitedConn{fakeConn: &fakeConn{w: io.Discard, ctx: t.Context()}, max: 10}
+		ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
+
+		_, rpcErr := handler.SubscribeNewTransactionReceipts(ctx, []felt.Address{{}}, nil)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+		assert.Equal(t, int64(0), conn.held.Load(), "a refused call must return its connection slot")
+	})
+
+	t.Run("memory returned on unsubscribe", func(t *testing.T) {
+		client := feeder.NewTestClient(t, &networks.Sepolia)
+		block1, commitments1, _ := GetTestBlockWithCommitments(t, client, 56377)
+		adaptedHeader := AdaptBlockHeader(block1.Header, commitments1)
+
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockChain := mocks.NewMockReader(mockCtrl)
+		handler := New(mockChain, nil, nil, log.NewNopZapLogger()).
+			WithSubscriptionMemoryLimiter(newLimiter())
+
+		mockChain.EXPECT().Height().Return(block1.Number, nil).Times(3)
+		mockChain.EXPECT().BlockHeaderByNumber(block1.Number).Return(block1.Header, nil).Times(2)
+		mockChain.EXPECT().BlockCommitmentsByNumber(block1.Number).Return(commitments1, nil).Times(2)
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		connCtx, cancel := context.WithCancel(t.Context())
+		t.Cleanup(cancel)
+		conn := &limitedConn{
+			fakeConn: &fakeConn{Conn: clientConn, w: serverConn, ctx: connCtx},
+			max:      10,
+		}
+		ctx := context.WithValue(connCtx, jsonrpc.ConnKey{}, conn)
+
+		blockIDLatest := BlockIDLatest()
+		subBlockID := (*SubscriptionBlockID)(&blockIDLatest)
+
+		subID, rpcErr := handler.SubscribeNewHeads(ctx, subBlockID)
+		require.Nil(t, rpcErr)
+		assertNextHead(t, clientConn, subID, &adaptedHeader)
+
+		_, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+		assert.Equal(t, rpccore.ErrSubscriptionMemoryExhausted, rpcErr)
+		assert.Equal(t, int64(1), conn.held.Load())
+
+		// Unsubscribe waits for the subscription goroutine, which releases the memory on exit
+		ok, rpcErr := handler.Unsubscribe(ctx, string(subID))
+		require.Nil(t, rpcErr)
+		require.True(t, ok)
+
+		subID, rpcErr = handler.SubscribeNewHeads(ctx, subBlockID)
+		require.Nil(t, rpcErr)
+		assertNextHead(t, clientConn, subID, &adaptedHeader)
+	})
 }

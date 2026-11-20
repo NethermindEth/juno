@@ -32,6 +32,8 @@ type subscriber struct {
 	onPreConfirmed        on[*core.WithBloom[*pending.PreConfirmed]]
 	onL1Head              on[*core.L1Head]
 	onReceivedTransaction on[core.Transaction]
+	// filterSize is the memory the filter holds on top of rpccore.SubscriptionBaseSize
+	filterSize int64
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
@@ -54,6 +56,15 @@ func (h *Handler) subscribe(
 	wsConn jsonrpc.Conn,
 	subscriber subscriber,
 ) (SubscriptionID, *jsonrpc.Error) {
+	if !wsConn.TryAcquireSubscription() {
+		return "", rpccore.ErrTooManySubscriptions
+	}
+	size := rpccore.SubscriptionBaseSize + subscriber.filterSize
+	if h.subscriptionMemoryLimiter != nil && !h.subscriptionMemoryLimiter.TryAcquire(size) {
+		wsConn.ReleaseSubscription()
+		return "", rpccore.ErrSubscriptionMemoryExhausted
+	}
+
 	id := h.idgen()
 	//nolint:gosec // G118: cancel called in unsubscribe()
 	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(wsConn.Context())
@@ -75,6 +86,10 @@ func (h *Handler) subscribe(
 	)
 
 	sub.wg.Go(func() {
+		defer wsConn.ReleaseSubscription()
+		if h.subscriptionMemoryLimiter != nil {
+			defer h.subscriptionMemoryLimiter.Release(size)
+		}
 		defer func() {
 			h.unsubscribe(sub, id)
 			unsubscribeFeedSubscription(reorgSub)
@@ -151,14 +166,14 @@ func filterTxBySender(txn core.Transaction, senderAddr []felt.Address) bool {
 	case *core.InvokeTransaction:
 		for _, addr := range senderAddr {
 			// todo: remove the cast to felt.Felt
-			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
+			if t.SenderAddress.Equal(&addr) {
 				return true
 			}
 		}
 	case *core.DeclareTransaction:
 		for _, addr := range senderAddr {
 			// todo: remove the cast to felt.Felt
-			if t.SenderAddress.Equal((*felt.Felt)(&addr)) {
+			if t.SenderAddress.Equal(&addr) {
 				return true
 			}
 		}

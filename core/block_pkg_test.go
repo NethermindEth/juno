@@ -20,7 +20,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	t.Run("txs with signature", func(t *testing.T) {
 		// actual tx hash is irrelevant so it's ok to have different transactions with
 		// the same hash
-		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+		txHash := felt.NewFromUint64[felt.TransactionHash](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
 		signatures := [][]felt.Felt{
@@ -59,10 +59,10 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	t.Run("txs without signature", func(t *testing.T) {
 		txs := []Transaction{
 			&L1HandlerTransaction{
-				TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x1"),
 			},
 			&DeployTransaction{
-				TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x2"),
 			},
 		}
 
@@ -85,7 +85,7 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	t.Run("txs with signature", func(t *testing.T) {
 		// actual tx hash is irrelevant so it's ok to have different transactions with the
 		// same hash
-		txHash := felt.NewFromUint64[felt.Felt](0xCAFEBABE)
+		txHash := felt.NewFromUint64[felt.TransactionHash](0xCAFEBABE)
 
 		// nil signature, empty signature and signature with some non-empty value
 		signatures := [][]felt.Felt{
@@ -124,10 +124,10 @@ func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	t.Run("txs without signature", func(t *testing.T) {
 		txs := []Transaction{
 			&L1HandlerTransaction{
-				TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x1"),
 			},
 			&DeployTransaction{
-				TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				TransactionHash: felt.NewUnsafeFromString[felt.TransactionHash]("0x2"),
 			},
 		}
 

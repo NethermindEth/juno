@@ -51,14 +51,15 @@ type SubscriptionNewTransaction struct {
 }
 
 // transactionsSubscriberState is touched only by its single subscription dispatch
-// goroutine, so its deduper is intentionally lock-free. Don't share it across goroutines.
+// goroutine, so its pre_confirmed cursor is intentionally lock-free. Don't share it
+// across goroutines.
 type transactionsSubscriberState struct {
 	conn jsonrpc.Conn
 
-	senders        []felt.Address
-	finalityStatus []TxnStatusWithoutL1
-	deduper        *rpccore.PreConfirmedDeduper[felt.TransactionHash]
-	tags           SubscriptionTags
+	senders            []felt.Address
+	finalityStatus     []TxnStatusWithoutL1
+	preConfirmedCursor *rpccore.PreConfirmedCursor
+	tags               SubscriptionTags
 }
 
 func newTransactionsSubscriber(
@@ -80,15 +81,16 @@ func newTransactionsSubscriber(
 	}
 
 	state := &transactionsSubscriberState{
-		conn:           conn,
-		senders:        senders,
-		finalityStatus: finalityStatus,
-		deduper:        rpccore.NewPreConfirmedDeduper[felt.TransactionHash](),
-		tags:           tags,
+		conn:               conn,
+		senders:            senders,
+		finalityStatus:     finalityStatus,
+		preConfirmedCursor: rpccore.NewPreConfirmedCursor(),
+		tags:               tags,
 	}
 
 	s := subscriber{
-		onReorg: state.onReorg,
+		onReorg:    state.onReorg,
+		filterSize: int64(len(senders)) * rpccore.SenderAddressSize,
 	}
 
 	if slices.Contains(state.finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
@@ -112,7 +114,7 @@ func (s *transactionsSubscriberState) onReorg(
 	_ *subscription,
 	reorg *sync.ReorgBlockRange,
 ) error {
-	s.deduper.Clear()
+	s.preConfirmedCursor.Clear()
 	return sendReorg(s.conn, reorg, id)
 }
 
@@ -123,9 +125,9 @@ func (s *transactionsSubscriberState) onNewHead(
 	headWithBloom *core.WithBloom[*core.Block],
 ) error {
 	head := headWithBloom.Value
-	// Canonical blocks are published exactly once, so they bypass the deduper.
+	// Canonical blocks are published exactly once, so they bypass the pre_confirmed cursor.
 	status := TxnStatusWithoutL1(TxnStatusAcceptedOnL2)
-	for txn := range transactionsOf(head, s.senders, status, s.tags.IncludeProofFacts, nil) {
+	for txn := range transactionsOf(head, s.senders, status, s.tags.IncludeProofFacts, 0) {
 		if err := sendTransaction(s.conn, txn, id); err != nil {
 			return err
 		}
@@ -142,17 +144,15 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	preConfirmed := preConfirmedWithBloom.Value
 	block := preConfirmed.GetBlock()
 	status := TxnStatusWithoutL1(TxnStatusPreConfirmed)
-	// The pre_confirmed tip is re-published in full on every delta; skip already-sent
-	// transactions. A same-height round replacement changes BlockIdentifier and re-emits.
-	shouldSend := func(txn core.Transaction) bool {
-		return s.deduper.MarkSent(
-			block.Number,
-			preConfirmed.BlockIdentifier,
-			(*felt.TransactionHash)(txn.Hash()),
-		)
-	}
-
-	for txn := range transactionsOf(block, s.senders, status, s.tags.IncludeProofFacts, shouldSend) {
+	// The pre_confirmed tip is re-published in full on every delta and only grows within a
+	// round, so start after the transactions already processed. A same-height round
+	// replacement changes BlockIdentifier and re-emits.
+	from := s.preConfirmedCursor.Advance(
+		block.Number,
+		preConfirmed.BlockIdentifier,
+		len(block.Transactions),
+	)
+	for txn := range transactionsOf(block, s.senders, status, s.tags.IncludeProofFacts, from) {
 		if err := sendTransaction(s.conn, txn, id); err != nil {
 			return err
 		}
@@ -160,22 +160,18 @@ func (s *transactionsSubscriberState) onPreConfirmed(
 	return nil
 }
 
-// transactionsOf yields each sender-matching transaction in the block, adapted to
-// an RPC subscription transaction with the given finality status.
+// transactionsOf yields each sender-matching transaction in the block from index from,
+// adapted to an RPC subscription transaction with the given finality status.
 func transactionsOf(
 	b *core.Block,
 	senders []felt.Address,
 	finalityStatus TxnStatusWithoutL1,
 	includeProofFacts bool,
-	shouldSend func(core.Transaction) bool,
+	from int,
 ) iter.Seq[*SubscriptionNewTransaction] {
 	return func(yield func(*SubscriptionNewTransaction) bool) {
-		for _, txn := range b.Transactions {
+		for _, txn := range b.Transactions[from:] {
 			if !filterTxBySender(txn, senders) {
-				continue
-			}
-
-			if shouldSend != nil && !shouldSend(txn) {
 				continue
 			}
 

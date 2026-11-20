@@ -15,6 +15,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/l1/eth"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/sync/rpcsource"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -68,12 +69,16 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
+	defaultUseNewL1Client := false
 	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultPreConfirmedStaleAfter := 500 * time.Millisecond
 	defaultPreConfirmedOnDemandWait := time.Duration(0)
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxConcurrentRequests := uint(1024)
 	defaultRPCMaxRequestQueue := uint(2048)
+	defaultRPCMaxWSConnections := uint(0)
+	defaultRPCMaxSubscriptions := uint(0)
+	defaultRPCMaxSubscriptionsMemory := node.DefaultRPCMaxSubscriptionsMemory()
 	defaultRPCMaxBatchSize := uint(1000)
 	defaultRPCMaxBatchResponseSize := uint(64)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
@@ -129,6 +134,9 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+		RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+		RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+		RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 		RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 		RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -147,6 +155,7 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 		ReadinessBlockTolerance:            6,
+		UseNewL1Client:                     defaultUseNewL1Client,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -183,6 +192,9 @@ func TestConfigPrecedence(t *testing.T) {
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 		RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+		RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+		RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+		RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 		RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 		RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -201,6 +213,7 @@ func TestConfigPrecedence(t *testing.T) {
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 		DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 		ReadinessBlockTolerance:            6,
+		UseNewL1Client:                     defaultUseNewL1Client,
 		RPCRequestTimeout:                  defaultRPCRequestTimeout,
 		MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 		MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -346,6 +359,9 @@ pprof: true
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -364,6 +380,7 @@ pprof: true
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -406,6 +423,9 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -424,6 +444,7 @@ http-port: 4576
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -462,6 +483,9 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -483,6 +507,7 @@ http-port: 4576
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -524,6 +549,9 @@ http-port: 4576
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -542,6 +570,7 @@ http-port: 4576
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -610,6 +639,9 @@ db-cache-size: 1024
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -628,6 +660,7 @@ db-cache-size: 1024
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -672,6 +705,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -690,6 +726,7 @@ network: sepolia
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -730,6 +767,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -748,6 +788,7 @@ network: sepolia
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -786,6 +827,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -804,6 +848,7 @@ network: sepolia
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -843,6 +888,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -861,6 +909,7 @@ network: sepolia
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -900,6 +949,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -917,6 +969,7 @@ network: sepolia
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -956,6 +1009,9 @@ network: sepolia
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxConcurrentRequests:           defaultRPCMaxConcurrentRequests,
 				RPCMaxRequestQueue:                 defaultRPCMaxRequestQueue,
+				RPCMaxWSConnections:                defaultRPCMaxWSConnections,
+				RPCMaxSubscriptions:                defaultRPCMaxSubscriptions,
+				RPCMaxSubscriptionsMemory:          defaultRPCMaxSubscriptionsMemory,
 				RPCMaxBatchSize:                    defaultRPCMaxBatchSize,
 				RPCMaxBatchResponseSize:            defaultRPCMaxBatchResponseSize,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -975,6 +1031,7 @@ network: sepolia
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
 				DisableReceivedTxnStream:           defaultDisableReceivedTxnStream,
 				ReadinessBlockTolerance:            6,
+				UseNewL1Client:                     defaultUseNewL1Client,
 				RPCRequestTimeout:                  defaultRPCRequestTimeout,
 				MaxConcurrentCompilations:          defaultMaxConcurrentCompilations,
 				MaxCompilationQueue:                defaultMaxCompilationQueue,
@@ -1137,6 +1194,71 @@ func TestRPCSyncURLValidation(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.url, config.RPCSyncURL)
+		})
+	}
+}
+
+func TestRPCSyncModeFlag(t *testing.T) {
+	const url = "http://rpc.host/rpc/v0_10"
+	tests := map[string]struct {
+		args      []string
+		config    string
+		want      rpcsource.Mode
+		errSubstr string
+	}{
+		"no flags": {want: rpcsource.Follow},
+		"follow": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "follow"},
+			want: rpcsource.Follow,
+		},
+		"catch-up": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "catch-up"},
+			want: rpcsource.CatchUp,
+		},
+		"catch-up in another case": {
+			args: []string{"--rpc-sync-url", url, "--rpc-sync-mode", "Catch-Up"},
+			want: rpcsource.CatchUp,
+		},
+		"catch-up in the config file": {
+			config: "rpc-sync-url: " + url + "\nrpc-sync-mode: catch-up\n",
+			want:   rpcsource.CatchUp,
+		},
+		"number in the config file": {
+			config:    "rpc-sync-url: " + url + "\nrpc-sync-mode: 1\n",
+			errSubstr: "invalid --rpc-sync-mode 1: unknown RPC sync mode",
+		},
+		"bool in the config file": {
+			config:    "rpc-sync-url: " + url + "\nrpc-sync-mode: true\n",
+			errSubstr: "invalid --rpc-sync-mode true: unknown RPC sync mode",
+		},
+		"without --rpc-sync-url": {
+			args:      []string{"--rpc-sync-mode", "catch-up"},
+			errSubstr: "--rpc-sync-mode requires --rpc-sync-url to be set",
+		},
+		"unknown mode": {
+			args:      []string{"--rpc-sync-url", url, "--rpc-sync-mode", "bogus"},
+			errSubstr: "unknown RPC sync mode (known: follow, catch-up)",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			args := tc.args
+			if tc.config != "" {
+				args = append(args, "--config", tempCfgFile(t, tc.config))
+			}
+			cmd.SetArgs(args)
+
+			err := cmd.ExecuteContext(t.Context())
+			if tc.errSubstr != "" {
+				assert.ErrorContains(t, err, tc.errSubstr)
+				return
+			}
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, config.RPCSyncMode)
 		})
 	}
 }

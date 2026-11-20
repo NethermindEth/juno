@@ -15,6 +15,10 @@ type Iterator interface {
 	// if the iterator is pointing at a valid entry and false otherwise.
 	First() bool
 
+	// Last moves the iterator to the last key/value pair. Returns true
+	// if the iterator is pointing at a valid entry and false otherwise.
+	Last() bool
+
 	// Prev moves the iterator to the previous key/value pair. Returns true
 	// if the iterator is pointing at a valid entry and false otherwise.
 	Prev() bool
@@ -33,14 +37,19 @@ type Iterator interface {
 	// DO NOT USE this unless the value is consumed immediately.
 	//
 	// UncopiedValue returns the value at the current position without copying it.
-	// The returned slice is invalidated by the next call to [Next], [Prev], or [Seek].
+	// The returned slice is invalidated by the next call to [First], [Last], [Next], [Prev],
+	// [SeekGE], or [SeekLT].
 	// Callers must copy the value if it needs to outlive the current iteration.
 	//
 	// This is intended for immediate unmarshalling to avoid an extra allocation.
 	UncopiedValue() ([]byte, error)
 
-	// Seek would seek to the provided key if present. If absent, it would seek to the next
+	// SeekGE would seek to the provided key if present. If absent, it would seek to the next
 	// key in lexicographical order. Returns true if the iterator is pointing at a valid entry
 	// and false otherwise.
-	Seek(key []byte) bool
+	SeekGE(key []byte) bool
+
+	// SeekLT moves the iterator to the last key strictly less than key. Returns true
+	// if the iterator is pointing at a valid entry and false otherwise.
+	SeekLT(key []byte) bool
 }

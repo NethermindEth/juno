@@ -10,7 +10,9 @@ permissions:
 jobs:
   check-docs-version:
     name: Check Documentation Version
-    if: github.repository_owner == 'NethermindEth'
+    # Tags that the release App pushes belong to release.yml. Remove this workflow in a follow-up
+    # PR, after release.yml ships its first release.
+    if: github.repository_owner == 'NethermindEth' && !endsWith(github.actor, '[bot]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -69,18 +71,32 @@ jobs:
           fi
 
           echo "Documentation version ${MINOR_VERSION} is present and up to date."
+  check-go-version:
+    name: Check Go Version
+    if: github.repository_owner == 'NethermindEth' && !endsWith(github.actor, '[bot]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify the release builds use the latest Go patch release
+        run: .github/workflow-scripts/check_go_version.sh --latest
   build-binaries:
     name: Build Binaries
     if: github.repository_owner == 'NethermindEth'
-    needs: [check-docs-version]
+    needs: [check-docs-version, check-go-version]
     uses: ./.github/workflows/build-binaries.yml
   docker-image:
     name: Build and Push Docker Image
     if: github.repository_owner == 'NethermindEth'
-    needs: [check-docs-version]
+    needs: [check-docs-version, check-go-version]
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
       repo_type: "non-official"
+      release_binaries: true
     secrets: inherit
   tag-non-official-latest:
     name: Tag Non-Official Image as Latest
@@ -116,7 +132,7 @@ jobs:
           merge-multiple: true
           path: binaries
       - name: Create Draft GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3
         with:
           tag_name: ${{ needs.docker-image.outputs.tag }}
           name: ${{ needs.docker-image.outputs.tag }}

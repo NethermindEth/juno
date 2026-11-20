@@ -79,11 +79,14 @@ type extractAllTransactionHashes struct{}
 
 // extract reads each transaction's own TransactionHash field, decoded without the rest of the
 // transaction.
-func (extractAllTransactionHashes) extract(b *BlockTransactions, _ struct{}) ([]felt.Felt, error) {
+func (extractAllTransactionHashes) extract(
+	b *BlockTransactions,
+	_ struct{},
+) ([]felt.TransactionHash, error) {
 	hashes, err := b.transactionHashProjections().AllMapped(
-		func(i int, p transactionHashProjection) (felt.Felt, error) {
+		func(i int, p transactionHashProjection) (felt.TransactionHash, error) {
 			if p.TransactionHash.IsZero() {
-				return felt.Felt{}, fmt.Errorf("missing TransactionHash in transaction %d", i)
+				return felt.TransactionHash{}, fmt.Errorf("missing TransactionHash in transaction %d", i)
 			}
 			return p.TransactionHash, nil
 		},
@@ -218,6 +221,6 @@ var (
 	BlockTransactionsAllTransactionHashesPartialSerializer = blockTransactionsPartialSerializer[
 		extractAllTransactionHashes,
 		struct{},
-		[]felt.Felt,
+		[]felt.TransactionHash,
 	]{}
 )

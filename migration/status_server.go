@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/utils/log"
+	"github.com/sourcegraph/conc"
 	"go.uber.org/zap"
 )
 
@@ -27,15 +28,25 @@ func RunWithServer(
 	port uint16,
 	fn func() error,
 ) error {
-	srv := startMigrationServer(logger, host, port)
-	defer closeMigrationServer(srv, logger)
+	var wg conc.WaitGroup
+	srv := startMigrationServer(logger, host, port, &wg)
+	defer func() {
+		closeMigrationServer(srv, logger)
+		// Wait for the server goroutine to exit and release its listener.
+		wg.Wait()
+	}()
 
 	return fn()
 }
 
 // startMigrationServer starts an HTTP server that provides health check endpoints.
 // The server runs in a goroutine and should be closed using closeMigrationServer.
-func startMigrationServer(logger log.StructuredLogger, host string, port uint16) *http.Server {
+func startMigrationServer(
+	logger log.StructuredLogger,
+	host string,
+	port uint16,
+	wg *conc.WaitGroup,
+) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
@@ -58,12 +69,12 @@ func startMigrationServer(logger log.StructuredLogger, host string, port uint16)
 		ReadHeaderTimeout: 30 * time.Second,
 	}
 
-	go func() {
+	wg.Go(func() {
 		logger.Debug("Starting migration status server", zap.String("addr", addr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("Migration status server failed", zap.Error(err))
 		}
-	}()
+	})
 	return srv
 }
 
