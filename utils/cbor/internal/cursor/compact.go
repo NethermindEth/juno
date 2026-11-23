@@ -76,6 +76,21 @@ func belowModulus(limbs *[Limbs]uint64) bool {
 	return false
 }
 
+// rejectTrimmed is the error for a trimmed value that is not in its one form: a byte string of 1 to
+// 30 bytes, the first not zero, and not below 24 when it is a single byte.
+func (c *Cursor) rejectTrimmed(length int, body []byte) error {
+	switch {
+	case length > maxTrimmed:
+		return c.fail(ErrUnsupported, "byte string of %d bytes is reserved", length)
+	case length == 0:
+		return c.fail(ErrUnsupported, "empty byte string")
+	case length == 1 && body[0] < info1Byte:
+		return c.fail(ErrUnsupported, "value below 24 must be a uint")
+	default:
+		return c.fail(ErrUnsupported, "trimmed value has a leading zero")
+	}
+}
+
 // compactLimbs reads a compact felt, which starts with a uint or a byte string head. dst is
 // written, and the input consumed, only on success. Errors report the start of the felt.
 func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
@@ -124,14 +139,8 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 			return c.fail(ErrUnsupported, "limbs are not below the field modulus")
 		}
 		*dst = limbs
-	case length > maxTrimmed:
-		return c.fail(ErrUnsupported, "byte string of %d bytes is reserved", length)
-	case length == 0:
-		return c.fail(ErrUnsupported, "empty byte string")
-	case length == 1 && body[0] < info1Byte:
-		return c.fail(ErrUnsupported, "value below 24 must be a uint")
-	case body[0] == 0:
-		return c.fail(ErrUnsupported, "trimmed value has a leading zero")
+	case length > maxTrimmed, length == 0, length == 1 && body[0] < info1Byte, body[0] == 0:
+		return c.rejectTrimmed(length, body)
 	default:
 		setTrimmed(dst, body)
 	}
