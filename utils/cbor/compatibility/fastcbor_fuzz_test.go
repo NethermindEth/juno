@@ -87,6 +87,12 @@ type fuzzedSkewed struct {
 
 type fuzzedSelfPtrs struct{ SelfPtrs []*selfInt }
 
+// fuzzedCase has two fields whose names differ only in case, which fastcbor refuses to plan.
+type fuzzedCase struct {
+	First  uint64 `cbor:"name"`
+	Second uint64 `cbor:"NAME"`
+}
+
 // fuzzedZero holds a zero-sized type that reads itself, whose decoder rejects some input.
 type fuzzedZero struct {
 	Version versionOne
@@ -132,6 +138,7 @@ func FuzzStructsMatchFxamacker(f *testing.F) {
 		{0xa1, 0x65, 'I', 'n', 'n', 'e', 'r', 0xa1, 0x61, 'A', 0x07},   // nested struct
 		{0xa1, 0x65, 'I', 'n', 'n', 'e', 'r', 0xf6},                    // null pointer
 		{0xbf, 0x63, 'F', 'e', 'e', 0x05, 0xff},                        // indefinite-length map
+		{0xa2, 0x64, 'n', 'a', 'm', 'e', 0x01, 0x64, 'N', 'A', 'M', 'E', 0x02},
 		{0xa2, 0x67, 'V', 'e', 'r', 's', 'i', 'o', 'n', 0x01, 0x65, 'V', 'a', 'l', 'u', 'e', 0x07},
 		{0xa2, 0x67, 'V', 'e', 'r', 's', 'i', 'o', 'n', 0x02, 0x65, 'V', 'a', 'l', 'u', 'e', 0x07},
 	} {
@@ -142,6 +149,7 @@ func FuzzStructsMatchFxamacker(f *testing.F) {
 		compare[fuzzedSelf](t, data)
 		compare[fuzzedSkewed](t, data)
 		compare[fuzzedSelfPtrs](t, data)
+		compare[fuzzedCase](t, data)
 		compare[fuzzedZero](t, data)
 	})
 }

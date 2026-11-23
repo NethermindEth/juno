@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/utils/cbor/internal/cursor"
@@ -41,7 +40,7 @@ func asFieldReader[T any](read func(*cursor.Cursor, *T) error) fieldReader {
 type structPlan struct {
 	typ     reflect.Type
 	alloc   *runtimeType
-	fields  *cursor.Fields
+	fields  cursor.Fields
 	reads   []fieldRead
 	partial bool
 	intKeys []intKey
@@ -405,11 +404,11 @@ func (p *planner) structOf(t reflect.Type, path string) *structPlan {
 	}
 	plan := &structPlan{typ: t, alloc: runtimeTypeOf(t)}
 	p.structs[t] = plan
-	if !p.fillStruct(plan, t, path) {
-		// Keep an empty plan, so that the readers already made of it stay valid; the error is in errs.
-		plan.fields = cursor.NewFields()
+	// A plan that cannot be made stays empty, so that the readers already made of it stay valid, and
+	// the error is in errs.
+	if p.fillStruct(plan, t, path) {
+		plan.special = plan.partial || plan.intKeys != nil
 	}
-	plan.special = plan.partial || plan.intKeys != nil
 	return plan
 }
 
@@ -468,12 +467,16 @@ func (p *planner) fillStruct(plan *structPlan, t reflect.Type, path string) bool
 	if !ok {
 		return false
 	}
-	if len(names) > 64 || !distinctInCase(names, skipped) {
-		p.fail("%s: %v has more than 64 fields, or names that are not ASCII or differ only in case",
-			path, t)
+	fields, err := cursor.NewFields(names...)
+	if err != nil {
+		p.fail("%s: %v: %w", path, t, err)
 		return false
 	}
-	plan.fields, plan.reads, plan.partial = cursor.NewFields(names...), reads, len(skipped) > 0
+	if collidesIgnoringCase(names, skipped) {
+		p.fail("%s: %v has a skipped name that differs from a read name only in case", path, t)
+		return false
+	}
+	plan.fields, plan.reads, plan.partial = fields, reads, len(skipped) > 0
 	if !plan.partial {
 		p.fuseChildren(plan, t, all, groups, readIndex, path)
 	}
@@ -623,27 +626,14 @@ func compareBool(a, b bool) int {
 	return -1
 }
 
-// distinctInCase reports whether names can be matched by exact name first and then ignoring case.
-// They must be short ASCII names, and differ from each other and from skipped by more than case.
-func distinctInCase(names, skipped []string) bool {
-	seen := map[string]bool{}
+// collidesIgnoringCase reports whether a skipped name matches one of names ignoring case, which
+// would make the field that a key names ambiguous.
+func collidesIgnoringCase(names, skipped []string) bool {
+	read := make(map[string]bool, len(names))
 	for _, name := range names {
-		nonASCII := strings.ContainsFunc(name, func(c rune) bool { return c >= utf8.RuneSelf })
-		if len(name) >= 1<<8 || nonASCII {
-			return false
-		}
-		lower := strings.ToLower(name)
-		if seen[lower] {
-			return false
-		}
-		seen[lower] = true
+		read[strings.ToLower(name)] = true
 	}
-	for _, name := range skipped {
-		if seen[strings.ToLower(name)] {
-			return false
-		}
-	}
-	return true
+	return slices.ContainsFunc(skipped, func(name string) bool { return read[strings.ToLower(name)] })
 }
 
 // sliceHeader is the layout of a slice.
