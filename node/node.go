@@ -131,6 +131,7 @@ type Config struct {
 	DBCompactionConcurrency string `mapstructure:"db-compaction-concurrency"`
 	DBMemtableSize          uint   `mapstructure:"db-memtable-size"`
 	DBMemtableCount         uint   `mapstructure:"db-memtable-count"`
+	DBFastCBORReads         bool   `mapstructure:"db-fast-cbor-reads"`
 	DBCompression           string `mapstructure:"db-compression"`
 
 	GatewayAPIKey   string `mapstructure:"gw-api-key"`
@@ -210,7 +211,6 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	cbor.SetFastLogger(logger)
 
 	if cfg.DisableSync {
 		if cfg.Sequencer {
@@ -301,6 +301,8 @@ func New(cfg *Config, version string, logLevel *log.Level) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
+
+	cbor.ConfigureFastReads(cfg.DBFastCBORReads, logger)
 
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
