@@ -102,9 +102,9 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "apollo_compile_to_native_types"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40b3b6b7de586a25f097ee536e6610fc75d588f17fc54187acb2e344255af55c"
+checksum = "becb1e4e99232752c5c69bc95bd667a4bcfb85d9a3b7f1ab9562ce47146ff33a"
 dependencies = [
  "apollo_config",
  "serde",
@@ -113,9 +113,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_config"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c65009cd2c4de52992a0b14ab3625f2177301d8b02e8b7d54990cfdeaed0c05e"
+checksum = "eec0ba098ecb629ed25427f4267a4562e50d788e8c3b9f80c288990481565de9"
 dependencies = [
  "apollo_infra_utils",
  "clap",
@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_infra_utils"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da700764de32af561f788d1c6b4f48b865d54b47348e00bf498b33a0786c5660"
+checksum = "724dc70a925cec46bccc7f1dc99553d5383230d581ef8a85c3ac2e695e336a4a"
 dependencies = [
  "apollo_proc_macros",
  "num_enum",
@@ -150,9 +150,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_metrics"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a440ad264376158b5e3d26f44f45cc286d03698744450289d7c59ca391835647"
+checksum = "f025e6cf403114d20e8c4ef0400ade1fc3a8e8c5f098303ccacdef631f5ef712"
 dependencies = [
  "apollo_time",
  "const_format",
@@ -165,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_proc_macros"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "612be35710bedacf340172b1c8853f10f76406cfc5d124a4c0b4733ac18cf62e"
+checksum = "841cf6efce53edb7b0eaaa827a1d2f5226f1ec29d3ccf6beded0035a070dc2c5"
 dependencies = [
  "apollo_proc_macros_lib",
  "metrics",
@@ -175,9 +175,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_proc_macros_lib"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b79c3560f41bac89608ba1f1c40e9a46c439a10260db7883bde3ef41ddd8c99"
+checksum = "529d5d540ae483971954ddc2e2ec7b0d12798e03650cec706c06476bfbfa2bd6"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -187,9 +187,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_sizeof"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ac50e018e483e79c568ea4b7620e1754926063afa46708c6041d29940a7ac28"
+checksum = "677acfb1282f710f18462dda4512c508a7ba01929cb9fc217bab9e5ed6ccc296"
 dependencies = [
  "apollo_sizeof_macros",
  "starknet-types-core",
@@ -197,9 +197,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_sizeof_macros"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9f4395edb1eb8678902d69ed5b982b2ab50629236509db8a609d78b887ff33"
+checksum = "b78801af20398ee2f345aa94c58728727b5f11839dbe0a5251088382ec4555e1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -208,9 +208,9 @@ dependencies = [
 
 [[package]]
 name = "apollo_time"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab7602c3b0cf43f69a5a0db07ba2e825b846a3583da0916e8a87ebf8e32224c"
+checksum = "28f5663817ed813792c06fd9b2242b659a8a048e22384689eb2ac636b462c0b6"
 dependencies = [
  "chrono",
 ]
@@ -608,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9649a9fde95e5049e69ab2c873a4b391839cd75d33cdc3534d37df239afb0f5"
+checksum = "f6c66532cf585ff724c37ba5457cace01d3bef2052a7813fb4f76f6bc290a9f4"
 dependencies = [
  "anyhow",
  "apollo_compile_to_native_types",
@@ -3929,9 +3929,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.20.0-rc.1"
+version = "0.21.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5aa2e0a57d58023cdb7478d3d524841dfa93262d9a1400480f9c92bb782b57d0"
+checksum = "ec3a64e4ed917468fbe77be7f769ed107a57d440724b3eb111c0b4fabe6bfd96"
 dependencies = [
  "apollo_infra_utils",
  "apollo_sizeof",
