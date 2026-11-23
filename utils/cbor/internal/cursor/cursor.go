@@ -1,10 +1,11 @@
-// Package cursor reads CBOR from a byte slice in a single pass. A Cursor knows CBOR but no Go
-// types, so a decoder built on top decides what to read and the Cursor reads it.
+// Package cursor reads CBOR from a byte slice in a single pass. It is the lowest layer of the
+// fastcbor decoder. A Cursor knows CBOR but no Go types, so fastcbor decides what to read and the
+// Cursor reads it.
 //
 // A general-purpose CBOR decoder checks that the whole input is well-formed and then decodes it,
 // accepting every form the standard allows. A Cursor checks as it reads, and reads only the forms
-// Juno stores. These are integers, strings, felts as four limbs and struct fields by number, with
-// Skip for what is not wanted. Anything else, and anything malformed, is an error.
+// Juno stores. These are integers, strings, felts in the legacy or compact form and struct fields
+// by number, with Skip for what is not wanted. Anything else, and anything malformed, is an error.
 //
 // Its primitives are pinned to the examples of RFC 8949 Appendix A, and its felts to literal
 // bytes. The examples are at https://www.rfc-editor.org/rfc/rfc8949.html#appendix-A
