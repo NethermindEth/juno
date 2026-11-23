@@ -1,32 +1,29 @@
 name: Release
 run-name: >-
-  ${{ inputs.mode == 'test' && 'Test image' || inputs.mode == 'release' && 'Release' || 'Dry run' }}
-  ${{ inputs.version }} from ${{ inputs.ref }}
+  ${{ inputs.mode == 'staging' && 'Staging image' || inputs.mode == 'release' && 'Release' || 'Dry run' }}
+  ${{ inputs.version }}${{ inputs.mode == 'staging' && format('-dev.{0}', github.run_number) || '' }} from ${{ inputs.ref }}
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch to build: main or release/vX.Y.Z"
+        description: "Branch: main or release/vX.Y.Z"
         required: true
         type: string
       version:
-        description: "Version, for example v0.16.9 or v0.16.9-rc.1"
+        description: "Version: vX.Y.Z or vX.Y.Z-rc.N (staging: vX.Y.Z)"
         required: true
         type: string
       mode:
-        description: >-
-          dry-run: run the checks and the builds. Push no image, create no tag and no GitHub release.
-          test: also push an rc to the staging repository and move its latest tags. Create no tag and no GitHub release.
-          release: publish the version.
+        description: "dry-run builds only, staging pushes vX.Y.Z-dev.<run number> to staging, release publishes"
         type: choice
-        options: [dry-run, test, release]
+        options: [dry-run, staging, release]
         default: dry-run
 
 permissions: {}
 
 concurrency:
-  group: release-${{ inputs.version }}
+  group: release-${{ inputs.version }}${{ inputs.mode == 'staging' && format('-dev.{0}', github.run_number) || '' }}
   cancel-in-progress: false
 
 defaults:
@@ -36,6 +33,9 @@ defaults:
 env:
   STAGING_REPO: ${{ vars.DOCKER_STAGING_REPO || 'nethermindeth/juno' }}
   OFFICIAL_REPO: ${{ vars.DOCKER_OFFICIAL_REPO || 'nethermind/juno' }}
+  # A staging image gets vX.Y.Z-dev.<run number>. rc, beta and alpha are only for the versions that
+  # get a tag and a GitHub release. In semver order, -dev comes before them.
+  VERSION: ${{ inputs.version }}${{ inputs.mode == 'staging' && format('-dev.{0}', github.run_number) || '' }}
 
 jobs:
   verify:
@@ -48,6 +48,7 @@ jobs:
       prerelease: ${{ steps.check.outputs.prerelease }}
       review: ${{ steps.check.outputs.review }}
       core: ${{ steps.core.outputs.core }}
+      version: ${{ env.VERSION }}
     steps:
       - name: Check that a person started the run
         env:
@@ -63,14 +64,21 @@ jobs:
             fi
           done
 
+      - name: Check the staging version
+        if: inputs.mode == 'staging' && contains(inputs.version, '-')
+        env:
+          INPUT: ${{ inputs.version }}
+        run: |
+          echo "::error::Enter $INPUT without the pre-release part. The run adds -dev.$GITHUB_RUN_NUMBER to it."
+          exit 1
+
       - name: Show what this run publishes
         env:
           MODE: ${{ inputs.mode }}
-          VERSION: ${{ inputs.version }}
         run: |
           case $MODE in
             dry-run) echo "# Dry run of $VERSION: checks and builds only. This run pushes no image and creates no tag and no GitHub release. If there is no release notes draft, it creates one." ;;
-            test) echo "# Test image $VERSION: after the approval, this run pushes \`$STAGING_REPO:$VERSION\` and moves \`$STAGING_REPO:latest\`. It creates no tag and no GitHub release, and pushes nothing to \`$OFFICIAL_REPO\`. The binaries are in the artifacts of this run." ;;
+            staging) echo "# Staging image $VERSION: after the approval, this run pushes \`$STAGING_REPO:$VERSION\` and moves \`$STAGING_REPO:latest\`. It creates no tag and no GitHub release, and pushes nothing to \`$OFFICIAL_REPO\`. The binaries are in the artifacts of this run." ;;
             release) echo "# Release $VERSION: after the approval, this run creates the tag \`$VERSION\`, publishes the GitHub release from the notes draft, pushes \`$OFFICIAL_REPO:$VERSION\` and \`$STAGING_REPO:$VERSION\`, and moves \`$STAGING_REPO:latest\`. A version that is not an rc also moves \`$OFFICIAL_REPO:latest\`." ;;
           esac >> "$GITHUB_STEP_SUMMARY"
 
@@ -90,6 +98,7 @@ jobs:
         id: check
         env:
           REF: ${{ inputs.ref }}
+          # For a staging image, this is vX.Y.Z: the version that the image is for.
           VERSION: ${{ inputs.version }}
         run: >-
           go run ./scripts/release/check
@@ -98,17 +107,7 @@ jobs:
 
       - name: Get the version without the pre-release part
         id: core
-        env:
-          VERSION: ${{ inputs.version }}
         run: echo "core=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
-
-      - name: Check that the test is an rc
-        if: inputs.mode == 'test' && steps.check.outputs.prerelease != 'true'
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          echo "::error::$VERSION is not an rc. Release it, or test an rc of it."
-          exit 1
 
       # The steps below check the release source ($RUNNER_TEMP/release-src) with the check scripts
       # of this workflow ($GITHUB_WORKSPACE, normally main). A commit on the release branch thus
@@ -139,10 +138,9 @@ jobs:
           fi
 
       - name: Check the docs version
-        if: inputs.mode != 'test'
+        if: inputs.mode != 'staging'
         env:
           REF: ${{ inputs.ref }}
-          VERSION: ${{ inputs.version }}
         run: |
           CORE="${VERSION%%-*}"
           if ! .github/workflow-scripts/check-docs-version.sh "$CORE" "$RUNNER_TEMP/release-src" > docs-check.log; then
@@ -155,7 +153,7 @@ jobs:
           cat docs-check.log
 
       - name: Check that the release builds with the latest Go patch release
-        if: inputs.mode != 'test'
+        if: inputs.mode != 'staging'
         working-directory: ${{ runner.temp }}/release-src
         run: '"$GITHUB_WORKSPACE/.github/workflow-scripts/check_go_version.sh" --latest'
 
@@ -177,7 +175,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ inputs.version }}
           CORE: ${{ needs.verify.outputs.core }}
           SHA: ${{ needs.verify.outputs.sha }}
           MODE: ${{ inputs.mode }}
@@ -237,7 +234,7 @@ jobs:
     uses: ./.github/workflows/build-binaries.yml
     with:
       ref: ${{ needs.verify.outputs.sha }}
-      version: ${{ inputs.version }}
+      version: ${{ needs.verify.outputs.version }}
       no-cache: true
 
   # One job for each architecture builds the two images and the Linux binary with one builder. They
@@ -263,8 +260,6 @@ jobs:
           persist-credentials: false
 
       - name: Tag the release commit locally
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
           # Only the release tag may decide git describe: a fetched tag could win and carry shell code.
           git for-each-ref --format='delete %(refname)' refs/tags | git update-ref --stdin
@@ -277,7 +272,6 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
           SHA: ${{ needs.verify.outputs.sha }}
-          VERSION: ${{ inputs.version }}
         run: |
           for target in debian distroless; do
             docker buildx build --target "$target" --platform "linux/$ARCH" --provenance=false --sbom=false \
@@ -312,7 +306,7 @@ jobs:
 
       - name: Package the binary
         env:
-          NAME: juno-${{ inputs.version }}-linux-${{ matrix.arch }}
+          NAME: juno-${{ env.VERSION }}-linux-${{ matrix.arch }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y upx-ucl
@@ -333,12 +327,12 @@ jobs:
       - name: Upload the binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
         with:
-          name: juno-${{ inputs.version }}-linux-${{ matrix.arch }}.zip
-          path: juno-${{ inputs.version }}-linux-${{ matrix.arch }}.zip
+          name: juno-${{ env.VERSION }}-linux-${{ matrix.arch }}.zip
+          path: juno-${{ env.VERSION }}-linux-${{ matrix.arch }}.zip
           retention-days: 30
 
   publish:
-    name: ${{ inputs.mode == 'test' && 'Push the test image' || 'Publish the release' }}
+    name: ${{ inputs.mode == 'staging' && 'Push the staging image' || 'Publish the release' }}
     if: inputs.mode != 'dry-run'
     needs: [verify, notes, build-binaries, build-image]
     runs-on: ubuntu-latest
@@ -353,7 +347,6 @@ jobs:
       id-token: write
       attestations: write
     env:
-      VERSION: ${{ inputs.version }}
       SHA: ${{ needs.verify.outputs.sha }}
       PRERELEASE: ${{ needs.verify.outputs.prerelease }}
       GH_TOKEN: ${{ github.token }}
@@ -454,7 +447,7 @@ jobs:
           subject-digest: ${{ steps.push.outputs.distroless }}
           push-to-registry: true
 
-      # The test nodes run the latest staging image, also for an rc.
+      # The test nodes run the latest staging image.
       - name: Move the latest tags of the staging repository
         env:
           DEBIAN: ${{ steps.push.outputs.debian }}
