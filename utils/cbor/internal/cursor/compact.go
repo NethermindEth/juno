@@ -77,13 +77,13 @@ func belowModulus(limbs *[Limbs]uint64) bool {
 }
 
 // compactLimbs reads a compact felt, which starts with a uint or a byte string head. dst is
-// written, and the input consumed, only on success.
+// written, and the input consumed, only on success. Errors report the start of the felt.
 func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 	buf := c.buf[c.pos:]
 	head := buf[0]
 	if head&majorMask == MajorUint {
 		if head >= info1Byte {
-			return ErrUnsupported
+			return c.fail(ErrUnsupported, "uint head 0x%02x is 24 or more, not a compact felt", head)
 		}
 		*dst = smallMontgomery[head]
 		c.pos++
@@ -95,20 +95,20 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 	case length < info1Byte:
 	case length == info1Byte:
 		if len(buf) < 2 {
-			return ErrTruncated
+			return c.fail(ErrTruncated, "input ends inside the length head")
 		}
 		if buf[1] < info1Byte {
-			return ErrUnsupported
+			return c.fail(ErrUnsupported, "length %d is not in its shortest head", buf[1])
 		}
 		length, offset = int(buf[1]), 2
 	default:
-		return ErrUnsupported
+		return c.fail(ErrUnsupported, "length head 0x%02x is wider than a byte, or indefinite", head)
 	}
 	if length > feltBytes {
-		return ErrUnsupported
+		return c.fail(ErrUnsupported, "byte string of %d bytes is longer than a felt", length)
 	}
 	if len(buf)-offset < length {
-		return ErrTruncated
+		return c.fail(ErrTruncated, "byte string of %d bytes, %d left", length, len(buf)-offset)
 	}
 
 	body := buf[offset : offset+length]
@@ -121,11 +121,17 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 			binary.BigEndian.Uint64(body[:8]),
 		}
 		if !belowModulus(&limbs) {
-			return ErrUnsupported
+			return c.fail(ErrUnsupported, "limbs are not below the field modulus")
 		}
 		*dst = limbs
-	case length > maxTrimmed, length == 0, length == 1 && body[0] < info1Byte, body[0] == 0:
-		return ErrUnsupported
+	case length > maxTrimmed:
+		return c.fail(ErrUnsupported, "byte string of %d bytes is reserved", length)
+	case length == 0:
+		return c.fail(ErrUnsupported, "empty byte string")
+	case length == 1 && body[0] < info1Byte:
+		return c.fail(ErrUnsupported, "value below 24 must be a uint")
+	case body[0] == 0:
+		return c.fail(ErrUnsupported, "trimmed value has a leading zero")
 	default:
 		setTrimmed(dst, body)
 	}

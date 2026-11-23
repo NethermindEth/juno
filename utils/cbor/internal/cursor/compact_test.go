@@ -37,78 +37,97 @@ func byteStringOf(body []byte) []byte {
 	return append([]byte{0x58, byte(len(body))}, body...)
 }
 
-func TestCompactFeltForms(t *testing.T) {
-	limbs := func(a, b, c, d uint64) []byte {
-		out := make([]byte, 32)
-		binary.BigEndian.PutUint64(out[0:], d)
-		binary.BigEndian.PutUint64(out[8:], c)
-		binary.BigEndian.PutUint64(out[16:], b)
-		binary.BigEndian.PutUint64(out[24:], a)
-		return out
-	}
-	modulus := limbs(1, 0, 0, 0x0800000000000011)
-	belowModulus := limbs(0, 0, 0, 0x0800000000000011)
+func feltLimbs(a, b, c, d uint64) []byte {
+	out := make([]byte, 32)
+	binary.BigEndian.PutUint64(out[0:], d)
+	binary.BigEndian.PutUint64(out[8:], c)
+	binary.BigEndian.PutUint64(out[16:], b)
+	binary.BigEndian.PutUint64(out[24:], a)
+	return out
+}
 
-	accepted := map[string]struct {
+func TestCompactFelts(t *testing.T) {
+	tests := []struct {
+		name string
 		in   []byte
 		want [cursor.Limbs]uint64
 	}{
-		"zero":               {[]byte{0x00}, montgomery(t, nil)},
-		"one":                {[]byte{0x01}, montgomery(t, []byte{1})},
-		"largest uint form":  {[]byte{0x17}, montgomery(t, []byte{23})},
-		"smallest byte form": {[]byte{0x41, 0x18}, montgomery(t, []byte{24})},
-		"one byte":           {[]byte{0x41, 0xff}, montgomery(t, []byte{0xff})},
-		"two bytes":          {[]byte{0x42, 0x01, 0x00}, montgomery(t, []byte{1, 0})},
-		"23 bytes":           {byteStringOf(trimmed(23)), montgomery(t, trimmed(23))},
-		"24 bytes":           {byteStringOf(trimmed(24)), montgomery(t, trimmed(24))},
-		"30 bytes":           {byteStringOf(trimmed(30)), montgomery(t, trimmed(30))},
-		"limbs": {
-			byteStringOf(belowModulus), [cursor.Limbs]uint64{0, 0, 0, 0x0800000000000011},
+		{"zero", []byte{0x00}, montgomery(t, nil)},
+		{"one", []byte{0x01}, montgomery(t, []byte{1})},
+		{"largest uint form", []byte{0x17}, montgomery(t, []byte{23})},
+		{"smallest byte form", []byte{0x41, 0x18}, montgomery(t, []byte{24})},
+		{"one byte", []byte{0x41, 0xff}, montgomery(t, []byte{0xff})},
+		{"two bytes", []byte{0x42, 0x01, 0x00}, montgomery(t, []byte{1, 0})},
+		{"23 bytes", byteStringOf(trimmed(23)), montgomery(t, trimmed(23))},
+		{"24 bytes", byteStringOf(trimmed(24)), montgomery(t, trimmed(24))},
+		{"30 bytes", byteStringOf(trimmed(30)), montgomery(t, trimmed(30))},
+		{
+			"limbs",
+			byteStringOf(feltLimbs(0, 0, 0, 0x0800000000000011)),
+			[cursor.Limbs]uint64{0, 0, 0, 0x0800000000000011},
 		},
-		"limbs of one": {byteStringOf(limbs(1, 0, 0, 0)), [cursor.Limbs]uint64{1, 0, 0, 0}},
-		"limbs with high bit": {
-			byteStringOf(limbs(7, 8, 9, 0x0800000000000010)),
+		{"limbs of one", byteStringOf(feltLimbs(1, 0, 0, 0)), [cursor.Limbs]uint64{1, 0, 0, 0}},
+		{
+			"limbs with high bit",
+			byteStringOf(feltLimbs(7, 8, 9, 0x0800000000000010)),
 			[cursor.Limbs]uint64{7, 8, 9, 0x0800000000000010},
 		},
 	}
-	for name, tc := range accepted {
-		t.Run("accepts "+name, func(t *testing.T) {
-			c := cursor.NewCursor(append(append([]byte(nil), tc.in...), 0xf6))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := cursor.NewCursor(append(append([]byte(nil), tt.in...), 0xf6))
 			var got [cursor.Limbs]uint64
 			require.NoError(t, c.Limbs(&got))
-			require.Equal(t, tc.want, got)
+			require.Equal(t, tt.want, got)
 			require.Equal(t, []byte{0xf6}, c.Remaining(), "it takes the felt and nothing after it")
 		})
 	}
+}
 
+func TestCompactFeltsRejects(t *testing.T) {
 	maxed := ^uint64(0)
-	rejected := map[string][]byte{
-		"an empty input":                      {},
-		"a uint head with a byte":             {0x18, 0x05},
-		"a wider uint":                        {0x19, 0x01, 0x00},
-		"a byte string of one value below 24": {0x41, 0x05},
-		"an empty byte string":                {0x40},
-		"a non-minimal length head":           {0x58, 0x02, 1, 2},
-		"a wider length head":                 {0x59, 0x00, 0x02, 1, 2},
-		"an indefinite byte string":           {0x5f, 0x41, 1, 0xff},
-		"a leading zero":                      {0x42, 0x00, 0x01},
-		"31 bytes":                            byteStringOf(trimmed(31)),
-		"33 bytes":                            byteStringOf(trimmed(33)),
-		"limbs at the modulus":                byteStringOf(modulus),
-		"limbs above the modulus":             byteStringOf(limbs(maxed, maxed, maxed, maxed)),
-		"a truncated length head":             {0x58},
-		"a truncated body":                    {0x42, 0x01},
-		"a negative integer":                  {0x20},
-		"a text string":                       {0x61, 'a'},
+	tests := []struct {
+		name string
+		data []byte
+		err  error
+	}{
+		{"an empty input", []byte{}, cursor.ErrTruncated},
+		{"a uint head with a byte", []byte{0x18, 0x05}, cursor.ErrUnsupported},
+		{"a wider uint", []byte{0x19, 0x01, 0x00}, cursor.ErrUnsupported},
+		{"a byte string of one value below 24", []byte{0x41, 0x05}, cursor.ErrUnsupported},
+		{"an empty byte string", []byte{0x40}, cursor.ErrUnsupported},
+		{"a non-minimal length head", []byte{0x58, 0x02, 1, 2}, cursor.ErrUnsupported},
+		{"a wider length head", []byte{0x59, 0x00, 0x02, 1, 2}, cursor.ErrUnsupported},
+		{"an indefinite byte string", []byte{0x5f, 0x41, 1, 0xff}, cursor.ErrUnsupported},
+		{"a leading zero", []byte{0x42, 0x00, 0x01}, cursor.ErrUnsupported},
+		{"31 bytes", byteStringOf(trimmed(31)), cursor.ErrUnsupported},
+		{"33 bytes", byteStringOf(trimmed(33)), cursor.ErrUnsupported},
+		{
+			"limbs at the modulus",
+			byteStringOf(feltLimbs(1, 0, 0, 0x0800000000000011)),
+			cursor.ErrUnsupported,
+		},
+		{
+			"limbs above the modulus",
+			byteStringOf(feltLimbs(maxed, maxed, maxed, maxed)),
+			cursor.ErrUnsupported,
+		},
+		{"a truncated length head", []byte{0x58}, cursor.ErrTruncated},
+		{"a truncated body", []byte{0x42, 0x01}, cursor.ErrTruncated},
+		{"a negative integer", []byte{0x20}, cursor.ErrType},
+		{"a text string", []byte{0x61, 'a'}, cursor.ErrType},
+		{"a tag", []byte{0xc1, 0x01}, cursor.ErrUnsupported},
 	}
-	for name, in := range rejected {
-		t.Run("rejects "+name, func(t *testing.T) {
-			c := cursor.NewCursor(in)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := cursor.NewCursor(tt.data)
 			sentinel := [cursor.Limbs]uint64{9, 9, 9, 9}
 			got := sentinel
-			require.Error(t, c.Limbs(&got))
-			require.Equal(t, sentinel, got, "a failed read left the destination alone")
-			require.Zero(t, c.Pos(), "a failed read moved the cursor")
+			err := c.Limbs(&got)
+			require.ErrorIs(t, err, tt.err)
+			require.ErrorContains(t, err, "at byte 0", "the error says where")
+			require.Equal(t, sentinel, got, "dst is written only on success")
+			require.Zero(t, c.Pos(), "nothing is consumed on error")
 		})
 	}
 }
@@ -173,17 +192,25 @@ func TestCompactTrimmedLengths(t *testing.T) {
 }
 
 func TestCompactFeltAtDepthLimit(t *testing.T) {
-	for _, slice := range []bool{false, true} {
-		for _, compact := range []bool{false, true} {
-			data := bytes.Repeat([]byte{0x81}, 32)
-			if compact {
-				data = append(data, 0x01)
-			} else {
-				data = append(data, 0x84, 0, 0, 0, 0)
-			}
-			c := cursor.NewCursor(data)
+	legacy := []byte{0x84, 0, 0, 0, 0}
+	compact := []byte{0x01}
+	tests := []struct {
+		name string
+		// slice reads the felt with LimbSlice, which is a level of its own, so one fewer wrapper.
+		slice   bool
+		felt    []byte
+		wantErr bool
+	}{
+		{"a legacy felt", false, legacy, true},
+		{"a compact felt", false, compact, false},
+		{"a slice of a legacy felt", true, legacy, true},
+		{"a slice of a compact felt", true, compact, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := cursor.NewCursor(append(bytes.Repeat([]byte{0x81}, 32), tt.felt...))
 			levels := 32
-			if slice {
+			if tt.slice {
 				levels--
 			}
 			for range levels {
@@ -193,19 +220,19 @@ func TestCompactFeltAtDepthLimit(t *testing.T) {
 			}
 			start := c.Pos()
 			var err error
-			if slice {
+			if tt.slice {
 				_, err = cursor.LimbSlice[[cursor.Limbs]uint64](&c)
 			} else {
 				var dst [cursor.Limbs]uint64
 				err = c.Limbs(&dst)
 			}
-			if compact {
-				require.NoError(t, err)
-				require.Zero(t, c.Len())
-			} else {
-				require.Error(t, err)
+			if tt.wantErr {
+				require.ErrorIs(t, err, cursor.ErrDepth)
 				require.Equal(t, start, c.Pos())
+				return
 			}
-		}
+			require.NoError(t, err)
+			require.Zero(t, c.Len())
+		})
 	}
 }

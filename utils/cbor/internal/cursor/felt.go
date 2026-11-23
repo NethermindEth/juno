@@ -82,11 +82,23 @@ func shortLimbs(buf []byte, dst *[Limbs]uint64) int {
 	return n
 }
 
+// isCompact reports whether buf starts with a uint or a byte string, the heads of a compact felt.
+func isCompact(buf []byte) bool {
+	if len(buf) == 0 {
+		return false
+	}
+	major := buf[0] & majorMask
+	return major == MajorUint || major == majorBytes
+}
+
 // limbsSlow reads a felt whose limbs are not all eight bytes wide.
 func (c *Cursor) limbsSlow(dst *[Limbs]uint64) error {
+	if isCompact(c.buf[c.pos:]) {
+		return c.compactLimbs(dst)
+	}
 	if c.valid() {
-		if major := c.buf[c.pos] & majorMask; major == MajorUint || major == majorBytes {
-			return c.compactLimbs(dst)
+		if head := c.buf[c.pos]; head&majorMask != majorArray {
+			return c.mismatch("a felt", head)
 		}
 	}
 	// A felt is an array, so the items past the fourth, which Skip passes, sit one level deeper. They
@@ -163,7 +175,7 @@ func (c *Cursor) readLimbs(felts [][Limbs]uint64) error {
 		}
 		c.pos = len(c.buf) - len(buf)
 		var err error
-		if len(buf) > 0 && (buf[0]&majorMask == MajorUint || buf[0]&majorMask == majorBytes) {
+		if isCompact(buf) {
 			// Limbs would hand a compact felt to the same reader.
 			err = c.compactLimbs(&felts[i])
 		} else {
