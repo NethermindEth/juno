@@ -2,7 +2,6 @@ package rpcv10_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 
@@ -167,10 +166,11 @@ func TestGetMessageStatus(t *testing.T) {
 
 	t.Run("skip missing execution status without leaving invalid entries", func(t *testing.T) {
 		tests := []struct {
-			name     string
-			logs     []eth.Log
-			statuses []starknet.TransactionStatus
-			wantJSON string
+			name           string
+			logs           []eth.Log
+			statuses       []starknet.TransactionStatus
+			localFinalised bool
+			wantJSON       string
 		}{
 			{
 				name: "candidate only",
@@ -198,6 +198,17 @@ func TestGetMessageStatus(t *testing.T) {
 					{FinalityStatus: starknet.Candidate},
 				},
 				wantJSON: `[{"transaction_hash":"0x1","finality_status":"ACCEPTED_ON_L2",
+					"execution_status":"SUCCEEDED"}]`,
+			},
+			{
+				name: "candidate before locally finalised",
+				logs: append(append([]eth.Log{}, l1TxnReceipt.Logs...), l1TxnReceiptSepolia.Logs...),
+				statuses: []starknet.TransactionStatus{
+					{FinalityStatus: starknet.Candidate},
+					{FinalityStatus: starknet.AcceptedOnL2, ExecutionStatus: starknet.Succeeded},
+				},
+				localFinalised: true,
+				wantJSON: `[{"transaction_hash":"0x2","finality_status":"ACCEPTED_ON_L2",
 					"execution_status":"SUCCEEDED"}]`,
 			},
 			{
@@ -233,14 +244,22 @@ func TestGetMessageStatus(t *testing.T) {
 				emptyChain := preconfirmed.ChainReader{}
 				syncReader.EXPECT().ReadPreConfirmedChain().
 					Return(emptyChain, db.ErrKeyNotFound).Times(len(tt.statuses))
-				syncReader.EXPECT().RequestPreConfirmedChain().
-					Return(emptyChain, db.ErrKeyNotFound).Times(len(tt.statuses))
-				reader.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
-					Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2 * len(tt.statuses))
-
 				for i, feederStatus := range tt.statuses {
 					txHash := felt.FromUint64[felt.TransactionHash](uint64(i + 1))
 					reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(txHash, nil)
+					if tt.localFinalised && feederStatus.FinalityStatus == starknet.AcceptedOnL2 {
+						reader.EXPECT().BlockNumberAndIndexByTxHash(&txHash).
+							Return(uint64(5), uint64(0), nil)
+						reader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(
+							uint64(5), uint64(0),
+						).Return(core.TransactionExecutionStatus{}, nil)
+						reader.EXPECT().L1Head().Return(core.L1Head{}, nil)
+						continue
+					}
+					syncReader.EXPECT().RequestPreConfirmedChain().
+						Return(emptyChain, db.ErrKeyNotFound)
+					reader.EXPECT().BlockNumberAndIndexByTxHash(&txHash).
+						Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 					feederReader.EXPECT().TransactionStatus(gomock.Any(), &txHash).
 						Return(feederStatus, nil)
 				}
@@ -253,61 +272,4 @@ func TestGetMessageStatus(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestGetMessageStatusKeepsFinalisedMessageAfterCandidate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	reader := mocks.NewMockReader(ctrl)
-	syncReader := mocks.NewMockSyncReader(ctrl)
-	l1Client := mocks.NewMockL1Client(ctrl)
-	feederReader := mocks.NewMockFeederReader(ctrl)
-	handler := rpc.New(reader, syncReader, nil, nil).
-		WithL1Client(l1Client).
-		WithFeeder(feederReader)
-
-	// Both logs are from the same receipt, with distinct nonces and empty payloads.
-	const topic = "0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b"
-	word := func(n uint64) string { return fmt.Sprintf("%064x", n) }
-	messageLog := func(nonce uint64) string {
-		return fmt.Sprintf(`{"topics":["%s",`+
-			`"0x%s","0x%s","0x%s"],"data":"0x%s%s%s%s"}`,
-			topic, word(1), word(2), word(3), word(0x60), word(nonce), word(0), word(0))
-	}
-	var receipt eth.Receipt
-	require.NoError(t, json.Unmarshal(
-		[]byte(`{"logs":[`+messageLog(1)+`,`+messageLog(2)+`]}`), &receipt,
-	))
-	l1Client.EXPECT().TransactionReceipt(gomock.Any(), eth.Hash{}).Return(receipt, nil)
-
-	candidate := felt.NewFromUint64[felt.TransactionHash](0xc0de)
-	accepted := felt.NewFromUint64[felt.TransactionHash](0xacce)
-	gomock.InOrder(
-		reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(*candidate, nil),
-		reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(*accepted, nil),
-	)
-	chain, err := preconfirmed.NewChain(
-		&pending.PreConfirmed{Block: &core.Block{Header: &core.Header{Number: 10}}},
-	)
-	require.NoError(t, err)
-	syncReader.EXPECT().ReadPreConfirmedChain().Return(chain, nil).Times(2)
-	syncReader.EXPECT().RequestPreConfirmedChain().Return(chain, nil)
-	reader.EXPECT().BlockNumberAndIndexByTxHash(candidate).
-		Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
-	feederReader.EXPECT().TransactionStatus(gomock.Any(), candidate).
-		Return(starknet.TransactionStatus{FinalityStatus: starknet.Candidate}, nil)
-	reader.EXPECT().BlockNumberAndIndexByTxHash(accepted).
-		Return(uint64(5), uint64(0), nil)
-	reader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(uint64(5), uint64(0)).
-		Return(core.TransactionExecutionStatus{}, nil)
-	reader.EXPECT().L1Head().Return(core.L1Head{}, nil)
-
-	statuses, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
-	require.Nil(t, rpcErr)
-	encoded, err := json.Marshal(statuses)
-	require.NoError(t, err)
-	require.JSONEq(t,
-		`[{"transaction_hash":"0xacce","finality_status":"ACCEPTED_ON_L2",`+
-			`"execution_status":"SUCCEEDED"}]`,
-		string(encoded),
-	)
 }
