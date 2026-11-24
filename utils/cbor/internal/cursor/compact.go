@@ -18,10 +18,8 @@ import (
 //
 // Other forms return an error.
 const (
-	// feltBytes is the length of the Montgomery form.
-	feltBytes = 32
 	// maxTrimmed is the longest trimmed value. A string of 31 bytes is reserved.
-	maxTrimmed = feltBytes - 2
+	maxTrimmed = fp.Bytes - 2
 )
 
 // smallMontgomery has the Montgomery form of the values 0 to 23, so reading one is a copy.
@@ -38,7 +36,7 @@ var smallMontgomery = func() (table [info1Byte][Limbs]uint64) {
 // its Montgomery form.
 var rSquare = func() fp.Element {
 	var element fp.Element
-	element.SetBigInt(new(big.Int).Lsh(big.NewInt(1), 8*feltBytes))
+	element.SetBigInt(new(big.Int).Lsh(big.NewInt(1), 8*fp.Bytes))
 	return element
 }()
 
@@ -63,17 +61,11 @@ func setTrimmed(dst *[Limbs]uint64, body []byte) {
 	element.Mul(element, &rSquare)
 }
 
-// modulus is the field modulus as little-endian limbs.
-var modulus = [Limbs]uint64{1, 0, 0, 0x0800000000000011}
-
-// belowModulus reports whether little-endian limbs hold a value below the field modulus.
+// belowModulus reports whether little-endian limbs hold a value below the field modulus,
+// 2^251 + 17*2^192 + 1. At the top limb of the modulus, only zeros below it stay under.
 func belowModulus(limbs *[Limbs]uint64) bool {
-	for i := Limbs - 1; i >= 0; i-- {
-		if limbs[i] != modulus[i] {
-			return limbs[i] < modulus[i]
-		}
-	}
-	return false
+	const top = 0x0800000000000011
+	return limbs[3] < top || limbs[3] == top && limbs[2]|limbs[1]|limbs[0] == 0
 }
 
 // rejectTrimmed is the error for a trimmed value that is not in its one form: a byte string of 1 to
@@ -119,7 +111,7 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 	default:
 		return c.fail(ErrUnsupported, "length head 0x%02x is wider than a byte, or indefinite", head)
 	}
-	if length > feltBytes {
+	if length > fp.Bytes {
 		return c.fail(ErrUnsupported, "byte string of %d bytes is longer than a felt", length)
 	}
 	if len(buf)-offset < length {
@@ -128,7 +120,7 @@ func (c *Cursor) compactLimbs(dst *[Limbs]uint64) error {
 
 	body := buf[offset : offset+length]
 	switch {
-	case length == feltBytes:
+	case length == fp.Bytes:
 		limbs := [Limbs]uint64{
 			binary.BigEndian.Uint64(body[24:]),
 			binary.BigEndian.Uint64(body[16:]),

@@ -108,6 +108,16 @@ func TestCompactFeltsRejects(t *testing.T) {
 			cursor.ErrUnsupported,
 		},
 		{
+			"limbs above the modulus in the second limb",
+			byteStringOf(feltLimbs(0, 1, 0, 0x0800000000000011)),
+			cursor.ErrUnsupported,
+		},
+		{
+			"limbs above the modulus in the third limb",
+			byteStringOf(feltLimbs(0, 0, 1, 0x0800000000000011)),
+			cursor.ErrUnsupported,
+		},
+		{
 			"limbs above the modulus",
 			byteStringOf(feltLimbs(maxed, maxed, maxed, maxed)),
 			cursor.ErrUnsupported,
