@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "runs": [
+    {"id":"20261124T030024Z-1eccfbd8ef9a","startedAt":"2026-11-24T03:00:24Z","status":"passed","junoVersion":"v0.16.7-rc.0-185-g8eb2d096a","summary":"runs/20261124T030024Z-1eccfbd8ef9a/summary.json"},
     {"id":"20261123T030024Z-ec6d6b3a110d","startedAt":"2026-11-23T03:00:24Z","status":"passed","junoVersion":"v0.16.7-rc.0-183-g64cf1bd17","summary":"runs/20261123T030024Z-ec6d6b3a110d/summary.json"},
     {"id":"20261120T030024Z-def9faad08ce","startedAt":"2026-11-20T03:00:24Z","status":"passed","junoVersion":"v0.16.7-rc.0-181-g27a306f34","summary":"runs/20261120T030024Z-def9faad08ce/summary.json"},
     {"id":"20261119T030024Z-e8839486613f","startedAt":"2026-11-19T03:00:24Z","status":"passed","junoVersion":"v0.16.7-rc.0-176-g1d8cee4a3","summary":"runs/20261119T030024Z-e8839486613f/summary.json"},
