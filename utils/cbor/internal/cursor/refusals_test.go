@@ -42,17 +42,20 @@ var readers = []reader{
 	{
 		"OpenStruct",
 		func(c *cursor.Cursor) error { return ignore(c.OpenStruct(cursor.Fields{})) },
-		integer, []byte{0xa3, 0x01},
+		integer,
+		[]byte{0xa3, 0x01},
 	},
 	{
 		"Limbs",
 		func(c *cursor.Cursor) error { var f [cursor.Limbs]uint64; return c.Limbs(&f) },
-		integer, []byte{0x84, 0x01, 0x02},
+		integer,
+		[]byte{0x84, 0x01, 0x02},
 	},
 	{
 		"Felt",
 		func(c *cursor.Cursor) error { var f [cursor.Limbs]uint64; return cursor.Felt(c, &f) },
-		integer, []byte{0x84, 0x01, 0x02},
+		integer,
+		[]byte{0x84, 0x01, 0x02},
 	},
 	{
 		"LimbSlice",

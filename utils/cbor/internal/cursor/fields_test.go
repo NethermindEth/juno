@@ -325,7 +325,6 @@ func TestOpenStruct(t *testing.T) {
 			require.Equal(t, cursor.Done, field)
 		}
 	})
-
 }
 
 func TestKey(t *testing.T) {

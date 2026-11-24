@@ -124,7 +124,6 @@ func TestFelt(t *testing.T) {
 		require.Equal(t, felt{1, 2, 3, 4}, got)
 		require.Equal(t, []byte{0xf6}, c.Remaining())
 	})
-
 }
 
 // A felt is an array, so reading one takes a nesting level, as does the slice around a slice of
