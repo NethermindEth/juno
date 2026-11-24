@@ -108,9 +108,9 @@
                 "is_reverted": false
             },
             "execution_resources": {
-                "l1_gas": 5,
-                "l2_gas": 10,
-                "l1_data_gas": 15
+                "l1_gas": 0,
+                "l2_gas": 0,
+                "l1_data_gas": 0
             }
         },
         "transaction_hash": "0x3f786ecc4955a2602c91a291328518ef866cb7f3d50e4b16fd42282952623aa"
@@ -224,9 +224,9 @@
                 "is_reverted": false
             },
             "execution_resources": {
-                "l1_gas": 5,
-                "l2_gas": 10,
-                "l1_data_gas": 15
+                "l1_gas": 0,
+                "l2_gas": 0,
+                "l1_data_gas": 0
             }
         },
         "transaction_hash": "0x4010bd7b00e591c163729aa501691e89784c2afe77d71f7b27613e377738843"

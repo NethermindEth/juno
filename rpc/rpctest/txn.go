@@ -3,6 +3,7 @@ package rpctest
 import (
 	"crypto/rand"
 	"encoding/json"
+	"maps"
 	"math/big"
 	"testing"
 
@@ -125,6 +126,20 @@ func (tx Txn) String() string {
 		panic(err) // the fields hold only strings, slices and maps
 	}
 	return string(data)
+}
+
+// With returns a copy of the transaction with the field set to the value.
+func (tx Txn) With(field string, value any) Txn {
+	fields := maps.Clone(tx.fields)
+	fields[field] = value
+	return Txn{Hash: tx.Hash, fields: fields}
+}
+
+// Without returns a copy of the transaction without the field.
+func (tx Txn) Without(field string) Txn {
+	fields := maps.Clone(tx.fields)
+	delete(fields, field)
+	return Txn{Hash: tx.Hash, fields: fields}
 }
 
 func resourceBounds() map[core.Resource]core.ResourceBounds {
