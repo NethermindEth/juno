@@ -65,8 +65,8 @@ func (h *Handler) GetMessageStatus(
 		return nil, rpcErr
 	}
 	// (l1 handler) msg hashes -> l1 handler txn hashes
-	results := make([]MsgStatus, len(msgHashes))
-	for i, msgHash := range msgHashes {
+	results := make([]MsgStatus, 0, len(msgHashes))
+	for _, msgHash := range msgHashes {
 		hash, err := h.bcReader.L1HandlerTxnHash(msgHash)
 		if err != nil {
 			return nil, jsonrpc.Err(
@@ -89,12 +89,12 @@ func (h *Handler) GetMessageStatus(
 			continue
 		}
 
-		results[i] = MsgStatus{
+		results = append(results, MsgStatus{
 			L1HandlerHash:   &hash,
 			FinalityStatus:  status.Finality,
 			FailureReason:   status.FailureReason,
 			ExecutionStatus: status.Execution,
-		}
+		})
 	}
 	return results, nil
 }
