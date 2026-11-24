@@ -170,6 +170,7 @@ func TestGetMessageStatus(t *testing.T) {
 			name     string
 			logs     []eth.Log
 			statuses []starknet.TransactionStatus
+			wantJSON string
 		}{
 			{
 				name: "candidate only",
@@ -177,6 +178,7 @@ func TestGetMessageStatus(t *testing.T) {
 				statuses: []starknet.TransactionStatus{
 					{FinalityStatus: starknet.Candidate},
 				},
+				wantJSON: `[]`,
 			},
 			{
 				name: "candidate before accepted",
@@ -185,6 +187,8 @@ func TestGetMessageStatus(t *testing.T) {
 					{FinalityStatus: starknet.Candidate},
 					{FinalityStatus: starknet.AcceptedOnL2, ExecutionStatus: starknet.Succeeded},
 				},
+				wantJSON: `[{"transaction_hash":"0x2","finality_status":"ACCEPTED_ON_L2",
+					"execution_status":"SUCCEEDED"}]`,
 			},
 			{
 				name: "candidate after accepted",
@@ -193,6 +197,22 @@ func TestGetMessageStatus(t *testing.T) {
 					{FinalityStatus: starknet.AcceptedOnL2, ExecutionStatus: starknet.Succeeded},
 					{FinalityStatus: starknet.Candidate},
 				},
+				wantJSON: `[{"transaction_hash":"0x1","finality_status":"ACCEPTED_ON_L2",
+					"execution_status":"SUCCEEDED"}]`,
+			},
+			{
+				name: "candidate before reverted",
+				logs: append(append([]eth.Log{}, l1TxnReceipt.Logs...), l1TxnReceiptSepolia.Logs...),
+				statuses: []starknet.TransactionStatus{
+					{FinalityStatus: starknet.Candidate},
+					{
+						FinalityStatus:  starknet.AcceptedOnL2,
+						ExecutionStatus: starknet.Reverted,
+						TxRevertReason:  "message reverted",
+					},
+				},
+				wantJSON: `[{"transaction_hash":"0x2","finality_status":"ACCEPTED_ON_L2",
+					"execution_status":"REVERTED","failure_reason":"message reverted"}]`,
 			},
 		}
 
@@ -218,26 +238,18 @@ func TestGetMessageStatus(t *testing.T) {
 				reader.EXPECT().BlockNumberAndIndexByTxHash(gomock.Any()).
 					Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2 * len(tt.statuses))
 
-				want := make([]rpc.MsgStatus, 0, len(tt.statuses))
 				for i, feederStatus := range tt.statuses {
-					txHash := felt.FromUint64[felt.Felt](uint64(i + 1))
+					txHash := felt.FromUint64[felt.TransactionHash](uint64(i + 1))
 					reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(txHash, nil)
 					feederReader.EXPECT().TransactionStatus(gomock.Any(), &txHash).
 						Return(feederStatus, nil)
-					if feederStatus.FinalityStatus == starknet.AcceptedOnL2 {
-						want = append(want, rpc.MsgStatus{
-							L1HandlerHash:   &txHash,
-							FinalityStatus:  rpc.TxnStatusAcceptedOnL2,
-							ExecutionStatus: rpc.TxnSuccess,
-						})
-					}
 				}
 
 				got, rpcErr := handler.GetMessageStatus(t.Context(), &eth.Hash{})
 				require.Nil(t, rpcErr)
-				require.Equal(t, want, got)
-				_, err := json.Marshal(got)
+				encoded, err := json.Marshal(got)
 				require.NoError(t, err)
+				require.JSONEq(t, tt.wantJSON, string(encoded))
 			})
 		}
 	})
@@ -267,8 +279,8 @@ func TestGetMessageStatusKeepsFinalisedMessageAfterCandidate(t *testing.T) {
 	))
 	l1Client.EXPECT().TransactionReceipt(gomock.Any(), eth.Hash{}).Return(receipt, nil)
 
-	candidate := felt.NewFromUint64[felt.Felt](0xc0de)
-	accepted := felt.NewFromUint64[felt.Felt](0xacce)
+	candidate := felt.NewFromUint64[felt.TransactionHash](0xc0de)
+	accepted := felt.NewFromUint64[felt.TransactionHash](0xacce)
 	gomock.InOrder(
 		reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(*candidate, nil),
 		reader.EXPECT().L1HandlerTxnHash(gomock.Any()).Return(*accepted, nil),
@@ -279,11 +291,11 @@ func TestGetMessageStatusKeepsFinalisedMessageAfterCandidate(t *testing.T) {
 	require.NoError(t, err)
 	syncReader.EXPECT().ReadPreConfirmedChain().Return(chain, nil).Times(2)
 	syncReader.EXPECT().RequestPreConfirmedChain().Return(chain, nil)
-	reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(candidate)).
+	reader.EXPECT().BlockNumberAndIndexByTxHash(candidate).
 		Return(uint64(0), uint64(0), db.ErrKeyNotFound).Times(2)
 	feederReader.EXPECT().TransactionStatus(gomock.Any(), candidate).
 		Return(starknet.TransactionStatus{FinalityStatus: starknet.Candidate}, nil)
-	reader.EXPECT().BlockNumberAndIndexByTxHash((*felt.TransactionHash)(accepted)).
+	reader.EXPECT().BlockNumberAndIndexByTxHash(accepted).
 		Return(uint64(5), uint64(0), nil)
 	reader.EXPECT().TransactionExecutionStatusByBlockNumberAndIndex(uint64(5), uint64(0)).
 		Return(core.TransactionExecutionStatus{}, nil)
