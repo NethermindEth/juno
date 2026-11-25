@@ -64,12 +64,6 @@ const (
 	PruneMinAgeFlag  = "prune-min-age"
 )
 
-// DefaultRPCMaxSubscriptionsMemory is 10% of the memory available to the process, in [256, 4096] MB
-func DefaultRPCMaxSubscriptionsMemory() uint {
-	const share, minMB, maxMB = 10, 256, 4096
-	return uint(min(max(compiler.AvailableMemoryMB()/share, minMB), maxMB))
-}
-
 // Config is the top-level juno configuration.
 type Config struct {
 	LogLevel                 string           `mapstructure:"log-level"`
