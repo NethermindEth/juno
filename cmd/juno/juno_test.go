@@ -78,7 +78,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxRequestQueue := uint(2048)
 	defaultRPCMaxWSConnections := uint(0)
 	defaultRPCMaxSubscriptions := uint(0)
-	defaultRPCMaxSubscriptionsMemory := node.DefaultRPCMaxSubscriptionsMemory()
+	defaultRPCMaxSubscriptionsMemory := uint(0)
 	defaultRPCMaxBatchSize := uint(1000)
 	defaultRPCMaxBatchResponseSize := uint(64)
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
